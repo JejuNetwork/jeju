@@ -581,7 +581,9 @@ export function createWorkersRouter(backend: BackendManager) {
           }
 
           const url = new URL(request.url)
-          const path = url.pathname.replace(`/workers/${fn.id}/http`, '') ?? '/'
+          // Use params.functionId (could be CID or UUID) for path extraction
+          // since fn.id might be a different UUID after CID deployment
+          const path = url.pathname.replace(`/workers/${params.functionId}/http`, '') || '/'
 
           const requestHeaders: Record<string, string> = {}
           request.headers.forEach((value, key) => {

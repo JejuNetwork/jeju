@@ -36,6 +36,20 @@
       "edge": "pending"
     }
   },
+  "lander": {
+    "enabled": true,
+    "type": "downloads",
+    "buildDir": "dist/lander",
+    "routes": {
+      "/": "landing page with downloads"
+    }
+  },
+  "release": {
+    "type": "extension",
+    "platforms": ["chrome", "firefox", "edge"],
+    "hasDownloads": true,
+    "buildCommand": "bun run build:extension"
+  },
   "jns": {
     "name": "vpn.jeju",
     "description": "Decentralized VPN Network",

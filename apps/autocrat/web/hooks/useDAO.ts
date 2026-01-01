@@ -35,8 +35,28 @@ async function fetchDAOs(params: FetchDAOsParams = {}): Promise<DAOListItem[]> {
     throw new Error(`Failed to fetch DAOs: ${response.statusText}`)
   }
 
-  const data = await response.json()
-  const daos: DAOListItem[] = data.daos ?? data
+  const data: unknown = await response.json()
+  
+  // Handle various response formats
+  let daos: DAOListItem[]
+  if (Array.isArray(data)) {
+    daos = data
+  } else if (data && typeof data === 'object' && 'daos' in data) {
+    const daosValue = (data as { daos: unknown }).daos
+    if (Array.isArray(daosValue)) {
+      daos = daosValue
+    } else {
+      console.error('API returned invalid daos format:', data)
+      return []
+    }
+  } else if (data && typeof data === 'object' && 'error' in data) {
+    // Handle API error response
+    const error = (data as { error: string }).error
+    throw new Error(`API error: ${error}`)
+  } else {
+    console.error('Unexpected API response format:', data)
+    return []
+  }
 
   return daos.filter((dao) => {
     if (params.search) {
@@ -44,7 +64,7 @@ async function fetchDAOs(params: FetchDAOsParams = {}): Promise<DAOListItem[]> {
       const matchesSearch =
         dao.name.toLowerCase().includes(searchLower) ||
         dao.displayName.toLowerCase().includes(searchLower) ||
-        (dao.description.toLowerCase().includes(searchLower) ?? false)
+        (dao.description?.toLowerCase().includes(searchLower) ?? false)
       if (!matchesSearch) return false
     }
     if (params.networkOnly && !dao.isNetworkDAO) return false

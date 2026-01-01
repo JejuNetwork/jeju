@@ -200,34 +200,50 @@ export async function checkRateLimit(
   const config = RATE_LIMIT_TIERS[tier]
   const now = Date.now()
 
-  // Check global rate limit first
-  const globalResult = await incrementGlobal()
-  if (globalResult.blocked && globalResult.blockedUntil) {
-    return {
-      allowed: false,
-      remaining: 0,
-      resetAt: globalResult.blockedUntil,
-      retryAfter: Math.ceil((globalResult.blockedUntil - now) / 1000),
+  // Fail-open: if cache is unavailable, allow the request through
+  // This prevents the rate limiter from blocking all requests when DWS cache is down
+  try {
+    // Check global rate limit first
+    const globalResult = await incrementGlobal()
+    if (globalResult.blocked && globalResult.blockedUntil) {
+      return {
+        allowed: false,
+        remaining: 0,
+        resetAt: globalResult.blockedUntil,
+        retryAfter: Math.ceil((globalResult.blockedUntil - now) / 1000),
+      }
     }
-  }
 
-  // Check per-identifier rate limit
-  const key = `${tier}:${identifier}`
-  const result = await incrementAndCheck(key, config)
+    // Check per-identifier rate limit
+    const key = `${tier}:${identifier}`
+    const result = await incrementAndCheck(key, config)
 
-  if (result.blocked && result.blockedUntil) {
-    return {
-      allowed: false,
-      remaining: 0,
-      resetAt: result.blockedUntil,
-      retryAfter: Math.ceil((result.blockedUntil - now) / 1000),
+    if (result.blocked && result.blockedUntil) {
+      return {
+        allowed: false,
+        remaining: 0,
+        resetAt: result.blockedUntil,
+        retryAfter: Math.ceil((result.blockedUntil - now) / 1000),
+      }
     }
-  }
 
-  return {
-    allowed: true,
-    remaining: config.maxRequests - result.count,
-    resetAt: now + config.windowSeconds * 1000,
+    return {
+      allowed: true,
+      remaining: config.maxRequests - result.count,
+      resetAt: now + config.windowSeconds * 1000,
+    }
+  } catch (err) {
+    // Cache unavailable - fail open and allow the request
+    log.warn('Rate limit check failed, allowing request (fail-open)', {
+      identifier: `${identifier.slice(0, 20)}...`,
+      tier,
+      error: err instanceof Error ? err.message : 'Unknown error',
+    })
+    return {
+      allowed: true,
+      remaining: config.maxRequests,
+      resetAt: now + config.windowSeconds * 1000,
+    }
   }
 }
 

@@ -1,137 +1,182 @@
 /**
  * SQLIT Proxy Route
  *
- * Proxies SQLIT requests to the DWS-managed SQLIT service.
- * SQLIT runs as a DWS service, not a separate deployment.
+ * Provides SQLit database access via HTTP.
+ * Supports both external SQLit endpoints and embedded Bun SQLite.
  *
  * Endpoints:
  * - POST /sqlit/v1/query - Execute SELECT queries
  * - POST /sqlit/v1/exec - Execute write operations
  * - GET /sqlit/v1/status - Health check
- * - POST /sqlit/api/v1/databases - Database management
+ * - POST /sqlit/v1/admin/create - Create database
+ * - DELETE /sqlit/v1/admin/drop - Drop database
  */
 
-import { Elysia } from 'elysia'
+import { Elysia, t } from 'elysia'
 import {
   ensureSQLitService,
   getSQLitEndpoint,
   getSQLitStatus,
   isSQLitHealthy,
-} from '../../database'
+  sqlitCreateDatabase,
+  sqlitDropDatabase,
+  sqlitExec,
+  sqlitQuery,
+} from '../../database/sqlit-service'
+
+const QueryBodySchema = t.Object({
+  database: t.String(),
+  query: t.String(),
+  args: t.Optional(t.Array(t.Any())),
+  assoc: t.Optional(t.Boolean()),
+})
+
+const ExecBodySchema = t.Object({
+  database: t.String(),
+  query: t.String(),
+  args: t.Optional(t.Array(t.Any())),
+})
 
 /**
  * Create SQLIT proxy router
  */
 export function createSQLitProxyRouter() {
-  return (
-    new Elysia({ prefix: '/sqlit' })
-      .get('/status', async () => {
+  return new Elysia({ prefix: '/sqlit' })
+    // Health check
+    .get('/status', async () => {
+      const status = getSQLitStatus()
+      const healthy = await isSQLitHealthy()
+
+      return {
+        status: healthy ? 'healthy' : 'unhealthy',
+        service: 'sqlit',
+        mode: status.mode,
+        running: status.running,
+        endpoint: status.endpoint,
+        healthStatus: status.healthStatus,
+      }
+    })
+
+    // Status endpoint (compatible with SQLit adapter)
+    .get('/v1/status', async ({ set }) => {
+      try {
+        const { endpoint, mode } = await ensureSQLitService()
         const status = getSQLitStatus()
-        const healthy = await isSQLitHealthy()
 
         return {
-          status: healthy ? 'healthy' : 'unhealthy',
-          service: 'sqlit',
-          running: status.running,
-          endpoint: status.endpoint,
-          healthStatus: status.healthStatus,
+          status: 'ok',
+          success: true,
+          data: {
+            storage: mode === 'embedded' ? 'sqlite3-embedded' : 'sqlit',
+            mode,
+            endpoint,
+            databases: 0, // Would need to track this
+          },
         }
-      })
+      } catch (err) {
+        set.status = 503
+        return {
+          status: 'error',
+          success: false,
+          error: err instanceof Error ? err.message : 'SQLIT service unavailable',
+        }
+      }
+    })
 
-      .get('/v1/status', async ({ set }) => {
-        // Ensure SQLIT is running
+    // Execute SELECT query
+    .post(
+      '/v1/query',
+      async ({ body, set }) => {
         try {
-          await ensureSQLitService()
+          const result = await sqlitQuery(body.database, body.query, body.args)
+          if (!result.success) {
+            set.status = 400
+          }
+          return result
         } catch (err) {
           set.status = 503
           return {
-            status: 'error',
-            error:
-              err instanceof Error ? err.message : 'SQLIT service unavailable',
+            success: false,
+            status: err instanceof Error ? err.message : 'Query failed',
+            data: null,
           }
         }
+      },
+      { body: QueryBodySchema }
+    )
 
-        const endpoint = getSQLitEndpoint()
-        const response = await fetch(`${endpoint}/v1/status`, {
-          signal: AbortSignal.timeout(5000),
-        }).catch(() => null)
-
-        if (!response?.ok) {
-          set.status = 503
-          return { status: 'error', error: 'SQLIT not responding' }
-        }
-
-        const data = await response.json()
-        return data
-      })
-
-      .post('/v1/query', async ({ body, set }) => {
-        // Ensure SQLIT is running
+    // Execute write query (INSERT, UPDATE, DELETE)
+    .post(
+      '/v1/exec',
+      async ({ body, set }) => {
         try {
-          await ensureSQLitService()
+          const result = await sqlitExec(body.database, body.query, body.args)
+          if (!result.success) {
+            set.status = 400
+          }
+          return result
         } catch (err) {
           set.status = 503
           return {
-            error:
-              err instanceof Error ? err.message : 'SQLIT service unavailable',
+            success: false,
+            status: err instanceof Error ? err.message : 'Exec failed',
+            data: null,
           }
         }
+      },
+      { body: ExecBodySchema }
+    )
 
-        const endpoint = getSQLitEndpoint()
-        const response = await fetch(`${endpoint}/v1/query`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-          signal: AbortSignal.timeout(30000),
-        })
-
-        if (!response.ok) {
-          set.status = response.status
-          return { error: await response.text() }
+    // Create a new database
+    .post('/v1/admin/create', async ({ query, set }) => {
+      try {
+        const nodeCount = parseInt(query.node ?? '1', 10)
+        if (Number.isNaN(nodeCount) || nodeCount <= 0) {
+          set.status = 400
+          return { success: false, status: 'Invalid node count', data: null }
         }
 
-        return await response.json()
-      })
-
-      .post('/v1/exec', async ({ body, set }) => {
-        // Ensure SQLIT is running
-        try {
-          await ensureSQLitService()
-        } catch (err) {
-          set.status = 503
-          return {
-            error:
-              err instanceof Error ? err.message : 'SQLIT service unavailable',
-          }
+        const result = await sqlitCreateDatabase(nodeCount)
+        return result
+      } catch (err) {
+        set.status = 503
+        return {
+          success: false,
+          status: err instanceof Error ? err.message : 'Create failed',
+          data: null,
         }
+      }
+    })
 
-        const endpoint = getSQLitEndpoint()
-        const response = await fetch(`${endpoint}/v1/exec`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-          signal: AbortSignal.timeout(30000),
-        })
+    // Drop a database
+    .delete('/v1/admin/drop', async ({ query, set }) => {
+      const dbID = query.database
+      if (!dbID) {
+        set.status = 400
+        return { success: false, status: 'Missing database parameter', data: null }
+      }
 
-        if (!response.ok) {
-          set.status = response.status
-          return { error: await response.text() }
+      try {
+        const result = await sqlitDropDatabase(dbID)
+        return { ...result, data: {} }
+      } catch (err) {
+        set.status = 503
+        return {
+          success: false,
+          status: err instanceof Error ? err.message : 'Drop failed',
+          data: null,
         }
+      }
+    })
 
-        return await response.json()
-      })
+    // Proxy all other /api/v1/* requests to external SQLIT (only in external mode)
+    .all('/api/v1/*', async ({ request, params, set }) => {
+      try {
+        const { mode } = await ensureSQLitService()
 
-      // Proxy all other /api/v1/* requests to SQLIT
-      .all('/api/v1/*', async ({ request, params, set }) => {
-        // Ensure SQLIT is running
-        try {
-          await ensureSQLitService()
-        } catch (err) {
-          set.status = 503
-          return {
-            error:
-              err instanceof Error ? err.message : 'SQLIT service unavailable',
-          }
+        if (mode === 'embedded') {
+          set.status = 501
+          return { error: 'API v1 endpoints not supported in embedded mode' }
         }
 
         const endpoint = getSQLitEndpoint()
@@ -153,24 +198,19 @@ export function createSQLitProxyRouter() {
               ? await request.text()
               : undefined,
           signal: AbortSignal.timeout(30000),
-        }).catch((err) => {
-          set.status = 502
-          return new Response(
-            JSON.stringify({ error: `SQLIT proxy error: ${err.message}` }),
-            { status: 502, headers: { 'Content-Type': 'application/json' } },
-          )
         })
 
-        if (response instanceof Response) {
-          set.status = response.status
-          const contentType = response.headers.get('content-type')
-          if (contentType?.includes('application/json')) {
-            return await response.json()
-          }
-          return await response.text()
+        set.status = response.status
+        const contentType = response.headers.get('content-type')
+        if (contentType?.includes('application/json')) {
+          return await response.json()
         }
-
-        return response
-      })
-  )
+        return await response.text()
+      } catch (err) {
+        set.status = 502
+        return {
+          error: `SQLIT proxy error: ${err instanceof Error ? err.message : String(err)}`,
+        }
+      }
+    })
 }

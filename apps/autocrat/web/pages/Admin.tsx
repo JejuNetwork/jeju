@@ -97,12 +97,23 @@ export default function AdminPage() {
   // Load DAOs
   const loadDAOs = useCallback(async () => {
     setDaoLoading(true)
-    const [allDAOs, active] = await Promise.all([
-      fetchDAOs().catch(() => ({ daos: [] })),
-      fetchActiveDAOs().catch(() => ({ daos: [] })),
+    const [allDAOsResult, activeResult] = await Promise.all([
+      fetchDAOs().catch(() => ({ daos: [] as DAO[] })),
+      fetchActiveDAOs().catch(() => ({ daos: [] as DAO[] })),
     ])
-    setDaos((allDAOs as { daos: DAO[] }).daos ?? [])
-    setActiveDAOs((active as { daos: DAO[] }).daos ?? [])
+    
+    // Handle various response formats
+    const extractDAOs = (data: unknown): DAO[] => {
+      if (Array.isArray(data)) return data
+      if (data && typeof data === 'object' && 'daos' in data) {
+        const daosValue = (data as { daos: unknown }).daos
+        if (Array.isArray(daosValue)) return daosValue
+      }
+      return []
+    }
+    
+    setDaos(extractDAOs(allDAOsResult))
+    setActiveDAOs(extractDAOs(activeResult))
     setDaoLoading(false)
   }, [])
 

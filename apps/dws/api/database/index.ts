@@ -30,6 +30,7 @@ export {
   internalQuery,
 } from './secure-proxy'
 export {
+  closeEmbeddedDatabases,
   ensureSQLitService,
   getDatabaseConnectionInfo,
   getSQLitClientPort,
@@ -37,4 +38,8 @@ export {
   getSQLitStatus,
   isSQLitHealthy,
   provisionAppDatabase,
+  sqlitCreateDatabase,
+  sqlitDropDatabase,
+  sqlitExec,
+  sqlitQuery,
 } from './sqlit-service'

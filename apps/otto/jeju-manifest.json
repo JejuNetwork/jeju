@@ -157,6 +157,22 @@
       ]
     }
   },
+  "lander": {
+    "enabled": true,
+    "type": "onboarding",
+    "buildDir": "dist/web",
+    "routes": {
+      "/": "landing",
+      "/onboard": "onboarding wizard",
+      "/configure": "settings",
+      "/chat": "chat interface"
+    }
+  },
+  "release": {
+    "type": "static",
+    "platforms": [],
+    "hasDownloads": false
+  },
   "decentralization": {
     "cdn": {
       "enabled": true,
@@ -184,8 +200,8 @@
       "ipfs": true,
       "arweave": true,
       "jnsName": "otto.jeju",
-      "buildDir": "dist",
-      "spa": false
+      "buildDir": "dist/web",
+      "spa": true
     },
     "robustness": {
       "multiOrigin": true,

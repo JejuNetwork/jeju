@@ -45,6 +45,11 @@ export interface DeployedApp {
 // The cache is synced with SQLit for persistence across pod restarts
 const deployedAppsCache = new Map<string, DeployedApp>()
 
+// Last sync timestamp for cache invalidation
+let lastSyncTimestamp = 0
+const SYNC_INTERVAL_MS = 15000 // Sync every 15 seconds
+const POD_ID = `pod-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+
 // Domain patterns
 const NETWORK = getCurrentNetwork()
 
@@ -214,6 +219,9 @@ export async function registerDeployedApp(
   console.log(
     `[AppRouter] Registered app: ${app.name} (frontend: ${app.frontendCid ?? 'local'}, backend: ${app.backendWorkerId ?? app.backendEndpoint ?? 'none'})`,
   )
+
+  // Notify other pods to sync their cache (fire-and-forget)
+  notifyOtherPods()
 }
 
 /**
@@ -255,6 +263,147 @@ export function getDeployedApp(name: string): DeployedApp | undefined {
  */
 export function getDeployedApps(): DeployedApp[] {
   return Array.from(deployedAppsCache.values())
+}
+
+/**
+ * Reload cache from persistence (ConfigMap or SQLit)
+ * Called periodically and on demand via /apps/sync endpoint
+ */
+export async function reloadCacheFromPersistence(): Promise<{
+  loaded: number
+  source: 'configmap' | 'sqlit' | 'none'
+}> {
+  let loaded = 0
+  let source: 'configmap' | 'sqlit' | 'none' = 'none'
+
+  // Try ConfigMap first (K8s environment)
+  if (isConfigMapAvailable()) {
+    try {
+      const configMapApps = await loadAppsFromConfigMap()
+      if (configMapApps.length > 0) {
+        // Clear cache and reload
+        deployedAppsCache.clear()
+        for (const app of configMapApps) {
+          deployedAppsCache.set(app.name, app)
+        }
+        loaded = configMapApps.length
+        source = 'configmap'
+        lastSyncTimestamp = Date.now()
+        console.log(`[AppRouter] Synced ${loaded} apps from ConfigMap`)
+      }
+    } catch (error) {
+      console.warn(
+        `[AppRouter] ConfigMap sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      )
+    }
+  }
+
+  // Fall back to SQLit
+  if (source === 'none') {
+    try {
+      const dbApps = await deployedAppState.listEnabled()
+      if (dbApps.length > 0) {
+        // Merge with existing cache (don't clear - SQLit might have stale data)
+        for (const row of dbApps) {
+          // Only update if newer than what we have
+          const existing = deployedAppsCache.get(row.name)
+          if (!existing || row.updated_at > existing.updatedAt) {
+            const app: DeployedApp = {
+              name: row.name,
+              jnsName: row.jns_name,
+              frontendCid: row.frontend_cid,
+              staticFiles: row.static_files
+                ? JSON.parse(row.static_files)
+                : null,
+              backendWorkerId: row.backend_worker_id,
+              backendEndpoint: row.backend_endpoint,
+              apiPaths: JSON.parse(row.api_paths),
+              spa: row.spa === 1,
+              enabled: row.enabled === 1,
+              deployedAt: row.deployed_at,
+              updatedAt: row.updated_at,
+            }
+            deployedAppsCache.set(app.name, app)
+            loaded++
+          }
+        }
+        source = 'sqlit'
+        lastSyncTimestamp = Date.now()
+        console.log(`[AppRouter] Synced ${loaded} apps from SQLit`)
+      }
+    } catch (error) {
+      console.warn(
+        `[AppRouter] SQLit sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      )
+    }
+  }
+
+  return { loaded, source }
+}
+
+/**
+ * Start background sync task
+ * Periodically reloads cache from persistence to stay in sync with other pods
+ */
+let syncIntervalId: ReturnType<typeof setInterval> | null = null
+
+export function startBackgroundSync(): void {
+  if (syncIntervalId) return // Already running
+
+  console.log(
+    `[AppRouter] Starting background sync (interval: ${SYNC_INTERVAL_MS}ms, pod: ${POD_ID})`,
+  )
+
+  syncIntervalId = setInterval(async () => {
+    try {
+      const { loaded, source } = await reloadCacheFromPersistence()
+      if (loaded > 0) {
+        console.log(
+          `[AppRouter] Background sync: ${loaded} apps from ${source}`,
+        )
+      }
+    } catch (error) {
+      console.warn(
+        `[AppRouter] Background sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      )
+    }
+  }, SYNC_INTERVAL_MS)
+}
+
+export function stopBackgroundSync(): void {
+  if (syncIntervalId) {
+    clearInterval(syncIntervalId)
+    syncIntervalId = null
+    console.log('[AppRouter] Stopped background sync')
+  }
+}
+
+/**
+ * Notify other pods of app registration changes
+ * Uses the K8s service discovery to find other DWS pods
+ */
+async function notifyOtherPods(): Promise<void> {
+  // In K8s, pods can be discovered via the service DNS
+  // DWS service: dws.dws.svc.cluster.local
+  // We call the /apps/sync endpoint on the service which load-balances across pods
+
+  // Only attempt if running in K8s
+  if (!isConfigMapAvailable()) return
+
+  const podNamespace = process.env.POD_NAMESPACE ?? 'dws'
+  const serviceName = process.env.DWS_SERVICE_NAME ?? 'dws'
+  const serviceUrl = `http://${serviceName}.${podNamespace}.svc.cluster.local`
+
+  // Fire-and-forget - don't block on pod notification
+  // Call sync endpoint multiple times to hit different pods (load balancer will distribute)
+  for (let i = 0; i < 3; i++) {
+    fetch(`${serviceUrl}/apps/sync`, {
+      method: 'POST',
+      signal: AbortSignal.timeout(5000),
+    }).catch(() => {
+      // Ignore errors - best effort notification
+    })
+  }
 }
 
 /**
@@ -441,9 +590,10 @@ async function proxyToBackend(
     targetUrl = `${app.backendEndpoint}${pathname}`
   } else if (app.backendWorkerId) {
     // DWS worker - route through workers runtime
-    // backendWorkerId can be either a function ID (UUID) or IPFS CID
+    // Pass the CID/functionId directly - workers router handles lazy deployment
+    // This ensures each pod can deploy the worker on-demand from IPFS
     const host = getLocalhostHost()
-    // Use workers HTTP endpoint for function invocation
+    // Use the CID directly - workers router will lazy-deploy from IPFS if needed
     targetUrl = `http://${host}:4030/workers/${app.backendWorkerId}/http${pathname}`
   } else {
     return new Response(JSON.stringify({ error: 'No backend configured' }), {
@@ -453,10 +603,16 @@ async function proxyToBackend(
   }
 
   const url = new URL(request.url)
+  const targetUrlObj = new URL(targetUrl)
+
+  // Copy headers but override Host to match target
+  const proxyHeaders = new Headers(request.headers)
+  proxyHeaders.set('Host', targetUrlObj.host)
+  proxyHeaders.set('X-Forwarded-Host', request.headers.get('host') ?? '')
 
   const proxyRequest = new Request(targetUrl + url.search, {
     method: request.method,
-    headers: request.headers,
+    headers: proxyHeaders,
     body:
       request.method !== 'GET' && request.method !== 'HEAD'
         ? request.body
@@ -614,6 +770,31 @@ export function createAppRouter() {
         return app
       })
 
+      // Sync endpoint - forces cache reload from persistence
+      // Use this after updates to ensure all pods have the same state
+      .post('/apps/sync', async () => {
+        const { loaded, source } = await reloadCacheFromPersistence()
+        return {
+          success: true,
+          podId: POD_ID,
+          loaded,
+          source,
+          cacheSize: deployedAppsCache.size,
+          lastSync: lastSyncTimestamp,
+        }
+      })
+
+      // Health check for app router specifically
+      .get('/apps/health', () => ({
+        status: 'healthy',
+        podId: POD_ID,
+        cacheSize: deployedAppsCache.size,
+        lastSync: lastSyncTimestamp,
+        syncIntervalMs: SYNC_INTERVAL_MS,
+        configMapAvailable: isConfigMapAvailable(),
+        degradedMode: isDegradedMode(),
+      }))
+
       .post('/apps/deployed', async ({ body, set }) => {
         const data = body as Omit<DeployedApp, 'deployedAt' | 'updatedAt'>
         if (!data.name) {
@@ -751,5 +932,10 @@ export async function initializeAppRouter(): Promise<void> {
     console.log('[AppRouter] Ingress controller not available, skipping')
   }
 
-  console.log(`[AppRouter] Initialized with ${deployedAppsCache.size} apps`)
+  console.log(
+    `[AppRouter] Initialized with ${deployedAppsCache.size} apps (pod: ${POD_ID})`,
+  )
+
+  // Start background sync for cross-pod state consistency
+  startBackgroundSync()
 }

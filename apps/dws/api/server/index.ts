@@ -100,6 +100,7 @@ import {
   createAppRouter,
   getDeployedApp,
   initializeAppRouter,
+  proxyToBackend,
 } from './routes/app-router'
 import { createCDNRouter } from './routes/cdn'
 import { createCIRouter } from './routes/ci'
@@ -1454,21 +1455,19 @@ if (import.meta.main) {
         if (deployedApp?.enabled) {
           console.log(`[Bun.serve] Routing to deployed app: ${appName}`)
           // Route to backend for API paths
-          const isApiRequest = deployedApp.apiPaths.some(
-            (path) =>
-              url.pathname === path || url.pathname.startsWith(`${path}/`),
-          )
-          if (isApiRequest && deployedApp.backendEndpoint) {
-            const targetUrl = `${deployedApp.backendEndpoint}${url.pathname}${url.search}`
-            console.log(`[Bun.serve] Proxying to backend: ${targetUrl}`)
-            return fetch(targetUrl, {
-              method: req.method,
-              headers: req.headers,
-              body:
-                req.method !== 'GET' && req.method !== 'HEAD'
-                  ? req.body
-                  : undefined,
-            })
+          const apiPaths = deployedApp.apiPaths ?? []
+          const isApiRequest =
+            apiPaths.length > 0 &&
+            apiPaths.some(
+              (path) =>
+                url.pathname === path || url.pathname.startsWith(`${path}/`),
+            )
+          if (
+            isApiRequest &&
+            (deployedApp.backendEndpoint || deployedApp.backendWorkerId)
+          ) {
+            console.log(`[Bun.serve] Proxying API to backend: ${url.pathname}`)
+            return proxyToBackend(req, deployedApp, url.pathname)
           }
           // Serve frontend from IPFS/storage if configured
           console.log(

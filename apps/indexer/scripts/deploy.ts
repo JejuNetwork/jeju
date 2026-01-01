@@ -2,19 +2,20 @@
 /**
  * Indexer Deployment Script
  *
- * Deploys Indexer to DWS infrastructure (decentralized):
- * 1. Builds frontend if needed
+ * Deploys Indexer to DWS infrastructure (fully decentralized):
+ * 1. Builds frontend and worker
  * 2. Uploads static assets to DWS storage (IPFS)
- * 3. Registers app with DWS app router
+ * 3. Deploys backend worker to DWS
+ * 4. Registers app with DWS app router (frontend + backend)
  *
- * The indexer backend runs as a Kubernetes service (subsquid-api.indexer.svc.cluster.local)
- * which DWS proxies to for /api, /graphql, /health, etc.
+ * NO hardcoded K8s or AWS endpoints - fully decentralized.
  */
 
 import { existsSync } from 'node:fs'
 import { readdir, readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { getCurrentNetwork, type NetworkType } from '@jejunetwork/config'
+import { privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
 
 const APP_DIR = resolve(import.meta.dir, '..')
@@ -26,42 +27,51 @@ const StorageUploadResponseSchema = z.object({
   backends: z.array(z.string()).optional(),
 })
 
+// Schema for DWS worker deploy response
+const DWSWorkerDeployResponseSchema = z.object({
+  functionId: z.string(),
+  name: z.string(),
+  codeCid: z.string(),
+  status: z.enum(['active', 'inactive', 'error']),
+})
+
 interface DeployConfig {
   network: NetworkType
   dwsUrl: string
-  backendEndpoint: string
+  privateKey: `0x${string}`
 }
 
 function getConfig(): DeployConfig {
   const network = getCurrentNetwork()
 
-  const configs: Record<NetworkType, Partial<DeployConfig>> = {
+  const configs: Record<NetworkType, Omit<DeployConfig, 'network' | 'privateKey'>> = {
     localnet: {
       dwsUrl: 'http://127.0.0.1:4030',
-      // Local development backend
-      backendEndpoint: 'http://127.0.0.1:4352',
     },
     testnet: {
       dwsUrl: 'https://dws.testnet.jejunetwork.org',
-      // Kubernetes service endpoint for indexer backend (subsquid-api service in indexer namespace)
-      backendEndpoint: 'http://subsquid-api.indexer.svc.cluster.local:4352',
     },
     mainnet: {
       dwsUrl: 'https://dws.jejunetwork.org',
-      backendEndpoint: 'http://subsquid-api.indexer.svc.cluster.local:4352',
     },
+  }
+
+  const privateKey = process.env.DEPLOYER_PRIVATE_KEY ?? process.env.PRIVATE_KEY
+  if (!privateKey) {
+    throw new Error('DEPLOYER_PRIVATE_KEY or PRIVATE_KEY environment variable required')
   }
 
   return {
     network,
+    privateKey: privateKey as `0x${string}`,
     ...configs[network],
-  } as DeployConfig
+  }
 }
 
-async function ensureBuild(): Promise<void> {
+async function ensureFrontendBuild(): Promise<void> {
   const indexHtmlPath = resolve(APP_DIR, 'dist/index.html')
   if (!existsSync(indexHtmlPath)) {
-    console.log('[Indexer] Build not found, running build first...')
+    console.log('[Indexer] Frontend build not found, running build...')
     const proc = Bun.spawn(['bun', 'run', 'scripts/build.ts'], {
       cwd: APP_DIR,
       stdout: 'inherit',
@@ -69,10 +79,97 @@ async function ensureBuild(): Promise<void> {
     })
     const exitCode = await proc.exited
     if (exitCode !== 0) {
-      throw new Error('Build failed')
+      throw new Error('Frontend build failed')
     }
   }
-  console.log('[Indexer] Build found')
+  console.log('[Indexer] Frontend build found')
+}
+
+async function buildWorker(): Promise<string> {
+  console.log('[Indexer] Building worker bundle...')
+  
+  const workerEntry = join(APP_DIR, 'api/worker.ts')
+  const outDir = join(APP_DIR, 'dist/worker')
+  
+  // Build worker using Bun
+  const result = await Bun.build({
+    entrypoints: [workerEntry],
+    outdir: outDir,
+    target: 'bun',
+    format: 'esm',
+    minify: true,
+    sourcemap: 'none',
+    external: [],
+  })
+
+  if (!result.success) {
+    console.error('[Indexer] Worker build failed:', result.logs)
+    throw new Error('Worker build failed')
+  }
+
+  const outputPath = join(outDir, 'worker.js')
+  console.log(`[Indexer] Worker built: ${outputPath}`)
+  return outputPath
+}
+
+async function deployWorker(
+  config: DeployConfig,
+  workerPath: string,
+): Promise<{ functionId: string; codeCid: string }> {
+  console.log('[Indexer] Deploying worker to DWS...')
+
+  const account = privateKeyToAccount(config.privateKey)
+
+  // Upload worker code to storage first
+  const workerCode = await readFile(workerPath)
+  const formData = new FormData()
+  formData.append('file', new Blob([workerCode]), 'worker.js')
+  formData.append('tier', 'persistent')
+  formData.append('category', 'worker')
+
+  const uploadResponse = await fetch(`${config.dwsUrl}/storage/upload`, {
+    method: 'POST',
+    body: formData,
+  })
+
+  if (!uploadResponse.ok) {
+    throw new Error(`Failed to upload worker: ${await uploadResponse.text()}`)
+  }
+
+  const uploadResult = StorageUploadResponseSchema.parse(await uploadResponse.json())
+  console.log(`   Worker code uploaded: ${uploadResult.cid}`)
+
+  // Deploy worker
+  const deployResponse = await fetch(`${config.dwsUrl}/workers`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-jeju-address': account.address,
+    },
+    body: JSON.stringify({
+      name: 'indexer-api',
+      codeCid: uploadResult.cid,
+      runtime: 'bun',
+      handler: 'worker.js:default',
+      memory: 256,
+      timeout: 30000,
+      env: {
+        NETWORK: config.network,
+      },
+    }),
+  })
+
+  if (!deployResponse.ok) {
+    throw new Error(`Failed to deploy worker: ${await deployResponse.text()}`)
+  }
+
+  const deployResult = DWSWorkerDeployResponseSchema.parse(await deployResponse.json())
+  console.log(`   Worker deployed: ${deployResult.functionId}`)
+  
+  return {
+    functionId: deployResult.functionId,
+    codeCid: uploadResult.cid,
+  }
 }
 
 interface UploadResult {
@@ -190,6 +287,7 @@ async function registerApp(
   config: DeployConfig,
   staticFiles: Map<string, string>,
   _rootCid: string,
+  workerInfo: { functionId: string; codeCid: string },
 ): Promise<void> {
   // Find index.html CID - this is the entry point
   const indexCid = staticFiles.get('index.html')
@@ -203,15 +301,18 @@ async function registerApp(
     staticFilesRecord[path] = cid
   }
 
+  // Construct backend endpoint from worker ID
+  const backendEndpoint = `${config.dwsUrl}/workers/${workerInfo.functionId}`
+
   // App registration data for DWS app router
   const appConfig = {
     name: 'indexer',
     jnsName: 'indexer.jeju',
     frontendCid: indexCid, // CID for index.html (used as fallback)
     staticFiles: staticFilesRecord, // Map of all file paths to CIDs
-    backendWorkerId: null, // No DWS worker - using K8s backend
-    backendEndpoint: config.backendEndpoint,
-    apiPaths: ['/api', '/health', '/a2a', '/mcp', '/graphql'], // Include /graphql for the GraphQL API
+    backendWorkerId: workerInfo.functionId, // DWS worker ID
+    backendEndpoint: backendEndpoint, // DWS worker endpoint
+    apiPaths: ['/api/', '/health', '/a2a/', '/mcp/', '/graphql'], // Include /graphql for the GraphQL API
     spa: true, // Single-page application
     enabled: true,
   }
@@ -219,7 +320,8 @@ async function registerApp(
   console.log('[Indexer] Registering app with DWS...')
   console.log(`   Frontend CID: ${indexCid}`)
   console.log(`   Static files: ${staticFiles.size}`)
-  console.log(`   Backend: ${config.backendEndpoint}`)
+  console.log(`   Backend worker: ${workerInfo.functionId}`)
+  console.log(`   Backend endpoint: ${backendEndpoint}`)
   console.log(`   API paths: ${appConfig.apiPaths.join(', ')}`)
 
   const response = await fetch(`${config.dwsUrl}/apps/deployed`, {
@@ -238,31 +340,39 @@ async function registerApp(
 
 async function deploy(): Promise<void> {
   console.log('╔════════════════════════════════════════════════════════════╗')
-  console.log('║             Indexer Deployment to DWS                       ║')
+  console.log('║        Indexer Deployment to DWS (Decentralized)            ║')
   console.log('╚════════════════════════════════════════════════════════════╝')
   console.log('')
 
   const config = getConfig()
   console.log(`Network:  ${config.network}`)
   console.log(`DWS:      ${config.dwsUrl}`)
-  console.log(`Backend:  ${config.backendEndpoint}`)
   console.log('')
 
-  // Ensure build exists
-  await ensureBuild()
+  // Ensure frontend build exists
+  await ensureFrontendBuild()
 
-  // Upload static assets from dist directory
+  // Build worker
+  console.log('\nBuilding worker...')
+  const workerPath = await buildWorker()
+
+  // Deploy worker to DWS
+  console.log('\nDeploying worker...')
+  const workerInfo = await deployWorker(config, workerPath)
+
+  // Upload static assets from dist directory (excluding worker dir)
   console.log('\nUploading static assets...')
   const staticResult = await uploadDirectory(
     config.dwsUrl,
     join(APP_DIR, 'dist'),
+    ['worker'], // Exclude worker directory
   )
   console.log(`   Total: ${(staticResult.totalSize / 1024).toFixed(1)} KB`)
   console.log(`   Files: ${staticResult.files.size}`)
 
   // Register app with DWS
   console.log('\nRegistering app with DWS...')
-  await registerApp(config, staticResult.files, staticResult.rootCid)
+  await registerApp(config, staticResult.files, staticResult.rootCid, workerInfo)
 
   console.log('')
   console.log('╔════════════════════════════════════════════════════════════╗')
@@ -279,6 +389,7 @@ async function deploy(): Promise<void> {
   console.log(`║  Frontend: ${domain.padEnd(44)}║`)
   console.log(`${`║  API:      ${domain}/api`.padEnd(61)}║`)
   console.log(`${`║  GraphQL:  ${domain}/graphql`.padEnd(61)}║`)
+  console.log(`${`║  Worker:   ${workerInfo.functionId.slice(0, 36)}`.padEnd(61)}║`)
   console.log(
     `${`║  IPFS:     ipfs://${staticResult.rootCid.slice(0, 20)}...`.padEnd(61)}║`,
   )

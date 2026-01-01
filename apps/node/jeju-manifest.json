@@ -24,6 +24,20 @@
   "enabled": true,
   "autoStart": true,
   "tags": ["node", "infrastructure", "operator", "cdn", "storage", "compute", "proxy", "database", "sqlit", "miner", "rewards"],
+  "lander": {
+    "enabled": true,
+    "type": "downloads",
+    "buildDir": "dist/lander",
+    "routes": {
+      "/": "landing page with desktop downloads"
+    }
+  },
+  "release": {
+    "type": "desktop",
+    "platforms": ["macos", "windows", "linux"],
+    "hasDownloads": true,
+    "buildCommand": "bun run build:app"
+  },
   "jns": {
     "name": "node.jeju",
     "description": "Network Node Operator Dashboard",

@@ -59,6 +59,7 @@ import { validateCommand } from './commands/validate'
 import { vendorCommand } from './commands/vendor'
 import { verifyStage2Command } from './commands/verify-stage2'
 import { workerCommand } from './commands/worker'
+import { releaseCommand } from './commands/release'
 import { logger } from './lib/logger'
 import { CommanderErrorSchema, PackageJsonSchema, validate } from './schemas'
 
@@ -155,6 +156,7 @@ program.addCommand(verifyStage2Command)
 program.addCommand(appsCommand)
 program.addCommand(pkgCommand)
 program.addCommand(pypkgCommand)
+program.addCommand(releaseCommand)
 
 // Utilities
 program.addCommand(portsCommand)

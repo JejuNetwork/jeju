@@ -12,6 +12,7 @@ import { cp, mkdir, rm } from 'node:fs/promises'
 const DIST_DIR = './dist'
 const STATIC_DIR = `${DIST_DIR}/static`
 const CLI_DIR = `${DIST_DIR}/cli`
+const LANDER_DIR = `${DIST_DIR}/lander`
 
 // External packages that should not be bundled for browser
 // These packages have server-side code that will break browser builds
@@ -228,6 +229,55 @@ async function buildCLI(): Promise<void> {
   console.log(`✅ CLI built to ${CLI_DIR}/`)
 }
 
+async function buildLander(): Promise<void> {
+  console.log('📦 Building lander page...')
+
+  const landerEntry = './lander/main.tsx'
+  if (!existsSync(landerEntry)) {
+    console.log('  (no lander found, skipping)')
+    return
+  }
+
+  const result = await Bun.build({
+    entrypoints: [landerEntry],
+    outdir: LANDER_DIR,
+    target: 'browser',
+    minify: true,
+    sourcemap: 'external',
+    packages: 'bundle',
+    splitting: false,
+    define: {
+      'process.env.NODE_ENV': JSON.stringify('production'),
+    },
+    naming: {
+      entry: '[name]-[hash].js',
+      chunk: 'chunks/[name]-[hash].js',
+      asset: 'assets/[name]-[hash].[ext]',
+    },
+  })
+
+  if (!result.success) {
+    console.error('❌ Lander build failed:')
+    for (const log of result.logs) {
+      console.error(log)
+    }
+    throw new Error('Lander build failed')
+  }
+
+  // Find the main entry file
+  const mainEntry = result.outputs.find(
+    (o) => o.kind === 'entry-point' && o.path.includes('main'),
+  )
+  const mainFileName = mainEntry ? mainEntry.path.split('/').pop() : 'main.js'
+
+  // Copy and update index.html
+  const landerHtml = await Bun.file('./lander/index.html').text()
+  const updatedHtml = landerHtml.replace('/main.tsx', `/${mainFileName}`)
+  await Bun.write(`${LANDER_DIR}/index.html`, updatedHtml)
+
+  console.log(`✅ Lander built to ${LANDER_DIR}/`)
+}
+
 async function createDeploymentBundle(): Promise<void> {
   console.log('📦 Creating deployment bundle...')
 
@@ -241,6 +291,11 @@ async function createDeploymentBundle(): Promise<void> {
         path: 'static',
         spa: true,
         fallback: 'index.html',
+      },
+      lander: {
+        type: 'static',
+        path: 'lander',
+        spa: false,
       },
       cli: {
         type: 'bun',
@@ -273,10 +328,12 @@ async function build(): Promise<void> {
   // Create directories
   await mkdir(STATIC_DIR, { recursive: true })
   await mkdir(CLI_DIR, { recursive: true })
+  await mkdir(LANDER_DIR, { recursive: true })
 
-  // Build frontend and CLI
+  // Build frontend, CLI, and lander
   await buildFrontend()
   await buildCLI()
+  await buildLander()
 
   // Create deployment bundle
   await createDeploymentBundle()
@@ -284,6 +341,7 @@ async function build(): Promise<void> {
   console.log('\n✅ Build complete.')
   console.log('   📁 Static frontend: ./dist/static/')
   console.log('   📁 CLI bundle: ./dist/cli/')
+  console.log('   📁 Lander: ./dist/lander/')
   console.log('   📄 Deployment manifest: ./dist/deployment.json')
 }
 

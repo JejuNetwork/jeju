@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHJ4PSI4IiBmaWxsPSIjMDBmZjg4Ii8+PHBhdGggZD0iTTE2IDdhOCA4IDAgMCAxIDggOHY0YTggOCAwIDEgMS0xNiAwdi00YTggOCAwIDAgMSA4LTh6IiBmaWxsPSIjMGEwYTBmIi8+PC9zdmc+" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Jeju VPN - Free, decentralized VPN powered by the community. Unlimited VPN access in exchange for contributing bandwidth." />
+    <title>Jeju VPN — Free Decentralized VPN</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              vpn: {
+                green: '#00ff88',
+                'green-dark': '#00cc6a',
+                cyan: '#00d4ff',
+                purple: '#8b5cf6',
+                dark: '#0a0a0f',
+                darker: '#050508',
+              },
+              surface: {
+                DEFAULT: '#0a0a0f',
+                elevated: 'rgba(20, 20, 30, 0.7)',
+                border: 'rgba(255, 255, 255, 0.08)',
+              },
+            },
+            fontFamily: {
+              sans: ['Outfit', 'system-ui', 'sans-serif'],
+              mono: ['JetBrains Mono', 'monospace'],
+            },
+          },
+        },
+      }
+    </script>
+    <style>
+      html { scroll-behavior: smooth; }
+      .gradient-text {
+        background: linear-gradient(135deg, #00ff88 0%, #00d4ff 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      .glow-green { box-shadow: 0 0 60px rgba(0, 255, 136, 0.3); }
+      @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+      @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-pulse-slow { animation: pulse 2s infinite; }
+      .animate-fade-in-up { animation: fadeInUp 0.8s ease-out; }
+    </style>
+  </head>
+  <body class="bg-vpn-darker text-white antialiased min-h-screen">
+    <div id="root"></div>
+    <script type="module" src="/main.tsx"></script>
+  </body>
+</html>

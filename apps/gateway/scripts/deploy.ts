@@ -28,10 +28,12 @@ const IPFSUploadResponseSchema = z.object({
   size: z.number().optional(),
 })
 
-// Worker deployment schema (kept for future use)
-const _DWSWorkerDeployResponseSchema = z.object({
-  workerId: z.string(),
-  status: z.string().optional(),
+// Worker deployment schema
+const DWSWorkerDeployResponseSchema = z.object({
+  functionId: z.string(),
+  name: z.string(),
+  codeCid: z.string(),
+  status: z.enum(['active', 'inactive', 'error']),
 })
 
 interface DeployConfig {
@@ -216,49 +218,24 @@ async function _deployWorker(
 
   const deployRequest = {
     name: 'gateway-api',
-    owner: account.address,
     codeCid: apiBundle.cid,
-    codeHash: apiBundle.hash,
-    entrypoint: 'a2a-server.js',
     runtime: 'bun',
-    resources: {
-      memoryMb: 512,
-      cpuMillis: 2000,
-      timeoutMs: 30000,
-      maxConcurrency: 200,
-    },
-    scaling: {
-      minInstances: 3,
-      maxInstances: 50,
-      targetConcurrency: 20,
-      scaleToZero: false,
-      cooldownMs: 60000,
-    },
-    requirements: {
-      teeRequired: true,
-      teePreferred: true,
-      minNodeReputation: 80,
-    },
-    routes: [
-      { pattern: '/api/*', zone: 'gateway' },
-      { pattern: '/a2a/*', zone: 'gateway' },
-      { pattern: '/mcp/*', zone: 'gateway' },
-      { pattern: '/rpc/*', zone: 'gateway' },
-      { pattern: '/x402/*', zone: 'gateway' },
-      { pattern: '/health', zone: 'gateway' },
-      { pattern: '/.well-known/*', zone: 'gateway' },
-    ],
+    handler: 'a2a-server.js:default',
+    memory: 512,
+    timeout: 30000,
     env: {
       NETWORK: config.network,
       RPC_URL: config.rpcUrl,
       DWS_URL: config.dwsUrl,
     },
-    secrets: ['OPERATOR_KEY', 'BRIDGE_SIGNER_KEY'],
   }
 
-  const response = await fetch(`${config.dwsUrl}/workers/deploy`, {
+  const response = await fetch(`${config.dwsUrl}/workers`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-jeju-address': account.address,
+    },
     body: JSON.stringify(deployRequest),
   })
 
@@ -267,11 +244,11 @@ async function _deployWorker(
   }
 
   const rawJson: unknown = await response.json()
-  const parsed = _DWSWorkerDeployResponseSchema.safeParse(rawJson)
+  const parsed = DWSWorkerDeployResponseSchema.safeParse(rawJson)
   if (!parsed.success) {
     throw new Error(`Invalid deploy response: ${parsed.error.message}`)
   }
-  return parsed.data.workerId
+  return parsed.data.functionId
 }
 
 function getContentType(path: string): string {

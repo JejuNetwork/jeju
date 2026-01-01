@@ -6,6 +6,7 @@
  */
 
 import type { SQLitClient } from '@jejunetwork/db'
+import { logger } from '@jejunetwork/shared'
 import type { RateLimitEntry, RateLimitStore } from './types.js'
 
 const RATE_LIMIT_TABLE = 'rate_limits'
@@ -38,7 +39,7 @@ export class SQLitRateLimitStore implements RateLimitStore {
     const cleanupMs = config.cleanupIntervalMs ?? 5 * 60 * 1000
     this.cleanupInterval = setInterval(() => {
       this.cleanup().catch((err: Error) => {
-        console.error('[SQLitRateLimitStore] Cleanup failed:', err.message)
+        logger.error('[SQLitRateLimitStore] Cleanup failed', { error: err.message })
       })
     }, cleanupMs)
   }

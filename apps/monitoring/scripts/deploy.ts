@@ -25,8 +25,10 @@ const IPFSUploadResponseSchema = z.object({
 })
 
 const DWSWorkerDeployResponseSchema = z.object({
-  workerId: z.string(),
-  status: z.string().optional(),
+  functionId: z.string(),
+  name: z.string(),
+  codeCid: z.string(),
+  status: z.enum(['active', 'inactive', 'error']),
 })
 
 interface DeployConfig {
@@ -195,10 +197,18 @@ async function deployWorker(
     secrets: [],
   }
 
-  const response = await fetch(`${config.dwsUrl}/workers/deploy`, {
+  const response = await fetch(`${config.dwsUrl}/workers`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(deployRequest),
+    body: JSON.stringify({
+      name: deployRequest.name,
+      codeCid: deployRequest.codeCid,
+      runtime: deployRequest.runtime,
+      handler: deployRequest.entrypoint,
+      memory: deployRequest.resources.memoryMb,
+      timeout: deployRequest.resources.timeoutMs,
+      env: deployRequest.env,
+    }),
   })
 
   if (!response.ok) {
@@ -210,7 +220,7 @@ async function deployWorker(
   if (!parsed.success) {
     throw new Error(`Invalid deploy response: ${parsed.error.message}`)
   }
-  return parsed.data.workerId
+  return parsed.data.functionId
 }
 
 function getContentType(path: string): string {
@@ -240,9 +250,15 @@ async function setupCDN(
       path.includes('-') && (path.endsWith('.js') || path.endsWith('.css')),
   }))
 
+  const domain = config.network === 'testnet' 
+    ? 'monitoring.testnet.jejunetwork.org' 
+    : config.network === 'mainnet' 
+      ? 'monitoring.jejunetwork.org' 
+      : 'monitoring.localhost'
+  
   const cdnConfig = {
     name: 'monitoring',
-    domain: 'monitoring.jejunetwork.org',
+    domain,
     spa: {
       enabled: true,
       fallback: '/index.html',
@@ -311,11 +327,17 @@ async function deploy(): Promise<void> {
   console.log('Configuring CDN...')
   await setupCDN(config, webAssets)
 
+  const frontendUrl = config.network === 'testnet'
+    ? 'https://monitoring.testnet.jejunetwork.org'
+    : config.network === 'mainnet'
+      ? 'https://monitoring.jejunetwork.org'
+      : 'http://monitoring.localhost:4030'
+
   console.log('')
   console.log('╔════════════════════════════════════════════════════════════╗')
   console.log('║                  Deployment Complete                        ║')
   console.log('╠════════════════════════════════════════════════════════════╣')
-  console.log(`║  Frontend: https://monitoring.jejunetwork.org               ║`)
+  console.log(`║  Frontend: ${frontendUrl.padEnd(44)}║`)
   console.log(
     `║  IPFS:     ipfs://${indexResult.cid.slice(0, 20)}...                  ║`,
   )

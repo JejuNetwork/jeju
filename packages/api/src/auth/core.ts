@@ -29,6 +29,12 @@ const HexSchema = z
   .min(4, 'Hex string must have at least one byte')
   .regex(/^0x[a-fA-F0-9]+$/, 'Invalid hex string') as z.ZodType<Hex>
 
+// Session IDs must be 32 bytes (64 hex chars + 0x prefix = 66 chars)
+const SessionIdSchema = z
+  .string()
+  .length(66, 'Session ID must be 32 bytes (64 hex characters)')
+  .regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid session ID format') as z.ZodType<Hex>
+
 const TimestampSchema = z.number().int().positive()
 
 const WalletSignatureHeadersSchema = z
@@ -94,7 +100,8 @@ export async function validateOAuth3Session(
   sessionId: string,
   config: OAuth3Config,
 ): Promise<OAuth3ValidationResult> {
-  const sessionResult = HexSchema.safeParse(sessionId)
+  // Validate session ID format locally before making network request
+  const sessionResult = SessionIdSchema.safeParse(sessionId)
   if (!sessionResult.success) {
     return {
       valid: false,
@@ -394,13 +401,11 @@ export async function requireAuth(
   const result = await authenticate(headers, config)
 
   if (!result.authenticated || !result.user) {
-    throw new AuthError(
-      result.error ?? 'Authentication required',
-      result.error.includes('expired')
-        ? AuthErrorCode.SESSION_EXPIRED
-        : AuthErrorCode.MISSING_CREDENTIALS,
-      401,
-    )
+    const errorMessage = result.error ?? 'Authentication required'
+    const errorCode = errorMessage.includes('expired')
+      ? AuthErrorCode.SESSION_EXPIRED
+      : AuthErrorCode.MISSING_CREDENTIALS
+    throw new AuthError(errorMessage, errorCode, 401)
   }
 
   return result.user

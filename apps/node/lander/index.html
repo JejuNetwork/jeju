@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHJ4PSI4IiBmaWxsPSIjNmM1Y2U3Ii8+PHBhdGggZD0iTTE2IDZsOCA1djEwbC04IDUtOC01VjExbDgtNXoiIGZpbGw9IiNmZmYiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9zdmc+" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Jeju Network Node - Run infrastructure and earn rewards. Help decentralize the web." />
+    <title>Jeju Node — Run Infrastructure, Earn Rewards</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              node: {
+                purple: '#6c5ce7',
+                'purple-light': '#a29bfe',
+                indigo: '#5f27cd',
+                dark: '#0a0a12',
+                darker: '#05050a',
+              },
+              surface: {
+                DEFAULT: '#0a0a12',
+                elevated: 'rgba(20, 20, 35, 0.7)',
+                border: 'rgba(255, 255, 255, 0.08)',
+              },
+            },
+            fontFamily: {
+              sans: ['Space Grotesk', 'system-ui', 'sans-serif'],
+              mono: ['JetBrains Mono', 'monospace'],
+            },
+          },
+        },
+      }
+    </script>
+    <style>
+      html { scroll-behavior: smooth; }
+      .gradient-text {
+        background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 50%, #5f27cd 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      .glow-purple { box-shadow: 0 0 60px rgba(108, 92, 231, 0.3); }
+      @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+      @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-pulse-slow { animation: pulse 2s infinite; }
+      .animate-fade-in-up { animation: fadeInUp 0.8s ease-out; }
+    </style>
+  </head>
+  <body class="bg-node-darker text-white antialiased min-h-screen">
+    <div id="root"></div>
+    <script type="module" src="/main.tsx"></script>
+  </body>
+</html>

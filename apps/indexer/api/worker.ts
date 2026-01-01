@@ -91,7 +91,9 @@ export function createIndexerApp(env?: Partial<IndexerEnv>) {
     }))
 
     // ============================================
-    // GraphQL Endpoint - Proxies to Subsquid or handles via SQLit
+    // GraphQL Endpoint
+    // In workerd mode, GraphQL requires Subsquid which isn't available.
+    // Use REST API endpoints instead, or deploy with full indexer stack.
     // ============================================
     .post('/graphql', async ({ body }) => {
       const parsed = z
@@ -106,27 +108,23 @@ export function createIndexerApp(env?: Partial<IndexerEnv>) {
         return { errors: [{ message: 'Invalid GraphQL request' }] }
       }
 
-      // Try to proxy to Subsquid GraphQL server
-      const graphqlPort = env?.SQLIT_NODES?.split(',')[0] ?? 'localhost:4350'
-      const graphqlUrl = `http://${graphqlPort}/graphql`
-
-      const response = await fetch(graphqlUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: JSON.stringify(parsed.data),
-      }).catch(() => null)
-
-      if (!response) {
-        return {
-          data: null,
-          errors: [{ message: 'GraphQL backend unavailable - use REST API' }],
-        }
+      // In workerd/DWS deployment, Subsquid GraphQL server is not available
+      // GraphQL queries should be routed to the full indexer deployment
+      // For now, return a helpful error directing to REST API
+      return {
+        data: null,
+        errors: [
+          {
+            message:
+              'GraphQL not available in workerd mode. Use REST API at /api/* or deploy full indexer stack.',
+            extensions: {
+              code: 'GRAPHQL_UNAVAILABLE',
+              restApiEndpoint: '/api',
+              fullIndexerUrl: 'https://indexer.testnet.jejunetwork.org/graphql',
+            },
+          },
+        ],
       }
-
-      return await response.json()
     })
 
     // ============================================

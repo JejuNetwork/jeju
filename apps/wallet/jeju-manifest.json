@@ -23,6 +23,20 @@
   "enabled": true,
   "autoStart": true,
   "tags": ["wallet", "cross-chain", "eil", "oif", "account-abstraction", "erc-4337", "bridgeless", "multi-chain", "tauri", "capacitor", "solana"],
+  "lander": {
+    "enabled": true,
+    "type": "downloads",
+    "buildDir": "dist",
+    "routes": {
+      "/": "landing page with extension downloads"
+    }
+  },
+  "release": {
+    "type": "extension",
+    "platforms": ["chrome", "firefox", "edge"],
+    "hasDownloads": true,
+    "buildCommand": "bun run build:ext"
+  },
   "jns": {
     "name": "wallet.jeju",
     "description": "Network Agentic Wallet",

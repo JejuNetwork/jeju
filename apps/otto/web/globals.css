@@ -1,0 +1,145 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --otto-cyan: #00d4ff;
+  --otto-purple: #8b5cf6;
+  --otto-green: #22c55e;
+  --otto-yellow: #fbbf24;
+  --otto-dark: #0a0a0f;
+  --otto-darker: #050508;
+  --otto-card: rgba(20, 20, 30, 0.7);
+  --otto-border: rgba(255, 255, 255, 0.08);
+  --otto-glow: 0 0 60px rgba(0, 212, 255, 0.3);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+  background: var(--otto-darker);
+  color: #fff;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Animated background */
+.bg-pattern {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 212, 255, 0.15), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 80%, rgba(139, 92, 246, 0.1), transparent),
+    radial-gradient(ellipse 40% 30% at 20% 60%, rgba(34, 197, 94, 0.08), transparent);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.grid-pattern {
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, var(--otto-cyan) 0%, var(--otto-purple) 50%, var(--otto-cyan) 100%);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientShift 5s ease infinite;
+}
+
+@keyframes gradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse 2s infinite;
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.8s ease-out;
+}
+
+/* Button styles */
+.btn-primary {
+  @apply bg-gradient-to-r from-otto-cyan to-[#0099ff] text-black px-6 py-3 rounded-xl font-semibold text-sm inline-flex items-center gap-2 transition-all;
+}
+
+.btn-primary:hover {
+  @apply translate-y-[-2px];
+  box-shadow: 0 8px 30px rgba(0, 212, 255, 0.4);
+}
+
+.btn-secondary {
+  @apply bg-transparent border-2 border-white/20 text-white px-6 py-3 rounded-xl font-semibold text-sm inline-flex items-center gap-2 transition-all;
+}
+
+.btn-secondary:hover {
+  @apply border-otto-cyan text-otto-cyan;
+}
+
+/* Card styles */
+.card {
+  @apply bg-surface-elevated backdrop-blur-lg border border-surface-border rounded-2xl p-6 transition-all;
+}
+
+.card:hover {
+  @apply border-otto-cyan/50;
+}
+
+/* Form styles */
+.input {
+  @apply w-full bg-white/5 border border-surface-border rounded-xl px-4 py-3 text-white placeholder-white/40 transition-all;
+}
+
+.input:focus {
+  @apply border-otto-cyan outline-none ring-2 ring-otto-cyan/20;
+}
+
+/* Platform button styles */
+.platform-btn {
+  @apply flex items-center gap-3 px-5 py-4 bg-surface-elevated border border-surface-border rounded-xl text-white font-medium transition-all cursor-pointer;
+}
+
+.platform-btn:hover {
+  @apply translate-y-[-4px] border-otto-cyan;
+  box-shadow: 0 8px 40px rgba(0, 212, 255, 0.2);
+}
+
+.platform-btn.discord { --accent: #5865F2; }
+.platform-btn.telegram { --accent: #229ED9; }
+.platform-btn.farcaster { --accent: #855DCD; }
+.platform-btn.whatsapp { --accent: #25D366; }
+.platform-btn.twitter { --accent: #1DA1F2; }
+
+.platform-btn:hover {
+  border-color: var(--accent, var(--otto-cyan));
+}

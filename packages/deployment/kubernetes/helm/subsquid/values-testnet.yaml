@@ -88,16 +88,10 @@ ingress:
       hosts:
         - indexer.testnet.jejunetwork.org
 
-# CORS is handled by Subsquid API server configuration below
-squidServer:
-  cors:
-    enabled: true
-    origins:
-      - "https://gateway.testnet.jejunetwork.org"
-      - "https://gateway.jejunetwork.org"
-      - "https://jejunetwork.org"
-      - "https://dws.testnet.jejunetwork.org"
-      - "https://dws.jejunetwork.org"
-      - "*"
+# NOTE: Subsquid's sqd serve doesn't have built-in CORS configuration.
+# CORS is handled by the indexer REST server at /graphql which proxies
+# to Subsquid with proper CORS headers from Elysia.
+# For cross-origin requests, use: https://indexer.testnet.jejunetwork.org:4352/graphql
+# Or use the REST API endpoints at /api/*
 
 

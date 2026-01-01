@@ -1,0 +1,9 @@
+apiVersion: v2
+name: sqlit-adapter
+description: Simple SQLit HTTP adapter using Bun SQLite for DWS
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+maintainers:
+  - name: Jeju Network
+    email: dev@jejunetwork.org

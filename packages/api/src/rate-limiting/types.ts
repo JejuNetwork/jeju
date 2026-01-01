@@ -2,6 +2,8 @@
  * Framework-Agnostic Rate Limiting Types
  */
 
+import { z } from 'zod'
+
 /**
  * Rate limit tier configuration
  */
@@ -63,12 +65,17 @@ export interface RateLimiterConfig {
 }
 
 /**
+ * Rate limit entry schema for validation
+ */
+export const RateLimitEntrySchema = z.object({
+  count: z.number().int().nonnegative(),
+  resetAt: z.number().int().positive(),
+})
+
+/**
  * Rate limit entry in the store
  */
-export interface RateLimitEntry {
-  count: number
-  resetAt: number
-}
+export type RateLimitEntry = z.infer<typeof RateLimitEntrySchema>
 
 /**
  * Rate limit store interface (for custom backends)

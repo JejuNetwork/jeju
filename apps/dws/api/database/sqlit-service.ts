@@ -1,168 +1,374 @@
+/**
+ * SQLit Service Integration
+ *
+ * Provides SQLit database connectivity for DWS.
+ *
+ * Modes of operation:
+ * 1. K8s mode: Connect to sqlit-adapter K8s service
+ * 2. External mode: Connect to configured SQLIT_URL
+ * 3. Embedded mode: Run local Bun SQLite adapter (no Docker)
+ *
+ * No Docker dependency - works in serverless and K8s environments.
+ */
+
+import { Database } from 'bun:sqlite'
+import { createHash, randomBytes } from 'node:crypto'
+import { existsSync, mkdirSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
 import {
-  getLocalhostHost,
   getSQLitBlockProducerUrl,
-  INFRA_PORTS,
+  getSQLitDataDir,
+  isProductionEnv,
 } from '@jejunetwork/config'
 import type { Address } from 'viem'
-import {
-  getServiceByName,
-  provisionService,
-  type ServiceConfig,
-  type ServiceInstance,
-} from '../services'
 
-// SQLIT service configuration
-const SQLIT_SERVICE_NAME = 'sqlit-primary'
-const SQLIT_HTTP_PORT = INFRA_PORTS.SQLit.get()
+// Configuration
+// K8s endpoint - can be overridden by SQLIT_BLOCK_PRODUCER_ENDPOINT env var
+const K8S_SQLIT_ENDPOINT = process.env.SQLIT_BLOCK_PRODUCER_ENDPOINT || 'http://sqlit-adapter.dws.svc.cluster.local:8546'
+const DEFAULT_DATA_DIR = getSQLitDataDir()
 
-// SQLIT service state
-let sqlitServiceInstance: ServiceInstance | null = null
-let initializationPromise: Promise<ServiceInstance> | null = null
+// Runtime state
+let sqlitEndpoint: string | null = null
+let embeddedDatabases = new Map<string, Database>()
+let initialized = false
 
 /**
- * Get or initialize the SQLIT service
- * Called automatically when DWS starts
+ * Detect if running in Kubernetes
  */
-export async function ensureSQLitService(): Promise<ServiceInstance> {
-  // Return existing if healthy
-  if (sqlitServiceInstance?.status === 'running') {
-    return sqlitServiceInstance
-  }
-
-  // Wait for any in-progress initialization
-  if (initializationPromise) {
-    return initializationPromise
-  }
-
-  // Check if already provisioned
-  const existing = getServiceByName('sqlit', SQLIT_SERVICE_NAME)
-  if (existing?.status === 'running') {
-    sqlitServiceInstance = existing
-    return existing
-  }
-
-  // Start initialization
-  initializationPromise = initializeSQLit()
-  const result = await initializationPromise
-  initializationPromise = null
-  return result
+function isKubernetesEnvironment(): boolean {
+  return Boolean(process.env.KUBERNETES_SERVICE_HOST)
 }
 
 /**
- * Initialize SQLIT cluster
+ * Get the SQLit endpoint based on environment
  */
-async function initializeSQLit(): Promise<ServiceInstance> {
-  console.log('[SQLIT Service] Initializing SQLIT as DWS-managed service...')
+function resolveEndpoint(): string {
+  // Check for explicit environment override first
+  const envEndpoint = process.env.SQLIT_URL || process.env.SQLIT_BLOCK_PRODUCER_ENDPOINT
 
-  const config: ServiceConfig = {
-    type: 'sqlit',
-    name: SQLIT_SERVICE_NAME,
-    version: 'latest',
-    resources: {
-      cpuCores: 2,
-      memoryMb: 1024,
-      storageMb: 10240,
-    },
-    ports: [
-      { container: 4661, host: 4661 }, // Client connections
-      { container: 8546, host: SQLIT_HTTP_PORT }, // HTTP API
-    ],
-    env: {
-      SQLIT_ROLE: 'blockproducer',
-      SQLIT_DATA_DIR: '/data',
-      SQLIT_LOG_LEVEL: process.env.SQLIT_LOG_LEVEL ?? 'info',
-    },
-    volumes: [
-      { name: 'sqlit-data', mountPath: '/data' },
-      { name: 'sqlit-config', mountPath: '/config' },
-    ],
-    healthCheck: {
-      command: ['curl', '-sf', `${getSQLitBlockProducerUrl()}/v1/status`],
-      interval: 10000,
-      timeout: 5000,
-      retries: 5,
-    },
+  if (envEndpoint) {
+    return envEndpoint
   }
 
-  // DWS owns the SQLIT service
-  const dwsOwner = '0x0000000000000000000000000000000000000001' as Address
-
-  const instance = await provisionService(config, dwsOwner, 'dws-node')
-
-  if (instance.status !== 'running') {
-    throw new Error(`SQLIT service failed to start: ${instance.status}`)
+  // K8s mode: use K8s service discovery
+  if (isKubernetesEnvironment()) {
+    // Check if the K8s service is reachable
+    return K8S_SQLIT_ENDPOINT
   }
 
-  sqlitServiceInstance = instance
-  console.log(`[SQLIT Service] SQLIT running on port ${SQLIT_HTTP_PORT}`)
+  // Get from config (network-aware)
+  const configEndpoint = getSQLitBlockProducerUrl()
 
-  return instance
+  // If config points to local, we'll use embedded mode
+  if (configEndpoint.includes('127.0.0.1') || configEndpoint.includes('localhost')) {
+    return `http://127.0.0.1:${process.env.SQLIT_PORT || '8546'}`
+  }
+
+  return configEndpoint
 }
 
 /**
- * Get SQLIT service endpoint for clients
+ * Initialize embedded SQLite database for local development
+ * Uses Bun's built-in SQLite - no external dependencies
  */
-export function getSQLitEndpoint(): string {
-  if (!sqlitServiceInstance) {
-    // Return default endpoint - service may not be initialized yet
-    return getSQLitBlockProducerUrl()
+function getEmbeddedDatabase(dbid: string): Database {
+  let db = embeddedDatabases.get(dbid)
+  if (!db) {
+    const dataDir = process.env.SQLIT_DATA_DIR || DEFAULT_DATA_DIR
+    if (!existsSync(dataDir)) {
+      mkdirSync(dataDir, { recursive: true })
+    }
+    const dbPath = join(dataDir, `${dbid}.db`)
+    db = new Database(dbPath, { create: true })
+    db.exec('PRAGMA journal_mode=WAL')
+    db.exec('PRAGMA synchronous=NORMAL')
+    embeddedDatabases.set(dbid, db)
+    console.log(`[SQLit] Created embedded database: ${dbPath}`)
   }
-
-  const httpPort = sqlitServiceInstance.ports.find((p) => p.container === 8546)
-  const localhost = getLocalhostHost()
-  return `http://${localhost}:${httpPort?.host ?? SQLIT_HTTP_PORT}`
+  return db
 }
 
 /**
- * Get SQLIT service client port for direct connections
+ * Check if external SQLit endpoint is healthy
  */
-export function getSQLitClientPort(): number {
-  if (!sqlitServiceInstance) {
-    return 4661
-  }
-
-  const clientPort = sqlitServiceInstance.ports.find(
-    (p) => p.container === 4661,
-  )
-  return clientPort?.host ?? 4661
-}
-
-/**
- * Check if SQLIT service is healthy
- */
-export async function isSQLitHealthy(): Promise<boolean> {
-  const endpoint = getSQLitEndpoint()
-
+async function checkEndpointHealth(endpoint: string): Promise<boolean> {
   try {
-    const response = await fetch(`${endpoint}/v1/status`, {
+    // sqlit-adapter root endpoint returns {"success":true} when healthy
+    const response = await fetch(`${endpoint}/`, {
       signal: AbortSignal.timeout(5000),
     })
-    return response.ok
+    if (!response.ok) return false
+    const data = await response.json() as { success?: boolean }
+    return data.success === true
   } catch {
     return false
   }
 }
 
 /**
- * Get SQLIT service status
+ * Initialize SQLit service
+ * No Docker provisioning - just detect and connect to available SQLit
  */
-export function getSQLitStatus(): {
-  running: boolean
-  endpoint: string
-  clientPort: number
-  healthStatus: string
-} {
-  return {
-    running: sqlitServiceInstance?.status === 'running',
-    endpoint: getSQLitEndpoint(),
-    clientPort: getSQLitClientPort(),
-    healthStatus: sqlitServiceInstance?.healthStatus ?? 'unknown',
+export async function ensureSQLitService(): Promise<{ endpoint: string; mode: string }> {
+  if (initialized && sqlitEndpoint) {
+    return { endpoint: sqlitEndpoint, mode: getMode() }
+  }
+
+  const endpoint = resolveEndpoint()
+  console.log(`[SQLit] Resolving SQLit endpoint: ${endpoint}`)
+
+  // Try to connect to external endpoint first
+  const isHealthy = await checkEndpointHealth(endpoint)
+
+  if (isHealthy) {
+    sqlitEndpoint = endpoint
+    initialized = true
+    console.log(`[SQLit] Connected to external SQLit: ${endpoint}`)
+    return { endpoint, mode: 'external' }
+  }
+
+  // If K8s and not healthy, report error - don't fall back to embedded in production
+  if (isKubernetesEnvironment() || isProductionEnv()) {
+    throw new Error(
+      `SQLit service unavailable at ${endpoint}. Ensure sqlit-adapter is deployed and healthy.`
+    )
+  }
+
+  // Local development: use embedded SQLite
+  console.log(`[SQLit] External SQLit unavailable, using embedded mode`)
+  sqlitEndpoint = 'embedded'
+  initialized = true
+  return { endpoint: 'embedded', mode: 'embedded' }
+}
+
+/**
+ * Get current SQLit mode
+ */
+function getMode(): string {
+  if (!initialized) return 'uninitialized'
+  if (sqlitEndpoint === 'embedded') return 'embedded'
+  if (isKubernetesEnvironment()) return 'kubernetes'
+  return 'external'
+}
+
+/**
+ * Get SQLit endpoint for clients
+ */
+export function getSQLitEndpoint(): string {
+  if (sqlitEndpoint && sqlitEndpoint !== 'embedded') {
+    return sqlitEndpoint
+  }
+  return resolveEndpoint()
+}
+
+/**
+ * Execute a query against SQLit
+ * Works with both external endpoint and embedded mode
+ */
+export async function sqlitQuery(
+  database: string,
+  query: string,
+  args?: unknown[]
+): Promise<{ success: boolean; status: string; data: { rows: Record<string, unknown>[] } | null }> {
+  // Ensure service is initialized
+  await ensureSQLitService()
+
+  // Embedded mode
+  if (sqlitEndpoint === 'embedded') {
+    try {
+      const db = getEmbeddedDatabase(database)
+      const stmt = db.prepare(query)
+      const rows = stmt.all(...(args ?? [])) as Record<string, unknown>[]
+      return {
+        success: true,
+        status: 'ok',
+        data: { rows },
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.error(`[SQLit] Query error: ${message}`)
+      return { success: false, status: message, data: null }
+    }
+  }
+
+  // External mode - proxy to endpoint
+  const endpoint = getSQLitEndpoint()
+  const response = await fetch(`${endpoint}/v1/query`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ database, query, args, assoc: true }),
+    signal: AbortSignal.timeout(30000),
+  })
+
+  if (!response.ok) {
+    return { success: false, status: await response.text(), data: null }
+  }
+
+  return await response.json()
+}
+
+/**
+ * Execute a write operation against SQLit
+ */
+export async function sqlitExec(
+  database: string,
+  query: string,
+  args?: unknown[]
+): Promise<{ success: boolean; status: string; data: { last_insert_id: number; affected_rows: number } | null }> {
+  // Ensure service is initialized
+  await ensureSQLitService()
+
+  // Embedded mode
+  if (sqlitEndpoint === 'embedded') {
+    try {
+      const db = getEmbeddedDatabase(database)
+      const result = db.run(query, ...(args ?? []))
+      return {
+        success: true,
+        status: 'ok',
+        data: {
+          last_insert_id: Number(result.lastInsertRowid),
+          affected_rows: result.changes,
+        },
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.error(`[SQLit] Exec error: ${message}`)
+      return { success: false, status: message, data: null }
+    }
+  }
+
+  // External mode
+  const endpoint = getSQLitEndpoint()
+  const response = await fetch(`${endpoint}/v1/exec`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ database, query, args }),
+    signal: AbortSignal.timeout(30000),
+  })
+
+  if (!response.ok) {
+    return { success: false, status: await response.text(), data: null }
+  }
+
+  return await response.json()
+}
+
+/**
+ * Create a new database
+ */
+export async function sqlitCreateDatabase(nodeCount = 1): Promise<{ success: boolean; status: string; data: { database: string } | null }> {
+  await ensureSQLitService()
+
+  // Generate a random database ID
+  const randBytes = randomBytes(32)
+  const dbID = createHash('sha256').update(randBytes).digest('hex')
+
+  // Embedded mode - just create the database
+  if (sqlitEndpoint === 'embedded') {
+    getEmbeddedDatabase(dbID)
+    console.log(`[SQLit] Created embedded database: ${dbID}`)
+    return {
+      success: true,
+      status: 'created',
+      data: { database: dbID },
+    }
+  }
+
+  // External mode
+  const endpoint = getSQLitEndpoint()
+  const response = await fetch(`${endpoint}/v1/admin/create?node=${nodeCount}`, {
+    method: 'POST',
+    signal: AbortSignal.timeout(30000),
+  })
+
+  if (!response.ok) {
+    return { success: false, status: await response.text(), data: null }
+  }
+
+  return await response.json()
+}
+
+/**
+ * Drop a database
+ */
+export async function sqlitDropDatabase(database: string): Promise<{ success: boolean; status: string }> {
+  await ensureSQLitService()
+
+  // Embedded mode
+  if (sqlitEndpoint === 'embedded') {
+    const db = embeddedDatabases.get(database)
+    if (db) {
+      db.close()
+      embeddedDatabases.delete(database)
+    }
+    const dataDir = process.env.SQLIT_DATA_DIR || DEFAULT_DATA_DIR
+    const dbPath = join(dataDir, `${database}.db`)
+    if (existsSync(dbPath)) {
+      rmSync(dbPath)
+    }
+    console.log(`[SQLit] Dropped embedded database: ${database}`)
+    return { success: true, status: 'ok' }
+  }
+
+  // External mode
+  const endpoint = getSQLitEndpoint()
+  const response = await fetch(`${endpoint}/v1/admin/drop?database=${database}`, {
+    method: 'DELETE',
+    signal: AbortSignal.timeout(30000),
+  })
+
+  if (!response.ok) {
+    return { success: false, status: await response.text() }
+  }
+
+  return { success: true, status: 'ok' }
+}
+
+/**
+ * Check if SQLit service is healthy
+ */
+export async function isSQLitHealthy(): Promise<boolean> {
+  try {
+    const { mode } = await ensureSQLitService()
+
+    if (mode === 'embedded') {
+      return true // Embedded is always "healthy"
+    }
+
+    const endpoint = getSQLitEndpoint()
+    return await checkEndpointHealth(endpoint)
+  } catch {
+    return false
   }
 }
 
 /**
+ * Get SQLit service status
+ */
+export function getSQLitStatus(): {
+  running: boolean
+  endpoint: string
+  mode: string
+  healthStatus: string
+} {
+  return {
+    running: initialized,
+    endpoint: getSQLitEndpoint(),
+    mode: getMode(),
+    healthStatus: initialized ? 'healthy' : 'unknown',
+  }
+}
+
+/**
+ * Get SQLit client port (for native protocol connections)
+ */
+export function getSQLitClientPort(): number {
+  return 4661
+}
+
+/**
  * Provision a new database for an app
- * This creates an isolated database within SQLIT
  */
 export async function provisionAppDatabase(params: {
   appName: string
@@ -173,17 +379,19 @@ export async function provisionAppDatabase(params: {
   endpoint: string
   clientPort: number
 }> {
-  // Ensure SQLIT is running
   await ensureSQLitService()
 
   // Generate unique database ID
   const databaseId = `${params.appName.toLowerCase()}-${crypto.randomUUID().slice(0, 8)}`
 
-  // SQLIT creates databases on-demand when first accessed
-  // Just return the connection info - the provisioning module handles ACL
+  // Create the database
+  const result = await sqlitCreateDatabase()
+  if (!result.success || !result.data) {
+    throw new Error(`Failed to create database: ${result.status}`)
+  }
 
   return {
-    databaseId,
+    databaseId: result.data.database,
     endpoint: getSQLitEndpoint(),
     clientPort: getSQLitClientPort(),
   }
@@ -204,4 +412,15 @@ export function getDatabaseConnectionInfo(databaseId: string): {
     databaseId,
     httpUrl: `${getSQLitEndpoint()}/v1`,
   }
+}
+
+/**
+ * Close all embedded databases (for cleanup)
+ */
+export function closeEmbeddedDatabases(): void {
+  for (const [id, db] of embeddedDatabases) {
+    console.log(`[SQLit] Closing embedded database: ${id}`)
+    db.close()
+  }
+  embeddedDatabases.clear()
 }

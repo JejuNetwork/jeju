@@ -82,15 +82,81 @@ describe('Rate Limiting Core', () => {
       // Store should have evicted some entries
       expect(store.size).toBeLessThanOrEqual(5)
     })
+
+    test('handles maxSize of 1', async () => {
+      const store = new InMemoryRateLimitStore(1)
+
+      await store.set('key1', { count: 1, resetAt: Date.now() + 60000 })
+      expect(store.size).toBe(1)
+
+      await store.set('key2', { count: 2, resetAt: Date.now() + 60000 })
+      expect(store.size).toBe(1)
+      expect(await store.get('key2')).toBeDefined()
+    })
+
+    test('does not evict when updating existing key at capacity', async () => {
+      const store = new InMemoryRateLimitStore(3)
+
+      await store.set('key1', { count: 1, resetAt: Date.now() + 60000 })
+      await store.set('key2', { count: 2, resetAt: Date.now() + 60000 })
+      await store.set('key3', { count: 3, resetAt: Date.now() + 60000 })
+
+      // Update existing key - should not evict anything
+      await store.set('key2', { count: 10, resetAt: Date.now() + 60000 })
+
+      expect(store.size).toBe(3)
+      expect(await store.get('key1')).toBeDefined()
+      expect(await store.get('key2')).toBeDefined()
+      expect((await store.get('key2'))?.count).toBe(10)
+      expect(await store.get('key3')).toBeDefined()
+    })
+
+    test('cleanup handles empty store', () => {
+      const store = new InMemoryRateLimitStore()
+      const removed = store.cleanup()
+      expect(removed).toBe(0)
+    })
+
+    test('get returns undefined for expired entry and removes it', async () => {
+      const store = new InMemoryRateLimitStore()
+
+      // Add already expired entry directly
+      await store.set('expired', { count: 5, resetAt: Date.now() - 1 })
+
+      // Get should return undefined and clean up
+      const entry = await store.get('expired')
+      expect(entry).toBeUndefined()
+    })
+
+    test('handles concurrent operations', async () => {
+      const store = new InMemoryRateLimitStore()
+
+      // Run concurrent sets and gets
+      const operations = Array.from({ length: 100 }, async (_, i) => {
+        await store.set(`key${i % 10}`, { count: i, resetAt: Date.now() + 60000 })
+        return store.get(`key${i % 10}`)
+      })
+
+      const results = await Promise.all(operations)
+
+      // All operations should complete without error
+      expect(results.length).toBe(100)
+      // Each result should be defined
+      results.forEach((result) => {
+        expect(result).toBeDefined()
+      })
+    })
   })
 
   describe('RateLimiter', () => {
     let limiter: RateLimiter
 
     beforeEach(() => {
-      limiter = new RateLimiter({
-        defaultTier: { maxRequests: 10, windowMs: 60000 },
-      })
+      // Use InMemoryRateLimitStore explicitly for unit tests
+      limiter = new RateLimiter(
+        { defaultTier: { maxRequests: 10, windowMs: 60000 } },
+        new InMemoryRateLimitStore(),
+      )
     })
 
     afterEach(() => {
@@ -121,9 +187,11 @@ describe('Rate Limiting Core', () => {
     })
 
     test('resets after window expires', async () => {
-      const fastLimiter = new RateLimiter({
-        defaultTier: { maxRequests: 2, windowMs: 100 },
-      })
+      // Use InMemoryRateLimitStore explicitly for unit tests
+      const fastLimiter = new RateLimiter(
+        { defaultTier: { maxRequests: 2, windowMs: 100 } },
+        new InMemoryRateLimitStore(),
+      )
 
       try {
         // Use up the limit
@@ -219,6 +287,35 @@ describe('Rate Limiting Core', () => {
 
       expect(ip).toBe('1.1.1.1')
     })
+
+    test('handles Headers object', () => {
+      const headers = new Headers()
+      headers.set('x-forwarded-for', '10.0.0.1, 10.0.0.2')
+      const ip = extractClientIp(headers)
+      expect(ip).toBe('10.0.0.1')
+    })
+
+    test('handles empty x-forwarded-for', () => {
+      const ip = extractClientIp({ 'x-forwarded-for': '' })
+      expect(ip).toBe('unknown')
+    })
+
+    test('handles x-forwarded-for with only whitespace', () => {
+      const ip = extractClientIp({ 'x-forwarded-for': '   ' })
+      expect(ip).toBe('unknown')
+    })
+
+    test('extracts single IP from x-forwarded-for', () => {
+      const ip = extractClientIp({ 'x-forwarded-for': '192.168.1.1' })
+      expect(ip).toBe('192.168.1.1')
+    })
+
+    test('handles case-insensitive headers object', () => {
+      const ip = extractClientIp({
+        'X-Forwarded-For': '172.16.0.1',
+      })
+      expect(ip).toBe('172.16.0.1')
+    })
   })
 
   describe('createRateLimitHeaders', () => {
@@ -288,14 +385,18 @@ describe('Rate Limiting Core', () => {
     let limiter: RateLimiter
 
     beforeEach(() => {
-      limiter = new RateLimiter({
-        defaultTier: RateLimitTiers.FREE,
-        tiers: {
-          FREE: RateLimitTiers.FREE,
-          BASIC: RateLimitTiers.BASIC,
-          PREMIUM: RateLimitTiers.PREMIUM,
+      // Use InMemoryRateLimitStore explicitly for unit tests
+      limiter = new RateLimiter(
+        {
+          defaultTier: RateLimitTiers.FREE,
+          tiers: {
+            FREE: RateLimitTiers.FREE,
+            BASIC: RateLimitTiers.BASIC,
+            PREMIUM: RateLimitTiers.PREMIUM,
+          },
         },
-      })
+        new InMemoryRateLimitStore(),
+      )
     })
 
     afterEach(() => {

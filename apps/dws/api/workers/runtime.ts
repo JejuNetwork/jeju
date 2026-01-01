@@ -26,13 +26,54 @@ type RuntimeMode = 'bun' | 'workerd'
 // Worker bootstrap - just sets env and imports the main module
 // Most worker code (like Factory) already starts its own server using PORT env var
 function createWorkerBootstrap(port: number, _handler: string): string {
+  // Bootstrap that handles both standalone servers and fetch-export workers
   return `
-// DWS Worker Bootstrap
-// Set PORT before importing the module so it uses the correct port
-process.env.PORT = '${port}';
+// DWS Worker Bootstrap - Starts worker on port ${port}
+const PORT = ${port};
 
-// Import the main module - it should start its own server
-import './main.js';
+async function startWorker() {
+  // Import the worker module
+  const mod = await import('./main.js');
+  
+  // Check if module exports a fetch handler (workerd/CF Workers style)
+  const handler = mod.default?.fetch || mod.fetch || mod.default;
+  
+  if (typeof handler === 'function') {
+    // Create a server wrapping the fetch handler
+    console.log('[Bootstrap] Starting fetch-handler server on port ' + PORT);
+    
+    Bun.serve({
+      port: PORT,
+      async fetch(request) {
+        try {
+          // Call the worker's fetch handler
+          const env = process.env;
+          const ctx = { waitUntil: () => {}, passThroughOnException: () => {} };
+          return await handler(request, env, ctx);
+        } catch (err) {
+          console.error('[Worker Error]', err);
+          return new Response(JSON.stringify({ error: err.message }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+      }
+    });
+  } else if (mod.default?.listen || mod.listen) {
+    // Elysia/Express style - call listen
+    console.log('[Bootstrap] Starting listener server on port ' + PORT);
+    const app = mod.default || mod;
+    app.listen(PORT);
+  } else {
+    // Module should have started its own server
+    console.log('[Bootstrap] Module loaded, expecting self-starting server');
+  }
+}
+
+startWorker().catch(err => {
+  console.error('[Bootstrap] Failed to start worker:', err);
+  process.exit(1);
+});
 `;
 }
 

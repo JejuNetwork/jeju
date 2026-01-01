@@ -1,0 +1,36 @@
+{
+  "name": "{{APP_NAME}}",
+  "displayName": "{{DISPLAY_NAME}}",
+  "version": "1.0.0",
+  "type": "app",
+  "description": "{{DESCRIPTION}}",
+  "commands": {
+    "dev": "bun run --hot api/worker.ts",
+    "build": "bun build api/worker.ts --outdir=dist/worker --target=bun --minify",
+    "test": "bun test"
+  },
+  "ports": {
+    "api": 8787
+  },
+  "jns": {
+    "name": "{{JNS_NAME}}"
+  },
+  "architecture": {
+    "backend": {
+      "outputDir": "dist/worker"
+    }
+  },
+  "dws": {
+    "backend": {
+      "runtime": "workerd",
+      "memoryMb": 128,
+      "timeoutMs": 30000
+    }
+  },
+  "services": {
+    "sqlit": {
+      "enabled": true,
+      "databaseId": "{{DATABASE_ID}}"
+    }
+  }
+}

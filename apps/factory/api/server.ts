@@ -32,6 +32,7 @@ import { packageSettingsRoutes } from './routes/package-settings'
 import { packagesRoutes } from './routes/packages'
 import { projectsRoutes } from './routes/projects'
 import { pullsRoutes } from './routes/pulls'
+import { releasesRoutes } from './routes/releases'
 import { repoSettingsRoutes } from './routes/repo-settings'
 import { shutdownNonceStore } from './validation/nonce-store'
 import {
@@ -158,6 +159,7 @@ function createApp() {
             { name: 'feed', description: 'Developer feed' },
             { name: 'issues', description: 'Issue tracking' },
             { name: 'pulls', description: 'Pull requests' },
+            { name: 'releases', description: 'App releases and downloads' },
             { name: 'a2a', description: 'Agent-to-Agent protocol' },
             { name: 'mcp', description: 'Model Context Protocol' },
           ],
@@ -183,6 +185,7 @@ function createApp() {
     .use(discussionsRoutes)
     .use(issuesRoutes)
     .use(pullsRoutes)
+    .use(releasesRoutes)
     .use(a2aRoutes)
     .use(leaderboardRoutes)
     .use(mcpRoutes)

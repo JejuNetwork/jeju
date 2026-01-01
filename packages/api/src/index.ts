@@ -117,3 +117,36 @@ export {
   type RateLimitTier,
   RateLimitTiers,
 } from './rate-limiting/types.js'
+export {
+  getReleaseService,
+  initReleaseService,
+  ReleaseService,
+  type ReleaseServiceConfig,
+} from './releases/core.js'
+export {
+  createReleaseRoutes,
+  releasePlugin,
+  type ReleasePluginConfig,
+} from './releases/elysia.js'
+export {
+  type AppReleaseConfig,
+  AppReleaseConfigSchema,
+  detectPlatform,
+  type DetectedPlatform,
+  type DownloadInfo,
+  formatFileSize,
+  getArchLabel,
+  getPlatformIcon,
+  getPlatformLabel,
+  getRecommendedDownloads,
+  type ReleaseArch,
+  ReleaseArchSchema,
+  type ReleaseArtifact,
+  ReleaseArtifactSchema,
+  type ReleaseIndex,
+  ReleaseIndexSchema,
+  type ReleaseManifest,
+  ReleaseManifestSchema,
+  type ReleasePlatform,
+  ReleasePlatformSchema,
+} from './releases/types.js'
