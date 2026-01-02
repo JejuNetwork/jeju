@@ -42,7 +42,6 @@ temp/
 # Local development data
 .data/
 data/
-.dws/
 
 # Forge/Foundry
 packages/contracts/cache/

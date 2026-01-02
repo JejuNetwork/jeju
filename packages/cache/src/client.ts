@@ -76,19 +76,25 @@ export class CacheClient {
 
   /**
    * Set a value in the cache
+   * @param key - Cache key
+   * @param value - Value to store
+   * @param options - TTL in seconds or CacheSetOptions object
    */
   async set(
     key: string,
     value: string,
-    options: CacheSetOptions = {},
+    options?: CacheSetOptions | number,
   ): Promise<{ success: boolean }> {
+    const opts: CacheSetOptions =
+      typeof options === 'number' ? { ttl: options } : (options ?? {})
+
     return this.request<{ success: boolean }>('/cache/set', 'POST', {
       key,
       value,
-      ttl: options.ttl ?? this.defaultTtlSeconds,
+      ttl: opts.ttl ?? this.defaultTtlSeconds,
       namespace: this.namespace,
-      nx: options.nx,
-      xx: options.xx,
+      nx: opts.nx,
+      xx: opts.xx,
     })
   }
 

@@ -11,7 +11,7 @@
       "@components/*": ["./web/components/*"],
       "@platform/*": ["./web/platform/*"]
     },
-    "types": ["@types/chrome", "bun"]
+    "types": ["chrome", "bun"]
   },
   "include": ["api/**/*", "web/**/*", "lib/**/*", "extension/**/*"],
   "exclude": ["**/*.test.ts", "**/*.test.tsx", "tests/**/*"]

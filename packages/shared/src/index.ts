@@ -3,6 +3,13 @@
  * Common hooks, components, APIs, services, protocols and utilities used across all network apps
  */
 
+// Cache Client - re-export from @jejunetwork/cache
+export {
+  CacheClient as CacheClientClass,
+  type CacheClientConfig as CachePackageClientConfig,
+  getCacheClient,
+  resetCacheClients,
+} from '@jejunetwork/cache'
 // Viem Utilities (EIP-7702 compatible)
 export {
   // EIP-7702 authorization helpers
@@ -53,13 +60,6 @@ export {
   applyBrandingToDocument,
   getBrandingCssVars,
 } from './branding'
-// Cache Client - re-export from @jejunetwork/cache
-export {
-  CacheClient as CacheClientClass,
-  getCacheClient,
-  resetCacheClients,
-  type CacheClientConfig as CachePackageClientConfig,
-} from '@jejunetwork/cache'
 // Legacy cache exports for backwards compatibility
 export {
   type CacheClient,

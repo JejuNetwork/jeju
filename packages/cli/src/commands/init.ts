@@ -198,11 +198,22 @@ Examples:
             name: 'template',
             message: 'Project template:',
             choices: [
-              { title: 'Full-stack (React + Worker + SQLit)', value: 'fullstack' },
+              {
+                title: 'Full-stack (React + Worker + SQLit)',
+                value: 'fullstack',
+              },
               { title: 'Worker only (API, deploy to DWS)', value: 'worker' },
-              { title: 'Frontend only (React, deploy to IPFS)', value: 'frontend' },
+              {
+                title: 'Frontend only (React, deploy to IPFS)',
+                value: 'frontend',
+              },
             ],
-            initial: options.template === 'worker' ? 1 : options.template === 'frontend' ? 2 : 0,
+            initial:
+              options.template === 'worker'
+                ? 1
+                : options.template === 'frontend'
+                  ? 2
+                  : 0,
           },
           {
             type: 'text',
@@ -239,29 +250,23 @@ Examples:
               `${values.name}.jeju`,
           },
           {
-            type: (
-              _prev: string,
-              values: { template: TemplateType },
-            ) => (values.template !== 'frontend' ? 'text' : null),
+            type: (_prev: string, values: { template: TemplateType }) =>
+              values.template !== 'frontend' ? 'text' : null,
             name: 'databaseId',
             message: 'Database ID:',
             initial: (_prev: string, values: { name: string }) =>
               `${values.name}-db`,
           },
           {
-            type: (
-              _prev: string,
-              values: { template: TemplateType },
-            ) => (values.template !== 'frontend' ? 'confirm' : null),
+            type: (_prev: string, values: { template: TemplateType }) =>
+              values.template !== 'frontend' ? 'confirm' : null,
             name: 'x402Enabled',
             message: 'Enable x402 payments?',
             initial: true,
           },
           {
-            type: (
-              _prev: string,
-              values: { template: TemplateType },
-            ) => (values.template === 'fullstack' ? 'confirm' : null),
+            type: (_prev: string, values: { template: TemplateType }) =>
+              values.template === 'fullstack' ? 'confirm' : null,
             name: 'oauth3Enabled',
             message: 'Enable OAuth3 authentication?',
             initial: true,
@@ -330,7 +335,9 @@ Examples:
         }
       }
 
-      logger.step(`Creating ${config.displayName} (${config.template} template)...`)
+      logger.step(
+        `Creating ${config.displayName} (${config.template} template)...`,
+      )
 
       mkdirSync(config.outputDir, { recursive: true })
 

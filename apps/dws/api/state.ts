@@ -2066,54 +2066,83 @@ export async function initializeDWSState(): Promise<void> {
     } catch (error) {
       // Log the actual error for debugging
       const errorMsg = error instanceof Error ? error.message : String(error)
-      console.error(`[DWS State] SQLit connection failed: ${errorMsg}`)
-
       const network = getCurrentNetwork()
+      const sqlitUrl = getSQLitUrl()
+      const sqlitMinerUrl = getSQLitMinerUrl()
 
-      // In production on testnet/mainnet, SQLit failure is CRITICAL
-      if (
-        isProductionEnv() &&
-        (network === 'testnet' || network === 'mainnet')
-      ) {
-        console.error(
-          '╔═══════════════════════════════════════════════════════════════╗',
-        )
-        console.error(
-          '║  CRITICAL: DWS RUNNING IN DEGRADED MODE - NO PERSISTENCE     ║',
-        )
-        console.error(
-          '╠═══════════════════════════════════════════════════════════════╣',
-        )
-        console.error(
-          '║  SQLit is REQUIRED for production. App registrations will    ║',
-        )
-        console.error(
-          '║  NOT persist across pod restarts. This is NOT decentralized. ║',
-        )
-        console.error(
-          '║                                                               ║',
-        )
-        console.error(
-          '║  Fix: Ensure SQLit is running and SQLIT_URL is configured.   ║',
-        )
-        console.error(
-          '╚═══════════════════════════════════════════════════════════════╝',
-        )
-      }
+      console.error('')
+      console.error(
+        '╔═══════════════════════════════════════════════════════════════╗',
+      )
+      console.error(
+        '║  ERROR: SQLit connection failed - DWS cannot start           ║',
+      )
+      console.error(
+        '╠═══════════════════════════════════════════════════════════════╣',
+      )
+      console.error(
+        `║  Network: ${network.padEnd(52)}║`,
+      )
+      console.error(
+        `║  SQLit URL: ${(sqlitUrl ?? 'not configured').slice(0, 49).padEnd(49)}║`,
+      )
+      console.error(
+        `║  Miner URL: ${(sqlitMinerUrl ?? 'not configured').slice(0, 49).padEnd(49)}║`,
+      )
+      console.error(
+        `║  Error: ${errorMsg.slice(0, 52).padEnd(52)}║`,
+      )
+      console.error('║                                                               ║')
+      console.error(
+        '║  SQLit is REQUIRED for decentralized state persistence.      ║',
+      )
+      console.error(
+        '║  Memory-only mode is NOT allowed - no fallbacks, no LARP.    ║',
+      )
+      console.error('║                                                               ║')
+      console.error(
+        '║  TO FIX (choose one):                                        ║',
+      )
+      console.error('║                                                               ║')
+      console.error(
+        '║  1. Start SQLit with Docker:                                 ║',
+      )
+      console.error(
+        '║     cd packages/sqlit && docker compose up -d sqlit_bp_0     ║',
+      )
+      console.error('║                                                               ║')
+      console.error(
+        '║  2. Start SQLit adapter (simpler):                           ║',
+      )
+      console.error(
+        '║     cd packages/sqlit/adapter && bun run server.ts           ║',
+      )
+      console.error('║                                                               ║')
+      console.error(
+        '║  3. Build and run native SQLit:                              ║',
+      )
+      console.error(
+        '║     cd packages/sqlit && make bin/sqlitd                     ║',
+      )
+      console.error(
+        '║     ./bin/sqlitd -config config-minimal.yaml                 ║',
+      )
+      console.error('║                                                               ║')
+      console.error(
+        '║  4. Start full local stack (recommended):                    ║',
+      )
+      console.error(
+        '║     bun run apps/dws/scripts/local-stack.ts                  ║',
+      )
+      console.error(
+        '╚═══════════════════════════════════════════════════════════════╝',
+      )
+      console.error('')
 
-      // Allow running without SQLit for localnet development
-      memoryOnlyMode = true
-      initialized = true
-
-      if (network === 'localnet') {
-        console.warn(
-          '[DWS State] Memory-only mode (localnet) - data will not persist',
-        )
-      } else {
-        console.error(
-          '[DWS State] Memory-only mode (PRODUCTION) - THIS IS A LARP',
-        )
-      }
+      // FAIL HARD - no fallback to memory mode
+      throw new Error(
+        `SQLit connection failed: ${errorMsg}. See above for resolution steps.`,
+      )
     }
   })()
 

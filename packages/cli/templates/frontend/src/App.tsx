@@ -6,13 +6,13 @@ function App() {
   return (
     <div className="app">
       <header>
-        <h1>{{DISPLAY_NAME}}</h1>
+        <h1>{{ DISPLAY_NAME }}</h1>
         <p>Deployed on Jeju Network via IPFS</p>
       </header>
 
       <main>
         <div className="card">
-          <button onClick={() => setCount((count) => count + 1)}>
+          <button type="button" onClick={() => setCount((count) => count + 1)}>
             Count: {count}
           </button>
         </div>

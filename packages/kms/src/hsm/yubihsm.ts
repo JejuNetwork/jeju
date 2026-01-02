@@ -83,6 +83,7 @@ interface YubiHSMSession {
  * YubiHSM 2 Provider Implementation
  */
 export class YubiHSMProvider implements HSMProvider {
+  private config: HSMConfig
   private connectorUrl: string
   private authKeyId: number
   private authPassword: Uint8Array

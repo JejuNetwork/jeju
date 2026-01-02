@@ -15,7 +15,7 @@
  *   const app = new Elysia().use(securityMiddleware());
  */
 
-import { getCacheClient, type CacheClient } from '@jejunetwork/cache'
+import { type CacheClient, getCacheClient } from '@jejunetwork/cache'
 import { isProductionEnv } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 

@@ -11,12 +11,7 @@
  * - JNSRegistry: Name resolution (app.jeju -> address)
  */
 
-import {
-  type Address,
-  createPublicClient,
-  http,
-  type PublicClient,
-} from 'viem'
+import { type Address, createPublicClient, http, type PublicClient } from 'viem'
 
 // Service types for discovery
 export type ServiceType =
@@ -175,7 +170,7 @@ export class ProviderDiscovery {
     for (const byte of data) {
       hash = (hash * 31n + BigInt(byte)) & ((1n << 256n) - 1n)
     }
-    return '0x' + hash.toString(16).padStart(64, '0')
+    return `0x${hash.toString(16).padStart(64, '0')}`
   }
 
   /**
@@ -354,8 +349,7 @@ export class ProviderDiscovery {
  */
 export function createLocalDiscovery(): ProviderDiscovery {
   // For local dev, use environment variables or Kurtosis service names
-  const bootstrapRpc =
-    process.env.BOOTSTRAP_RPC_URL ?? 'http://l1-geth:8545'
+  const bootstrapRpc = process.env.BOOTSTRAP_RPC_URL ?? 'http://l1-geth:8545'
 
   // These addresses would be from a deployed contracts JSON
   // For local dev, they're deterministic from deployment
@@ -397,4 +391,3 @@ export function createLocalDiscovery(): ProviderDiscovery {
  * console.log('App address:', appAddress)
  * ```
  */
-

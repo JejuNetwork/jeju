@@ -4,6 +4,7 @@
 
 import './init'
 
+import type { Store } from '@subsquid/typeorm-store'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {
   Account,
@@ -51,10 +52,12 @@ const SQLIT_DATABASE_ID = config.sqlitDatabaseId || 'indexer-testnet'
 console.log(`[Indexer] Using SQLit database: ${SQLIT_DATABASE_ID}`)
 
 // SQLitDatabase implements all Store methods used by the indexer
-// Type assertion bridges our custom implementation with subsquid's types
-// @ts-expect-error - SQLitDatabase is compatible with subsquid's Database<Store> at runtime
+// Type assertion needed - SQLitDatabase provides compatible Store interface at runtime
+// The cast through unknown is needed because TypeORM Store has extra methods we don't use
+import type { FinalDatabase } from '@subsquid/util-internal-processor-tools'
+const db: FinalDatabase<Store> = new SQLitDatabase({ databaseId: SQLIT_DATABASE_ID }) as unknown as FinalDatabase<Store>
 processor.run(
-  new SQLitDatabase({ databaseId: SQLIT_DATABASE_ID }),
+  db,
   async (ctx: ProcessorContext<Store>) => {
     const blocks: BlockEntity[] = []
     const transactions: TransactionEntity[] = []

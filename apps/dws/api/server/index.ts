@@ -307,24 +307,20 @@ const app = new Elysia()
   })
   .use(
     cors({
-      // Reflect requesting origin to support credentials
-      // When credentials: 'include' is used, Access-Control-Allow-Origin cannot be '*'
-      // Use a function that returns true to allow, which echoes the requesting origin
-      origin: (request) => {
-        const origin = request.headers.get('origin')
-        // Allow any *.jejunetwork.org origin and localhost for dev
-        if (origin) {
-          if (
-            origin.endsWith('.jejunetwork.org') ||
-            origin.includes('localhost') ||
-            origin.includes('127.0.0.1')
-          ) {
-            return true // Allow origin - CORS will reflect the Origin header
-          }
-        }
-        // For requests without origin, allow
-        return true
-      },
+      // Permissionless CORS for decentralized frontends
+      // Frontends may be served from:
+      // - jejunetwork.org (official)
+      // - IPFS gateways (ipfs.io, dweb.link, cloudflare-ipfs.com, etc.)
+      // - Arweave gateways
+      // - Self-hosted instances
+      // - localhost for development
+      //
+      // We allow all origins to support true decentralization.
+      // Security is handled via:
+      // - Rate limiting
+      // - API key authentication for write operations
+      // - Signature verification for sensitive actions
+      origin: true, // Allow all origins for permissionless frontend access
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
       allowedHeaders: [
@@ -332,8 +328,10 @@ const app = new Elysia()
         'Authorization',
         'X-Request-ID',
         'X-Babylon-Api-Key',
+        'X-IPFS-Gateway', // For IPFS gateway headers
+        'X-JNS-Name', // For JNS name resolution
       ],
-      exposeHeaders: ['X-Request-ID', 'X-Rate-Limit-Remaining'],
+      exposeHeaders: ['X-Request-ID', 'X-Rate-Limit-Remaining', 'X-DWS-Node'],
       maxAge: 86400,
     }),
   )
@@ -1745,6 +1743,19 @@ if (import.meta.main) {
       console.log('[DWS] Database keepalive service started')
     })
     .catch(console.error)
+
+  // Handle uncaught errors to prevent crashes
+  process.on('uncaughtException', (error) => {
+    console.error('[DWS] Uncaught exception:', error.message)
+    console.error(error.stack)
+    // Don't exit - try to keep running
+  })
+
+  process.on('unhandledRejection', (reason, promise) => {
+    console.error('[DWS] Unhandled rejection at:', promise)
+    console.error('[DWS] Reason:', reason)
+    // Don't exit - try to keep running
+  })
 
   process.on('SIGINT', () => shutdown('SIGINT'))
   process.on('SIGTERM', () => shutdown('SIGTERM'))

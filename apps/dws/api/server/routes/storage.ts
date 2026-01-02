@@ -35,10 +35,7 @@ const JsonValueSchema: z.ZodType<unknown> = z.lazy(() =>
 )
 
 import { extractClientRegion } from '../../shared/utils/common'
-import {
-  type BackendManager,
-  getBackendManager,
-} from '../../storage/backends'
+import { type BackendManager, getBackendManager } from '../../storage/backends'
 import { getMultiBackendManager } from '../../storage/multi-backend'
 import type {
   ContentCategory,

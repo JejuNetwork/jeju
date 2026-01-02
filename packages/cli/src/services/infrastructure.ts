@@ -18,7 +18,7 @@ import { logger } from '../lib/logger'
 import { DEFAULT_PORTS } from '../types'
 
 // ERC-4337 Bundler port
-const _BUNDLER_PORT = 4337
+const BUNDLER_PORT = 4337
 
 export interface ServiceHealth {
   name: string
@@ -62,7 +62,7 @@ const DOCKER_SERVICES = {
 const LOCALNET_PORT = DEFAULT_PORTS.l2Rpc
 
 let sqlitProcess: ResultPromise | null = null
-const _bundlerProcess: ResultPromise | null = null
+let bundlerProcess: ResultPromise | null = null
 
 export class InfrastructureService {
   private rootDir: string

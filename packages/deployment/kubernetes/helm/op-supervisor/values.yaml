@@ -5,8 +5,11 @@
 replicaCount: 2
 
 image:
-  repository: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-supervisor
+  # Use Jeju's decentralized registry
+  repository: registry.jeju/op-supervisor
   pullPolicy: IfNotPresent
+  # Fallback for bootstrapping
+  fallbackRepository: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-supervisor
   tag: "v0.5.0"
 
 nameOverride: ""

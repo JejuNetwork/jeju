@@ -10,12 +10,12 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { Command } from 'commander'
-import chalk from 'chalk'
-import { logger } from '../lib/logger'
-import { requireLogin } from './login'
-import type { AppManifest } from '../types'
 import type { NetworkType } from '@jejunetwork/config'
+import chalk from 'chalk'
+import { Command } from 'commander'
+import { logger } from '../lib/logger'
+import type { AppManifest } from '../types'
+import { requireLogin } from './login'
 
 // Helper to get DWS URL
 function getDWSUrl(network: string): string {
@@ -56,7 +56,9 @@ async function registerDomain(
 
   if (!response.ok) {
     const error = await response.json()
-    logger.error(`Failed to register domain: ${error.error || response.statusText}`)
+    logger.error(
+      `Failed to register domain: ${error.error || response.statusText}`,
+    )
     process.exit(1)
   }
 
@@ -99,7 +101,9 @@ async function setContent(
     process.exit(1)
   }
 
-  logger.success(`Domain ${chalk.cyan(name)} now points to ${chalk.yellow(cid)}`)
+  logger.success(
+    `Domain ${chalk.cyan(name)} now points to ${chalk.yellow(cid)}`,
+  )
 }
 
 // Link a domain to a worker
@@ -113,7 +117,9 @@ async function linkWorker(
 
   const dwsUrl = getDWSUrl(options.network)
 
-  logger.step(`Linking ${chalk.cyan(name)} to worker ${chalk.yellow(workerId)}...`)
+  logger.step(
+    `Linking ${chalk.cyan(name)} to worker ${chalk.yellow(workerId)}...`,
+  )
 
   const response = await fetch(`${dwsUrl}/jns/register`, {
     method: 'POST',
@@ -133,7 +139,9 @@ async function linkWorker(
     process.exit(1)
   }
 
-  logger.success(`Domain ${chalk.cyan(name)} now routes to worker ${chalk.yellow(workerId)}`)
+  logger.success(
+    `Domain ${chalk.cyan(name)} now routes to worker ${chalk.yellow(workerId)}`,
+  )
 }
 
 // Resolve a domain name
@@ -147,7 +155,9 @@ async function resolveDomain(
 
   logger.step(`Resolving ${chalk.cyan(name)}...`)
 
-  const response = await fetch(`${dwsUrl}/registry/apps/${encodeURIComponent(name)}`)
+  const response = await fetch(
+    `${dwsUrl}/registry/apps/${encodeURIComponent(name)}`,
+  )
 
   if (!response.ok) {
     if (response.status === 404) {
@@ -207,7 +217,9 @@ async function listDomains(options: { network: string }): Promise<void> {
   if (domains.length === 0) {
     logger.info('You have no registered domains.')
     console.log()
-    console.log(`Register one with: ${chalk.cyan('jeju domain register my-app.jeju')}`)
+    console.log(
+      `Register one with: ${chalk.cyan('jeju domain register my-app.jeju')}`,
+    )
     return
   }
 
@@ -216,7 +228,10 @@ async function listDomains(options: { network: string }): Promise<void> {
   console.log()
 
   for (const domain of domains) {
-    const status = domain.contentCid || domain.workerId ? chalk.green('●') : chalk.yellow('○')
+    const status =
+      domain.contentCid || domain.workerId
+        ? chalk.green('●')
+        : chalk.yellow('○')
     console.log(`  ${status} ${chalk.cyan(domain.name)}`)
     if (domain.contentCid) {
       console.log(`    └─ Content: ${chalk.dim(domain.contentCid)}`)
@@ -239,7 +254,9 @@ async function transferDomain(
 
   const dwsUrl = getDWSUrl(options.network)
 
-  logger.step(`Transferring ${chalk.cyan(name)} to ${chalk.yellow(toAddress)}...`)
+  logger.step(
+    `Transferring ${chalk.cyan(name)} to ${chalk.yellow(toAddress)}...`,
+  )
 
   const response = await fetch(`${dwsUrl}/jns/transfer`, {
     method: 'POST',
@@ -259,7 +276,9 @@ async function transferDomain(
     process.exit(1)
   }
 
-  logger.success(`Domain ${chalk.cyan(name)} transferred to ${chalk.yellow(toAddress)}`)
+  logger.success(
+    `Domain ${chalk.cyan(name)} transferred to ${chalk.yellow(toAddress)}`,
+  )
 }
 
 // Check domain availability
@@ -269,15 +288,21 @@ async function checkAvailability(
 ): Promise<void> {
   const dwsUrl = getDWSUrl(options.network)
 
-  const response = await fetch(`${dwsUrl}/registry/apps/${encodeURIComponent(name)}`)
+  const response = await fetch(
+    `${dwsUrl}/registry/apps/${encodeURIComponent(name)}`,
+  )
 
   if (response.status === 404) {
-    console.log(`${chalk.green('✓')} ${chalk.cyan(name)} is ${chalk.green('available')}`)
+    console.log(
+      `${chalk.green('✓')} ${chalk.cyan(name)} is ${chalk.green('available')}`,
+    )
     console.log()
     console.log(`Register with: ${chalk.cyan(`jeju domain register ${name}`)}`)
   } else if (response.ok) {
     const result = await response.json()
-    console.log(`${chalk.red('✗')} ${chalk.cyan(name)} is ${chalk.red('taken')}`)
+    console.log(
+      `${chalk.red('✗')} ${chalk.cyan(name)} is ${chalk.red('taken')}`,
+    )
     if (result.owner) {
       console.log(`  Owner: ${chalk.dim(result.owner)}`)
     }
@@ -297,7 +322,9 @@ async function linkFromManifest(options: { network: string }): Promise<void> {
     process.exit(1)
   }
 
-  const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8')) as AppManifest
+  const manifest = JSON.parse(
+    readFileSync(manifestPath, 'utf-8'),
+  ) as AppManifest
   const jnsName = manifest.jns?.name
 
   if (!jnsName) {

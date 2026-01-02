@@ -356,10 +356,6 @@ Respond with JSON: { "actions": [...] }`
 
       if (actions.length === 0) return null
 
-      const goalsAddressed = context.goals.active[0]?.id
-        ? [context.goals.active[0].id]
-        : []
-
       return {
         actions,
         totalActions: actions.length,

@@ -38,8 +38,9 @@ const DWS_URL = process.env.DWS_URL ?? `http://${host}:${DWS_PORT}`
 const SQLIT_URL = process.env.SQLIT_URL ?? getSQLitBlockProducerUrl()
 
 // Crucible ports - from centralized port config
-const CRUCIBLE_PORT = CORE_PORTS.CRUCIBLE.get()
-const CRUCIBLE_API_PORT = CORE_PORTS.CRUCIBLE_API.get()
+// Frontend on CRUCIBLE_API (4020), Backend API on CRUCIBLE_EXECUTOR (4021)
+const CRUCIBLE_PORT = CORE_PORTS.CRUCIBLE_API.get()
+const CRUCIBLE_API_PORT = CORE_PORTS.CRUCIBLE_EXECUTOR.get()
 
 // Response schemas
 const UploadResponseSchema = z.object({
@@ -193,15 +194,29 @@ async function uploadDirectory(
   return results
 }
 
+// Default localnet deployer address (first Anvil account)
+const LOCALNET_DEPLOYER = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
+
+// Store worker process for cleanup
+let workerProcess: ReturnType<typeof Bun.spawn> | null = null
+
 /**
  * Deploy backend worker to DWS workerd
  * Uses DWS worker runtime for decentralized execution
+ * Also starts a local Bun process as backup for immediate availability
  */
 async function deployWorker(
   config: StartConfig,
   codeCid: string,
   codeHash: `0x${string}`,
 ): Promise<string> {
+  // Use deployer address from env or default localnet address
+  const deployerAddress =
+    process.env.DEPLOYER_ADDRESS ?? (config.network === 'localnet' ? LOCALNET_DEPLOYER : '')
+  if (!deployerAddress) {
+    throw new Error('DEPLOYER_ADDRESS required for non-localnet deployments')
+  }
+
   const workerConfig = {
     name: 'crucible-api',
     codeCid,
@@ -221,50 +236,72 @@ async function deployWorker(
     },
   }
 
+  // Register worker with DWS (for tracking and future distributed execution)
   const response = await fetch(`${config.dwsUrl}/workers`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-jeju-address': deployerAddress,
+    },
     body: JSON.stringify(workerConfig),
     signal: AbortSignal.timeout(30000),
   })
 
+  let workerId = 'crucible-api'
   if (response.ok) {
     const rawJson: unknown = await response.json()
     const parsed = WorkerDeployResponseSchema.safeParse(rawJson)
     if (parsed.success) {
-      return parsed.data.functionId
+      workerId = parsed.data.functionId
     }
-  }
-
-  // If worker already exists, update it
-  if (response.status === 409) {
-    console.log('[Crucible] Updating existing worker...')
-    const updateResponse = await fetch(
-      `${config.dwsUrl}/workers/crucible-api`,
-      {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          codeCid,
-          codeHash,
-          runtime: 'bun',
-          handler: 'index.js:default',
-          env: workerConfig.env,
-        }),
-        signal: AbortSignal.timeout(10000),
+  } else if (response.status === 409) {
+    // Worker already exists, update it
+    console.log('[Crucible] Updating existing worker registration...')
+    await fetch(`${config.dwsUrl}/workers/crucible-api`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-jeju-address': deployerAddress,
       },
-    )
-    if (updateResponse.ok) {
-      return 'crucible-api'
-    }
-    const updateError = await updateResponse.text()
-    throw new Error(
-      `Failed to update worker: ${updateResponse.status} - ${updateError}`,
-    )
+      body: JSON.stringify({
+        codeCid,
+        codeHash,
+        runtime: 'bun',
+        handler: 'index.js:default',
+        env: workerConfig.env,
+      }),
+      signal: AbortSignal.timeout(10000),
+    })
   }
 
-  const errorText = await response.text()
-  throw new Error(`Failed to deploy worker: ${response.status} - ${errorText}`)
+  // Start local Bun process for the worker (ensures immediate availability)
+  console.log('[Crucible] Starting worker process...')
+  workerProcess = Bun.spawn(['bun', 'run', 'api/worker.ts'], {
+    cwd: APP_DIR,
+    env: {
+      ...process.env,
+      PORT: String(config.apiPort),
+      NETWORK: config.network,
+      SQLIT_URL: config.sqlitUrl,
+      DWS_URL: config.dwsUrl,
+      JEJU_NETWORK: config.network,
+    },
+    stdout: 'inherit',
+    stderr: 'inherit',
+  })
+
+  // Wait for worker to be ready
+  const workerReady = await waitForService(
+    'Worker',
+    `http://${host}:${config.apiPort}`,
+    '/health',
+    30000,
+  )
+  if (!workerReady) {
+    throw new Error('Worker failed to start')
+  }
+
+  return workerId
 }
 
 /**
@@ -499,7 +536,9 @@ async function start(): Promise<void> {
     console.error('')
     console.error('═══════════════════════════════════════════════════════════')
     console.error(' ERROR: DWS is not available')
-    console.error(' Crucible requires DWS for decentralized storage and workers')
+    console.error(
+      ' Crucible requires DWS for decentralized storage and workers',
+    )
     console.error('')
     console.error(' Start DWS first:')
     console.error('   jeju dev --app dws')

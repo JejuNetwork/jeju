@@ -1,8 +1,11 @@
 replicaCount: 1
 
 image:
-  repository: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-challenger
+  # Use Jeju's decentralized registry
+  repository: registry.jeju/op-challenger
   pullPolicy: IfNotPresent
+  # Fallback for bootstrapping
+  fallbackRepository: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-challenger
   tag: "v1.16.3"
 
 nameOverride: ""
