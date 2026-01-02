@@ -522,15 +522,20 @@ export class MultiBackendManager {
           const result = await Promise.race([
             backend.exists(cid),
             new Promise<boolean>((_, reject) =>
-              setTimeout(() => reject(new Error(`Timeout checking ${name}`)), timeoutMs)
+              setTimeout(
+                () => reject(new Error(`Timeout checking ${name}`)),
+                timeoutMs,
+              ),
             ),
           ])
           return result
         } catch (error) {
-          console.warn(`[MultiBackend] exists check failed for ${name}: ${error instanceof Error ? error.message : String(error)}`)
+          console.warn(
+            `[MultiBackend] exists check failed for ${name}: ${error instanceof Error ? error.message : String(error)}`,
+          )
           return false
         }
-      }
+      },
     )
 
     const results = await Promise.all(checkPromises)

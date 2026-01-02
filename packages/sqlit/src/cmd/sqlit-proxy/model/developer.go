@@ -70,7 +70,6 @@ func EnsureDeveloper(db *gorp.DbMap, githubID int64, name string, email string, 
 		}
 
 		exists = false
-		err = nil
 	} else {
 		d.LastLogin = now
 		d.Name = name
@@ -120,12 +119,11 @@ func SetIfNoMainAccount(db *gorp.DbMap, developerID int64, account utils.Account
 	}
 
 	if d.MainAccount != 0 {
-		_, err = GetAccountByID(db, developerID, d.MainAccount)
-		if err == nil {
+		_, checkErr := GetAccountByID(db, developerID, d.MainAccount)
+		if checkErr == nil {
 			return
 		}
-
-		err = nil
+		// Account doesn't exist, continue to set a new main account
 	}
 
 	err = SetMainAccount(db, developerID, account)

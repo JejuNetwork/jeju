@@ -466,42 +466,54 @@ program
   })
 
 // Sequencer commands
-const sequencer = program.command('sequencer').description('Manage sequencer operations')
+const sequencer = program
+  .command('sequencer')
+  .description('Manage sequencer operations')
 
 sequencer
   .command('join')
   .description('Register as a sequencer on the network')
-  .option('-n, --network <network>', 'Network (mainnet, testnet, localnet)', 'localnet')
+  .option(
+    '-n, --network <network>',
+    'Network (mainnet, testnet, localnet)',
+    'localnet',
+  )
   .option('-s, --stake <amount>', 'Stake amount in ETH', '1.0')
   .action(async (options) => {
     console.log(chalk.cyan('\n  Joining Sequencer Network...\n'))
-    
+
     const keyId = process.env.KMS_KEY_ID
     if (!keyId) {
-      console.error(chalk.red('  Error: KMS_KEY_ID environment variable required\n'))
+      console.error(
+        chalk.red('  Error: KMS_KEY_ID environment variable required\n'),
+      )
       process.exit(1)
     }
-    
+
     const rpcUrl = getRpcUrl(options.network as NetworkType)
     const chainId = getChainId(options.network as NetworkType)
-    
+
     console.log(`  Network: ${options.network}`)
     console.log(`  Stake: ${options.stake} ETH`)
     console.log()
-    
+
     const client = createSecureNodeClient(rpcUrl, chainId, keyId)
     const services = createNodeServices(client)
-    
+
     console.log(chalk.dim('  Registering as sequencer...'))
-    
+
     try {
       const result = await services.sequencer.registerAsSequencer()
-      
+
       console.log(chalk.green('\n  Successfully joined sequencer network.'))
       console.log(`    Transaction: ${result}`)
       console.log()
     } catch (error) {
-      console.error(chalk.red(`\n  Failed to join: ${error instanceof Error ? error.message : String(error)}\n`))
+      console.error(
+        chalk.red(
+          `\n  Failed to join: ${error instanceof Error ? error.message : String(error)}\n`,
+        ),
+      )
       process.exit(1)
     }
   })
@@ -509,76 +521,110 @@ sequencer
 sequencer
   .command('status')
   .description('Check sequencer registration status')
-  .option('-n, --network <network>', 'Network (mainnet, testnet, localnet)', 'localnet')
+  .option(
+    '-n, --network <network>',
+    'Network (mainnet, testnet, localnet)',
+    'localnet',
+  )
   .action(async (options) => {
     const keyId = process.env.KMS_KEY_ID ?? 'dev-key'
     const rpcUrl = getRpcUrl(options.network as NetworkType)
     const chainId = getChainId(options.network as NetworkType)
-    
+
     const client = createSecureNodeClient(rpcUrl, chainId, keyId)
     const services = createNodeServices(client)
-    
+
     try {
       const status = await services.sequencer.getSequencerStatus()
       const stake = await services.sequencer.getStake()
-      
+
       console.log(chalk.cyan('\n  Sequencer Status\n'))
-      console.log(`  Registered: ${status.registered ? chalk.green('Yes') : chalk.yellow('No')}`)
-      console.log(`  Active: ${services.sequencer.state.isActive ? chalk.green('Yes') : chalk.yellow('No')}`)
+      console.log(
+        `  Registered: ${status.registered ? chalk.green('Yes') : chalk.yellow('No')}`,
+      )
+      console.log(
+        `  Active: ${services.sequencer.state.isActive ? chalk.green('Yes') : chalk.yellow('No')}`,
+      )
       console.log(`  Stake: ${Number(stake) / 1e18} ETH`)
-      console.log(`  Batches Submitted: ${services.sequencer.state.totalBatchesSubmitted}`)
-      console.log(`  Proposals Submitted: ${services.sequencer.state.totalProposalsSubmitted}`)
+      console.log(
+        `  Batches Submitted: ${services.sequencer.state.totalBatchesSubmitted}`,
+      )
+      console.log(
+        `  Proposals Submitted: ${services.sequencer.state.totalProposalsSubmitted}`,
+      )
       console.log()
     } catch (error) {
-      console.error(chalk.red(`\n  Failed to get status: ${error instanceof Error ? error.message : String(error)}\n`))
+      console.error(
+        chalk.red(
+          `\n  Failed to get status: ${error instanceof Error ? error.message : String(error)}\n`,
+        ),
+      )
     }
   })
 
 sequencer
   .command('leave')
   .description('Unregister from sequencer network and withdraw stake')
-  .option('-n, --network <network>', 'Network (mainnet, testnet, localnet)', 'localnet')
+  .option(
+    '-n, --network <network>',
+    'Network (mainnet, testnet, localnet)',
+    'localnet',
+  )
   .action(async (options) => {
     console.log(chalk.cyan('\n  Leaving Sequencer Network...\n'))
-    
+
     const keyId = process.env.KMS_KEY_ID
     if (!keyId) {
-      console.error(chalk.red('  Error: KMS_KEY_ID environment variable required\n'))
+      console.error(
+        chalk.red('  Error: KMS_KEY_ID environment variable required\n'),
+      )
       process.exit(1)
     }
-    
+
     const rpcUrl = getRpcUrl(options.network as NetworkType)
     const chainId = getChainId(options.network as NetworkType)
-    
+
     const client = createSecureNodeClient(rpcUrl, chainId, keyId)
     const services = createNodeServices(client)
-    
+
     try {
       const result = await services.sequencer.deregisterSequencer()
-      
+
       console.log(chalk.green('\n  Successfully left sequencer network.'))
       console.log(`    Transaction: ${result}`)
-      console.log('    Note: Stake will be available for withdrawal after cooldown period.')
+      console.log(
+        '    Note: Stake will be available for withdrawal after cooldown period.',
+      )
       console.log()
     } catch (error) {
-      console.error(chalk.red(`\n  Failed to leave: ${error instanceof Error ? error.message : String(error)}\n`))
+      console.error(
+        chalk.red(
+          `\n  Failed to leave: ${error instanceof Error ? error.message : String(error)}\n`,
+        ),
+      )
       process.exit(1)
     }
   })
 
 // Federation commands for network-of-networks
-const federation = program.command('federation').description('Manage cross-chain federation')
+const federation = program
+  .command('federation')
+  .description('Manage cross-chain federation')
 
 federation
   .command('list-networks')
   .description('List registered networks in the federation')
-  .option('-n, --network <network>', 'Network (mainnet, testnet, localnet)', 'localnet')
+  .option(
+    '-n, --network <network>',
+    'Network (mainnet, testnet, localnet)',
+    'localnet',
+  )
   .action(async (_options) => {
     console.log(chalk.cyan('\n  Federated Networks\n'))
-    
+
     console.log('  Currently connected networks:')
     console.log()
-    
+
     // This would query the NetworkRegistry contract
     const networks = [
       { name: 'Ethereum', chainId: 1, status: 'Active', type: 'EVM' },
@@ -587,7 +633,7 @@ federation
       { name: 'Base', chainId: 8453, status: 'Active', type: 'EVM' },
       { name: 'Solana', chainId: 101, status: 'Pending', type: 'SVM' },
     ]
-    
+
     for (const net of networks) {
       const statusColor = net.status === 'Active' ? chalk.green : chalk.yellow
       console.log(`    ${net.name} (${net.chainId})`)
@@ -600,31 +646,39 @@ federation
 federation
   .command('register-network')
   .description('Register a new network with the federation')
-  .option('-n, --network <network>', 'Network (mainnet, testnet, localnet)', 'localnet')
+  .option(
+    '-n, --network <network>',
+    'Network (mainnet, testnet, localnet)',
+    'localnet',
+  )
   .option('--chain-id <chainId>', 'Chain ID of the network to register')
   .option('--rpc <rpc>', 'RPC endpoint of the network')
   .option('--bridge <address>', 'Bridge contract address')
   .action(async (options) => {
     console.log(chalk.cyan('\n  Registering Network with Federation...\n'))
-    
+
     if (!options.chainId || !options.rpc || !options.bridge) {
-      console.error(chalk.red('  Error: --chain-id, --rpc, and --bridge are required\n'))
+      console.error(
+        chalk.red('  Error: --chain-id, --rpc, and --bridge are required\n'),
+      )
       process.exit(1)
     }
-    
+
     const keyId = process.env.KMS_KEY_ID
     if (!keyId) {
-      console.error(chalk.red('  Error: KMS_KEY_ID environment variable required\n'))
+      console.error(
+        chalk.red('  Error: KMS_KEY_ID environment variable required\n'),
+      )
       process.exit(1)
     }
-    
+
     console.log(`  Chain ID: ${options.chainId}`)
     console.log(`  RPC: ${options.rpc}`)
     console.log(`  Bridge: ${options.bridge}`)
     console.log()
-    
+
     console.log(chalk.dim('  Registering on-chain...'))
-    
+
     // This would call the NetworkRegistry.registerNetwork() function
     console.log(chalk.green('\n  Network registered successfully.'))
     console.log()
@@ -633,10 +687,14 @@ federation
 federation
   .command('bridge-status')
   .description('Check cross-chain bridge status')
-  .option('-n, --network <network>', 'Network (mainnet, testnet, localnet)', 'localnet')
+  .option(
+    '-n, --network <network>',
+    'Network (mainnet, testnet, localnet)',
+    'localnet',
+  )
   .action(async (_options) => {
     console.log(chalk.cyan('\n  Cross-Chain Bridge Status\n'))
-    
+
     console.log('  Active Bridges:')
     console.log()
     console.log(`    Ethereum <-> Jeju: ${chalk.green('Operational')}`)

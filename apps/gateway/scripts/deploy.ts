@@ -112,31 +112,32 @@ async function verifyContentRetrievable(
   expectedSize: number,
 ): Promise<boolean> {
   const verifyUrl = `${dwsUrl}/storage/download/${cid}`
-  
+
   const response = await fetch(verifyUrl, {
     method: 'HEAD',
     signal: AbortSignal.timeout(10000),
   }).catch(() => null)
-  
+
   if (!response) {
     console.error(`   VERIFICATION FAILED: ${cid} - timeout or network error`)
     return false
   }
-  
+
   if (!response.ok) {
     console.error(`   VERIFICATION FAILED: ${cid} - status ${response.status}`)
     return false
   }
-  
+
   const contentLength = response.headers.get('content-length')
   if (contentLength && parseInt(contentLength, 10) !== expectedSize) {
-    console.error(`   VERIFICATION FAILED: ${cid} - size mismatch (expected ${expectedSize}, got ${contentLength})`)
+    console.error(
+      `   VERIFICATION FAILED: ${cid} - size mismatch (expected ${expectedSize}, got ${contentLength})`,
+    )
     return false
   }
-  
+
   return true
 }
-
 
 async function uploadToIPFS(
   dwsUrl: string,
@@ -167,9 +168,15 @@ async function uploadToIPFS(
   }
 
   // Verify the content is actually retrievable before claiming success
-  const verified = await verifyContentRetrievable(dwsUrl, parsed.data.cid, content.length)
+  const verified = await verifyContentRetrievable(
+    dwsUrl,
+    parsed.data.cid,
+    content.length,
+  )
   if (!verified) {
-    throw new Error(`Upload verification failed for ${name} - content not retrievable from storage`)
+    throw new Error(
+      `Upload verification failed for ${name} - content not retrievable from storage`,
+    )
   }
 
   return {

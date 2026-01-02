@@ -1,5 +1,3 @@
-import React, { useState, useEffect } from 'react'
-import { createRoot } from 'react-dom/client'
 import {
   detectPlatform,
   formatFileSize,
@@ -10,11 +8,20 @@ import {
   type ReleaseManifest,
   type ReleasePlatform,
 } from '@jejunetwork/types'
+import type React from 'react'
+import { useEffect, useState } from 'react'
+import { createRoot } from 'react-dom/client'
 
 // Icons
 function ServerIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-full h-full">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className="w-full h-full"
+    >
       <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
       <rect x="2" y="14" width="20" height="8" rx="2" ry="2" />
       <line x1="6" y1="6" x2="6.01" y2="6" />
@@ -25,7 +32,13 @@ function ServerIcon() {
 
 function DownloadIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-full h-full">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className="w-full h-full"
+    >
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="7 10 12 15 17 10" />
       <line x1="12" y1="15" x2="12" y2="3" />
@@ -35,7 +48,13 @@ function DownloadIcon() {
 
 function CpuIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-full h-full">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className="w-full h-full"
+    >
       <rect x="4" y="4" width="16" height="16" rx="2" ry="2" />
       <rect x="9" y="9" width="6" height="6" />
       <line x1="9" y1="1" x2="9" y2="4" />
@@ -52,7 +71,13 @@ function CpuIcon() {
 
 function HardDriveIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-full h-full">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className="w-full h-full"
+    >
       <line x1="22" y1="12" x2="2" y2="12" />
       <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
       <line x1="6" y1="16" x2="6.01" y2="16" />
@@ -63,7 +88,13 @@ function HardDriveIcon() {
 
 function WifiIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-full h-full">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className="w-full h-full"
+    >
       <path d="M5 12.55a11 11 0 0 1 14.08 0" />
       <path d="M1.42 9a16 16 0 0 1 21.16 0" />
       <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
@@ -74,7 +105,13 @@ function WifiIcon() {
 
 function DollarIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-full h-full">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className="w-full h-full"
+    >
       <line x1="12" y1="1" x2="12" y2="23" />
       <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
     </svg>
@@ -107,7 +144,13 @@ function LinuxIcon() {
 
 function UsersIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-full h-full">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className="w-full h-full"
+    >
       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
       <circle cx="9" cy="7" r="4" />
       <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
@@ -118,7 +161,13 @@ function UsersIcon() {
 
 function GlobeIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-full h-full">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className="w-full h-full"
+    >
       <circle cx="12" cy="12" r="10" />
       <line x1="2" y1="12" x2="22" y2="12" />
       <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
@@ -127,15 +176,37 @@ function GlobeIcon() {
 }
 
 const SERVICES = [
-  { name: 'VPN Node', icon: '🔒', reward: '~$50/month', description: 'Route VPN traffic' },
-  { name: 'CDN Edge', icon: '⚡', reward: '~$30/month', description: 'Cache & serve content' },
-  { name: 'Storage', icon: '💾', reward: '~$40/month', description: 'Store network data' },
-  { name: 'RPC Provider', icon: '🔗', reward: '~$80/month', description: 'Serve blockchain queries' },
+  {
+    name: 'VPN Node',
+    icon: '🔒',
+    reward: '~$50/month',
+    description: 'Route VPN traffic',
+  },
+  {
+    name: 'CDN Edge',
+    icon: '⚡',
+    reward: '~$30/month',
+    description: 'Cache & serve content',
+  },
+  {
+    name: 'Storage',
+    icon: '💾',
+    reward: '~$40/month',
+    description: 'Store network data',
+  },
+  {
+    name: 'RPC Provider',
+    icon: '🔗',
+    reward: '~$80/month',
+    description: 'Serve blockchain queries',
+  },
 ]
 
 function App() {
   const [release, setRelease] = useState<ReleaseManifest | null>(null)
-  const [detected, setDetected] = useState<ReturnType<typeof detectPlatform> | null>(null)
+  const [detected, setDetected] = useState<ReturnType<
+    typeof detectPlatform
+  > | null>(null)
 
   useEffect(() => {
     setDetected(detectPlatform())
@@ -197,11 +268,13 @@ function App() {
 
   const getRecommendedArtifact = (): ReleaseArtifact | null => {
     if (!release || !detected) return null
-    return release.artifacts.find(
-      (a) => a.platform === detected.os && a.arch === detected.arch,
-    ) ?? release.artifacts.find(
-      (a) => a.platform === detected.os,
-    ) ?? null
+    return (
+      release.artifacts.find(
+        (a) => a.platform === detected.os && a.arch === detected.arch,
+      ) ??
+      release.artifacts.find((a) => a.platform === detected.os) ??
+      null
+    )
   }
 
   const recommendedArtifact = getRecommendedArtifact()
@@ -224,7 +297,10 @@ function App() {
       {/* Header */}
       <header className="relative z-10 border-b border-surface-border backdrop-blur-xl bg-node-darker/80">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <a href="/" className="flex items-center gap-3 text-node-purple font-bold text-xl">
+          <a
+            href="/"
+            className="flex items-center gap-3 text-node-purple font-bold text-xl"
+          >
             <div className="w-10 h-10 bg-node-purple rounded-xl flex items-center justify-center glow-purple">
               <span className="w-5 h-5 text-white">
                 <ServerIcon />
@@ -233,17 +309,30 @@ function App() {
             Jeju Node
           </a>
           <nav className="hidden md:flex items-center gap-8">
-            <a href="#services" className="text-white/70 hover:text-node-purple-light transition-colors font-medium">
+            <a
+              href="#services"
+              className="text-white/70 hover:text-node-purple-light transition-colors font-medium"
+            >
               Services
             </a>
-            <a href="#requirements" className="text-white/70 hover:text-node-purple-light transition-colors font-medium">
+            <a
+              href="#requirements"
+              className="text-white/70 hover:text-node-purple-light transition-colors font-medium"
+            >
               Requirements
             </a>
-            <a href="#download" className="text-white/70 hover:text-node-purple-light transition-colors font-medium">
+            <a
+              href="#download"
+              className="text-white/70 hover:text-node-purple-light transition-colors font-medium"
+            >
               Download
             </a>
             <a
-              href={recommendedArtifact ? `/storage/download/${recommendedArtifact.cid}?filename=${recommendedArtifact.filename}` : '#download'}
+              href={
+                recommendedArtifact
+                  ? `/storage/download/${recommendedArtifact.cid}?filename=${recommendedArtifact.filename}`
+                  : '#download'
+              }
               className="bg-node-purple text-white px-6 py-2.5 rounded-xl font-semibold hover:bg-node-purple-light transition-colors"
             >
               Download App
@@ -267,8 +356,8 @@ function App() {
           </h1>
 
           <p className="text-xl md:text-2xl text-white/60 max-w-2xl mb-12 animate-fade-in-up">
-            Help power the decentralized web. Run VPN nodes, CDN edges, storage, and RPC services.
-            Get paid in JEJU tokens.
+            Help power the decentralized web. Run VPN nodes, CDN edges, storage,
+            and RPC services. Get paid in JEJU tokens.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 animate-fade-in-up">
@@ -281,7 +370,8 @@ function App() {
                   <DownloadIcon />
                 </span>
                 Download for {getPlatformLabel(detected.os as ReleasePlatform)}
-                {detected.arch !== 'unknown' && ` (${getArchLabel(detected.arch as ReleaseArch)})`}
+                {detected.arch !== 'unknown' &&
+                  ` (${getArchLabel(detected.arch as ReleaseArch)})`}
               </a>
             )}
             <a
@@ -310,7 +400,8 @@ function App() {
               Choose Your Services
             </h2>
             <p className="text-xl text-white/60 text-center mb-16 max-w-2xl mx-auto">
-              Run one or multiple services based on your hardware. More services = more rewards.
+              Run one or multiple services based on your hardware. More services
+              = more rewards.
             </p>
 
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -322,7 +413,10 @@ function App() {
         </section>
 
         {/* Requirements */}
-        <section id="requirements" className="py-20 px-6 bg-surface-elevated/30">
+        <section
+          id="requirements"
+          className="py-20 px-6 bg-surface-elevated/30"
+        >
           <div className="max-w-5xl mx-auto">
             <h2 className="text-4xl font-bold text-center mb-16">
               System Requirements
@@ -360,7 +454,8 @@ function App() {
           <div className="max-w-5xl mx-auto text-center">
             <h2 className="text-4xl font-bold mb-6">Download Jeju Node</h2>
             <p className="text-xl text-white/60 mb-12">
-              Available for macOS, Windows, and Linux. Version {release?.version ?? '1.0.0'}
+              Available for macOS, Windows, and Linux. Version{' '}
+              {release?.version ?? '1.0.0'}
             </p>
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -368,7 +463,9 @@ function App() {
               <PlatformDownloads
                 icon={<AppleIcon />}
                 name="macOS"
-                artifacts={release?.artifacts.filter((a) => a.platform === 'macos') ?? []}
+                artifacts={
+                  release?.artifacts.filter((a) => a.platform === 'macos') ?? []
+                }
                 recommended={detected?.os === 'macos'}
                 recommendedArch={detected?.arch}
               />
@@ -376,7 +473,10 @@ function App() {
               <PlatformDownloads
                 icon={<WindowsIcon />}
                 name="Windows"
-                artifacts={release?.artifacts.filter((a) => a.platform === 'windows') ?? []}
+                artifacts={
+                  release?.artifacts.filter((a) => a.platform === 'windows') ??
+                  []
+                }
                 recommended={detected?.os === 'windows'}
                 recommendedArch={detected?.arch}
               />
@@ -384,7 +484,9 @@ function App() {
               <PlatformDownloads
                 icon={<LinuxIcon />}
                 name="Linux"
-                artifacts={release?.artifacts.filter((a) => a.platform === 'linux') ?? []}
+                artifacts={
+                  release?.artifacts.filter((a) => a.platform === 'linux') ?? []
+                }
                 recommended={detected?.os === 'linux'}
                 recommendedArch={detected?.arch}
               />
@@ -447,13 +549,26 @@ function App() {
       <footer className="relative z-10 border-t border-surface-border py-10 px-6">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-6">
           <div className="flex gap-6 text-sm text-white/60">
-            <a href="https://jejunetwork.org" target="_blank" rel="noopener" className="hover:text-node-purple-light transition-colors">
+            <a
+              href="https://jejunetwork.org"
+              target="_blank"
+              rel="noopener"
+              className="hover:text-node-purple-light transition-colors"
+            >
               Jeju Network
             </a>
-            <a href="https://github.com/jejunetwork/node" target="_blank" rel="noopener" className="hover:text-node-purple-light transition-colors">
+            <a
+              href="https://github.com/jejunetwork/node"
+              target="_blank"
+              rel="noopener"
+              className="hover:text-node-purple-light transition-colors"
+            >
               GitHub
             </a>
-            <a href="/api/info" className="hover:text-node-purple-light transition-colors">
+            <a
+              href="/api/info"
+              className="hover:text-node-purple-light transition-colors"
+            >
               API
             </a>
           </div>
@@ -466,7 +581,15 @@ function App() {
   )
 }
 
-function Stat({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) {
+function Stat({
+  icon,
+  value,
+  label,
+}: {
+  icon: React.ReactNode
+  value: string
+  label: string
+}) {
   return (
     <div className="text-center">
       <div className="w-10 h-10 mx-auto mb-3 text-node-purple">{icon}</div>
@@ -524,14 +647,24 @@ function RequirementCard({
         </div>
         <div className="flex justify-between">
           <span className="text-white/60">Recommended</span>
-          <span className="font-medium text-node-purple-light">{recommended}</span>
+          <span className="font-medium text-node-purple-light">
+            {recommended}
+          </span>
         </div>
       </div>
     </div>
   )
 }
 
-function Step({ number, title, description }: { number: number; title: string; description: string }) {
+function Step({
+  number,
+  title,
+  description,
+}: {
+  number: number
+  title: string
+  description: string
+}) {
   return (
     <div className="flex gap-6 items-start">
       <div className="w-12 h-12 bg-node-purple text-white rounded-xl flex items-center justify-center font-bold text-xl flex-shrink-0">
@@ -561,11 +694,15 @@ function PlatformDownloads({
   return (
     <div
       className={`bg-surface-elevated border rounded-2xl p-6 transition-all ${
-        recommended ? 'border-node-purple/50 ring-2 ring-node-purple/20' : 'border-surface-border'
+        recommended
+          ? 'border-node-purple/50 ring-2 ring-node-purple/20'
+          : 'border-surface-border'
       }`}
     >
       {recommended && (
-        <span className="text-xs text-node-purple font-medium uppercase tracking-wider">Your Platform</span>
+        <span className="text-xs text-node-purple font-medium uppercase tracking-wider">
+          Your Platform
+        </span>
       )}
       <div className="w-10 h-10 mx-auto my-4 text-white/80">{icon}</div>
       <h3 className="text-lg font-semibold mb-4">{name}</h3>
@@ -585,8 +722,12 @@ function PlatformDownloads({
                 }`}
               >
                 <div className="flex justify-between items-center">
-                  <span>{artifact.arch ? getArchLabel(artifact.arch) : 'Download'}</span>
-                  <span className="text-xs opacity-70">{formatFileSize(artifact.size)}</span>
+                  <span>
+                    {artifact.arch ? getArchLabel(artifact.arch) : 'Download'}
+                  </span>
+                  <span className="text-xs opacity-70">
+                    {formatFileSize(artifact.size)}
+                  </span>
                 </div>
               </a>
             )

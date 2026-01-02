@@ -15,8 +15,7 @@ interface TestEnv {
  * Get test environment configuration
  */
 export function getTestEnv(): TestEnv {
-  const dwsUrl =
-    process.env.DWS_URL ?? getDWSUrl() ?? 'http://localhost:4030'
+  const dwsUrl = process.env.DWS_URL ?? getDWSUrl() ?? 'http://localhost:4030'
 
   const testAddr =
     process.env.TEST_ADDRESS ?? '0x1234567890123456789012345678901234567890'

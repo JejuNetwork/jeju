@@ -6,9 +6,9 @@
 export {
   type AppReleaseConfig,
   AppReleaseConfigSchema,
-  detectPlatform,
   type DetectedPlatform,
   type DownloadInfo,
+  detectPlatform,
   formatFileSize,
   getArchLabel,
   getPlatformIcon,

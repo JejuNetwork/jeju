@@ -78,9 +78,11 @@ test.describe('Otto Landing Page', () => {
   test.describe('Feature Cards', () => {
     test('displays all feature cards', async ({ page }) => {
       // Look for feature card section
-      const featureSection = page.locator(
-        'section:has(h2:text("Features")), section:has(h2:text("Why")), [class*="feature"], [class*="grid"]',
-      ).first()
+      const featureSection = page
+        .locator(
+          'section:has(h2:text("Features")), section:has(h2:text("Why")), [class*="feature"], [class*="grid"]',
+        )
+        .first()
 
       if (await featureSection.isVisible()) {
         const cards = featureSection.locator('[class*="card"], > div > div')
@@ -109,16 +111,20 @@ test.describe('Otto Landing Page', () => {
   test.describe('Call to Action Buttons', () => {
     test('primary CTA button is visible', async ({ page }) => {
       // Look for primary action button
-      const ctaButton = page.locator(
-        'button:text("Get Started"), button:text("Start"), a:text("Get Started"), a:text("Start")',
-      ).first()
+      const ctaButton = page
+        .locator(
+          'button:text("Get Started"), button:text("Start"), a:text("Get Started"), a:text("Start")',
+        )
+        .first()
       await expect(ctaButton).toBeVisible()
     })
 
     test('CTA button has correct styling', async ({ page }) => {
-      const ctaButton = page.locator(
-        'button:text("Get Started"), button:text("Start"), a:text("Get Started"), a:text("Start")',
-      ).first()
+      const ctaButton = page
+        .locator(
+          'button:text("Get Started"), button:text("Start"), a:text("Get Started"), a:text("Start")',
+        )
+        .first()
 
       // Should have a prominent background color
       const bgColor = await ctaButton.evaluate((el) => {
@@ -129,9 +135,11 @@ test.describe('Otto Landing Page', () => {
     })
 
     test('CTA button is clickable', async ({ page }) => {
-      const ctaButton = page.locator(
-        'button:text("Get Started"), button:text("Start"), a:text("Get Started"), a:text("Start")',
-      ).first()
+      const ctaButton = page
+        .locator(
+          'button:text("Get Started"), button:text("Start"), a:text("Get Started"), a:text("Start")',
+        )
+        .first()
 
       await ctaButton.click()
 
@@ -151,9 +159,11 @@ test.describe('Otto Landing Page', () => {
 
   test.describe('Stats Section', () => {
     test('displays statistics if present', async ({ page }) => {
-      const statsSection = page.locator(
-        '[class*="stats"], section:has([class*="stat"]), div:has(> div:has(span:text("Active")))',
-      ).first()
+      const statsSection = page
+        .locator(
+          '[class*="stats"], section:has([class*="stat"]), div:has(> div:has(span:text("Active")))',
+        )
+        .first()
 
       if (await statsSection.isVisible().catch(() => false)) {
         // Should show numbers
@@ -168,9 +178,11 @@ test.describe('Otto Onboarding Wizard', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(BASE_URL)
     // Navigate to onboarding
-    const startButton = page.locator(
-      'button:text("Get Started"), button:text("Start"), a:text("Get Started")',
-    ).first()
+    const startButton = page
+      .locator(
+        'button:text("Get Started"), button:text("Start"), a:text("Get Started")',
+      )
+      .first()
     await startButton.click()
     await page.waitForTimeout(500)
   })
@@ -178,9 +190,11 @@ test.describe('Otto Onboarding Wizard', () => {
   test.describe('Step Navigation', () => {
     test('shows step indicators', async ({ page }) => {
       // Look for step indicators (numbers, dots, or progress bar)
-      const stepIndicator = page.locator(
-        '[class*="step"], [class*="progress"], [role="progressbar"], [class*="indicator"]',
-      ).first()
+      const stepIndicator = page
+        .locator(
+          '[class*="step"], [class*="progress"], [role="progressbar"], [class*="indicator"]',
+        )
+        .first()
 
       if (await stepIndicator.isVisible().catch(() => false)) {
         await expect(stepIndicator).toBeVisible()
@@ -188,9 +202,11 @@ test.describe('Otto Onboarding Wizard', () => {
     })
 
     test('can navigate to next step', async ({ page }) => {
-      const nextButton = page.locator(
-        'button:text("Next"), button:text("Continue"), button:text("Begin")',
-      ).first()
+      const nextButton = page
+        .locator(
+          'button:text("Next"), button:text("Continue"), button:text("Begin")',
+        )
+        .first()
 
       if (await nextButton.isVisible().catch(() => false)) {
         await nextButton.click()
@@ -204,18 +220,22 @@ test.describe('Otto Onboarding Wizard', () => {
 
     test('can navigate back', async ({ page }) => {
       // First advance a step
-      const nextButton = page.locator(
-        'button:text("Next"), button:text("Continue"), button:text("Begin")',
-      ).first()
+      const nextButton = page
+        .locator(
+          'button:text("Next"), button:text("Continue"), button:text("Begin")',
+        )
+        .first()
 
       if (await nextButton.isVisible().catch(() => false)) {
         await nextButton.click()
         await page.waitForTimeout(300)
 
         // Then go back
-        const backButton = page.locator(
-          'button:text("Back"), button:has([class*="arrow"]), [aria-label*="back"]',
-        ).first()
+        const backButton = page
+          .locator(
+            'button:text("Back"), button:has([class*="arrow"]), [aria-label*="back"]',
+          )
+          .first()
 
         if (await backButton.isVisible().catch(() => false)) {
           await backButton.click()
@@ -239,15 +259,15 @@ test.describe('Otto Onboarding Wizard', () => {
     })
 
     test('can select a platform', async ({ page }) => {
-      const platformButton = page.locator(
-        'button:has-text("Discord"), button:has-text("Telegram")',
-      ).first()
+      const platformButton = page
+        .locator('button:has-text("Discord"), button:has-text("Telegram")')
+        .first()
 
       if (await platformButton.isVisible().catch(() => false)) {
         await platformButton.click()
 
         // Should show some indication of selection
-        const isSelected =
+        const _isSelected =
           (await platformButton.getAttribute('aria-selected')) === 'true' ||
           (await platformButton.getAttribute('data-selected')) === 'true' ||
           (await platformButton.evaluate((el) =>
@@ -264,7 +284,7 @@ test.describe('Otto Onboarding Wizard', () => {
 
       for (const platform of expectedPlatforms) {
         const option = page.locator(`text=${platform}`).first()
-        const visible = await option.isVisible().catch(() => false)
+        const _visible = await option.isVisible().catch(() => false)
         // At least some platforms should be visible
       }
     })
@@ -275,14 +295,16 @@ test.describe('Otto Onboarding Wizard', () => {
       // Navigate through steps to wallet
       let attempts = 0
       while (attempts < 5) {
-        const walletText = page.locator('text=wallet, text=Wallet, text=connect')
+        const walletText = page.locator(
+          'text=wallet, text=Wallet, text=connect',
+        )
         if (await walletText.isVisible().catch(() => false)) {
           break
         }
 
-        const nextButton = page.locator(
-          'button:text("Next"), button:text("Continue")',
-        ).first()
+        const nextButton = page
+          .locator('button:text("Next"), button:text("Continue")')
+          .first()
         if (await nextButton.isVisible().catch(() => false)) {
           await nextButton.click()
           await page.waitForTimeout(500)
@@ -293,9 +315,9 @@ test.describe('Otto Onboarding Wizard', () => {
       }
 
       // If we found wallet step, verify button exists
-      const connectButton = page.locator(
-        'button:text("Connect"), button:text("Wallet")',
-      ).first()
+      const connectButton = page
+        .locator('button:text("Connect"), button:text("Wallet")')
+        .first()
       if (await connectButton.isVisible().catch(() => false)) {
         await expect(connectButton).toBeVisible()
       }
@@ -308,9 +330,11 @@ test.describe('Otto Onboarding Wizard', () => {
       // For now, just verify we can navigate through
       let stepCount = 0
       while (stepCount < 10) {
-        const nextButton = page.locator(
-          'button:text("Next"), button:text("Continue"), button:text("Skip"), button:text("Finish")',
-        ).first()
+        const nextButton = page
+          .locator(
+            'button:text("Next"), button:text("Continue"), button:text("Skip"), button:text("Finish")',
+          )
+          .first()
 
         if (
           !(await nextButton.isVisible().catch(() => false)) ||
@@ -349,9 +373,11 @@ test.describe('Mobile Responsiveness', () => {
   test('mobile menu works if present', async ({ page }) => {
     await page.goto(BASE_URL)
 
-    const hamburger = page.locator(
-      '[class*="hamburger"], [class*="menu-toggle"], button[aria-label*="menu"]',
-    ).first()
+    const hamburger = page
+      .locator(
+        '[class*="hamburger"], [class*="menu-toggle"], button[aria-label*="menu"]',
+      )
+      .first()
 
     if (await hamburger.isVisible().catch(() => false)) {
       await hamburger.click()

@@ -353,7 +353,15 @@ async function registerApp(
       staticFiles: Object.keys(staticFiles).length > 0 ? staticFiles : null,
       backendWorkerId: workerId,
       backendEndpoint: backendEndpoint,
-      apiPaths: ['/api', '/a2a', '/mcp', '/health', '/rlaif', '/fees', '/.well-known'],
+      apiPaths: [
+        '/api',
+        '/a2a',
+        '/mcp',
+        '/health',
+        '/rlaif',
+        '/fees',
+        '/.well-known',
+      ],
       spa: true,
       enabled: true,
     }),
@@ -367,7 +375,6 @@ async function registerApp(
   const result: unknown = await response.json()
   console.log(`   App registered: ${JSON.stringify(result)}`)
 }
-
 
 // Main Deploy Function
 

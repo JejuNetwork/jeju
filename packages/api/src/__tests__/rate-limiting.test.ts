@@ -133,7 +133,10 @@ describe('Rate Limiting Core', () => {
 
       // Run concurrent sets and gets
       const operations = Array.from({ length: 100 }, async (_, i) => {
-        await store.set(`key${i % 10}`, { count: i, resetAt: Date.now() + 60000 })
+        await store.set(`key${i % 10}`, {
+          count: i,
+          resetAt: Date.now() + 60000,
+        })
         return store.get(`key${i % 10}`)
       })
 

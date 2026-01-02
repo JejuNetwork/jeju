@@ -1,11 +1,11 @@
-import React from 'react'
+import type React from 'react'
 import {
   DiscordIcon,
-  TelegramIcon,
   FarcasterIcon,
-  WhatsAppIcon,
+  TelegramIcon,
   TwitterIcon,
   WebIcon,
+  WhatsAppIcon,
 } from '../components/Icons'
 
 interface Props {
@@ -21,26 +21,40 @@ export function Landing({ onNavigate }: Props) {
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-otto-darker/80 border-b border-surface-border">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <a href="/" className="flex items-center gap-3 text-otto-cyan font-bold text-2xl">
+          <a
+            href="/"
+            className="flex items-center gap-3 text-otto-cyan font-bold text-2xl"
+          >
             <div className="w-10 h-10 bg-gradient-to-br from-otto-cyan to-otto-purple rounded-xl flex items-center justify-center text-lg shadow-lg shadow-otto-cyan/30">
               O
             </div>
             Otto
           </a>
           <nav className="hidden md:flex items-center gap-8">
-            <a href="#features" className="text-white/70 hover:text-otto-cyan transition-colors font-medium">
+            <a
+              href="#features"
+              className="text-white/70 hover:text-otto-cyan transition-colors font-medium"
+            >
               Features
             </a>
-            <a href="#platforms" className="text-white/70 hover:text-otto-cyan transition-colors font-medium">
+            <a
+              href="#platforms"
+              className="text-white/70 hover:text-otto-cyan transition-colors font-medium"
+            >
               Platforms
             </a>
             <button
+              type="button"
               onClick={() => onNavigate('chat')}
               className="text-white/70 hover:text-otto-cyan transition-colors font-medium"
             >
               Chat
             </button>
-            <button onClick={() => onNavigate('onboard')} className="btn-primary">
+            <button
+              type="button"
+              onClick={() => onNavigate('onboard')}
+              className="btn-primary"
+            >
               Get Started
             </button>
           </nav>
@@ -67,14 +81,30 @@ export function Landing({ onNavigate }: Props) {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 animate-fade-in-up">
-            <button onClick={() => onNavigate('onboard')} className="btn-primary text-lg px-8 py-4">
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <button
+              type="button"
+              onClick={() => onNavigate('onboard')}
+              className="btn-primary text-lg px-8 py-4"
+            >
+              <svg
+                className="w-5 h-5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
               </svg>
               Get Started
             </button>
             <a href="#platforms" className="btn-secondary text-lg px-8 py-4">
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                className="w-5 h-5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <circle cx="12" cy="12" r="10" />
                 <path d="M12 16v-4M12 8h.01" />
               </svg>
@@ -177,9 +207,14 @@ export function Landing({ onNavigate }: Props) {
           <div className="max-w-3xl mx-auto text-center">
             <h2 className="text-4xl font-bold mb-6">Ready to start trading?</h2>
             <p className="text-xl text-white/60 mb-10">
-              Connect your favorite platform and start trading in under a minute.
+              Connect your favorite platform and start trading in under a
+              minute.
             </p>
-            <button onClick={() => onNavigate('onboard')} className="btn-primary text-lg px-10 py-5">
+            <button
+              type="button"
+              onClick={() => onNavigate('onboard')}
+              className="btn-primary text-lg px-10 py-5"
+            >
               Get Started Free
             </button>
           </div>
@@ -190,13 +225,26 @@ export function Landing({ onNavigate }: Props) {
       <footer className="relative z-10 border-t border-surface-border py-10 px-6">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-6">
           <div className="flex gap-6 text-sm text-white/60">
-            <a href="https://jejunetwork.org" target="_blank" rel="noopener" className="hover:text-otto-cyan transition-colors">
+            <a
+              href="https://jejunetwork.org"
+              target="_blank"
+              rel="noopener"
+              className="hover:text-otto-cyan transition-colors"
+            >
               Jeju Network
             </a>
-            <a href="/api/info" className="hover:text-otto-cyan transition-colors">
+            <a
+              href="/api/info"
+              className="hover:text-otto-cyan transition-colors"
+            >
               API
             </a>
-            <a href="https://github.com/jejunetwork/otto" target="_blank" rel="noopener" className="hover:text-otto-cyan transition-colors">
+            <a
+              href="https://github.com/jejunetwork/otto"
+              target="_blank"
+              rel="noopener"
+              className="hover:text-otto-cyan transition-colors"
+            >
               GitHub
             </a>
           </div>
@@ -231,14 +279,23 @@ function PlatformButton({
 
   if (href) {
     return (
-      <a href={href} target="_blank" rel="noopener" className={`platform-btn ${className}`}>
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener"
+        className={`platform-btn ${className}`}
+      >
         {content}
       </a>
     )
   }
 
   return (
-    <button onClick={onClick} className={`platform-btn ${className}`}>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`platform-btn ${className}`}
+    >
       {content}
     </button>
   )

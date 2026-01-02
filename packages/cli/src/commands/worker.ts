@@ -17,8 +17,8 @@ import { getDWSUrl, getLocalhostHost } from '@jejunetwork/config'
 import { Command } from 'commander'
 import type { Address } from 'viem'
 import { logger } from '../lib/logger'
+import type { AppManifest, NetworkType } from '../types'
 import { requireLogin } from './login'
-import type { NetworkType, AppManifest } from '../types'
 
 // Worker configuration from jeju-manifest.json
 interface WorkerConfig {
@@ -66,9 +66,15 @@ function getDWSUrlForNetwork(network: NetworkType): string {
     case 'mainnet':
       return process.env.MAINNET_DWS_URL ?? 'https://dws.jejunetwork.org'
     case 'testnet':
-      return process.env.TESTNET_DWS_URL ?? 'https://dws.testnet.jejunetwork.org'
+      return (
+        process.env.TESTNET_DWS_URL ?? 'https://dws.testnet.jejunetwork.org'
+      )
     default:
-      return process.env.DWS_URL ?? getDWSUrl() ?? `http://${getLocalhostHost()}:4020`
+      return (
+        process.env.DWS_URL ??
+        getDWSUrl() ??
+        `http://${getLocalhostHost()}:4020`
+      )
   }
 }
 
@@ -79,12 +85,15 @@ function loadWorkerConfig(dir: string): WorkerConfig {
   // Try jeju-manifest.json first
   const manifestPath = join(dir, 'jeju-manifest.json')
   if (existsSync(manifestPath)) {
-    const manifest: AppManifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
+    const manifest: AppManifest = JSON.parse(
+      readFileSync(manifestPath, 'utf-8'),
+    )
 
     const backend = manifest.architecture?.backend
-    const entry = typeof backend === 'object' && backend.outputDir
-      ? `${backend.outputDir}/worker.ts`
-      : 'api/worker.ts'
+    const entry =
+      typeof backend === 'object' && backend.outputDir
+        ? `${backend.outputDir}/worker.ts`
+        : 'api/worker.ts'
 
     return {
       name: manifest.name,
@@ -102,7 +111,8 @@ function loadWorkerConfig(dir: string): WorkerConfig {
     const wranglerContent = readFileSync(wranglerPath, 'utf-8')
     // Simple TOML parsing for common fields
     const name = wranglerContent.match(/name\s*=\s*"([^"]+)"/)?.[1] ?? 'worker'
-    const main = wranglerContent.match(/main\s*=\s*"([^"]+)"/)?.[1] ?? 'src/index.ts'
+    const main =
+      wranglerContent.match(/main\s*=\s*"([^"]+)"/)?.[1] ?? 'src/index.ts'
     const compatibilityDate = wranglerContent.match(
       /compatibility_date\s*=\s*"([^"]+)"/,
     )?.[1]
@@ -139,19 +149,22 @@ async function buildWorker(dir: string, config: WorkerConfig): Promise<string> {
   const outDir = join(dir, 'dist/worker')
 
   // Use Bun to bundle
-  const result = Bun.spawnSync([
-    'bun',
-    'build',
-    entryPath,
-    '--outdir',
-    outDir,
-    '--target',
-    'bun',
-    '--minify',
-  ], {
-    cwd: dir,
-    stdio: ['inherit', 'pipe', 'pipe'],
-  })
+  const result = Bun.spawnSync(
+    [
+      'bun',
+      'build',
+      entryPath,
+      '--outdir',
+      outDir,
+      '--target',
+      'bun',
+      '--minify',
+    ],
+    {
+      cwd: dir,
+      stdio: ['inherit', 'pipe', 'pipe'],
+    },
+  )
 
   if (result.exitCode !== 0) {
     const stderr = new TextDecoder().decode(result.stderr)
@@ -186,7 +199,7 @@ async function uploadWorkerCode(
   const response = await fetch(`${dwsUrl}/storage/upload`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${authToken}`,
+      Authorization: `Bearer ${authToken}`,
     },
     body: formData,
   })
@@ -215,7 +228,7 @@ async function deployWorkerToDWS(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${authToken}`,
+      Authorization: `Bearer ${authToken}`,
       'X-Jeju-Address': address,
     },
     body: JSON.stringify({
@@ -248,7 +261,7 @@ async function listWorkers(
 
   const response = await fetch(`${dwsUrl}/workers/list`, {
     headers: {
-      'Authorization': `Bearer ${authToken}`,
+      Authorization: `Bearer ${authToken}`,
       'X-Jeju-Address': address,
     },
   })
@@ -273,7 +286,7 @@ async function getWorker(
 
   const response = await fetch(`${dwsUrl}/workers/${workerId}`, {
     headers: {
-      'Authorization': `Bearer ${authToken}`,
+      Authorization: `Bearer ${authToken}`,
     },
   })
 
@@ -297,7 +310,7 @@ async function deleteWorker(
   const response = await fetch(`${dwsUrl}/workers/${workerId}`, {
     method: 'DELETE',
     headers: {
-      'Authorization': `Bearer ${authToken}`,
+      Authorization: `Bearer ${authToken}`,
     },
   })
 
@@ -320,8 +333,8 @@ async function streamLogs(
 
   const response = await fetch(`${dwsUrl}/workers/${workerId}/logs/stream`, {
     headers: {
-      'Authorization': `Bearer ${authToken}`,
-      'Accept': 'text/event-stream',
+      Authorization: `Bearer ${authToken}`,
+      Accept: 'text/event-stream',
     },
   })
 
@@ -391,7 +404,7 @@ workerCommand
 
     // Build environment
     const env: Record<string, string> = {
-      ...process.env as Record<string, string>,
+      ...(process.env as Record<string, string>),
       PORT: String(port),
       NODE_ENV: 'development',
       JEJU_NETWORK: 'localnet',
@@ -509,8 +522,10 @@ workerCommand
     }
 
     console.log('')
-    console.log('  NAME'.padEnd(25) + 'STATUS'.padEnd(12) + 'VERSION'.padEnd(10) + 'UPDATED')
-    console.log('  ' + '-'.repeat(60))
+    console.log(
+      `${'  NAME'.padEnd(25) + 'STATUS'.padEnd(12) + 'VERSION'.padEnd(10)}UPDATED`,
+    )
+    console.log(`  ${'-'.repeat(60)}`)
 
     for (const worker of workers) {
       const name = worker.name.padEnd(23)
@@ -587,7 +602,7 @@ workerCommand
       `${dwsUrl}/workers/${workerId}/logs?since=${options.since}&limit=${options.limit}`,
       {
         headers: {
-          'Authorization': `Bearer ${credentials.authToken}`,
+          Authorization: `Bearer ${credentials.authToken}`,
         },
       },
     )
@@ -608,7 +623,8 @@ workerCommand
     for (const log of logs) {
       const time = new Date(log.timestamp).toISOString()
       const level = log.level.toUpperCase().padEnd(5)
-      const prefix = log.level === 'error' ? '✗' : log.level === 'warn' ? '!' : ' '
+      const prefix =
+        log.level === 'error' ? '✗' : log.level === 'warn' ? '!' : ' '
 
       console.log(`${prefix} [${time}] ${level} ${log.message}`)
     }
@@ -688,7 +704,7 @@ workerCommand
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${credentials.authToken}`,
+        Authorization: `Bearer ${credentials.authToken}`,
       },
       body: JSON.stringify({ version }),
     })
@@ -710,6 +726,6 @@ workerCommand
   .action(async () => {
     // Re-use deploy command
     await workerCommand.commands
-      .find((c) => c.name() === 'deploy')!
-      .parseAsync(['deploy'], { from: 'user' })
+      .find((c) => c.name() === 'deploy')
+      ?.parseAsync(['deploy'], { from: 'user' })
   })

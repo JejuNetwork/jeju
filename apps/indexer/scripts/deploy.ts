@@ -44,7 +44,10 @@ interface DeployConfig {
 function getConfig(): DeployConfig {
   const network = getCurrentNetwork()
 
-  const configs: Record<NetworkType, Omit<DeployConfig, 'network' | 'privateKey'>> = {
+  const configs: Record<
+    NetworkType,
+    Omit<DeployConfig, 'network' | 'privateKey'>
+  > = {
     localnet: {
       dwsUrl: 'http://127.0.0.1:4030',
     },
@@ -58,7 +61,9 @@ function getConfig(): DeployConfig {
 
   const privateKey = process.env.DEPLOYER_PRIVATE_KEY ?? process.env.PRIVATE_KEY
   if (!privateKey) {
-    throw new Error('DEPLOYER_PRIVATE_KEY or PRIVATE_KEY environment variable required')
+    throw new Error(
+      'DEPLOYER_PRIVATE_KEY or PRIVATE_KEY environment variable required',
+    )
   }
 
   return {
@@ -87,10 +92,10 @@ async function ensureFrontendBuild(): Promise<void> {
 
 async function buildWorker(): Promise<string> {
   console.log('[Indexer] Building worker bundle...')
-  
+
   const workerEntry = join(APP_DIR, 'api/worker.ts')
   const outDir = join(APP_DIR, 'dist/worker')
-  
+
   // Build worker using Bun
   const result = await Bun.build({
     entrypoints: [workerEntry],
@@ -136,7 +141,9 @@ async function deployWorker(
     throw new Error(`Failed to upload worker: ${await uploadResponse.text()}`)
   }
 
-  const uploadResult = StorageUploadResponseSchema.parse(await uploadResponse.json())
+  const uploadResult = StorageUploadResponseSchema.parse(
+    await uploadResponse.json(),
+  )
   console.log(`   Worker code uploaded: ${uploadResult.cid}`)
 
   // Deploy worker
@@ -163,9 +170,11 @@ async function deployWorker(
     throw new Error(`Failed to deploy worker: ${await deployResponse.text()}`)
   }
 
-  const deployResult = DWSWorkerDeployResponseSchema.parse(await deployResponse.json())
+  const deployResult = DWSWorkerDeployResponseSchema.parse(
+    await deployResponse.json(),
+  )
   console.log(`   Worker deployed: ${deployResult.functionId}`)
-  
+
   return {
     functionId: deployResult.functionId,
     codeCid: uploadResult.cid,
@@ -189,10 +198,9 @@ async function verifyContentRetrievable(
     method: 'HEAD',
     signal: AbortSignal.timeout(10000),
   }).catch(() => null)
-  
+
   return response?.ok === true
 }
-
 
 async function uploadFile(
   dwsUrl: string,
@@ -218,13 +226,15 @@ async function uploadFile(
       }
 
       const result = StorageUploadResponseSchema.parse(await response.json())
-      
+
       // Verify the content is retrievable before returning success
       const verified = await verifyContentRetrievable(dwsUrl, result.cid)
       if (!verified) {
-        throw new Error(`Upload verification failed for ${filename} - content not retrievable`)
+        throw new Error(
+          `Upload verification failed for ${filename} - content not retrievable`,
+        )
       }
-      
+
       return { cid: result.cid, size: content.length }
     } catch (err) {
       if (attempt === retries) throw err
@@ -372,7 +382,12 @@ async function deploy(): Promise<void> {
 
   // Register app with DWS
   console.log('\nRegistering app with DWS...')
-  await registerApp(config, staticResult.files, staticResult.rootCid, workerInfo)
+  await registerApp(
+    config,
+    staticResult.files,
+    staticResult.rootCid,
+    workerInfo,
+  )
 
   console.log('')
   console.log('╔════════════════════════════════════════════════════════════╗')
@@ -389,7 +404,9 @@ async function deploy(): Promise<void> {
   console.log(`║  Frontend: ${domain.padEnd(44)}║`)
   console.log(`${`║  API:      ${domain}/api`.padEnd(61)}║`)
   console.log(`${`║  GraphQL:  ${domain}/graphql`.padEnd(61)}║`)
-  console.log(`${`║  Worker:   ${workerInfo.functionId.slice(0, 36)}`.padEnd(61)}║`)
+  console.log(
+    `${`║  Worker:   ${workerInfo.functionId.slice(0, 36)}`.padEnd(61)}║`,
+  )
   console.log(
     `${`║  IPFS:     ipfs://${staticResult.rootCid.slice(0, 20)}...`.padEnd(61)}║`,
   )

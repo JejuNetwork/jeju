@@ -1,11 +1,12 @@
-import React, { useState } from 'react'
+import type React from 'react'
+import { useState } from 'react'
 import {
-  DiscordIcon,
-  TelegramIcon,
-  FarcasterIcon,
-  CheckIcon,
   ArrowRightIcon,
+  CheckIcon,
+  DiscordIcon,
+  FarcasterIcon,
   SettingsIcon,
+  TelegramIcon,
 } from '../components/Icons'
 
 interface Props {
@@ -22,7 +23,9 @@ interface TradingSettings {
 }
 
 export function Configure({ onNavigate, sessionId }: Props) {
-  const [activeTab, setActiveTab] = useState<'platforms' | 'trading' | 'notifications'>('platforms')
+  const [activeTab, setActiveTab] = useState<
+    'platforms' | 'trading' | 'notifications'
+  >('platforms')
   const [settings, setSettings] = useState<TradingSettings>({
     maxSlippage: '0.5',
     defaultChain: 'base',
@@ -31,7 +34,10 @@ export function Configure({ onNavigate, sessionId }: Props) {
     notifications: true,
   })
 
-  const updateSettings = (key: keyof TradingSettings, value: string | boolean) => {
+  const updateSettings = (
+    key: keyof TradingSettings,
+    value: string | boolean,
+  ) => {
     setSettings((prev) => ({ ...prev, [key]: value }))
   }
 
@@ -56,6 +62,7 @@ export function Configure({ onNavigate, sessionId }: Props) {
       <header className="relative z-10 border-b border-surface-border">
         <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
           <button
+            type="button"
             onClick={() => onNavigate('landing')}
             className="flex items-center gap-3 text-otto-cyan font-bold text-xl"
           >
@@ -65,7 +72,11 @@ export function Configure({ onNavigate, sessionId }: Props) {
             Otto
           </button>
 
-          <button onClick={() => onNavigate('chat')} className="btn-primary">
+          <button
+            type="button"
+            onClick={() => onNavigate('chat')}
+            className="btn-primary"
+          >
             Start Chatting
             <span className="w-5 h-5">
               <ArrowRightIcon />
@@ -85,7 +96,9 @@ export function Configure({ onNavigate, sessionId }: Props) {
             </div>
             <div>
               <h1 className="text-2xl font-bold">Configure Otto</h1>
-              <p className="text-white/60">Set up your platforms and trading preferences</p>
+              <p className="text-white/60">
+                Set up your platforms and trading preferences
+              </p>
             </div>
           </div>
 
@@ -118,14 +131,21 @@ export function Configure({ onNavigate, sessionId }: Props) {
             <div className="lg:col-span-3">
               {activeTab === 'platforms' && <PlatformsTab />}
               {activeTab === 'trading' && (
-                <TradingTab settings={settings} updateSettings={updateSettings} />
+                <TradingTab
+                  settings={settings}
+                  updateSettings={updateSettings}
+                />
               )}
               {activeTab === 'notifications' && (
-                <NotificationsTab settings={settings} updateSettings={updateSettings} />
+                <NotificationsTab
+                  settings={settings}
+                  updateSettings={updateSettings}
+                />
               )}
 
               <div className="mt-8 flex justify-end">
                 <button
+                  type="button"
                   onClick={saveSettings}
                   className="btn-primary"
                 >
@@ -151,6 +171,7 @@ function TabButton({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       className={`w-full text-left px-4 py-3 rounded-xl font-medium transition-all ${
         active
@@ -264,13 +285,14 @@ function TradingTab({
       <div className="space-y-6">
         {/* Max Slippage */}
         <div className="card">
-          <label className="block font-semibold mb-2">Max Slippage</label>
+          <span className="block font-semibold mb-2">Max Slippage</span>
           <p className="text-white/60 text-sm mb-4">
             Maximum price slippage allowed for swaps
           </p>
           <div className="flex gap-3">
             {['0.1', '0.5', '1.0', '3.0'].map((val) => (
               <button
+                type="button"
                 key={val}
                 onClick={() => updateSettings('maxSlippage', val)}
                 className={`px-4 py-2 rounded-lg font-medium transition-all ${
@@ -287,11 +309,14 @@ function TradingTab({
 
         {/* Default Chain */}
         <div className="card">
-          <label className="block font-semibold mb-2">Default Chain</label>
+          <label htmlFor="default-chain" className="block font-semibold mb-2">
+            Default Chain
+          </label>
           <p className="text-white/60 text-sm mb-4">
             Preferred chain for trading operations
           </p>
           <select
+            id="default-chain"
             value={settings.defaultChain}
             onChange={(e) => updateSettings('defaultChain', e.target.value)}
             className="input"
@@ -306,7 +331,7 @@ function TradingTab({
 
         {/* Gas Preference */}
         <div className="card">
-          <label className="block font-semibold mb-2">Gas Preference</label>
+          <span className="block font-semibold mb-2">Gas Preference</span>
           <p className="text-white/60 text-sm mb-4">
             How much to pay for faster transactions
           </p>
@@ -317,9 +342,13 @@ function TradingTab({
               { id: 'high', label: 'High', desc: 'Faster' },
             ].map((option) => (
               <button
+                type="button"
                 key={option.id}
                 onClick={() =>
-                  updateSettings('gasPreference', option.id as 'low' | 'medium' | 'high')
+                  updateSettings(
+                    'gasPreference',
+                    option.id as 'low' | 'medium' | 'high',
+                  )
                 }
                 className={`flex-1 px-4 py-3 rounded-xl font-medium transition-all text-center ${
                   settings.gasPreference === option.id
@@ -337,7 +366,7 @@ function TradingTab({
         {/* Confirm Trades */}
         <div className="card flex items-center justify-between">
           <div>
-            <label className="block font-semibold">Confirm Trades</label>
+            <span className="block font-semibold">Confirm Trades</span>
             <p className="text-white/60 text-sm">
               Ask for confirmation before executing trades
             </p>
@@ -371,7 +400,7 @@ function NotificationsTab({
       <div className="space-y-4">
         <div className="card flex items-center justify-between">
           <div>
-            <label className="block font-semibold">Trade Notifications</label>
+            <span className="block font-semibold">Trade Notifications</span>
             <p className="text-white/60 text-sm">
               Get notified when trades execute
             </p>
@@ -384,7 +413,7 @@ function NotificationsTab({
 
         <div className="card flex items-center justify-between">
           <div>
-            <label className="block font-semibold">Price Alerts</label>
+            <span className="block font-semibold">Price Alerts</span>
             <p className="text-white/60 text-sm">
               Notifications for limit order fills
             </p>
@@ -394,7 +423,7 @@ function NotificationsTab({
 
         <div className="card flex items-center justify-between">
           <div>
-            <label className="block font-semibold">Market Updates</label>
+            <span className="block font-semibold">Market Updates</span>
             <p className="text-white/60 text-sm">
               Significant price movements for watched tokens
             </p>
@@ -415,6 +444,7 @@ function ToggleSwitch({
 }) {
   return (
     <button
+      type="button"
       onClick={() => onChange(!enabled)}
       className={`relative w-12 h-6 rounded-full transition-all ${
         enabled ? 'bg-otto-cyan' : 'bg-white/20'

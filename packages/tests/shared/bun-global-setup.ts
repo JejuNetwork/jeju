@@ -198,19 +198,43 @@ export async function setup(): Promise<void> {
     const started = await startJejuDev(rootDir)
     if (!started) {
       console.error('')
-      console.error('╔══════════════════════════════════════════════════════════════╗')
-      console.error('║  ❌ TESTS CANNOT RUN: Jeju CLI infrastructure required       ║')
-      console.error('╠══════════════════════════════════════════════════════════════╣')
-      console.error('║  Please start the infrastructure first:                      ║')
-      console.error('║                                                              ║')
-      console.error('║    bun run jeju dev --minimal                                ║')
-      console.error('║                                                              ║')
-      console.error('║  Or run tests through the CLI:                               ║')
-      console.error('║                                                              ║')
-      console.error('║    bun run jeju test --mode integration                      ║')
-      console.error('╚══════════════════════════════════════════════════════════════╝')
+      console.error(
+        '╔══════════════════════════════════════════════════════════════╗',
+      )
+      console.error(
+        '║  ❌ TESTS CANNOT RUN: Jeju CLI infrastructure required       ║',
+      )
+      console.error(
+        '╠══════════════════════════════════════════════════════════════╣',
+      )
+      console.error(
+        '║  Please start the infrastructure first:                      ║',
+      )
+      console.error(
+        '║                                                              ║',
+      )
+      console.error(
+        '║    bun run jeju dev --minimal                                ║',
+      )
+      console.error(
+        '║                                                              ║',
+      )
+      console.error(
+        '║  Or run tests through the CLI:                               ║',
+      )
+      console.error(
+        '║                                                              ║',
+      )
+      console.error(
+        '║    bun run jeju test --mode integration                      ║',
+      )
+      console.error(
+        '╚══════════════════════════════════════════════════════════════╝',
+      )
       console.error('')
-      throw new Error('Jeju CLI infrastructure required. Run: bun run jeju dev --minimal')
+      throw new Error(
+        'Jeju CLI infrastructure required. Run: bun run jeju dev --minimal',
+      )
     }
   }
 
@@ -220,15 +244,31 @@ export async function setup(): Promise<void> {
   // Final check - infrastructure MUST be running
   if (!status.rpc) {
     console.error('')
-    console.error('╔══════════════════════════════════════════════════════════════╗')
-    console.error('║  ❌ TESTS CANNOT RUN: Localnet RPC not available             ║')
-    console.error('╠══════════════════════════════════════════════════════════════╣')
-    console.error('║  The Jeju CLI infrastructure is required to run tests.       ║')
-    console.error('║                                                              ║')
-    console.error('║  Start with: bun run jeju dev --minimal                      ║')
-    console.error('╚══════════════════════════════════════════════════════════════╝')
+    console.error(
+      '╔══════════════════════════════════════════════════════════════╗',
+    )
+    console.error(
+      '║  ❌ TESTS CANNOT RUN: Localnet RPC not available             ║',
+    )
+    console.error(
+      '╠══════════════════════════════════════════════════════════════╣',
+    )
+    console.error(
+      '║  The Jeju CLI infrastructure is required to run tests.       ║',
+    )
+    console.error(
+      '║                                                              ║',
+    )
+    console.error(
+      '║  Start with: bun run jeju dev --minimal                      ║',
+    )
+    console.error(
+      '╚══════════════════════════════════════════════════════════════╝',
+    )
     console.error('')
-    throw new Error('Localnet RPC not available. Run: bun run jeju dev --minimal')
+    throw new Error(
+      'Localnet RPC not available. Run: bun run jeju dev --minimal',
+    )
   }
 
   setEnvVars(status)

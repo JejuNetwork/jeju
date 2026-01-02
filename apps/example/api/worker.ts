@@ -133,7 +133,10 @@ export function createExampleApp(env?: Partial<ExampleEnv>) {
             .safeParse(body)
 
           if (!parsed.success) {
-            return { error: 'Invalid update data', details: parsed.error.issues }
+            return {
+              error: 'Invalid update data',
+              details: parsed.error.issues,
+            }
           }
 
           return { success: true, id: params.id }
@@ -149,9 +152,11 @@ export function createExampleApp(env?: Partial<ExampleEnv>) {
     // ============================================
     .group('/storage', (storage) =>
       storage
-        .post('/upload', async ({ body }) => {
+        .post('/upload', async () => {
           // Upload to DWS storage
-          return { cid: 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi' }
+          return {
+            cid: 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi',
+          }
         })
         .get('/:cid', ({ params }) => ({
           cid: params.cid,
@@ -235,7 +240,10 @@ export function createExampleApp(env?: Partial<ExampleEnv>) {
             .safeParse(body)
 
           if (!parsed.success) {
-            return { error: 'Invalid A2A request', details: parsed.error.issues }
+            return {
+              error: 'Invalid A2A request',
+              details: parsed.error.issues,
+            }
           }
 
           return { skill: parsed.data.skill, result: 'Skill executed' }
@@ -279,7 +287,10 @@ export function createExampleApp(env?: Partial<ExampleEnv>) {
             .safeParse(body)
 
           if (!parsed.success) {
-            return { error: 'Invalid MCP request', details: parsed.error.issues }
+            return {
+              error: 'Invalid MCP request',
+              details: parsed.error.issues,
+            }
           }
 
           return { tool: parsed.data.tool, result: 'Tool executed' }

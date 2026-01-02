@@ -386,7 +386,9 @@ export class DoHServer {
             // Return DWS gateway IP for this name
             const gatewayIp = this.config.gatewayIp
             if (!gatewayIp) {
-              console.warn(`[DoHServer] No gatewayIp configured for A record resolution of ${question.name}. Set gatewayIp in config for production.`)
+              console.warn(
+                `[DoHServer] No gatewayIp configured for A record resolution of ${question.name}. Set gatewayIp in config for production.`,
+              )
             }
             response.Answer = [
               {

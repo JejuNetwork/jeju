@@ -243,7 +243,9 @@ async function uploadFrontendToIPFS(): Promise<void> {
   const manifestJson: unknown = await manifestResponse.json()
   const manifestParsed = IPFSUploadResponseSchema.safeParse(manifestJson)
   if (!manifestParsed.success) {
-    throw new Error(`Invalid manifest response: ${manifestParsed.error.message}`)
+    throw new Error(
+      `Invalid manifest response: ${manifestParsed.error.message}`,
+    )
   }
 
   state.frontendCid = manifestParsed.data.cid
@@ -305,8 +307,16 @@ async function deployWorkerToWorkerd(): Promise<void> {
       { name: 'APP_NAME', type: 'text' as const, value: 'bazaar' },
       { name: 'JEJU_NETWORK', type: 'text' as const, value: network },
       { name: 'RPC_URL', type: 'text' as const, value: getL2RpcUrl() },
-      { name: 'INDEXER_URL', type: 'text' as const, value: getIndexerGraphqlUrl() },
-      { name: 'SQLIT_NODES', type: 'text' as const, value: getSQLitBlockProducerUrl() },
+      {
+        name: 'INDEXER_URL',
+        type: 'text' as const,
+        value: getIndexerGraphqlUrl(),
+      },
+      {
+        name: 'SQLIT_NODES',
+        type: 'text' as const,
+        value: getSQLitBlockProducerUrl(),
+      },
     ],
   }
 
@@ -528,7 +538,9 @@ async function main(): Promise<void> {
   console.log('╠════════════════════════════════════════════════════════════╣')
   console.log(`║  Network:   ${network.padEnd(46)}║`)
   console.log(`║  DWS URL:   ${DWS_URL.padEnd(46).slice(0, 46)}║`)
-  console.log(`║  Mode:      ${(USE_DWS ? 'Decentralized (DWS)' : 'Standalone').padEnd(46)}║`)
+  console.log(
+    `║  Mode:      ${(USE_DWS ? 'Decentralized (DWS)' : 'Standalone').padEnd(46)}║`,
+  )
   console.log('╚════════════════════════════════════════════════════════════╝')
   console.log('')
 
@@ -545,7 +557,9 @@ async function main(): Promise<void> {
     const dwsHealthy = await checkDWSHealth()
 
     if (!dwsHealthy) {
-      console.warn('[Bazaar] DWS is not available. Falling back to standalone mode.')
+      console.warn(
+        '[Bazaar] DWS is not available. Falling back to standalone mode.',
+      )
       await startStandaloneFallback()
       return
     }
@@ -570,17 +584,39 @@ async function main(): Promise<void> {
 
     // Print success
     console.log('')
-    console.log('╔════════════════════════════════════════════════════════════╗')
-    console.log('║           Bazaar Deployed Successfully                      ║')
-    console.log('╠════════════════════════════════════════════════════════════╣')
-    console.log(`║  Frontend CID:  ${(state.frontendCid || 'N/A').slice(0, 42).padEnd(42)}║`)
-    console.log(`║  Worker ID:     ${(state.backendWorkerId || 'N/A').slice(0, 42).padEnd(42)}║`)
-    console.log(`║  Worker Status: ${(workerReady ? 'Ready' : 'Pending').padEnd(42)}║`)
-    console.log('╠════════════════════════════════════════════════════════════╣')
-    console.log(`║  Local Proxy:   http://${host}:${FRONTEND_PORT}`.padEnd(61) + '║')
-    console.log(`║  DWS Endpoint:  ${(state.backendEndpoint || DWS_URL).slice(0, 42).padEnd(42)}║`)
-    console.log(`║  Health:        ${(state.backendEndpoint || DWS_URL).slice(0, 30) + '/health'.padEnd(42).slice(0, 42)}║`)
-    console.log('╚════════════════════════════════════════════════════════════╝')
+    console.log(
+      '╔════════════════════════════════════════════════════════════╗',
+    )
+    console.log(
+      '║           Bazaar Deployed Successfully                      ║',
+    )
+    console.log(
+      '╠════════════════════════════════════════════════════════════╣',
+    )
+    console.log(
+      `║  Frontend CID:  ${(state.frontendCid || 'N/A').slice(0, 42).padEnd(42)}║`,
+    )
+    console.log(
+      `║  Worker ID:     ${(state.backendWorkerId || 'N/A').slice(0, 42).padEnd(42)}║`,
+    )
+    console.log(
+      `║  Worker Status: ${(workerReady ? 'Ready' : 'Pending').padEnd(42)}║`,
+    )
+    console.log(
+      '╠════════════════════════════════════════════════════════════╣',
+    )
+    console.log(
+      `${`║  Local Proxy:   http://${host}:${FRONTEND_PORT}`.padEnd(61)}║`,
+    )
+    console.log(
+      `║  DWS Endpoint:  ${(state.backendEndpoint || DWS_URL).slice(0, 42).padEnd(42)}║`,
+    )
+    console.log(
+      `║  Health:        ${(state.backendEndpoint || DWS_URL).slice(0, 30) + '/health'.padEnd(42).slice(0, 42)}║`,
+    )
+    console.log(
+      '╚════════════════════════════════════════════════════════════╝',
+    )
     console.log('')
     console.log('Press Ctrl+C to stop')
 
@@ -657,7 +693,9 @@ async function main(): Promise<void> {
       },
     })
 
-    console.log(`[Bazaar] Local proxy running at http://${host}:${FRONTEND_PORT}`)
+    console.log(
+      `[Bazaar] Local proxy running at http://${host}:${FRONTEND_PORT}`,
+    )
   } else {
     await startStandaloneFallback()
   }

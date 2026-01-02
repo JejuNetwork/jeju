@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+
 /**
  * Full L1 ↔ L2 End-to-End Test
  *
@@ -21,19 +22,19 @@
  *   L1_RPC=http://127.0.0.1:8545 L2_RPC=http://127.0.0.1:9545 bun run packages/deployment/scripts/e2e/full-l1-l2-e2e.ts
  */
 
+import { join } from 'node:path'
 import { $ } from 'bun'
-import { join } from 'path'
 import {
+  type Address,
   createPublicClient,
   createWalletClient,
-  http,
-  parseEther,
-  formatEther,
   encodeAbiParameters,
-  parseAbiParameters,
-  keccak256,
-  type Address,
+  formatEther,
   type Hex,
+  http,
+  keccak256,
+  parseAbiParameters,
+  parseEther,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { anvil } from 'viem/chains'
@@ -45,11 +46,11 @@ const CONTRACTS_DIR = join(ROOT_DIR, 'packages/contracts')
 const CONFIG = {
   l1: {
     rpcUrl: process.env.L1_RPC || 'http://127.0.0.1:8545',
-    chainId: parseInt(process.env.L1_CHAIN_ID || '31337'),
+    chainId: parseInt(process.env.L1_CHAIN_ID || '31337', 10),
   },
   l2: {
     rpcUrl: process.env.L2_RPC || 'http://127.0.0.1:9545',
-    chainId: parseInt(process.env.L2_CHAIN_ID || '901'),
+    chainId: parseInt(process.env.L2_CHAIN_ID || '901', 10),
   },
   // Derivation settings
   derivation: {
@@ -62,14 +63,14 @@ const CONFIG = {
 
 // Test accounts (Anvil defaults)
 const DEPLOYER = privateKeyToAccount(
-  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
+  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
 )
 const USER = privateKeyToAccount(
-  '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d'
+  '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d',
 )
 
 // OP Stack L1 contract ABIs
-const OPTIMISM_PORTAL_ABI = [
+const _OPTIMISM_PORTAL_ABI = [
   {
     name: 'depositTransaction',
     type: 'function',
@@ -97,7 +98,8 @@ const OPTIMISM_PORTAL_ABI = [
 
 // L2 predeploys
 const L2_PREDEPLOYS = {
-  L2CrossDomainMessenger: '0x4200000000000000000000000000000000000007' as Address,
+  L2CrossDomainMessenger:
+    '0x4200000000000000000000000000000000000007' as Address,
   L2ToL1MessagePasser: '0x4200000000000000000000000000000000000016' as Address,
   L2StandardBridge: '0x4200000000000000000000000000000000000010' as Address,
 }
@@ -153,7 +155,10 @@ async function main(): Promise<void> {
   printSummary()
 }
 
-async function runTest(name: string, fn: () => Promise<Record<string, unknown>>): Promise<void> {
+async function runTest(
+  name: string,
+  fn: () => Promise<Record<string, unknown>>,
+): Promise<void> {
   const start = Date.now()
   console.log(`\n${'─'.repeat(60)}`)
   console.log(`🧪 ${name}...`)
@@ -224,11 +229,17 @@ async function deployL1Contracts(): Promise<Record<string, unknown>> {
 
   // Check if contracts already deployed
   // Try to read from a known deployment file
-  const deploymentPath = join(CONTRACTS_DIR, 'deployments/localnet/l1-deployment.json')
+  const deploymentPath = join(
+    CONTRACTS_DIR,
+    'deployments/localnet/l1-deployment.json',
+  )
 
   try {
     const deployment = await Bun.file(deploymentPath).json()
-    if (deployment.OptimismPortal && deployment.OptimismPortal !== '0x0000000000000000000000000000000000000000') {
+    if (
+      deployment.OptimismPortal &&
+      deployment.OptimismPortal !== '0x0000000000000000000000000000000000000000'
+    ) {
       optimismPortalAddress = deployment.OptimismPortal as Address
       l2OutputOracleAddress = deployment.L2OutputOracle as Address
 
@@ -249,14 +260,19 @@ async function deployL1Contracts(): Promise<Record<string, unknown>> {
   // Deploy contracts using forge
   console.log('   Deploying L1 contracts via forge script...')
 
-  const result = await $`cd ${CONTRACTS_DIR} && forge script script/DeployL1L2Test.s.sol:DeployL1L2Test --rpc-url ${CONFIG.l1.rpcUrl} --broadcast --legacy 2>&1`.nothrow()
+  const result =
+    await $`cd ${CONTRACTS_DIR} && forge script script/DeployL1L2Test.s.sol:DeployL1L2Test --rpc-url ${CONFIG.l1.rpcUrl} --broadcast --legacy 2>&1`.nothrow()
 
   if (result.exitCode === 0) {
     const output = result.text()
 
     // Parse deployed addresses
-    const oracleMatch = output.match(/MockL2OutputOracle deployed: (0x[a-fA-F0-9]{40})/)
-    const portalMatch = output.match(/WithdrawalPortal deployed: (0x[a-fA-F0-9]{40})/)
+    const oracleMatch = output.match(
+      /MockL2OutputOracle deployed: (0x[a-fA-F0-9]{40})/,
+    )
+    const portalMatch = output.match(
+      /WithdrawalPortal deployed: (0x[a-fA-F0-9]{40})/,
+    )
 
     if (portalMatch) {
       optimismPortalAddress = portalMatch[1] as Address
@@ -276,7 +292,7 @@ async function deployL1Contracts(): Promise<Record<string, unknown>> {
   // Check if we already have contracts from a previous test run
   const broadcastPath = join(
     CONTRACTS_DIR,
-    `broadcast/DeployL1L2Test.s.sol/${CONFIG.l1.chainId}/run-latest.json`
+    `broadcast/DeployL1L2Test.s.sol/${CONFIG.l1.chainId}/run-latest.json`,
   )
 
   try {
@@ -309,12 +325,12 @@ async function testL1ToL2Deposit(): Promise<Record<string, unknown>> {
     throw new Error('OptimismPortal not deployed')
   }
 
-  const l1Client = createPublicClient({
+  const _l1Client = createPublicClient({
     chain: { ...anvil, id: CONFIG.l1.chainId },
     transport: http(CONFIG.l1.rpcUrl),
   })
 
-  const l1WalletClient = createWalletClient({
+  const _l1WalletClient = createWalletClient({
     chain: { ...anvil, id: CONFIG.l1.chainId },
     transport: http(CONFIG.l1.rpcUrl),
     account: DEPLOYER,
@@ -363,7 +379,7 @@ async function testL1ToL2Deposit(): Promise<Record<string, unknown>> {
 
   if (balanceIncrease < depositValue) {
     throw new Error(
-      `Balance did not increase correctly: expected ${formatEther(depositValue)}, got ${formatEther(balanceIncrease)}`
+      `Balance did not increase correctly: expected ${formatEther(depositValue)}, got ${formatEther(balanceIncrease)}`,
     )
   }
 
@@ -392,7 +408,7 @@ async function testL2ToL1WithdrawalInit(): Promise<Record<string, unknown>> {
     // No predeploy, check for deployed contract from our test
     const broadcastPath = join(
       CONTRACTS_DIR,
-      `broadcast/DeployL1L2Test.s.sol/${CONFIG.l2.chainId}/run-latest.json`
+      `broadcast/DeployL1L2Test.s.sol/${CONFIG.l2.chainId}/run-latest.json`,
     )
 
     try {
@@ -407,16 +423,21 @@ async function testL2ToL1WithdrawalInit(): Promise<Record<string, unknown>> {
       // Fall back to deploying
     }
 
-    const deployedCode = await l2Client.getCode({ address: messagePasserAddress })
+    const deployedCode = await l2Client.getCode({
+      address: messagePasserAddress,
+    })
     if (!deployedCode || deployedCode === '0x') {
       // Deploy L2ToL1MessagePasser
       console.log('   Deploying L2ToL1MessagePasser...')
 
-      const result = await $`cd ${CONTRACTS_DIR} && L2=true forge script script/DeployL1L2Test.s.sol:DeployL1L2Test --rpc-url ${CONFIG.l2.rpcUrl} --broadcast --legacy 2>&1`.nothrow()
+      const result =
+        await $`cd ${CONTRACTS_DIR} && L2=true forge script script/DeployL1L2Test.s.sol:DeployL1L2Test --rpc-url ${CONFIG.l2.rpcUrl} --broadcast --legacy 2>&1`.nothrow()
 
       if (result.exitCode === 0) {
         const output = result.text()
-        const match = output.match(/L2ToL1MessagePasser deployed: (0x[a-fA-F0-9]{40})/)
+        const match = output.match(
+          /L2ToL1MessagePasser deployed: (0x[a-fA-F0-9]{40})/,
+        )
         if (match) {
           messagePasserAddress = match[1] as Address
         }
@@ -552,8 +573,8 @@ async function testMessageEncoding(): Promise<Record<string, unknown>> {
         withdrawal.value,
         withdrawal.gasLimit,
         withdrawal.data,
-      ]
-    )
+      ],
+    ),
   )
 
   const hash2 = keccak256(
@@ -566,8 +587,8 @@ async function testMessageEncoding(): Promise<Record<string, unknown>> {
         withdrawal.value,
         withdrawal.gasLimit,
         withdrawal.data,
-      ]
-    )
+      ],
+    ),
   )
 
   if (hash1 !== hash2) {
@@ -632,4 +653,3 @@ main().catch((error) => {
   console.error('❌ Test runner failed:', error)
   process.exit(1)
 })
-

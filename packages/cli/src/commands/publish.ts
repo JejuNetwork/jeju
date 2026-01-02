@@ -5,16 +5,16 @@
  * with smart defaults based on jeju-manifest.json
  */
 
+import { spawnSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { spawnSync } from 'node:child_process'
 import { getDWSUrl, getLocalhostHost } from '@jejunetwork/config'
 import { Command } from 'commander'
 import type { Address } from 'viem'
 import { keccak256, stringToBytes } from 'viem'
 import { logger } from '../lib/logger'
+import type { AppManifest, NetworkType } from '../types'
 import { requireLogin } from './login'
-import type { NetworkType, AppManifest } from '../types'
 
 interface PublishResult {
   frontendUrl?: string
@@ -31,11 +31,23 @@ interface PublishResult {
 function getDWSUrlForNetwork(network: NetworkType): string {
   switch (network) {
     case 'mainnet':
-      return process.env.MAINNET_DWS_URL ?? getDWSUrl() ?? 'https://dws.jejunetwork.org'
+      return (
+        process.env.MAINNET_DWS_URL ??
+        getDWSUrl() ??
+        'https://dws.jejunetwork.org'
+      )
     case 'testnet':
-      return process.env.TESTNET_DWS_URL ?? getDWSUrl() ?? 'https://dws.testnet.jejunetwork.org'
+      return (
+        process.env.TESTNET_DWS_URL ??
+        getDWSUrl() ??
+        'https://dws.testnet.jejunetwork.org'
+      )
     default:
-      return process.env.DWS_URL ?? getDWSUrl() ?? `http://${getLocalhostHost()}:4030`
+      return (
+        process.env.DWS_URL ??
+        getDWSUrl() ??
+        `http://${getLocalhostHost()}:4030`
+      )
   }
 }
 
@@ -59,7 +71,9 @@ function getDomainSuffix(network: NetworkType): string {
 function loadManifest(dir: string): AppManifest {
   const manifestPath = join(dir, 'jeju-manifest.json')
   if (!existsSync(manifestPath)) {
-    throw new Error('No jeju-manifest.json found. Run `jeju init` to create one.')
+    throw new Error(
+      'No jeju-manifest.json found. Run `jeju init` to create one.',
+    )
   }
 
   return JSON.parse(readFileSync(manifestPath, 'utf-8'))
@@ -109,7 +123,7 @@ async function uploadToIPFS(
   const response = await fetch(`${dwsUrl}/storage/upload?directory=true`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${authToken}`,
+      Authorization: `Bearer ${authToken}`,
     },
     body: formData,
   })
@@ -166,7 +180,7 @@ async function deployWorker(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${authToken}`,
+      Authorization: `Bearer ${authToken}`,
       'X-Jeju-Address': address,
     },
     body: JSON.stringify({
@@ -205,7 +219,7 @@ async function registerJNS(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${authToken}`,
+      Authorization: `Bearer ${authToken}`,
       'X-Jeju-Address': address,
     },
     body: JSON.stringify({
@@ -273,7 +287,7 @@ export const publishCommand = new Command('publish')
     if (frontendConfig) {
       const outputDir =
         typeof frontendConfig === 'object'
-          ? frontendConfig.outputDir ?? 'dist'
+          ? (frontendConfig.outputDir ?? 'dist')
           : 'dist'
       const frontendPath = join(cwd, outputDir)
 
@@ -294,7 +308,7 @@ export const publishCommand = new Command('publish')
     if (backendConfig) {
       const outputDir =
         typeof backendConfig === 'object'
-          ? backendConfig.outputDir ?? 'dist/worker'
+          ? (backendConfig.outputDir ?? 'dist/worker')
           : 'dist/worker'
       const workerPath = join(cwd, outputDir)
 
@@ -334,7 +348,9 @@ export const publishCommand = new Command('publish')
 
     // Generate preview URL if requested
     if (options.preview) {
-      const previewId = keccak256(stringToBytes(`${manifest.name}-${Date.now()}`)).slice(0, 10)
+      const previewId = keccak256(
+        stringToBytes(`${manifest.name}-${Date.now()}`),
+      ).slice(0, 10)
       result.previewUrl = `https://${previewId}.preview.${domainSuffix}`
     }
 

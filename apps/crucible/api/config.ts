@@ -1,6 +1,5 @@
 import {
   createAppConfig,
-  CORE_PORTS,
   getCurrentNetwork,
   getEnvNumber,
   getEnvVar,
@@ -55,7 +54,7 @@ export interface CrucibleConfig {
   moderationMarketplaceAddress?: string
 }
 
-const servicesConfig = getServicesConfig()
+const _servicesConfig = getServicesConfig()
 const network = getCurrentNetwork()
 
 const { config, configure: setCrucibleConfig } =
@@ -77,8 +76,7 @@ const { config, configure: setCrucibleConfig } =
     privateKey: getEnvVar('PRIVATE_KEY'),
     autocratTreasuryAddress: getEnvVar('AUTOCRAT_TREASURY_ADDRESS'),
     computeMarketplaceUrl: getEnvVar('COMPUTE_MARKETPLACE_URL'),
-    sqlitEndpoint:
-      getEnvVar('SQLIT_ENDPOINT') ?? getSQLitBlockProducerUrl(),
+    sqlitEndpoint: getEnvVar('SQLIT_ENDPOINT') ?? getSQLitBlockProducerUrl(),
     dexCacheUrl: getEnvVar('DEX_CACHE_URL'),
     botsEnabled: getEnvVar('BOTS_ENABLED') !== 'false',
     autonomousEnabled: getEnvVar('AUTONOMOUS_ENABLED') === 'true',

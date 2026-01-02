@@ -68,10 +68,12 @@ export type MiningCallback = (progress: MiningProgress) => void
  */
 export async function mineIdentity(
   targetDifficulty = 24,
-  onProgress?: MiningCallback
+  onProgress?: MiningCallback,
 ): Promise<NodeIdentity> {
   console.log(`\n[Mining] Starting BLAKE2b proof-of-work mining...`)
-  console.log(`[Mining] Target difficulty: ${targetDifficulty} bits (${targetDifficulty / 4} hex zeros)`)
+  console.log(
+    `[Mining] Target difficulty: ${targetDifficulty} bits (${targetDifficulty / 4} hex zeros)`,
+  )
   console.log(`[Mining] This may take a while...\n`)
 
   // Generate secp256k1 keypair
@@ -95,12 +97,15 @@ export async function mineIdentity(
 
       // Generate random nonce (4 x uint64)
       const nonce = {
-        a: BigInt(Math.floor(Math.random() * 0xffffffff)) |
-           (BigInt(Math.floor(Math.random() * 0xffffffff)) << 32n),
-        b: BigInt(Math.floor(Math.random() * 0xffffffff)) |
-           (BigInt(Math.floor(Math.random() * 0xffffffff)) << 32n),
-        c: BigInt(Math.floor(Math.random() * 0xffffffff)) |
-           (BigInt(Math.floor(Math.random() * 0xffffffff)) << 32n),
+        a:
+          BigInt(Math.floor(Math.random() * 0xffffffff)) |
+          (BigInt(Math.floor(Math.random() * 0xffffffff)) << 32n),
+        b:
+          BigInt(Math.floor(Math.random() * 0xffffffff)) |
+          (BigInt(Math.floor(Math.random() * 0xffffffff)) << 32n),
+        c:
+          BigInt(Math.floor(Math.random() * 0xffffffff)) |
+          (BigInt(Math.floor(Math.random() * 0xffffffff)) << 32n),
         d: 0n, // Usually fixed to 0 for ordering
       }
 
@@ -119,13 +124,15 @@ export async function mineIdentity(
 
         console.log(
           `[Mining] New best: ${difficulty} bits (${(difficulty / 4).toFixed(1)} hex zeros) ` +
-          `| ${hashRate.toLocaleString()} H/s | ${(elapsedMs / 1000).toFixed(1)}s`
+            `| ${hashRate.toLocaleString()} H/s | ${(elapsedMs / 1000).toFixed(1)}s`,
         )
       }
 
       if (difficulty >= targetDifficulty) {
         const elapsedMs = Date.now() - startTime
-        console.log(`\n[Mining] SUCCESS. Found valid identity in ${(elapsedMs / 1000).toFixed(2)}s`)
+        console.log(
+          `\n[Mining] SUCCESS. Found valid identity in ${(elapsedMs / 1000).toFixed(2)}s`,
+        )
         console.log(`[Mining] NodeID: ${nodeId}`)
         console.log(`[Mining] Difficulty: ${difficulty} bits`)
         console.log(`[Mining] Total attempts: ${attempts.toLocaleString()}`)
@@ -152,7 +159,7 @@ export async function mineIdentity(
  */
 export function computeNodeId(
   publicKey: string,
-  nonce: { a: bigint; b: bigint; c: bigint; d: bigint }
+  nonce: { a: bigint; b: bigint; c: bigint; d: bigint },
 ): string {
   const pubKeyBytes = Buffer.from(publicKey, 'hex')
 
@@ -364,7 +371,9 @@ export interface RegistrationOptions {
 /**
  * Register an identity on-chain
  */
-export async function registerIdentity(options: RegistrationOptions): Promise<Hex> {
+export async function registerIdentity(
+  options: RegistrationOptions,
+): Promise<Hex> {
   const {
     identity,
     role,
@@ -377,7 +386,9 @@ export async function registerIdentity(options: RegistrationOptions): Promise<He
   } = options
 
   if (!operatorPrivateKey) {
-    throw new Error('OPERATOR_PRIVATE_KEY or PRIVATE_KEY environment variable required')
+    throw new Error(
+      'OPERATOR_PRIVATE_KEY or PRIVATE_KEY environment variable required',
+    )
   }
 
   if (registryAddress === '0x0000000000000000000000000000000000000000') {
@@ -414,7 +425,8 @@ export async function registerIdentity(options: RegistrationOptions): Promise<He
   // Get minimum stake
   let stakeAmount = options.stakeAmount
   if (!stakeAmount) {
-    const minStakeFn = role === 'blockproducer' ? 'MIN_BP_STAKE' : 'MIN_MINER_STAKE'
+    const minStakeFn =
+      role === 'blockproducer' ? 'MIN_BP_STAKE' : 'MIN_MINER_STAKE'
     stakeAmount = (await publicClient.readContract({
       address: registryAddress,
       abi: REGISTRY_ABI,
@@ -435,7 +447,7 @@ export async function registerIdentity(options: RegistrationOptions): Promise<He
 
   if (balance < stakeAmount) {
     throw new Error(
-      `Insufficient JEJU balance. Need ${Number(stakeAmount) / 1e18}, have ${Number(balance) / 1e18}`
+      `Insufficient JEJU balance. Need ${Number(stakeAmount) / 1e18}, have ${Number(balance) / 1e18}`,
     )
   }
 
@@ -667,8 +679,12 @@ export async function handleVerifyCommand(args: string[]): Promise<void> {
   console.log(`  Status: ${statusNames[result.status] || 'Unknown'}`)
   console.log(`  Staked: ${Number(result.stakedAmount) / 1e18} JEJU`)
   console.log(`  Endpoint: ${result.endpoint}`)
-  console.log(`  Registered: ${new Date(Number(result.registeredAt) * 1000).toISOString()}`)
-  console.log(`  Last Heartbeat: ${new Date(Number(result.lastHeartbeat) * 1000).toISOString()}`)
+  console.log(
+    `  Registered: ${new Date(Number(result.registeredAt) * 1000).toISOString()}`,
+  )
+  console.log(
+    `  Last Heartbeat: ${new Date(Number(result.lastHeartbeat) * 1000).toISOString()}`,
+  )
 
   // Verify the PoW locally
   const identity: NodeIdentity = {
@@ -683,7 +699,9 @@ export async function handleVerifyCommand(args: string[]): Promise<void> {
   const computed = computeNodeId(identity.publicKey, identity.nonce)
   const valid = computed === identity.nodeId
 
-  console.log(`\n[Verify] Proof-of-work verification: ${valid ? 'VALID' : 'INVALID'}`)
+  console.log(
+    `\n[Verify] Proof-of-work verification: ${valid ? 'VALID' : 'INVALID'}`,
+  )
   console.log(`[Verify] Difficulty: ${identity.difficulty} bits`)
 }
 
@@ -742,4 +760,3 @@ if (import.meta.main) {
     process.exit(1)
   })
 }
-

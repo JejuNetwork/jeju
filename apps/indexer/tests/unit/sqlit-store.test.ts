@@ -3,7 +3,7 @@
  * Tests for the SQLit store adapter used by Subsquid processor
  */
 
-import { describe, expect, test, beforeEach } from 'bun:test'
+import { beforeEach, describe, expect, test } from 'bun:test'
 
 // Mock the SQLit client for unit testing
 const mockSqlitClient = {
@@ -84,14 +84,14 @@ class TestSQLitStore {
       await this.client.exec(
         `DELETE FROM "${tableName}" WHERE id = ?`,
         [e.id],
-        this.databaseId
+        this.databaseId,
       )
     }
   }
 
   async find<E extends EntityBase>(
     tableName: string,
-    options?: FindOptions
+    options?: FindOptions,
   ): Promise<E[]> {
     let sql = `SELECT * FROM "${tableName}"`
     const params: unknown[] = []
@@ -127,12 +127,12 @@ class TestSQLitStore {
 
   async get<E extends EntityBase>(
     tableName: string,
-    id: string
+    id: string,
   ): Promise<E | undefined> {
     const result = this.client.query(
       `SELECT * FROM "${tableName}" WHERE id = ? LIMIT 1`,
       [id],
-      this.databaseId
+      this.databaseId,
     )
     return result.rows[0] as E | undefined
   }
@@ -167,14 +167,12 @@ class TestSQLitStore {
 
   private async batchUpsert(
     tableName: string,
-    entities: EntityBase[]
+    entities: EntityBase[],
   ): Promise<void> {
     if (entities.length === 0) return
 
     const firstEntity = entities[0] as Record<string, unknown>
-    const columns = Object.keys(firstEntity).filter(
-      (k) => k !== 'constructor'
-    )
+    const columns = Object.keys(firstEntity).filter((k) => k !== 'constructor')
 
     const quotedColumns = columns.map((c) => `"${c}"`)
     const placeholders = columns.map(() => '?').join(', ')
@@ -232,14 +230,14 @@ class TestEntity implements EntityBase {
   constructor(
     public id: string,
     public name: string,
-    public value: number
+    public value: number,
   ) {}
 }
 
 class AnotherEntity implements EntityBase {
   constructor(
     public id: string,
-    public data: Record<string, unknown>
+    public data: Record<string, unknown>,
   ) {}
 }
 
@@ -342,7 +340,9 @@ describe('SQLit Store', () => {
       await store.find('test_entity')
 
       expect(mockSqlitClient.queries.length).toBe(1)
-      expect(mockSqlitClient.queries[0].sql).toContain('SELECT * FROM "test_entity"')
+      expect(mockSqlitClient.queries[0].sql).toContain(
+        'SELECT * FROM "test_entity"',
+      )
     })
 
     test('applies where clause', async () => {
@@ -471,9 +471,9 @@ describe('SQLit Store', () => {
       await store.flush()
 
       const exec = mockSqlitClient.execCalls[0]
-      expect(exec.params.some((p) => typeof p === 'string' && p.includes('2024'))).toBe(
-        true
-      )
+      expect(
+        exec.params.some((p) => typeof p === 'string' && p.includes('2024')),
+      ).toBe(true)
     })
 
     test('handles bigint values', async () => {
@@ -498,7 +498,7 @@ describe('SQLit Store', () => {
 
       const exec = mockSqlitClient.execCalls[0]
       expect(
-        exec.params.some((p) => typeof p === 'string' && p.includes('"key"'))
+        exec.params.some((p) => typeof p === 'string' && p.includes('"key"')),
       ).toBe(true)
     })
 

@@ -113,12 +113,16 @@ func NewDatabase(cfg *DBConfig, peers *proto.Peers,
 		if err != nil {
 			// stop bftraft runtime
 			if db.bftraftRuntime != nil {
-				db.bftraftRuntime.Shutdown()
+				if shutdownErr := db.bftraftRuntime.Shutdown(); shutdownErr != nil {
+					log.WithError(shutdownErr).Error("shutdown bftraft runtime failed")
+				}
 			}
 
 			// close chain
 			if db.chain != nil {
-				db.chain.Stop()
+				if stopErr := db.chain.Stop(); stopErr != nil {
+					log.WithError(stopErr).Error("stop chain failed")
+				}
 			}
 		}
 	}()
@@ -197,7 +201,9 @@ func NewDatabase(cfg *DBConfig, peers *proto.Peers,
 	db.mux.register(db.dbID, db.bftraftRuntime)
 
 	// start bftraft runtime
-	db.bftraftRuntime.Start()
+	if err = db.bftraftRuntime.Start(); err != nil {
+		return
+	}
 
 	// init sequence eviction processor
 	go db.evictSequences()

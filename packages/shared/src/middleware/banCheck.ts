@@ -7,11 +7,11 @@
 
 import { getL1RpcUrl } from '@jejunetwork/config'
 import { banManagerAbi, readContract } from '@jejunetwork/contracts'
+import { getCacheClient, type CacheClient } from '@jejunetwork/cache'
 import { Elysia } from 'elysia'
 import type { Address, Chain, Hex, PublicClient, Transport } from 'viem'
 import { createPublicClient, http } from 'viem'
 import { base, baseSepolia } from 'viem/chains'
-import { type CacheClient, getCacheClient } from '../cache'
 
 export interface BanCheckConfig {
   banManagerAddress: Address

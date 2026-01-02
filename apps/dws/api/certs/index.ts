@@ -29,21 +29,29 @@ function toArrayBuffer(data: Uint8Array): ArrayBuffer {
 import type { Address } from 'viem'
 import { keccak256, toHex } from 'viem'
 
-// Re-export ACME and X.509 utilities
-export { 
-  ACMEClient, 
-  ACME_DIRECTORIES as ACME_DIRECTORY_URLS, 
-  createACMECertificateManager 
-} from './acme'
-export type { 
-  ACMEConfig, 
-  ACMEAccount as RealACMEAccount, 
-  ACMEOrder, 
-  IssuedCertificate,
+export type {
+  ACMEAccount as RealACMEAccount,
   ACMEChallenge as RealACMEChallenge,
+  ACMEConfig,
+  ACMEOrder,
+  IssuedCertificate,
 } from './acme'
-export { generateSelfSignedCertificate, parseCertificate, isCertificateExpiringSoon } from './x509'
-export type { CertificateInfo, GeneratedCertificate, GenerateCertificateOptions } from './x509'
+// Re-export ACME and X.509 utilities
+export {
+  ACME_DIRECTORIES as ACME_DIRECTORY_URLS,
+  ACMEClient,
+  createACMECertificateManager,
+} from './acme'
+export type {
+  CertificateInfo,
+  GenerateCertificateOptions,
+  GeneratedCertificate,
+} from './x509'
+export {
+  generateSelfSignedCertificate,
+  isCertificateExpiringSoon,
+  parseCertificate,
+} from './x509'
 
 // Import for internal use
 import { ACMEClient } from './acme'
@@ -154,7 +162,9 @@ export class CertificateManager {
    * Uses the real ACMEClient for Let's Encrypt integration
    */
   private async initializeACMEAccount(): Promise<void> {
-    const isProduction = this.config.acmeDirectory.includes('api.letsencrypt.org')
+    const isProduction = this.config.acmeDirectory.includes(
+      'api.letsencrypt.org',
+    )
 
     try {
       // Create real ACME client
@@ -166,7 +176,9 @@ export class CertificateManager {
       })
 
       if (isProduction) {
-        console.log('[Certs] Initializing production ACME client (Let\'s Encrypt)...')
+        console.log(
+          "[Certs] Initializing production ACME client (Let's Encrypt)...",
+        )
       } else {
         console.log('[Certs] Initializing staging ACME client...')
       }
@@ -182,8 +194,11 @@ export class CertificateManager {
 
       console.log('[Certs] ACME account initialized')
     } catch (error) {
-      console.warn('[Certs] ACME initialization failed, falling back to self-signed mode:', error)
-      
+      console.warn(
+        '[Certs] ACME initialization failed, falling back to self-signed mode:',
+        error,
+      )
+
       this.acmeClient = null
       this.acmeAccount = {
         accountUrl: 'fallback-self-signed',
@@ -274,7 +289,9 @@ export class CertificateManager {
   private async startACMEFlow(cert: Certificate): Promise<void> {
     // If no ACME client, fall back to self-signed
     if (!this.acmeClient) {
-      console.log(`[Certs] No ACME client available, using self-signed for ${cert.domain}`)
+      console.log(
+        `[Certs] No ACME client available, using self-signed for ${cert.domain}`,
+      )
       await this.generateSelfSigned(cert)
       return
     }
@@ -285,7 +302,7 @@ export class CertificateManager {
       // Request certificate using real ACME client
       const { order, challenges } = await this.acmeClient.requestCertificate(
         cert.domain,
-        cert.altNames
+        cert.altNames,
       )
 
       // Store challenges for HTTP-01 validation
@@ -304,16 +321,22 @@ export class CertificateManager {
       }
 
       console.log(`[Certs] ACME challenges ready for ${cert.domain}`)
-      console.log(`[Certs] Waiting for HTTP-01 validation at /.well-known/acme-challenge/`)
+      console.log(
+        `[Certs] Waiting for HTTP-01 validation at /.well-known/acme-challenge/`,
+      )
 
       // Complete challenges and get certificate
-      const issuedCert = await this.acmeClient.completeChallenges(order, challenges)
+      const issuedCert = await this.acmeClient.completeChallenges(
+        order,
+        challenges,
+      )
 
       // Store the issued certificate
       cert.status = 'issued'
       cert.issuedAt = issuedCert.issuedAt
       cert.expiresAt = issuedCert.expiresAt
-      cert.renewsAt = cert.expiresAt - this.config.renewalDays * 24 * 60 * 60 * 1000
+      cert.renewsAt =
+        cert.expiresAt - this.config.renewalDays * 24 * 60 * 60 * 1000
       cert.encryptedCert = await this.encrypt(issuedCert.certificate)
       cert.encryptedKey = await this.encrypt(issuedCert.privateKey)
 
@@ -325,7 +348,8 @@ export class CertificateManager {
       console.log(`[Certs] Certificate issued for ${cert.domain}`)
     } catch (error) {
       cert.status = 'error'
-      cert.lastError = error instanceof Error ? error.message : 'ACME flow failed'
+      cert.lastError =
+        error instanceof Error ? error.message : 'ACME flow failed'
       console.error(`[Certs] ACME flow failed for ${cert.domain}:`, error)
     }
   }

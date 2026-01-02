@@ -11,6 +11,7 @@
  * - Content moderation before upload (CSAM, malware, illegal content)
  */
 
+import { getCurrentNetwork } from '@jejunetwork/config'
 import {
   ContentModerationPipeline,
   type ModerationResult,
@@ -34,7 +35,10 @@ const JsonValueSchema: z.ZodType<unknown> = z.lazy(() =>
 )
 
 import { extractClientRegion } from '../../shared/utils/common'
-import type { BackendManager } from '../../storage/backends'
+import {
+  type BackendManager,
+  getBackendManager,
+} from '../../storage/backends'
 import { getMultiBackendManager } from '../../storage/multi-backend'
 import type {
   ContentCategory,
@@ -230,7 +234,10 @@ function getQueryInt(
 }
 
 export function createStorageRouter(backend?: BackendManager) {
-  const storageManager = getMultiBackendManager()
+  // For localnet, use simple backend (local + IPFS) to avoid Filecoin/WebTorrent crashes
+  const network = getCurrentNetwork()
+  const storageManager =
+    network === 'localnet' ? getBackendManager() : getMultiBackendManager()
 
   return (
     new Elysia({ prefix: '/storage' })

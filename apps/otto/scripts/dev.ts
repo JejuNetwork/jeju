@@ -53,11 +53,11 @@ async function waitForPort(port: number, timeout = 30000): Promise<boolean> {
 }
 
 async function buildFrontend(): Promise<boolean> {
-  const host = getLocalhostHost()
+  const _host = getLocalhostHost()
   console.log('[Otto] Building frontend...')
-  
+
   const distWebDir = resolve(APP_DIR, 'dist/web')
-  
+
   // Run build if dist doesn't exist
   if (!existsSync(distWebDir)) {
     const result = Bun.spawnSync(['bun', 'run', 'scripts/build.ts'], {
@@ -70,7 +70,7 @@ async function buildFrontend(): Promise<boolean> {
       return false
     }
   }
-  
+
   return true
 }
 
@@ -95,7 +95,7 @@ function getMimeType(pathname: string): string {
 async function startWebServer() {
   const host = getLocalhostHost()
   const distWebDir = resolve(APP_DIR, 'dist/web')
-  
+
   webServer = Bun.serve({
     hostname: host,
     port: WEB_PORT,
@@ -109,7 +109,10 @@ async function startWebServer() {
         const apiResponse = await fetch(apiUrl, {
           method: req.method,
           headers: req.headers,
-          body: req.method !== 'GET' && req.method !== 'HEAD' ? req.body : undefined,
+          body:
+            req.method !== 'GET' && req.method !== 'HEAD'
+              ? req.body
+              : undefined,
         })
         return new Response(apiResponse.body, {
           status: apiResponse.status,
@@ -122,7 +125,7 @@ async function startWebServer() {
 
       const filePath = resolve(distWebDir, pathname.slice(1))
       const file = Bun.file(filePath)
-      
+
       if (await file.exists()) {
         return new Response(file, {
           headers: { 'Content-Type': getMimeType(pathname) },

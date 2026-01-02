@@ -186,7 +186,17 @@ class BackendManagerImpl implements BackendManager {
     let backendName = options?.preferredBackend
 
     if (!backendName) {
-      backendName = this.backends.has('ipfs') ? 'ipfs' : 'local'
+      // Try IPFS first, but fall back to local if IPFS is not healthy
+      if (this.backends.has('ipfs')) {
+        const ipfsBackend = this.backends.get('ipfs')
+        const healthy = await ipfsBackend?.healthCheck().catch(() => false)
+        backendName = healthy ? 'ipfs' : 'local'
+        if (!healthy) {
+          console.log('[Storage] IPFS not available, using local storage')
+        }
+      } else {
+        backendName = 'local'
+      }
     }
 
     const backend = this.backends.get(backendName)
@@ -297,4 +307,9 @@ export function createBackendManager(): BackendManager {
     sharedBackendManager = new BackendManagerImpl()
   }
   return sharedBackendManager
+}
+
+/** Get the shared backend manager instance */
+export function getBackendManager(): BackendManager {
+  return createBackendManager()
 }

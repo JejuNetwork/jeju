@@ -49,14 +49,23 @@ const DANGEROUS_PATTERNS = [
   /\[\d{4,}[smhdwy]\]/i,
 ]
 
-function validatePromQLQuery(query: string): { valid: boolean; error?: string } {
+function validatePromQLQuery(query: string): {
+  valid: boolean
+  error?: string
+} {
   if (query.length > MAX_QUERY_LENGTH) {
-    return { valid: false, error: `Query too long (max ${MAX_QUERY_LENGTH} chars)` }
+    return {
+      valid: false,
+      error: `Query too long (max ${MAX_QUERY_LENGTH} chars)`,
+    }
   }
 
   for (const pattern of DANGEROUS_PATTERNS) {
     if (pattern.test(query)) {
-      return { valid: false, error: 'Query contains potentially expensive patterns' }
+      return {
+        valid: false,
+        error: 'Query contains potentially expensive patterns',
+      }
     }
   }
 
@@ -223,7 +232,10 @@ export function createMonitoringApp(env?: Partial<MonitoringEnv>) {
             .safeParse(body)
 
           if (!parsed.success) {
-            return { error: 'Invalid A2A request', details: parsed.error.issues }
+            return {
+              error: 'Invalid A2A request',
+              details: parsed.error.issues,
+            }
           }
 
           const { skill, params } = parsed.data
@@ -295,7 +307,10 @@ export function createMonitoringApp(env?: Partial<MonitoringEnv>) {
             .safeParse(body)
 
           if (!parsed.success) {
-            return { error: 'Invalid MCP request', details: parsed.error.issues }
+            return {
+              error: 'Invalid MCP request',
+              details: parsed.error.issues,
+            }
           }
 
           return { tool: parsed.data.tool, result: 'Tool executed' }

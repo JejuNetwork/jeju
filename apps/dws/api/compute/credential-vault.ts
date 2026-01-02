@@ -436,7 +436,10 @@ const storage = {
 
 // Initialize storage on module load (non-blocking)
 initSQLit().catch((error) => {
-  console.error('[CredentialVault] SQLit initialization failed:', error instanceof Error ? error.message : String(error))
+  console.error(
+    '[CredentialVault] SQLit initialization failed:',
+    error instanceof Error ? error.message : String(error),
+  )
 })
 
 // Metrics for Prometheus

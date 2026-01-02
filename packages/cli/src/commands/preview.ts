@@ -7,15 +7,15 @@
  * - jeju preview delete - Remove preview
  */
 
+import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { spawnSync } from 'node:child_process'
 import { getDWSUrl, getLocalhostHost } from '@jejunetwork/config'
 import { Command } from 'commander'
 import type { Address } from 'viem'
 import { logger } from '../lib/logger'
+import type { AppManifest, NetworkType } from '../types'
 import { requireLogin } from './login'
-import type { NetworkType, AppManifest } from '../types'
 
 interface PreviewDeployment {
   previewId: string
@@ -37,9 +37,15 @@ function getDWSUrlForNetwork(network: NetworkType): string {
     case 'mainnet':
       return process.env.MAINNET_DWS_URL ?? 'https://dws.jejunetwork.org'
     case 'testnet':
-      return process.env.TESTNET_DWS_URL ?? 'https://dws.testnet.jejunetwork.org'
+      return (
+        process.env.TESTNET_DWS_URL ?? 'https://dws.testnet.jejunetwork.org'
+      )
     default:
-      return process.env.DWS_URL ?? getDWSUrl() ?? `http://${getLocalhostHost()}:4020`
+      return (
+        process.env.DWS_URL ??
+        getDWSUrl() ??
+        `http://${getLocalhostHost()}:4020`
+      )
   }
 }
 
@@ -91,7 +97,7 @@ async function createPreview(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${authToken}`,
+      Authorization: `Bearer ${authToken}`,
       'X-Jeju-Address': address,
     },
     body: JSON.stringify({
@@ -126,7 +132,7 @@ async function listPreviews(
 
   const response = await fetch(`${dwsUrl}/previews/list?${params}`, {
     headers: {
-      'Authorization': `Bearer ${authToken}`,
+      Authorization: `Bearer ${authToken}`,
       'X-Jeju-Address': address,
     },
   })
@@ -152,7 +158,7 @@ async function deletePreview(
   const response = await fetch(`${dwsUrl}/previews/${previewId}`, {
     method: 'DELETE',
     headers: {
-      'Authorization': `Bearer ${authToken}`,
+      Authorization: `Bearer ${authToken}`,
     },
   })
 
@@ -174,7 +180,7 @@ async function getPreview(
 
   const response = await fetch(`${dwsUrl}/previews/${previewId}`, {
     headers: {
-      'Authorization': `Bearer ${authToken}`,
+      Authorization: `Bearer ${authToken}`,
     },
   })
 
@@ -185,8 +191,9 @@ async function getPreview(
   return response.json()
 }
 
-export const previewCommand = new Command('preview')
-  .description('Manage preview deployments')
+export const previewCommand = new Command('preview').description(
+  'Manage preview deployments',
+)
 
 // Create preview (default)
 previewCommand
@@ -320,8 +327,10 @@ previewCommand
     }
 
     console.log('')
-    console.log('  APP'.padEnd(15) + 'BRANCH'.padEnd(20) + 'STATUS'.padEnd(12) + 'URL')
-    console.log('  ' + '-'.repeat(70))
+    console.log(
+      `${'  APP'.padEnd(15) + 'BRANCH'.padEnd(20) + 'STATUS'.padEnd(12)}URL`,
+    )
+    console.log(`  ${'-'.repeat(70)}`)
 
     for (const preview of previews) {
       const app = preview.appName.slice(0, 13).padEnd(13)

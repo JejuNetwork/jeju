@@ -1,10 +1,11 @@
 #!/usr/bin/env bun
+
 // Copyright (c) 2024 Jeju Network
 // Test runner that starts workerd, verifies it's working, then runs tests
 // Licensed under the Apache 2.0 license
 
-import { spawn, type Subprocess } from 'bun'
-import { join, dirname } from 'path'
+import { dirname, join } from 'node:path'
+import { type Subprocess, spawn } from 'bun'
 
 const WORKERD_URL = 'http://localhost:9123'
 const STARTUP_TIMEOUT = 30000 // 30 seconds
@@ -50,9 +51,7 @@ async function findWorkerd(): Promise<string> {
         if (proc.exitCode === 0) {
           return loc
         }
-      } catch {
-        continue
-      }
+      } catch {}
     }
   }
 
@@ -99,7 +98,10 @@ async function runNodeHelloWorld(): Promise<TestResult> {
       }
     }
 
-    const data = (await response.json()) as { message?: string; runtime?: string }
+    const data = (await response.json()) as {
+      message?: string
+      runtime?: string
+    }
 
     if (data.message !== 'Hello from Bun worker!') {
       return {
@@ -137,18 +139,15 @@ async function runNodeHelloWorld(): Promise<TestResult> {
 async function runBunTests(): Promise<{ exitCode: number; output: string }> {
   console.log('\n📋 Running Bun worker tests...\n')
 
-  const proc = spawn(
-    ['bun', 'test', 'src/bun/'],
-    {
-      cwd: workerdRoot,
-      stdout: 'pipe',
-      stderr: 'pipe',
-      env: {
-        ...process.env,
-        WORKERD_RUNNING: '1',
-      },
+  const proc = spawn(['bun', 'test', 'src/bun/'], {
+    cwd: workerdRoot,
+    stdout: 'pipe',
+    stderr: 'pipe',
+    env: {
+      ...process.env,
+      WORKERD_RUNNING: '1',
     },
-  )
+  })
 
   const stdout = await new Response(proc.stdout).text()
   const stderr = await new Response(proc.stderr).text()

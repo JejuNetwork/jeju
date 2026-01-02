@@ -99,15 +99,14 @@ func SavePrivateKey(db *gorp.DbMap, developer int64, key *asymmetric.PrivateKey)
 
 	accountAddr := utils.NewAccountAddress(account)
 
-	if p, err = GetAccount(db, developer, accountAddr); err != nil {
-		// not exists
-		err = nil
+	p, getErr := GetAccount(db, developer, accountAddr)
+	if getErr != nil {
+		// not exists - create new
 		p = &DeveloperPrivateKey{
 			Developer: developer,
 			Account:   accountAddr,
 			Key:       key,
 		}
-
 		exists = false
 	}
 

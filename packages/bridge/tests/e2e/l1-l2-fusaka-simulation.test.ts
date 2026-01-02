@@ -23,17 +23,16 @@ import {
 } from 'bun:test'
 import { type Subprocess, spawn } from 'bun'
 import {
+  type Address,
   createPublicClient,
-  createWalletClient,
+  encodeAbiParameters,
   type Hex,
   http,
-  parseEther,
   keccak256,
-  encodeAbiParameters,
   parseAbiParameters,
+  parseEther,
   toBytes,
   toHex,
-  type Address,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { anvil, optimism } from 'viem/chains'
@@ -66,25 +65,30 @@ const OPTIMISM_CONFIG = {
 }
 
 // L1/L2 predeploy addresses (OP Stack)
-const OP_ADDRESSES = {
+const _OP_ADDRESSES = {
   L1: {
     OptimismPortal: '0x0000000000000000000000000000000000000001' as Address,
-    L1CrossDomainMessenger: '0x0000000000000000000000000000000000000002' as Address,
+    L1CrossDomainMessenger:
+      '0x0000000000000000000000000000000000000002' as Address,
     L1StandardBridge: '0x0000000000000000000000000000000000000003' as Address,
     L2OutputOracle: '0x0000000000000000000000000000000000000004' as Address,
     DisputeGameFactory: '0x0000000000000000000000000000000000000005' as Address,
   },
   L2: {
-    L2CrossDomainMessenger: '0x4200000000000000000000000000000000000007' as Address,
-    L2ToL1MessagePasser: '0x4200000000000000000000000000000000000016' as Address,
+    L2CrossDomainMessenger:
+      '0x4200000000000000000000000000000000000007' as Address,
+    L2ToL1MessagePasser:
+      '0x4200000000000000000000000000000000000016' as Address,
     L2StandardBridge: '0x4200000000000000000000000000000000000010' as Address,
     GasPriceOracle: '0x420000000000000000000000000000000000000F' as Address,
   },
 }
 
 // Test accounts
-const L1_PRIVATE_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as Hex
-const L2_PRIVATE_KEY = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as Hex
+const L1_PRIVATE_KEY =
+  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as Hex
+const L2_PRIVATE_KEY =
+  '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as Hex
 
 // Ports
 const L1_PORT = 8545
@@ -116,7 +120,7 @@ interface BlobData {
 }
 
 // ABI fragments for L1/L2 contracts
-const OPTIMISM_PORTAL_ABI = [
+const _OPTIMISM_PORTAL_ABI = [
   {
     name: 'depositTransaction',
     type: 'function',
@@ -142,7 +146,7 @@ const OPTIMISM_PORTAL_ABI = [
   },
 ] as const
 
-const L2_TO_L1_MESSAGE_PASSER_ABI = [
+const _L2_TO_L1_MESSAGE_PASSER_ABI = [
   {
     name: 'initiateWithdrawal',
     type: 'function',
@@ -179,13 +183,17 @@ describe('L1 ↔ L2 Fusaka Simulation', () => {
     console.log('\n=== L1 ↔ L2 Fusaka Simulation Tests ===\n')
     console.log('Fusaka Configuration:')
     console.log(`  - Gas Limit: ${FUSAKA_CONFIG.gasLimit}`)
-    console.log(`  - Blob Target/Max: ${FUSAKA_CONFIG.blobTarget}/${FUSAKA_CONFIG.blobMax}`)
+    console.log(
+      `  - Blob Target/Max: ${FUSAKA_CONFIG.blobTarget}/${FUSAKA_CONFIG.blobMax}`,
+    )
     console.log(`  - PeerDAS: ${FUSAKA_CONFIG.peerDASEnabled}`)
     console.log('')
     console.log('Optimism Configuration:')
     console.log(`  - Version: ${OPTIMISM_CONFIG.version}`)
     console.log(`  - Fault Proofs: ${OPTIMISM_CONFIG.faultProofsEnabled}`)
-    console.log(`  - Permissionless: ${OPTIMISM_CONFIG.permissionlessFaultProofs}`)
+    console.log(
+      `  - Permissionless: ${OPTIMISM_CONFIG.permissionlessFaultProofs}`,
+    )
     console.log('')
 
     // Check if L1 (Anvil) is running
@@ -195,10 +203,14 @@ describe('L1 ↔ L2 Fusaka Simulation', () => {
       l1Process = spawn({
         cmd: [
           'anvil',
-          '--port', L1_PORT.toString(),
-          '--chain-id', '1',
-          '--block-base-fee-per-gas', '1000000000',
-          '--gas-limit', FUSAKA_CONFIG.gasLimit.toString(),
+          '--port',
+          L1_PORT.toString(),
+          '--chain-id',
+          '1',
+          '--block-base-fee-per-gas',
+          '1000000000',
+          '--gas-limit',
+          FUSAKA_CONFIG.gasLimit.toString(),
           '--silent',
         ],
         stdout: 'pipe',
@@ -217,10 +229,14 @@ describe('L1 ↔ L2 Fusaka Simulation', () => {
       l2Process = spawn({
         cmd: [
           'anvil',
-          '--port', L2_PORT.toString(),
-          '--chain-id', '420691',
-          '--block-base-fee-per-gas', '1000000',
-          '--gas-limit', '30000000',
+          '--port',
+          L2_PORT.toString(),
+          '--chain-id',
+          '420691',
+          '--block-base-fee-per-gas',
+          '1000000',
+          '--gas-limit',
+          '30000000',
           '--silent',
         ],
         stdout: 'pipe',
@@ -286,11 +302,11 @@ describe('L1 ↔ L2 Fusaka Simulation', () => {
 
       // Simulate blob transaction structure validation
       const blobData = createMockBlobData()
-      
+
       expect(blobData.commitment.length).toBe(98) // 48 bytes + 0x prefix
       expect(blobData.versionedHash.length).toBe(66) // 32 bytes + 0x prefix
       expect(blobData.data.length).toBe(131072) // 128KB blob
-      
+
       console.log('  ✅ Blob data structure valid')
     })
 
@@ -304,11 +320,16 @@ describe('L1 ↔ L2 Fusaka Simulation', () => {
       expect(FUSAKA_CONFIG.peerDAS.custodyColumns).toBe(4)
       expect(FUSAKA_CONFIG.peerDAS.numberOfColumns).toBe(128)
       expect(FUSAKA_CONFIG.peerDAS.samplesPerSlot).toBe(8)
-      
+
       // Calculate custody requirement
-      const custodyPercentage = (FUSAKA_CONFIG.peerDAS.custodyColumns / FUSAKA_CONFIG.peerDAS.numberOfColumns) * 100
-      console.log(`  PeerDAS custody: ${custodyPercentage.toFixed(2)}% of columns`)
-      
+      const custodyPercentage =
+        (FUSAKA_CONFIG.peerDAS.custodyColumns /
+          FUSAKA_CONFIG.peerDAS.numberOfColumns) *
+        100
+      console.log(
+        `  PeerDAS custody: ${custodyPercentage.toFixed(2)}% of columns`,
+      )
+
       expect(custodyPercentage).toBeGreaterThan(0)
       expect(custodyPercentage).toBeLessThan(100)
     })
@@ -369,7 +390,7 @@ describe('L1 ↔ L2 Fusaka Simulation', () => {
 
       // Encode deposit data (OP Stack format)
       const encodedData = encodeDepositData(deposit)
-      
+
       expect(encodedData.length).toBeGreaterThan(2)
       console.log(`  Encoded deposit: ${encodedData.slice(0, 66)}...`)
     })
@@ -385,7 +406,7 @@ describe('L1 ↔ L2 Fusaka Simulation', () => {
       }
 
       const hash = computeDepositHash(deposit)
-      
+
       expect(hash.length).toBe(66) // 32 bytes + 0x
       expect(hash.startsWith('0x')).toBe(true)
       console.log(`  Deposit hash: ${hash}`)
@@ -408,11 +429,11 @@ describe('L1 ↔ L2 Fusaka Simulation', () => {
 
       // Simulate the deposit flow
       const depositHash = computeDepositHash(deposit)
-      
+
       // In production, this would go through OptimismPortal
       // For simulation, we verify the data structures are correct
       expect(depositHash).toBeDefined()
-      
+
       console.log('  ✅ L1 → L2 deposit simulation successful')
     })
 
@@ -424,7 +445,7 @@ describe('L1 ↔ L2 Fusaka Simulation', () => {
 
       // Create a deposit that includes blob data reference
       const blobData = createMockBlobData()
-      
+
       const deposit: DepositTransaction = {
         from: privateKeyToAccount(L1_PRIVATE_KEY).address,
         to: privateKeyToAccount(L2_PRIVATE_KEY).address,
@@ -432,16 +453,17 @@ describe('L1 ↔ L2 Fusaka Simulation', () => {
         gasLimit: 200000n,
         isCreation: false,
         // Include blob hash reference in calldata
-        data: encodeAbiParameters(
-          parseAbiParameters('bytes32 blobHash'),
-          [blobData.versionedHash]
-        ),
+        data: encodeAbiParameters(parseAbiParameters('bytes32 blobHash'), [
+          blobData.versionedHash,
+        ]),
       }
 
       const hash = computeDepositHash(deposit)
       expect(hash).toBeDefined()
-      
-      console.log(`  Deposit with blob reference: ${blobData.versionedHash.slice(0, 20)}...`)
+
+      console.log(
+        `  Deposit with blob reference: ${blobData.versionedHash.slice(0, 20)}...`,
+      )
     })
   })
 
@@ -457,7 +479,7 @@ describe('L1 ↔ L2 Fusaka Simulation', () => {
       }
 
       const encodedData = encodeWithdrawalData(withdrawal)
-      
+
       expect(encodedData.length).toBeGreaterThan(2)
       console.log(`  Encoded withdrawal: ${encodedData.slice(0, 66)}...`)
     })
@@ -473,7 +495,7 @@ describe('L1 ↔ L2 Fusaka Simulation', () => {
       }
 
       const hash = computeWithdrawalHash(withdrawal)
-      
+
       expect(hash.length).toBe(66)
       expect(hash.startsWith('0x')).toBe(true)
       console.log(`  Withdrawal hash: ${hash}`)
@@ -495,15 +517,15 @@ describe('L1 ↔ L2 Fusaka Simulation', () => {
       }
 
       const withdrawalHash = computeWithdrawalHash(withdrawal)
-      
+
       // In production, this would go through L2ToL1MessagePasser
       expect(withdrawalHash).toBeDefined()
-      
+
       console.log('  ✅ L2 → L1 withdrawal initiation simulation successful')
     })
 
     it('should validate withdrawal proving requirements', async () => {
-      const withdrawal: WithdrawalTransaction = {
+      const _withdrawal: WithdrawalTransaction = {
         nonce: 0n,
         sender: privateKeyToAccount(L2_PRIVATE_KEY).address,
         target: privateKeyToAccount(L1_PRIVATE_KEY).address,
@@ -514,7 +536,8 @@ describe('L1 ↔ L2 Fusaka Simulation', () => {
 
       // Simulate output root proof structure
       const outputRootProof = {
-        version: '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
+        version:
+          '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
         stateRoot: keccak256(toBytes('state')),
         messagePasserStorageRoot: keccak256(toBytes('messagePasser')),
         latestBlockhash: keccak256(toBytes('block')),
@@ -523,14 +546,16 @@ describe('L1 ↔ L2 Fusaka Simulation', () => {
       // Compute output root
       const outputRoot = keccak256(
         encodeAbiParameters(
-          parseAbiParameters('bytes32 version, bytes32 stateRoot, bytes32 messagePasserStorageRoot, bytes32 latestBlockhash'),
+          parseAbiParameters(
+            'bytes32 version, bytes32 stateRoot, bytes32 messagePasserStorageRoot, bytes32 latestBlockhash',
+          ),
           [
             outputRootProof.version,
             outputRootProof.stateRoot,
             outputRootProof.messagePasserStorageRoot,
             outputRootProof.latestBlockhash,
-          ]
-        )
+          ],
+        ),
       )
 
       expect(outputRoot.length).toBe(66)
@@ -553,7 +578,7 @@ describe('L1 ↔ L2 Fusaka Simulation', () => {
 
       expect(disputeGame.gameType).toBe(1) // CANNON
       expect(disputeGame.rootClaim.length).toBe(66)
-      
+
       console.log(`  Dispute game type: CANNON (${disputeGame.gameType})`)
       console.log(`  Root claim: ${disputeGame.rootClaim.slice(0, 20)}...`)
     })
@@ -569,21 +594,21 @@ describe('L1 ↔ L2 Fusaka Simulation', () => {
       }
 
       expect(challenge.bondAmount).toBe(parseEther('0.08'))
-      
+
       // Validate clock duration (max 3.5 days for responder)
       const maxClockDuration = 3.5 * 24 * 60 * 60 * 1000
       expect(maxClockDuration).toBeGreaterThan(0)
-      
+
       console.log(`  Challenge bond: ${challenge.bondAmount} wei`)
       console.log('  ✅ Fault proof challenge structure valid')
     })
 
     it('should validate finalization period', async () => {
       const finalizationPeriod = OPTIMISM_CONFIG.finalizationPeriod
-      
+
       // Should be 7 days
       expect(finalizationPeriod).toBe(7 * 24 * 60 * 60)
-      
+
       // Calculate in human-readable format
       const days = finalizationPeriod / (24 * 60 * 60)
       console.log(`  Finalization period: ${days} days`)
@@ -595,11 +620,11 @@ describe('L1 ↔ L2 Fusaka Simulation', () => {
       // Fusaka activation: Dec 3, 2025
       const fusakaActivation = new Date('2025-12-03T00:00:00Z')
       const now = new Date()
-      
+
       const isActive = now >= fusakaActivation
       console.log(`  Fusaka activation: ${fusakaActivation.toISOString()}`)
       console.log(`  Currently active: ${isActive}`)
-      
+
       // Post-Fusaka checks
       if (isActive) {
         expect(FUSAKA_CONFIG.gasLimit).toBe(60_000_000n)
@@ -616,11 +641,13 @@ describe('L1 ↔ L2 Fusaka Simulation', () => {
       ]
 
       const now = new Date()
-      
+
       for (const stage of blobCapacityTimeline) {
         const stageDate = new Date(stage.date)
         if (now >= stageDate) {
-          console.log(`  Stage ${stage.date}: ${stage.target}/${stage.max} blobs`)
+          console.log(
+            `  Stage ${stage.date}: ${stage.target}/${stage.max} blobs`,
+          )
         }
       }
 
@@ -642,10 +669,10 @@ describe('L1 ↔ L2 Fusaka Simulation', () => {
 
       // Pre-fork encoding (legacy)
       const preForkHash = computeDepositHash(deposit)
-      
+
       // Post-fork encoding (should be identical for backwards compatibility)
       const postForkHash = computeDepositHash(deposit)
-      
+
       expect(preForkHash).toBe(postForkHash)
       console.log('  ✅ Message encoding consistent across fork')
     })
@@ -697,7 +724,7 @@ describe('L1 ↔ L2 Fusaka Simulation', () => {
 
       expect(hash1).toBe(hash2)
       expect(hash2).toBe(hash3)
-      
+
       console.log('  ✅ Message hash computation is deterministic')
     })
 
@@ -742,7 +769,7 @@ describe('L1 ↔ L2 Fusaka Simulation', () => {
       // All hashes should be unique
       const uniqueHashes = new Set(hashes)
       expect(uniqueHashes.size).toBe(nonces.length)
-      
+
       console.log('  ✅ Nonce ordering produces unique hashes')
     })
   })
@@ -764,7 +791,7 @@ describe('L1 ↔ L2 Fusaka Simulation', () => {
       }
 
       const startTime = performance.now()
-      
+
       for (const deposit of deposits) {
         computeDepositHash(deposit)
       }
@@ -772,8 +799,10 @@ describe('L1 ↔ L2 Fusaka Simulation', () => {
       const elapsed = performance.now() - startTime
       const avgTime = elapsed / iterations
 
-      console.log(`  Processed ${iterations} deposits in ${elapsed.toFixed(2)}ms (${avgTime.toFixed(3)}ms avg)`)
-      
+      console.log(
+        `  Processed ${iterations} deposits in ${elapsed.toFixed(2)}ms (${avgTime.toFixed(3)}ms avg)`,
+      )
+
       // Should process within 1ms per deposit
       expect(avgTime).toBeLessThan(1)
     })
@@ -794,7 +823,7 @@ describe('L1 ↔ L2 Fusaka Simulation', () => {
       }
 
       const startTime = performance.now()
-      
+
       for (const withdrawal of withdrawals) {
         computeWithdrawalHash(withdrawal)
       }
@@ -802,8 +831,10 @@ describe('L1 ↔ L2 Fusaka Simulation', () => {
       const elapsed = performance.now() - startTime
       const avgTime = elapsed / iterations
 
-      console.log(`  Processed ${iterations} withdrawals in ${elapsed.toFixed(2)}ms (${avgTime.toFixed(3)}ms avg)`)
-      
+      console.log(
+        `  Processed ${iterations} withdrawals in ${elapsed.toFixed(2)}ms (${avgTime.toFixed(3)}ms avg)`,
+      )
+
       // Should process within 1ms per withdrawal
       expect(avgTime).toBeLessThan(1)
     })
@@ -814,30 +845,65 @@ describe('L1 ↔ L2 Fusaka Simulation', () => {
 
 function encodeDepositData(deposit: DepositTransaction): Hex {
   return encodeAbiParameters(
-    parseAbiParameters('address to, uint256 value, uint64 gasLimit, bool isCreation, bytes data'),
-    [deposit.to, deposit.value, deposit.gasLimit, deposit.isCreation, deposit.data]
+    parseAbiParameters(
+      'address to, uint256 value, uint64 gasLimit, bool isCreation, bytes data',
+    ),
+    [
+      deposit.to,
+      deposit.value,
+      deposit.gasLimit,
+      deposit.isCreation,
+      deposit.data,
+    ],
   )
 }
 
 function encodeWithdrawalData(withdrawal: WithdrawalTransaction): Hex {
   return encodeAbiParameters(
-    parseAbiParameters('uint256 nonce, address sender, address target, uint256 value, uint256 gasLimit, bytes data'),
-    [withdrawal.nonce, withdrawal.sender, withdrawal.target, withdrawal.value, withdrawal.gasLimit, withdrawal.data]
+    parseAbiParameters(
+      'uint256 nonce, address sender, address target, uint256 value, uint256 gasLimit, bytes data',
+    ),
+    [
+      withdrawal.nonce,
+      withdrawal.sender,
+      withdrawal.target,
+      withdrawal.value,
+      withdrawal.gasLimit,
+      withdrawal.data,
+    ],
   )
 }
 
 function computeDepositHash(deposit: DepositTransaction): Hex {
   const encoded = encodeAbiParameters(
-    parseAbiParameters('address from, address to, uint256 value, uint64 gasLimit, bool isCreation, bytes data'),
-    [deposit.from, deposit.to, deposit.value, deposit.gasLimit, deposit.isCreation, deposit.data]
+    parseAbiParameters(
+      'address from, address to, uint256 value, uint64 gasLimit, bool isCreation, bytes data',
+    ),
+    [
+      deposit.from,
+      deposit.to,
+      deposit.value,
+      deposit.gasLimit,
+      deposit.isCreation,
+      deposit.data,
+    ],
   )
   return keccak256(encoded)
 }
 
 function computeWithdrawalHash(withdrawal: WithdrawalTransaction): Hex {
   const encoded = encodeAbiParameters(
-    parseAbiParameters('uint256 nonce, address sender, address target, uint256 value, uint256 gasLimit, bytes data'),
-    [withdrawal.nonce, withdrawal.sender, withdrawal.target, withdrawal.value, withdrawal.gasLimit, withdrawal.data]
+    parseAbiParameters(
+      'uint256 nonce, address sender, address target, uint256 value, uint256 gasLimit, bytes data',
+    ),
+    [
+      withdrawal.nonce,
+      withdrawal.sender,
+      withdrawal.target,
+      withdrawal.value,
+      withdrawal.gasLimit,
+      withdrawal.data,
+    ],
   )
   return keccak256(encoded)
 }
@@ -852,7 +918,7 @@ function createMockBlobData(): BlobData {
 
   // Mock KZG commitment (48 bytes)
   const commitment = toHex(new Uint8Array(48).fill(0xab))
-  
+
   // Compute versioned hash (0x01 prefix for KZG)
   const commitmentHash = keccak256(commitment)
   const versionedHash = `0x01${commitmentHash.slice(4)}` as Hex
@@ -921,5 +987,3 @@ async function waitForL2(maxAttempts = 30): Promise<boolean> {
   console.warn('L2 chain failed to start')
   return false
 }
-
-

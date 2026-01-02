@@ -101,7 +101,7 @@ export default function AdminPage() {
       fetchDAOs().catch(() => ({ daos: [] as DAO[] })),
       fetchActiveDAOs().catch(() => ({ daos: [] as DAO[] })),
     ])
-    
+
     // Handle various response formats
     const extractDAOs = (data: unknown): DAO[] => {
       if (Array.isArray(data)) return data
@@ -111,7 +111,7 @@ export default function AdminPage() {
       }
       return []
     }
-    
+
     setDaos(extractDAOs(allDAOsResult))
     setActiveDAOs(extractDAOs(activeResult))
     setDaoLoading(false)

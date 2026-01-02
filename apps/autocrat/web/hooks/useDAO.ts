@@ -36,7 +36,7 @@ async function fetchDAOs(params: FetchDAOsParams = {}): Promise<DAOListItem[]> {
   }
 
   const data: unknown = await response.json()
-  
+
   // Handle various response formats
   let daos: DAOListItem[]
   if (Array.isArray(data)) {

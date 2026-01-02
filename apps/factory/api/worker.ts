@@ -13,7 +13,6 @@ import {
   getCoreAppUrl,
   getCurrentNetwork,
   getLocalhostHost,
-  getSQLitBlockProducerUrl,
 } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import { a2aRoutes } from './routes/a2a'
@@ -155,7 +154,8 @@ export default {
  * Bun server entry point (for local development)
  */
 if (typeof Bun !== 'undefined') {
-  const port = process.env.PORT ?? process.env.FACTORY_PORT ?? CORE_PORTS.FACTORY
+  const port =
+    process.env.PORT ?? process.env.FACTORY_PORT ?? CORE_PORTS.FACTORY
   const host = getLocalhostHost()
 
   console.log(`[Factory Worker] Starting on http://${host}:${port}`)

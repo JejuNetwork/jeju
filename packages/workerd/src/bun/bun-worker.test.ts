@@ -10,7 +10,7 @@
 //   Terminal 1: cd samples/bun-hello && workerd serve config.capnp
 //   Terminal 2: WORKERD_RUNNING=1 bun test src/bun/bun-worker.test.ts
 
-import { describe, test, expect, beforeAll } from 'bun:test'
+import { beforeAll, describe, expect, test } from 'bun:test'
 
 const WORKERD_URL = 'http://localhost:9123'
 

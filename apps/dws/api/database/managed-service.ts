@@ -10,7 +10,11 @@
  * - Metrics and monitoring
  */
 
-import { tryGetContract, getCurrentNetwork, getRpcUrl } from '@jejunetwork/config'
+import {
+  getCurrentNetwork,
+  getRpcUrl,
+  tryGetContract,
+} from '@jejunetwork/config'
 import {
   type Address,
   createPublicClient,

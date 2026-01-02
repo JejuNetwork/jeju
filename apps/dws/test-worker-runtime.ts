@@ -3,8 +3,7 @@
  * Run: cd apps/dws && bun run test-worker-runtime.ts
  */
 
-import { mkdir, rm } from 'node:fs/promises'
-import { createBackendManager } from './api/storage/backends'
+import type { createBackendManager } from './api/storage/backends'
 import { WorkerRuntime } from './api/workers/runtime'
 import type { WorkerFunction } from './api/workers/types'
 
@@ -37,7 +36,7 @@ const server = Bun.serve({
 });
 
 console.log('Test worker listening on port ' + PORT);
-`;
+`
 
 async function main() {
   console.log('=== Worker Runtime Test ===\n')
@@ -46,15 +45,15 @@ async function main() {
   const codeStore = new Map<string, Buffer>()
 
   // Upload test worker code
-  const testCid = 'test-worker-' + Date.now()
+  const testCid = `test-worker-${Date.now()}`
   codeStore.set(testCid, Buffer.from(TEST_WORKER_CODE))
 
   // Create mock backend manager
   const mockBackend = {
-    upload: async (content: Buffer, _opts: unknown) => ({ cid: testCid }),
+    upload: async (_content: Buffer, _opts: unknown) => ({ cid: testCid }),
     download: async (cid: string) => {
       const content = codeStore.get(cid)
-      if (!content) throw new Error('Not found: ' + cid)
+      if (!content) throw new Error(`Not found: ${cid}`)
       return { content }
     },
     exists: async (cid: string) => codeStore.has(cid),
@@ -66,10 +65,12 @@ async function main() {
 
   // Create runtime
   console.log('1. Creating worker runtime...')
-  const runtime = new WorkerRuntime(mockBackend as unknown as ReturnType<typeof createBackendManager>)
+  const runtime = new WorkerRuntime(
+    mockBackend as unknown as ReturnType<typeof createBackendManager>,
+  )
 
   // Wait for initialization
-  await new Promise(r => setTimeout(r, 1000))
+  await new Promise((r) => setTimeout(r, 1000))
 
   // Deploy a test function
   console.log('\n2. Deploying test worker...')
@@ -93,7 +94,7 @@ async function main() {
   }
 
   await runtime.deployFunction(fn)
-  console.log('   Deployed: ' + fn.name)
+  console.log(`   Deployed: ${fn.name}`)
 
   // Get stats
   const stats = runtime.getStats()
@@ -115,7 +116,9 @@ async function main() {
   if (response.statusCode === 200) {
     console.log('\n✅ Worker runtime test PASSED!')
   } else if (response.statusCode === 503) {
-    console.log('\n⚠️  Worker failed to spawn. This is expected if running in a restricted environment.')
+    console.log(
+      '\n⚠️  Worker failed to spawn. This is expected if running in a restricted environment.',
+    )
     console.log('   Error:', response.body)
   } else {
     console.log('\n❌ Worker runtime test FAILED!')

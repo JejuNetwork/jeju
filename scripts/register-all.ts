@@ -4,8 +4,8 @@ import { foundry } from 'viem/chains'
 
 const RPC = 'http://127.0.0.1:6546'
 const KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as const
-const STORAGE_MANAGER = '0x8e264821afa98dd104eecfcfa7fd9f8d8b320ada' as const
-const WORKER_REGISTRY = '0x871acbeabbaf8bed65c22ba7132becfabf8c27b5' as const
+const STORAGE_MANAGER = '0xe6e340d132b5f46d1e472debcd681b2abc16e57e' as const
+const WORKER_REGISTRY = '0xc3e53f4d16ae77db1c982e75a937b9f60fe63690' as const
 
 const STORAGE_ABI = [
   { name: 'registerProvider', type: 'function', inputs: [{ name: 'backend', type: 'uint8' }, { name: 'endpoint', type: 'string' }, { name: 'capacityGB', type: 'uint256' }, { name: 'pricePerGBMonth', type: 'uint256' }], outputs: [{ type: 'bytes32' }], stateMutability: 'nonpayable' },

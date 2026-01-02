@@ -24,7 +24,9 @@ func StartProfile(cpuprofile, memprofile string) error {
 		}
 		log.WithField("file", cpuprofile).Info("writing CPU profiling to file")
 		prof.cpu = f
-		pprof.StartCPUProfile(prof.cpu)
+		if err := pprof.StartCPUProfile(prof.cpu); err != nil {
+			log.WithError(err).Error("failed to start CPU profiling")
+		}
 	}
 
 	if memprofile != "" {

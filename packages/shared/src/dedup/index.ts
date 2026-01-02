@@ -7,8 +7,7 @@
  * @module @jejunetwork/shared/dedup
  */
 
-import type { CacheClient } from '../cache'
-import { getCacheClient } from '../cache'
+import { getCacheClient, type CacheClient } from '@jejunetwork/cache'
 import { bytesToHex, hash256 } from '../crypto/universal'
 import { logger } from '../logger'
 

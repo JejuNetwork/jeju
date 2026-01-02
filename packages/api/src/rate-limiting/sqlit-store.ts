@@ -39,7 +39,9 @@ export class SQLitRateLimitStore implements RateLimitStore {
     const cleanupMs = config.cleanupIntervalMs ?? 5 * 60 * 1000
     this.cleanupInterval = setInterval(() => {
       this.cleanup().catch((err: Error) => {
-        logger.error('[SQLitRateLimitStore] Cleanup failed', { error: err.message })
+        logger.error('[SQLitRateLimitStore] Cleanup failed', {
+          error: err.message,
+        })
       })
     }, cleanupMs)
   }

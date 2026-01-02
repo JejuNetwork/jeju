@@ -14,29 +14,22 @@
  * - Message integrity across layers
  */
 
-import {
-  afterAll,
-  beforeAll,
-  describe,
-  expect,
-  it,
-  setDefaultTimeout,
-} from 'bun:test'
+import { beforeAll, describe, expect, it, setDefaultTimeout } from 'bun:test'
+import { join } from 'node:path'
 import { $ } from 'bun'
 import {
+  type Address,
   createPublicClient,
   createWalletClient,
-  type Address,
+  encodeAbiParameters,
   type Hex,
   http,
-  parseEther,
   keccak256,
-  encodeAbiParameters,
   parseAbiParameters,
+  parseEther,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { anvil } from 'viem/chains'
-import { join } from 'path'
 
 setDefaultTimeout(300000) // 5 min timeout for real L1/L2 ops
 
@@ -57,10 +50,10 @@ const CONTRACTS_DIR = join(import.meta.dir, '..', '..', '..', 'contracts')
 
 // Test accounts (Anvil defaults)
 const DEPLOYER = privateKeyToAccount(
-  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
+  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
 )
 const USER = privateKeyToAccount(
-  '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d'
+  '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d',
 )
 
 // Contract ABIs from our deployed contracts
@@ -184,7 +177,7 @@ const L2_MESSAGE_PASSER_ABI = [
 // State
 let l1Client: ReturnType<typeof createPublicClient>
 let l2Client: ReturnType<typeof createPublicClient>
-let l1WalletClient: ReturnType<typeof createWalletClient>
+let _l1WalletClient: ReturnType<typeof createWalletClient>
 let l2WalletClient: ReturnType<typeof createWalletClient>
 let l1Available = false
 let l2Available = false
@@ -211,7 +204,7 @@ describe('Real L1 ↔ L2 Messaging', () => {
       transport: http(CONFIG.l2.rpcUrl),
     })
 
-    l1WalletClient = createWalletClient({
+    _l1WalletClient = createWalletClient({
       chain: { ...anvil, id: CONFIG.l1.chainId },
       transport: http(CONFIG.l1.rpcUrl),
       account: DEPLOYER,
@@ -400,10 +393,10 @@ describe('Real L1 ↔ L2 Messaging', () => {
       const localHash = keccak256(
         encodeAbiParameters(
           parseAbiParameters(
-            'uint256 nonce, address sender, address target, uint256 value, uint256 gasLimit, bytes data'
+            'uint256 nonce, address sender, address target, uint256 value, uint256 gasLimit, bytes data',
           ),
-          [nonce, sender, target, value, gasLimit, data]
-        )
+          [nonce, sender, target, value, gasLimit, data],
+        ),
       )
 
       expect(hash).toBe(localHash)
@@ -415,7 +408,8 @@ describe('Real L1 ↔ L2 Messaging', () => {
     it('should verify output root proof structure', async () => {
       // This test verifies the structure needed for proving
       const outputRootProof = {
-        version: '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
+        version:
+          '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
         stateRoot: keccak256('0xstate'),
         messagePasserStorageRoot: keccak256('0xstorage'),
         latestBlockhash: keccak256('0xblock'),
@@ -425,15 +419,15 @@ describe('Real L1 ↔ L2 Messaging', () => {
       const outputRoot = keccak256(
         encodeAbiParameters(
           parseAbiParameters(
-            'bytes32 version, bytes32 stateRoot, bytes32 messagePasserStorageRoot, bytes32 latestBlockhash'
+            'bytes32 version, bytes32 stateRoot, bytes32 messagePasserStorageRoot, bytes32 latestBlockhash',
           ),
           [
             outputRootProof.version,
             outputRootProof.stateRoot,
             outputRootProof.messagePasserStorageRoot,
             outputRootProof.latestBlockhash,
-          ]
-        )
+          ],
+        ),
       )
 
       expect(outputRoot.length).toBe(66)
@@ -469,7 +463,7 @@ describe('Real L1 ↔ L2 Messaging', () => {
       const hash1 = keccak256(
         encodeAbiParameters(
           parseAbiParameters(
-            'uint256, address, address, uint256, uint256, bytes'
+            'uint256, address, address, uint256, uint256, bytes',
           ),
           [
             withdrawal.nonce,
@@ -478,14 +472,14 @@ describe('Real L1 ↔ L2 Messaging', () => {
             withdrawal.value,
             withdrawal.gasLimit,
             withdrawal.data,
-          ]
-        )
+          ],
+        ),
       )
 
       const hash2 = keccak256(
         encodeAbiParameters(
           parseAbiParameters(
-            'uint256, address, address, uint256, uint256, bytes'
+            'uint256, address, address, uint256, uint256, bytes',
           ),
           [
             withdrawal.nonce,
@@ -494,8 +488,8 @@ describe('Real L1 ↔ L2 Messaging', () => {
             withdrawal.value,
             withdrawal.gasLimit,
             withdrawal.data,
-          ]
-        )
+          ],
+        ),
       )
 
       expect(hash1).toBe(hash2)
@@ -551,13 +545,16 @@ async function deployContracts(): Promise<void> {
   // Deploy L1 contracts (WithdrawalPortal + MockL2OutputOracle)
   console.log('Deploying L1 contracts via forge script...')
 
-  const l1DeployResult = await $`cd ${CONTRACTS_DIR} && forge script script/DeployL1L2Test.s.sol:DeployL1L2Test --rpc-url ${CONFIG.l1.rpcUrl} --broadcast --legacy 2>&1`.nothrow()
+  const l1DeployResult =
+    await $`cd ${CONTRACTS_DIR} && forge script script/DeployL1L2Test.s.sol:DeployL1L2Test --rpc-url ${CONFIG.l1.rpcUrl} --broadcast --legacy 2>&1`.nothrow()
 
   if (l1DeployResult.exitCode === 0) {
     // Parse addresses from output
     const output = l1DeployResult.text()
     console.log(output)
-    const portalMatch = output.match(/WithdrawalPortal deployed: (0x[a-fA-F0-9]{40})/)
+    const portalMatch = output.match(
+      /WithdrawalPortal deployed: (0x[a-fA-F0-9]{40})/,
+    )
     if (portalMatch) {
       withdrawalPortalAddress = portalMatch[1] as Address
       console.log('✅ L1 contracts deployed')
@@ -570,12 +567,15 @@ async function deployContracts(): Promise<void> {
   // Deploy L2 contracts (L2ToL1MessagePasser)
   console.log('Deploying L2 contracts via forge script...')
 
-  const l2DeployResult = await $`cd ${CONTRACTS_DIR} && L2=true forge script script/DeployL1L2Test.s.sol:DeployL1L2Test --rpc-url ${CONFIG.l2.rpcUrl} --broadcast --legacy 2>&1`.nothrow()
+  const l2DeployResult =
+    await $`cd ${CONTRACTS_DIR} && L2=true forge script script/DeployL1L2Test.s.sol:DeployL1L2Test --rpc-url ${CONFIG.l2.rpcUrl} --broadcast --legacy 2>&1`.nothrow()
 
   if (l2DeployResult.exitCode === 0) {
     const output = l2DeployResult.text()
     console.log(output)
-    const match = output.match(/L2ToL1MessagePasser deployed: (0x[a-fA-F0-9]{40})/)
+    const match = output.match(
+      /L2ToL1MessagePasser deployed: (0x[a-fA-F0-9]{40})/,
+    )
     if (match) {
       l2MessagePasserAddress = match[1] as Address
       console.log('✅ L2 contracts deployed')

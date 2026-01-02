@@ -201,5 +201,3 @@ export const ENTRY_POINT_ABI = [
     ],
   },
 ] as const
-
-

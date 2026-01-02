@@ -39,10 +39,14 @@ async function main() {
     }
   }
 
-  const rpcUrl = process.env.JEJU_RPC_URL!
-  const stakingToken = process.env.JEJU_TOKEN_ADDRESS!
-  const deployerKey = process.env.DEPLOYER_PRIVATE_KEY!
-  const registryOwner = process.env.REGISTRY_OWNER || ''
+  const rpcUrl = process.env.JEJU_RPC_URL
+  const stakingToken = process.env.JEJU_TOKEN_ADDRESS
+  const deployerKey = process.env.DEPLOYER_PRIVATE_KEY
+  const registryOwner = process.env.REGISTRY_OWNER ?? ''
+
+  if (!rpcUrl || !stakingToken || !deployerKey) {
+    throw new Error('Missing required environment variables after validation')
+  }
 
   console.log('RPC URL:', rpcUrl)
   console.log('Staking Token:', stakingToken)

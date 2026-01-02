@@ -21,8 +21,8 @@ import {
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
 import { logger } from '../lib/logger'
-import { requireLogin } from './login'
 import type { NetworkType } from '../types'
+import { requireLogin } from './login'
 
 // Tier types from DWS
 type TierType = 'free' | 'hobby' | 'pro' | 'enterprise'
@@ -68,7 +68,11 @@ function getDWSUrlForNetwork(network: NetworkType): string {
         process.env.TESTNET_DWS_URL ?? 'https://dws.testnet.jejunetwork.org'
       )
     default:
-      return process.env.DWS_URL ?? getDWSUrl() ?? `http://${getLocalhostHost()}:4020`
+      return (
+        process.env.DWS_URL ??
+        getDWSUrl() ??
+        `http://${getLocalhostHost()}:4020`
+      )
   }
 }
 
@@ -80,7 +84,9 @@ function getRpcUrlForNetwork(network: NetworkType): string {
     case 'mainnet':
       return process.env.MAINNET_RPC_URL ?? 'https://rpc.jejunetwork.org'
     case 'testnet':
-      return process.env.TESTNET_RPC_URL ?? 'https://testnet-rpc.jejunetwork.org'
+      return (
+        process.env.TESTNET_RPC_URL ?? 'https://testnet-rpc.jejunetwork.org'
+      )
     default:
       return process.env.RPC_URL ?? getL2RpcUrl()
   }
@@ -123,7 +129,7 @@ async function getAccountInfo(
   const response = await fetch(`${dwsUrl}/account/info`, {
     headers: {
       'X-Jeju-Address': address,
-      'Authorization': `Bearer ${authToken}`,
+      Authorization: `Bearer ${authToken}`,
     },
   })
 
@@ -176,7 +182,8 @@ async function getAccountInfo(
     },
     billing: {
       periodStart: data.billing?.periodStart ?? Date.now(),
-      periodEnd: data.billing?.periodEnd ?? Date.now() + 30 * 24 * 60 * 60 * 1000,
+      periodEnd:
+        data.billing?.periodEnd ?? Date.now() + 30 * 24 * 60 * 60 * 1000,
       estimatedCost: BigInt(data.billing?.estimatedCost ?? 0),
     },
   }
@@ -292,8 +299,9 @@ async function topupAccount(
 }
 
 // Main account command
-export const accountCommand = new Command('account')
-  .description('Manage your Jeju Network account')
+export const accountCommand = new Command('account').description(
+  'Manage your Jeju Network account',
+)
 
 // Account info (default)
 accountCommand
@@ -372,7 +380,8 @@ accountCommand
 
       const status = percent >= 90 ? '⚠️ ' : percent >= 75 ? '📊' : '✓ '
 
-      const limitStr = item.limit < 0 ? 'unlimited' : `${item.limit}${item.unit}`
+      const limitStr =
+        item.limit < 0 ? 'unlimited' : `${item.limit}${item.unit}`
       console.log(
         `  ${status} ${item.label.padEnd(12)} [${bar}] ${item.used}/${limitStr} (${percent}%)`,
       )
@@ -394,7 +403,10 @@ accountCommand
   .command('topup')
   .description('Add credits to your account')
   .argument('<amount>', 'Amount in ETH to add')
-  .option('-k, --private-key <key>', 'Private key (or use DEPLOYER_PRIVATE_KEY)')
+  .option(
+    '-k, --private-key <key>',
+    'Private key (or use DEPLOYER_PRIVATE_KEY)',
+  )
   .action(async (amountStr, options) => {
     const credentials = requireLogin()
 
@@ -431,7 +443,9 @@ accountCommand
     // Check balance
     const balance = await getEthBalance(address, network)
     if (balance < amount) {
-      logger.error(`Insufficient balance. Have ${formatEther(balance)} ETH, need ${amountStr} ETH`)
+      logger.error(
+        `Insufficient balance. Have ${formatEther(balance)} ETH, need ${amountStr} ETH`,
+      )
       return
     }
 
@@ -555,7 +569,7 @@ accountCommand
       headers: {
         'Content-Type': 'application/json',
         'X-Jeju-Address': credentials.address,
-        'Authorization': `Bearer ${credentials.authToken}`,
+        Authorization: `Bearer ${credentials.authToken}`,
       },
       body: JSON.stringify({ tier: tier.toLowerCase() }),
     })
@@ -582,15 +596,12 @@ accountCommand
 
     const days = parseInt(options.days, 10)
 
-    const response = await fetch(
-      `${dwsUrl}/account/usage?days=${days}`,
-      {
-        headers: {
-          'X-Jeju-Address': credentials.address,
-          'Authorization': `Bearer ${credentials.authToken}`,
-        },
+    const response = await fetch(`${dwsUrl}/account/usage?days=${days}`, {
+      headers: {
+        'X-Jeju-Address': credentials.address,
+        Authorization: `Bearer ${credentials.authToken}`,
       },
-    )
+    })
 
     if (!response.ok) {
       logger.error('Failed to fetch usage history')
@@ -610,7 +621,9 @@ accountCommand
         const storage = day.storageGb?.toFixed(2) ?? 0
         const invocations = day.invocations ?? 0
 
-        console.log(`  ${date}: ${cpu} CPU hrs, ${storage} GB storage, ${invocations} invocations`)
+        console.log(
+          `  ${date}: ${cpu} CPU hrs, ${storage} GB storage, ${invocations} invocations`,
+        )
       }
     } else {
       logger.info('No usage data available')
@@ -634,7 +647,7 @@ accountCommand
       {
         headers: {
           'X-Jeju-Address': credentials.address,
-          'Authorization': `Bearer ${credentials.authToken}`,
+          Authorization: `Bearer ${credentials.authToken}`,
         },
       },
     )
@@ -655,7 +668,9 @@ accountCommand
         const amount = formatEther(BigInt(tx.amount))
         const status = tx.status === 'success' ? '✓' : '✗'
 
-        console.log(`  ${status} ${date} ${type} ${amount} ETH  ${tx.txHash?.slice(0, 10)}...`)
+        console.log(
+          `  ${status} ${date} ${type} ${amount} ETH  ${tx.txHash?.slice(0, 10)}...`,
+        )
       }
     } else {
       logger.info('No transactions found')

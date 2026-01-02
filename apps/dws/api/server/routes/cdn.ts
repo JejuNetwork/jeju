@@ -261,10 +261,15 @@ export function createCDNRouter() {
 
         // Use IPFS gateway directly for content serving
         const ipfsGateway = 'http://127.0.0.1:8080'
-        const gatewayResponse = await fetch(`${ipfsGateway}/ipfs/${contentHash.hash}/index.html`)
+        const gatewayResponse = await fetch(
+          `${ipfsGateway}/ipfs/${contentHash.hash}/index.html`,
+        )
         if (gatewayResponse.ok) {
           return new Response(gatewayResponse.body, {
-            headers: { 'Content-Type': 'text/html', 'X-Content-Source': 'jns-gateway' }
+            headers: {
+              'Content-Type': 'text/html',
+              'X-Content-Source': 'jns-gateway',
+            },
           })
         }
 
@@ -274,7 +279,8 @@ export function createCDNRouter() {
       .get('/jns/:name/*', async ({ params, request, set }) => {
         const name = params.name
         const url = new URL(request.url)
-        let jnsPath = url.pathname.replace(`/cdn/jns/${name}`, '') || '/index.html'
+        let jnsPath =
+          url.pathname.replace(`/cdn/jns/${name}`, '') || '/index.html'
         if (jnsPath === '/' || jnsPath === '') jnsPath = '/index.html'
 
         const gateway = getJNSGateway()
@@ -291,13 +297,17 @@ export function createCDNRouter() {
 
         // Use IPFS gateway directly
         const ipfsGateway = 'http://127.0.0.1:8080'
-        const gatewayResponse = await fetch(`${ipfsGateway}/ipfs/${contentHash.hash}${jnsPath}`)
+        const gatewayResponse = await fetch(
+          `${ipfsGateway}/ipfs/${contentHash.hash}${jnsPath}`,
+        )
         if (gatewayResponse.ok) {
           return new Response(gatewayResponse.body, {
             headers: {
-              'Content-Type': gatewayResponse.headers.get('Content-Type') || 'application/octet-stream',
-              'X-Content-Source': 'jns-gateway'
-            }
+              'Content-Type':
+                gatewayResponse.headers.get('Content-Type') ||
+                'application/octet-stream',
+              'X-Content-Source': 'jns-gateway',
+            },
           })
         }
 

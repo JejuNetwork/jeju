@@ -5,10 +5,7 @@
  * Falls back gracefully when SQLit is not available.
  */
 
-import {
-  getSQLitBlockProducerUrl,
-  getLocalhostHost,
-} from '@jejunetwork/config'
+import { getSQLitBlockProducerUrl } from '@jejunetwork/config'
 import { z } from 'zod'
 import { createLogger, type Logger } from './logger'
 
@@ -349,11 +346,9 @@ export class CrucibleDatabase {
     }
   }
 
-  async listAgents(options: {
-    owner?: string
-    limit?: number
-    offset?: number
-  } = {}): Promise<Agent[]> {
+  async listAgents(
+    options: { owner?: string; limit?: number; offset?: number } = {},
+  ): Promise<Agent[]> {
     let sql = 'SELECT * FROM agents'
     const values: unknown[] = []
 
@@ -386,12 +381,7 @@ export class CrucibleDatabase {
   }): Promise<Room | null> {
     await this.exec(
       `INSERT INTO rooms (room_id, name, room_type, state_cid) VALUES (?, ?, ?, ?)`,
-      [
-        data.roomId,
-        data.name,
-        data.roomType ?? 'chat',
-        data.stateCid ?? null,
-      ],
+      [data.roomId, data.name, data.roomType ?? 'chat', data.stateCid ?? null],
     )
 
     const results = await this.query<Room>(
@@ -513,4 +503,3 @@ export function getDatabase(config?: DatabaseConfig): CrucibleDatabase {
 export function createDatabase(config?: DatabaseConfig): CrucibleDatabase {
   return new CrucibleDatabase(config)
 }
-

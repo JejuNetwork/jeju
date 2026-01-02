@@ -3,7 +3,7 @@
 // This service MUST run on the DWS node itself, not in a workerd worker
 // Protocol-level networking (UDP, TUN) requires system-level access
 
-import { spawn, type ChildProcess } from 'node:child_process'
+import { type ChildProcess, spawn } from 'node:child_process'
 import { WorkerdEventEmitter } from '@jejunetwork/dws/api/utils/event-emitter'
 
 // DWS Exec API for process spawning (for TUN device management)
@@ -1487,11 +1487,11 @@ export class VPNExitService {
   // Server keys
   private privateKey: Uint8Array
   private publicKey: Uint8Array
-  
+
   // KMS integration
   private kmsKeyId: string | null = null
   private keysInitialized = false
-  private hsmProvider: { 
+  private hsmProvider: {
     deriveKey: (keyId: string, context: string) => Promise<Uint8Array>
     disconnect?: () => Promise<void>
   } | null = null
@@ -1560,7 +1560,9 @@ export class VPNExitService {
           'This is a security risk in TEE environments. ' +
           'Use kmsKeyId instead.',
       )
-      this.privateKey = new Uint8Array(Buffer.from(parsedConfig.privateKey, 'base64'))
+      this.privateKey = new Uint8Array(
+        Buffer.from(parsedConfig.privateKey, 'base64'),
+      )
       this.publicKey = X25519.getPublicKey(this.privateKey)
       this.keysInitialized = true
     } else {
@@ -1746,16 +1748,16 @@ export class VPNExitService {
         // Import HSM provider dynamically
         const { createHSMProvider } = await import('@jejunetwork/kms')
         const hsm = await createHSMProvider({ type: 'softhsm' })
-        
+
         // Derive private key using HKDF from master key
         const salt = new TextEncoder().encode('jeju-vpn-exit-salt')
         const info = 'wireguard-vpn-exit'
         const derivedKey = await hsm.deriveKey(this.kmsKeyId, salt, info, 32)
-        
+
         this.privateKey = derivedKey
         this.publicKey = X25519.getPublicKey(this.privateKey)
         this.keysInitialized = true
-        
+
         // Store provider for cleanup
         this.hsmProvider = {
           deriveKey: async (keyId: string, context: string) => {
@@ -1764,7 +1766,7 @@ export class VPNExitService {
           },
           disconnect: hsm.disconnect?.bind(hsm),
         }
-        
+
         console.log('[VPNExit] Keys derived from KMS successfully')
       } catch (error) {
         console.error('[VPNExit] Failed to derive keys from KMS:', error)

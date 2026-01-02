@@ -131,29 +131,31 @@ export class OracleService {
    */
   private running = false
   private priceUpdateInterval: ReturnType<typeof setInterval> | null = null
-  
+
   async start(): Promise<void> {
     if (this.running) return
-    
+
     console.log('[OracleService] Starting oracle service...')
     this.running = true
-    
+
     // In production, this would fetch prices from external sources
     // and submit them periodically
     console.log('[OracleService] Oracle service started')
-    console.log('[OracleService] Note: Price submissions require manual registration first')
+    console.log(
+      '[OracleService] Note: Price submissions require manual registration first',
+    )
   }
 
   async stop(): Promise<void> {
     if (!this.running) return
-    
+
     console.log('[OracleService] Stopping oracle service...')
-    
+
     if (this.priceUpdateInterval) {
       clearInterval(this.priceUpdateInterval)
       this.priceUpdateInterval = null
     }
-    
+
     this.running = false
     console.log('[OracleService] Oracle service stopped')
   }

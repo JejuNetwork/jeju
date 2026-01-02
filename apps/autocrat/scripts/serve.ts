@@ -83,10 +83,7 @@ process.on('SIGINT', cleanup)
 process.on('SIGTERM', cleanup)
 
 async function ensureBuild(): Promise<void> {
-  const requiredFiles = [
-    `${STATIC_DIR}/index.html`,
-    `${WORKER_DIR}/worker.js`,
-  ]
+  const requiredFiles = [`${STATIC_DIR}/index.html`, `${WORKER_DIR}/worker.js`]
 
   const needsBuild = requiredFiles.some((f) => !existsSync(f))
 
@@ -305,7 +302,9 @@ async function initializeSQLit(): Promise<void> {
     console.warn(
       '[Autocrat] SQLit credentials not configured - database operations will use in-memory fallback',
     )
-    console.warn('   Set SQLIT_PRIVATE_KEY or SQLIT_KEY_ID for persistent storage')
+    console.warn(
+      '   Set SQLIT_PRIVATE_KEY or SQLIT_KEY_ID for persistent storage',
+    )
     return
   }
 
@@ -457,7 +456,9 @@ async function main(): Promise<void> {
     )
   }
   console.log(`║  API:        http://${host}:${API_PORT}${' '.repeat(33)}║`)
-  console.log(`║  Health:     http://${host}:${API_PORT}/health${' '.repeat(26)}║`)
+  console.log(
+    `║  Health:     http://${host}:${API_PORT}/health${' '.repeat(26)}║`,
+  )
   if (network === 'localnet') {
     console.log(
       `║  Local Dev:  http://${host}:${frontendPort}${' '.repeat(33)}║`,

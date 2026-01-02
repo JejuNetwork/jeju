@@ -2,40 +2,40 @@
 // Unit tests for Bun runtime compatibility layer
 // Licensed under the Apache 2.0 license
 
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
+import { afterEach, describe, expect, test } from 'bun:test'
 import Bun, {
-  file,
-  write,
-  serve,
-  getServeHandler,
-  env,
-  version,
-  revision,
-  sleep,
-  sleepSync,
-  nanoseconds,
-  escapeHTML,
-  stringWidth,
+  ArrayBufferSink,
   deepEquals,
-  inspect,
+  dns,
+  env,
+  escapeHTML,
+  file,
+  fileURLToPath,
+  gc,
+  generateHeapSnapshot,
+  getServeHandler,
   hash,
+  inspect,
+  main,
+  nanoseconds,
+  openInEditor,
   password,
+  pathToFileURL,
+  peek,
+  randomUUIDv7,
   readableStreamToArray,
-  readableStreamToText,
   readableStreamToArrayBuffer,
   readableStreamToBlob,
   readableStreamToJSON,
-  ArrayBufferSink,
-  dns,
-  main,
-  randomUUIDv7,
-  peek,
-  gc,
+  readableStreamToText,
+  revision,
+  serve,
   shrink,
-  generateHeapSnapshot,
-  openInEditor,
-  fileURLToPath,
-  pathToFileURL,
+  sleep,
+  sleepSync,
+  stringWidth,
+  version,
+  write,
 } from './bun'
 
 describe('Bun Runtime', () => {
@@ -352,7 +352,18 @@ describe('Bun Runtime', () => {
       expect(deepEquals([1, 2, 3], [1, 2, 3])).toBe(true)
       expect(deepEquals([1, 2, 3], [1, 2, 4])).toBe(false)
       expect(deepEquals([1, 2], [1, 2, 3])).toBe(false)
-      expect(deepEquals([[1, 2], [3, 4]], [[1, 2], [3, 4]])).toBe(true)
+      expect(
+        deepEquals(
+          [
+            [1, 2],
+            [3, 4],
+          ],
+          [
+            [1, 2],
+            [3, 4],
+          ],
+        ),
+      ).toBe(true)
     })
 
     test('Bun.deepEquals compares objects', () => {
@@ -656,7 +667,9 @@ describe('Bun Runtime', () => {
     })
 
     test('openInEditor throws', () => {
-      expect(() => openInEditor('/some/path')).toThrow('not available in workerd')
+      expect(() => openInEditor('/some/path')).toThrow(
+        'not available in workerd',
+      )
     })
   })
 
@@ -796,9 +809,9 @@ describe('Bun Runtime', () => {
 
     test('test module spyOn throws', async () => {
       const testModule = await import('./test')
-      expect(() =>
-        testModule.spyOn({ method: () => {} }, 'method'),
-      ).toThrow('not available in workerd')
+      expect(() => testModule.spyOn({ method: () => {} }, 'method')).toThrow(
+        'not available in workerd',
+      )
     })
 
     test('test module setSystemTime throws', async () => {

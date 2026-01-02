@@ -53,16 +53,24 @@ export {
   applyBrandingToDocument,
   getBrandingCssVars,
 } from './branding'
-// Cache Client
+// Cache Client - re-export from @jejunetwork/cache
+export {
+  CacheClient as CacheClientClass,
+  getCacheClient,
+  resetCacheClients,
+  type CacheClientConfig as CachePackageClientConfig,
+} from '@jejunetwork/cache'
+// Legacy cache exports for backwards compatibility
 export {
   type CacheClient,
   type CacheClientConfig,
   type CacheInstance,
+  CacheRentalClient,
   type CacheStats,
-  getCacheClient,
   getCacheRentalClient,
-  resetCacheClients,
+  getLegacyCacheClient,
   resetCacheRentalClient,
+  resetLegacyCacheClients,
 } from './cache'
 // Chains
 export {

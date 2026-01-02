@@ -8,18 +8,17 @@
  * - Throughput under load
  */
 
-import { describe, it, expect, beforeAll } from 'bun:test'
+import { beforeAll, describe, expect, it } from 'bun:test'
 import {
+  type Address,
   createPublicClient,
   createWalletClient,
-  http,
-  parseEther,
-  formatEther,
-  keccak256,
   encodeAbiParameters,
-  parseAbiParameters,
-  type Address,
   type Hex,
+  http,
+  keccak256,
+  parseAbiParameters,
+  parseEther,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { anvil } from 'viem/chains'
@@ -32,12 +31,12 @@ const L2_CHAIN_ID = 901
 
 // Test accounts
 const DEPLOYER = privateKeyToAccount(
-  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
+  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
 )
 const BENCHMARK_ACCOUNTS = Array.from({ length: 10 }, (_, i) =>
   privateKeyToAccount(
-    `0x${(BigInt('0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d') + BigInt(i)).toString(16).padStart(64, '0')}` as Hex
-  )
+    `0x${(BigInt('0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d') + BigInt(i)).toString(16).padStart(64, '0')}` as Hex,
+  ),
 )
 
 // Performance thresholds
@@ -60,14 +59,14 @@ interface BenchmarkResult {
 const results: BenchmarkResult[] = []
 
 describe('L1 ↔ L2 Latency Benchmarks', () => {
-  let l1Client: ReturnType<typeof createPublicClient>
+  let _l1Client: ReturnType<typeof createPublicClient>
   let l2Client: ReturnType<typeof createPublicClient>
-  let l1WalletClient: ReturnType<typeof createWalletClient>
+  let _l1WalletClient: ReturnType<typeof createWalletClient>
   let l2WalletClient: ReturnType<typeof createWalletClient>
   let messagePasserAddress: Address
 
   beforeAll(async () => {
-    l1Client = createPublicClient({
+    _l1Client = createPublicClient({
       chain: { ...anvil, id: L1_CHAIN_ID },
       transport: http(L1_RPC),
     })
@@ -77,7 +76,7 @@ describe('L1 ↔ L2 Latency Benchmarks', () => {
       transport: http(L2_RPC),
     })
 
-    l1WalletClient = createWalletClient({
+    _l1WalletClient = createWalletClient({
       chain: { ...anvil, id: L1_CHAIN_ID },
       transport: http(L1_RPC),
       account: DEPLOYER,
@@ -194,7 +193,9 @@ describe('L1 ↔ L2 Latency Benchmarks', () => {
       for (let i = 0; i < iterations; i++) {
         keccak256(
           encodeAbiParameters(
-            parseAbiParameters('uint256, address, address, uint256, uint256, bytes'),
+            parseAbiParameters(
+              'uint256, address, address, uint256, uint256, bytes',
+            ),
             [
               withdrawal.nonce + BigInt(i),
               withdrawal.sender,
@@ -202,8 +203,8 @@ describe('L1 ↔ L2 Latency Benchmarks', () => {
               withdrawal.value,
               withdrawal.gasLimit,
               withdrawal.data,
-            ]
-          )
+            ],
+          ),
         )
       }
 
@@ -393,16 +394,19 @@ describe('L1 ↔ L2 Latency Benchmarks', () => {
       const passed = results.filter((r) => r.passed).length
       const failed = results.filter((r) => !r.passed).length
 
-      console.log(`Total: ${results.length} | Passed: ${passed} | Failed: ${failed}`)
+      console.log(
+        `Total: ${results.length} | Passed: ${passed} | Failed: ${failed}`,
+      )
       console.log('─'.repeat(70))
       console.log('')
 
       // Allow some benchmark failures in test env (critical ops must pass)
       const criticalFails = results.filter(
-        (r) => !r.passed && ['L1 Deposit', 'L2 Withdrawal', 'Hash Computation'].includes(r.name)
+        (r) =>
+          !r.passed &&
+          ['L1 Deposit', 'L2 Withdrawal', 'Hash Computation'].includes(r.name),
       ).length
       expect(criticalFails).toBe(0)
     })
   })
 })
-

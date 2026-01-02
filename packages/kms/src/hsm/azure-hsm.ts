@@ -62,7 +62,6 @@ interface AzureKeyVaultOperation {
  * Azure Managed HSM Provider
  */
 export class AzureHSMProvider implements HSMProvider {
-  private readonly config: HSMConfig
   private vaultUrl: string
   private accessToken: string | null = null
   private tokenExpiry: number = 0

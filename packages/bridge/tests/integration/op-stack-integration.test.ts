@@ -15,17 +15,15 @@
  *   5. Validates Fusaka compatibility
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'bun:test'
+import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
+import { join } from 'node:path'
 import { $ } from 'bun'
-import { join } from 'path'
 import {
+  type Address,
   createPublicClient,
   createWalletClient,
   http,
   parseEther,
-  formatEther,
-  type Address,
-  type Hash,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { anvil } from 'viem/chains'
@@ -40,10 +38,10 @@ const TEST_TIMEOUT = 300000 // 5 minutes for full stack operations
 
 // Test accounts (Anvil defaults)
 const DEPLOYER = privateKeyToAccount(
-  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
+  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
 )
 const USER = privateKeyToAccount(
-  '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d'
+  '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d',
 )
 
 // Config loaded from Kurtosis
@@ -80,7 +78,7 @@ describe('OP Stack Integration Tests', () => {
   let shouldSkip = false
   let l1Client: ReturnType<typeof createPublicClient>
   let l2Client: ReturnType<typeof createPublicClient>
-  let l1WalletClient: ReturnType<typeof createWalletClient>
+  let _l1WalletClient: ReturnType<typeof createWalletClient>
   let l2WalletClient: ReturnType<typeof createWalletClient>
 
   beforeAll(async () => {
@@ -146,7 +144,7 @@ describe('OP Stack Integration Tests', () => {
       transport: http(config.l2Rpc),
     })
 
-    l1WalletClient = createWalletClient({
+    _l1WalletClient = createWalletClient({
       chain: { ...anvil, id: config.l1ChainId },
       transport: http(config.l1Rpc),
       account: DEPLOYER,
@@ -175,8 +173,12 @@ describe('OP Stack Integration Tests', () => {
 
     // Parse deployed addresses
     const l1Output = l1DeployResult.text()
-    const oracleMatch = l1Output.match(/MockL2OutputOracle deployed: (0x[a-fA-F0-9]{40})/)
-    const portalMatch = l1Output.match(/WithdrawalPortal deployed: (0x[a-fA-F0-9]{40})/)
+    const oracleMatch = l1Output.match(
+      /MockL2OutputOracle deployed: (0x[a-fA-F0-9]{40})/,
+    )
+    const portalMatch = l1Output.match(
+      /WithdrawalPortal deployed: (0x[a-fA-F0-9]{40})/,
+    )
 
     console.log('📜 Deploying L2 contracts...')
     const l2DeployResult =
@@ -191,13 +193,14 @@ describe('OP Stack Integration Tests', () => {
     // Parse L2 deployed addresses
     const l2Output = l2DeployResult.text()
     const messagePasserMatch = l2Output.match(
-      /L2ToL1MessagePasser deployed: (0x[a-fA-F0-9]{40})/
+      /L2ToL1MessagePasser deployed: (0x[a-fA-F0-9]{40})/,
     )
 
     contracts = {
       optimismPortal: (portalMatch?.[1] as Address) || ('0x0' as Address),
       l2OutputOracle: (oracleMatch?.[1] as Address) || ('0x0' as Address),
-      l2ToL1MessagePasser: (messagePasserMatch?.[1] as Address) || ('0x0' as Address),
+      l2ToL1MessagePasser:
+        (messagePasserMatch?.[1] as Address) || ('0x0' as Address),
     }
 
     console.log(`   OptimismPortal: ${contracts.optimismPortal}`)
@@ -224,7 +227,7 @@ describe('OP Stack Integration Tests', () => {
       expect(l1BlockNumber).toBeGreaterThanOrEqual(0n)
       expect(l2BlockNumber).toBeGreaterThanOrEqual(0n)
     },
-    TEST_TIMEOUT
+    TEST_TIMEOUT,
   )
 
   it(
@@ -232,8 +235,12 @@ describe('OP Stack Integration Tests', () => {
     async () => {
       if (shouldSkip) return
 
-      const portalCode = await l1Client.getCode({ address: contracts.optimismPortal })
-      const oracleCode = await l1Client.getCode({ address: contracts.l2OutputOracle })
+      const portalCode = await l1Client.getCode({
+        address: contracts.optimismPortal,
+      })
+      const oracleCode = await l1Client.getCode({
+        address: contracts.l2OutputOracle,
+      })
       const messagePasserCode = await l2Client.getCode({
         address: contracts.l2ToL1MessagePasser,
       })
@@ -245,7 +252,7 @@ describe('OP Stack Integration Tests', () => {
       expect(messagePasserCode).toBeDefined()
       expect(messagePasserCode).not.toBe('0x')
     },
-    TEST_TIMEOUT
+    TEST_TIMEOUT,
   )
 
   it(
@@ -256,7 +263,9 @@ describe('OP Stack Integration Tests', () => {
       const depositAmount = parseEther('0.5')
 
       // Get L2 balance before
-      const l2BalanceBefore = await l2Client.getBalance({ address: USER.address })
+      const l2BalanceBefore = await l2Client.getBalance({
+        address: USER.address,
+      })
 
       // In a full OP Stack with derivation, we would:
       // 1. Call OptimismPortal.depositTransaction on L1
@@ -271,11 +280,15 @@ describe('OP Stack Integration Tests', () => {
 
       await l2Client.waitForTransactionReceipt({ hash })
 
-      const l2BalanceAfter = await l2Client.getBalance({ address: USER.address })
+      const l2BalanceAfter = await l2Client.getBalance({
+        address: USER.address,
+      })
 
-      expect(l2BalanceAfter - l2BalanceBefore).toBeGreaterThanOrEqual(depositAmount)
+      expect(l2BalanceAfter - l2BalanceBefore).toBeGreaterThanOrEqual(
+        depositAmount,
+      )
     },
-    TEST_TIMEOUT
+    TEST_TIMEOUT,
   )
 
   it(
@@ -326,7 +339,7 @@ describe('OP Stack Integration Tests', () => {
       const receipt = await l2Client.waitForTransactionReceipt({ hash })
       expect(receipt.status).toBe('success')
     },
-    TEST_TIMEOUT
+    TEST_TIMEOUT,
   )
 
   it(
@@ -341,7 +354,7 @@ describe('OP Stack Integration Tests', () => {
       // Accept either for testing
       expect(gasLimit).toBeGreaterThanOrEqual(30_000_000n)
     },
-    TEST_TIMEOUT
+    TEST_TIMEOUT,
   )
 
   it(
@@ -352,7 +365,7 @@ describe('OP Stack Integration Tests', () => {
       const chainId = await l2Client.getChainId()
       expect(chainId).toBe(config.l2ChainId)
     },
-    TEST_TIMEOUT
+    TEST_TIMEOUT,
   )
 })
 
@@ -361,7 +374,7 @@ describe('OP Stack Integration Tests', () => {
 async function waitForChain(
   client: ReturnType<typeof createPublicClient>,
   name: string,
-  timeout = 30000
+  timeout = 30000,
 ): Promise<void> {
   const start = Date.now()
 
@@ -377,5 +390,3 @@ async function waitForChain(
 
   throw new Error(`${name} chain did not become ready within ${timeout}ms`)
 }
-
-

@@ -578,7 +578,7 @@ async function serveFrontendFromLocalCDN(
 /**
  * Proxy request to backend
  */
-async function proxyToBackend(
+export async function proxyToBackend(
   request: Request,
   app: DeployedApp,
   pathname: string,

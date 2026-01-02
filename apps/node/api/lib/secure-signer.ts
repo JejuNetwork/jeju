@@ -121,7 +121,8 @@ export class SecureSigner {
     }
 
     // For localnet with dev key, allow without real KMS
-    const isDevLocalnet = network === 'localnet' && Boolean(this.config.keyId?.startsWith('dev-'))
+    const isDevLocalnet =
+      network === 'localnet' && Boolean(this.config.keyId?.startsWith('dev-'))
 
     // Only throw if no keyId AND not in dev mode
     if (!this.config.keyId) {
@@ -137,7 +138,8 @@ export class SecureSigner {
   private isDevMode = false
 
   // Well-known dev key for localnet testing (matches jeju CLI dev keys)
-  private static DEV_PRIVATE_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as const
+  private static DEV_PRIVATE_KEY =
+    '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as const
 
   /**
    * Get the address for this signer's key (derived from KMS-managed key)
@@ -418,24 +420,25 @@ export async function registerNodeWithKMS(
   },
 ): Promise<{ keyId: string; address: Address }> {
   const network = getCurrentNetwork()
-  
+
   // LOCAL DEVELOPMENT FALLBACK
   // For localnet, skip KMS and use well-known dev key
   if (network === 'localnet') {
     const { privateKeyToAccount } = await import('viem/accounts')
     // Use the same dev key as SecureSigner class
-    const DEV_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as const
+    const DEV_KEY =
+      '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as const
     const account = privateKeyToAccount(DEV_KEY)
-    
+
     console.log('[KMS] Using localnet development key (no KMS required)')
     console.log(`[KMS] Dev address: ${account.address}`)
-    
+
     return {
       keyId: `dev-localnet-${nodeMetadata.nodeId}`,
       address: account.address,
     }
   }
-  
+
   const endpoint = getKMSUrl(network)
 
   // Try to connect to KMS, with helpful error message if unavailable
@@ -463,15 +466,19 @@ export async function registerNodeWithKMS(
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    
+
     // Provide helpful guidance if KMS is not available
-    if (message.includes('fetch') || message.includes('ECONNREFUSED') || message.includes('timeout')) {
+    if (
+      message.includes('fetch') ||
+      message.includes('ECONNREFUSED') ||
+      message.includes('timeout')
+    ) {
       throw new Error(
         `KMS service not available at ${endpoint}. ` +
-        `For local development, use: NETWORK=localnet bun run apps/node/api/cli.ts start --all`
+          `For local development, use: NETWORK=localnet bun run apps/node/api/cli.ts start --all`,
       )
     }
-    
+
     throw error
   }
 }

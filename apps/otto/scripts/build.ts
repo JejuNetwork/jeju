@@ -25,7 +25,7 @@ async function build() {
   // Build frontend
   console.log('[Otto] Building frontend...')
   const webEntrypoint = resolve(APP_DIR, 'web/main.tsx')
-  
+
   if (existsSync(webEntrypoint)) {
     const webResult = await Bun.build({
       entrypoints: [webEntrypoint],
@@ -60,10 +60,7 @@ async function build() {
 
     // Copy and update index.html
     const indexHtml = await readFile(resolve(APP_DIR, 'index.html'), 'utf-8')
-    const updatedHtml = indexHtml.replace(
-      '/web/main.tsx',
-      `/${mainFileName}`,
-    )
+    const updatedHtml = indexHtml.replace('/web/main.tsx', `/${mainFileName}`)
     await writeFile(resolve(webOutdir, 'index.html'), updatedHtml)
 
     // Copy CSS if exists

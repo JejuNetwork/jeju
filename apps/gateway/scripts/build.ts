@@ -223,7 +223,6 @@ async function build() {
   )
   console.log('[Gateway] Worker built successfully')
 
-
   // Find the main entry file with hash
   const mainEntry = frontendResult.outputs.find(
     (o) => o.kind === 'entry-point' && o.path.includes('main'),

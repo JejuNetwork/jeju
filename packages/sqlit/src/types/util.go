@@ -50,7 +50,10 @@ func CreateRandomBlock(parent hash.Hash, isGenesis bool) (b *Block, err error) {
 	}
 
 	h := hash.Hash{}
-	rand.Read(h[:])
+	if _, randErr := rand.Read(h[:]); randErr != nil {
+		err = randErr
+		return
+	}
 
 	b = &Block{
 		SignedHeader: SignedHeader{

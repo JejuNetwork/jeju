@@ -3,11 +3,11 @@
  * Crucible Start Script
  *
  * Full decentralized start:
- * 1. Checks DWS and SQLit are running
+ * 1. Checks DWS is running
  * 2. Builds and deploys frontend to DWS IPFS storage
  * 3. Deploys backend worker to DWS workerd
- * 4. Connects to SQLit database
- * 5. Serves through JNS gateway
+ * 4. Registers with JNS for decentralized routing
+ * 5. Connects to SQLit database
  */
 
 import { existsSync } from 'node:fs'
@@ -15,7 +15,6 @@ import { readdir, readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import {
   CORE_PORTS,
-  getCoreAppUrl,
   getCurrentNetwork,
   getLocalhostHost,
   getSQLitBlockProducerUrl,
@@ -31,16 +30,16 @@ const API_DIR = join(DIST_DIR, 'api')
 const network = getCurrentNetwork()
 const host = getLocalhostHost()
 
-// DWS endpoints
+// DWS endpoints - resolved dynamically
 const DWS_PORT = CORE_PORTS.DWS_API.get()
-const DWS_URL = `http://${host}:${DWS_PORT}`
+const DWS_URL = process.env.DWS_URL ?? `http://${host}:${DWS_PORT}`
 
-// SQLit endpoint
-const SQLIT_URL = getSQLitBlockProducerUrl()
+// SQLit endpoint - resolved dynamically via DWS
+const SQLIT_URL = process.env.SQLIT_URL ?? getSQLitBlockProducerUrl()
 
-// Crucible ports - frontend on 4020, API on 4021
-const CRUCIBLE_PORT = 4020
-const CRUCIBLE_API_PORT = CORE_PORTS.CRUCIBLE_EXECUTOR.get()
+// Crucible ports - from centralized port config
+const CRUCIBLE_PORT = CORE_PORTS.CRUCIBLE.get()
+const CRUCIBLE_API_PORT = CORE_PORTS.CRUCIBLE_API.get()
 
 // Response schemas
 const UploadResponseSchema = z.object({
@@ -122,7 +121,7 @@ async function build(): Promise<void> {
 
 /**
  * Upload a file to DWS IPFS storage
- * Falls back to local serving if DWS storage is not available
+ * Requires DWS to be running - no fallback to local serving
  */
 async function uploadToIPFS(
   dwsUrl: string,
@@ -132,31 +131,32 @@ async function uploadToIPFS(
   const content = await readFile(resolve(APP_DIR, filePath))
   const hash = keccak256(content) as `0x${string}`
 
-  try {
-    const formData = new FormData()
-    formData.append('file', new Blob([content]), name)
-    formData.append('name', name)
+  const formData = new FormData()
+  formData.append('file', new Blob([content]), name)
+  formData.append('name', name)
 
-    const response = await fetch(`${dwsUrl}/storage/upload`, {
-      method: 'POST',
-      body: formData,
-      signal: AbortSignal.timeout(10000),
-    })
+  const response = await fetch(`${dwsUrl}/storage/upload`, {
+    method: 'POST',
+    body: formData,
+    signal: AbortSignal.timeout(30000),
+  })
 
-    if (response.ok) {
-      const rawJson: unknown = await response.json()
-      const parsed = UploadResponseSchema.safeParse(rawJson)
-      if (parsed.success) {
-        return { cid: parsed.data.cid, hash, size: content.length }
-      }
-    }
-  } catch {
-    // DWS storage not available, use local hash as CID
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(
+      `Failed to upload ${name} to IPFS: ${response.status} - ${errorText}`,
+    )
   }
 
-  // Fallback: use content hash as CID for local serving
-  const localCid = hash.slice(2, 50) // Use part of hash as pseudo-CID
-  return { cid: `local-${localCid}`, hash, size: content.length }
+  const rawJson: unknown = await response.json()
+  const parsed = UploadResponseSchema.safeParse(rawJson)
+  if (!parsed.success) {
+    throw new Error(
+      `Invalid upload response for ${name}: ${parsed.error.message}`,
+    )
+  }
+
+  return { cid: parsed.data.cid, hash, size: content.length }
 }
 
 /**
@@ -195,154 +195,135 @@ async function uploadDirectory(
 
 /**
  * Deploy backend worker to DWS workerd
- * Falls back to local Bun server if DWS workers not available
+ * Uses DWS worker runtime for decentralized execution
  */
 async function deployWorker(
   config: StartConfig,
   codeCid: string,
   codeHash: `0x${string}`,
 ): Promise<string> {
-  try {
-    const response = await fetch(`${config.dwsUrl}/workers`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: 'crucible-api',
-        codeCid,
-        codeHash,
-        runtime: 'bun',
-        handler: 'index.js:default',
-        memory: 512,
-        timeout: 30000,
-        port: config.apiPort,
-        env: {
-          NETWORK: config.network,
-          SQLIT_URL: config.sqlitUrl,
-          DWS_URL: config.dwsUrl,
-          PORT: String(config.apiPort),
-          API_PORT: String(config.apiPort),
-        },
-      }),
-      signal: AbortSignal.timeout(10000),
-    })
-
-    if (response.ok) {
-      const rawJson: unknown = await response.json()
-      const parsed = WorkerDeployResponseSchema.safeParse(rawJson)
-      if (parsed.success) {
-        return parsed.data.functionId
-      }
-    }
-
-    // If worker already exists, update it
-    if (response.status === 409) {
-      console.log('[Crucible] Updating existing worker...')
-      const updateResponse = await fetch(
-        `${config.dwsUrl}/workers/crucible-api`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            codeCid,
-            codeHash,
-            runtime: 'bun',
-            handler: 'index.js:default',
-          }),
-          signal: AbortSignal.timeout(10000),
-        },
-      )
-      if (updateResponse.ok) {
-        return 'crucible-api'
-      }
-    }
-  } catch {
-    // DWS workers not available
-  }
-
-  // Fallback: start local Bun server for API
-  console.log('[Crucible] DWS workers not available, starting local API...')
-  const apiProc = Bun.spawn(['bun', 'run', 'api/server.ts'], {
-    cwd: APP_DIR,
+  const workerConfig = {
+    name: 'crucible-api',
+    codeCid,
+    codeHash,
+    runtime: 'bun',
+    handler: 'index.js:default',
+    memory: 512,
+    timeout: 30000,
+    port: config.apiPort,
     env: {
-      ...process.env,
-      PORT: String(config.apiPort),
-      API_PORT: String(config.apiPort),
       NETWORK: config.network,
       SQLIT_URL: config.sqlitUrl,
       DWS_URL: config.dwsUrl,
+      PORT: String(config.apiPort),
+      API_PORT: String(config.apiPort),
       JEJU_NETWORK: config.network,
     },
-    stdout: 'inherit',
-    stderr: 'inherit',
-  })
-
-  // Give the server time to start
-  await new Promise((r) => setTimeout(r, 2000))
-
-  if (apiProc.exitCode !== null) {
-    throw new Error('API server failed to start')
   }
 
-  return 'local-crucible-api'
+  const response = await fetch(`${config.dwsUrl}/workers`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(workerConfig),
+    signal: AbortSignal.timeout(30000),
+  })
+
+  if (response.ok) {
+    const rawJson: unknown = await response.json()
+    const parsed = WorkerDeployResponseSchema.safeParse(rawJson)
+    if (parsed.success) {
+      return parsed.data.functionId
+    }
+  }
+
+  // If worker already exists, update it
+  if (response.status === 409) {
+    console.log('[Crucible] Updating existing worker...')
+    const updateResponse = await fetch(
+      `${config.dwsUrl}/workers/crucible-api`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          codeCid,
+          codeHash,
+          runtime: 'bun',
+          handler: 'index.js:default',
+          env: workerConfig.env,
+        }),
+        signal: AbortSignal.timeout(10000),
+      },
+    )
+    if (updateResponse.ok) {
+      return 'crucible-api'
+    }
+    const updateError = await updateResponse.text()
+    throw new Error(
+      `Failed to update worker: ${updateResponse.status} - ${updateError}`,
+    )
+  }
+
+  const errorText = await response.text()
+  throw new Error(`Failed to deploy worker: ${response.status} - ${errorText}`)
 }
 
 /**
  * Register frontend assets with DWS CDN
- * Silently continues if CDN not available
+ * Uses JNS-resolved domain for fully decentralized routing
  */
 async function setupCDN(
   config: StartConfig,
   assets: Map<string, { cid: string }>,
 ): Promise<void> {
-  try {
-    const assetList = Array.from(assets.entries()).map(([path, result]) => ({
-      path: `/${path}`,
-      cid: result.cid,
-      contentType: getContentType(path),
-      immutable:
-        path.includes('-') && (path.endsWith('.js') || path.endsWith('.css')),
-    }))
+  const assetList = Array.from(assets.entries()).map(([path, result]) => ({
+    path: `/${path}`,
+    cid: result.cid,
+    contentType: getContentType(path),
+    immutable:
+      path.includes('-') && (path.endsWith('.js') || path.endsWith('.css')),
+  }))
 
-    const domain =
-      config.network === 'localnet'
-        ? `crucible.local.jejunetwork.org`
-        : config.network === 'testnet'
-          ? 'crucible.testnet.jejunetwork.org'
-          : 'crucible.jejunetwork.org'
+  // Domain is resolved via JNS - use .jeju TLD
+  const jnsDomain = 'crucible.jeju'
+  const httpDomain =
+    config.network === 'localnet'
+      ? 'crucible.local.jejunetwork.org'
+      : config.network === 'testnet'
+        ? 'crucible.testnet.jejunetwork.org'
+        : 'crucible.jejunetwork.org'
 
-    const cdnConfig = {
-      name: 'crucible',
-      domain,
-      spa: {
-        enabled: true,
-        fallback: '/index.html',
-        routes: ['/api/*', '/a2a/*', '/mcp/*', '/health', '/.well-known/*'],
-      },
-      assets: assetList,
-      workerEndpoint: `http://${host}:${config.apiPort}`,
-      cacheRules: [
-        { pattern: '/chunks/**', ttl: 31536000, immutable: true },
-        { pattern: '/assets/**', ttl: 31536000, immutable: true },
-        { pattern: '/*.js', ttl: 31536000, immutable: true },
-        { pattern: '/globals.css', ttl: 86400 },
-        { pattern: '/index.html', ttl: 60, staleWhileRevalidate: 3600 },
-      ],
-    }
+  const cdnConfig = {
+    name: 'crucible',
+    jnsName: jnsDomain,
+    domain: httpDomain,
+    spa: {
+      enabled: true,
+      fallback: '/index.html',
+      // API routes that should be proxied to the worker
+      routes: ['/api/*', '/a2a/*', '/mcp/*', '/health', '/.well-known/*'],
+    },
+    assets: assetList,
+    workerEndpoint: `http://${host}:${config.apiPort}`,
+    cacheRules: [
+      { pattern: '/chunks/**', ttl: 31536000, immutable: true },
+      { pattern: '/assets/**', ttl: 31536000, immutable: true },
+      { pattern: '/*.js', ttl: 31536000, immutable: true },
+      { pattern: '/globals.css', ttl: 86400 },
+      { pattern: '/index.html', ttl: 60, staleWhileRevalidate: 3600 },
+    ],
+  }
 
-    const response = await fetch(`${config.dwsUrl}/cdn/configure`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(cdnConfig),
-      signal: AbortSignal.timeout(10000),
-    })
+  const response = await fetch(`${config.dwsUrl}/cdn/configure`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(cdnConfig),
+    signal: AbortSignal.timeout(10000),
+  })
 
-    if (!response.ok) {
-      console.log('[Crucible] CDN not configured (using local serving)')
-    } else {
-      console.log('[Crucible] CDN configured')
-    }
-  } catch {
-    console.log('[Crucible] CDN not available (using local serving)')
+  if (!response.ok) {
+    console.warn('[Crucible] CDN configuration failed:', await response.text())
+  } else {
+    console.log(`[Crucible] CDN configured for ${jnsDomain} -> ${httpDomain}`)
   }
 }
 
@@ -432,10 +413,11 @@ function getContentType(path: string): string {
 }
 
 /**
- * Start the frontend server that proxies to DWS
+ * Start the frontend server that serves from DWS IPFS
+ * Proxies API requests to the DWS worker
  */
 async function startFrontendServer(config: StartConfig): Promise<void> {
-  // Serve frontend from DWS CDN with fallback to local files
+  // Serve frontend from DWS CDN/IPFS
   Bun.serve({
     port: config.frontendPort,
     async fetch(req) {
@@ -451,53 +433,37 @@ async function startFrontendServer(config: StartConfig): Promise<void> {
         path.startsWith('/.well-known/')
       ) {
         const apiUrl = `http://${host}:${config.apiPort}${path}${url.search}`
-        return fetch(apiUrl, {
+        const response = await fetch(apiUrl, {
           method: req.method,
           headers: req.headers,
           body:
             req.method !== 'GET' && req.method !== 'HEAD'
               ? req.body
               : undefined,
-        }).catch(
-          () =>
-            new Response(JSON.stringify({ error: 'Backend unavailable' }), {
-              status: 503,
-              headers: { 'Content-Type': 'application/json' },
-            }),
-        )
+        })
+        return response
       }
 
-      // Try to fetch from DWS CDN first
-      try {
-        const cdnUrl = `${config.dwsUrl}/cdn/crucible${path === '/' ? '/index.html' : path}`
-        const cdnResponse = await fetch(cdnUrl, {
-          signal: AbortSignal.timeout(5000),
+      // Fetch from DWS CDN (IPFS-backed)
+      const cdnPath = path === '/' ? '/index.html' : path
+      const cdnUrl = `${config.dwsUrl}/cdn/crucible${cdnPath}`
+      const cdnResponse = await fetch(cdnUrl, {
+        signal: AbortSignal.timeout(10000),
+      })
+
+      if (cdnResponse.ok) {
+        return cdnResponse
+      }
+
+      // SPA fallback - serve index.html for client-side routing
+      if (!path.includes('.')) {
+        const indexUrl = `${config.dwsUrl}/cdn/crucible/index.html`
+        const indexResponse = await fetch(indexUrl, {
+          signal: AbortSignal.timeout(10000),
         })
-        if (cdnResponse.ok) {
-          return cdnResponse
+        if (indexResponse.ok) {
+          return indexResponse
         }
-      } catch {
-        // CDN not available, fall back to local files
-      }
-
-      // Fallback to local files
-      const localPath = path === '/' ? '/index.html' : path
-      const file = Bun.file(join(WEB_DIR, localPath))
-      if (await file.exists()) {
-        return new Response(await file.arrayBuffer(), {
-          headers: {
-            'Content-Type': getContentType(localPath),
-            'Cache-Control': localPath.endsWith('.html') ? 'no-cache' : 'public, max-age=3600',
-          },
-        })
-      }
-
-      // SPA fallback
-      const indexFile = Bun.file(join(WEB_DIR, 'index.html'))
-      if (await indexFile.exists()) {
-        return new Response(await indexFile.arrayBuffer(), {
-          headers: { 'Content-Type': 'text/html', 'Cache-Control': 'no-cache' },
-        })
       }
 
       return new Response('Not Found', { status: 404 })
@@ -527,15 +493,24 @@ async function start(): Promise<void> {
     apiPort: CRUCIBLE_API_PORT,
   }
 
-  // 1. Check DWS is running
+  // 1. Check DWS is running - REQUIRED for decentralized deployment
   const dwsReady = await waitForService('DWS', config.dwsUrl, '/health', 60000)
   if (!dwsReady) {
-    console.error('[Crucible] DWS is not available. Please start DWS first:')
-    console.error('  jeju dev --app dws')
+    console.error('')
+    console.error('═══════════════════════════════════════════════════════════')
+    console.error(' ERROR: DWS is not available')
+    console.error(' Crucible requires DWS for decentralized storage and workers')
+    console.error('')
+    console.error(' Start DWS first:')
+    console.error('   jeju dev --app dws')
+    console.error('')
+    console.error(' Or run the full localnet:')
+    console.error('   jeju dev')
+    console.error('═══════════════════════════════════════════════════════════')
     process.exit(1)
   }
 
-  // 2. Check SQLit is running (optional - will try to setup if not)
+  // 2. Check SQLit is running
   const sqlitReady = await waitForService(
     'SQLit',
     config.sqlitUrl,
@@ -545,7 +520,7 @@ async function start(): Promise<void> {
   if (sqlitReady) {
     await ensureDatabase(config.sqlitUrl)
   } else {
-    console.warn('[Crucible] SQLit not available - running without database.')
+    console.warn('[Crucible] SQLit not available - database features disabled')
   }
 
   // 3. Build if needed
@@ -584,14 +559,20 @@ async function start(): Promise<void> {
   console.log('╔════════════════════════════════════════════════════════════╗')
   console.log('║                  Crucible is Running                        ║')
   console.log('╠════════════════════════════════════════════════════════════╣')
-  console.log(`║  Frontend:  http://${host}:${config.frontendPort}`.padEnd(63) + '║')
-  console.log(`║  API:       http://${host}:${config.apiPort}`.padEnd(63) + '║')
-  console.log(`║  IPFS:      ipfs://${indexCid?.slice(0, 32)}...`.padEnd(63) + '║')
-  console.log(`║  Worker:    ${workerId.slice(0, 40)}...`.padEnd(63) + '║')
-  console.log('║'.padEnd(63) + '║')
-  console.log('║  Storage:   DWS IPFS'.padEnd(63) + '║')
-  console.log('║  Runtime:   DWS Workerd'.padEnd(63) + '║')
-  console.log(`║  Database:  SQLit ${sqlitReady ? '(connected)' : '(unavailable)'}`.padEnd(63) + '║')
+  console.log(
+    `${`║  Frontend:  http://${host}:${config.frontendPort}`.padEnd(63)}║`,
+  )
+  console.log(`${`║  API:       http://${host}:${config.apiPort}`.padEnd(63)}║`)
+  console.log(
+    `${`║  IPFS:      ipfs://${indexCid?.slice(0, 32)}...`.padEnd(63)}║`,
+  )
+  console.log(`${`║  Worker:    ${workerId.slice(0, 40)}...`.padEnd(63)}║`)
+  console.log(`${'║'.padEnd(63)}║`)
+  console.log(`${'║  Storage:   DWS IPFS'.padEnd(63)}║`)
+  console.log(`${'║  Runtime:   DWS Workerd'.padEnd(63)}║`)
+  console.log(
+    `${`║  Database:  SQLit ${sqlitReady ? '(connected)' : '(unavailable)'}`.padEnd(63)}║`,
+  )
   console.log('╚════════════════════════════════════════════════════════════╝')
   console.log('')
 }
@@ -600,4 +581,3 @@ start().catch((error) => {
   console.error('[Crucible] Start failed:', error)
   process.exit(1)
 })
-

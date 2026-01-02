@@ -17,6 +17,9 @@ import { execa, type ResultPromise } from 'execa'
 import { logger } from '../lib/logger'
 import { DEFAULT_PORTS } from '../types'
 
+// ERC-4337 Bundler port
+const _BUNDLER_PORT = 4337
+
 export interface ServiceHealth {
   name: string
   port: number
@@ -29,6 +32,7 @@ export interface InfrastructureStatus {
   sqlit: boolean
   services: ServiceHealth[]
   localnet: boolean
+  bundler: boolean
   allHealthy: boolean
 }
 
@@ -58,6 +62,7 @@ const DOCKER_SERVICES = {
 const LOCALNET_PORT = DEFAULT_PORTS.l2Rpc
 
 let sqlitProcess: ResultPromise | null = null
+const _bundlerProcess: ResultPromise | null = null
 
 export class InfrastructureService {
   private rootDir: string
@@ -410,6 +415,9 @@ export class InfrastructureService {
   async stopServices(): Promise<void> {
     logger.step('Stopping all services...')
 
+    await this.stopBundler()
+    logger.success('Bundler stopped')
+
     await this.stopSQLit()
     logger.success('SQLit stopped')
 
@@ -444,6 +452,68 @@ export class InfrastructureService {
       return response.ok
     } catch {
       return false
+    }
+  }
+
+  async isBundlerRunning(): Promise<boolean> {
+    try {
+      const response = await fetch(
+        `http://${getLocalhostHost()}:${BUNDLER_PORT}/health`,
+        { signal: AbortSignal.timeout(2000) },
+      )
+      return response.ok
+    } catch {
+      return false
+    }
+  }
+
+  async startBundler(): Promise<boolean> {
+    if (await this.isBundlerRunning()) {
+      logger.success('Bundler already running')
+      return true
+    }
+
+    logger.step('Starting ERC-4337 bundler...')
+
+    const bundlerScript = join(
+      this.rootDir,
+      'packages/deployment/scripts/bundler/index.ts',
+    )
+    if (!existsSync(bundlerScript)) {
+      logger.error(
+        'Bundler script not found at packages/deployment/scripts/bundler/index.ts',
+      )
+      return false
+    }
+
+    bundlerProcess = execa('bun', ['run', bundlerScript], {
+      cwd: this.rootDir,
+      env: {
+        ...process.env,
+        BUNDLER_PORT: String(BUNDLER_PORT),
+        BUNDLER_NETWORK: 'localnet',
+        JEJU_RPC_URL: getL2RpcUrl(),
+      },
+      stdio: 'pipe',
+    })
+
+    // Wait for bundler to start
+    for (let i = 0; i < 30; i++) {
+      await this.sleep(500)
+      if (await this.isBundlerRunning()) {
+        logger.success(`Bundler running on port ${BUNDLER_PORT}`)
+        return true
+      }
+    }
+
+    logger.error('Bundler failed to start within 15 seconds')
+    return false
+  }
+
+  async stopBundler(): Promise<void> {
+    if (bundlerProcess) {
+      bundlerProcess.kill('SIGTERM')
+      bundlerProcess = null
     }
   }
 
@@ -497,6 +567,7 @@ export class InfrastructureService {
     const docker = await this.isDockerRunning()
     const dockerServices = docker ? await this.checkDockerServices() : []
     const localnet = await this.isLocalnetRunning()
+    const bundler = await this.isBundlerRunning()
 
     const sqlitHealth = await this.getSQLitHealth()
     const services = [sqlitHealth, ...dockerServices]
@@ -509,6 +580,7 @@ export class InfrastructureService {
       sqlit,
       services,
       localnet,
+      bundler,
       allHealthy,
     }
   }
@@ -618,6 +690,19 @@ export class InfrastructureService {
     // Wait for all parallel tasks to complete
     const results = await Promise.all(startTasks)
 
+    // Start bundler after localnet is up (needs chain connection)
+    const bundlerRunning = await this.isBundlerRunning()
+    if (!bundlerRunning) {
+      const bundlerSuccess = await this.startBundler()
+      if (!bundlerSuccess) {
+        logger.warn(
+          'Bundler failed to start - gasless transactions unavailable',
+        )
+      }
+    } else {
+      logger.success(`Bundler already running on port ${BUNDLER_PORT}`)
+    }
+
     // Check all results
     const failures = results.filter((r) => !r.success)
     if (failures.length > 0) {
@@ -677,6 +762,16 @@ export class InfrastructureService {
         status: status.localnet ? 'ok' : 'error',
       },
     ])
+
+    logger.table([
+      {
+        label: 'Bundler (ERC-4337)',
+        value: status.bundler
+          ? `http://${getLocalhostHost()}:${BUNDLER_PORT}`
+          : 'stopped',
+        status: status.bundler ? 'ok' : 'warn',
+      },
+    ])
   }
 
   /**
@@ -684,6 +779,7 @@ export class InfrastructureService {
    */
   getEnvVars(): Record<string, string> {
     const dwsUrl = getDWSUrl()
+    const localhost = getLocalhostHost()
     return {
       L2_RPC_URL: getL2RpcUrl(),
       JEJU_RPC_URL: getL2RpcUrl(),
@@ -696,6 +792,9 @@ export class InfrastructureService {
       DWS_URL: dwsUrl,
       FARCASTER_HUB_URL: getFarcasterHubUrl(),
       CHAIN_ID: '31337',
+      // ERC-4337 bundler
+      BUNDLER_URL: `http://${localhost}:${BUNDLER_PORT}`,
+      ENTRYPOINT_ADDRESS: '0x0000000071727De22E5E9d8BAf0edAc6f37da032',
     }
   }
 

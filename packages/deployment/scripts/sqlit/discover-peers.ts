@@ -14,8 +14,8 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import { type Address, createPublicClient, type Hex, http } from 'viem'
 import * as dotenv from 'dotenv'
+import { type Address, createPublicClient, type Hex, http } from 'viem'
 import * as yaml from 'yaml'
 
 dotenv.config()

@@ -24,11 +24,11 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import {
   type Address,
-  type Hex,
   createPublicClient,
   createWalletClient,
   decodeEventLog,
   encodeAbiParameters,
+  type Hex,
   http,
   keccak256,
   parseEther,
@@ -56,11 +56,13 @@ interface BundlerConfig {
 }
 
 function getConfig(): BundlerConfig {
-  const network = (process.env.BUNDLER_NETWORK || 'localnet') as BundlerConfig['network']
+  const network = (process.env.BUNDLER_NETWORK ||
+    'localnet') as BundlerConfig['network']
 
   const rpcUrls: Record<string, string> = {
     localnet: process.env.JEJU_RPC_URL || 'http://127.0.0.1:6546',
-    testnet: process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jejunetwork.org',
+    testnet:
+      process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jejunetwork.org',
     mainnet: process.env.JEJU_MAINNET_RPC_URL || 'https://rpc.jejunetwork.org',
   }
 
@@ -157,14 +159,14 @@ class Bundler {
 
     if (balance < this.config.minBalance) {
       console.warn(
-        `[Bundler] WARNING: Low balance. Minimum recommended: ${Number(this.config.minBalance) / 1e18} ETH`
+        `[Bundler] WARNING: Low balance. Minimum recommended: ${Number(this.config.minBalance) / 1e18} ETH`,
       )
     }
 
     // Start bundle processing
     this.bundleTimer = setInterval(
       () => this.processBundle().catch(console.error),
-      this.config.bundleIntervalMs
+      this.config.bundleIntervalMs,
     )
 
     console.log(`[Bundler] Bundle interval: ${this.config.bundleIntervalMs}ms`)
@@ -185,7 +187,7 @@ class Bundler {
 
   async eth_sendUserOperation(
     userOp: UserOperation,
-    entryPoint: Address
+    entryPoint: Address,
   ): Promise<Hex> {
     // Validate entry point
     if (entryPoint.toLowerCase() !== this.config.entryPoint.toLowerCase()) {
@@ -207,7 +209,7 @@ class Bundler {
 
   async eth_estimateUserOperationGas(
     userOp: Partial<UserOperation>,
-    entryPoint: Address
+    entryPoint: Address,
   ): Promise<{
     callGasLimit: Hex
     verificationGasLimit: Hex
@@ -230,7 +232,7 @@ class Bundler {
   }
 
   async eth_getUserOperationByHash(
-    userOpHash: Hex
+    userOpHash: Hex,
   ): Promise<{ userOperation: UserOperation; entryPoint: Address } | null> {
     const userOp = this.mempool.get(userOpHash)
     if (!userOp) return null
@@ -241,9 +243,7 @@ class Bundler {
     }
   }
 
-  async eth_getUserOperationReceipt(
-    userOpHash: Hex
-  ): Promise<{
+  async eth_getUserOperationReceipt(userOpHash: Hex): Promise<{
     userOpHash: Hex
     sender: Address
     nonce: Hex
@@ -257,9 +257,11 @@ class Bundler {
 
     // Try to get from mempool first, then from processed storage
     const userOp = this.mempool.get(userOpHash)
-    
+
     // For processed ops that have been removed from mempool, we store sender/nonce
-    const sender = userOp?.sender ?? ('0x0000000000000000000000000000000000000000' as Address)
+    const sender =
+      userOp?.sender ??
+      ('0x0000000000000000000000000000000000000000' as Address)
     const nonce = userOp?.nonce ?? 0n
 
     return {
@@ -269,7 +271,7 @@ class Bundler {
       success: result.success,
       actualGasCost: toHex(result.actualGasCost),
       actualGasUsed: toHex(result.actualGasUsed),
-      receipt: { 
+      receipt: {
         transactionHash: result.txHash,
         blockNumber: toHex(result.blockNumber),
       },
@@ -300,7 +302,7 @@ class Bundler {
 
     // Check signature is present
     if (!userOp.signature || userOp.signature === '0x') {
-      throw new Error('AA21 didn\'t pay prefund: missing signature')
+      throw new Error("AA21 didn't pay prefund: missing signature")
     }
 
     // Simulate validation
@@ -334,7 +336,9 @@ class Bundler {
     }
   }
 
-  private async estimateCallGas(userOp: Partial<UserOperation>): Promise<bigint> {
+  private async estimateCallGas(
+    userOp: Partial<UserOperation>,
+  ): Promise<bigint> {
     if (!userOp.sender || !userOp.callData) {
       return 100000n
     }
@@ -386,16 +390,16 @@ class Bundler {
     // Pack the UserOperation fields
     const packed = encodeAbiParameters(
       [
-        { type: 'address' },  // sender
-        { type: 'uint256' },  // nonce
-        { type: 'bytes32' },  // initCodeHash
-        { type: 'bytes32' },  // callDataHash
-        { type: 'uint256' },  // callGasLimit
-        { type: 'uint256' },  // verificationGasLimit
-        { type: 'uint256' },  // preVerificationGas
-        { type: 'uint256' },  // maxFeePerGas
-        { type: 'uint256' },  // maxPriorityFeePerGas
-        { type: 'bytes32' },  // paymasterAndDataHash
+        { type: 'address' }, // sender
+        { type: 'uint256' }, // nonce
+        { type: 'bytes32' }, // initCodeHash
+        { type: 'bytes32' }, // callDataHash
+        { type: 'uint256' }, // callGasLimit
+        { type: 'uint256' }, // verificationGasLimit
+        { type: 'uint256' }, // preVerificationGas
+        { type: 'uint256' }, // maxFeePerGas
+        { type: 'uint256' }, // maxPriorityFeePerGas
+        { type: 'bytes32' }, // paymasterAndDataHash
       ],
       [
         userOp.sender,
@@ -408,7 +412,7 @@ class Bundler {
         BigInt(userOp.maxFeePerGas),
         BigInt(userOp.maxPriorityFeePerGas),
         paymasterAndDataHash,
-      ]
+      ],
     )
 
     const userOpHash = keccak256(packed)
@@ -417,8 +421,8 @@ class Bundler {
     const finalHash = keccak256(
       encodeAbiParameters(
         [{ type: 'bytes32' }, { type: 'address' }, { type: 'uint256' }],
-        [userOpHash, this.config.entryPoint, BigInt(this.config.chainId)]
-      )
+        [userOpHash, this.config.entryPoint, BigInt(this.config.chainId)],
+      ),
     )
 
     return finalHash
@@ -448,7 +452,9 @@ class Bundler {
   private async processBundle(): Promise<void> {
     if (this.mempool.size === 0) return
 
-    console.log(`[Bundler] Processing bundle with ${this.mempool.size} operations`)
+    console.log(
+      `[Bundler] Processing bundle with ${this.mempool.size} operations`,
+    )
 
     // Get operations to bundle
     const opsToBundle: Array<[Hex, UserOperation]> = []
@@ -475,21 +481,29 @@ class Bundler {
       console.log(`[Bundler] Bundle submitted: ${hash}`)
 
       // Wait for receipt
-      const receipt = await this.publicClient.waitForTransactionReceipt({ hash })
+      const receipt = await this.publicClient.waitForTransactionReceipt({
+        hash,
+      })
 
       // Parse UserOperationEvent logs for gas tracking
-      const userOpEvents = new Map<Hex, { success: boolean; actualGasCost: bigint; actualGasUsed: bigint }>()
-      
+      const userOpEvents = new Map<
+        Hex,
+        { success: boolean; actualGasCost: bigint; actualGasUsed: bigint }
+      >()
+
       for (const log of receipt.logs) {
         try {
           // UserOperationEvent topic: keccak256("UserOperationEvent(bytes32,address,address,uint256,bool,uint256,uint256)")
-          if (log.topics[0] === '0x49628fd1471006c1482da88028e9ce4dbb080b815c9b0344d39e5a8e6ec1419f') {
+          if (
+            log.topics[0] ===
+            '0x49628fd1471006c1482da88028e9ce4dbb080b815c9b0344d39e5a8e6ec1419f'
+          ) {
             const decoded = decodeEventLog({
               abi: ENTRY_POINT_ABI,
               data: log.data,
               topics: log.topics,
             })
-            
+
             if (decoded.eventName === 'UserOperationEvent') {
               const args = decoded.args as {
                 userOpHash: Hex
@@ -517,7 +531,7 @@ class Bundler {
         const eventData = userOpEvents.get(opHash)
         this.processedOps.set(opHash, {
           txHash: hash,
-          success: eventData?.success ?? (receipt.status === 'success'),
+          success: eventData?.success ?? receipt.status === 'success',
           actualGasCost: eventData?.actualGasCost ?? 0n,
           actualGasUsed: eventData?.actualGasUsed ?? 0n,
           blockNumber: receipt.blockNumber,
@@ -527,7 +541,7 @@ class Bundler {
       }
 
       console.log(
-        `[Bundler] Bundle processed: ${receipt.status}, ${opsToBundle.length} operations`
+        `[Bundler] Bundle processed: ${receipt.status}, ${opsToBundle.length} operations`,
       )
     } catch (error) {
       console.error('[Bundler] Failed to submit bundle:', error)
@@ -536,7 +550,8 @@ class Bundler {
       for (const [opHash] of opsToBundle) {
         this.mempool.delete(opHash)
         this.processedOps.set(opHash, {
-          txHash: '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
+          txHash:
+            '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
           success: false,
           actualGasCost: 0n,
           actualGasUsed: 0n,
@@ -582,14 +597,14 @@ function createBundlerServer(bundler: Bundler, config: BundlerConfig): Hono {
         case 'eth_sendUserOperation':
           result = await bundler.eth_sendUserOperation(
             params[0] as UserOperation,
-            params[1] as Address
+            params[1] as Address,
           )
           break
 
         case 'eth_estimateUserOperationGas':
           result = await bundler.eth_estimateUserOperationGas(
             params[0] as Partial<UserOperation>,
-            params[1] as Address
+            params[1] as Address,
           )
           break
 
@@ -697,4 +712,3 @@ main().catch((error) => {
   console.error('Bundler failed:', error)
   process.exit(1)
 })
-

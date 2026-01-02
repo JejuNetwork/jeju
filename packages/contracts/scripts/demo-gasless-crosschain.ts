@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+
 /**
  * Gasless Cross-Chain Payment Demo
  *
@@ -11,21 +12,20 @@
  * Run with: bun run packages/contracts/scripts/demo-gasless-crosschain.ts
  */
 
+import { existsSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import {
+  type Address,
   createPublicClient,
   createWalletClient,
-  http,
-  parseEther,
   formatEther,
   formatUnits,
-  type Address,
   type Hex,
+  http,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
-import { existsSync } from 'node:fs'
-import { join, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
 
 // ============================================================================
 // CONFIGURATION
@@ -50,22 +50,91 @@ interface DeployedContracts {
 
 // Minimal ABIs
 const erc20Abi = [
-  { type: 'function', name: 'balanceOf', inputs: [{ name: 'account', type: 'address' }], outputs: [{ type: 'uint256' }], stateMutability: 'view' },
-  { type: 'function', name: 'approve', inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }], outputs: [{ type: 'bool' }], stateMutability: 'nonpayable' },
-  { type: 'function', name: 'transfer', inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }], outputs: [{ type: 'bool' }], stateMutability: 'nonpayable' },
-  { type: 'function', name: 'decimals', inputs: [], outputs: [{ type: 'uint8' }], stateMutability: 'view' },
-  { type: 'function', name: 'symbol', inputs: [], outputs: [{ type: 'string' }], stateMutability: 'view' },
+  {
+    type: 'function',
+    name: 'balanceOf',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [{ type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'approve',
+    inputs: [
+      { name: 'spender', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [{ type: 'bool' }],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'transfer',
+    inputs: [
+      { name: 'to', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [{ type: 'bool' }],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'decimals',
+    inputs: [],
+    outputs: [{ type: 'uint8' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'symbol',
+    inputs: [],
+    outputs: [{ type: 'string' }],
+    stateMutability: 'view',
+  },
 ] as const
 
 const entryPointAbi = [
-  { type: 'function', name: 'depositTo', inputs: [{ name: 'account', type: 'address' }], outputs: [], stateMutability: 'payable' },
-  { type: 'function', name: 'balanceOf', inputs: [{ name: 'account', type: 'address' }], outputs: [{ type: 'uint256' }], stateMutability: 'view' },
+  {
+    type: 'function',
+    name: 'depositTo',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [],
+    stateMutability: 'payable',
+  },
+  {
+    type: 'function',
+    name: 'balanceOf',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [{ type: 'uint256' }],
+    stateMutability: 'view',
+  },
 ] as const
 
-const jnsRegistryAbi = [
-  { type: 'function', name: 'registerName', inputs: [{ name: 'name', type: 'string' }, { name: 'owner', type: 'address' }], outputs: [], stateMutability: 'nonpayable' },
-  { type: 'function', name: 'getOwner', inputs: [{ name: 'name', type: 'string' }], outputs: [{ type: 'address' }], stateMutability: 'view' },
-  { type: 'function', name: 'totalNames', inputs: [], outputs: [{ type: 'uint256' }], stateMutability: 'view' },
+const _jnsRegistryAbi = [
+  {
+    type: 'function',
+    name: 'registerName',
+    inputs: [
+      { name: 'name', type: 'string' },
+      { name: 'owner', type: 'address' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'getOwner',
+    inputs: [{ name: 'name', type: 'string' }],
+    outputs: [{ type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'totalNames',
+    inputs: [],
+    outputs: [{ type: 'uint256' }],
+    stateMutability: 'view',
+  },
 ] as const
 
 // ============================================================================
@@ -124,7 +193,9 @@ async function main() {
 
   if (!existsSync(deploymentPath)) {
     logError(`Deployment not found: ${deploymentPath}`)
-    logError('Please run: bun run packages/deployment/scripts/bootstrap-localnet-complete.ts')
+    logError(
+      'Please run: bun run packages/deployment/scripts/bootstrap-localnet-complete.ts',
+    )
     process.exit(1)
   }
 
@@ -157,10 +228,12 @@ async function main() {
   }
 
   // Use test wallets from deployment
-  const deployer = privateKeyToAccount(deployment.testWallets[0].privateKey as Hex)
+  const deployer = privateKeyToAccount(
+    deployment.testWallets[0].privateKey as Hex,
+  )
   const user = privateKeyToAccount(deployment.testWallets[5].privateKey as Hex) // Test User 1
 
-  const deployerClient = createWalletClient({
+  const _deployerClient = createWalletClient({
     account: deployer,
     chain,
     transport: http(LOCALNET_RPC),
@@ -260,7 +333,9 @@ async function main() {
     args: [contracts.universalPaymaster, approveAmount],
   })
   await publicClient.waitForTransactionReceipt({ hash: approveHash })
-  logSuccess(`User approved ${formatUnits(approveAmount, 6)} USDC for gas payment`)
+  logSuccess(
+    `User approved ${formatUnits(approveAmount, 6)} USDC for gas payment`,
+  )
   logSuccess('This only needs to happen once per token')
 
   // ========================================================================
@@ -273,9 +348,9 @@ async function main() {
 
   // For this demo, we simulate the paymaster-sponsored flow
   // In production, this would be a full ERC-4337 UserOperation
-  
+
   const jnsName = `demo-${Date.now()}.jeju`
-  
+
   // Record balances before
   const usdcBefore = await publicClient.readContract({
     address: contracts.usdc,
@@ -287,7 +362,9 @@ async function main() {
   // Simulate paymaster collecting gas payment in USDC
   const gasCostInUSDC = 50000n // 0.05 USDC equivalent gas cost
 
-  log(`Paymaster sponsors gas, user pays ${formatUnits(gasCostInUSDC, 6)} USDC...`)
+  log(
+    `Paymaster sponsors gas, user pays ${formatUnits(gasCostInUSDC, 6)} USDC...`,
+  )
 
   // Transfer USDC to paymaster as gas payment (simulating what paymaster does)
   const paymentHash = await userClient.writeContract({
@@ -413,7 +490,7 @@ async function main() {
 }
 
 // Run
-main().catch(err => {
+main().catch((err) => {
   logError(`Demo failed: ${err.message}`)
   console.error(err)
   process.exit(1)

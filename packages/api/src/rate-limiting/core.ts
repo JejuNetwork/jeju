@@ -43,7 +43,9 @@ export class DistributedRateLimitStore implements RateLimitStore {
   }
 
   async clear(): Promise<void> {
-    logger.error('[RateLimit] DistributedRateLimitStore.clear() called - not supported')
+    logger.error(
+      '[RateLimit] DistributedRateLimitStore.clear() called - not supported',
+    )
     throw new Error('DistributedRateLimitStore does not support clear()')
   }
 }
@@ -119,7 +121,10 @@ export class RateLimiter {
       new DistributedRateLimitStore('api-ratelimit', this.config.keyPrefix)
   }
 
-  async check(key: string, tier?: RateLimitTier | string): Promise<RateLimitResult> {
+  async check(
+    key: string,
+    tier?: RateLimitTier | string,
+  ): Promise<RateLimitResult> {
     const tierConfig = this.resolveTier(tier)
     const storeKey = `${this.config.keyPrefix}:${key}`
     const now = Date.now()
@@ -134,7 +139,11 @@ export class RateLimiter {
 
     const allowed = entry.count <= tierConfig.maxRequests
     if (!allowed) {
-      logger.warn('[RateLimit] Rate limit exceeded', { key, count: entry.count, limit: tierConfig.maxRequests })
+      logger.warn('[RateLimit] Rate limit exceeded', {
+        key,
+        count: entry.count,
+        limit: tierConfig.maxRequests,
+      })
     }
     return {
       allowed,
@@ -150,7 +159,10 @@ export class RateLimiter {
     await this.store.delete(`${this.config.keyPrefix}:${key}`)
   }
 
-  async status(key: string, tier?: RateLimitTier | string): Promise<RateLimitResult> {
+  async status(
+    key: string,
+    tier?: RateLimitTier | string,
+  ): Promise<RateLimitResult> {
     const tierConfig = this.resolveTier(tier)
     const storeKey = `${this.config.keyPrefix}:${key}`
     const now = Date.now()
@@ -190,7 +202,9 @@ export class RateLimiter {
   }
 
   shouldSkipPath(path: string): boolean {
-    return this.config.skipPaths.some((p) => path === p || path.startsWith(`${p}/`))
+    return this.config.skipPaths.some(
+      (p) => path === p || path.startsWith(`${p}/`),
+    )
   }
 
   stop(): void {
@@ -225,7 +239,9 @@ export function extractClientIp(
   return get('x-real-ip') ?? get('cf-connecting-ip') ?? 'unknown'
 }
 
-export function createRateLimitHeaders(result: RateLimitResult): RateLimitHeaders {
+export function createRateLimitHeaders(
+  result: RateLimitResult,
+): RateLimitHeaders {
   const headers: RateLimitHeaders = {
     'X-RateLimit-Limit': result.limit.toString(),
     'X-RateLimit-Remaining': result.remaining.toString(),
@@ -237,7 +253,11 @@ export function createRateLimitHeaders(result: RateLimitResult): RateLimitHeader
   return headers
 }
 
-export function createRateLimitKey(ip: string, userId?: string, path?: string): string {
+export function createRateLimitKey(
+  ip: string,
+  userId?: string,
+  path?: string,
+): string {
   const parts = [ip]
   if (userId) parts.push(userId)
   if (path) parts.push(path.replace(/\//g, '_'))

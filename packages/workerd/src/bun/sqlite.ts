@@ -798,7 +798,6 @@ function parseLiteral(value: string): SQLiteValue {
 export class Database {
   private readonly filename: string
   private readonly isSQLit: boolean
-  private readonly isReadonly: boolean
   private readonly sqlitClient: SQLitHttpClient | null
   private readonly storage: InMemoryStorage
   private statements = new Map<string, Statement<SQLiteRow>>()
@@ -1063,12 +1062,14 @@ export class Statement<T = SQLiteRow> implements SQLiteStatement<T> {
   }
 
   run(...params: SQLiteValue[]): SQLiteRunResult {
-    if (this.finalized) throw new ERR_SQLITE_ERROR('Statement has been finalized')
+    if (this.finalized)
+      throw new ERR_SQLITE_ERROR('Statement has been finalized')
     return this.db.executeSync(this.sql, params)
   }
 
   all(...params: SQLiteValue[]): T[] {
-    if (this.finalized) throw new ERR_SQLITE_ERROR('Statement has been finalized')
+    if (this.finalized)
+      throw new ERR_SQLITE_ERROR('Statement has been finalized')
     return this.db.selectSync(this.sql, params) as T[]
   }
 

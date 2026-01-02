@@ -80,7 +80,13 @@ export interface ACMEAuthorization {
   /** Identifier */
   identifier: { type: 'dns'; value: string }
   /** Status */
-  status: 'pending' | 'valid' | 'invalid' | 'deactivated' | 'expired' | 'revoked'
+  status:
+    | 'pending'
+    | 'valid'
+    | 'invalid'
+    | 'deactivated'
+    | 'expired'
+    | 'revoked'
   /** Expires */
   expires: string
   /** Challenges */
@@ -161,7 +167,7 @@ export class ACMEClient {
    */
   async requestCertificate(
     domain: string,
-    altNames: string[] = []
+    altNames: string[] = [],
   ): Promise<{ order: ACMEOrder; challenges: Map<string, ACMEChallenge> }> {
     if (!this.account) {
       throw new Error('ACME client not initialized')
@@ -184,17 +190,17 @@ export class ACMEClient {
     for (const authzUrl of order.authorizations) {
       const authz = await this.getAuthorization(authzUrl)
       const challenge = authz.challenges.find(
-        (c) => c.type === this.config.challengeType
+        (c) => c.type === this.config.challengeType,
       )
 
       if (challenge) {
         // Compute key authorization
         challenge.keyAuthorization = await this.computeKeyAuthorization(
-          challenge.token
+          challenge.token,
         )
         challenges.set(authz.identifier.value, challenge)
         console.log(
-          `[ACME] Challenge for ${authz.identifier.value}: ${challenge.type}`
+          `[ACME] Challenge for ${authz.identifier.value}: ${challenge.type}`,
         )
       }
     }
@@ -207,7 +213,7 @@ export class ACMEClient {
    */
   async completeChallenges(
     order: ACMEOrder,
-    challenges: Map<string, ACMEChallenge>
+    challenges: Map<string, ACMEChallenge>,
   ): Promise<IssuedCertificate> {
     if (!this.account) {
       throw new Error('ACME client not initialized')
@@ -243,7 +249,7 @@ export class ACMEClient {
 
     // Generate CSR
     const { csr, privateKey } = await this.generateCSR(
-      order.identifiers.map((id) => id.value)
+      order.identifiers.map((id) => id.value),
     )
 
     // Finalize order
@@ -273,7 +279,7 @@ export class ACMEClient {
 
     // Download certificate
     const certificate = await this.downloadCertificate(
-      currentOrder.certificateUrl
+      currentOrder.certificateUrl,
     )
 
     return {
@@ -343,7 +349,7 @@ export class ACMEClient {
         namedCurve: 'P-256',
       },
       true,
-      ['sign']
+      ['sign'],
     )
 
     const jwk = await crypto.subtle.exportKey('jwk', keyPair.publicKey)
@@ -355,10 +361,10 @@ export class ACMEClient {
     }
 
     const response = await this.signedRequest(
-      this.directory!.newAccount,
+      this.directory?.newAccount,
       payload,
       keyPair.privateKey,
-      jwk
+      jwk,
     )
 
     const accountUrl = response.headers.get('Location')
@@ -378,9 +384,9 @@ export class ACMEClient {
   }
 
   private async createOrder(
-    identifiers: Array<{ type: 'dns'; value: string }>
+    identifiers: Array<{ type: 'dns'; value: string }>,
   ): Promise<ACMEOrder> {
-    const response = await this.signedRequest(this.directory!.newOrder, {
+    const response = await this.signedRequest(this.directory?.newOrder, {
       identifiers,
     })
 
@@ -443,10 +449,10 @@ export class ACMEClient {
     url: string,
     payload: Record<string, unknown> | null,
     privateKey?: CryptoKey,
-    jwk?: JsonWebKey
+    jwk?: JsonWebKey,
   ): Promise<Response> {
-    const key = privateKey ?? this.account!.privateKey
-    const accountJwk = jwk ?? this.account!.jwk
+    const key = privateKey ?? this.account?.privateKey
+    const accountJwk = jwk ?? this.account?.jwk
 
     // Build protected header
     const protectedHeader: Record<string, unknown> = {
@@ -467,7 +473,7 @@ export class ACMEClient {
     }
 
     const protectedB64 = this.base64url(
-      new TextEncoder().encode(JSON.stringify(protectedHeader))
+      new TextEncoder().encode(JSON.stringify(protectedHeader)),
     )
 
     const payloadB64 =
@@ -476,11 +482,13 @@ export class ACMEClient {
         : this.base64url(new TextEncoder().encode(JSON.stringify(payload)))
 
     // Sign
-    const signatureInput = new TextEncoder().encode(`${protectedB64}.${payloadB64}`)
+    const signatureInput = new TextEncoder().encode(
+      `${protectedB64}.${payloadB64}`,
+    )
     const signature = await crypto.subtle.sign(
       { name: 'ECDSA', hash: 'SHA-256' },
       key,
-      toArrayBuffer(signatureInput)
+      toArrayBuffer(signatureInput),
     )
 
     // Convert signature from DER to raw format
@@ -509,7 +517,7 @@ export class ACMEClient {
     if (!response.ok) {
       const error = await response.json().catch(() => ({}))
       throw new Error(
-        `ACME request failed: ${response.status} ${JSON.stringify(error)}`
+        `ACME request failed: ${response.status} ${JSON.stringify(error)}`,
       )
     }
 
@@ -517,7 +525,7 @@ export class ACMEClient {
   }
 
   private async computeKeyAuthorization(token: string): Promise<string> {
-    const jwk = this.account!.jwk
+    const jwk = this.account?.jwk
 
     // Compute JWK thumbprint
     const thumbprintInput = JSON.stringify({
@@ -528,14 +536,17 @@ export class ACMEClient {
     })
 
     const thumbprintData = new TextEncoder().encode(thumbprintInput)
-    const thumbprintHash = await crypto.subtle.digest('SHA-256', toArrayBuffer(thumbprintData))
+    const thumbprintHash = await crypto.subtle.digest(
+      'SHA-256',
+      toArrayBuffer(thumbprintData),
+    )
     const thumbprint = this.base64url(new Uint8Array(thumbprintHash))
 
     return `${token}.${thumbprint}`
   }
 
   private async generateCSR(
-    domains: string[]
+    domains: string[],
   ): Promise<{ csr: string; privateKey: string }> {
     // Generate key pair for the certificate
     const keyPair = await crypto.subtle.generateKey(
@@ -544,21 +555,28 @@ export class ACMEClient {
         namedCurve: 'P-256',
       },
       true,
-      ['sign']
+      ['sign'],
     )
 
     // Export private key
     const privateKeyPkcs8 = await crypto.subtle.exportKey(
       'pkcs8',
-      keyPair.privateKey
+      keyPair.privateKey,
     )
     const privateKey = this.arrayBufferToPem(privateKeyPkcs8, 'PRIVATE KEY')
 
     // Export public key for CSR
-    const publicKeySpki = await crypto.subtle.exportKey('spki', keyPair.publicKey)
+    const publicKeySpki = await crypto.subtle.exportKey(
+      'spki',
+      keyPair.publicKey,
+    )
 
     // Build proper PKCS#10 CSR with DER encoding
-    const csrDer = await this.buildCSR(domains, new Uint8Array(publicKeySpki), keyPair.privateKey)
+    const csrDer = await this.buildCSR(
+      domains,
+      new Uint8Array(publicKeySpki),
+      keyPair.privateKey,
+    )
     const csr = this.base64url(csrDer)
 
     return { csr, privateKey }
@@ -566,7 +584,7 @@ export class ACMEClient {
 
   /**
    * Build a proper PKCS#10 CSR with DER encoding
-   * 
+   *
    * Structure: CertificationRequest ::= SEQUENCE {
    *   certificationRequestInfo CertificationRequestInfo,
    *   signatureAlgorithm AlgorithmIdentifier,
@@ -576,18 +594,22 @@ export class ACMEClient {
   private async buildCSR(
     domains: string[],
     publicKeySpki: Uint8Array,
-    privateKey: CryptoKey
+    privateKey: CryptoKey,
   ): Promise<Uint8Array> {
     const commonName = domains[0]
 
     // Build CertificationRequestInfo
-    const certReqInfo = this.buildCertRequestInfo(commonName, domains, publicKeySpki)
+    const certReqInfo = this.buildCertRequestInfo(
+      commonName,
+      domains,
+      publicKeySpki,
+    )
 
     // Sign with ECDSA-SHA256
     const signature = await crypto.subtle.sign(
       { name: 'ECDSA', hash: 'SHA-256' },
       privateKey,
-      toArrayBuffer(certReqInfo)
+      toArrayBuffer(certReqInfo),
     )
 
     // Convert ECDSA signature from WebCrypto format (concatenated r||s) to DER format
@@ -607,7 +629,7 @@ export class ACMEClient {
   private buildCertRequestInfo(
     commonName: string,
     domains: string[],
-    publicKeySpki: Uint8Array
+    publicKeySpki: Uint8Array,
   ): Uint8Array {
     // Version (INTEGER 0)
     const version = new Uint8Array([0x02, 0x01, 0x00])
@@ -616,7 +638,7 @@ export class ACMEClient {
     const subject = this.buildSubject(commonName)
 
     // SubjectPKInfo (already in SPKI format from exportKey)
-    
+
     // Attributes (with SAN extension request)
     const attributes = this.buildAttributes(domains)
 
@@ -636,7 +658,7 @@ export class ACMEClient {
     // Build extensionRequest attribute for SAN
     // OID: 1.2.840.113549.1.9.14 (extensionRequest)
     const extReqOid = new Uint8Array([
-      0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x09, 0x0e
+      0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x09, 0x0e,
     ])
 
     // Build SAN extension
@@ -645,7 +667,7 @@ export class ACMEClient {
     const extSet = this.buildSet([extensions])
 
     const attribute = this.buildSequence([extReqOid, extSet])
-    
+
     // Wrap in context-specific tag [0]
     return this.buildContextTag(0, [attribute])
   }
@@ -655,7 +677,7 @@ export class ACMEClient {
     const sanOid = new Uint8Array([0x06, 0x03, 0x55, 0x1d, 0x11])
 
     // Build GeneralNames sequence
-    const dnsNames: Uint8Array[] = domains.map(domain => {
+    const dnsNames: Uint8Array[] = domains.map((domain) => {
       const domainBytes = new TextEncoder().encode(domain)
       // Context-specific tag [2] for dNSName
       const result = new Uint8Array(2 + domainBytes.length)
@@ -674,7 +696,7 @@ export class ACMEClient {
   private buildSignatureAlgorithm(): Uint8Array {
     // OID: 1.2.840.10045.4.3.2 (ecdsa-with-SHA256)
     const oid = new Uint8Array([
-      0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x04, 0x03, 0x02
+      0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x04, 0x03, 0x02,
     ])
     return this.buildSequence([oid])
   }
@@ -694,9 +716,9 @@ export class ACMEClient {
     // Remove leading zeros but ensure positive
     let start = 0
     while (start < value.length - 1 && value[start] === 0) start++
-    
+
     const trimmed = value.slice(start)
-    
+
     // Add leading zero if high bit is set (to keep positive)
     const needsLeadingZero = trimmed[0] & 0x80
     const length = trimmed.length + (needsLeadingZero ? 1 : 0)
@@ -768,7 +790,8 @@ export class ACMEClient {
   private encodeLength(length: number): Uint8Array {
     if (length < 128) return new Uint8Array([length])
     if (length < 256) return new Uint8Array([0x81, length])
-    if (length < 65536) return new Uint8Array([0x82, (length >> 8) & 0xff, length & 0xff])
+    if (length < 65536)
+      return new Uint8Array([0x82, (length >> 8) & 0xff, length & 0xff])
     throw new Error('Length too long')
   }
 
@@ -788,7 +811,10 @@ export class ACMEClient {
     for (let i = 0; i < data.length; i++) {
       binary += String.fromCharCode(data[i])
     }
-    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+    return btoa(binary)
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '')
   }
 
   private arrayBufferToPem(buffer: ArrayBuffer, type: string): string {
@@ -827,7 +853,7 @@ export async function issueCertificate(
     email: string
     staging?: boolean
     challengeType?: 'http-01' | 'dns-01'
-  }
+  },
 ): Promise<IssuedCertificate> {
   const directory = options.staging
     ? ACME_DIRECTORIES.letsencrypt.staging
@@ -853,12 +879,12 @@ export async function issueCertificate(
     if (challenge.type === 'http-01') {
       console.log(
         `HTTP-01: Serve "${challenge.keyAuthorization}" at ` +
-        `http://${dom}/.well-known/acme-challenge/${challenge.token}`
+          `http://${dom}/.well-known/acme-challenge/${challenge.token}`,
       )
     } else if (challenge.type === 'dns-01') {
       const txtValue = await client.getDns01Record(challenge.token)
       console.log(
-        `DNS-01: Create TXT record "_acme-challenge.${dom}" with value "${txtValue}"`
+        `DNS-01: Create TXT record "_acme-challenge.${dom}" with value "${txtValue}"`,
       )
     }
   }
@@ -869,4 +895,3 @@ export async function issueCertificate(
 
   return client.completeChallenges(order, challenges)
 }
-

@@ -10,11 +10,8 @@
 import { cors } from '@elysiajs/cors'
 import {
   CORE_PORTS,
-  getCoreAppUrl,
   getCurrentNetwork,
   getLocalhostHost,
-  getRpcUrl,
-  getSQLitBlockProducerUrl,
 } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import { z } from 'zod'
@@ -27,16 +24,16 @@ export interface CrucibleEnv {
   NETWORK: 'localnet' | 'testnet' | 'mainnet'
   RPC_URL: string
 
-  // Service URLs
+  // Service URLs (resolved via JNS or env)
   DWS_URL: string
   KMS_URL: string
   INDEXER_URL: string
 
-  // Database
+  // Database (resolved via JNS or env)
   SQLIT_NODES: string
   SQLIT_DATABASE_ID: string
 
-  // KV bindings (optional)
+  // KV bindings (optional - workerd only)
   CRUCIBLE_CACHE?: KVNamespace
 }
 
@@ -51,22 +48,48 @@ interface KVNamespace {
 }
 
 /**
+ * Get allowed CORS origins dynamically based on network
+ * Production: Origins resolved from JNS contenthash domains
+ * Localnet: All origins allowed for development
+ */
+function getAllowedOrigins(network: string): string[] | true {
+  if (network === 'localnet') {
+    return true // Allow all origins in dev
+  }
+
+  // Production/Testnet: Allow same-origin and JNS-resolved domains
+  // These are resolved dynamically by the frontend based on JNS
+  const host = getLocalhostHost()
+  return [
+    // Same-origin requests (relative URLs from JNS-served frontend)
+    '',
+    // Local development fallback
+    `http://${host}:4020`,
+    `http://${host}:4021`,
+  ]
+}
+
+/**
  * Create the Crucible Elysia app
  */
 export function createCrucibleApp(env?: Partial<CrucibleEnv>) {
   const network = env?.NETWORK ?? getCurrentNetwork()
-  const isDev = network === 'localnet'
+  const allowedOrigins = getAllowedOrigins(network)
 
   const app = new Elysia()
     .use(
       cors({
-        origin: isDev
-          ? true
-          : [
-              'https://crucible.jejunetwork.org',
-              'https://jejunetwork.org',
-              getCoreAppUrl('CRUCIBLE'),
-            ],
+        origin: (request) => {
+          if (allowedOrigins === true) return true
+          const origin = request.headers.get('origin')
+          // Allow same-origin requests (no origin header)
+          if (!origin) return true
+          // Check against allowed origins
+          if (allowedOrigins.includes(origin)) return true
+          // Allow any *.jejunetwork.org domain (JNS-resolved)
+          if (origin.endsWith('.jejunetwork.org')) return true
+          return false
+        },
         methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
         allowedHeaders: [
           'Content-Type',
@@ -193,7 +216,10 @@ export function createCrucibleApp(env?: Partial<CrucibleEnv>) {
             .safeParse(body)
 
           if (!parsed.success) {
-            return { error: 'Invalid trigger data', details: parsed.error.issues }
+            return {
+              error: 'Invalid trigger data',
+              details: parsed.error.issues,
+            }
           }
 
           return { success: true, triggerId: crypto.randomUUID() }
@@ -221,7 +247,10 @@ export function createCrucibleApp(env?: Partial<CrucibleEnv>) {
             .safeParse(body)
 
           if (!parsed.success) {
-            return { error: 'Invalid A2A request', details: parsed.error.issues }
+            return {
+              error: 'Invalid A2A request',
+              details: parsed.error.issues,
+            }
           }
 
           return { skill: parsed.data.skill, result: 'Skill executed' }
@@ -272,7 +301,10 @@ export function createCrucibleApp(env?: Partial<CrucibleEnv>) {
             .safeParse(body)
 
           if (!parsed.success) {
-            return { error: 'Invalid MCP request', details: parsed.error.issues }
+            return {
+              error: 'Invalid MCP request',
+              details: parsed.error.issues,
+            }
           }
 
           return { tool: parsed.data.tool, result: 'Tool executed' }
@@ -311,17 +343,25 @@ export default {
 }
 
 /**
- * Bun server entry point (for local development)
+ * Bun server entry point (for local development and DWS workerd)
  */
 if (typeof Bun !== 'undefined') {
-  const port = process.env.PORT ?? process.env.CRUCIBLE_PORT ?? CORE_PORTS.CRUCIBLE
+  const port = Number(
+    process.env.PORT ??
+      process.env.CRUCIBLE_PORT ??
+      CORE_PORTS.CRUCIBLE_API.get(),
+  )
   const host = getLocalhostHost()
+  const network = getCurrentNetwork()
 
   console.log(`[Crucible Worker] Starting on http://${host}:${port}`)
-  console.log(`[Crucible Worker] Network: ${getCurrentNetwork()}`)
+  console.log(`[Crucible Worker] Network: ${network}`)
+  console.log(
+    `[Crucible Worker] Runtime: ${typeof Bun !== 'undefined' ? 'bun' : 'workerd'}`,
+  )
 
   Bun.serve({
-    port: Number(port),
+    port,
     hostname: host,
     fetch: app.fetch,
   })

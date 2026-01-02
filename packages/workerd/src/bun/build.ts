@@ -2,9 +2,9 @@
 // Build script for bundling Bun compatibility TypeScript into JavaScript
 // This creates a standalone bundle that can be used in workerd workers
 
-import { build, type BuildConfig } from 'esbuild'
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs'
-import path from 'path'
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import path from 'node:path'
+import { type BuildConfig, build } from 'esbuild'
 
 const __dirname = path.dirname(new URL(import.meta.url).pathname)
 const outDir = path.join(__dirname, '../../dist/bun')
@@ -28,7 +28,7 @@ const commonOptions: BuildConfig = {
 // Build each module separately
 async function buildModules() {
   console.log('Building Bun compatibility modules...')
-  
+
   // Build main bun module
   await build({
     ...commonOptions,
@@ -37,7 +37,7 @@ async function buildModules() {
     external: ['bun-internal:*'],
   })
   console.log('  - bun.js')
-  
+
   // Build sqlite module
   await build({
     ...commonOptions,
@@ -46,7 +46,7 @@ async function buildModules() {
     external: ['bun-internal:*', 'bun:bun'],
   })
   console.log('  - sqlite.js')
-  
+
   // Build test module (stubs)
   await build({
     ...commonOptions,
@@ -55,7 +55,7 @@ async function buildModules() {
     external: ['bun-internal:*'],
   })
   console.log('  - test.js')
-  
+
   // Build ffi module (stubs)
   await build({
     ...commonOptions,
@@ -64,13 +64,13 @@ async function buildModules() {
     external: ['bun-internal:*'],
   })
   console.log('  - ffi.js')
-  
+
   // Build internal modules
   const internalDir = path.join(outDir, 'internal')
   if (!existsSync(internalDir)) {
     mkdirSync(internalDir, { recursive: true })
   }
-  
+
   // Build internal/errors
   await build({
     ...commonOptions,
@@ -78,7 +78,7 @@ async function buildModules() {
     outfile: path.join(internalDir, 'errors.js'),
   })
   console.log('  - internal/errors.js')
-  
+
   // Build internal/types
   await build({
     ...commonOptions,
@@ -86,7 +86,7 @@ async function buildModules() {
     outfile: path.join(internalDir, 'types.js'),
   })
   console.log('  - internal/types.js')
-  
+
   // Build internal/validators
   await build({
     ...commonOptions,
@@ -95,7 +95,7 @@ async function buildModules() {
     external: ['bun-internal:*'],
   })
   console.log('  - internal/validators.js')
-  
+
   console.log('\nBuild complete.')
   console.log(`Output directory: ${outDir}`)
 }
@@ -103,7 +103,7 @@ async function buildModules() {
 // Create a combined bundle for worker injection
 async function buildCombinedBundle() {
   console.log('\nBuilding combined bundle for worker injection...')
-  
+
   // Build a self-contained bundle that defines the Bun global
   const bundleCode = `
 // Auto-generated Bun compatibility bundle for workerd
@@ -488,10 +488,10 @@ const Bun = {
 export default Bun
 export { Bun }
 `
-  
+
   writeFileSync(path.join(outDir, 'bun-bundle.js'), bundleCode.trim())
   console.log('  - bun-bundle.js (standalone bundle)')
-  
+
   console.log('\nStandalone bundle ready for worker injection.')
 }
 
@@ -500,7 +500,7 @@ async function main() {
   try {
     await buildModules()
     await buildCombinedBundle()
-    
+
     console.log('\n=== Build Summary ===')
     console.log(`Output: ${outDir}`)
     console.log('\nTo use in a worker, import from the bundle:')

@@ -301,7 +301,10 @@ const credentialStorage = {
 
 // Initialize storage on module load
 initSQLit().catch((error) => {
-  console.error('[SSHGateway] SQLit initialization failed:', error instanceof Error ? error.message : String(error))
+  console.error(
+    '[SSHGateway] SQLit initialization failed:',
+    error instanceof Error ? error.message : String(error),
+  )
 })
 
 // Metrics for Prometheus

@@ -1,14 +1,28 @@
 /**
  * Decentralized Cache Client
  *
- * Redis-compatible cache client that connects to the Jeju Cache Service.
- * Supports namespacing, TTL, batch operations, and TEE-backed instances.
+ * Re-exports from @jejunetwork/cache for backwards compatibility.
+ * New code should import directly from @jejunetwork/cache.
+ *
+ * @deprecated Import from @jejunetwork/cache instead
  */
 
 import { getDWSCacheUrl } from '@jejunetwork/config'
 import type { Address } from 'viem'
 import { z } from 'zod'
 
+// Re-export from @jejunetwork/cache with aliases to avoid conflicts
+export {
+  CacheClient as CachePackageClient,
+  type CacheClientConfig as CachePackageConfig,
+  CacheError,
+  CacheErrorCode,
+  type CacheStats as CachePackageStats,
+  getCacheClient as getPackageCacheClient,
+  resetCacheClients as resetPackageCacheClients,
+} from '@jejunetwork/cache'
+
+// Local schemas for response validation
 const CacheGetResponseSchema = z.object({
   value: z.string().nullable(),
   found: z.boolean(),
@@ -403,16 +417,18 @@ export class CacheRentalClient {
   }
 }
 
-// Singleton cache clients per namespace
-const cacheClients = new Map<string, CacheClient>()
+// Singleton cache clients per namespace (using legacy interface)
+const legacyCacheClients = new Map<string, CacheClient>()
 
-export function getCacheClient(namespace: string): CacheClient {
-  const existing = cacheClients.get(namespace)
+/**
+ * Get a cache client for a namespace (legacy interface for backwards compat)
+ * @deprecated Use getCacheClient from @jejunetwork/cache instead
+ */
+export function getLegacyCacheClient(namespace: string): CacheClient {
+  const existing = legacyCacheClients.get(namespace)
   if (existing) return existing
 
-  // Get cache URL from config (defaults based on network)
   const endpoint = getDWSCacheUrl()
-
   const client = new DecentralizedCacheClient({
     endpoint,
     namespace,
@@ -420,12 +436,12 @@ export function getCacheClient(namespace: string): CacheClient {
     timeout: 5000,
   })
 
-  cacheClients.set(namespace, client)
+  legacyCacheClients.set(namespace, client)
   return client
 }
 
-export function resetCacheClients(): void {
-  cacheClients.clear()
+export function resetLegacyCacheClients(): void {
+  legacyCacheClients.clear()
 }
 
 let rentalClient: CacheRentalClient | null = null
@@ -433,7 +449,6 @@ let rentalClient: CacheRentalClient | null = null
 export function getCacheRentalClient(): CacheRentalClient {
   if (rentalClient) return rentalClient
 
-  // Get cache URL from config (defaults based on network)
   const endpoint = getDWSCacheUrl()
   rentalClient = new CacheRentalClient(endpoint)
   return rentalClient

@@ -357,7 +357,9 @@ export class WorkerdExecutor implements IWorkerdExecutor {
     this.instances.set(worker.id, instance)
 
     // Wait for ready (no early exit detection needed - DWS exec API handles process lifecycle)
-    console.log(`[WorkerdExecutor] Waiting for workerd on port ${port} to become ready...`)
+    console.log(
+      `[WorkerdExecutor] Waiting for workerd on port ${port} to become ready...`,
+    )
     const ready = await this.waitForReady(port)
     console.log(`[WorkerdExecutor] waitForReady result: ${ready}`)
 

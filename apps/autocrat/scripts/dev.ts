@@ -66,7 +66,7 @@ async function waitForPort(port: number, timeout = 30000): Promise<boolean> {
 async function startAPIServer(): Promise<boolean> {
   console.log(`[Autocrat] Starting API server on port ${API_PORT}...`)
 
-  const host = getLocalhostHost()
+  const _host = getLocalhostHost()
   const proc = Bun.spawn(['bun', '--watch', 'api/server.ts'], {
     cwd: APP_DIR,
     stdout: 'inherit',

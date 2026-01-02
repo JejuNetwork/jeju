@@ -18,8 +18,8 @@ import { Gauge, Registry } from 'prom-client'
 import type { Address, Hex } from 'viem'
 import { WebSocket } from 'ws'
 import { z } from 'zod'
-import { PROXY_REGISTRY_ABI } from '../abis'
 import { config as nodeConfig } from '../../config'
+import { PROXY_REGISTRY_ABI } from '../abis'
 import type { SecureNodeClient } from '../contracts'
 
 /** Type for proxy node from contract */

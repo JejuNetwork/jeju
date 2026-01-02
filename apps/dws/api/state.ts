@@ -456,7 +456,9 @@ export const computeJobState = {
     } catch (error) {
       // SQLit failed - log error and save to memory store
       const errorMsg = error instanceof Error ? error.message : String(error)
-      console.error(`[DWS State] SQLit save failed for job ${row.job_id}: ${errorMsg}`)
+      console.error(
+        `[DWS State] SQLit save failed for job ${row.job_id}: ${errorMsg}`,
+      )
       memoryStores.computeJobs.set(row.job_id, row)
     }
   },
@@ -478,7 +480,9 @@ export const computeJobState = {
     } catch (error) {
       // SQLit failed - log error and use memory store
       const errorMsg = error instanceof Error ? error.message : String(error)
-      console.error(`[DWS State] SQLit get failed for job ${jobId}: ${errorMsg}`)
+      console.error(
+        `[DWS State] SQLit get failed for job ${jobId}: ${errorMsg}`,
+      )
       return memoryStores.computeJobs.get(jobId) ?? null
     }
   },
@@ -978,7 +982,9 @@ export const apiUserAccountState = {
     } catch (error) {
       // SQLit failed - log error and use memory store
       const errorMsg = error instanceof Error ? error.message : String(error)
-      console.error(`[DWS State] SQLit getOrCreate user failed for ${addr}: ${errorMsg}`)
+      console.error(
+        `[DWS State] SQLit getOrCreate user failed for ${addr}: ${errorMsg}`,
+      )
       const existing = memoryStores.apiUserAccounts.get(addr)
       if (existing) return existing
 
@@ -2061,29 +2067,52 @@ export async function initializeDWSState(): Promise<void> {
       // Log the actual error for debugging
       const errorMsg = error instanceof Error ? error.message : String(error)
       console.error(`[DWS State] SQLit connection failed: ${errorMsg}`)
-      
+
       const network = getCurrentNetwork()
-      
+
       // In production on testnet/mainnet, SQLit failure is CRITICAL
-      if (isProductionEnv() && (network === 'testnet' || network === 'mainnet')) {
-        console.error('╔═══════════════════════════════════════════════════════════════╗')
-        console.error('║  CRITICAL: DWS RUNNING IN DEGRADED MODE - NO PERSISTENCE     ║')
-        console.error('╠═══════════════════════════════════════════════════════════════╣')
-        console.error('║  SQLit is REQUIRED for production. App registrations will    ║')
-        console.error('║  NOT persist across pod restarts. This is NOT decentralized. ║')
-        console.error('║                                                               ║')
-        console.error('║  Fix: Ensure SQLit is running and SQLIT_URL is configured.   ║')
-        console.error('╚═══════════════════════════════════════════════════════════════╝')
+      if (
+        isProductionEnv() &&
+        (network === 'testnet' || network === 'mainnet')
+      ) {
+        console.error(
+          '╔═══════════════════════════════════════════════════════════════╗',
+        )
+        console.error(
+          '║  CRITICAL: DWS RUNNING IN DEGRADED MODE - NO PERSISTENCE     ║',
+        )
+        console.error(
+          '╠═══════════════════════════════════════════════════════════════╣',
+        )
+        console.error(
+          '║  SQLit is REQUIRED for production. App registrations will    ║',
+        )
+        console.error(
+          '║  NOT persist across pod restarts. This is NOT decentralized. ║',
+        )
+        console.error(
+          '║                                                               ║',
+        )
+        console.error(
+          '║  Fix: Ensure SQLit is running and SQLIT_URL is configured.   ║',
+        )
+        console.error(
+          '╚═══════════════════════════════════════════════════════════════╝',
+        )
       }
-      
+
       // Allow running without SQLit for localnet development
       memoryOnlyMode = true
       initialized = true
-      
+
       if (network === 'localnet') {
-        console.warn('[DWS State] Memory-only mode (localnet) - data will not persist')
+        console.warn(
+          '[DWS State] Memory-only mode (localnet) - data will not persist',
+        )
       } else {
-        console.error('[DWS State] Memory-only mode (PRODUCTION) - THIS IS A LARP')
+        console.error(
+          '[DWS State] Memory-only mode (PRODUCTION) - THIS IS A LARP',
+        )
       }
     }
   })()

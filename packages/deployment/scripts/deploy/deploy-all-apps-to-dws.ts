@@ -16,8 +16,8 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { getCurrentNetwork, getDWSUrl } from '@jejunetwork/config'
-import { privateKeyToAccount } from 'viem/accounts'
 import type { Address } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 
 // Get deployer account from environment
 function getDeployerAccount() {
@@ -29,7 +29,7 @@ function getDeployerAccount() {
 }
 
 // Get deployer address from environment
-function getDeployerAddress(): Address {
+function _getDeployerAddress(): Address {
   const account = getDeployerAccount()
   if (account) {
     return account.address
@@ -130,14 +130,20 @@ async function loadManifest(appDir: string): Promise<AppManifest | null> {
   return JSON.parse(readFileSync(manifestPath, 'utf-8'))
 }
 
-async function buildFrontend(appDir: string, manifest: AppManifest): Promise<boolean> {
-  const buildCommand = manifest.decentralization?.frontend?.buildCommand || 'bun run build'
+async function buildFrontend(
+  appDir: string,
+  manifest: AppManifest,
+): Promise<boolean> {
+  const buildCommand =
+    manifest.decentralization?.frontend?.buildCommand || 'bun run build'
   const buildDir = manifest.decentralization?.frontend?.buildDir || 'dist'
   const distPath = join(appDir, buildDir, 'web')
 
   // Skip rebuild if dist exists with index.html (prevents hash mismatches)
   if (existsSync(join(distPath, 'index.html'))) {
-    console.log(`[${manifest.name}] ✅ Frontend already built (using existing dist)`)
+    console.log(
+      `[${manifest.name}] ✅ Frontend already built (using existing dist)`,
+    )
     return true
   }
 
@@ -171,7 +177,7 @@ async function fetchWithRetry(
   url: string,
   options: RequestInit,
   maxRetries = 3,
-  baseDelayMs = 1000
+  baseDelayMs = 1000,
 ): Promise<Response> {
   let lastError: Error | null = null
 
@@ -188,8 +194,12 @@ async function fetchWithRetry(
       clearTimeout(timeoutId)
 
       // Retry on server errors (502, 503, 504)
-      if (response.status >= 502 && response.status <= 504 && attempt < maxRetries - 1) {
-        const delay = baseDelayMs * Math.pow(2, attempt)
+      if (
+        response.status >= 502 &&
+        response.status <= 504 &&
+        attempt < maxRetries - 1
+      ) {
+        const delay = baseDelayMs * 2 ** attempt
         await new Promise((resolve) => setTimeout(resolve, delay))
         continue
       }
@@ -199,7 +209,7 @@ async function fetchWithRetry(
       lastError = error instanceof Error ? error : new Error(String(error))
 
       if (attempt < maxRetries - 1 && lastError.name !== 'AbortError') {
-        const delay = baseDelayMs * Math.pow(2, attempt)
+        const delay = baseDelayMs * 2 ** attempt
         await new Promise((resolve) => setTimeout(resolve, delay))
       }
     }
@@ -211,7 +221,7 @@ async function fetchWithRetry(
 async function uploadToIPFS(
   appDir: string,
   manifest: AppManifest,
-  dwsUrl: string
+  dwsUrl: string,
 ): Promise<UploadResult | null> {
   const buildDir = manifest.decentralization?.frontend?.buildDir || 'dist'
   const distPath = join(appDir, buildDir)
@@ -265,27 +275,35 @@ async function uploadToIPFS(
               uploadSuccess = true
             } else {
               // Got a local backend hash instead of IPFS CID - still accept it
-              console.warn(`[${manifest.name}] Got non-IPFS CID for ${file}: ${result.cid}`)
-              uploadedFiles.push({ path: file, cid: result.cid, size: fileContent.length })
+              console.warn(
+                `[${manifest.name}] Got non-IPFS CID for ${file}: ${result.cid}`,
+              )
+              uploadedFiles.push({
+                path: file,
+                cid: result.cid,
+                size: fileContent.length,
+              })
               staticFiles[file] = result.cid
               uploadSuccess = true
             }
           } else {
             console.warn(
-              `[${manifest.name}] Failed to upload ${file}: ${response.status} (attempt ${attempts}/${maxAttempts})`
+              `[${manifest.name}] Failed to upload ${file}: ${response.status} (attempt ${attempts}/${maxAttempts})`,
             )
             await new Promise((r) => setTimeout(r, 500 * attempts)) // Backoff
           }
         } catch (error) {
           console.warn(
-            `[${manifest.name}] Failed to upload ${file}: ${error instanceof Error ? error.message : String(error)}`
+            `[${manifest.name}] Failed to upload ${file}: ${error instanceof Error ? error.message : String(error)}`,
           )
           await new Promise((r) => setTimeout(r, 500 * attempts))
         }
       }
 
       if (!uploadSuccess) {
-        console.error(`[${manifest.name}] Failed to upload ${file} after ${maxAttempts} attempts`)
+        console.error(
+          `[${manifest.name}] Failed to upload ${file} after ${maxAttempts} attempts`,
+        )
       }
     }
 
@@ -305,7 +323,7 @@ async function uploadToIPFS(
     manifestFormData.append(
       'file',
       new Blob([JSON.stringify(manifestData, null, 2)]),
-      'manifest.json'
+      'manifest.json',
     )
     manifestFormData.append('tier', 'popular')
     manifestFormData.append('category', 'app')
@@ -322,7 +340,7 @@ async function uploadToIPFS(
 
     const manifestResult = (await manifestResponse.json()) as { cid: string }
     console.log(
-      `[${manifest.name}] ✅ Uploaded ${uploadedFiles.length} files to IPFS: ${manifestResult.cid}`
+      `[${manifest.name}] ✅ Uploaded ${uploadedFiles.length} files to IPFS: ${manifestResult.cid}`,
     )
     return { manifestCid: manifestResult.cid, staticFiles }
   } catch (error) {
@@ -338,7 +356,7 @@ interface WorkerDeployResult {
 
 async function deployDWSWorker(
   manifest: AppManifest,
-  dwsUrl: string
+  dwsUrl: string,
 ): Promise<WorkerDeployResult | null> {
   const workerConfig = manifest.dws?.backend
   if (!workerConfig?.enabled) return null
@@ -367,7 +385,7 @@ async function deployDWSWorker(
         cwd: appDir,
         stdout: 'pipe',
         stderr: 'pipe',
-      }
+      },
     )
 
     const bundleExit = await bundleProc.exited
@@ -391,7 +409,9 @@ async function deployDWSWorker(
         body: formData,
       })
     } catch (error) {
-      console.error(`   Failed to upload worker: ${error instanceof Error ? error.message : String(error)}`)
+      console.error(
+        `   Failed to upload worker: ${error instanceof Error ? error.message : String(error)}`,
+      )
       return null
     }
 
@@ -432,16 +452,22 @@ async function deployDWSWorker(
         body: JSON.stringify(workerData),
       })
     } catch (error) {
-      console.error(`   Failed to register worker: ${error instanceof Error ? error.message : String(error)}`)
+      console.error(
+        `   Failed to register worker: ${error instanceof Error ? error.message : String(error)}`,
+      )
       return null
     }
 
     if (!registerResponse.ok) {
       const text = await registerResponse.text()
       if (text.includes('403 Forbidden') || text.includes('<html>')) {
-        console.error(`   Worker blocked by WAF - apply terraform: cd packages/deployment/terraform && terraform apply`)
+        console.error(
+          `   Worker blocked by WAF - apply terraform: cd packages/deployment/terraform && terraform apply`,
+        )
       } else {
-        console.error(`   Failed to register worker: ${registerResponse.status} ${text}`)
+        console.error(
+          `   Failed to register worker: ${registerResponse.status} ${text}`,
+        )
       }
       return null
     }
@@ -460,7 +486,9 @@ async function deployDWSWorker(
       endpoint,
     }
   } catch (error) {
-    console.error(`   Worker deployment error: ${error instanceof Error ? error.message : String(error)}`)
+    console.error(
+      `   Worker deployment error: ${error instanceof Error ? error.message : String(error)}`,
+    )
     return null
   }
 }
@@ -471,13 +499,15 @@ async function registerWithAppRouter(
   frontendCid: string | null,
   staticFiles: Record<string, string> | null,
   backendWorkerId: string | null,
-  backendEndpoint: string | null
+  backendEndpoint: string | null,
 ): Promise<boolean> {
   const jnsName =
-    manifest.jns?.name || manifest.decentralization?.frontend?.jnsName || `${manifest.name}.jeju`
+    manifest.jns?.name ||
+    manifest.decentralization?.frontend?.jnsName ||
+    `${manifest.name}.jeju`
 
   const apiPaths = manifest.decentralization?.worker?.routes?.map((r) =>
-    r.pattern.replace('/*', '')
+    r.pattern.replace('/*', ''),
   ) || ['/api', '/health', '/a2a', '/mcp']
 
   const registrationData = {
@@ -503,7 +533,9 @@ async function registerWithAppRouter(
 
     if (!response.ok) {
       const text = await response.text()
-      console.error(`[${manifest.name}] Registration failed: ${response.status} ${text}`)
+      console.error(
+        `[${manifest.name}] Registration failed: ${response.status} ${text}`,
+      )
       return false
     }
 
@@ -516,17 +548,28 @@ async function registerWithAppRouter(
   }
 }
 
-async function deployApp(appName: string, network: string): Promise<DeploymentResult> {
+async function deployApp(
+  appName: string,
+  network: string,
+): Promise<DeploymentResult> {
   const appsDir = join(process.cwd(), 'apps')
   const appDir = join(appsDir, appName)
 
   if (!existsSync(appDir)) {
-    return { app: appName, success: false, error: `App directory not found: ${appDir}` }
+    return {
+      app: appName,
+      success: false,
+      error: `App directory not found: ${appDir}`,
+    }
   }
 
   const manifest = await loadManifest(appDir)
   if (!manifest) {
-    return { app: appName, success: false, error: 'jeju-manifest.json not found' }
+    return {
+      app: appName,
+      success: false,
+      error: 'jeju-manifest.json not found',
+    }
   }
 
   console.log(`\n${'='.repeat(60)}`)
@@ -536,7 +579,8 @@ async function deployApp(appName: string, network: string): Promise<DeploymentRe
   const dwsUrl = getDWSUrl(network)
 
   const hasFrontend =
-    manifest.decentralization?.frontend || existsSync(join(appDir, 'index.html'))
+    manifest.decentralization?.frontend ||
+    existsSync(join(appDir, 'index.html'))
   let uploadResult: UploadResult | null = null
 
   if (hasFrontend) {
@@ -547,7 +591,9 @@ async function deployApp(appName: string, network: string): Promise<DeploymentRe
 
     uploadResult = await uploadToIPFS(appDir, manifest, dwsUrl)
     if (!uploadResult) {
-      console.log(`[${manifest.name}] ⚠️ IPFS upload failed, will use backend-only routing`)
+      console.log(
+        `[${manifest.name}] ⚠️ IPFS upload failed, will use backend-only routing`,
+      )
     }
   }
 
@@ -561,10 +607,12 @@ async function deployApp(appName: string, network: string): Promise<DeploymentRe
     if (workerResult) {
       backendWorkerId = workerResult.workerId
       backendEndpoint = workerResult.endpoint
-      console.log(`[${manifest.name}] ✅ Backend deployed as DWS worker: ${backendWorkerId}`)
+      console.log(
+        `[${manifest.name}] ✅ Backend deployed as DWS worker: ${backendWorkerId}`,
+      )
     } else {
       console.log(
-        `[${manifest.name}] ⚠️ Backend worker deployment failed, will use frontend-only mode`
+        `[${manifest.name}] ⚠️ Backend worker deployment failed, will use frontend-only mode`,
       )
     }
   }
@@ -575,10 +623,14 @@ async function deployApp(appName: string, network: string): Promise<DeploymentRe
     uploadResult?.manifestCid ?? null,
     uploadResult?.staticFiles ?? null,
     backendWorkerId,
-    backendEndpoint
+    backendEndpoint,
   )
   if (!registered) {
-    return { app: appName, success: false, error: 'App router registration failed' }
+    return {
+      app: appName,
+      success: false,
+      error: 'App router registration failed',
+    }
   }
 
   return {
@@ -596,13 +648,18 @@ async function main() {
   // Parse --network arg (command line > env vars > default)
   let networkArg: string | undefined
   const networkIdx = args.indexOf('--network')
-  if (networkIdx !== -1 && args[networkIdx + 1] && !args[networkIdx + 1].startsWith('--')) {
+  if (
+    networkIdx !== -1 &&
+    args[networkIdx + 1] &&
+    !args[networkIdx + 1].startsWith('--')
+  ) {
     networkArg = args[networkIdx + 1]
   } else {
     const networkEq = args.find((a) => a.startsWith('--network='))
     if (networkEq) networkArg = networkEq.split('=')[1]
   }
-  networkArg = networkArg || process.env.NETWORK || process.env.JEJU_NETWORK || 'testnet'
+  networkArg =
+    networkArg || process.env.NETWORK || process.env.JEJU_NETWORK || 'testnet'
 
   // Parse --app or --apps arg
   let appArg: string | undefined
@@ -612,7 +669,9 @@ async function main() {
   if (idx !== -1 && args[idx + 1] && !args[idx + 1].startsWith('--')) {
     appArg = args[idx + 1]
   } else {
-    const appEq = args.find((a) => a.startsWith('--app=') || a.startsWith('--apps='))
+    const appEq = args.find(
+      (a) => a.startsWith('--app=') || a.startsWith('--apps='),
+    )
     if (appEq) appArg = appEq.split('=')[1]
   }
 
@@ -656,8 +715,10 @@ async function main() {
   console.log(`✅ Successful: ${successful.length}`)
   for (const result of successful) {
     const parts = [result.app]
-    if (result.frontendCid) parts.push(`Frontend: ${result.frontendCid.slice(0, 16)}...`)
-    if (result.backendWorkerId) parts.push(`Worker: ${result.backendWorkerId.slice(0, 16)}...`)
+    if (result.frontendCid)
+      parts.push(`Frontend: ${result.frontendCid.slice(0, 16)}...`)
+    if (result.backendWorkerId)
+      parts.push(`Worker: ${result.backendWorkerId.slice(0, 16)}...`)
     console.log(`   - ${parts.join(' | ')}`)
   }
 

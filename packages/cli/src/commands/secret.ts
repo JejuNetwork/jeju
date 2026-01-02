@@ -13,8 +13,8 @@ import { getDWSUrl, getLocalhostHost } from '@jejunetwork/config'
 import { Command } from 'commander'
 import type { Address } from 'viem'
 import { logger } from '../lib/logger'
+import type { AppManifest, NetworkType } from '../types'
 import { requireLogin } from './login'
-import type { NetworkType, AppManifest } from '../types'
 
 interface Secret {
   key: string
@@ -31,9 +31,15 @@ function getDWSUrlForNetwork(network: NetworkType): string {
     case 'mainnet':
       return process.env.MAINNET_DWS_URL ?? 'https://dws.jejunetwork.org'
     case 'testnet':
-      return process.env.TESTNET_DWS_URL ?? 'https://dws.testnet.jejunetwork.org'
+      return (
+        process.env.TESTNET_DWS_URL ?? 'https://dws.testnet.jejunetwork.org'
+      )
     default:
-      return process.env.DWS_URL ?? getDWSUrl() ?? `http://${getLocalhostHost()}:4020`
+      return (
+        process.env.DWS_URL ??
+        getDWSUrl() ??
+        `http://${getLocalhostHost()}:4020`
+      )
   }
 }
 
@@ -66,7 +72,7 @@ async function setSecret(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${authToken}`,
+      Authorization: `Bearer ${authToken}`,
       'X-Jeju-Address': address,
     },
     body: JSON.stringify({
@@ -96,7 +102,7 @@ async function listSecrets(
 
   const response = await fetch(`${dwsUrl}/secrets/list?app=${appName}`, {
     headers: {
-      'Authorization': `Bearer ${authToken}`,
+      Authorization: `Bearer ${authToken}`,
       'X-Jeju-Address': address,
     },
   })
@@ -125,7 +131,7 @@ async function deleteSecret(
     method: 'DELETE',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${authToken}`,
+      Authorization: `Bearer ${authToken}`,
       'X-Jeju-Address': address,
     },
     body: JSON.stringify({
@@ -156,7 +162,7 @@ async function getSecretValue(
     `${dwsUrl}/secrets/get?app=${appName}&key=${key}`,
     {
       headers: {
-        'Authorization': `Bearer ${authToken}`,
+        Authorization: `Bearer ${authToken}`,
         'X-Jeju-Address': address,
       },
     },
@@ -281,8 +287,8 @@ secretCommand
       return
     }
 
-    console.log('  KEY'.padEnd(30) + 'SCOPE'.padEnd(15) + 'UPDATED')
-    console.log('  ' + '-'.repeat(55))
+    console.log(`${'  KEY'.padEnd(30) + 'SCOPE'.padEnd(15)}UPDATED`)
+    console.log(`  ${'-'.repeat(55)}`)
 
     for (const secret of secrets) {
       const key = secret.key.padEnd(28)
@@ -395,13 +401,15 @@ secretCommand
       if (value !== null) {
         // Quote value if it contains special characters
         const needsQuotes = /[\s"'$`\\]/.test(value)
-        const quotedValue = needsQuotes ? `"${value.replace(/"/g, '\\"')}"` : value
+        const quotedValue = needsQuotes
+          ? `"${value.replace(/"/g, '\\"')}"`
+          : value
         envLines.push(`${secret.key}=${quotedValue}`)
       }
     }
 
     const outputPath = join(cwd, options.output)
-    await Bun.write(outputPath, envLines.join('\n') + '\n')
+    await Bun.write(outputPath, `${envLines.join('\n')}\n`)
 
     logger.success(`Pulled ${secrets.length} secrets to ${options.output}`)
     logger.warn('Add this file to .gitignore to keep secrets safe')
@@ -457,8 +465,10 @@ secretCommand
 
       // Remove quotes if present
       let value = rawValue
-      if ((value.startsWith('"') && value.endsWith('"')) ||
-          (value.startsWith("'") && value.endsWith("'"))) {
+      if (
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
         value = value.slice(1, -1)
       }
 

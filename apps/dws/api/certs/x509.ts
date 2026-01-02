@@ -127,7 +127,7 @@ function buildOID(oid: number[]): Uint8Array {
   const bytes: number[] = []
   // First two components are encoded specially
   bytes.push(oid[0] * 40 + oid[1])
-  
+
   for (let i = 2; i < oid.length; i++) {
     let component = oid[i]
     if (component < 128) {
@@ -186,7 +186,7 @@ function concatArrays(arrays: Uint8Array[]): Uint8Array {
  * Generate a self-signed X.509 certificate
  */
 export async function generateSelfSignedCertificate(
-  options: GenerateCertificateOptions
+  options: GenerateCertificateOptions,
 ): Promise<GeneratedCertificate> {
   const {
     commonName,
@@ -204,17 +204,22 @@ export async function generateSelfSignedCertificate(
       namedCurve: 'P-256',
     },
     true,
-    ['sign', 'verify']
+    ['sign', 'verify'],
   )
 
   // Export keys
-  const privateKeyPkcs8 = await crypto.subtle.exportKey('pkcs8', keyPair.privateKey)
+  const privateKeyPkcs8 = await crypto.subtle.exportKey(
+    'pkcs8',
+    keyPair.privateKey,
+  )
   const publicKeySpki = await crypto.subtle.exportKey('spki', keyPair.publicKey)
 
   // Build certificate
   const notBefore = new Date()
-  const notAfter = new Date(notBefore.getTime() + validityDays * 24 * 60 * 60 * 1000)
-  
+  const notAfter = new Date(
+    notBefore.getTime() + validityDays * 24 * 60 * 60 * 1000,
+  )
+
   // Generate random serial number
   const serialBytes = new Uint8Array(16)
   crypto.getRandomValues(serialBytes)
@@ -240,7 +245,7 @@ export async function generateSelfSignedCertificate(
   const signature = await crypto.subtle.sign(
     { name: 'ECDSA', hash: 'SHA-256' },
     keyPair.privateKey,
-    tbsBuffer
+    tbsBuffer,
   )
 
   // Convert ECDSA signature to DER format
@@ -293,7 +298,7 @@ function buildTBSCertificate(options: {
   // Signature Algorithm (ECDSA with SHA-256)
   // OID: 1.2.840.10045.4.3.2
   const signatureAlgorithm = buildSequence([
-    buildOID([1, 2, 840, 10045, 4, 3, 2])
+    buildOID([1, 2, 840, 10045, 4, 3, 2]),
   ])
 
   // Issuer
@@ -312,13 +317,14 @@ function buildTBSCertificate(options: {
   const subjectPublicKeyInfo = options.publicKey
 
   // Extensions (context tag [3])
-  const extensions = buildContextTag(3, 
+  const extensions = buildContextTag(
+    3,
     buildSequence([
       buildBasicConstraintsExtension(options.isCA),
       buildKeyUsageExtension(),
       buildExtKeyUsageExtension(),
       buildSubjectAltNameExtension(options.altNames),
-    ])
+    ]),
   )
 
   return buildSequence([
@@ -333,40 +339,43 @@ function buildTBSCertificate(options: {
   ])
 }
 
-function buildName(name: { 
-  commonName: string; 
-  organization?: string; 
-  country?: string 
+function buildName(name: {
+  commonName: string
+  organization?: string
+  country?: string
 }): Uint8Array {
   const rdns: Uint8Array[] = []
 
   if (name.country) {
     // OID: 2.5.4.6 (countryName)
-    rdns.push(buildSet([
-      buildSequence([
-        buildOID([2, 5, 4, 6]),
-        buildPrintableString(name.country),
-      ])
-    ]))
+    rdns.push(
+      buildSet([
+        buildSequence([
+          buildOID([2, 5, 4, 6]),
+          buildPrintableString(name.country),
+        ]),
+      ]),
+    )
   }
 
   if (name.organization) {
     // OID: 2.5.4.10 (organizationName)
-    rdns.push(buildSet([
-      buildSequence([
-        buildOID([2, 5, 4, 10]),
-        buildUTF8String(name.organization),
-      ])
-    ]))
+    rdns.push(
+      buildSet([
+        buildSequence([
+          buildOID([2, 5, 4, 10]),
+          buildUTF8String(name.organization),
+        ]),
+      ]),
+    )
   }
 
   // OID: 2.5.4.3 (commonName)
-  rdns.push(buildSet([
-    buildSequence([
-      buildOID([2, 5, 4, 3]),
-      buildUTF8String(name.commonName),
-    ])
-  ]))
+  rdns.push(
+    buildSet([
+      buildSequence([buildOID([2, 5, 4, 3]), buildUTF8String(name.commonName)]),
+    ]),
+  )
 
   return buildSequence(rdns)
 }
@@ -375,7 +384,7 @@ function buildBasicConstraintsExtension(isCA: boolean): Uint8Array {
   // OID: 2.5.29.19
   const oid = buildOID([2, 5, 29, 19])
   const critical = new Uint8Array([0x01, 0x01, 0xff]) // BOOLEAN TRUE
-  
+
   let value: Uint8Array
   if (isCA) {
     // SEQUENCE { BOOLEAN TRUE }
@@ -392,7 +401,7 @@ function buildKeyUsageExtension(): Uint8Array {
   // OID: 2.5.29.15
   const oid = buildOID([2, 5, 29, 15])
   const critical = new Uint8Array([0x01, 0x01, 0xff])
-  
+
   // KeyUsage ::= BIT STRING
   // digitalSignature (0) + keyEncipherment (2) = 0b10100000 = 0xa0
   // With 5 unused bits at the end
@@ -404,12 +413,10 @@ function buildKeyUsageExtension(): Uint8Array {
 function buildExtKeyUsageExtension(): Uint8Array {
   // OID: 2.5.29.37
   const oid = buildOID([2, 5, 29, 37])
-  
+
   // ExtKeyUsageSyntax ::= SEQUENCE SIZE (1..MAX) OF KeyPurposeId
   // serverAuth OID: 1.3.6.1.5.5.7.3.1
-  const value = buildSequence([
-    buildOID([1, 3, 6, 1, 5, 5, 7, 3, 1])
-  ])
+  const value = buildSequence([buildOID([1, 3, 6, 1, 5, 5, 7, 3, 1])])
 
   return buildSequence([oid, buildOctetString(value)])
 }
@@ -417,14 +424,14 @@ function buildExtKeyUsageExtension(): Uint8Array {
 function buildSubjectAltNameExtension(domains: string[]): Uint8Array {
   // OID: 2.5.29.17
   const oid = buildOID([2, 5, 29, 17])
-  
+
   // GeneralNames ::= SEQUENCE SIZE (1..MAX) OF GeneralName
   // dNSName [2] IA5String
-  const names = domains.map(domain => {
+  const names = domains.map((domain) => {
     const bytes = new TextEncoder().encode(domain)
     return buildTag(0x82, bytes) // Context tag [2]
   })
-  
+
   const value = buildSequence(names)
 
   return buildSequence([oid, buildOctetString(value)])
@@ -434,30 +441,29 @@ function ecdsaSigToDer(sig: Uint8Array): Uint8Array {
   // WebCrypto returns r || s (each 32 bytes for P-256)
   const r = sig.slice(0, 32)
   const s = sig.slice(32, 64)
-  
-  return buildSequence([
-    buildInteger(r),
-    buildInteger(s),
-  ])
+
+  return buildSequence([buildInteger(r), buildInteger(s)])
 }
 
-function buildCertificate(tbsCertificate: Uint8Array, signature: Uint8Array): Uint8Array {
+function buildCertificate(
+  tbsCertificate: Uint8Array,
+  signature: Uint8Array,
+): Uint8Array {
   // Signature Algorithm (ECDSA with SHA-256)
   const signatureAlgorithm = buildSequence([
-    buildOID([1, 2, 840, 10045, 4, 3, 2])
+    buildOID([1, 2, 840, 10045, 4, 3, 2]),
   ])
 
   // Signature Value (BIT STRING)
   const signatureValue = buildBitString(signature)
 
-  return buildSequence([
-    tbsCertificate,
-    signatureAlgorithm,
-    signatureValue,
-  ])
+  return buildSequence([tbsCertificate, signatureAlgorithm, signatureValue])
 }
 
-function arrayBufferToPem(buffer: ArrayBuffer | Uint8Array, type: string): string {
+function arrayBufferToPem(
+  buffer: ArrayBuffer | Uint8Array,
+  type: string,
+): string {
   const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer)
   let binary = ''
   for (let i = 0; i < bytes.length; i++) {
@@ -477,13 +483,13 @@ function arrayBufferToPem(buffer: ArrayBuffer | Uint8Array, type: string): strin
  */
 export function parseCertificate(pem: string): CertificateInfo | null {
   const match = pem.match(
-    /-----BEGIN CERTIFICATE-----\s*([\s\S]*?)\s*-----END CERTIFICATE-----/
+    /-----BEGIN CERTIFICATE-----\s*([\s\S]*?)\s*-----END CERTIFICATE-----/,
   )
   if (!match) return null
 
   // Basic parsing - extracts dates if possible
   // Full ASN.1 parsing would require a complete DER decoder
-  
+
   return {
     subject: { commonName: 'certificate-cn' },
     issuer: { commonName: 'certificate-issuer' },
@@ -502,7 +508,7 @@ export function parseCertificate(pem: string): CertificateInfo | null {
  */
 export function isCertificateExpiringSoon(
   pem: string,
-  daysThreshold = 30
+  daysThreshold = 30,
 ): boolean {
   const info = parseCertificate(pem)
   if (!info) return true

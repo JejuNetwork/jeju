@@ -184,7 +184,9 @@ func (s *Storage) Commit(ctx context.Context, wb twopc.WriteBatch) (result inter
 
 				if err != nil {
 					log.WithError(err).Debug("commit query failed")
-					s.tx.Rollback()
+					if rbErr := s.tx.Rollback(); rbErr != nil {
+						log.WithError(rbErr).Error("rollback after commit failure also failed")
+					}
 					s.tx = nil
 					s.queries = nil
 					return
@@ -197,7 +199,11 @@ func (s *Storage) Commit(ctx context.Context, wb twopc.WriteBatch) (result inter
 				execResult.RowsAffected += rowsAffected
 			}
 
-			s.tx.Commit()
+			if commitErr := s.tx.Commit(); commitErr != nil {
+				log.WithError(commitErr).Error("commit transaction failed")
+				err = commitErr
+				return
+			}
 			s.tx = nil
 			s.queries = nil
 			result = execResult
@@ -231,7 +237,9 @@ func (s *Storage) Rollback(ctx context.Context, wb twopc.WriteBatch) (err error)
 	}
 
 	if s.tx != nil {
-		s.tx.Rollback()
+		if rbErr := s.tx.Rollback(); rbErr != nil {
+			log.WithError(rbErr).Error("rollback transaction failed")
+		}
 		s.tx = nil
 		s.queries = nil
 	}
@@ -257,8 +265,12 @@ func (s *Storage) Query(ctx context.Context, queries []Query) (columns []string,
 		return
 	}
 
-	// always rollback on complete
-	defer tx.Rollback()
+	// always rollback on complete (read-only transaction)
+	defer func() {
+		if rbErr := tx.Rollback(); rbErr != nil && rbErr != sql.ErrTxDone {
+			log.WithError(rbErr).Error("rollback read-only transaction failed")
+		}
+	}()
 
 	q := queries[len(queries)-1]
 
@@ -322,7 +334,11 @@ func (s *Storage) Exec(ctx context.Context, queries []Query) (result ExecResult,
 		return
 	}
 
-	defer tx.Rollback()
+	defer func() {
+		if rbErr := tx.Rollback(); rbErr != nil && rbErr != sql.ErrTxDone {
+			log.WithError(rbErr).Error("rollback transaction failed")
+		}
+	}()
 
 	for _, q := range queries {
 		// convert arguments types
@@ -344,7 +360,10 @@ func (s *Storage) Exec(ctx context.Context, queries []Query) (result ExecResult,
 		result.LastInsertID, _ = r.LastInsertId()
 	}
 
-	tx.Commit()
+	if err = tx.Commit(); err != nil {
+		log.WithError(err).Error("commit transaction failed")
+		return
+	}
 
 	return
 }

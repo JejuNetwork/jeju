@@ -278,7 +278,10 @@ export class AutonomousPlanningCoordinator {
       context.recentActions.length > 0
         ? context.recentActions
             .slice(0, 5)
-            .map((a) => `${a.type} at ${a.timestamp.toISOString()} (${a.success ? 'success' : 'failed'})`)
+            .map(
+              (a) =>
+                `${a.type} at ${a.timestamp.toISOString()} (${a.success ? 'success' : 'failed'})`,
+            )
             .join('\n')
         : 'none'
 

@@ -11,8 +11,8 @@
 import {
   createAppConfig,
   getCoreAppUrl,
-  getEnvVar,
   getCurrentNetwork,
+  getEnvVar,
 } from '@jejunetwork/config'
 
 export interface BazaarConfig {

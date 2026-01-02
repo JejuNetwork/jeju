@@ -19,7 +19,7 @@ import {
 import chalk from 'chalk'
 import { Command } from 'commander'
 import { z } from 'zod'
-import { config as nodeConfig, configureNode } from '../../api/config'
+import { configureNode, config as nodeConfig } from '../../api/config'
 import { createSecureNodeClient } from '../../api/lib/contracts'
 import { detectHardware, getComputeCapabilities } from '../../api/lib/hardware'
 import {
@@ -115,9 +115,14 @@ class NodeDaemon {
     const client = createSecureNodeClient(rpcUrl, chainId, keyId)
 
     // Create services config - bootstrap nodes fetched from on-chain registry
-    console.log(chalk.dim('  Fetching bootstrap nodes from on-chain registry...'))
-    const bootstrapNodes = await this.getBootstrapNodesFromChain(rpcUrl, chainId)
-    
+    console.log(
+      chalk.dim('  Fetching bootstrap nodes from on-chain registry...'),
+    )
+    const bootstrapNodes = await this.getBootstrapNodesFromChain(
+      rpcUrl,
+      chainId,
+    )
+
     const servicesConf: NodeServicesConfig = {
       keyId,
       bridge: {
@@ -181,32 +186,34 @@ class NodeDaemon {
 
   /**
    * Get bootstrap nodes from on-chain registry
-   * 
+   *
    * IMPORTANT: This fetches active edge nodes from the CDN registry contract
    * instead of using hardcoded URLs. This ensures:
    * - Nodes discover peers dynamically
    * - New nodes can join without config changes
    * - Network is truly decentralized
-   * 
+   *
    * Uses the actual CDNRegistry contract functions:
    * - getActiveNodesInRegion(uint8 region) returns bytes32[]
    * - getEdgeNode(bytes32 nodeId) returns EdgeNode struct
    */
   private async getBootstrapNodesFromChain(
     rpcUrl: string,
-    chainId: number
+    chainId: number,
   ): Promise<string[]> {
     try {
       const { createPublicClient, http } = await import('viem')
       const { getContractAddresses } = await import('../../api/lib/contracts')
-      
+
       const publicClient = createPublicClient({
         transport: http(rpcUrl),
       })
-      
+
       const addresses = getContractAddresses(chainId)
-      
-      if (addresses.cdnRegistry === '0x0000000000000000000000000000000000000000') {
+
+      if (
+        addresses.cdnRegistry === '0x0000000000000000000000000000000000000000'
+      ) {
         console.log(chalk.dim('  CDN registry not deployed yet'))
         return this.getFallbackBootstrapNodes()
       }
@@ -218,35 +225,37 @@ class NodeDaemon {
           type: 'function',
           stateMutability: 'view',
           inputs: [{ name: 'region', type: 'uint8' }],
-          outputs: [{ name: '', type: 'bytes32[]' }]
+          outputs: [{ name: '', type: 'bytes32[]' }],
         },
         {
           name: 'getEdgeNode',
           type: 'function',
           stateMutability: 'view',
           inputs: [{ name: 'nodeId', type: 'bytes32' }],
-          outputs: [{ 
-            name: '', 
-            type: 'tuple',
-            components: [
-              { name: 'nodeId', type: 'bytes32' },
-              { name: 'operator', type: 'address' },
-              { name: 'endpoint', type: 'string' },
-              { name: 'region', type: 'uint8' },
-              { name: 'providerType', type: 'uint8' },
-              { name: 'status', type: 'uint8' },
-              { name: 'stake', type: 'uint256' },
-              { name: 'registeredAt', type: 'uint256' },
-              { name: 'lastSeen', type: 'uint256' },
-              { name: 'agentId', type: 'uint256' }
-            ]
-          }]
-        }
+          outputs: [
+            {
+              name: '',
+              type: 'tuple',
+              components: [
+                { name: 'nodeId', type: 'bytes32' },
+                { name: 'operator', type: 'address' },
+                { name: 'endpoint', type: 'string' },
+                { name: 'region', type: 'uint8' },
+                { name: 'providerType', type: 'uint8' },
+                { name: 'status', type: 'uint8' },
+                { name: 'stake', type: 'uint256' },
+                { name: 'registeredAt', type: 'uint256' },
+                { name: 'lastSeen', type: 'uint256' },
+                { name: 'agentId', type: 'uint256' },
+              ],
+            },
+          ],
+        },
       ] as const
 
       // Query all regions (0-6 based on ICDNTypes.Region enum)
       const endpoints: string[] = []
-      
+
       for (let region = 0; region <= 6; region++) {
         try {
           const nodeIds = await publicClient.readContract({
@@ -255,7 +264,7 @@ class NodeDaemon {
             functionName: 'getActiveNodesInRegion',
             args: [region],
           })
-          
+
           // Fetch endpoint for each node (limit to first 5 per region)
           for (const nodeId of nodeIds.slice(0, 5)) {
             try {
@@ -265,15 +274,16 @@ class NodeDaemon {
                 functionName: 'getEdgeNode',
                 args: [nodeId],
               })
-              
-              if (node.endpoint && node.status === 0) { // 0 = HEALTHY
+
+              if (node.endpoint && node.status === 0) {
+                // 0 = HEALTHY
                 endpoints.push(node.endpoint)
               }
             } catch {
               // Skip nodes that fail to fetch
             }
           }
-          
+
           // Stop if we have enough nodes
           if (endpoints.length >= 10) break
         } catch {
@@ -282,11 +292,19 @@ class NodeDaemon {
       }
 
       if (endpoints.length > 0) {
-        console.log(chalk.dim(`  Found ${endpoints.length} bootstrap nodes from on-chain registry`))
+        console.log(
+          chalk.dim(
+            `  Found ${endpoints.length} bootstrap nodes from on-chain registry`,
+          ),
+        )
         return endpoints
       }
     } catch (error) {
-      console.log(chalk.dim(`  Could not fetch on-chain nodes: ${error instanceof Error ? error.message : String(error)}`))
+      console.log(
+        chalk.dim(
+          `  Could not fetch on-chain nodes: ${error instanceof Error ? error.message : String(error)}`,
+        ),
+      )
     }
 
     // Fallback to well-known seed nodes (only used during initial network bootstrap)
@@ -310,18 +328,16 @@ class NodeDaemon {
         'wss://edge-seed-2.jejunetwork.org',
       ],
     }
-    
-    if (fallbackNodes[this.config.network].length > 0) {
-      console.log(chalk.yellow('  Using fallback seed nodes (register on-chain for decentralized discovery)'))
-    }
-    
-    return fallbackNodes[this.config.network]
-  }
 
-  private getBootstrapNodes(): string[] {
-    // Synchronous version for backwards compatibility
-    // The actual bootstrap happens async in start()
-    return this.getFallbackBootstrapNodes()
+    if (fallbackNodes[this.config.network].length > 0) {
+      console.log(
+        chalk.yellow(
+          '  Using fallback seed nodes (register on-chain for decentralized discovery)',
+        ),
+      )
+    }
+
+    return fallbackNodes[this.config.network]
   }
 
   private async startEnabledServices(): Promise<void> {
@@ -369,7 +385,7 @@ class NodeDaemon {
           await this.services?.edgeCoordinator.start()
         },
       },
-      
+
       // ============================================================
       // Network Services
       // ============================================================
@@ -387,7 +403,7 @@ class NodeDaemon {
           await this.services?.proxy.start()
         },
       },
-      
+
       // ============================================================
       // Chain Infrastructure Services
       // ============================================================
@@ -495,14 +511,14 @@ class NodeDaemon {
       { name: 'Oracle', stop: async () => this.services?.oracle.stop() },
       { name: 'Bridge', stop: async () => this.services?.bridge.stop() },
       { name: 'Sequencer', stop: async () => this.services?.sequencer.stop() },
-      
+
       // Network services
       {
         name: 'Residential Proxy',
         stop: async () => this.services?.proxy.stop(),
       },
       { name: 'VPN Exit', stop: async () => this.services?.vpn.stop() },
-      
+
       // Core infrastructure - stop last
       {
         name: 'CDN',
@@ -533,25 +549,22 @@ class NodeDaemon {
 
   private startHealthMonitor(): void {
     // Log health status every 60 seconds
-    setInterval(
-      () => {
-        if (this.isShuttingDown) return
+    setInterval(() => {
+      if (this.isShuttingDown) return
 
-        const running = Array.from(this.runningServices.values()).filter(
-          (s) => s.started,
-        )
-        const failed = Array.from(this.runningServices.values()).filter(
-          (s) => s.error,
-        )
+      const running = Array.from(this.runningServices.values()).filter(
+        (s) => s.started,
+      )
+      const failed = Array.from(this.runningServices.values()).filter(
+        (s) => s.error,
+      )
 
-        console.log(
-          chalk.dim(
-            `  [${new Date().toISOString()}] Health: ${running.length} running, ${failed.length} failed`,
-          ),
-        )
-      },
-      60 * 1000,
-    )
+      console.log(
+        chalk.dim(
+          `  [${new Date().toISOString()}] Health: ${running.length} running, ${failed.length} failed`,
+        ),
+      )
+    }, 60 * 1000)
   }
 
   private async keepAlive(): Promise<void> {
@@ -579,7 +592,11 @@ program
 program
   .option('-a, --all', 'Enable all services')
   .option('-m, --minimal', 'Only essential services')
-  .option('-n, --network <network>', 'Network (mainnet, testnet, localnet)', 'localnet')
+  .option(
+    '-n, --network <network>',
+    'Network (mainnet, testnet, localnet)',
+    'localnet',
+  )
   .option('--compute', 'Enable compute service')
   .option('--storage', 'Enable storage service')
   .option('--vpn', 'Enable VPN exit service')
@@ -589,7 +606,11 @@ program
   .option('--bridge', 'Enable bridge relaying')
   .option('--database', 'Enable SQLit database hosting')
   .option('--cdn', 'Enable CDN/edge service')
-  .option('--key-id <keyId>', 'KMS key ID for signing', process.env.KMS_KEY_ID ?? '')
+  .option(
+    '--key-id <keyId>',
+    'KMS key ID for signing',
+    process.env.KMS_KEY_ID ?? '',
+  )
   .action(async (options) => {
     const NetworkSchema = z.enum(['mainnet', 'testnet', 'localnet'])
 
@@ -600,7 +621,10 @@ program
         network,
         all: options.all ?? false,
         minimal: options.minimal ?? false,
-        enableCompute: options.compute ?? (process.env.JEJU_ENABLE_CPU === '1' || process.env.JEJU_ENABLE_GPU === '1'),
+        enableCompute:
+          options.compute ??
+          (process.env.JEJU_ENABLE_CPU === '1' ||
+            process.env.JEJU_ENABLE_GPU === '1'),
         enableStorage: options.storage ?? false,
         enableVPN: options.vpn ?? false,
         enableProxy: options.proxy ?? false,
@@ -613,8 +637,16 @@ program
       }
 
       if (!config.keyId) {
-        console.log(chalk.yellow('  Warning: No KMS key ID provided. Some services will not work.'))
-        console.log(chalk.yellow('  Set KMS_KEY_ID environment variable or use --key-id option.'))
+        console.log(
+          chalk.yellow(
+            '  Warning: No KMS key ID provided. Some services will not work.',
+          ),
+        )
+        console.log(
+          chalk.yellow(
+            '  Set KMS_KEY_ID environment variable or use --key-id option.',
+          ),
+        )
       }
 
       const daemon = new NodeDaemon(config)
@@ -623,7 +655,9 @@ program
       if (e instanceof z.ZodError) {
         console.error(chalk.red('\n  Configuration Error:'))
         for (const issue of e.issues) {
-          console.error(chalk.red(`    ${issue.path.join('.')}: ${issue.message}`))
+          console.error(
+            chalk.red(`    ${issue.path.join('.')}: ${issue.message}`),
+          )
         }
         process.exit(1)
       }
@@ -632,4 +666,3 @@ program
   })
 
 program.parse()
-

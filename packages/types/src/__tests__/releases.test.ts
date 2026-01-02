@@ -20,10 +20,10 @@ import {
   getPlatformIcon,
   getPlatformLabel,
   getRecommendedDownloads,
-  type ReleaseArtifact,
-  ReleaseArtifactSchema,
   type ReleaseArch,
   ReleaseArchSchema,
+  type ReleaseArtifact,
+  ReleaseArtifactSchema,
   ReleaseIndexSchema,
   ReleaseManifestSchema,
   type ReleasePlatform,
@@ -405,9 +405,9 @@ describe('Zod Schemas', () => {
       expect(
         ReleaseArtifactSchema.safeParse({ platform: 'macos' }).success,
       ).toBe(false)
-      expect(ReleaseArtifactSchema.safeParse({ filename: 'test' }).success).toBe(
-        false,
-      )
+      expect(
+        ReleaseArtifactSchema.safeParse({ filename: 'test' }).success,
+      ).toBe(false)
       expect(ReleaseArtifactSchema.safeParse({}).success).toBe(false)
     })
 

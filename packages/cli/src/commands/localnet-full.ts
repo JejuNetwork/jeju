@@ -19,11 +19,7 @@
 
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import {
-  getLocalhostHost,
-  CORE_PORTS,
-  INFRA_PORTS,
-} from '@jejunetwork/config'
+import { CORE_PORTS, getLocalhostHost, INFRA_PORTS } from '@jejunetwork/config'
 import { Command } from 'commander'
 import { execa, type ResultPromise } from 'execa'
 import { bootstrapContracts } from '../lib/chain'
@@ -203,19 +199,30 @@ class FullLocalnetDeployment {
         'geth',
         [
           '--dev',
-          '--dev.period', '1',
+          '--dev.period',
+          '1',
           '--http',
-          '--http.addr', '0.0.0.0',
-          '--http.port', String(l1Port),
-          '--http.api', 'eth,net,web3,debug,txpool',
-          '--http.corsdomain', '*',
+          '--http.addr',
+          '0.0.0.0',
+          '--http.port',
+          String(l1Port),
+          '--http.api',
+          'eth,net,web3,debug,txpool',
+          '--http.corsdomain',
+          '*',
           '--ws',
-          '--ws.addr', '0.0.0.0',
-          '--ws.port', String(l1Port + 1),
-          '--ws.api', 'eth,net,web3,debug,txpool',
-          '--ws.origins', '*',
-          '--datadir', l1DataDir,
-          '--verbosity', '2',
+          '--ws.addr',
+          '0.0.0.0',
+          '--ws.port',
+          String(l1Port + 1),
+          '--ws.api',
+          'eth,net,web3,debug,txpool',
+          '--ws.origins',
+          '*',
+          '--datadir',
+          l1DataDir,
+          '--verbosity',
+          '2',
         ],
         {
           cwd: this.rootDir,
@@ -229,10 +236,14 @@ class FullLocalnetDeployment {
       const proc = execa(
         'anvil',
         [
-          '--port', String(l1Port),
-          '--chain-id', '900',
-          '--block-time', '1',
-          '--host', '0.0.0.0',
+          '--port',
+          String(l1Port),
+          '--chain-id',
+          '900',
+          '--block-time',
+          '1',
+          '--host',
+          '0.0.0.0',
         ],
         {
           cwd: this.rootDir,
@@ -265,17 +276,27 @@ class FullLocalnetDeployment {
         [
           '--dev',
           '--http',
-          '--http.addr', '0.0.0.0',
-          '--http.port', String(l2Port),
-          '--http.api', 'eth,net,web3,debug,txpool,engine',
-          '--http.corsdomain', '*',
+          '--http.addr',
+          '0.0.0.0',
+          '--http.port',
+          String(l2Port),
+          '--http.api',
+          'eth,net,web3,debug,txpool,engine',
+          '--http.corsdomain',
+          '*',
           '--ws',
-          '--ws.addr', '0.0.0.0',
-          '--ws.port', String(l2Port + 1),
-          '--ws.api', 'eth,net,web3,debug,txpool,engine',
-          '--ws.origins', '*',
-          '--datadir', l2DataDir,
-          '--verbosity', '2',
+          '--ws.addr',
+          '0.0.0.0',
+          '--ws.port',
+          String(l2Port + 1),
+          '--ws.api',
+          'eth,net,web3,debug,txpool,engine',
+          '--ws.origins',
+          '*',
+          '--datadir',
+          l2DataDir,
+          '--verbosity',
+          '2',
         ],
         {
           cwd: this.rootDir,
@@ -289,10 +310,14 @@ class FullLocalnetDeployment {
       const proc = execa(
         'anvil',
         [
-          '--port', String(l2Port),
-          '--chain-id', '31337',
-          '--block-time', '2',
-          '--host', '0.0.0.0',
+          '--port',
+          String(l2Port),
+          '--chain-id',
+          '31337',
+          '--block-time',
+          '2',
+          '--host',
+          '0.0.0.0',
         ],
         {
           cwd: this.rootDir,
@@ -316,7 +341,9 @@ class FullLocalnetDeployment {
     const hasSolana = await this.commandExists('solana-test-validator')
     if (!hasSolana) {
       logger.warn('Solana not installed, skipping')
-      logger.info('  Install: sh -c "$(curl -sSfL https://release.solana.com/stable/install)"')
+      logger.info(
+        '  Install: sh -c "$(curl -sSfL https://release.solana.com/stable/install)"',
+      )
       return
     }
 
@@ -326,9 +353,12 @@ class FullLocalnetDeployment {
     const proc = execa(
       'solana-test-validator',
       [
-        '--ledger', solanaDataDir,
-        '--rpc-port', String(solanaPort),
-        '--bind-address', '0.0.0.0',
+        '--ledger',
+        solanaDataDir,
+        '--rpc-port',
+        String(solanaPort),
+        '--bind-address',
+        '0.0.0.0',
         '--quiet',
       ],
       {
@@ -495,7 +525,11 @@ class FullLocalnetDeployment {
     const localhost = getLocalhostHost()
 
     logger.subheader('Infrastructure')
-    const infraRows: Array<{ label: string; value: string; status: 'ok' | 'error' }> = []
+    const infraRows: Array<{
+      label: string
+      value: string
+      status: 'ok' | 'error'
+    }> = []
 
     if (this.config.enableSQLit) {
       infraRows.push({
@@ -521,7 +555,11 @@ class FullLocalnetDeployment {
     logger.table(infraRows)
 
     logger.subheader('Chains')
-    const chainRows: Array<{ label: string; value: string; status: 'ok' | 'error' }> = []
+    const chainRows: Array<{
+      label: string
+      value: string
+      status: 'ok' | 'error'
+    }> = []
     if (this.config.enableL1) {
       chainRows.push({
         label: 'L1 RPC',
@@ -548,7 +586,9 @@ class FullLocalnetDeployment {
     logger.subheader('Running Processes')
     for (const proc of this.processes) {
       const port = proc.port ? `:${proc.port}` : ''
-      logger.table([{ label: proc.name, value: `running${port}`, status: 'ok' }])
+      logger.table([
+        { label: proc.name, value: `running${port}`, status: 'ok' },
+      ])
     }
 
     logger.subheader('Test Wallet')
@@ -686,4 +726,3 @@ export const localnetFullCommand = new Command('localnet-full')
     const deployment = new FullLocalnetDeployment(rootDir, config)
     await deployment.start()
   })
-

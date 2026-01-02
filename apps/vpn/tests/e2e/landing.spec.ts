@@ -42,16 +42,18 @@ test.describe('VPN Landing Page', () => {
     })
 
     test('displays primary CTA button', async ({ page }) => {
-      const ctaButton = page.locator(
-        'a:text("Install"), button:text("Install"), a:text("Download"), button:text("Download")',
-      ).first()
+      const ctaButton = page
+        .locator(
+          'a:text("Install"), button:text("Install"), a:text("Download"), button:text("Download")',
+        )
+        .first()
       await expect(ctaButton).toBeVisible()
     })
 
     test('CTA button links to download', async ({ page }) => {
-      const ctaButton = page.locator(
-        'a:text("Install"), a:text("Download")',
-      ).first()
+      const ctaButton = page
+        .locator('a:text("Install"), a:text("Download")')
+        .first()
 
       if (await ctaButton.isVisible().catch(() => false)) {
         const href = await ctaButton.getAttribute('href')
@@ -63,7 +65,9 @@ test.describe('VPN Landing Page', () => {
   test.describe('Stats Section', () => {
     test('displays usage statistics', async ({ page }) => {
       // Look for stats like "50,000+ Active Users"
-      const statsSection = page.locator('text=/\\d+[,\\d]*\\+?.*(?:Users|Countries|TB|Free)/i')
+      const statsSection = page.locator(
+        'text=/\\d+[,\\d]*\\+?.*(?:Users|Countries|TB|Free)/i',
+      )
       const count = await statsSection.count()
       expect(count).toBeGreaterThan(0)
     })
@@ -102,9 +106,9 @@ test.describe('VPN Landing Page', () => {
     })
 
     test('feature cards have descriptions', async ({ page }) => {
-      const featureSection = page.locator(
-        'section:has(h2:text("Why")), [class*="feature"]',
-      ).first()
+      const featureSection = page
+        .locator('section:has(h2:text("Why")), [class*="feature"]')
+        .first()
 
       if (await featureSection.isVisible().catch(() => false)) {
         const descriptions = featureSection.locator('p')
@@ -138,38 +142,47 @@ test.describe('VPN Landing Page', () => {
 
   test.describe('Download Section', () => {
     test('displays download heading', async ({ page }) => {
-      const downloadSection = page.locator(
-        'h2:text("Download"), section#download, [id="download"]',
-      ).first()
-      
+      const downloadSection = page
+        .locator('h2:text("Download"), section#download, [id="download"]')
+        .first()
+
       // Scroll to download section
-      await page.locator('#download, section:has(h2:text("Download"))').first().scrollIntoViewIfNeeded()
+      await page
+        .locator('#download, section:has(h2:text("Download"))')
+        .first()
+        .scrollIntoViewIfNeeded()
       await expect(downloadSection).toBeVisible()
     })
 
     test('shows Chrome extension download', async ({ page }) => {
-      const chromeDownload = page.locator(
-        'a:has-text("Chrome"), button:has-text("Chrome"), [class*="chrome"]',
-      ).first()
+      const chromeDownload = page
+        .locator(
+          'a:has-text("Chrome"), button:has-text("Chrome"), [class*="chrome"]',
+        )
+        .first()
       await expect(chromeDownload).toBeVisible()
     })
 
     test('shows Firefox extension download', async ({ page }) => {
-      const firefoxDownload = page.locator(
-        'a:has-text("Firefox"), button:has-text("Firefox"), [class*="firefox"]',
-      ).first()
+      const firefoxDownload = page
+        .locator(
+          'a:has-text("Firefox"), button:has-text("Firefox"), [class*="firefox"]',
+        )
+        .first()
       await expect(firefoxDownload).toBeVisible()
     })
 
     test('shows Edge extension download', async ({ page }) => {
-      const edgeDownload = page.locator(
-        'a:has-text("Edge"), button:has-text("Edge"), [class*="edge"]',
-      ).first()
+      const edgeDownload = page
+        .locator('a:has-text("Edge"), button:has-text("Edge"), [class*="edge"]')
+        .first()
       await expect(edgeDownload).toBeVisible()
     })
 
     test('download links have proper attributes', async ({ page }) => {
-      const downloadLinks = page.locator('a[href*="download"], a[href*="storage"]')
+      const downloadLinks = page.locator(
+        'a[href*="download"], a[href*="storage"]',
+      )
       const count = await downloadLinks.count()
 
       expect(count).toBeGreaterThan(0)
@@ -196,9 +209,9 @@ test.describe('VPN Landing Page', () => {
     })
 
     test('highlights recommended download', async ({ page }) => {
-      const recommended = page.locator(
-        '[class*="recommended"], text=Recommended, [data-recommended]',
-      ).first()
+      const recommended = page
+        .locator('[class*="recommended"], text=Recommended, [data-recommended]')
+        .first()
 
       if (await recommended.isVisible().catch(() => false)) {
         await expect(recommended).toBeVisible()
@@ -207,7 +220,9 @@ test.describe('VPN Landing Page', () => {
   })
 
   test.describe('Download Buttons Functionality', () => {
-    test('Chrome download button initiates download or redirects', async ({ page }) => {
+    test('Chrome download button initiates download or redirects', async ({
+      page,
+    }) => {
       const chromeButton = page.locator('a:has-text("Chrome")').first()
 
       if (await chromeButton.isVisible().catch(() => false)) {
@@ -220,7 +235,9 @@ test.describe('VPN Landing Page', () => {
     })
 
     test('Firefox download has correct file extension', async ({ page }) => {
-      const firefoxButton = page.locator('a[href*="firefox"], a:has-text("Firefox")').first()
+      const firefoxButton = page
+        .locator('a[href*="firefox"], a:has-text("Firefox")')
+        .first()
 
       if (await firefoxButton.isVisible().catch(() => false)) {
         const href = await firefoxButton.getAttribute('href')
@@ -233,9 +250,9 @@ test.describe('VPN Landing Page', () => {
 
   test.describe('Final CTA Section', () => {
     test('displays final call to action', async ({ page }) => {
-      const finalCTA = page.locator(
-        'section:last-of-type h2, [class*="cta"] h2',
-      ).last()
+      const finalCTA = page
+        .locator('section:last-of-type h2, [class*="cta"] h2')
+        .last()
 
       if (await finalCTA.isVisible().catch(() => false)) {
         await expect(finalCTA).toBeVisible()
@@ -243,9 +260,9 @@ test.describe('VPN Landing Page', () => {
     })
 
     test('final CTA button is prominent', async ({ page }) => {
-      const ctaButton = page.locator(
-        'section:last-of-type a, section:last-of-type button',
-      ).last()
+      const ctaButton = page
+        .locator('section:last-of-type a, section:last-of-type button')
+        .last()
 
       if (await ctaButton.isVisible().catch(() => false)) {
         const box = await ctaButton.boundingBox()
@@ -290,7 +307,9 @@ test.describe('VPN Landing Page - Navigation', () => {
       await page.waitForTimeout(500)
 
       // Download section should be in view
-      const downloadSection = page.locator('#download, section:has(h2:text("Download"))').first()
+      const downloadSection = page
+        .locator('#download, section:has(h2:text("Download"))')
+        .first()
       const box = await downloadSection.boundingBox()
       if (box) {
         // Section should be near top of viewport
@@ -326,9 +345,14 @@ test.describe('VPN Landing Page - Mobile', () => {
 
   test('download buttons stack on mobile', async ({ page }) => {
     await page.goto(BASE_URL)
-    await page.locator('#download').scrollIntoViewIfNeeded().catch(() => {})
+    await page
+      .locator('#download')
+      .scrollIntoViewIfNeeded()
+      .catch(() => {})
 
-    const downloadCards = page.locator('[class*="download"] > div, section:has(h2:text("Download")) > div > div')
+    const downloadCards = page.locator(
+      '[class*="download"] > div, section:has(h2:text("Download")) > div > div',
+    )
     const count = await downloadCards.count()
 
     if (count > 1) {
@@ -362,7 +386,9 @@ test.describe('VPN Landing Page - Mobile', () => {
 test.describe('VPN Landing Page - Error States', () => {
   test('gracefully handles missing release data', async ({ page }) => {
     // Mock failed release API
-    await page.route('**/releases/**', (route) => route.fulfill({ status: 404 }))
+    await page.route('**/releases/**', (route) =>
+      route.fulfill({ status: 404 }),
+    )
 
     await page.goto(BASE_URL)
 
@@ -371,7 +397,9 @@ test.describe('VPN Landing Page - Error States', () => {
     await expect(heading).toBeVisible()
 
     // Should show fallback or placeholder
-    const downloadSection = page.locator('#download, section:has(h2:text("Download"))')
+    const downloadSection = page.locator(
+      '#download, section:has(h2:text("Download"))',
+    )
     if (await downloadSection.isVisible().catch(() => false)) {
       const content = await downloadSection.textContent()
       // Should have some content even without live data
@@ -406,7 +434,8 @@ test.describe('VPN Landing Page - Accessibility', () => {
       const ariaHidden = await img.getAttribute('aria-hidden')
 
       // Image should have alt text, be decorative (role="presentation"), or be hidden
-      const hasAccessibleName = alt || role === 'presentation' || ariaHidden === 'true'
+      const hasAccessibleName =
+        alt || role === 'presentation' || ariaHidden === 'true'
       expect(hasAccessibleName).toBeTruthy()
     }
   })

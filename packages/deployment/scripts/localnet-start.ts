@@ -2,13 +2,13 @@
 
 /**
  * Start network localnet using Kurtosis + On-Chain DWS Provisioning
- * 
+ *
  * This script now uses the SAME on-chain provisioning flow as testnet/mainnet:
  * 1. Start L1 (Geth dev) + L2 (op-geth) via Kurtosis
  * 2. Deploy DWS contracts to local Anvil
  * 3. Register as DWS provider on-chain
  * 4. Provision services through on-chain marketplace
- * 
+ *
  * This ensures dev matches prod exactly in terms of provisioning logic.
  */
 
@@ -164,7 +164,9 @@ const PortsConfigSchema = z.object({
 
 async function runDWSBootstrap(l2RpcUrl: string): Promise<boolean> {
   console.log('\n📦 Running DWS on-chain bootstrap...')
-  console.log('   This provisions services via the SAME flow as testnet/mainnet.\n')
+  console.log(
+    '   This provisions services via the SAME flow as testnet/mainnet.\n',
+  )
 
   // Set up environment for bootstrap
   const env = {
@@ -173,14 +175,18 @@ async function runDWSBootstrap(l2RpcUrl: string): Promise<boolean> {
     JEJU_NETWORK: 'localnet',
     JEJU_RPC_URL: l2RpcUrl,
     // Use Anvil's default dev key for localnet
-    PRIVATE_KEY: '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
-    DEPLOYER_PRIVATE_KEY: '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
+    PRIVATE_KEY:
+      '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
+    DEPLOYER_PRIVATE_KEY:
+      '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
     IPFS_API_URL: 'http://127.0.0.1:5001',
   }
 
   // Check if dws-bootstrap script exists
   if (!existsSync(DWS_BOOTSTRAP_SCRIPT)) {
-    console.log('   ⚠️  DWS bootstrap script not found, skipping on-chain provisioning')
+    console.log(
+      '   ⚠️  DWS bootstrap script not found, skipping on-chain provisioning',
+    )
     console.log(`      Expected: ${DWS_BOOTSTRAP_SCRIPT}`)
     return false
   }
@@ -197,15 +203,21 @@ async function runDWSBootstrap(l2RpcUrl: string): Promise<boolean> {
     return true
   } catch (error) {
     console.log('   ⚠️  DWS bootstrap failed (non-critical for basic local dev)')
-    console.log(`      Error: ${error instanceof Error ? error.message : String(error)}`)
-    console.log('      You can run it manually: NETWORK=localnet bun run packages/deployment/scripts/deploy/dws-bootstrap.ts')
+    console.log(
+      `      Error: ${error instanceof Error ? error.message : String(error)}`,
+    )
+    console.log(
+      '      You can run it manually: NETWORK=localnet bun run packages/deployment/scripts/deploy/dws-bootstrap.ts',
+    )
     return false
   }
 }
 
 async function startIPFSIfNeeded(): Promise<boolean> {
   // Check if IPFS is running
-  const ipfsCheck = await $`curl -s http://127.0.0.1:5001/api/v0/id`.quiet().nothrow()
+  const ipfsCheck = await $`curl -s http://127.0.0.1:5001/api/v0/id`
+    .quiet()
+    .nothrow()
   if (ipfsCheck.exitCode === 0) {
     console.log('   ✅ IPFS already running')
     return true
@@ -213,17 +225,19 @@ async function startIPFSIfNeeded(): Promise<boolean> {
 
   // Try to start IPFS daemon
   console.log('   📦 Starting IPFS daemon...')
-  const ipfsStart = await $`ipfs daemon --init &`.quiet().nothrow()
-  
+  const _ipfsStart = await $`ipfs daemon --init &`.quiet().nothrow()
+
   // Wait a bit for IPFS to start
-  await new Promise(resolve => setTimeout(resolve, 3000))
-  
-  const verifyCheck = await $`curl -s http://127.0.0.1:5001/api/v0/id`.quiet().nothrow()
+  await new Promise((resolve) => setTimeout(resolve, 3000))
+
+  const verifyCheck = await $`curl -s http://127.0.0.1:5001/api/v0/id`
+    .quiet()
+    .nothrow()
   if (verifyCheck.exitCode === 0) {
     console.log('   ✅ IPFS daemon started')
     return true
   }
-  
+
   console.log('   ⚠️  IPFS not available (some features may be limited)')
   return false
 }
@@ -295,9 +309,12 @@ async function main(): Promise<void> {
   const extendedConfig = {
     ...portsConfig,
     dwsBootstrapped,
-    ipfsAvailable: await $`curl -s http://127.0.0.1:5001/api/v0/id`.quiet().nothrow().then(r => r.exitCode === 0),
+    ipfsAvailable: await $`curl -s http://127.0.0.1:5001/api/v0/id`
+      .quiet()
+      .nothrow()
+      .then((r) => r.exitCode === 0),
   }
-  
+
   writeFileSync(
     join(OUTPUT_DIR, 'localnet-config.json'),
     JSON.stringify(extendedConfig, null, 2),

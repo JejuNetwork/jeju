@@ -24,12 +24,14 @@ import type { Address } from 'viem'
 
 // Configuration
 // K8s endpoint - can be overridden by SQLIT_BLOCK_PRODUCER_ENDPOINT env var
-const K8S_SQLIT_ENDPOINT = process.env.SQLIT_BLOCK_PRODUCER_ENDPOINT || 'http://sqlit-adapter.dws.svc.cluster.local:8546'
+const K8S_SQLIT_ENDPOINT =
+  process.env.SQLIT_BLOCK_PRODUCER_ENDPOINT ||
+  'http://sqlit-adapter.dws.svc.cluster.local:8546'
 const DEFAULT_DATA_DIR = getSQLitDataDir()
 
 // Runtime state
 let sqlitEndpoint: string | null = null
-let embeddedDatabases = new Map<string, Database>()
+const embeddedDatabases = new Map<string, Database>()
 let initialized = false
 
 /**
@@ -44,7 +46,8 @@ function isKubernetesEnvironment(): boolean {
  */
 function resolveEndpoint(): string {
   // Check for explicit environment override first
-  const envEndpoint = process.env.SQLIT_URL || process.env.SQLIT_BLOCK_PRODUCER_ENDPOINT
+  const envEndpoint =
+    process.env.SQLIT_URL || process.env.SQLIT_BLOCK_PRODUCER_ENDPOINT
 
   if (envEndpoint) {
     return envEndpoint
@@ -60,7 +63,10 @@ function resolveEndpoint(): string {
   const configEndpoint = getSQLitBlockProducerUrl()
 
   // If config points to local, we'll use embedded mode
-  if (configEndpoint.includes('127.0.0.1') || configEndpoint.includes('localhost')) {
+  if (
+    configEndpoint.includes('127.0.0.1') ||
+    configEndpoint.includes('localhost')
+  ) {
     return `http://127.0.0.1:${process.env.SQLIT_PORT || '8546'}`
   }
 
@@ -98,7 +104,7 @@ async function checkEndpointHealth(endpoint: string): Promise<boolean> {
       signal: AbortSignal.timeout(5000),
     })
     if (!response.ok) return false
-    const data = await response.json() as { success?: boolean }
+    const data = (await response.json()) as { success?: boolean }
     return data.success === true
   } catch {
     return false
@@ -109,7 +115,10 @@ async function checkEndpointHealth(endpoint: string): Promise<boolean> {
  * Initialize SQLit service
  * No Docker provisioning - just detect and connect to available SQLit
  */
-export async function ensureSQLitService(): Promise<{ endpoint: string; mode: string }> {
+export async function ensureSQLitService(): Promise<{
+  endpoint: string
+  mode: string
+}> {
   if (initialized && sqlitEndpoint) {
     return { endpoint: sqlitEndpoint, mode: getMode() }
   }
@@ -130,7 +139,7 @@ export async function ensureSQLitService(): Promise<{ endpoint: string; mode: st
   // If K8s and not healthy, report error - don't fall back to embedded in production
   if (isKubernetesEnvironment() || isProductionEnv()) {
     throw new Error(
-      `SQLit service unavailable at ${endpoint}. Ensure sqlit-adapter is deployed and healthy.`
+      `SQLit service unavailable at ${endpoint}. Ensure sqlit-adapter is deployed and healthy.`,
     )
   }
 
@@ -168,8 +177,12 @@ export function getSQLitEndpoint(): string {
 export async function sqlitQuery(
   database: string,
   query: string,
-  args?: unknown[]
-): Promise<{ success: boolean; status: string; data: { rows: Record<string, unknown>[] } | null }> {
+  args?: unknown[],
+): Promise<{
+  success: boolean
+  status: string
+  data: { rows: Record<string, unknown>[] } | null
+}> {
   // Ensure service is initialized
   await ensureSQLitService()
 
@@ -213,8 +226,12 @@ export async function sqlitQuery(
 export async function sqlitExec(
   database: string,
   query: string,
-  args?: unknown[]
-): Promise<{ success: boolean; status: string; data: { last_insert_id: number; affected_rows: number } | null }> {
+  args?: unknown[],
+): Promise<{
+  success: boolean
+  status: string
+  data: { last_insert_id: number; affected_rows: number } | null
+}> {
   // Ensure service is initialized
   await ensureSQLitService()
 
@@ -257,7 +274,11 @@ export async function sqlitExec(
 /**
  * Create a new database
  */
-export async function sqlitCreateDatabase(nodeCount = 1): Promise<{ success: boolean; status: string; data: { database: string } | null }> {
+export async function sqlitCreateDatabase(nodeCount = 1): Promise<{
+  success: boolean
+  status: string
+  data: { database: string } | null
+}> {
   await ensureSQLitService()
 
   // Generate a random database ID
@@ -277,10 +298,13 @@ export async function sqlitCreateDatabase(nodeCount = 1): Promise<{ success: boo
 
   // External mode
   const endpoint = getSQLitEndpoint()
-  const response = await fetch(`${endpoint}/v1/admin/create?node=${nodeCount}`, {
-    method: 'POST',
-    signal: AbortSignal.timeout(30000),
-  })
+  const response = await fetch(
+    `${endpoint}/v1/admin/create?node=${nodeCount}`,
+    {
+      method: 'POST',
+      signal: AbortSignal.timeout(30000),
+    },
+  )
 
   if (!response.ok) {
     return { success: false, status: await response.text(), data: null }
@@ -292,7 +316,9 @@ export async function sqlitCreateDatabase(nodeCount = 1): Promise<{ success: boo
 /**
  * Drop a database
  */
-export async function sqlitDropDatabase(database: string): Promise<{ success: boolean; status: string }> {
+export async function sqlitDropDatabase(
+  database: string,
+): Promise<{ success: boolean; status: string }> {
   await ensureSQLitService()
 
   // Embedded mode
@@ -313,10 +339,13 @@ export async function sqlitDropDatabase(database: string): Promise<{ success: bo
 
   // External mode
   const endpoint = getSQLitEndpoint()
-  const response = await fetch(`${endpoint}/v1/admin/drop?database=${database}`, {
-    method: 'DELETE',
-    signal: AbortSignal.timeout(30000),
-  })
+  const response = await fetch(
+    `${endpoint}/v1/admin/drop?database=${database}`,
+    {
+      method: 'DELETE',
+      signal: AbortSignal.timeout(30000),
+    },
+  )
 
   if (!response.ok) {
     return { success: false, status: await response.text() }
@@ -382,7 +411,7 @@ export async function provisionAppDatabase(params: {
   await ensureSQLitService()
 
   // Generate unique database ID
-  const databaseId = `${params.appName.toLowerCase()}-${crypto.randomUUID().slice(0, 8)}`
+  const _databaseId = `${params.appName.toLowerCase()}-${crypto.randomUUID().slice(0, 8)}`
 
   // Create the database
   const result = await sqlitCreateDatabase()

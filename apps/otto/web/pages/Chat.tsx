@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react'
+import type React from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowLeftIcon, SendIcon, SettingsIcon } from '../components/Icons'
 
 interface Props {
@@ -28,19 +29,7 @@ export function Chat({ onNavigate, sessionId: initialSessionId }: Props) {
   const [sessionId, setSessionId] = useState<string | null>(initialSessionId)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  // Initialize session if needed
-  useEffect(() => {
-    if (!sessionId) {
-      initSession()
-    }
-  }, [sessionId])
-
-  // Auto-scroll to bottom
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
-  const initSession = async () => {
+  const initSession = useCallback(async () => {
     const response = await fetch('/api/chat/session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -48,7 +37,19 @@ export function Chat({ onNavigate, sessionId: initialSessionId }: Props) {
     })
     const data = await response.json()
     setSessionId(data.sessionId)
-  }
+  }, [])
+
+  // Initialize session if needed
+  useEffect(() => {
+    if (!sessionId) {
+      initSession()
+    }
+  }, [sessionId, initSession])
+
+  // Auto-scroll to bottom
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [])
 
   const sendMessage = async () => {
     const text = input.trim()
@@ -82,7 +83,10 @@ export function Chat({ onNavigate, sessionId: initialSessionId }: Props) {
     const assistantMessage: Message = {
       id: `assistant-${Date.now()}`,
       role: 'assistant',
-      content: data.message?.content ?? data.response ?? 'I encountered an error processing your request.',
+      content:
+        data.message?.content ??
+        data.response ??
+        'I encountered an error processing your request.',
       timestamp: Date.now(),
     }
     setMessages((prev) => [...prev, assistantMessage])
@@ -113,6 +117,7 @@ export function Chat({ onNavigate, sessionId: initialSessionId }: Props) {
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
+              type="button"
               onClick={() => onNavigate('landing')}
               className="text-white/60 hover:text-white transition-colors"
             >
@@ -132,6 +137,7 @@ export function Chat({ onNavigate, sessionId: initialSessionId }: Props) {
           </div>
 
           <button
+            type="button"
             onClick={() => onNavigate('configure')}
             className="p-2 text-white/60 hover:text-white hover:bg-white/5 rounded-lg transition-all"
           >
@@ -157,9 +163,18 @@ export function Chat({ onNavigate, sessionId: initialSessionId }: Props) {
                 </div>
                 <div className="bg-surface-elevated border border-surface-border rounded-2xl rounded-bl-md px-4 py-3">
                   <div className="flex gap-1">
-                    <span className="w-2 h-2 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-2 h-2 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-2 h-2 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    <span
+                      className="w-2 h-2 bg-white/40 rounded-full animate-bounce"
+                      style={{ animationDelay: '0ms' }}
+                    />
+                    <span
+                      className="w-2 h-2 bg-white/40 rounded-full animate-bounce"
+                      style={{ animationDelay: '150ms' }}
+                    />
+                    <span
+                      className="w-2 h-2 bg-white/40 rounded-full animate-bounce"
+                      style={{ animationDelay: '300ms' }}
+                    />
                   </div>
                 </div>
               </div>
@@ -175,6 +190,7 @@ export function Chat({ onNavigate, sessionId: initialSessionId }: Props) {
               <div className="flex flex-wrap gap-2">
                 {quickCommands.map((cmd) => (
                   <button
+                    type="button"
                     key={cmd.command}
                     onClick={() => setInput(cmd.command)}
                     className="px-4 py-2 bg-surface-elevated border border-surface-border rounded-xl text-sm hover:border-otto-cyan/50 transition-all"
@@ -199,6 +215,7 @@ export function Chat({ onNavigate, sessionId: initialSessionId }: Props) {
                 disabled={isLoading}
               />
               <button
+                type="button"
                 onClick={sendMessage}
                 disabled={isLoading || !input.trim()}
                 className={`w-12 h-12 bg-gradient-to-br from-otto-cyan to-otto-purple rounded-xl flex items-center justify-center transition-all ${
@@ -225,29 +242,14 @@ export function Chat({ onNavigate, sessionId: initialSessionId }: Props) {
 function MessageBubble({ message }: { message: Message }) {
   const isUser = message.role === 'user'
 
-  // Format message content with markdown-like styling
+  // Format message content - simple text-based rendering
   const formatContent = (content: string) => {
-    return content
-      .split('\n')
-      .map((line, i) => {
-        // Bold text between **
-        let formatted = line.replace(
-          /\*\*([^*]+)\*\*/g,
-          '<strong class="text-otto-cyan font-semibold">$1</strong>',
-        )
-        // Code between backticks
-        formatted = formatted.replace(
-          /`([^`]+)`/g,
-          '<code class="bg-black/30 px-1.5 py-0.5 rounded text-sm font-mono">$1</code>',
-        )
-        // Bullet points
-        formatted = formatted.replace(
-          /^• /,
-          '<span class="text-otto-cyan">•</span> ',
-        )
-
-        return <p key={i} className="mb-1 last:mb-0" dangerouslySetInnerHTML={{ __html: formatted }} />
-      })
+    const lines = content.split('\n')
+    return lines.map((line, i) => (
+      <p key={`${message.id}-line-${i}`} className="mb-1 last:mb-0">
+        {line || '\u00A0'}
+      </p>
+    ))
   }
 
   if (isUser) {

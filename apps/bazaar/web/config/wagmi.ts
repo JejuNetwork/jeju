@@ -73,7 +73,8 @@ const testnet = defineChain({
   blockExplorers: {
     default: {
       name: `${NETWORK_NAME} Testnet Explorer`,
-      url: testnetServices.explorer || 'https://testnet-explorer.jejunetwork.org',
+      url:
+        testnetServices.explorer || 'https://testnet-explorer.jejunetwork.org',
     },
   },
   testnet: true,

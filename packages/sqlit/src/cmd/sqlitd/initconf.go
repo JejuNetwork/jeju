@@ -43,7 +43,9 @@ func initNodePeers(nodeID proto.NodeID, publicKeystorePath string) (nodes *[]pro
 	log.Debugf("peers:\n %#v\n", peers)
 
 	//route.initResolver()
-	kms.InitPublicKeyStore(publicKeystorePath, nil)
+	if initErr := kms.InitPublicKeyStore(publicKeystorePath, nil); initErr != nil {
+		log.WithError(initErr).Error("init public key store failed")
+	}
 
 	// set p route and public keystore
 	if conf.GConf.KnownNodes != nil {
@@ -58,7 +60,9 @@ func initNodePeers(nodeID proto.NodeID, publicKeystorePath string) (nodes *[]pro
 				"addr": p.Addr,
 			}).Debug("set node addr")
 			rawNodeID := &proto.RawNodeID{Hash: *rawNodeIDHash}
-			route.SetNodeAddrCache(rawNodeID, p.Addr)
+			if cacheErr := route.SetNodeAddrCache(rawNodeID, p.Addr); cacheErr != nil {
+				log.WithError(cacheErr).Debug("set node addr cache failed")
+			}
 			node := &proto.Node{
 				ID:         p.ID,
 				Addr:       p.Addr,

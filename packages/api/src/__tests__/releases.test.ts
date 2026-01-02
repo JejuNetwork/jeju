@@ -11,7 +11,7 @@
  * - Concurrent request handling
  */
 
-import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
 import type { ReleaseIndex, ReleaseManifest } from '@jejunetwork/types'
 import {
   getReleaseService,
@@ -438,7 +438,9 @@ describe('ReleaseService', () => {
         throw new Error('Network error')
       })
 
-      await expect(service.getIndex('test-app')).rejects.toThrow('Network error')
+      await expect(service.getIndex('test-app')).rejects.toThrow(
+        'Network error',
+      )
     })
 
     it('handles empty response body', async () => {
@@ -545,7 +547,9 @@ describe('ReleaseService', () => {
       }
 
       globalThis.fetch = mock(async () => {
-        return new Response(JSON.stringify(manifestNoArtifacts), { status: 200 })
+        return new Response(JSON.stringify(manifestNoArtifacts), {
+          status: 200,
+        })
       })
 
       const manifest = await service.getManifest('test-app', '1.0.0')
@@ -556,7 +560,10 @@ describe('ReleaseService', () => {
       globalThis.fetch = mock(async (url: string) => {
         // Verify URL is properly encoded
         expect(url).toContain('my-special_app')
-        return new Response(JSON.stringify({ ...mockIndex, app: 'my-special_app' }), { status: 200 })
+        return new Response(
+          JSON.stringify({ ...mockIndex, app: 'my-special_app' }),
+          { status: 200 },
+        )
       })
 
       const index = await service.getIndex('my-special_app')
@@ -583,7 +590,10 @@ describe('ReleaseService', () => {
         }
         if (url.includes('/2.0.0-alpha.1+build.123/')) {
           return new Response(
-            JSON.stringify({ ...mockManifest, version: '2.0.0-alpha.1+build.123' }),
+            JSON.stringify({
+              ...mockManifest,
+              version: '2.0.0-alpha.1+build.123',
+            }),
             { status: 200 },
           )
         }
@@ -605,7 +615,9 @@ describe('ReleaseService', () => {
         return new Response(JSON.stringify(indexNoLatest), { status: 200 })
       })
 
-      await expect(service.getLatest('test-app')).rejects.toThrow('No stable releases')
+      await expect(service.getLatest('test-app')).rejects.toThrow(
+        'No stable releases',
+      )
     })
 
     it('falls back to stable when nightly not available', async () => {

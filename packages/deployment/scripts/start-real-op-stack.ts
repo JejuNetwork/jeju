@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+
 /**
  * Start Real OP Stack for Local Development
  *
@@ -19,15 +20,10 @@
  *   bun run packages/deployment/scripts/start-real-op-stack.ts --info
  */
 
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { $ } from 'bun'
-import { join } from 'path'
-import { existsSync, mkdirSync, writeFileSync } from 'fs'
-import {
-  createPublicClient,
-  http,
-  parseEther,
-  type Address,
-} from 'viem'
+import { type Address, createPublicClient, http } from 'viem'
 
 const ENCLAVE_NAME = 'op-real'
 const OUTPUT_DIR = join(import.meta.dir, '../../.localnet')
@@ -68,7 +64,9 @@ async function main(): Promise<void> {
   }
 
   if (!(await checkKurtosis())) {
-    console.error('❌ Kurtosis not found. Install with: brew install kurtosis-tech/tap/kurtosis-cli')
+    console.error(
+      '❌ Kurtosis not found. Install with: brew install kurtosis-tech/tap/kurtosis-cli',
+    )
     process.exit(1)
   }
 
@@ -83,7 +81,9 @@ async function main(): Promise<void> {
   }
 
   // Check if already running
-  const existing = await $`kurtosis enclave inspect ${ENCLAVE_NAME} 2>/dev/null`.nothrow().quiet()
+  const existing = await $`kurtosis enclave inspect ${ENCLAVE_NAME} 2>/dev/null`
+    .nothrow()
+    .quiet()
   if (existing.exitCode === 0) {
     console.log('✅ OP Stack already running. Use --clean to restart.')
     await printEnclaveInfo()
@@ -101,7 +101,8 @@ async function main(): Promise<void> {
 
   // Start the stack
   const startTime = Date.now()
-  const result = await $`kurtosis run ${OPTIMISM_PACKAGE} --enclave ${ENCLAVE_NAME}`.nothrow()
+  const result =
+    await $`kurtosis run ${OPTIMISM_PACKAGE} --enclave ${ENCLAVE_NAME}`.nothrow()
 
   if (result.exitCode !== 0) {
     console.error('❌ Failed to start OP Stack')
@@ -118,7 +119,7 @@ async function main(): Promise<void> {
   if (config) {
     writeFileSync(
       join(OUTPUT_DIR, 'op-stack.json'),
-      JSON.stringify(config, null, 2)
+      JSON.stringify(config, null, 2),
     )
 
     console.log(`
@@ -172,7 +173,8 @@ async function printEnclaveInfo(): Promise<void> {
 async function getStackConfig(): Promise<StackConfig | null> {
   try {
     // Get service info from Kurtosis
-    const inspectResult = await $`kurtosis enclave inspect ${ENCLAVE_NAME} --full-uuids`.text()
+    const _inspectResult =
+      await $`kurtosis enclave inspect ${ENCLAVE_NAME} --full-uuids`.text()
 
     // Parse endpoints from the output
     // This is a simplified parser - ethpandaops packages output structured JSON
@@ -184,16 +186,21 @@ async function getStackConfig(): Promise<StackConfig | null> {
 
     // Try to get deployed contract addresses from the package output
     // ethpandaops packages typically save this to a file
-    const contractsResult = await $`kurtosis files inspect ${ENCLAVE_NAME} op-deployer-configs`.nothrow().quiet()
+    const _contractsResult =
+      await $`kurtosis files inspect ${ENCLAVE_NAME} op-deployer-configs`
+        .nothrow()
+        .quiet()
 
     // Default addresses (these will be the actual deployed addresses)
     // In a real setup, we'd parse the deployer output
     const contracts = {
       OptimismPortal: '0x0000000000000000000000000000000000000000' as Address,
-      L1CrossDomainMessenger: '0x0000000000000000000000000000000000000000' as Address,
+      L1CrossDomainMessenger:
+        '0x0000000000000000000000000000000000000000' as Address,
       L1StandardBridge: '0x0000000000000000000000000000000000000000' as Address,
       L2OutputOracle: '0x0000000000000000000000000000000000000000' as Address,
-      DisputeGameFactory: '0x0000000000000000000000000000000000000000' as Address,
+      DisputeGameFactory:
+        '0x0000000000000000000000000000000000000000' as Address,
     }
 
     return {
@@ -213,7 +220,10 @@ async function getStackConfig(): Promise<StackConfig | null> {
 }
 
 async function getPort(serviceName: string, portName: string): Promise<string> {
-  const result = await $`kurtosis port print ${ENCLAVE_NAME} ${serviceName} ${portName}`.nothrow().quiet()
+  const result =
+    await $`kurtosis port print ${ENCLAVE_NAME} ${serviceName} ${portName}`
+      .nothrow()
+      .quiet()
   if (result.exitCode !== 0) {
     return '0'
   }
@@ -246,7 +256,7 @@ async function testConnectivity(config: StackConfig): Promise<void> {
     console.log(`   L1 Block: ${l1Block}`)
     console.log(`   L2 Block: ${l2Block}`)
     console.log('   ✅ Both chains responsive')
-  } catch (error) {
+  } catch (_error) {
     console.log('   ⚠️ Chains still initializing, try again in a few seconds')
   }
 }
@@ -255,5 +265,3 @@ main().catch((error) => {
   console.error('❌ Failed:', error)
   process.exit(1)
 })
-
-

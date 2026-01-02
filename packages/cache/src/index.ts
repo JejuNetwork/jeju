@@ -12,18 +12,16 @@
  *
  * @example
  * ```typescript
- * import { CacheClient } from '@jejunetwork/cache'
+ * import { getCacheClient } from '@jejunetwork/cache'
  *
- * const cache = new CacheClient({
- *   serverUrl: 'https://dws.jejunetwork.org',
- *   namespace: 'my-app',
- * })
+ * // Get a cache client for your app namespace
+ * const cache = getCacheClient('my-app')
  *
  * // Simple set/get
  * await cache.set('key', 'value')
  * const value = await cache.get('key')
  *
- * // With TTL
+ * // With TTL (in seconds)
  * await cache.set('key', 'value', { ttl: 3600 })
  *
  * // Hash operations
@@ -45,7 +43,12 @@
  */
 
 // Client
-export { CacheClient, createCacheClient } from './client'
+export {
+  CacheClient,
+  createCacheClient,
+  getCacheClient,
+  resetCacheClients,
+} from './client'
 
 // Types
 export {

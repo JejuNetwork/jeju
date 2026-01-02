@@ -104,6 +104,10 @@ interface BootstrapResult {
     // Bazaar Marketplace
     nftMarketplace?: string
     simpleCollectible?: string
+    // EIL (Ethereum Interop Layer) - Cross-chain gas sponsorship
+    l1StakeManager?: string
+    crossChainPaymaster?: string
+    l1L2Messenger?: string
   }
   pools: {
     'USDC-ETH'?: string
@@ -547,11 +551,12 @@ class CompleteBootstrapper {
   }
 
   private async deployEntryPoint(): Promise<string> {
-    // Deploy mock EntryPoint for localnet (on mainnet, use standard address)
+    // Deploy real EntryPoint v0.7 for ERC-4337
+    // This is the same contract as the canonical 0x0000000071727De22E5E9d8BAf0edAc6f37da032
     return this.deployContract(
-      'test/mocks/MockEntryPoint.sol:MockEntryPoint',
+      'lib/account-abstraction/contracts/core/EntryPoint.sol:EntryPoint',
       [],
-      'MockEntryPoint (ERC-4337)',
+      'EntryPoint v0.7 (ERC-4337)',
     )
   }
 

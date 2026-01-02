@@ -12,7 +12,11 @@ export function createNodeRouter() {
   return new Elysia({ prefix: '/v1/nodes' })
     .get('/', () => {
       // Currently no nodes registered in this router - node discovery happens via identity registry
-      return { nodes: [], count: 0, message: 'Use /health/detailed for full node discovery' }
+      return {
+        nodes: [],
+        count: 0,
+        message: 'Use /health/detailed for full node discovery',
+      }
     })
     .get('/health', () => {
       // Basic process health check

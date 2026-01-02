@@ -1,17 +1,24 @@
-import React, { useState } from 'react'
+import type React from 'react'
+import { useState } from 'react'
 import {
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  CheckIcon,
   DiscordIcon,
-  TelegramIcon,
   FarcasterIcon,
-  WhatsAppIcon,
+  TelegramIcon,
   TwitterIcon,
   WalletIcon,
-  CheckIcon,
-  ArrowRightIcon,
-  ArrowLeftIcon,
+  WhatsAppIcon,
 } from '../components/Icons'
 
-type Platform = 'discord' | 'telegram' | 'farcaster' | 'whatsapp' | 'twitter' | 'web'
+type Platform =
+  | 'discord'
+  | 'telegram'
+  | 'farcaster'
+  | 'whatsapp'
+  | 'twitter'
+  | 'web'
 
 interface Props {
   onNavigate: (page: 'landing' | 'onboard' | 'configure' | 'chat') => void
@@ -77,8 +84,21 @@ export function Onboard({ onNavigate, onSessionCreated }: Props) {
 
   const connectWallet = async () => {
     // Check for injected wallet
-    if (typeof window !== 'undefined' && (window as { ethereum?: { request: (args: { method: string }) => Promise<string[]> } }).ethereum) {
-      const accounts = await (window as { ethereum: { request: (args: { method: string }) => Promise<string[]> } }).ethereum.request({
+    if (
+      typeof window !== 'undefined' &&
+      (
+        window as {
+          ethereum?: {
+            request: (args: { method: string }) => Promise<string[]>
+          }
+        }
+      ).ethereum
+    ) {
+      const accounts = await (
+        window as {
+          ethereum: { request: (args: { method: string }) => Promise<string[]> }
+        }
+      ).ethereum.request({
         method: 'eth_requestAccounts',
       })
       if (accounts[0]) {
@@ -87,9 +107,9 @@ export function Onboard({ onNavigate, onSessionCreated }: Props) {
       }
     } else {
       // Demo mode - generate fake address
-      const demoAddress = '0x' + Array.from({ length: 40 }, () =>
+      const demoAddress = `0x${Array.from({ length: 40 }, () =>
         Math.floor(Math.random() * 16).toString(16),
-      ).join('')
+      ).join('')}`
       setWalletAddress(demoAddress)
       setWalletConnected(true)
     }
@@ -106,6 +126,7 @@ export function Onboard({ onNavigate, onSessionCreated }: Props) {
       <header className="relative z-10 border-b border-surface-border">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
           <button
+            type="button"
             onClick={() => onNavigate('landing')}
             className="flex items-center gap-3 text-otto-cyan font-bold text-xl"
           >
@@ -119,7 +140,7 @@ export function Onboard({ onNavigate, onSessionCreated }: Props) {
           <div className="flex items-center gap-2">
             {steps.map((s, i) => (
               <div
-                key={i}
+                key={s.id}
                 className={`w-8 h-1.5 rounded-full transition-all ${
                   i <= step ? 'bg-otto-cyan' : 'bg-white/10'
                 }`}
@@ -158,9 +179,14 @@ function WelcomeStep({ onNext }: StepProps) {
       </div>
       <h1 className="text-4xl font-bold mb-4">Welcome to Otto</h1>
       <p className="text-xl text-white/60 mb-10 max-w-md mx-auto">
-        Your AI-powered trading agent that works across Discord, Telegram, and more.
+        Your AI-powered trading agent that works across Discord, Telegram, and
+        more.
       </p>
-      <button onClick={onNext} className="btn-primary text-lg px-10 py-4">
+      <button
+        type="button"
+        onClick={onNext}
+        className="btn-primary text-lg px-10 py-4"
+      >
         Let's Get Started
         <span className="w-5 h-5">
           <ArrowRightIcon />
@@ -179,17 +205,49 @@ function PlatformStep({
   selectedPlatforms: Platform[]
   togglePlatform: (platform: Platform) => void
 }) {
-  const platforms: { id: Platform; name: string; icon: React.ReactNode; className: string }[] = [
-    { id: 'telegram', name: 'Telegram', icon: <TelegramIcon />, className: 'telegram' },
-    { id: 'discord', name: 'Discord', icon: <DiscordIcon />, className: 'discord' },
-    { id: 'farcaster', name: 'Farcaster', icon: <FarcasterIcon />, className: 'farcaster' },
-    { id: 'whatsapp', name: 'WhatsApp', icon: <WhatsAppIcon />, className: 'whatsapp' },
-    { id: 'twitter', name: 'X / Twitter', icon: <TwitterIcon />, className: 'twitter' },
+  const platforms: {
+    id: Platform
+    name: string
+    icon: React.ReactNode
+    className: string
+  }[] = [
+    {
+      id: 'telegram',
+      name: 'Telegram',
+      icon: <TelegramIcon />,
+      className: 'telegram',
+    },
+    {
+      id: 'discord',
+      name: 'Discord',
+      icon: <DiscordIcon />,
+      className: 'discord',
+    },
+    {
+      id: 'farcaster',
+      name: 'Farcaster',
+      icon: <FarcasterIcon />,
+      className: 'farcaster',
+    },
+    {
+      id: 'whatsapp',
+      name: 'WhatsApp',
+      icon: <WhatsAppIcon />,
+      className: 'whatsapp',
+    },
+    {
+      id: 'twitter',
+      name: 'X / Twitter',
+      icon: <TwitterIcon />,
+      className: 'twitter',
+    },
   ]
 
   return (
     <div className="animate-fade-in-up">
-      <h2 className="text-3xl font-bold mb-3 text-center">Choose your platforms</h2>
+      <h2 className="text-3xl font-bold mb-3 text-center">
+        Choose your platforms
+      </h2>
       <p className="text-white/60 mb-8 text-center">
         Select where you want to use Otto. You can add more later.
       </p>
@@ -199,6 +257,7 @@ function PlatformStep({
           const isSelected = selectedPlatforms.includes(id)
           return (
             <button
+              type="button"
               key={id}
               onClick={() => togglePlatform(id)}
               className={`platform-btn ${className} justify-between ${
@@ -221,7 +280,11 @@ function PlatformStep({
 
       <div className="flex gap-4">
         {onBack && (
-          <button onClick={onBack} className="btn-secondary flex-1">
+          <button
+            type="button"
+            onClick={onBack}
+            className="btn-secondary flex-1"
+          >
             <span className="w-5 h-5">
               <ArrowLeftIcon />
             </span>
@@ -229,10 +292,13 @@ function PlatformStep({
           </button>
         )}
         <button
+          type="button"
           onClick={onNext}
           disabled={selectedPlatforms.length === 0}
           className={`btn-primary flex-1 ${
-            selectedPlatforms.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
+            selectedPlatforms.length === 0
+              ? 'opacity-50 cursor-not-allowed'
+              : ''
           }`}
         >
           Continue
@@ -258,9 +324,12 @@ function WalletStep({
 }) {
   return (
     <div className="animate-fade-in-up">
-      <h2 className="text-3xl font-bold mb-3 text-center">Connect your wallet</h2>
+      <h2 className="text-3xl font-bold mb-3 text-center">
+        Connect your wallet
+      </h2>
       <p className="text-white/60 mb-8 text-center">
-        Connect a wallet to trade and manage your assets. Your keys stay with you.
+        Connect a wallet to trade and manage your assets. Your keys stay with
+        you.
       </p>
 
       <div className="card mb-8">
@@ -278,6 +347,7 @@ function WalletStep({
           </div>
         ) : (
           <button
+            type="button"
             onClick={connectWallet}
             className="w-full flex items-center gap-4 group"
           >
@@ -290,7 +360,9 @@ function WalletStep({
               <p className="font-semibold group-hover:text-otto-cyan transition-colors">
                 Connect Wallet
               </p>
-              <p className="text-white/60 text-sm">MetaMask, WalletConnect, or any EIP-1193 wallet</p>
+              <p className="text-white/60 text-sm">
+                MetaMask, WalletConnect, or any EIP-1193 wallet
+              </p>
             </div>
             <span className="w-5 h-5 text-white/40 group-hover:text-otto-cyan transition-colors">
               <ArrowRightIcon />
@@ -301,14 +373,18 @@ function WalletStep({
 
       <div className="flex gap-4">
         {onBack && (
-          <button onClick={onBack} className="btn-secondary flex-1">
+          <button
+            type="button"
+            onClick={onBack}
+            className="btn-secondary flex-1"
+          >
             <span className="w-5 h-5">
               <ArrowLeftIcon />
             </span>
             Back
           </button>
         )}
-        <button onClick={onNext} className="btn-primary flex-1">
+        <button type="button" onClick={onNext} className="btn-primary flex-1">
           {walletConnected ? 'Continue' : 'Skip for Now'}
           <span className="w-5 h-5">
             <ArrowRightIcon />
@@ -330,9 +406,12 @@ function InviteStep({
 }) {
   return (
     <div className="animate-fade-in-up">
-      <h2 className="text-3xl font-bold mb-3 text-center">Have an invite code?</h2>
+      <h2 className="text-3xl font-bold mb-3 text-center">
+        Have an invite code?
+      </h2>
       <p className="text-white/60 mb-8 text-center">
-        Enter a friend's invite code to unlock bonus features and help them earn rewards.
+        Enter a friend's invite code to unlock bonus features and help them earn
+        rewards.
       </p>
 
       <div className="mb-8">
@@ -354,7 +433,8 @@ function InviteStep({
           <div>
             <p className="font-semibold text-otto-purple">Referral Rewards</p>
             <p className="text-white/60 text-sm">
-              Both you and your friend get 10% bonus on trading rewards for the first month.
+              Both you and your friend get 10% bonus on trading rewards for the
+              first month.
             </p>
           </div>
         </div>
@@ -362,14 +442,18 @@ function InviteStep({
 
       <div className="flex gap-4">
         {onBack && (
-          <button onClick={onBack} className="btn-secondary flex-1">
+          <button
+            type="button"
+            onClick={onBack}
+            className="btn-secondary flex-1"
+          >
             <span className="w-5 h-5">
               <ArrowLeftIcon />
             </span>
             Back
           </button>
         )}
-        <button onClick={onNext} className="btn-primary flex-1">
+        <button type="button" onClick={onNext} className="btn-primary flex-1">
           Continue
           <span className="w-5 h-5">
             <ArrowRightIcon />
@@ -407,8 +491,8 @@ function CompleteStep({
 
       <h2 className="text-3xl font-bold mb-3">You're all set.</h2>
       <p className="text-white/60 mb-10 max-w-md mx-auto">
-        Otto is ready to help you trade across{' '}
-        {selectedPlatforms.length} platform{selectedPlatforms.length !== 1 ? 's' : ''}.
+        Otto is ready to help you trade across {selectedPlatforms.length}{' '}
+        platform{selectedPlatforms.length !== 1 ? 's' : ''}.
         {walletConnected && ' Your wallet is connected for seamless trading.'}
       </p>
 
@@ -438,7 +522,12 @@ function CompleteStep({
 
       <div className="flex gap-4">
         {onBack && (
-          <button onClick={onBack} className="btn-secondary flex-1" disabled={isLoading}>
+          <button
+            type="button"
+            onClick={onBack}
+            className="btn-secondary flex-1"
+            disabled={isLoading}
+          >
             <span className="w-5 h-5">
               <ArrowLeftIcon />
             </span>
@@ -446,6 +535,7 @@ function CompleteStep({
           </button>
         )}
         <button
+          type="button"
           onClick={handleComplete}
           disabled={isLoading}
           className="btn-primary flex-1"

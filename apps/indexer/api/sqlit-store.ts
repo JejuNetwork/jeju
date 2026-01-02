@@ -1,6 +1,6 @@
 /**
  * SQLit Store - Re-export from sqlit-database
- * 
+ *
  * This file provides backward compatibility exports
  */
 
