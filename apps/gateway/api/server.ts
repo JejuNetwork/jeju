@@ -62,6 +62,16 @@ const app = new Elysia()
     return result
   })
 
+  .post('/api/faucet/gas-grant', async ({ body }) => {
+    const bodyParsed = z.object({ address: AddressSchema }).safeParse(body)
+    if (!bodyParsed.success) {
+      return { success: false, error: 'Invalid address format' }
+    }
+    const { claimGasGrant } = await import('./services/faucet-service')
+    const result = await claimGasGrant(bodyParsed.data.address as `0x${string}`)
+    return result
+  })
+
   .listen(PORT)
 
 const host = getLocalhostHost()

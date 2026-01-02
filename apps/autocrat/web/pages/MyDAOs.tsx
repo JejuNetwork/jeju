@@ -13,37 +13,12 @@ import { useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useAccount, useConnect } from 'wagmi'
 import { injected } from 'wagmi/connectors'
+import { DAO_STATUS_STYLES } from '../constants/ui'
 import { useMyDAOs } from '../hooks/useDAO'
-import type { DAOListItem, DAOStatus } from '../types/dao'
-
-const STATUS_STYLES: Record<
-  DAOStatus,
-  { bg: string; text: string; label: string }
-> = {
-  active: {
-    bg: 'rgba(16, 185, 129, 0.12)',
-    text: 'var(--color-success)',
-    label: 'Active',
-  },
-  pending: {
-    bg: 'rgba(245, 158, 11, 0.12)',
-    text: 'var(--color-warning)',
-    label: 'Pending',
-  },
-  paused: {
-    bg: 'rgba(148, 163, 184, 0.12)',
-    text: 'var(--text-tertiary)',
-    label: 'Paused',
-  },
-  archived: {
-    bg: 'rgba(239, 68, 68, 0.12)',
-    text: 'var(--color-error)',
-    label: 'Archived',
-  },
-}
+import type { DAOListItem } from '../types/dao'
 
 function DAOCard({ dao }: { dao: DAOListItem }) {
-  const statusStyle = STATUS_STYLES[dao.status]
+  const statusStyle = DAO_STATUS_STYLES[dao.status]
 
   return (
     <Link

@@ -1,6 +1,15 @@
+/**
+ * TFMM Pools Hook
+ *
+ * Fetches TFMM pool data from the indexer and provides pool state management.
+ */
+
+import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { type Address, formatUnits } from 'viem'
-import { useAccount, useReadContract } from 'wagmi'
+import { useAccount, usePublicClient, useReadContract } from 'wagmi'
+import { CHAIN_ID, INDEXER_URL } from '../../../config'
+import { checkIndexerHealth } from '../../../lib/data-client'
 
 // TFMM Pool ABI (subset for UI)
 const TFMM_POOL_ABI = [
@@ -98,42 +107,125 @@ export interface TFMMPool {
   userBalance: bigint
 }
 
-// Pool registry ABI for fetching pools from on-chain registry
-const _POOL_REGISTRY_ABI = [
-  {
-    name: 'getAllPools',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [],
-    outputs: [{ name: 'pools', type: 'address[]' }],
-  },
-  {
-    name: 'getPoolInfo',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'pool', type: 'address' }],
-    outputs: [
-      { name: 'name', type: 'string' },
-      { name: 'strategy', type: 'string' },
-      { name: 'tvlUsd', type: 'uint256' },
-      { name: 'apyBps', type: 'uint256' },
-      { name: 'volume24hUsd', type: 'uint256' },
-    ],
-  },
-] as const
+interface IndexerPoolRaw {
+  id: string
+  address: string
+  name: string
+  strategy: string
+  tvlUsd: string
+  apyPercent: number
+  volume24hUsd: string
+  swapFee: string
+  totalSupply: string
+  tokens: Array<{
+    address: string
+    symbol: string
+    balance: string
+    weight: string
+  }>
+}
+
+function formatUSD(value: number): string {
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`
+  if (value >= 1_000) return `$${(value / 1_000).toFixed(1)}K`
+  return `$${value.toFixed(2)}`
+}
+
+async function fetchPoolsFromIndexer(): Promise<TFMMPool[]> {
+  const response = await fetch(INDEXER_URL || '/api/graphql', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      query: `
+        query GetTFMMPools($chainId: Int!) {
+          tfmmPools(
+            where: { chainId_eq: $chainId }
+            orderBy: tvlUsd_DESC
+            limit: 50
+          ) {
+            id
+            address
+            name
+            strategy
+            tvlUsd
+            apyPercent
+            volume24hUsd
+            swapFee
+            totalSupply
+            tokens {
+              address
+              symbol
+              balance
+              weight
+            }
+          }
+        }
+      `,
+      variables: { chainId: CHAIN_ID },
+    }),
+  })
+
+  const json = (await response.json()) as {
+    data?: { tfmmPools: IndexerPoolRaw[] }
+    errors?: { message: string }[]
+  }
+
+  if (json.errors?.length) {
+    console.warn('[useTFMMPools] Indexer error:', json.errors[0].message)
+    return []
+  }
+
+  return (json.data?.tfmmPools ?? []).map((pool) => {
+    const tvlUsd = parseFloat(pool.tvlUsd)
+    const volume24hUsd = parseFloat(pool.volume24hUsd)
+
+    return {
+      address: pool.address as Address,
+      name: pool.name,
+      strategy: pool.strategy,
+      tvl: formatUSD(tvlUsd),
+      apy: `${pool.apyPercent.toFixed(1)}%`,
+      volume24h: formatUSD(volume24hUsd),
+      metrics: {
+        tvlUsd,
+        apyPercent: pool.apyPercent,
+        volume24hUsd,
+      },
+      state: {
+        tokens: pool.tokens.map((t) => t.address as Address),
+        balances: pool.tokens.map((t) => BigInt(t.balance)),
+        weights: pool.tokens.map((t) => BigInt(t.weight)),
+        swapFee: BigInt(pool.swapFee),
+        totalSupply: BigInt(pool.totalSupply),
+      },
+      userBalance: 0n, // Will be fetched separately per user
+    }
+  })
+}
 
 export function useTFMMPools() {
-  useAccount()
+  useAccount() // For re-rendering when wallet changes
   const [selectedPool, setSelectedPool] = useState<Address | null>(null)
-  const [pools, _setPools] = useState<TFMMPool[]>([])
-  const [isLoading, setIsLoading] = useState(true)
 
-  // TODO: Replace with actual pool registry address from config when deployed
-  // For now, return empty array - pools will be populated when TFMM contracts are deployed
-
-  // Simulating async load for proper loading state
-  useState(() => {
-    setIsLoading(false)
+  const {
+    data: pools = [],
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ['tfmm-pools', CHAIN_ID],
+    queryFn: async () => {
+      const isIndexerUp = await checkIndexerHealth()
+      if (!isIndexerUp) {
+        console.log(
+          '[useTFMMPools] Indexer not available, returning empty pools',
+        )
+        return []
+      }
+      return fetchPoolsFromIndexer()
+    },
+    staleTime: 30000, // 30 seconds
+    refetchInterval: 60000, // 1 minute
   })
 
   return {
@@ -141,31 +233,39 @@ export function useTFMMPools() {
     selectedPool,
     setSelectedPool,
     isLoading,
+    error,
+    refetch,
   }
 }
 
 export function useTFMMPoolState(poolAddress: Address | null) {
-  const { data, isLoading, refetch } = useReadContract({
-    address: poolAddress ?? undefined,
-    abi: TFMM_POOL_ABI,
-    functionName: 'getPoolState',
-    query: {
-      enabled: !!poolAddress,
+  const publicClient = usePublicClient({ chainId: CHAIN_ID })
+
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ['tfmm-pool-state', poolAddress],
+    queryFn: async () => {
+      if (!poolAddress || !publicClient) return null
+
+      const result = await publicClient.readContract({
+        address: poolAddress,
+        abi: TFMM_POOL_ABI,
+        functionName: 'getPoolState',
+      })
+
+      return {
+        tokens: [...result[0]] as Address[],
+        balances: [...result[1]],
+        weights: [...result[2]],
+        swapFee: result[3],
+        totalSupply: result[4],
+      } as TFMMPoolState
     },
+    enabled: !!poolAddress && !!publicClient,
+    staleTime: 10000,
   })
 
-  const poolState: TFMMPoolState | null = data
-    ? {
-        tokens: [...data[0]],
-        balances: [...data[1]],
-        weights: [...data[2]],
-        swapFee: data[3],
-        totalSupply: data[4],
-      }
-    : null
-
   return {
-    poolState,
+    poolState: data ?? null,
     isLoading,
     refetch,
   }

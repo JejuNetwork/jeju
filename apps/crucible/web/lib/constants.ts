@@ -56,5 +56,8 @@ export function getRoomTypeConfig(roomType: string) {
 export const NAV_ITEMS = [
   { href: '/', label: 'Home' },
   { href: '/agents', label: 'Agents' },
+  { href: '/rooms', label: 'Rooms' },
   { href: '/chat', label: 'Chat' },
+  { href: '/autonomous', label: 'Autonomous' },
+  { href: '/bots', label: 'Bots' },
 ] as const

@@ -22,6 +22,7 @@
     ".terraform",
     "vendor",
     "vendor_examples",
+    "packages/workerd",
     "8004",
     "**/*.test.ts"
   ]

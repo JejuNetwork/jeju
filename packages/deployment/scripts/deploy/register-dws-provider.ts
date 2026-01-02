@@ -143,7 +143,7 @@ async function main() {
   }
 
   // Get contract address
-  const registryAddress = getContract('DWSProviderRegistry') as Address
+  const registryAddress = getContract('dws', 'providerRegistry') as Address
   if (
     !registryAddress ||
     registryAddress === '0x0000000000000000000000000000000000000000'

@@ -11,6 +11,7 @@ import { BrowserRouter, Link, Route, Routes } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { WagmiProvider } from 'wagmi'
 import { BanCheckWrapper } from './components/BanCheckWrapper'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { Header } from './components/Header'
 import { chainId, rpcUrl, wagmiConfig } from './config/wagmi'
 import AuthCallbackPage from './pages/AuthCallback'
@@ -150,62 +151,64 @@ function Layout({ children }: { children: React.ReactNode }) {
 
 export function App() {
   return (
-    <BrowserRouter>
-      <Providers>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/swap" element={<SwapPage />} />
-            <Route path="/pools" element={<PoolsPage />} />
-            <Route path="/perps" element={<PerpsPage />} />
-            <Route path="/coins" element={<CoinsPage />} />
-            <Route path="/coins/create" element={<CoinCreatePage />} />
-            <Route path="/coins/launch" element={<CoinLaunchPage />} />
-            <Route path="/coins/jeju-ico" element={<JejuICOPage />} />
-            <Route
-              path="/coins/jeju-ico/whitepaper"
-              element={<JejuWhitepaperPage />}
-            />
-            <Route
-              path="/coins/:chainId/:address"
-              element={<CoinDetailPage />}
-            />
-            <Route path="/markets" element={<MarketsPage />} />
-            <Route path="/markets/create" element={<MarketCreatePage />} />
-            <Route path="/markets/:id" element={<MarketDetailPage />} />
-            <Route path="/markets/perps" element={<PerpsPage />} />
-            <Route
-              path="/markets/perps/:ticker"
-              element={<PerpsDetailPage />}
-            />
-            <Route path="/markets/predictions" element={<MarketsPage />} />
-            <Route
-              path="/markets/predictions/:id"
-              element={<PredictionDetailPage />}
-            />
-            <Route path="/items" element={<ItemsPage />} />
-            <Route path="/items/mint" element={<ItemMintPage />} />
-            <Route path="/items/:id" element={<ItemDetailPage />} />
-            <Route path="/names" element={<NamesPage />} />
-            <Route path="/liquidity" element={<LiquidityPage />} />
-            <Route path="/tfmm" element={<TFMMPage />} />
-            <Route path="/portfolio" element={<PortfolioPage />} />
-            <Route path="/profile/:id" element={<ProfileDetailPage />} />
-            <Route path="/rewards" element={<RewardsPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/share/pnl/:userId" element={<SharePnLPage />} />
-            <Route
-              path="/share/referral/:userId"
-              element={<ShareReferralPage />}
-            />
-            <Route path="/trending" element={<TrendingTagPage />} />
-            <Route path="/trending/:tag" element={<TrendingTagPage />} />
-            <Route path="/trending/group" element={<TrendingGroupPage />} />
-            <Route path="/auth/callback" element={<AuthCallbackPage />} />
-            <Route path="*" element={<NotFoundPage />} />
-          </Routes>
-        </Layout>
-      </Providers>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Providers>
+          <Layout>
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/swap" element={<SwapPage />} />
+              <Route path="/pools" element={<PoolsPage />} />
+              <Route path="/perps" element={<PerpsPage />} />
+              <Route path="/coins" element={<CoinsPage />} />
+              <Route path="/coins/create" element={<CoinCreatePage />} />
+              <Route path="/coins/launch" element={<CoinLaunchPage />} />
+              <Route path="/coins/jeju-ico" element={<JejuICOPage />} />
+              <Route
+                path="/coins/jeju-ico/whitepaper"
+                element={<JejuWhitepaperPage />}
+              />
+              <Route
+                path="/coins/:chainId/:address"
+                element={<CoinDetailPage />}
+              />
+              <Route path="/markets" element={<MarketsPage />} />
+              <Route path="/markets/create" element={<MarketCreatePage />} />
+              <Route path="/markets/:id" element={<MarketDetailPage />} />
+              <Route path="/markets/perps" element={<PerpsPage />} />
+              <Route
+                path="/markets/perps/:ticker"
+                element={<PerpsDetailPage />}
+              />
+              <Route path="/markets/predictions" element={<MarketsPage />} />
+              <Route
+                path="/markets/predictions/:id"
+                element={<PredictionDetailPage />}
+              />
+              <Route path="/items" element={<ItemsPage />} />
+              <Route path="/items/mint" element={<ItemMintPage />} />
+              <Route path="/items/:id" element={<ItemDetailPage />} />
+              <Route path="/names" element={<NamesPage />} />
+              <Route path="/liquidity" element={<LiquidityPage />} />
+              <Route path="/tfmm" element={<TFMMPage />} />
+              <Route path="/portfolio" element={<PortfolioPage />} />
+              <Route path="/profile/:id" element={<ProfileDetailPage />} />
+              <Route path="/rewards" element={<RewardsPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/share/pnl/:userId" element={<SharePnLPage />} />
+              <Route
+                path="/share/referral/:userId"
+                element={<ShareReferralPage />}
+              />
+              <Route path="/trending" element={<TrendingTagPage />} />
+              <Route path="/trending/:tag" element={<TrendingTagPage />} />
+              <Route path="/trending/group" element={<TrendingGroupPage />} />
+              <Route path="/auth/callback" element={<AuthCallbackPage />} />
+              <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+          </Layout>
+        </Providers>
+      </BrowserRouter>
+    </ErrorBoundary>
   )
 }

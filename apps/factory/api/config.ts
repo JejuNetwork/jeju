@@ -6,8 +6,9 @@ import {
   getEnvVar,
   getL2RpcUrl,
   getLocalhostHost,
+  getSQLitUrl,
 } from '@jejunetwork/config'
-import type { Address } from 'viem'
+import type { Address, Hex } from 'viem'
 
 export interface FactoryConfig {
   port: number
@@ -19,6 +20,10 @@ export interface FactoryConfig {
   signerEncryptionKey?: string
   factoryChannelId: string
   dcRelayUrl: string
+  // SQLit configuration
+  sqlitEndpoint: string
+  sqlitDatabaseId: string
+  sqlitPrivateKey?: Hex
 }
 
 const { config, configure } = createAppConfig<FactoryConfig>({
@@ -35,6 +40,10 @@ const { config, configure } = createAppConfig<FactoryConfig>({
   signerEncryptionKey: getEnvVar('SIGNER_ENCRYPTION_KEY'),
   factoryChannelId: getEnvVar('FACTORY_CHANNEL_ID') || 'factory',
   dcRelayUrl: getEnvVar('DC_RELAY_URL') || `http://${getLocalhostHost()}:3300`,
+  // SQLit configuration with sensible defaults
+  sqlitEndpoint: getEnvVar('SQLIT_ENDPOINT') || getSQLitUrl(),
+  sqlitDatabaseId: getEnvVar('SQLIT_DATABASE_ID') || 'factory',
+  sqlitPrivateKey: getEnvVar('SQLIT_PRIVATE_KEY') as Hex | undefined,
 })
 
 export function configureFactory(configUpdates: Partial<FactoryConfig>): void {

@@ -90,8 +90,6 @@ export class YubiHSMProvider implements HSMProvider {
   private connected = false
 
   constructor(config: HSMConfig) {
-    this.config = config
-
     // Parse credentials
     const creds =
       typeof config.credentials === 'string'

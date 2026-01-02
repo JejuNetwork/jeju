@@ -1,6 +1,7 @@
 import {
   AlertCircle,
   Box,
+  Eye,
   HardDrive,
   Play,
   Plus,
@@ -9,15 +10,27 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
-import { useContainers, useHealth, useRunContainer } from '../../hooks'
+import ContainerLogsModal from '../../components/ContainerLogsModal'
+import { Skeleton } from '../../components/Skeleton'
+import { useConfirm, useToast } from '../../context/AppContext'
+import {
+  useCancelContainer,
+  useContainers,
+  useHealth,
+  useRunContainer,
+} from '../../hooks'
 
 export default function ContainersPage() {
   const { isConnected } = useAccount()
   const { data: containersData, isLoading, refetch } = useContainers()
   const { data: health } = useHealth()
   const runContainer = useRunContainer()
+  const cancelContainer = useCancelContainer()
+  const { showSuccess, showError } = useToast()
+  const confirm = useConfirm()
 
   const [showModal, setShowModal] = useState(false)
+  const [viewLogsId, setViewLogsId] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     image: '',
     command: '',
@@ -28,19 +41,47 @@ export default function ContainersPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    await runContainer.mutateAsync({
-      image: formData.image,
-      command: formData.command ? formData.command.split(' ') : undefined,
-      mode: formData.mode,
+    try {
+      await runContainer.mutateAsync({
+        image: formData.image,
+        command: formData.command ? formData.command.split(' ') : undefined,
+        mode: formData.mode,
+      })
+      showSuccess(`Container ${formData.image} started`)
+      setShowModal(false)
+      setFormData({
+        image: '',
+        command: '',
+        mode: 'serverless',
+        cpuCores: '1',
+        memoryMb: '512',
+      })
+    } catch (error) {
+      showError(
+        'Failed to run container',
+        error instanceof Error ? error.message : 'Unknown error',
+      )
+    }
+  }
+
+  const handleStopContainer = async (executionId: string) => {
+    const confirmed = await confirm({
+      title: 'Stop Container',
+      message: 'Are you sure you want to stop this running container?',
+      confirmText: 'Stop',
+      destructive: true,
     })
-    setShowModal(false)
-    setFormData({
-      image: '',
-      command: '',
-      mode: 'serverless',
-      cpuCores: '1',
-      memoryMb: '512',
-    })
+    if (confirmed) {
+      try {
+        await cancelContainer.mutateAsync(executionId)
+        showSuccess('Container stopped')
+      } catch (error) {
+        showError(
+          'Failed to stop container',
+          error instanceof Error ? error.message : 'Unknown error',
+        )
+      }
+    }
   }
 
   const containers = containersData?.executions ?? []
@@ -134,14 +175,10 @@ export default function ContainersPage() {
         </div>
 
         {isLoading ? (
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'center',
-              padding: '3rem',
-            }}
-          >
-            <div className="spinner" />
+          <div style={{ padding: '1rem', display: 'grid', gap: '0.75rem' }}>
+            <Skeleton height="48px" />
+            <Skeleton height="48px" />
+            <Skeleton height="48px" />
           </div>
         ) : containers.length === 0 ? (
           <div className="empty-state">
@@ -216,15 +253,28 @@ export default function ContainersPage() {
                         : '—'}
                     </td>
                     <td>
-                      {container.status === 'running' && (
+                      <div style={{ display: 'flex', gap: '0.25rem' }}>
                         <button
                           type="button"
                           className="btn btn-ghost btn-sm"
-                          title="Stop"
+                          title="View logs"
+                          onClick={() => setViewLogsId(container.executionId)}
                         >
-                          <Square size={14} />
+                          <Eye size={14} />
                         </button>
-                      )}
+                        {container.status === 'running' && (
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            title="Stop"
+                            onClick={() =>
+                              handleStopContainer(container.executionId)
+                            }
+                          >
+                            <Square size={14} />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -396,6 +446,13 @@ export default function ContainersPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {viewLogsId && (
+        <ContainerLogsModal
+          executionId={viewLogsId}
+          onClose={() => setViewLogsId(null)}
+        />
       )}
     </div>
   )

@@ -1,166 +1,185 @@
 /**
- * SQLit HTTP Client for Workerd
+ * Factory SQLit Client
  *
- * Workerd-compatible database client that uses SQLit HTTP API instead of bun:sqlite.
- * This file is used when running in workerd environment.
+ * Provides database operations using the decentralized SQLit network.
+ * This replaces the local bun:sqlite implementation for production use.
+ *
+ * Features:
+ * - Automatic connection pooling
+ * - Network-aware configuration
+ * - Fail-fast on connection errors
+ * - Schema migration on initialization
  */
 
-import { getSQLitBlockProducerUrl } from '@jejunetwork/config'
+import { getSQLit, type SQLitClient } from '@jejunetwork/db'
+import { isProductionEnv } from '@jejunetwork/config'
 import { z } from 'zod'
+import { getFactoryConfig } from '../config'
+import FACTORY_SCHEMA from './schema'
 
-// =============================================================================
-// SQLit HTTP Client
-// =============================================================================
+// Re-export row schemas and types from the original client for compatibility
+export {
+  type BountyRow,
+  type JobRow,
+  type ProjectRow,
+  type TaskRow,
+  type IssueRow,
+  type PullRequestRow,
+  type DiscussionRow,
+  type CIRunRow,
+  type AgentRow,
+  type ContainerRow,
+  type ContainerInstanceRow,
+  type DatasetRow,
+  type ModelRow,
+  type LeaderboardRow,
+  type IssueCommentRow,
+  type PRReviewRow,
+  type DiscussionReplyRow,
+  type RepoSettingsRow,
+  type CollaboratorRow,
+  type WebhookRow,
+  type PackageSettingsRow,
+  type MaintainerRow,
+  type PackageTokenRow,
+  type FidLinkRow,
+  type FarcasterSignerRow,
+  type ProjectChannelRow,
+  type CastReactionRow,
+} from './client'
 
-interface SQLitConfig {
-  endpoint: string
-  dbid: string
-  timeout: number
-}
+let sqlitClient: SQLitClient | null = null
+let initialized = false
 
-interface SQLitQueryResponse {
-  data?: {
-    rows: Record<string, unknown>[] | null
-  }
-  status: string
-  error?: string
-  rowsAffected?: number
-  lastInsertId?: string | number
-}
+const config = getFactoryConfig()
+const DATABASE_ID = config.sqlitDatabaseId
 
-class SQLitHttpClient {
-  private readonly endpoint: string
-  private readonly dbid: string
-  private readonly timeout: number
+/**
+ * Get or create the SQLit client
+ */
+function getClient(): SQLitClient {
+  if (!sqlitClient) {
+    const factoryConfig = getFactoryConfig()
 
-  constructor(config: SQLitConfig) {
-    this.endpoint = config.endpoint
-    this.dbid = config.dbid
-    this.timeout = config.timeout
-  }
-
-  async query<T = Record<string, unknown>>(
-    sql: string,
-    params: (string | number | null)[] = [],
-  ): Promise<T[]> {
-    const formattedSql = this.formatSQL(sql, params)
-    return this.fetch<T>('query', formattedSql)
-  }
-
-  async exec(
-    sql: string,
-    params: (string | number | null)[] = [],
-  ): Promise<{ rowsAffected: number; lastInsertId: number | bigint }> {
-    const formattedSql = this.formatSQL(sql, params)
-    return this.fetchExec(formattedSql)
-  }
-
-  async execRaw(sql: string): Promise<void> {
-    await this.fetch('exec', sql)
-  }
-
-  private formatSQL(sql: string, params: (string | number | null)[]): string {
-    if (params.length === 0) return sql
-
-    let paramIndex = 0
-    return sql.replace(/\?/g, () => {
-      const param = params[paramIndex++]
-      if (param === null) return 'NULL'
-      if (typeof param === 'string') return `'${param.replace(/'/g, "''")}'`
-      if (typeof param === 'number') return String(param)
-      return 'NULL'
+    sqlitClient = getSQLit({
+      blockProducerEndpoint: factoryConfig.sqlitEndpoint,
+      databaseId: factoryConfig.sqlitDatabaseId,
+      privateKey: factoryConfig.sqlitPrivateKey,
+      timeout: 30000,
+      debug: !isProductionEnv(),
     })
   }
-
-  private async fetch<T>(method: 'query' | 'exec', sql: string): Promise<T[]> {
-    const uri = `${this.endpoint}/v1/${method}`
-
-    const response = await fetch(uri, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        assoc: true,
-        database: this.dbid,
-        query: sql,
-      }),
-      signal: AbortSignal.timeout(this.timeout),
-    })
-
-    if (!response.ok) {
-      throw new Error(`SQLit request failed: ${response.status}`)
-    }
-
-    const result: SQLitQueryResponse = await response.json()
-
-    if (result.error) {
-      throw new Error(result.error)
-    }
-
-    return (result.data?.rows as T[]) ?? []
-  }
-
-  private async fetchExec(
-    sql: string,
-  ): Promise<{ rowsAffected: number; lastInsertId: number | bigint }> {
-    const uri = `${this.endpoint}/v1/exec`
-
-    const response = await fetch(uri, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        assoc: true,
-        database: this.dbid,
-        query: sql,
-      }),
-      signal: AbortSignal.timeout(this.timeout),
-    })
-
-    if (!response.ok) {
-      throw new Error(`SQLit request failed: ${response.status}`)
-    }
-
-    const result: SQLitQueryResponse = await response.json()
-
-    if (result.error) {
-      throw new Error(result.error)
-    }
-
-    const rowsAffected = result.rowsAffected ?? 0
-    const lastInsertId =
-      result.lastInsertId !== undefined
-        ? typeof result.lastInsertId === 'string'
-          ? BigInt(result.lastInsertId)
-          : result.lastInsertId
-        : 0
-
-    return { rowsAffected, lastInsertId }
-  }
+  return sqlitClient
 }
 
-// =============================================================================
-// Database Instance
-// =============================================================================
+/**
+ * Initialize the SQLit database with schema
+ */
+export async function initSQLitDB(): Promise<SQLitClient> {
+  const client = getClient()
 
-let client: SQLitHttpClient | null = null
+  if (initialized) return client
 
-function getClient(): SQLitHttpClient {
-  if (client) return client
+  // Check health first
+  const healthy = await client.isHealthy()
+  if (!healthy) {
+    throw new Error(
+      `Factory requires SQLit for decentralized state.\n` +
+        `Endpoint: ${config.sqlitEndpoint}\n` +
+        'Ensure SQLit is running: jeju start sqlit',
+    )
+  }
 
-  const endpoint = getSQLitBlockProducerUrl()
-  const dbid = process.env.SQLIT_DATABASE_ID ?? 'factory'
+  // Split schema into individual statements and execute
+  const statements = FACTORY_SCHEMA.split(';')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
 
-  client = new SQLitHttpClient({
-    endpoint,
-    dbid,
-    timeout: 30000,
-  })
+  for (const statement of statements) {
+    await client.exec(`${statement};`, [], DATABASE_ID)
+  }
+
+  initialized = true
+  console.log('[Factory SQLit] Initialized with decentralized database')
 
   return client
 }
 
-// =============================================================================
-// Schemas
-// =============================================================================
+/**
+ * Close the SQLit client
+ */
+export async function closeSQLitDB(): Promise<void> {
+  if (sqlitClient) {
+    await sqlitClient.close()
+    sqlitClient = null
+    initialized = false
+  }
+}
+
+/**
+ * Check if SQLit is healthy
+ */
+export async function isSQLitHealthy(): Promise<boolean> {
+  const client = getClient()
+  return client.isHealthy()
+}
+
+// ============================================================================
+// QUERY HELPERS
+// ============================================================================
+
+/**
+ * Execute a query and return rows
+ */
+async function query<T>(
+  sql: string,
+  params: Array<string | number | null> = [],
+): Promise<T[]> {
+  const client = getClient()
+  const result = await client.query<T>(sql, params, DATABASE_ID)
+  return result.rows
+}
+
+/**
+ * Execute a query and return a single row or null
+ */
+async function queryOne<T>(
+  sql: string,
+  params: Array<string | number | null> = [],
+): Promise<T | null> {
+  const rows = await query<T>(sql, params)
+  return rows[0] ?? null
+}
+
+/**
+ * Execute a write operation (INSERT, UPDATE, DELETE)
+ */
+async function exec(
+  sql: string,
+  params: Array<string | number | null> = [],
+): Promise<{ rowsAffected: number }> {
+  const client = getClient()
+  const result = await client.exec(sql, params, DATABASE_ID)
+  return { rowsAffected: result.rowsAffected }
+}
+
+/**
+ * Generate a unique ID with prefix
+ */
+export function generateId(prefix: string): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+/**
+ * Convert value to JSON string
+ */
+function toJSON(data: unknown): string {
+  return JSON.stringify(data)
+}
+
+// ============================================================================
+// BOUNTIES
+// ============================================================================
 
 const BountyRowSchema = z.object({
   id: z.string(),
@@ -177,6 +196,152 @@ const BountyRowSchema = z.object({
   created_at: z.number(),
   updated_at: z.number(),
 })
+type BountyRow = z.infer<typeof BountyRowSchema>
+
+export async function listBounties(filter?: {
+  status?: string
+  skill?: string
+  creator?: string
+  search?: string
+  page?: number
+  limit?: number
+}): Promise<{ bounties: BountyRow[]; total: number }> {
+  const conditions: string[] = []
+  const params: (string | number)[] = []
+
+  if (filter?.status) {
+    conditions.push('status = ?')
+    params.push(filter.status)
+  }
+  if (filter?.creator) {
+    conditions.push('creator = ?')
+    params.push(filter.creator)
+  }
+  if (filter?.skill) {
+    conditions.push('skills LIKE ?')
+    params.push(`%${filter.skill}%`)
+  }
+  if (filter?.search) {
+    conditions.push('(title LIKE ? OR description LIKE ?)')
+    params.push(`%${filter.search}%`, `%${filter.search}%`)
+  }
+
+  const whereClause =
+    conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+  const page = filter?.page ?? 1
+  const limit = filter?.limit ?? 20
+  const offset = (page - 1) * limit
+
+  const countResult = await queryOne<{ count: number }>(
+    `SELECT COUNT(*) as count FROM bounties ${whereClause}`,
+    params,
+  )
+  const total = countResult?.count ?? 0
+
+  const bounties = await query<BountyRow>(
+    `SELECT * FROM bounties ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    [...params, limit, offset],
+  )
+
+  return { bounties: bounties.map((b) => BountyRowSchema.parse(b)), total }
+}
+
+export async function getBounty(id: string): Promise<BountyRow | null> {
+  const row = await queryOne<BountyRow>(
+    'SELECT * FROM bounties WHERE id = ?',
+    [id],
+  )
+  return row ? BountyRowSchema.parse(row) : null
+}
+
+export async function createBounty(bounty: {
+  title: string
+  description: string
+  reward: string
+  currency: string
+  skills: string[]
+  deadline: number
+  milestones?: Array<{
+    name: string
+    description: string
+    reward: string
+    currency: string
+    deadline: number
+  }>
+  creator: string
+}): Promise<BountyRow> {
+  const id = generateId('bounty')
+  const now = Date.now()
+
+  await exec(
+    `INSERT INTO bounties (id, title, description, reward, currency, skills, deadline, milestones, creator, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id,
+      bounty.title,
+      bounty.description,
+      bounty.reward,
+      bounty.currency,
+      toJSON(bounty.skills),
+      bounty.deadline,
+      bounty.milestones ? toJSON(bounty.milestones) : null,
+      bounty.creator,
+      now,
+      now,
+    ],
+  )
+
+  const created = await getBounty(id)
+  if (!created) throw new Error(`Failed to create bounty ${id}`)
+  return created
+}
+
+export async function updateBountyStatus(
+  id: string,
+  status: string,
+): Promise<boolean> {
+  const result = await exec(
+    'UPDATE bounties SET status = ?, updated_at = ? WHERE id = ?',
+    [status, Date.now(), id],
+  )
+  return result.rowsAffected > 0
+}
+
+export async function getBountyStats(): Promise<{
+  openBounties: number
+  totalValue: number
+  completed: number
+  avgPayout: number
+}> {
+  const stats = await queryOne<{
+    total: number
+    open: number
+    completed: number
+    total_reward_value: number | null
+  }>(`
+    SELECT
+      COUNT(*) as total,
+      SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END) as open,
+      SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+      SUM(CAST(reward AS REAL)) as total_reward_value
+    FROM bounties
+  `)
+
+  const totalValue = stats?.total_reward_value ?? 0
+  const completedBounties = stats?.completed ?? 0
+  const avgPayout = completedBounties > 0 ? totalValue / completedBounties : 0
+
+  return {
+    openBounties: stats?.open ?? 0,
+    totalValue: totalValue,
+    completed: completedBounties,
+    avgPayout: avgPayout,
+  }
+}
+
+// ============================================================================
+// JOBS
+// ============================================================================
 
 const JobRowSchema = z.object({
   id: z.string(),
@@ -198,6 +363,134 @@ const JobRowSchema = z.object({
   created_at: z.number(),
   updated_at: z.number(),
 })
+type JobRow = z.infer<typeof JobRowSchema>
+
+export async function listJobs(filter?: {
+  type?: string
+  remote?: boolean
+  status?: string
+  search?: string
+  page?: number
+  limit?: number
+}): Promise<{ jobs: JobRow[]; total: number }> {
+  const conditions: string[] = ["status = 'open'"]
+  const params: (string | number)[] = []
+
+  if (filter?.type) {
+    conditions.push('type = ?')
+    params.push(filter.type)
+  }
+  if (filter?.remote !== undefined) {
+    conditions.push('remote = ?')
+    params.push(filter.remote ? 1 : 0)
+  }
+  if (filter?.search) {
+    conditions.push('(title LIKE ? OR description LIKE ? OR company LIKE ?)')
+    params.push(
+      `%${filter.search}%`,
+      `%${filter.search}%`,
+      `%${filter.search}%`,
+    )
+  }
+
+  const whereClause = `WHERE ${conditions.join(' AND ')}`
+  const page = filter?.page ?? 1
+  const limit = filter?.limit ?? 20
+  const offset = (page - 1) * limit
+
+  const countResult = await queryOne<{ count: number }>(
+    `SELECT COUNT(*) as count FROM jobs ${whereClause}`,
+    params,
+  )
+  const total = countResult?.count ?? 0
+
+  const jobs = await query<JobRow>(
+    `SELECT * FROM jobs ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    [...params, limit, offset],
+  )
+
+  return { jobs: jobs.map((j) => JobRowSchema.parse(j)), total }
+}
+
+export async function getJob(id: string): Promise<JobRow | null> {
+  const row = await queryOne<JobRow>('SELECT * FROM jobs WHERE id = ?', [id])
+  return row ? JobRowSchema.parse(row) : null
+}
+
+export async function createJob(job: {
+  title: string
+  company: string
+  companyLogo?: string
+  type: 'full-time' | 'part-time' | 'contract' | 'bounty'
+  remote: boolean
+  location: string
+  salary?: { min: number; max: number; currency: string; period?: string }
+  skills: string[]
+  description: string
+  poster: string
+}): Promise<JobRow> {
+  const id = generateId('job')
+  const now = Date.now()
+
+  await exec(
+    `INSERT INTO jobs (id, title, company, company_logo, type, remote, location, salary_min, salary_max, salary_currency, salary_period, skills, description, poster, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id,
+      job.title,
+      job.company,
+      job.companyLogo ?? null,
+      job.type,
+      job.remote ? 1 : 0,
+      job.location,
+      job.salary?.min ?? null,
+      job.salary?.max ?? null,
+      job.salary?.currency ?? null,
+      job.salary?.period ?? null,
+      toJSON(job.skills),
+      job.description,
+      job.poster,
+      now,
+      now,
+    ],
+  )
+
+  const created = await getJob(id)
+  if (!created) throw new Error(`Failed to create job ${id}`)
+  return created
+}
+
+export async function getJobStats(): Promise<{
+  totalJobs: number
+  openJobs: number
+  remoteJobs: number
+  averageSalary: number
+}> {
+  const stats = await queryOne<{
+    total: number
+    open: number
+    remote: number
+    avg_salary: number | null
+  }>(`
+    SELECT 
+      COUNT(*) as total,
+      SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END) as open,
+      SUM(CASE WHEN remote = 1 THEN 1 ELSE 0 END) as remote,
+      AVG(CASE WHEN salary_min IS NOT NULL AND salary_max IS NOT NULL THEN (salary_min + salary_max) / 2 ELSE NULL END) as avg_salary
+    FROM jobs
+  `)
+
+  return {
+    totalJobs: stats?.total ?? 0,
+    openJobs: stats?.open ?? 0,
+    remoteJobs: stats?.remote ?? 0,
+    averageSalary: Math.round(stats?.avg_salary ?? 0),
+  }
+}
+
+// ============================================================================
+// PROJECTS
+// ============================================================================
 
 const ProjectRowSchema = z.object({
   id: z.string(),
@@ -210,6 +503,168 @@ const ProjectRowSchema = z.object({
   created_at: z.number(),
   updated_at: z.number(),
 })
+type ProjectRow = z.infer<typeof ProjectRowSchema>
+
+export async function listProjects(filter?: {
+  status?: string
+  owner?: string
+  search?: string
+  page?: number
+  limit?: number
+}): Promise<{ projects: ProjectRow[]; total: number }> {
+  const conditions: string[] = []
+  const params: (string | number)[] = []
+
+  if (filter?.status) {
+    conditions.push('status = ?')
+    params.push(filter.status)
+  }
+  if (filter?.owner) {
+    conditions.push('owner = ?')
+    params.push(filter.owner)
+  }
+  if (filter?.search) {
+    conditions.push('(name LIKE ? OR description LIKE ?)')
+    params.push(`%${filter.search}%`, `%${filter.search}%`)
+  }
+
+  const whereClause =
+    conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+  const page = filter?.page ?? 1
+  const limit = filter?.limit ?? 20
+  const offset = (page - 1) * limit
+
+  const countResult = await queryOne<{ count: number }>(
+    `SELECT COUNT(*) as count FROM projects ${whereClause}`,
+    params,
+  )
+  const total = countResult?.count ?? 0
+
+  const projects = await query<ProjectRow>(
+    `SELECT * FROM projects ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    [...params, limit, offset],
+  )
+
+  return { projects: projects.map((p) => ProjectRowSchema.parse(p)), total }
+}
+
+export async function getProject(id: string): Promise<ProjectRow | null> {
+  const row = await queryOne<ProjectRow>(
+    'SELECT * FROM projects WHERE id = ?',
+    [id],
+  )
+  return row ? ProjectRowSchema.parse(row) : null
+}
+
+export async function createProject(project: {
+  name: string
+  description: string
+  visibility: 'public' | 'private' | 'internal'
+  owner: string
+}): Promise<ProjectRow> {
+  const id = generateId('project')
+  const now = Date.now()
+
+  await exec(
+    `INSERT INTO projects (id, name, description, visibility, owner, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id,
+      project.name,
+      project.description,
+      project.visibility,
+      project.owner,
+      now,
+      now,
+    ],
+  )
+
+  const created = await getProject(id)
+  if (!created) throw new Error(`Failed to create project ${id}`)
+  return created
+}
+
+// ============================================================================
+// CI RUNS
+// ============================================================================
+
+const CIRunRowSchema = z.object({
+  id: z.string(),
+  workflow: z.string(),
+  repo: z.string(),
+  branch: z.string(),
+  commit_sha: z.string(),
+  commit_message: z.string(),
+  author: z.string(),
+  status: z.enum(['queued', 'running', 'success', 'failure', 'cancelled']),
+  conclusion: z.string().nullable(),
+  duration: z.number().nullable(),
+  started_at: z.number(),
+  completed_at: z.number().nullable(),
+  created_at: z.number(),
+  updated_at: z.number(),
+})
+type CIRunRow = z.infer<typeof CIRunRowSchema>
+
+export async function listCIRuns(filter?: {
+  repo?: string
+  status?: string
+  branch?: string
+  search?: string
+  page?: number
+  limit?: number
+}): Promise<{ runs: CIRunRow[]; total: number }> {
+  const conditions: string[] = []
+  const params: (string | number)[] = []
+
+  if (filter?.repo) {
+    conditions.push('repo = ?')
+    params.push(filter.repo)
+  }
+  if (filter?.status) {
+    conditions.push('status = ?')
+    params.push(filter.status)
+  }
+  if (filter?.branch) {
+    conditions.push('branch = ?')
+    params.push(filter.branch)
+  }
+  if (filter?.search) {
+    conditions.push('(workflow LIKE ? OR commit_message LIKE ?)')
+    params.push(`%${filter.search}%`, `%${filter.search}%`)
+  }
+
+  const whereClause =
+    conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+  const page = filter?.page ?? 1
+  const limit = filter?.limit ?? 20
+  const offset = (page - 1) * limit
+
+  const countResult = await queryOne<{ count: number }>(
+    `SELECT COUNT(*) as count FROM ci_runs ${whereClause}`,
+    params,
+  )
+  const total = countResult?.count ?? 0
+
+  const runs = await query<CIRunRow>(
+    `SELECT * FROM ci_runs ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    [...params, limit, offset],
+  )
+
+  return { runs: runs.map((r) => CIRunRowSchema.parse(r)), total }
+}
+
+export async function getCIRun(id: string): Promise<CIRunRow | null> {
+  const row = await queryOne<CIRunRow>(
+    'SELECT * FROM ci_runs WHERE id = ?',
+    [id],
+  )
+  return row ? CIRunRowSchema.parse(row) : null
+}
+
+// ============================================================================
+// AGENTS
+// ============================================================================
 
 const AgentRowSchema = z.object({
   id: z.string(),
@@ -230,248 +685,14 @@ const AgentRowSchema = z.object({
   created_at: z.number(),
   updated_at: z.number(),
 })
+type AgentRow = z.infer<typeof AgentRowSchema>
 
-const LeaderboardRowSchema = z.object({
-  address: z.string(),
-  name: z.string(),
-  avatar: z.string(),
-  score: z.number(),
-  contributions: z.number(),
-  bounties_completed: z.number(),
-  tier: z.enum(['bronze', 'silver', 'gold', 'diamond']),
-  updated_at: z.number(),
-})
-
-// Export row types
-export type BountyRow = z.infer<typeof BountyRowSchema>
-export type JobRow = z.infer<typeof JobRowSchema>
-export type ProjectRow = z.infer<typeof ProjectRowSchema>
-export type AgentRow = z.infer<typeof AgentRowSchema>
-export type LeaderboardRow = z.infer<typeof LeaderboardRowSchema>
-
-// =============================================================================
-// Helper Functions
-// =============================================================================
-
-function toJSON(data: unknown): string {
-  return JSON.stringify(data)
-}
-
-export function generateId(prefix: string): string {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-}
-
-// =============================================================================
-// Bounties (Async)
-// =============================================================================
-
-export async function listBountiesAsync(filter?: {
-  status?: string
-  skill?: string
-  creator?: string
-  page?: number
-  limit?: number
-}): Promise<{ bounties: BountyRow[]; total: number }> {
-  const db = getClient()
-  const conditions: string[] = []
-  const params: (string | number)[] = []
-
-  if (filter?.status) {
-    conditions.push('status = ?')
-    params.push(filter.status)
-  }
-  if (filter?.creator) {
-    conditions.push('creator = ?')
-    params.push(filter.creator)
-  }
-  if (filter?.skill) {
-    conditions.push('skills LIKE ?')
-    params.push(`%${filter.skill}%`)
-  }
-
-  const whereClause =
-    conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
-  const page = filter?.page ?? 1
-  const limit = filter?.limit ?? 20
-  const offset = (page - 1) * limit
-
-  const countResult = await db.query<{ count: number }>(
-    `SELECT COUNT(*) as count FROM bounties ${whereClause}`,
-    params,
-  )
-  const total = countResult[0]?.count ?? 0
-
-  const rows = await db.query<BountyRow>(
-    `SELECT * FROM bounties ${whereClause} ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}`,
-    params,
-  )
-
-  return { bounties: rows.map((r) => BountyRowSchema.parse(r)), total }
-}
-
-export async function getBountyAsync(id: string): Promise<BountyRow | null> {
-  const db = getClient()
-  const rows = await db.query<BountyRow>(
-    'SELECT * FROM bounties WHERE id = ?',
-    [id],
-  )
-  return rows[0] ? BountyRowSchema.parse(rows[0]) : null
-}
-
-export async function createBountyAsync(bounty: {
-  title: string
-  description: string
-  reward: string
-  currency: string
-  skills: string[]
-  deadline: number
-  milestones?: Array<{
-    name: string
-    description: string
-    reward: string
-    currency: string
-    deadline: number
-  }>
-  creator: string
-}): Promise<BountyRow> {
-  const db = getClient()
-  const id = generateId('bounty')
-  const now = Date.now()
-
-  await db.exec(
-    `INSERT INTO bounties (id, title, description, reward, currency, skills, deadline, milestones, creator, status, submissions, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', 0, ?, ?)`,
-    [
-      id,
-      bounty.title,
-      bounty.description,
-      bounty.reward,
-      bounty.currency,
-      toJSON(bounty.skills),
-      bounty.deadline,
-      bounty.milestones ? toJSON(bounty.milestones) : null,
-      bounty.creator,
-      now,
-      now,
-    ],
-  )
-
-  const created = await getBountyAsync(id)
-  if (!created) throw new Error(`Failed to create bounty ${id}`)
-  return created
-}
-
-// =============================================================================
-// Jobs (Async)
-// =============================================================================
-
-export async function listJobsAsync(filter?: {
-  type?: string
-  remote?: boolean
-  status?: string
-  page?: number
-  limit?: number
-}): Promise<{ jobs: JobRow[]; total: number }> {
-  const db = getClient()
-  const conditions: string[] = ["status = 'open'"]
-  const params: (string | number)[] = []
-
-  if (filter?.type) {
-    conditions.push('type = ?')
-    params.push(filter.type)
-  }
-  if (filter?.remote !== undefined) {
-    conditions.push('remote = ?')
-    params.push(filter.remote ? 1 : 0)
-  }
-
-  const whereClause = `WHERE ${conditions.join(' AND ')}`
-  const page = filter?.page ?? 1
-  const limit = filter?.limit ?? 20
-  const offset = (page - 1) * limit
-
-  const countResult = await db.query<{ count: number }>(
-    `SELECT COUNT(*) as count FROM jobs ${whereClause}`,
-    params,
-  )
-  const total = countResult[0]?.count ?? 0
-
-  const rows = await db.query<JobRow>(
-    `SELECT * FROM jobs ${whereClause} ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}`,
-    params,
-  )
-
-  return { jobs: rows.map((r) => JobRowSchema.parse(r)), total }
-}
-
-export async function getJobAsync(id: string): Promise<JobRow | null> {
-  const db = getClient()
-  const rows = await db.query<JobRow>('SELECT * FROM jobs WHERE id = ?', [id])
-  return rows[0] ? JobRowSchema.parse(rows[0]) : null
-}
-
-// =============================================================================
-// Projects (Async)
-// =============================================================================
-
-export async function listProjectsAsync(filter?: {
-  status?: string
-  owner?: string
-  page?: number
-  limit?: number
-}): Promise<{ projects: ProjectRow[]; total: number }> {
-  const db = getClient()
-  const conditions: string[] = []
-  const params: (string | number)[] = []
-
-  if (filter?.status) {
-    conditions.push('status = ?')
-    params.push(filter.status)
-  }
-  if (filter?.owner) {
-    conditions.push('owner = ?')
-    params.push(filter.owner)
-  }
-
-  const whereClause =
-    conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
-  const page = filter?.page ?? 1
-  const limit = filter?.limit ?? 20
-  const offset = (page - 1) * limit
-
-  const countResult = await db.query<{ count: number }>(
-    `SELECT COUNT(*) as count FROM projects ${whereClause}`,
-    params,
-  )
-  const total = countResult[0]?.count ?? 0
-
-  const rows = await db.query<ProjectRow>(
-    `SELECT * FROM projects ${whereClause} ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}`,
-    params,
-  )
-
-  return { projects: rows.map((r) => ProjectRowSchema.parse(r)), total }
-}
-
-export async function getProjectAsync(id: string): Promise<ProjectRow | null> {
-  const db = getClient()
-  const rows = await db.query<ProjectRow>(
-    'SELECT * FROM projects WHERE id = ?',
-    [id],
-  )
-  return rows[0] ? ProjectRowSchema.parse(rows[0]) : null
-}
-
-// =============================================================================
-// Agents (Async)
-// =============================================================================
-
-export async function listAgentsAsync(filter?: {
+export async function listAgents(filter?: {
   capability?: string
   active?: boolean
   owner?: string
+  search?: string
 }): Promise<AgentRow[]> {
-  const db = getClient()
   const conditions: string[] = []
   const params: (string | number)[] = []
 
@@ -487,55 +708,139 @@ export async function listAgentsAsync(filter?: {
     conditions.push('owner = ?')
     params.push(filter.owner)
   }
+  if (filter?.search) {
+    conditions.push('(name LIKE ? OR agent_id LIKE ?)')
+    params.push(`%${filter.search}%`, `%${filter.search}%`)
+  }
 
   const whereClause =
     conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
-
-  const rows = await db.query<AgentRow>(
+  const agents = await query<AgentRow>(
     `SELECT * FROM agents ${whereClause} ORDER BY reputation DESC, created_at DESC`,
     params,
   )
 
-  return rows.map((r) => AgentRowSchema.parse(r))
+  return agents.map((a) => AgentRowSchema.parse(a))
 }
 
-export async function getAgentAsync(agentId: string): Promise<AgentRow | null> {
-  const db = getClient()
-  const rows = await db.query<AgentRow>(
+export async function getAgent(agentId: string): Promise<AgentRow | null> {
+  const row = await queryOne<AgentRow>(
     'SELECT * FROM agents WHERE agent_id = ?',
     [agentId],
   )
-  return rows[0] ? AgentRowSchema.parse(rows[0]) : null
+  return row ? AgentRowSchema.parse(row) : null
 }
 
-// =============================================================================
-// Leaderboard (Async)
-// =============================================================================
+// ============================================================================
+// CONTAINERS
+// ============================================================================
 
-export async function getLeaderboardAsync(
-  limit: number = 50,
-): Promise<LeaderboardRow[]> {
-  const db = getClient()
-  const rows = await db.query<LeaderboardRow>(
-    `SELECT * FROM leaderboard ORDER BY score DESC LIMIT ${limit}`,
-  )
-  return rows.map((r) => LeaderboardRowSchema.parse(r))
-}
+const ContainerRowSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  tag: z.string(),
+  digest: z.string(),
+  size: z.number(),
+  platform: z.string(),
+  labels: z.string().nullable(),
+  downloads: z.number(),
+  owner: z.string(),
+  created_at: z.number(),
+  updated_at: z.number(),
+})
+type ContainerRow = z.infer<typeof ContainerRowSchema>
 
-// =============================================================================
-// Database Health
-// =============================================================================
+export async function listContainers(filter?: {
+  org?: string
+  name?: string
+  search?: string
+}): Promise<ContainerRow[]> {
+  const conditions: string[] = []
+  const params: string[] = []
 
-export async function checkDatabaseHealth(): Promise<{
-  healthy: boolean
-  latency: number
-}> {
-  const start = Date.now()
-  try {
-    const db = getClient()
-    await db.query('SELECT 1')
-    return { healthy: true, latency: Date.now() - start }
-  } catch {
-    return { healthy: false, latency: Date.now() - start }
+  if (filter?.org) {
+    conditions.push('owner = ?')
+    params.push(filter.org)
   }
+  if (filter?.name) {
+    conditions.push('name LIKE ?')
+    params.push(`%${filter.name}%`)
+  }
+  if (filter?.search) {
+    conditions.push('(name LIKE ? OR tag LIKE ?)')
+    params.push(`%${filter.search}%`, `%${filter.search}%`)
+  }
+
+  const whereClause =
+    conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+  const containers = await query<ContainerRow>(
+    `SELECT * FROM containers ${whereClause} ORDER BY created_at DESC`,
+    params,
+  )
+
+  return containers.map((c) => ContainerRowSchema.parse(c))
+}
+
+// ============================================================================
+// MODELS
+// ============================================================================
+
+const ModelRowSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  organization: z.string(),
+  type: z.enum(['llm', 'embedding', 'image', 'audio', 'multimodal', 'code']),
+  description: z.string(),
+  version: z.string(),
+  file_uri: z.string(),
+  downloads: z.number(),
+  stars: z.number(),
+  size: z.string().nullable(),
+  license: z.string().nullable(),
+  status: z.enum(['processing', 'ready', 'failed']),
+  owner: z.string(),
+  created_at: z.number(),
+  updated_at: z.number(),
+})
+type ModelRow = z.infer<typeof ModelRowSchema>
+
+export async function listModels(filter?: {
+  type?: string
+  org?: string
+  search?: string
+}): Promise<ModelRow[]> {
+  const conditions: string[] = []
+  const params: string[] = []
+
+  if (filter?.type) {
+    conditions.push('type = ?')
+    params.push(filter.type)
+  }
+  if (filter?.org) {
+    conditions.push('organization = ?')
+    params.push(filter.org)
+  }
+  if (filter?.search) {
+    conditions.push('(name LIKE ? OR description LIKE ?)')
+    params.push(`%${filter.search}%`, `%${filter.search}%`)
+  }
+
+  const whereClause =
+    conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+  const models = await query<ModelRow>(
+    `SELECT * FROM models ${whereClause} ORDER BY downloads DESC, created_at DESC`,
+    params,
+  )
+
+  return models.map((m) => ModelRowSchema.parse(m))
+}
+
+export async function getModel(
+  org: string,
+  name: string,
+): Promise<ModelRow | null> {
+  const row = await queryOne<ModelRow>('SELECT * FROM models WHERE id = ?', [
+    `${org}/${name}`,
+  ])
+  return row ? ModelRowSchema.parse(row) : null
 }

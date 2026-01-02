@@ -83,6 +83,8 @@ interface ApiRepository {
   sshUrl?: string
   createdAt: number
   updatedAt: number
+  language?: string
+  topics?: string[]
 }
 
 interface ApiFile {
@@ -118,7 +120,7 @@ function transformRepository(r: ApiRepository): Repository {
     fullName: r.owner ? `${r.owner}/${r.name}` : r.name,
     description: r.description ?? '',
     isPrivate: r.isPrivate,
-    language: 'TypeScript',
+    language: r.language ?? '',
     stars: r.stars,
     forks: r.forks,
     watchers: r.stars,
@@ -126,7 +128,7 @@ function transformRepository(r: ApiRepository): Repository {
     updatedAt: r.updatedAt,
     createdAt: r.createdAt,
     defaultBranch: r.defaultBranch,
-    topics: [],
+    topics: r.topics ?? [],
   }
 }
 

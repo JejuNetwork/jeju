@@ -37,7 +37,7 @@ async function fetchDAOs(params: FetchDAOsParams = {}): Promise<DAOListItem[]> {
 
   const data: unknown = await response.json()
 
-  // Handle various response formats
+  // Handle various response formats - fail fast on invalid data
   let daos: DAOListItem[]
   if (Array.isArray(data)) {
     daos = data
@@ -46,16 +46,14 @@ async function fetchDAOs(params: FetchDAOsParams = {}): Promise<DAOListItem[]> {
     if (Array.isArray(daosValue)) {
       daos = daosValue
     } else {
-      console.error('API returned invalid daos format:', data)
-      return []
+      throw new Error('API returned invalid daos format: expected array')
     }
   } else if (data && typeof data === 'object' && 'error' in data) {
     // Handle API error response
     const error = (data as { error: string }).error
     throw new Error(`API error: ${error}`)
   } else {
-    console.error('Unexpected API response format:', data)
-    return []
+    throw new Error('Unexpected API response format')
   }
 
   return daos.filter((dao) => {
@@ -116,10 +114,42 @@ export function useMyDAOs() {
 }
 
 async function createDAO(draft: CreateDAODraft): Promise<DAODetail> {
+  // Transform frontend draft to API-expected format
+  const apiPayload = {
+    name: draft.name,
+    displayName: draft.displayName,
+    description: draft.description,
+    treasury: draft.treasury,
+    manifestCid: '',
+    director: {
+      name: draft.ceo.persona.name,
+      pfpCid: draft.ceo.persona.avatarCid,
+      description: draft.ceo.persona.bio,
+      personality: draft.ceo.persona.personality,
+      traits: draft.ceo.persona.traits,
+      isHuman: false,
+      decisionFallbackDays: 7,
+    },
+    governance: {
+      minQualityScore: draft.governanceParams.minQualityScore,
+      boardVotingPeriod: draft.governanceParams.councilVotingPeriod,
+      gracePeriod: draft.governanceParams.gracePeriod,
+      minProposalStake: draft.governanceParams.minProposalStake,
+      quorumBps: draft.governanceParams.quorumBps,
+    },
+    board: draft.board.map((member) => ({
+      address: '0x0000000000000000000000000000000000000000',
+      agentId: '0',
+      role: member.role,
+      weight: member.weight,
+      isHuman: false,
+    })),
+  }
+
   const response = await fetch(`${API_BASE}/dao`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(draft),
+    body: JSON.stringify(apiPayload),
   })
   if (!response.ok) {
     const error = await response.json()
@@ -148,10 +178,19 @@ async function updateGovernanceParams(
   daoId: string,
   params: GovernanceParams,
 ): Promise<DAODetail> {
+  // Transform frontend params to API-expected format
+  const apiPayload = {
+    minQualityScore: params.minQualityScore,
+    boardVotingPeriod: params.councilVotingPeriod,
+    gracePeriod: params.gracePeriod,
+    minProposalStake: params.minProposalStake,
+    quorumBps: params.quorumBps,
+  }
+
   const response = await fetch(`${API_BASE}/dao/${daoId}/governance`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params),
+    body: JSON.stringify(apiPayload),
   })
   if (!response.ok) {
     const error = await response.json()
@@ -364,14 +403,35 @@ interface CreateProposalParams {
   value?: string
 }
 
+// Map frontend proposal types to API numbers
+const PROPOSAL_TYPE_MAP: Record<ProposalType, number> = {
+  general: 8, // POLICY
+  funding: 1, // TREASURY_ALLOCATION
+  code: 2, // CODE_UPGRADE
+  moderation: 8, // POLICY
+  bug_report: 5, // BOUNTY
+}
+
 async function createProposal(
   daoId: string,
   proposal: CreateProposalParams,
 ): Promise<ProposalDetail> {
+  // Transform to API-expected format
+  const apiPayload = {
+    title: proposal.title,
+    summary: proposal.summary,
+    description: proposal.description,
+    proposalType: PROPOSAL_TYPE_MAP[proposal.proposalType],
+    tags: proposal.tags,
+    targetContract: proposal.targetContract,
+    calldata: proposal.calldata,
+    value: proposal.value,
+  }
+
   const response = await fetch(`${API_BASE}/dao/${daoId}/proposals`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(proposal),
+    body: JSON.stringify(apiPayload),
   })
   if (!response.ok) {
     const error = await response.json()

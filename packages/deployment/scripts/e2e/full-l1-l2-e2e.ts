@@ -69,33 +69,6 @@ const USER = privateKeyToAccount(
   '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d',
 )
 
-// OP Stack L1 contract ABIs
-const _OPTIMISM_PORTAL_ABI = [
-  {
-    name: 'depositTransaction',
-    type: 'function',
-    stateMutability: 'payable',
-    inputs: [
-      { name: '_to', type: 'address' },
-      { name: '_value', type: 'uint256' },
-      { name: '_gasLimit', type: 'uint64' },
-      { name: '_isCreation', type: 'bool' },
-      { name: '_data', type: 'bytes' },
-    ],
-    outputs: [],
-  },
-  {
-    name: 'TransactionDeposited',
-    type: 'event',
-    inputs: [
-      { name: 'from', type: 'address', indexed: true },
-      { name: 'to', type: 'address', indexed: true },
-      { name: 'version', type: 'uint256', indexed: true },
-      { name: 'opaqueData', type: 'bytes', indexed: false },
-    ],
-  },
-] as const
-
 // L2 predeploys
 const L2_PREDEPLOYS = {
   L2CrossDomainMessenger:
@@ -324,17 +297,6 @@ async function testL1ToL2Deposit(): Promise<Record<string, unknown>> {
   if (!optimismPortalAddress) {
     throw new Error('OptimismPortal not deployed')
   }
-
-  const _l1Client = createPublicClient({
-    chain: { ...anvil, id: CONFIG.l1.chainId },
-    transport: http(CONFIG.l1.rpcUrl),
-  })
-
-  const _l1WalletClient = createWalletClient({
-    chain: { ...anvil, id: CONFIG.l1.chainId },
-    transport: http(CONFIG.l1.rpcUrl),
-    account: DEPLOYER,
-  })
 
   const l2Client = createPublicClient({
     chain: { ...anvil, id: CONFIG.l2.chainId },

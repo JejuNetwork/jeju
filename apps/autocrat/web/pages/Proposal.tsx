@@ -16,7 +16,7 @@ import {
   ThumbsUp,
   X,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useCreateProposal, useProposal } from '../hooks/useDAO'
 import type {
@@ -448,6 +448,55 @@ function ProposalView({
   )
 }
 
+interface ProposalDraftData {
+  title: string
+  description: string
+  linkedPRs: string[]
+  amount: string
+  recipient: string
+  token: string
+  severity: BountySeverity
+  vulnType: VulnerabilityType
+  affectedComponents: string[]
+  stepsToReproduce: string[]
+  poc: string
+  suggestedFix: string
+  savedAt: number
+}
+
+function getDraftKey(daoId: string, type: ProposalType): string {
+  return `autocrat-proposal-draft-${daoId}-${type}`
+}
+
+function loadDraft(
+  daoId: string,
+  type: ProposalType,
+): ProposalDraftData | null {
+  const key = getDraftKey(daoId, type)
+  const stored = localStorage.getItem(key)
+  if (!stored) return null
+  const draft = JSON.parse(stored) as ProposalDraftData
+  // Expire drafts after 7 days
+  if (Date.now() - draft.savedAt > 7 * 24 * 60 * 60 * 1000) {
+    localStorage.removeItem(key)
+    return null
+  }
+  return draft
+}
+
+function saveDraft(
+  daoId: string,
+  type: ProposalType,
+  data: Omit<ProposalDraftData, 'savedAt'>,
+): void {
+  const key = getDraftKey(daoId, type)
+  localStorage.setItem(key, JSON.stringify({ ...data, savedAt: Date.now() }))
+}
+
+function clearDraft(daoId: string, type: ProposalType): void {
+  localStorage.removeItem(getDraftKey(daoId, type))
+}
+
 function CreateProposalForm({
   daoId,
   type,
@@ -478,6 +527,65 @@ function CreateProposalForm({
   const [stepsToReproduce, setStepsToReproduce] = useState([''])
   const [poc, setPoc] = useState('')
   const [suggestedFix, setSuggestedFix] = useState('')
+
+  // Load draft on mount
+  useEffect(() => {
+    const draft = loadDraft(daoId, type)
+    if (draft) {
+      setTitle(draft.title)
+      setDescription(draft.description)
+      setLinkedPRs(draft.linkedPRs)
+      setAmount(draft.amount)
+      setRecipient(draft.recipient)
+      setToken(draft.token)
+      setSeverity(draft.severity)
+      setVulnType(draft.vulnType)
+      setAffectedComponents(draft.affectedComponents)
+      setStepsToReproduce(
+        draft.stepsToReproduce.length > 0 ? draft.stepsToReproduce : [''],
+      )
+      setPoc(draft.poc)
+      setSuggestedFix(draft.suggestedFix)
+    }
+  }, [daoId, type])
+
+  // Auto-save draft
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (title || description) {
+        saveDraft(daoId, type, {
+          title,
+          description,
+          linkedPRs,
+          amount,
+          recipient,
+          token,
+          severity,
+          vulnType,
+          affectedComponents,
+          stepsToReproduce,
+          poc,
+          suggestedFix,
+        })
+      }
+    }, 1000)
+    return () => clearTimeout(timeoutId)
+  }, [
+    daoId,
+    type,
+    title,
+    description,
+    linkedPRs,
+    amount,
+    recipient,
+    token,
+    severity,
+    vulnType,
+    affectedComponents,
+    stepsToReproduce,
+    poc,
+    suggestedFix,
+  ])
 
   const typeConfig = PROPOSAL_TYPE_CONFIG[type]
   const TypeIcon = typeConfig.icon
@@ -573,6 +681,7 @@ function CreateProposalForm({
 
     createProposalMutation.mutate(proposalData, {
       onSuccess: (newProposal) => {
+        clearDraft(daoId, type)
         navigate(`/dao/${daoId}/proposal/${newProposal.proposalId}`)
       },
       onError: (err) => {

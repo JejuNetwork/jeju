@@ -1,40 +1,12 @@
-import {
-  Activity,
-  Bot,
-  ChevronRight,
-  Crown,
-  Edit2,
-  MessageSquare,
-  Shield,
-  Zap,
-} from 'lucide-react'
+import { Activity, Bot, ChevronRight, Crown, Edit2, Zap } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { Link } from 'react-router-dom'
-import type { AgentRole, DAOAgent, DAODetail } from '../../types/dao'
+import { AGENT_ROLE_GRADIENTS, AGENT_ROLE_ICONS } from '../../constants/ui'
+import type { DAOAgent, DAODetail } from '../../types/dao'
 import { AgentDetailModal } from './AgentDetailModal'
 
 interface AgentsTabProps {
   dao: DAODetail
-}
-
-const ROLE_ICONS: Record<AgentRole, typeof Crown> = {
-  CEO: Crown,
-  TREASURY: Shield,
-  CODE: Bot,
-  COMMUNITY: MessageSquare,
-  SECURITY: Shield,
-  LEGAL: Shield,
-  CUSTOM: Bot,
-}
-
-const ROLE_GRADIENTS: Record<AgentRole, string> = {
-  CEO: 'var(--gradient-accent)',
-  TREASURY: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
-  CODE: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
-  COMMUNITY: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
-  SECURITY: 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)',
-  LEGAL: 'linear-gradient(135deg, #6B7280 0%, #4B5563 100%)',
-  CUSTOM: 'var(--gradient-secondary)',
 }
 
 interface AgentCardProps {
@@ -44,8 +16,8 @@ interface AgentCardProps {
 }
 
 function AgentCard({ agent, isCEO = false, onViewDetails }: AgentCardProps) {
-  const Icon = ROLE_ICONS[agent.role]
-  const gradientBg = ROLE_GRADIENTS[agent.role]
+  const Icon = AGENT_ROLE_ICONS[agent.role]
+  const gradientBg = AGENT_ROLE_GRADIENTS[agent.role]
   const activeConnectors = agent.connectors.filter((c) => c.enabled).length
 
   const timeSinceActive = Date.now() - agent.lastActiveAt
@@ -253,8 +225,8 @@ function OrgChart({ dao }: { dao: DAODetail }) {
         {/* Board members */}
         <div className="flex justify-center gap-4 flex-wrap">
           {dao.board.map((agent) => {
-            const Icon = ROLE_ICONS[agent.role]
-            const gradient = ROLE_GRADIENTS[agent.role]
+            const Icon = AGENT_ROLE_ICONS[agent.role]
+            const gradient = AGENT_ROLE_GRADIENTS[agent.role]
             return (
               <div
                 key={agent.id}

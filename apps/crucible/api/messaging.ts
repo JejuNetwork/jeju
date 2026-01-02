@@ -1,8 +1,9 @@
-import { getCacheClient } from '@jejunetwork/cache'
+import { getCacheClient, safeParseCached } from '@jejunetwork/cache'
 import {
   type FarcasterCast,
   FarcasterClient,
   type FarcasterProfile,
+  FarcasterProfileSchema,
 } from '@jejunetwork/messaging'
 import type { Address } from 'viem'
 
@@ -84,9 +85,14 @@ class CrucibleMessagingService {
     const cacheKey = `profile:${fid}`
 
     // Check DWS cache first
-    const cached = await cache.get(cacheKey).catch(() => null)
-    if (cached) {
-      return JSON.parse(cached) as FarcasterProfile
+    const cached = await cache.get(cacheKey).catch((err) => {
+      console.warn('[Crucible] Cache read failed:', err)
+      return null
+    })
+    const cachedProfile = safeParseCached(cached, FarcasterProfileSchema)
+    if (cachedProfile) {
+      console.debug('[Crucible] Cache hit for profile:', fid)
+      return cachedProfile
     }
 
     // Profile fetch may fail due to Hub API limitations (e.g. getLinksByTargetFid returns 400)
@@ -98,9 +104,10 @@ class CrucibleMessagingService {
       return null
     })
     if (profile) {
+      console.debug('[Crucible] Cache miss, caching profile:', fid)
       cache
         .set(cacheKey, JSON.stringify(profile), PROFILE_CACHE_TTL)
-        .catch(() => {})
+        .catch((err) => console.warn('[Crucible] Cache write failed:', err))
     }
     return profile
   }

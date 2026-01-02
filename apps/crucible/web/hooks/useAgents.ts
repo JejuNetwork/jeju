@@ -12,14 +12,26 @@ interface Agent {
   agentId: string
   owner: string
   name: string
+  description?: string
   botType: 'ai_agent' | 'trading_bot' | 'org_tool'
   characterCid?: string
   stateCid: string
   vaultAddress: string
+  vaultBalance?: string
   active: boolean
   registeredAt: number
   lastExecutedAt: number
   executionCount: number
+  tickIntervalMs?: number
+  capabilities?: {
+    canChat?: boolean
+    canTrade?: boolean
+    canVote?: boolean
+    canPropose?: boolean
+    canStake?: boolean
+    a2a?: boolean
+    compute?: boolean
+  }
 }
 
 interface AgentsSearchResponse {

@@ -17,6 +17,7 @@ import type {
 import { expect, expectTrue } from '../schemas'
 import type { AgentSDK } from './agent'
 import type { CrucibleCompute } from './compute'
+import { runtimeManager } from './eliza-runtime'
 import type { KMSSigner } from './kms-signer'
 import { createLogger, type Logger } from './logger'
 import type { RoomSDK } from './room'
@@ -719,14 +720,77 @@ export class ExecutorSDK {
         return false
 
       default:
-        // Action not handled - log it but don't fail silently
-        this.log.debug('Unhandled action type', {
-          type,
-          params: JSON.stringify(action.params ?? {}),
-          hint: 'This action may need to be routed to the Jeju plugin runtime',
-        })
-        return false
+        // Route to Jeju plugin runtime for DeFi, compute, governance, etc.
+        return this.executePluginAction(agentId, type, action.params ?? {})
     }
+  }
+
+  /**
+   * Execute an action via the Jeju plugin runtime
+   * Handles DeFi, compute, storage, governance, moderation, A2A actions
+   */
+  private async executePluginAction(
+    agentId: bigint,
+    actionType: string,
+    params: ActionParams,
+  ): Promise<boolean> {
+    // Get or create runtime for this agent
+    const agentIdStr = agentId.toString()
+    let runtime = runtimeManager.getRuntime(agentIdStr)
+
+    if (!runtime) {
+      // Try to load agent and create runtime
+      const agent = await this.agentSdk.getAgent(agentId)
+      if (!agent?.characterCid) {
+        this.log.debug(
+          'Cannot execute plugin action - agent not found or no character',
+          {
+            agentId: agentIdStr,
+            actionType,
+          },
+        )
+        return false
+      }
+
+      const character = await this.agentSdk.loadCharacter(agentId)
+      runtime = await runtimeManager.createRuntime({
+        agentId: agentIdStr,
+        character,
+      })
+    }
+
+    // Check if this action exists in the plugin
+    if (!runtime.actionHasHandler(actionType)) {
+      this.log.debug('Action not found in Jeju plugin', {
+        actionType,
+        availableActions: runtime.getExecutableActions().slice(0, 10),
+      })
+      return false
+    }
+
+    // Execute via runtime
+    const stringParams: Record<string, string> = {}
+    for (const [key, value] of Object.entries(params)) {
+      stringParams[key] = String(value)
+    }
+
+    const result = await runtime.executeAction(actionType, stringParams)
+
+    if (result.success) {
+      this.log.info('Plugin action executed', {
+        agentId: agentIdStr,
+        actionType,
+        result: JSON.stringify(result.result ?? {}).slice(0, 200),
+      })
+    } else {
+      this.log.warn('Plugin action failed', {
+        agentId: agentIdStr,
+        actionType,
+        error: result.error ?? 'Unknown error',
+      })
+    }
+
+    return result.success
   }
 
   private estimateCost(maxTokens: number = 2048): bigint {

@@ -19,6 +19,7 @@ import {
 import { useCallback, useMemo, useState } from 'react'
 import { useUpdateDAO } from '../../hooks/useDAO'
 import type { DAODetail, DAOVisibility } from '../../types/dao'
+import { ConfirmDialog } from '../ConfirmDialog'
 
 interface SettingsTabProps {
   dao: DAODetail
@@ -112,6 +113,7 @@ export function SettingsTab({ dao }: SettingsTabProps) {
   const [twitterHandle, setTwitterHandle] = useState(dao.twitterHandle ?? '')
   const [githubOrg, setGithubOrg] = useState(dao.githubOrg ?? '')
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
 
   const updateDAO = useUpdateDAO(dao.daoId)
 
@@ -699,6 +701,7 @@ export function SettingsTab({ dao }: SettingsTabProps) {
               </p>
               <button
                 type="button"
+                onClick={() => setShowArchiveConfirm(true)}
                 className="mt-3 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
                 style={{
                   backgroundColor: 'rgba(239, 68, 68, 0.15)',
@@ -712,6 +715,25 @@ export function SettingsTab({ dao }: SettingsTabProps) {
           </div>
         </div>
       </Section>
+
+      {/* Archive Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showArchiveConfirm}
+        onClose={() => setShowArchiveConfirm(false)}
+        onConfirm={() => {
+          setShowArchiveConfirm(false)
+          // Archive functionality requires a network-level governance proposal
+          // This is by design - archiving a DAO is a significant action that
+          // should go through the proper governance process, not a simple button click
+          setSaveError(
+            'DAO archiving requires a network-level governance proposal. Please submit a proposal through the governance system.',
+          )
+        }}
+        title="Archive DAO"
+        description={`Are you sure you want to request archiving "${dao.displayName}"? This will disable governance and freeze the treasury. Reversal requires a network-level proposal.`}
+        confirmLabel="Request Archive"
+        variant="danger"
+      />
 
       {/* Save Button */}
       <div

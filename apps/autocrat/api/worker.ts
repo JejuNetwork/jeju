@@ -22,7 +22,7 @@ import { a2aRoutes } from './routes/a2a'
 import { agentsRoutes } from './routes/agents'
 import { bugBountyRoutes } from './routes/bug-bounty'
 import { casualRoutes } from './routes/casual'
-import { daoRoutes } from './routes/dao'
+import { daoRoutes, directorRoutes } from './routes/dao'
 import { feesRoutes } from './routes/fees'
 import { fundingRoutes } from './routes/funding'
 import { futarchyRoutes } from './routes/futarchy'
@@ -286,6 +286,7 @@ export function createAutocratApp(env?: Partial<AutocratEnv>) {
   // Mount all routes
   app.use(proposalsRoutes)
   app.use(daoRoutes)
+  app.use(directorRoutes)
   app.use(futarchyRoutes)
   app.use(agentsRoutes)
   app.use(moderationRoutes)

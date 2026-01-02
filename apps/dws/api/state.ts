@@ -53,7 +53,15 @@ function createMemorySQLitClient(): MinimalSQLitClient {
     ): Promise<QueryResult<T>> {
       // Parse simple SELECT queries for test mode
       const table = sql.match(/FROM\s+(\w+)/i)?.[1]
-      if (!table) return { rows: [] }
+      if (!table) {
+        return {
+          rows: [],
+          rowCount: 0,
+          columns: [],
+          executionTime: 0,
+          blockHeight: 0,
+        }
+      }
 
       const tableData = memoryTables.get(table) ?? new Map()
       const rows = Array.from(tableData.values())
@@ -66,10 +74,22 @@ function createMemorySQLitClient(): MinimalSQLitClient {
         const filtered = rows.filter(
           (r) => String(r[field]).toLowerCase() === value,
         )
-        return { rows: filtered as T[] }
+        return {
+          rows: filtered as T[],
+          rowCount: filtered.length,
+          columns: [],
+          executionTime: 0,
+          blockHeight: 0,
+        }
       }
 
-      return { rows: rows as T[] }
+      return {
+        rows: rows as T[],
+        rowCount: rows.length,
+        columns: [],
+        executionTime: 0,
+        blockHeight: 0,
+      }
     },
     async exec(
       sql: string,
@@ -96,7 +116,13 @@ function createMemorySQLitClient(): MinimalSQLitClient {
           })
         }
         tableData?.set(id, record)
-        return { rowsAffected: 1 }
+        return {
+          rowsAffected: 1,
+          txHash:
+            '0x0000000000000000000000000000000000000000000000000000000000000000' as const,
+          blockHeight: 0,
+          gasUsed: 0n,
+        }
       }
 
       const deleteMatch = sql.match(
@@ -109,10 +135,22 @@ function createMemorySQLitClient(): MinimalSQLitClient {
           const id = String(params[0])
           tableData.delete(id)
         }
-        return { rowsAffected: 1 }
+        return {
+          rowsAffected: 1,
+          txHash:
+            '0x0000000000000000000000000000000000000000000000000000000000000000' as const,
+          blockHeight: 0,
+          gasUsed: 0n,
+        }
       }
 
-      return { rowsAffected: 0 }
+      return {
+        rowsAffected: 0,
+        txHash:
+          '0x0000000000000000000000000000000000000000000000000000000000000000' as const,
+        blockHeight: 0,
+        gasUsed: 0n,
+      }
     },
   }
 }

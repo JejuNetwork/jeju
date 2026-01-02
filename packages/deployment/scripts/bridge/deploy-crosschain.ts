@@ -10,7 +10,7 @@
  *   bun packages/deployment/scripts/bridge/deploy-crosschain.ts
  */
 
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   type Address,
@@ -33,6 +33,10 @@ const L2_CHAIN_ID = 31337
 const DEPLOYER_KEY =
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as Hex
 
+// Relayer address (account #1)
+const RELAYER_ADDRESS = (process.env.RELAYER_ADDRESS ||
+  '0x70997970C51812dc3A010C7d01b50e0d17dc79C8') as Address
+
 interface DeploymentResult {
   l1ChainId: number
   l2ChainId: number
@@ -40,6 +44,7 @@ interface DeploymentResult {
   l2Messenger: Address
   l1StakeManager: Address
   entryPoint: Address
+  simpleAccountFactory: Address
   crossChainPaymaster: Address
   deployedAt: string
 }
@@ -159,6 +164,16 @@ async function main() {
     'EntryPoint',
   )
   console.log(`  EntryPoint: ${entryPointAddress}`)
+
+  // Deploy SimpleAccountFactory with EntryPoint as constructor arg
+  console.log('Deploying SimpleAccountFactory...')
+  const accountFactoryAddress = await deployContractWithArgs(
+    l2Wallet,
+    l2Public,
+    'SimpleAccountFactory',
+    [entryPointAddress],
+  )
+  console.log(`  SimpleAccountFactory: ${accountFactoryAddress}`)
 
   // Deploy L2CrossDomainMessenger
   console.log('Deploying L2CrossDomainMessenger...')
@@ -293,7 +308,7 @@ async function main() {
   })
   console.log(`  Registered paymaster with L1StakeManager`)
 
-  // Save deployment
+  // Save deployment to crosschain file
   const deployment: DeploymentResult = {
     l1ChainId: L1_CHAIN_ID,
     l2ChainId: L2_CHAIN_ID,
@@ -301,6 +316,7 @@ async function main() {
     l2Messenger: l2MessengerAddress,
     l1StakeManager: l1StakeManagerAddress,
     entryPoint: entryPointAddress,
+    simpleAccountFactory: accountFactoryAddress,
     crossChainPaymaster: proxyAddress,
     deployedAt: new Date().toISOString(),
   }
@@ -315,6 +331,25 @@ async function main() {
     JSON.stringify(deployment, null, 2),
   )
 
+  // Also update localnet-complete.json if it exists (for bundler and other services)
+  const completeFile = join(deploymentsDir, 'localnet-complete.json')
+  if (existsSync(completeFile)) {
+    const complete = JSON.parse(readFileSync(completeFile, 'utf-8'))
+    complete.contracts = complete.contracts || {}
+    complete.contracts.entryPoint = entryPointAddress
+    complete.contracts.crossChainPaymaster = proxyAddress
+    complete.contracts.l1StakeManager = l1StakeManagerAddress
+    complete.crossChain = {
+      l1ChainId: L1_CHAIN_ID,
+      l2ChainId: L2_CHAIN_ID,
+      l1Messenger: l1MessengerAddress,
+      l2Messenger: l2MessengerAddress,
+      relayer: RELAYER_ADDRESS,
+    }
+    writeFileSync(completeFile, JSON.stringify(complete, null, 2))
+    console.log('  Updated localnet-complete.json with cross-chain contracts')
+  }
+
   console.log('')
   console.log('='.repeat(60))
   console.log('  CROSS-CHAIN DEPLOYMENT COMPLETE')
@@ -327,6 +362,7 @@ async function main() {
   console.log('L2 Contracts:')
   console.log(`  L2Messenger:      ${l2MessengerAddress}`)
   console.log(`  EntryPoint:       ${entryPointAddress}`)
+  console.log(`  AccountFactory:   ${accountFactoryAddress}`)
   console.log(`  CrossChainPM:     ${proxyAddress}`)
   console.log('')
   console.log(
@@ -336,26 +372,28 @@ async function main() {
   console.log('Message relay will automatically pick up messenger addresses.')
 }
 
+// Get contract artifact path
+const artifactPaths: Record<string, string> = {
+  L1CrossDomainMessenger:
+    'packages/contracts/out/L1CrossDomainMessenger.sol/L1CrossDomainMessenger.json',
+  L2CrossDomainMessenger:
+    'packages/contracts/out/L2CrossDomainMessenger.sol/L2CrossDomainMessenger.json',
+  L1StakeManager:
+    'packages/contracts/out/L1StakeManager.sol/L1StakeManager.json',
+  CrossChainPaymasterUpgradeable:
+    'packages/contracts/out/CrossChainPaymasterUpgradeable.sol/CrossChainPaymasterUpgradeable.json',
+  EntryPoint: 'packages/contracts/out/EntryPoint.sol/EntryPoint.json',
+  ERC1967Proxy: 'packages/contracts/out/ERC1967Proxy.sol/ERC1967Proxy.json',
+  SimpleAccountFactory:
+    'packages/contracts/out/SimpleAccountFactory.sol/SimpleAccountFactory.json',
+}
+
 async function deployContract(
   wallet: ReturnType<typeof createWalletClient>,
   publicClient: ReturnType<typeof createPublicClient>,
   contractName: string,
 ): Promise<Address> {
   const { readFileSync } = await import('node:fs')
-
-  // Get contract artifact path
-  const artifactPaths: Record<string, string> = {
-    L1CrossDomainMessenger:
-      'packages/contracts/out/L1CrossDomainMessenger.sol/L1CrossDomainMessenger.json',
-    L2CrossDomainMessenger:
-      'packages/contracts/out/L2CrossDomainMessenger.sol/L2CrossDomainMessenger.json',
-    L1StakeManager:
-      'packages/contracts/out/L1StakeManager.sol/L1StakeManager.json',
-    CrossChainPaymasterUpgradeable:
-      'packages/contracts/out/CrossChainPaymasterUpgradeable.sol/CrossChainPaymasterUpgradeable.json',
-    EntryPoint: 'packages/contracts/out/EntryPoint.sol/EntryPoint.json',
-    ERC1967Proxy: 'packages/contracts/out/ERC1967Proxy.sol/ERC1967Proxy.json',
-  }
 
   const artifactPath = join(process.cwd(), artifactPaths[contractName])
   if (!existsSync(artifactPath)) {
@@ -368,8 +406,47 @@ async function deployContract(
   const bytecode = artifact.bytecode.object as Hex
 
   const hash = await wallet.sendTransaction({
+    account: wallet.account,
+    chain: wallet.chain,
     data: bytecode,
+  } as Parameters<typeof wallet.sendTransaction>[0])
+
+  const receipt = await publicClient.waitForTransactionReceipt({ hash })
+  if (!receipt.contractAddress) {
+    throw new Error(`Failed to deploy ${contractName}`)
+  }
+
+  return receipt.contractAddress
+}
+
+async function deployContractWithArgs(
+  wallet: ReturnType<typeof createWalletClient>,
+  publicClient: ReturnType<typeof createPublicClient>,
+  contractName: string,
+  args: Address[],
+): Promise<Address> {
+  const { readFileSync } = await import('node:fs')
+
+  const artifactPath = join(process.cwd(), artifactPaths[contractName])
+  if (!existsSync(artifactPath)) {
+    throw new Error(
+      `Artifact not found: ${artifactPath}. Run 'forge build' first.`,
+    )
+  }
+
+  const artifact = JSON.parse(readFileSync(artifactPath, 'utf-8'))
+
+  const deployData = encodeDeployData({
+    abi: artifact.abi,
+    bytecode: artifact.bytecode.object as Hex,
+    args,
   })
+
+  const hash = await wallet.sendTransaction({
+    account: wallet.account,
+    chain: wallet.chain,
+    data: deployData,
+  } as Parameters<typeof wallet.sendTransaction>[0])
 
   const receipt = await publicClient.waitForTransactionReceipt({ hash })
   if (!receipt.contractAddress) {
@@ -400,8 +477,10 @@ async function deployProxy(
   })
 
   const hash = await wallet.sendTransaction({
+    account: wallet.account,
+    chain: wallet.chain,
     data: deployData,
-  })
+  } as Parameters<typeof wallet.sendTransaction>[0])
 
   const receipt = await publicClient.waitForTransactionReceipt({ hash })
   if (!receipt.contractAddress) {

@@ -93,6 +93,36 @@ export const bountiesRoutes = new Elysia({ prefix: '/api/bounties' })
       },
     },
   )
+  .get(
+    '/stats',
+    async () => {
+      // Get all bounties for stats calculation
+      const result = dbListBounties({ limit: 10000 })
+      const bounties = result.bounties
+
+      const openBounties = bounties.filter((b) => b.status === 'open').length
+      const completed = bounties.filter((b) => b.status === 'completed').length
+      const totalValue = bounties.reduce(
+        (sum, b) => sum + Number.parseFloat(b.reward),
+        0,
+      )
+      const avgPayout = completed > 0 ? totalValue / completed : 0
+
+      return {
+        openBounties,
+        totalValue: `${totalValue.toFixed(2)} ETH`,
+        completed,
+        avgPayout: `${avgPayout.toFixed(2)} ETH`,
+      }
+    },
+    {
+      detail: {
+        tags: ['bounties'],
+        summary: 'Get bounty stats',
+        description: 'Get aggregated bounty statistics',
+      },
+    },
+  )
   .post(
     '/',
     async ({ body, headers, set }) => {

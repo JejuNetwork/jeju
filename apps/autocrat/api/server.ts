@@ -22,7 +22,7 @@ import { a2aRoutes } from './routes/a2a'
 import { agentsRoutes } from './routes/agents'
 import { bugBountyRoutes } from './routes/bug-bounty'
 import { casualRoutes } from './routes/casual'
-import { daoRoutes } from './routes/dao'
+import { daoRoutes, directorRoutes } from './routes/dao'
 import { feesRoutes } from './routes/fees'
 import { fundingRoutes } from './routes/funding'
 import { futarchyRoutes } from './routes/futarchy'
@@ -107,6 +107,7 @@ const app = new Elysia()
   .use(healthRoutes)
   .use(proposalsRoutes)
   .use(daoRoutes)
+  .use(directorRoutes)
   .use(futarchyRoutes)
   .use(agentsRoutes)
   .use(moderationRoutes)

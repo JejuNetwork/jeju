@@ -5,6 +5,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { Header } from './components/Header'
 import { LoadingSpinner } from './components/LoadingSpinner'
+import { OnboardingModal } from './components/OnboardingModal'
 import { getOAuth3Config } from './config'
 
 // Lazy load pages for better performance
@@ -12,7 +13,10 @@ const HomePage = lazy(() => import('./pages/Home'))
 const AgentsPage = lazy(() => import('./pages/Agents'))
 const AgentDetailPage = lazy(() => import('./pages/AgentDetail'))
 const CreateAgentPage = lazy(() => import('./pages/CreateAgent'))
+const RoomsPage = lazy(() => import('./pages/Rooms'))
 const ChatPage = lazy(() => import('./pages/Chat'))
+const AutonomousPage = lazy(() => import('./pages/Autonomous'))
+const BotsPage = lazy(() => import('./pages/Bots'))
 const NotFoundPage = lazy(() => import('./pages/NotFound'))
 
 function PageLoader() {
@@ -89,6 +93,7 @@ function Layout({ children }: { children: React.ReactNode }) {
           },
         }}
       />
+      <OnboardingModal />
     </div>
   )
 }
@@ -104,8 +109,11 @@ export function App() {
               <Route path="/agents" element={<AgentsPage />} />
               <Route path="/agents/new" element={<CreateAgentPage />} />
               <Route path="/agents/:id" element={<AgentDetailPage />} />
+              <Route path="/rooms" element={<RoomsPage />} />
               <Route path="/chat" element={<ChatPage />} />
               <Route path="/chat/:roomId" element={<ChatPage />} />
+              <Route path="/autonomous" element={<AutonomousPage />} />
+              <Route path="/bots" element={<BotsPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </Suspense>

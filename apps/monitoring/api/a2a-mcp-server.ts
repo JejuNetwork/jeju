@@ -1,5 +1,5 @@
 import { cors } from '@elysiajs/cors'
-import { getCacheClient } from '@jejunetwork/cache'
+import { getCacheClient, safeParseCached } from '@jejunetwork/cache'
 import {
   getCurrentNetwork,
   getLocalhostHost,
@@ -120,6 +120,37 @@ const CACHE_TTL = {
 function getMonitoringCache() {
   return getCacheClient('monitoring-metrics')
 }
+
+// Zod schemas for cached data validation
+const CachedServicesSchema = z.object({
+  services: z.array(
+    z.object({
+      name: z.string(),
+      status: z.string(),
+      instances: z.number(),
+      healthy: z.number(),
+    }),
+  ),
+  healthy: z.number(),
+  unhealthy: z.number(),
+})
+
+const CachedAlertsSchema = z.object({
+  alerts: z.array(
+    z.object({
+      state: z.string(),
+      labels: z.record(z.string(), z.string()),
+      annotations: z.record(z.string(), z.string()),
+    }),
+  ),
+  count: z.number(),
+})
+
+const CachedPromQuerySchema = z.object({
+  logs: z.array(z.string()),
+  total: z.number(),
+  query: z.string(),
+})
 
 // Hash a Prometheus query for cache key
 function hashPromQuery(query: string): string {
@@ -406,18 +437,12 @@ async function executeSkill(
 
       // Check cache for targets
       const cacheKey = 'targets:all'
-      const cached = await cache.get(cacheKey).catch(() => null)
-      if (cached) {
-        const cachedData = JSON.parse(cached) as {
-          services: Array<{
-            name: string
-            status: string
-            instances: number
-            healthy: number
-          }>
-          healthy: number
-          unhealthy: number
-        }
+      const cached = await cache.get(cacheKey).catch((err) => {
+        console.warn('[Monitoring] Cache read failed:', err)
+        return null
+      })
+      const cachedData = safeParseCached(cached, CachedServicesSchema)
+      if (cachedData) {
         return {
           message: `${cachedData.healthy}/${cachedData.services.length} services healthy`,
           data: cachedData,
@@ -479,7 +504,7 @@ async function executeSkill(
       const resultData = { services, healthy, unhealthy }
       cache
         .set(cacheKey, JSON.stringify(resultData), CACHE_TTL.TARGETS)
-        .catch(() => {})
+        .catch((err) => console.warn('[Monitoring] Cache write failed:', err))
 
       return {
         message: `${healthy}/${services.length} services healthy`,
@@ -492,16 +517,12 @@ async function executeSkill(
 
       // Check cache for alerts
       const cacheKey = 'alerts:active'
-      const cached = await cache.get(cacheKey).catch(() => null)
-      if (cached) {
-        const cachedData = JSON.parse(cached) as {
-          alerts: Array<{
-            state: string
-            labels: Record<string, string>
-            annotations: Record<string, string>
-          }>
-          count: number
-        }
+      const cached = await cache.get(cacheKey).catch((err) => {
+        console.warn('[Monitoring] Cache read failed:', err)
+        return null
+      })
+      const cachedData = safeParseCached(cached, CachedAlertsSchema)
+      if (cachedData) {
         return {
           message: `${cachedData.count} active alerts`,
           data: cachedData,
@@ -539,7 +560,7 @@ async function executeSkill(
       const resultData = { alerts: activeAlerts, count: activeAlerts.length }
       cache
         .set(cacheKey, JSON.stringify(resultData), CACHE_TTL.ALERTS)
-        .catch(() => {})
+        .catch((err) => console.warn('[Monitoring] Cache write failed:', err))
 
       return {
         message: `${activeAlerts.length} active alerts`,
@@ -552,7 +573,10 @@ async function executeSkill(
 
       // Check block number cache first
       let blockNumber = 0
-      const cachedBlock = await cache.get('chain:block').catch(() => null)
+      const cachedBlock = await cache.get('chain:block').catch((err) => {
+        console.warn('[Monitoring] Cache read failed:', err)
+        return null
+      })
       if (cachedBlock) {
         blockNumber = parseInt(cachedBlock, 10)
       } else {
@@ -592,12 +616,15 @@ async function executeSkill(
         blockNumber = parseInt(blockParsed.data.result, 16)
         cache
           .set('chain:block', blockNumber.toString(), CACHE_TTL.BLOCK_NUMBER)
-          .catch(() => {})
+          .catch((err) => console.warn('[Monitoring] Cache write failed:', err))
       }
 
       // Check gas price cache
       let gasPrice = '0'
-      const cachedGas = await cache.get('chain:gas').catch(() => null)
+      const cachedGas = await cache.get('chain:gas').catch((err) => {
+        console.warn('[Monitoring] Cache read failed:', err)
+        return null
+      })
       if (cachedGas) {
         gasPrice = cachedGas
       } else {
@@ -622,14 +649,19 @@ async function executeSkill(
             gasPrice = (parseInt(gasParsed.data.result, 16) / 1e9).toFixed(2)
             cache
               .set('chain:gas', gasPrice, CACHE_TTL.GAS_PRICE)
-              .catch(() => {})
+              .catch((err) =>
+                console.warn('[Monitoring] Cache write failed:', err),
+              )
           }
         }
       }
 
       // Check TPS cache
       let tps = 0
-      const cachedTps = await cache.get('chain:tps').catch(() => null)
+      const cachedTps = await cache.get('chain:tps').catch((err) => {
+        console.warn('[Monitoring] Cache read failed:', err)
+        return null
+      })
       if (cachedTps) {
         tps = parseInt(cachedTps, 10)
       } else {
@@ -645,7 +677,9 @@ async function executeSkill(
               tps = Math.round(parseFloat(result.value[1]))
               cache
                 .set('chain:tps', tps.toString(), CACHE_TTL.TPS)
-                .catch(() => {})
+                .catch((err) =>
+                  console.warn('[Monitoring] Cache write failed:', err),
+                )
             }
           }
         }
@@ -986,13 +1020,13 @@ export function createMonitoringMCPServer() {
           // Check cache for this query
           const cache = getMonitoringCache()
           const cacheKey = `prom:${hashPromQuery(args.query)}`
-          const cached = await cache.get(cacheKey).catch(() => null)
-          if (cached) {
-            result = JSON.parse(cached) as {
-              logs: string[]
-              total: number
-              query: string
-            }
+          const cached = await cache.get(cacheKey).catch((err) => {
+            console.warn('[Monitoring] Cache read failed:', err)
+            return null
+          })
+          const cachedResult = safeParseCached(cached, CachedPromQuerySchema)
+          if (cachedResult) {
+            result = cachedResult
             break
           }
 
@@ -1027,7 +1061,9 @@ export function createMonitoringMCPServer() {
           // Cache the query result
           cache
             .set(cacheKey, JSON.stringify(result), CACHE_TTL.PROMETHEUS)
-            .catch(() => {})
+            .catch((err) =>
+              console.warn('[Monitoring] Cache write failed:', err),
+            )
           break
         }
 

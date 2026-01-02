@@ -16,10 +16,13 @@ import {
   Sparkles,
   Trash2,
   Users,
+  Wallet,
   X,
 } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useAccount, useConnect, useSignMessage } from 'wagmi'
+import { injected } from 'wagmi/connectors'
 import {
   DECISION_STYLE_OPTIONS,
   MODEL_OPTIONS,
@@ -541,6 +544,14 @@ export default function CreateDAOPage() {
   const [step, setStep] = useState<WizardStep>('basics')
   const createDAOMutation = useCreateDAO()
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [signatureStatus, setSignatureStatus] = useState<
+    'idle' | 'signing' | 'signed'
+  >('idle')
+
+  // Wallet hooks
+  const { address, isConnected } = useAccount()
+  const { connect, isPending: isConnecting } = useConnect()
+  const { signMessageAsync } = useSignMessage()
 
   // Form state
   const [name, setName] = useState('')
@@ -609,6 +620,25 @@ export default function CreateDAOPage() {
   const handleSubmit = useCallback(async () => {
     setSubmitError(null)
 
+    // Require wallet connection
+    if (!isConnected || !address) {
+      setSubmitError('Please connect your wallet to create a DAO')
+      return
+    }
+
+    // Request signature to verify ownership
+    setSignatureStatus('signing')
+    const message = `Create DAO "${displayName}" on Jeju Network\n\nName: ${name}\nCreator: ${address}\nTimestamp: ${Date.now()}`
+
+    try {
+      await signMessageAsync({ message })
+      setSignatureStatus('signed')
+    } catch {
+      setSignatureStatus('idle')
+      setSubmitError('Signature required to create DAO')
+      return
+    }
+
     const draft: CreateDAODraft = {
       name,
       displayName,
@@ -616,7 +646,7 @@ export default function CreateDAOPage() {
       avatarCid: '',
       bannerCid: '',
       visibility: 'public',
-      treasury: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+      treasury: address, // Use connected wallet as initial treasury
       ceo,
       board,
       governanceParams,
@@ -633,6 +663,7 @@ export default function CreateDAOPage() {
         setSubmitError(
           error instanceof Error ? error.message : 'Failed to create DAO',
         )
+        setSignatureStatus('idle')
       },
     })
   }, [
@@ -644,9 +675,17 @@ export default function CreateDAOPage() {
     ceo,
     board,
     governanceParams,
+    isConnected,
+    address,
+    signMessageAsync,
     createDAOMutation,
     navigate,
   ])
+
+  const totalBoardWeight = useMemo(
+    () => board.reduce((sum, b) => sum + b.weight, 0),
+    [board],
+  )
 
   const isStepValid = useMemo((): boolean => {
     switch (step) {
@@ -657,7 +696,8 @@ export default function CreateDAOPage() {
       case 'board':
         return (
           board.length >= 3 &&
-          board.every((b) => b.persona.name.trim().length >= 2)
+          board.every((b) => b.persona.name.trim().length >= 2) &&
+          totalBoardWeight === 100
         )
       case 'governance':
         return true
@@ -666,7 +706,7 @@ export default function CreateDAOPage() {
       default:
         return false
     }
-  }, [step, name, displayName, ceo, board])
+  }, [step, name, displayName, ceo, board, totalBoardWeight])
 
   return (
     <div
@@ -924,12 +964,34 @@ export default function CreateDAOPage() {
         {/* Step: Board */}
         {step === 'board' && (
           <div className="space-y-6 animate-in">
-            <h2
-              className="text-2xl font-bold mb-6"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              Board members
-            </h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2
+                className="text-2xl font-bold"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                Board members
+              </h2>
+              <div
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium"
+                style={{
+                  backgroundColor:
+                    totalBoardWeight === 100
+                      ? 'rgba(16, 185, 129, 0.12)'
+                      : 'rgba(239, 68, 68, 0.12)',
+                  color:
+                    totalBoardWeight === 100
+                      ? 'var(--color-success)'
+                      : 'var(--color-error)',
+                }}
+              >
+                Total Weight: {totalBoardWeight}%
+                {totalBoardWeight !== 100 && (
+                  <span className="text-xs">
+                    ({totalBoardWeight < 100 ? 'need more' : 'too high'})
+                  </span>
+                )}
+              </div>
+            </div>
 
             <div className="space-y-4">
               {board.map((agent, index) => (
@@ -1301,13 +1363,13 @@ export default function CreateDAOPage() {
 
       {/* Footer Navigation */}
       <footer
-        className="fixed bottom-0 left-0 right-0 backdrop-blur-xl border-t"
+        className="fixed bottom-0 left-0 right-0 backdrop-blur-xl border-t fixed-bottom"
         style={{
           backgroundColor: 'rgba(var(--bg-primary-rgb, 250, 251, 255), 0.95)',
           borderColor: 'var(--border)',
         }}
       >
-        <div className="container mx-auto py-4 max-w-2xl flex justify-between">
+        <div className="container mx-auto py-4 px-4 max-w-2xl flex flex-col sm:flex-row justify-between gap-3">
           <button
             type="button"
             onClick={goPrev}
@@ -1324,7 +1386,7 @@ export default function CreateDAOPage() {
           </button>
 
           {step === 'review' ? (
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row items-center gap-3">
               {submitError && (
                 <div
                   className="flex items-center gap-2 text-sm"
@@ -1334,28 +1396,63 @@ export default function CreateDAOPage() {
                   {submitError}
                 </div>
               )}
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={createDAOMutation.isPending}
-                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-white transition-all disabled:opacity-60"
-                style={{ background: 'var(--gradient-primary)' }}
-              >
-                {createDAOMutation.isPending ? (
-                  <>
-                    <Loader2
-                      className="w-4 h-4 animate-spin"
-                      aria-hidden="true"
-                    />
-                    Creating...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4" aria-hidden="true" />
-                    Launch DAO
-                  </>
-                )}
-              </button>
+              {!isConnected ? (
+                <button
+                  type="button"
+                  onClick={() => connect({ connector: injected() })}
+                  disabled={isConnecting}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-white transition-all disabled:opacity-60"
+                  style={{ background: 'var(--gradient-secondary)' }}
+                >
+                  {isConnecting ? (
+                    <>
+                      <Loader2
+                        className="w-4 h-4 animate-spin"
+                        aria-hidden="true"
+                      />
+                      Connecting...
+                    </>
+                  ) : (
+                    <>
+                      <Wallet className="w-4 h-4" aria-hidden="true" />
+                      Connect Wallet to Create
+                    </>
+                  )}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={
+                    createDAOMutation.isPending || signatureStatus === 'signing'
+                  }
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-white transition-all disabled:opacity-60"
+                  style={{ background: 'var(--gradient-primary)' }}
+                >
+                  {signatureStatus === 'signing' ? (
+                    <>
+                      <Loader2
+                        className="w-4 h-4 animate-spin"
+                        aria-hidden="true"
+                      />
+                      Sign to confirm...
+                    </>
+                  ) : createDAOMutation.isPending ? (
+                    <>
+                      <Loader2
+                        className="w-4 h-4 animate-spin"
+                        aria-hidden="true"
+                      />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" aria-hidden="true" />
+                      Launch DAO
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           ) : (
             <button

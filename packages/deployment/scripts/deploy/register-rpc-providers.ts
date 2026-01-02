@@ -33,7 +33,7 @@ const EndpointsConfigSchema = z.object({
   version: z.string(),
   environment: z.string(),
   updatedAt: z.string(),
-  chains: z.record(ChainEndpointSchema),
+  chains: z.record(z.string(), ChainEndpointSchema),
 })
 
 type ChainEndpoint = z.infer<typeof ChainEndpointSchema>

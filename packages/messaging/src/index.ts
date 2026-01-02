@@ -214,6 +214,7 @@ export {
   DCSignerEventsResponseSchema,
   DCUserDataResponseSchema,
   EventsResponseSchema,
+  FarcasterProfileSchema,
   type HubEventBody,
   type HubEventType,
   HubInfoResponseSchema,

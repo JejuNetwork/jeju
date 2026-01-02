@@ -72,17 +72,18 @@
       "workerRegistry": "0xb7f8bc63bbcad18155201308c8f3540b07f84f5e",
       "cdnRegistry": "0xa51c1fc2f0d1a1b8494ed1fe312d7c3a78ed91c0",
       "repoRegistry": "0x0dcd1bf9a1b36ce34237eeafef220932846bcd82",
-      "packageRegistry": "0x9a676e781a523b5d0c0e43731313a708cb607508",
-      "managedDatabaseRegistry": "",
-      "gitRegistry": "",
-      "cacheManager": "",
-      "cronOrchestrator": "",
-      "containerRegistry": ""
+      "packageRegistry": "0x9a9f2ccfde556a7e9ff0848998aa4a0cfd8863ae",
+      "managedDatabaseRegistry": "0x59b670e9fa9d0a427751af201d676719a970857b",
+      "gitRegistry": "0x959922be3caee4b8cd9a407cc3ac1c251c2007b1",
+      "cacheManager": "0x68b1d87f95878fe05b998f19b66f4baba5de1aed",
+      "cronOrchestrator": "0x3aa5ebb10dc797cac828524e59a333d0a371443c",
+      "containerRegistry": "0xc6e7df5e7b4f2a278906862b61205850344d4e7d"
     },
     "payments": {
       "creditManager": "0x67d269191c92Caf3cD7723F116c85e6E9bf55933",
       "universalPaymaster": "0x84eA74d481Ee0A5332c457a4d796187F6Ba67fEB",
-      "paymasterFactory": "0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f"
+      "paymasterFactory": "0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f",
+      "feeConfig": "0x4c5859f0F772848b2D91F1D83E2Fe57935348029"
     },
     "commerce": {
       "authCaptureEscrow": "",
@@ -101,7 +102,7 @@
       "inferenceServing": "0x08A90aF9A6eBBe11c322AD9930CC58E122231B5A",
       "staking": "0x7bdd3b028C4796eF0EAf07d11394d0d9d8c24139",
       "workerRegistry": "",
-      "cronTriggerRegistry": "0x0b306bf915c4d645ff596e518faf3f9669b97016"
+      "cronTriggerRegistry": "0x3aa5ebb10dc797cac828524e59a333d0a371443c"
     },
     "sequencer": {
       "registry": "",
@@ -113,7 +114,9 @@
       "timelock": "",
       "futarchyGovernor": "",
       "registryGovernance": "0x7E6C94173C264aaE66Bf36ce047b0Aef585C2181",
-      "autocrat": ""
+      "autocrat": "",
+      "daoRegistry": "0x1291Be112d480055DaFd8a610b7d1e203891C274",
+      "daoFunding": "0x5f3f1dBD7B74C6B46e8c44f98792A1dAf8d69154"
     },
     "oif": {
       "solverRegistry": "0x13D5bd265A9FC5454e81bC05a5643fa4809A584b",
@@ -176,6 +179,11 @@
     "cloud": {
       "serviceRegistry": "0x0B306BF915C4d645ff596e518fAf3F9669b97016",
       "creditManager": "0x67d269191c92Caf3cD7723F116c85e6E9bf55933"
+    },
+    "autocrat": {
+      "daoRegistry": "0x1291Be112d480055DaFd8a610b7d1e203891C274",
+      "daoFunding": "0x5f3f1dBD7B74C6B46e8c44f98792A1dAf8d69154",
+      "feeConfig": "0x4c5859f0F772848b2D91F1D83E2Fe57935348029"
     }
   },
   "testnet": {

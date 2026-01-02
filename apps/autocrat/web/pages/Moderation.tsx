@@ -51,10 +51,12 @@ interface LeaderboardEntry {
 }
 
 export default function ModerationPage() {
+  const { address, isConnected } = useAccount()
   const [flags, setFlags] = useState<ActiveFlag[]>([])
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [votingId, setVotingId] = useState<string | null>(null)
+  const [voteError, setVoteError] = useState<string | null>(null)
 
   // Moderator lookup state
   const [lookupAddress, setLookupAddress] = useState('')
@@ -85,13 +87,19 @@ export default function ModerationPage() {
   }, [loadData])
 
   const handleVote = async (flagId: string, upvote: boolean) => {
+    if (!isConnected || !address) {
+      setVoteError('Please connect your wallet to vote')
+      return
+    }
+
+    setVoteError(null)
     setVotingId(flagId)
-    await voteOnFlag(
-      flagId,
-      '0x0000000000000000000000000000000000000000', // Would come from wallet
-      upvote,
-    ).catch(() => null)
-    await loadData()
+    try {
+      await voteOnFlag(flagId, address, upvote)
+      await loadData()
+    } catch (err) {
+      setVoteError(err instanceof Error ? err.message : 'Vote failed')
+    }
     setVotingId(null)
   }
 

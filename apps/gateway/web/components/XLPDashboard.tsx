@@ -4,9 +4,11 @@ import { CheckCircle, Clock, type LucideProps, XCircle } from 'lucide-react'
 import { type ComponentType, useMemo, useState } from 'react'
 import { type Address, formatEther, parseEther } from 'viem'
 import { useAccount } from 'wagmi'
+import { z } from 'zod'
 import { INDEXER_URL } from '../../lib/config'
 import {
   useEILConfig,
+  useTokenAllowance,
   useXLPLiquidity,
   useXLPPosition,
   useXLPRegistration,
@@ -18,6 +20,36 @@ import TokenSelector from './TokenSelector'
 const CheckCircleIcon = CheckCircle as ComponentType<LucideProps>
 const XCircleIcon = XCircle as ComponentType<LucideProps>
 const ClockIcon = Clock as ComponentType<LucideProps>
+
+// Zod schemas for form validation
+const ETHAmountSchema = z.object({
+  amount: z
+    .string()
+    .min(1, 'Amount is required')
+    .refine((val) => !Number.isNaN(Number(val)) && Number(val) > 0, {
+      message: 'Amount must be a positive number',
+    }),
+})
+
+const TokenDepositSchema = z.object({
+  amount: z
+    .string()
+    .min(1, 'Amount is required')
+    .refine((val) => !Number.isNaN(Number(val)) && Number(val) > 0, {
+      message: 'Amount must be a positive number',
+    }),
+  tokenAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Select a token'),
+})
+
+const XLPRegistrationSchema = z.object({
+  stakeAmount: z
+    .string()
+    .min(1, 'Stake amount is required')
+    .refine((val) => !Number.isNaN(Number(val)) && Number(val) >= 1, {
+      message: 'Minimum stake is 1 ETH',
+    }),
+  chains: z.array(z.number()).min(1, 'Select at least one chain'),
+})
 
 interface VoucherHistoryItem {
   id: string
@@ -116,6 +148,7 @@ export default function XLPDashboard() {
   const [selectedToken, setSelectedToken] = useState<TokenOption | null>(null)
   const [tokenAmount, setTokenAmount] = useState('')
   const [selectedChains, setSelectedChains] = useState<number[]>([420691, 1])
+  const [validationError, setValidationError] = useState<string | null>(null)
 
   const { tokens } = useProtocolTokens()
   const tokenOptions = useMemo(
@@ -135,10 +168,21 @@ export default function XLPDashboard() {
     ethBalance: xlpETH,
     depositETH,
     withdrawETH,
-    depositToken,
+    approveAndDepositToken,
+    isApproving,
     isLoading: isLiquidityLoading,
     isSuccess: isLiquiditySuccess,
   } = useXLPLiquidity(crossChainPaymaster)
+
+  const { address: userAddress } = useAccount()
+
+  // Token allowance check for selected token
+  // Allowance check is performed by useXLPLiquidity internally
+  useTokenAllowance(
+    selectedToken?.address as `0x${string}` | undefined,
+    userAddress,
+    crossChainPaymaster,
+  )
 
   const { position } = useXLPPosition(l1StakeManager)
   const UNBONDING_PERIOD = 691200
@@ -183,10 +227,18 @@ export default function XLPDashboard() {
     isSuccess: isStakeSuccess,
   } = useXLPRegistration(l1StakeManager)
 
-  const isLoading = isLiquidityLoading || isStakeLoading
+  const isLoading = isLiquidityLoading || isStakeLoading || isApproving
 
   const handleDepositETH = async (e: React.FormEvent) => {
     e.preventDefault()
+    setValidationError(null)
+
+    const validation = ETHAmountSchema.safeParse({ amount: ethAmount })
+    if (!validation.success) {
+      setValidationError(validation.error.issues[0].message)
+      return
+    }
+
     const amount = parseEther(ethAmount)
     await depositETH(amount)
     setEthAmount('')
@@ -199,14 +251,37 @@ export default function XLPDashboard() {
 
   const handleDepositToken = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedToken) return
+    setValidationError(null)
+
+    const validation = TokenDepositSchema.safeParse({
+      amount: tokenAmount,
+      tokenAddress: selectedToken?.address ?? '',
+    })
+    if (!validation.success) {
+      setValidationError(validation.error.issues[0].message)
+      return
+    }
+
     const amount = parseEther(tokenAmount)
-    await depositToken(selectedToken.address as Address, amount)
+
+    // Use approveAndDepositToken which handles both approval and deposit
+    await approveAndDepositToken(selectedToken?.address as Address, amount)
     setTokenAmount('')
   }
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
+    setValidationError(null)
+
+    const validation = XLPRegistrationSchema.safeParse({
+      stakeAmount,
+      chains: selectedChains,
+    })
+    if (!validation.success) {
+      setValidationError(validation.error.issues[0].message)
+      return
+    }
+
     const amount = parseEther(stakeAmount)
     await register(selectedChains, amount)
     setStakeAmount('')
@@ -214,6 +289,14 @@ export default function XLPDashboard() {
 
   const handleAddStake = async (e: React.FormEvent) => {
     e.preventDefault()
+    setValidationError(null)
+
+    const validation = ETHAmountSchema.safeParse({ amount: stakeAmount })
+    if (!validation.success) {
+      setValidationError(validation.error.issues[0].message)
+      return
+    }
+
     const amount = parseEther(stakeAmount)
     await addStake(amount)
     setStakeAmount('')
@@ -468,6 +551,23 @@ export default function XLPDashboard() {
           </div>
         )}
 
+        {validationError &&
+          (activeTab === 'liquidity' || activeTab === 'stake') && (
+            <div
+              style={{
+                padding: '0.75rem 1rem',
+                background: 'var(--error-soft)',
+                border: '1px solid var(--error)',
+                borderRadius: '8px',
+                marginBottom: '1rem',
+                color: 'var(--error)',
+                fontSize: '0.875rem',
+              }}
+            >
+              {validationError}
+            </div>
+          )}
+
         {activeTab === 'liquidity' &&
           (isConnected ? (
             <div>
@@ -568,7 +668,11 @@ export default function XLPDashboard() {
                         className="button"
                         disabled={isLoading || !tokenAmount}
                       >
-                        Deposit {selectedToken.symbol}
+                        {isApproving
+                          ? 'Approving...'
+                          : isLiquidityLoading
+                            ? 'Depositing...'
+                            : `Deposit ${selectedToken.symbol}`}
                       </button>
                     </div>
                   </form>

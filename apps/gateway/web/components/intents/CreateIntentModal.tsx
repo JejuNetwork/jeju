@@ -71,7 +71,13 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
   const [sourceChain, setSourceChain] = useState(chainId || 1)
   const [destChain, setDestChain] = useState(42161)
   const [amount, setAmount] = useState('0.1')
-  const [token] = useState(ZERO_ADDRESS)
+  // ZERO_ADDRESS represents native ETH
+  // TODO: Add token selector UI when non-ETH tokens are supported
+  const [sourceToken, _setSourceToken] = useState(ZERO_ADDRESS)
+  const [destToken, _setDestToken] = useState(ZERO_ADDRESS)
+  // Suppress unused variable warnings - these will be used when token selector is added
+  void _setSourceToken
+  void _setDestToken
   const [txStatus, setTxStatus] = useState<TxStatus>('idle')
   const [intentId, setIntentId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -96,8 +102,8 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
   const { data: quotes, isLoading: quotesLoading } = useIntentQuote({
     sourceChain,
     destinationChain: destChain,
-    sourceToken: token,
-    destinationToken: token,
+    sourceToken,
+    destinationToken: destToken,
     amount: (parseFloat(amount) * 1e18).toString(),
   })
 
@@ -130,8 +136,8 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
     const order = {
       sourceChainId: BigInt(sourceChain),
       targetChainId: BigInt(destChain),
-      sourceToken: token as `0x${string}`,
-      targetToken: token as `0x${string}`,
+      sourceToken: sourceToken as `0x${string}`,
+      targetToken: destToken as `0x${string}`,
       sourceAmount: amountWei,
       targetAddress: address,
       deadline,
@@ -149,7 +155,7 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
         abi: INPUT_SETTLER_ABI,
         functionName: 'createIntent',
         args: [order],
-        value: token === ZERO_ADDRESS ? amountWei : undefined,
+        value: sourceToken === ZERO_ADDRESS ? amountWei : undefined,
       })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Transaction failed')
@@ -163,7 +169,8 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
     isCorrectChain,
     sourceChain,
     switchChain,
-    token,
+    sourceToken,
+    destToken,
     writeContractAsync,
   ])
 

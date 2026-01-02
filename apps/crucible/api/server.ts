@@ -62,6 +62,27 @@ import { createStorage } from './sdk/storage'
 
 const log = createLogger('Server')
 
+// Action counter for tracking daily actions
+const actionCounter = {
+  today: new Date().toISOString().split('T')[0],
+  count: 0,
+  increment() {
+    const currentDay = new Date().toISOString().split('T')[0]
+    if (currentDay !== this.today) {
+      this.today = currentDay
+      this.count = 0
+    }
+    this.count++
+  },
+  getTodayCount() {
+    const currentDay = new Date().toISOString().split('T')[0]
+    if (currentDay !== this.today) {
+      return 0
+    }
+    return this.count
+  },
+}
+
 /**
  * Safely get contract address, returning undefined if not configured.
  * Used for optional contracts that may not be deployed yet.
@@ -384,19 +405,69 @@ const roomSdk = createRoomSDK({
 let botInitializer: BotInitializer | null = null
 let tradingBots: Map<bigint, TradingBot> = new Map()
 
-// Seed DWS infrastructure (external chain nodes + bots) on startup
-async function seedDWSInfrastructure(): Promise<void> {
-  // Use treasury address from config, fallback to KMS signer address
-  const signerAddress = kmsSigner.isInitialized()
-    ? kmsSigner.getAddress()
-    : null
-  const treasuryAddress =
-    config.contracts.autocratTreasury ??
-    signerAddress ??
-    '0x0000000000000000000000000000000000000001'
+// Seed default agents on startup
+async function seedDefaultAgents(): Promise<void> {
+  // Check if DWS is available
+  const dwsAvailable = await checkDWSHealth()
+  if (!dwsAvailable) {
+    log.warn('DWS not available - agent seeding skipped')
+    return
+  }
 
-  // DWS infrastructure seeding deferred - seedInfrastructure is not exported from @jejunetwork/dws
-  log.info('DWS infrastructure seeding skipped', { treasuryAddress })
+  // Only seed agents if KMS is available (we need to sign transactions)
+  if (!kmsSigner.isInitialized()) {
+    log.warn('KMS not initialized - agent seeding skipped')
+    return
+  }
+
+  // Get default characters to seed
+  const coreAgentIds = [
+    'project-manager',
+    'community-manager',
+    'devrel',
+    'liaison',
+    'blue-team',
+    'moderator',
+  ]
+
+  // In testnet/localnet, also seed red team for adversarial testing
+  if (config.network !== 'mainnet') {
+    coreAgentIds.push('red-team', 'security-researcher')
+  }
+
+  log.info('Seeding default agents', { count: coreAgentIds.length })
+
+  for (const agentId of coreAgentIds) {
+    const character = characters[agentId]
+    if (!character) {
+      log.warn('Character not found', { agentId })
+      continue
+    }
+
+    // Initialize runtime for this character
+    try {
+      const existing = runtimeManager.getRuntime(agentId)
+      if (existing) {
+        log.debug('Agent runtime already exists', { agentId })
+        continue
+      }
+
+      const _runtime = await runtimeManager.createRuntime({
+        agentId,
+        character,
+      })
+      log.info('Agent runtime seeded', { agentId, name: character.name })
+    } catch (err) {
+      log.error('Failed to seed agent runtime', {
+        agentId,
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
+  }
+
+  log.info('Agent seeding complete', {
+    runtimes: runtimeManager.getAllRuntimes().length,
+  })
 }
 
 // Initialize bot handler if KMS is configured
@@ -409,8 +480,8 @@ if (kmsSigner) {
     treasuryAddress: config.contracts.autocratTreasury,
   })
 
-  // Seed DWS infrastructure, then initialize bots
-  seedDWSInfrastructure()
+  // Seed default agents, then initialize bots
+  seedDefaultAgents()
     .then(() => {
       if (crucibleConfig.botsEnabled && botInitializer) {
         return botInitializer.initializeDefaultBots()
@@ -620,6 +691,15 @@ app.get('/health', () => ({
 app.get('/info', async ({ request }) => {
   const dwsAvailable = await checkDWSHealth()
 
+  // Get room count
+  let rooms = 0
+  try {
+    const roomResult = await roomSdk.searchRooms({ limit: 1 })
+    rooms = roomResult.total
+  } catch {
+    // Room registry may not be available
+  }
+
   // Check if request is authenticated (has valid API key)
   const providedKey =
     request.headers.get('x-api-key') ??
@@ -638,6 +718,8 @@ app.get('/info', async ({ request }) => {
     hasSigner: kmsSigner.isInitialized(),
     dwsAvailable,
     runtimes: runtimeManager.getAllRuntimes().length,
+    rooms,
+    actionsToday: actionCounter.getTodayCount(),
   }
 
   // Return full info only for authenticated requests
@@ -944,6 +1026,43 @@ app.post(
 )
 
 // Room Management
+
+// List/search rooms
+app.get('/api/v1/rooms', async ({ query }) => {
+  const filters = {
+    name: query.name as string | undefined,
+    roomType: query.roomType as
+      | 'collaboration'
+      | 'adversarial'
+      | 'debate'
+      | 'council'
+      | undefined,
+    active:
+      query.active === 'true'
+        ? true
+        : query.active === 'false'
+          ? false
+          : undefined,
+    limit: query.limit ? parseInt(query.limit as string, 10) : 20,
+    offset: query.offset ? parseInt(query.offset as string, 10) : 0,
+  }
+
+  const result = await roomSdk.searchRooms(filters)
+
+  return {
+    rooms: result.items.map((room) => ({
+      ...room,
+      roomId: room.roomId.toString(),
+      members: room.members.map((m) => ({
+        ...m,
+        agentId: m.agentId.toString(),
+      })),
+    })),
+    total: result.total,
+    hasMore: result.hasMore,
+  }
+})
+
 app.post('/api/v1/rooms', async ({ body }) => {
   const parsedBody = parseOrThrow(
     CreateRoomRequestSchema,
@@ -1139,6 +1258,11 @@ app.post('/api/v1/execute', async ({ body }) => {
 
   const result = await executorSdk.execute(request)
   metrics.agents.executions++
+  
+  // Increment action counter for each action executed
+  for (const _action of result.actions) {
+    actionCounter.increment()
+  }
 
   return {
     result: {

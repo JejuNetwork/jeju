@@ -1,4 +1,4 @@
-import { getCacheClient } from '@jejunetwork/cache'
+import { getCacheClient, safeParseCached } from '@jejunetwork/cache'
 import { getServiceUrl } from '@jejunetwork/config'
 import { logger } from '@jejunetwork/shared'
 import { Elysia } from 'elysia'
@@ -311,9 +311,14 @@ async function getIntelData(): Promise<IntelResponse> {
   const cacheKey = 'intel:full'
 
   // Check DWS cache first
-  const cached = await cache.get(cacheKey).catch(() => null)
-  if (cached) {
-    return JSON.parse(cached) as IntelResponse
+  const cached = await cache.get(cacheKey).catch((err) => {
+    console.warn('[Bazaar] Intel cache read failed:', err)
+    return null
+  })
+  const cachedData = safeParseCached(cached, IntelResponseSchema)
+  if (cachedData) {
+    console.debug('[Bazaar] Intel cache hit')
+    return cachedData
   }
 
   const [marketStats, trending, gainers, losers, newTokens] = await Promise.all(
@@ -367,7 +372,10 @@ async function getIntelData(): Promise<IntelResponse> {
   }
 
   // Store in DWS cache
-  cache.set(cacheKey, JSON.stringify(response), INTEL_CACHE_TTL).catch(() => {})
+  console.debug('[Bazaar] Caching intel data')
+  cache
+    .set(cacheKey, JSON.stringify(response), INTEL_CACHE_TTL)
+    .catch((err) => console.warn('[Bazaar] Intel cache write failed:', err))
 
   return response
 }
@@ -378,7 +386,9 @@ export function createIntelRouter() {
     .get('/refresh', async () => {
       // Clear DWS cache and refresh
       const cache = getIntelCache()
-      await cache.delete('intel:full').catch(() => {})
+      await cache.delete('intel:full').catch((err) => {
+        console.warn('[Bazaar] Intel cache delete failed:', err)
+      })
       return getIntelData()
     })
     .get('/insights', async () => {

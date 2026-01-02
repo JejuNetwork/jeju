@@ -133,8 +133,16 @@ export class KMSSigner {
     if (config.threshold < 2 && !config.allowDevMode) {
       throw new Error('Threshold must be at least 2 for production security')
     }
-    if (config.totalParties < config.threshold + 1) {
-      throw new Error('Total parties must be greater than threshold')
+    // In production, totalParties must be > threshold for fault tolerance
+    // In dev mode, allow single-party mode (threshold=1, totalParties=1)
+    if (config.allowDevMode) {
+      if (config.totalParties < config.threshold) {
+        throw new Error('Total parties must be at least equal to threshold')
+      }
+    } else {
+      if (config.totalParties < config.threshold + 1) {
+        throw new Error('Total parties must be greater than threshold')
+      }
     }
   }
 

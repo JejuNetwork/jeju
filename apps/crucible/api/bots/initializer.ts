@@ -34,23 +34,41 @@ const ERC20_ABI = parseAbi([
 ])
 
 // Known DEX router addresses by chain
+// NOTE: Jeju Network uses custom Uniswap V4 router - set JEJU_SWAP_ROUTER env when deployed
+// See: packages/contracts/deployments/mainnet/deployment.json for deployed addresses
 const DEX_ROUTERS: Record<number, Address> = {
   1: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D', // Ethereum Mainnet - Uniswap V2
   42161: '0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506', // Arbitrum - SushiSwap
   8453: '0x4752ba5dbc23f44d87826276bf6fd6b1c372ad24', // Base - Aerodrome
   10: '0x9c12939390052919aF3155f41Bf4160Fd3666A6f', // Optimism - Velodrome
-  420691: '0x0000000000000000000000000000000000000000', // Jeju Network - placeholder
-  31337: '0x0000000000000000000000000000000000000000', // Local Anvil
+  // Jeju Network chains - swapRouter from deployment (set via env or when deployed)
+  420691: (process.env.JEJU_SWAP_ROUTER ??
+    '0x0000000000000000000000000000000000000000') as Address,
+  420690: (process.env.JEJU_SWAP_ROUTER ??
+    '0x0000000000000000000000000000000000000000') as Address,
+  // Local Anvil - set via env when running local DEX
+  31337: (process.env.LOCAL_SWAP_ROUTER ??
+    '0x0000000000000000000000000000000000000000') as Address,
 }
 
-// WETH addresses by chain
+// WETH addresses by chain (OP Stack chains use predeploy at 0x4200...0006)
 const WETH_ADDRESSES: Record<number, Address> = {
   1: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
   42161: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',
-  8453: '0x4200000000000000000000000000000000000006',
-  10: '0x4200000000000000000000000000000000000006',
-  420691: '0x0000000000000000000000000000000000000000',
-  31337: '0x0000000000000000000000000000000000000000',
+  8453: '0x4200000000000000000000000000000000000006', // Base - OP Stack predeploy
+  10: '0x4200000000000000000000000000000000000006', // Optimism - OP Stack predeploy
+  420691: '0x4200000000000000000000000000000000000006', // Jeju Mainnet - OP Stack predeploy
+  420690: '0x4200000000000000000000000000000000000006', // Jeju Testnet - OP Stack predeploy
+  31337: '0x4200000000000000000000000000000000000006', // Local Anvil - OP Stack predeploy
+}
+
+/** Check if DEX router is available for a chain */
+export function isDEXRouterAvailable(chainId: number): boolean {
+  const router = DEX_ROUTERS[chainId]
+  return (
+    router !== undefined &&
+    router !== '0x0000000000000000000000000000000000000000'
+  )
 }
 
 export interface BotInitializerConfig {

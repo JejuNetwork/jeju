@@ -30,6 +30,15 @@ const FaucetStatusSchema = z.object({
   nextClaimAt: z.number(),
   amountPerClaim: z.string(),
   faucetBalance: z.string(),
+  gasGrantEligible: z.boolean().default(false),
+  gasGrantCooldownRemaining: z.number().default(0),
+})
+
+const GasGrantResultSchema = z.object({
+  success: z.boolean(),
+  txHash: z.string().optional(),
+  amount: z.string().optional(),
+  error: z.string().optional(),
 })
 
 const FaucetClaimResultSchema = z.object({
@@ -114,6 +123,27 @@ async function claimFromFaucet(address: string): Promise<FaucetClaimResult> {
   return result.data
 }
 
+interface GasGrantResult {
+  success: boolean
+  txHash?: string
+  amount?: string
+  error?: string
+}
+
+async function claimGasGrant(address: string): Promise<GasGrantResult> {
+  const response = await fetch('/api/faucet/gas-grant', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ address }),
+  })
+  const data = await response.json()
+  const result = GasGrantResultSchema.safeParse(data)
+  if (!result.success) {
+    return { success: false, error: 'Invalid gas grant response' }
+  }
+  return result.data
+}
+
 function useFaucet() {
   const { address } = useAccount()
   const queryClient = useQueryClient()
@@ -144,13 +174,25 @@ function useFaucet() {
     },
   })
 
+  const gasGrantMutation = useMutation({
+    mutationFn: () => claimGasGrant(address ?? ''),
+    onSuccess: (result) => {
+      if (result.success) {
+        queryClient.invalidateQueries({ queryKey: ['faucet-status', address] })
+      }
+    },
+  })
+
   return {
     status,
     loading,
     claiming: claimMutation.isPending,
     claimResult: claimMutation.data ?? null,
+    claimingGasGrant: gasGrantMutation.isPending,
+    gasGrantResult: gasGrantMutation.data ?? null,
     info,
     claim: () => claimMutation.mutate(),
+    claimGasGrant: () => gasGrantMutation.mutate(),
     refresh: () => {
       refetchStatus()
     },
@@ -165,8 +207,11 @@ export default function FaucetTab() {
     loading,
     claiming,
     claimResult,
+    claimingGasGrant,
+    gasGrantResult,
     info,
     claim,
+    claimGasGrant,
     refresh,
     error,
   } = useFaucet()
@@ -578,39 +623,123 @@ export default function FaucetTab() {
                   Quick registration in the Identity Registry unlocks the
                   faucet. It keeps bots out and tokens flowing to real builders.
                 </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    window.dispatchEvent(
-                      new CustomEvent('navigate-to-register'),
-                    )
-                    const tabs = document.querySelectorAll('button')
-                    for (const tab of tabs) {
-                      if (tab.textContent.includes('Registry')) {
-                        tab.click()
-                        break
-                      }
-                    }
-                  }}
-                  style={{
-                    padding: '0.625rem 1rem',
-                    background: 'var(--warning)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontWeight: 600,
-                    fontSize: '0.8125rem',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                  }}
+                <div
+                  style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}
                 >
-                  Register Now
-                  <ExternalLinkIcon size={14} />
-                </button>
+                  {status?.gasGrantEligible && (
+                    <button
+                      type="button"
+                      onClick={claimGasGrant}
+                      disabled={claimingGasGrant}
+                      style={{
+                        padding: '0.625rem 1rem',
+                        background:
+                          'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontWeight: 600,
+                        fontSize: '0.8125rem',
+                        cursor: claimingGasGrant ? 'not-allowed' : 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        opacity: claimingGasGrant ? 0.7 : 1,
+                      }}
+                    >
+                      {claimingGasGrant ? (
+                        <>
+                          <RefreshCwIcon
+                            size={14}
+                            style={{ animation: 'spin 1s linear infinite' }}
+                          />
+                          Getting Gas...
+                        </>
+                      ) : (
+                        <>
+                          <ZapIcon size={14} />
+                          Get Gas for Registration
+                        </>
+                      )}
+                    </button>
+                  )}
+                  <a
+                    href="/registry"
+                    style={{
+                      padding: '0.625rem 1rem',
+                      background: 'var(--warning)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontWeight: 600,
+                      fontSize: '0.8125rem',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    Register Now
+                    <ExternalLinkIcon size={14} />
+                  </a>
+                </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {gasGrantResult && (
+          <div
+            style={{
+              padding: '1rem',
+              background: gasGrantResult.success
+                ? 'var(--success-soft)'
+                : 'var(--error-soft)',
+              border: `1px solid ${gasGrantResult.success ? 'var(--success)' : 'var(--error)'}`,
+              borderRadius: '12px',
+              marginBottom: '1.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+            }}
+          >
+            {gasGrantResult.success ? (
+              <>
+                <CheckCircle2Icon
+                  size={18}
+                  style={{ color: 'var(--success)' }}
+                />
+                <div>
+                  <span
+                    style={{
+                      color: 'var(--success)',
+                      fontSize: '0.875rem',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Gas Grant Received
+                  </span>
+                  <p
+                    style={{
+                      color: 'var(--text-secondary)',
+                      fontSize: '0.75rem',
+                      margin: '0.25rem 0 0',
+                    }}
+                  >
+                    {gasGrantResult.amount} ETH sent. You can now register your
+                    identity.
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                <AlertCircleIcon size={18} style={{ color: 'var(--error)' }} />
+                <span style={{ color: 'var(--error)', fontSize: '0.875rem' }}>
+                  {gasGrantResult.error}
+                </span>
+              </>
+            )}
           </div>
         )}
 

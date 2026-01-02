@@ -112,6 +112,13 @@ test.beforeAll(async () => {
   }
 })
 
+// Dismiss onboarding modal before each test by setting localStorage
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('crucible-onboarding-complete', 'true')
+  })
+})
+
 function setupErrorCapture(page: import('@playwright/test').Page): {
   errors: string[]
   hasKnownBug: boolean
@@ -382,9 +389,8 @@ test.describe('Crucible - Chat Page Components', () => {
     const roomNameInput = page.locator('input#room-name')
     await expect(roomNameInput).toBeVisible({ timeout: 5000 })
 
-    // Description textarea
-    const descriptionInput = page.locator('textarea#room-description')
-    await expect(descriptionInput).toBeVisible()
+    // Room type selection should be visible
+    await expect(page.locator('legend:has-text("Type")')).toBeVisible()
 
     // Create button (text is just "Create")
     await expect(

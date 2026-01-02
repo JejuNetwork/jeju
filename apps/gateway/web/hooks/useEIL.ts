@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { type Address, parseEther } from 'viem'
 import { useAccount, useReadContract } from 'wagmi'
 import { NETWORK } from '../../lib/config'
+import { IERC20_ABI } from '../lib/constants'
 import { useTypedWriteContract } from './useTypedWriteContract'
 
 type XLPStakeTuple = readonly [bigint, bigint, bigint, bigint, boolean, bigint]
@@ -65,102 +66,99 @@ function appPreferenceFromTuple(tuple: AppPreferenceTuple): AppPreference {
   }
 }
 
-import { getContractsConfig, getEILConfig } from '@jejunetwork/config'
-import type { EILNetworkConfig } from '../../lib/validation'
-
-// Contracts config type (simplified for liquidity)
-interface ContractsNetworkConfig {
-  liquidity?: {
-    riskSleeve?: string
-    liquidityRouter?: string
-    multiServiceStakeManager?: string
-    liquidityVault?: string
-    federatedLiquidity?: string
-  }
-}
+import {
+  type EILChainConfig,
+  getContractsConfig,
+  getEILChains,
+  getEILHub,
+} from '@jejunetwork/config'
 
 // Get liquidity contracts for current network
-function getLiquidityContracts(): ContractsNetworkConfig['liquidity'] {
+function getLiquidityContracts() {
   const config = getContractsConfig(NETWORK)
-  return config.liquidity as ContractsNetworkConfig['liquidity']
+  return config.liquidity
 }
 
-// Helper to get chain config based on current network
-function getNetworkConfig(): EILNetworkConfig {
-  return getEILConfig(NETWORK) as EILNetworkConfig
+// Find chain config by chainId from EIL config
+function findChainConfigById(chainId: number): EILChainConfig | undefined {
+  const chains = getEILChains(NETWORK)
+  return Object.values(chains).find((c) => c.chainId === chainId)
 }
 
 export function useEILConfig() {
   const { chain } = useAccount()
-  if (!chain?.id) {
-    return {
-      isAvailable: false,
-      crossChainPaymaster: undefined,
-      appTokenPreference: undefined,
-      supportedChains: [],
-      l1StakeManager: undefined,
-      supportedTokens: [],
-      riskSleeve: undefined,
-      liquidityRouter: undefined,
-      multiServiceStakeManager: undefined,
-    }
+
+  // Get hub config for L1 stake manager
+  const hub = getEILHub(NETWORK)
+
+  // Default empty state
+  const emptyState = {
+    isAvailable: false,
+    crossChainPaymaster: undefined as Address | undefined,
+    appTokenPreference: undefined as Address | undefined,
+    supportedChains: [] as Array<
+      (typeof SUPPORTED_CHAINS)[number] & { paymasterAddress?: Address }
+    >,
+    l1StakeManager: undefined as Address | undefined,
+    supportedTokens: [] as Address[],
+    riskSleeve: undefined as Address | undefined,
+    liquidityRouter: undefined as Address | undefined,
+    multiServiceStakeManager: undefined as Address | undefined,
   }
-  const chainId = chain.id.toString()
 
-  const networkConfig = getNetworkConfig()
-  const chainConfig = networkConfig.chains[chainId]
-  const paymasterAddress = chainConfig.crossChainPaymaster
-  const crossChainPaymaster = (
-    paymasterAddress && paymasterAddress.length > 0
-      ? paymasterAddress
-      : undefined
-  ) as Address | undefined
-  const isAvailable =
-    crossChainPaymaster && crossChainPaymaster !== ZERO_ADDRESS
+  if (!chain?.id) {
+    return emptyState
+  }
 
+  // Find chain config by ID
+  const chainConfig = findChainConfigById(chain.id)
+
+  // Helper to convert empty string to undefined and validate address
+  const toAddress = (addr: string | undefined | null): Address | undefined => {
+    if (!addr || addr.length === 0 || addr === ZERO_ADDRESS) return undefined
+    return addr as Address
+  }
+
+  // Get paymaster address for current chain
+  const crossChainPaymaster = toAddress(chainConfig?.crossChainPaymaster)
+  const isAvailable = Boolean(crossChainPaymaster)
+
+  // Map supported chains with their paymaster addresses
   const configuredChains = SUPPORTED_CHAINS.map((supportedChain) => {
-    const config = networkConfig.chains[supportedChain.id.toString()]
-    const addr = config.crossChainPaymaster
+    const config = findChainConfigById(supportedChain.id)
     return {
       ...supportedChain,
-      paymasterAddress: (addr && addr.length > 0 ? addr : undefined) as
-        | Address
-        | undefined,
+      paymasterAddress: toAddress(config?.crossChainPaymaster),
     }
   })
 
   // Get appTokenPreference address from chain config if available
-  const appTokenPreferenceAddr = chainConfig.tokens?.appTokenPreference as
-    | Address
-    | undefined
+  const appTokenPreferenceAddr = toAddress(
+    chainConfig?.tokens?.appTokenPreference,
+  )
 
   // Get liquidity contracts from contracts.json
   const liquidityContracts = getLiquidityContracts()
-  const riskSleeveAddr = liquidityContracts?.riskSleeve
-  const liquidityRouterAddr = liquidityContracts?.liquidityRouter
-  const multiServiceStakeManagerAddr =
-    liquidityContracts?.multiServiceStakeManager
 
-  // Helper to convert empty string to undefined
-  const toAddress = (addr: string | undefined): Address | undefined =>
-    addr && addr.length > 0 ? (addr as Address) : undefined
+  // Get supported tokens for current chain
+  const supportedTokens = chainConfig?.tokens
+    ? Object.values(chainConfig.tokens)
+        .map((addr) => toAddress(addr))
+        .filter((addr): addr is Address => Boolean(addr))
+    : []
 
   return {
-    isAvailable: Boolean(isAvailable),
+    isAvailable,
     crossChainPaymaster: isAvailable ? crossChainPaymaster : undefined,
-    appTokenPreference: appTokenPreferenceAddr || undefined,
+    appTokenPreference: appTokenPreferenceAddr,
     supportedChains: configuredChains,
-    l1StakeManager: (networkConfig.hub.l1StakeManager || undefined) as
-      | Address
-      | undefined,
-    supportedTokens: chainConfig.tokens
-      ? Object.values(chainConfig.tokens).filter((addr): addr is Address =>
-          Boolean(addr),
-        )
-      : [],
-    riskSleeve: toAddress(riskSleeveAddr),
-    liquidityRouter: toAddress(liquidityRouterAddr),
-    multiServiceStakeManager: toAddress(multiServiceStakeManagerAddr),
+    l1StakeManager: toAddress(hub.l1StakeManager),
+    supportedTokens,
+    riskSleeve: toAddress(liquidityContracts?.riskSleeve),
+    liquidityRouter: toAddress(liquidityContracts?.liquidityRouter),
+    multiServiceStakeManager: toAddress(
+      liquidityContracts?.multiServiceStakeManager,
+    ),
   }
 }
 
@@ -376,9 +374,11 @@ export function useXLPLiquidity(paymasterAddress: Address | undefined) {
   const { address } = useAccount()
   const [status, setStatus] = useState<StakeStatus>('idle')
   const [error, setError] = useState<string | null>(null)
+  const [isApproving, setIsApproving] = useState(false)
 
   const {
     write: writeContract,
+    writeAsync,
     hash,
     isPending,
     error: writeError,
@@ -397,8 +397,12 @@ export function useXLPLiquidity(paymasterAddress: Address | undefined) {
     if (writeError) {
       setStatus('idle')
       setError(writeError.message)
+      setIsApproving(false)
     } else if (isPending) setStatus('pending')
-    else if (isSuccess) setStatus('complete')
+    else if (isSuccess) {
+      setStatus('complete')
+      setIsApproving(false)
+    }
   }, [isPending, isSuccess, writeError])
 
   const depositETH = useCallback(
@@ -430,6 +434,31 @@ export function useXLPLiquidity(paymasterAddress: Address | undefined) {
     [paymasterAddress, writeContract],
   )
 
+  /**
+   * Approve a token for deposit with the paymaster contract
+   */
+  const approveToken = useCallback(
+    async (token: Address, amount: bigint) => {
+      if (!paymasterAddress) return
+
+      setIsApproving(true)
+      setError(null)
+
+      await writeAsync({
+        address: token,
+        abi: IERC20_ABI,
+        functionName: 'approve',
+        args: [paymasterAddress, amount],
+      })
+      setIsApproving(false)
+    },
+    [paymasterAddress, writeAsync],
+  )
+
+  /**
+   * Deposit a token after approval
+   * Call approveToken first if needed
+   */
   const depositToken = useCallback(
     async (token: Address, amount: bigint) => {
       if (!paymasterAddress) return
@@ -442,6 +471,37 @@ export function useXLPLiquidity(paymasterAddress: Address | undefined) {
       })
     },
     [paymasterAddress, writeContract],
+  )
+
+  /**
+   * Approve and deposit in one flow
+   */
+  const approveAndDepositToken = useCallback(
+    async (token: Address, amount: bigint) => {
+      if (!paymasterAddress) return
+
+      setIsApproving(true)
+      setError(null)
+
+      // First approve the token
+      await writeAsync({
+        address: token,
+        abi: IERC20_ABI,
+        functionName: 'approve',
+        args: [paymasterAddress, amount],
+      })
+
+      setIsApproving(false)
+
+      // Then deposit
+      writeContract({
+        address: paymasterAddress,
+        abi: CROSS_CHAIN_PAYMASTER_ABI,
+        functionName: 'depositLiquidity',
+        args: [token, amount],
+      })
+    },
+    [paymasterAddress, writeContract, writeAsync],
   )
 
   const withdrawToken = useCallback(
@@ -462,13 +522,44 @@ export function useXLPLiquidity(paymasterAddress: Address | undefined) {
     ethBalance,
     depositETH,
     withdrawETH,
+    approveToken,
     depositToken,
+    approveAndDepositToken,
     withdrawToken,
     status,
     error,
+    isApproving,
     isLoading: isPending || isConfirming,
     isSuccess,
     hash,
+  }
+}
+
+/**
+ * Hook to check token allowance for a spender
+ */
+export function useTokenAllowance(
+  tokenAddress: Address | undefined,
+  ownerAddress: Address | undefined,
+  spenderAddress: Address | undefined,
+) {
+  const { data: allowance, refetch } = useReadContract({
+    address: tokenAddress,
+    abi: IERC20_ABI,
+    functionName: 'allowance',
+    args:
+      ownerAddress && spenderAddress
+        ? [ownerAddress, spenderAddress]
+        : undefined,
+  })
+
+  return {
+    allowance: allowance as bigint | undefined,
+    refetch,
+    needsApproval: (amount: bigint) => {
+      if (!allowance) return true
+      return (allowance as bigint) < amount
+    },
   }
 }
 
@@ -600,19 +691,74 @@ export function useBestGasToken(
   }
 }
 
+/**
+ * Hook to get fee estimates for cross-chain swaps.
+ *
+ * Fee Structure:
+ * - XLP Fee: 0.05% (5 bps) - paid to XLP providers
+ * - Network Fee: Estimated gas cost on destination chain
+ *
+ * Time Estimates based on chain finality:
+ * - Same L2 -> L2: ~2-5 minutes
+ * - L1 -> L2: ~10-15 minutes
+ * - L2 -> L1: ~15-30 minutes (includes withdrawal period)
+ */
 export function useSwapFeeEstimate(
-  _sourceChainId: number,
-  _destinationChainId: number,
+  sourceChainId: number,
+  destinationChainId: number,
   amount: bigint,
 ) {
-  const xlpFee = (amount * 5n) / 10000n
+  // XLP fee is a protocol constant: 0.05% (5 basis points)
+  const XLP_FEE_BPS = 5n
+  const xlpFee = (amount * XLP_FEE_BPS) / 10000n
+
+  // Estimate time based on chain types
+  // L1 chains: 1 (Ethereum), 11155111 (Sepolia)
+  // L2 chains: 42161 (Arbitrum), 10 (Optimism), 8453 (Base), 420691/420690 (Jeju)
+  const L1_CHAINS = [1, 11155111]
+  const sourceIsL1 = L1_CHAINS.includes(sourceChainId)
+  const destIsL1 = L1_CHAINS.includes(destinationChainId)
+
+  let estimatedTimeSeconds: number
+  if (sourceIsL1 && destIsL1) {
+    // L1 to L1 - not typically supported, but estimate 30 min
+    estimatedTimeSeconds = 30 * 60
+  } else if (sourceIsL1) {
+    // L1 to L2 - ~10-15 minutes for message finality
+    estimatedTimeSeconds = 12 * 60
+  } else if (destIsL1) {
+    // L2 to L1 - ~15-30 minutes including challenge period
+    estimatedTimeSeconds = 20 * 60
+  } else {
+    // L2 to L2 - fastest, ~2-5 minutes
+    estimatedTimeSeconds = 3 * 60
+  }
+
+  // Network fee estimate (gas for destination execution)
+  // Rough estimate: 150k gas * ~20 gwei = ~0.003 ETH
+  // This should eventually be fetched from an oracle
+  const networkFeeEstimate = parseEther('0.003')
 
   return {
-    networkFee: 0n,
+    networkFee: networkFeeEstimate,
     xlpFee,
-    totalFee: xlpFee,
-    estimatedTime: 0,
+    totalFee: xlpFee + networkFeeEstimate,
+    estimatedTimeSeconds,
+    estimatedTimeFormatted: formatEstimatedTime(estimatedTimeSeconds),
     isLoading: false,
+    /** Fee is calculated, not fetched from oracle */
     isEstimate: true,
   }
+}
+
+function formatEstimatedTime(seconds: number): string {
+  if (seconds < 60) {
+    return `~${seconds} seconds`
+  }
+  const minutes = Math.round(seconds / 60)
+  if (minutes < 60) {
+    return `~${minutes} minutes`
+  }
+  const hours = Math.round(minutes / 60)
+  return `~${hours} hour${hours > 1 ? 's' : ''}`
 }

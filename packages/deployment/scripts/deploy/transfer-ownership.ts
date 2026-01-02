@@ -17,7 +17,7 @@
  *   bun run packages/deployment/scripts/deploy/transfer-ownership.ts --network mainnet --dry-run
  */
 
-import { getChainId, getRpcUrl, getServicesConfig } from '@jejunetwork/config'
+import { getRpcUrl } from '@jejunetwork/config'
 import {
   type Address,
   createPublicClient,
@@ -156,9 +156,7 @@ async function main() {
   }
 
   // Get configuration
-  const _chainId = getChainId(network)
   const rpcUrl = getRpcUrl(network)
-  const _servicesConfig = getServicesConfig(network)
 
   // Get timelock address
   const timelockAddress = process.env.TIMELOCK_ADDRESS as Address

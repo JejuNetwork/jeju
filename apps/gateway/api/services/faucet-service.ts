@@ -38,6 +38,10 @@ import { faucetState, initializeState } from './state'
 const FAUCET_CONFIG = {
   cooldownMs: 12 * 60 * 60 * 1000,
   amountPerClaim: parseEther('100'),
+  /** Small ETH grant for unregistered users to cover registration gas */
+  gasGrantAmount: parseEther('0.001'),
+  /** Gas grant cooldown (24 hours) */
+  gasGrantCooldownMs: 24 * 60 * 60 * 1000,
   jejuTokenAddress: JEJU_TOKEN_ADDRESS,
   identityRegistryAddress: IDENTITY_REGISTRY_ADDRESS,
   /** KMS service ID for faucet signing */
@@ -93,6 +97,10 @@ export interface FaucetStatus {
   nextClaimAt: number | null
   amountPerClaim: string
   faucetBalance: string
+  /** Whether user can claim a gas grant to register */
+  gasGrantEligible: boolean
+  /** Gas grant cooldown remaining (ms) */
+  gasGrantCooldownRemaining: number
 }
 
 export interface FaucetClaimResult {
@@ -136,6 +144,15 @@ async function getCooldownRemaining(address: string): Promise<number> {
   return Math.max(0, FAUCET_CONFIG.cooldownMs - (Date.now() - lastClaim))
 }
 
+async function getGasGrantCooldownRemaining(address: string): Promise<number> {
+  const lastGasGrant = await faucetState.getLastGasGrant(address)
+  if (!lastGasGrant) return 0
+  return Math.max(
+    0,
+    FAUCET_CONFIG.gasGrantCooldownMs - (Date.now() - lastGasGrant),
+  )
+}
+
 async function getFaucetBalance(): Promise<bigint> {
   if (FAUCET_CONFIG.jejuTokenAddress === ZERO_ADDRESS) {
     return 0n
@@ -153,13 +170,22 @@ async function getFaucetBalance(): Promise<bigint> {
 export async function getFaucetStatus(address: Address): Promise<FaucetStatus> {
   const validated = expectAddress(address, 'getFaucetStatus address')
 
-  const [isRegistered, cooldownRemaining, faucetBalance, lastClaim] =
-    await Promise.all([
-      isRegisteredAgent(validated),
-      getCooldownRemaining(validated),
-      getFaucetBalance(),
-      faucetState.getLastClaim(validated),
-    ])
+  const [
+    isRegistered,
+    cooldownRemaining,
+    faucetBalance,
+    lastClaim,
+    gasGrantCooldownRemaining,
+  ] = await Promise.all([
+    isRegisteredAgent(validated),
+    getCooldownRemaining(validated),
+    getFaucetBalance(),
+    faucetState.getLastClaim(validated),
+    getGasGrantCooldownRemaining(validated),
+  ])
+
+  // Unregistered users can get a gas grant to cover registration costs
+  const gasGrantEligible = !isRegistered && gasGrantCooldownRemaining === 0
 
   return {
     eligible:
@@ -171,6 +197,8 @@ export async function getFaucetStatus(address: Address): Promise<FaucetStatus> {
     nextClaimAt: lastClaim ? lastClaim + FAUCET_CONFIG.cooldownMs : null,
     amountPerClaim: formatEther(FAUCET_CONFIG.amountPerClaim),
     faucetBalance: formatEther(faucetBalance),
+    gasGrantEligible,
+    gasGrantCooldownRemaining,
   }
 }
 
@@ -250,6 +278,82 @@ export async function claimFromFaucet(
   }
 }
 
+export interface GasGrantResult {
+  success: boolean
+  txHash?: string
+  amount?: string
+  error?: string
+}
+
+/**
+ * Claim a small amount of ETH for gas to register.
+ * Only available to unregistered users, with a 24h cooldown.
+ */
+export async function claimGasGrant(address: Address): Promise<GasGrantResult> {
+  const validated = expectAddress(address, 'claimGasGrant address')
+
+  // Check if already registered (no grant needed)
+  const isRegistered = await isRegisteredAgent(validated)
+  if (isRegistered) {
+    return {
+      success: false,
+      error: 'Already registered - claim JEJU tokens instead',
+    }
+  }
+
+  // Check gas grant cooldown
+  const cooldownRemaining = await getGasGrantCooldownRemaining(validated)
+  if (cooldownRemaining > 0) {
+    return {
+      success: false,
+      error: `Gas grant cooldown active: ${Math.ceil(cooldownRemaining / 3600000)}h remaining`,
+    }
+  }
+
+  // Send ETH for gas via KMS
+  const signer = await getFaucetSigner()
+  const signerAddress = await getFaucetAddress()
+
+  // Check faucet ETH balance
+  const ethBalance = await publicClient.getBalance({ address: signerAddress })
+  if (ethBalance < FAUCET_CONFIG.gasGrantAmount) {
+    return {
+      success: false,
+      error: 'Faucet ETH balance too low for gas grant',
+    }
+  }
+
+  const [nonce, gasPrice] = await Promise.all([
+    publicClient.getTransactionCount({ address: signerAddress }),
+    publicClient.getGasPrice(),
+  ])
+
+  // Estimate gas for simple ETH transfer
+  const gasLimit = 21000n
+
+  const hash = await signer.sendTransaction(
+    {
+      transaction: {
+        to: validated,
+        value: FAUCET_CONFIG.gasGrantAmount,
+        nonce,
+        gas: gasLimit,
+        gasPrice,
+        chainId: JEJU_CHAIN_ID,
+      },
+      chain: jejuTestnet,
+    },
+    getRpcUrl(JEJU_CHAIN_ID),
+  )
+
+  await faucetState.recordGasGrant(validated)
+  return {
+    success: true,
+    txHash: hash,
+    amount: formatEther(FAUCET_CONFIG.gasGrantAmount),
+  }
+}
+
 export function getFaucetInfo(): FaucetInfo {
   return {
     name: `${getChainName(JEJU_CHAIN_ID)} Faucet`,
@@ -261,10 +365,16 @@ export function getFaucetInfo(): FaucetInfo {
     requirements: [
       'Wallet must be registered in ERC-8004 Identity Registry',
       '12 hour cooldown between claims',
+      'New users can claim a small gas grant to register',
     ],
     chainId: JEJU_CHAIN_ID,
     chainName: getChainName(JEJU_CHAIN_ID),
   }
 }
 
-export const faucetService = { getFaucetStatus, claimFromFaucet, getFaucetInfo }
+export const faucetService = {
+  getFaucetStatus,
+  claimFromFaucet,
+  claimGasGrant,
+  getFaucetInfo,
+}

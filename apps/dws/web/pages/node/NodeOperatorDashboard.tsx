@@ -18,6 +18,9 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
+import { SkeletonStatCard } from '../../components/Skeleton'
+import { useConfirm, useToast } from '../../context/AppContext'
+import { useClaimRewards } from '../../hooks'
 import {
   type EarningsHistoryItem,
   type NodeInfo,
@@ -28,72 +31,180 @@ import {
 
 export default function NodeOperatorDashboard() {
   const { isConnected, address } = useAccount()
-  const { data: operatorStats, isLoading: statsLoading } = useOperatorStats()
+  const { showSuccess, showError } = useToast()
+  const confirm = useConfirm()
+  const claimRewards = useClaimRewards()
+  const {
+    data: operatorStats,
+    isLoading: statsLoading,
+    refetch: refetchStats,
+  } = useOperatorStats()
   const { isLoading: aggregateLoading, data: stats } = useAggregateStats()
   const { data: earningsHistory } = useEarningsHistory()
   const [selectedNode, setSelectedNode] = useState<string | null>(null)
+  const [claimingNode, setClaimingNode] = useState<string | null>(null)
+
+  const handleClaimRewards = async (nodeId: string, nodeName: string) => {
+    const confirmed = await confirm({
+      title: 'Claim Rewards',
+      message: `Claim all pending rewards for node ${nodeName}? This will transfer the rewards to your wallet.`,
+      confirmText: 'Claim',
+      cancelText: 'Cancel',
+    })
+
+    if (!confirmed) return
+
+    setClaimingNode(nodeId)
+    try {
+      const result = await claimRewards.mutateAsync(nodeId)
+      showSuccess(
+        'Rewards claimed',
+        `Successfully claimed ${result.claimed} tokens`,
+      )
+      refetchStats()
+    } catch (error) {
+      showError(
+        'Claim failed',
+        error instanceof Error ? error.message : 'Failed to claim rewards',
+      )
+    } finally {
+      setClaimingNode(null)
+    }
+  }
+
+  const handleClaimAllRewards = async () => {
+    const nodes = operatorStats?.nodes ?? []
+    const nodesWithRewards = nodes.filter(
+      (n) => parseFloat(n.pendingRewards) > 0,
+    )
+
+    if (nodesWithRewards.length === 0) {
+      showError('No rewards', 'No pending rewards to claim')
+      return
+    }
+
+    const confirmed = await confirm({
+      title: 'Claim All Rewards',
+      message: `Claim rewards from ${nodesWithRewards.length} node(s)? This will transfer all pending rewards to your wallet.`,
+      confirmText: 'Claim All',
+      cancelText: 'Cancel',
+    })
+
+    if (!confirmed) return
+
+    let successCount = 0
+    let failCount = 0
+
+    for (const node of nodesWithRewards) {
+      try {
+        await claimRewards.mutateAsync(node.nodeId)
+        successCount++
+      } catch {
+        failCount++
+      }
+    }
+
+    if (successCount > 0) {
+      showSuccess(
+        'Rewards claimed',
+        `Successfully claimed from ${successCount} node(s)`,
+      )
+      refetchStats()
+    }
+
+    if (failCount > 0) {
+      showError('Partial failure', `Failed to claim from ${failCount} node(s)`)
+    }
+  }
 
   if (!isConnected || !address) {
     return (
       <div className="empty-state" style={{ paddingTop: '4rem' }}>
         <Server size={64} />
-        <h3>Connect wallet</h3>
+        <h3>Connect wallet to view your nodes</h3>
+        <p style={{ marginBottom: '1rem' }}>
+          View your registered nodes, earnings, and performance
+        </p>
         <WalletButton />
       </div>
     )
   }
 
-  if (statsLoading || aggregateLoading) {
-    return (
-      <div className="empty-state" style={{ paddingTop: '4rem' }}>
-        <div className="spinner" style={{ width: 48, height: 48 }} />
-        <p>Loading...</p>
-      </div>
-    )
-  }
-
-  const nodes = operatorStats?.nodes || []
+  const isLoading = statsLoading || aggregateLoading
+  const nodes = operatorStats?.nodes ?? []
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">Node Operator Dashboard</h1>
+      <div
+        className="page-header"
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
+          gap: '1rem',
+        }}
+      >
+        <div>
+          <h1 className="page-title">Node Operator Dashboard</h1>
+          <p className="page-subtitle">
+            Manage your nodes, track earnings, and claim rewards
+          </p>
+        </div>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={() => refetchStats()}
+        >
+          <RefreshCw size={16} /> Refresh
+        </button>
       </div>
 
       {/* Stats Overview */}
       <div className="stats-grid">
-        <StatCard
-          icon={<Server size={24} />}
-          iconClass="compute"
-          label="Active Nodes"
-          value={stats?.operator.nodesActive.toString() || '0'}
-          change={`${stats?.operator.networkSharePercent || '0'}% of network`}
-          changeType="neutral"
-        />
-        <StatCard
-          icon={<DollarSign size={24} />}
-          iconClass="storage"
-          label="Total Staked"
-          value={`$${formatNumber(stats?.operator.totalStakedUSD || '0')}`}
-          change="USD value"
-          changeType="neutral"
-        />
-        <StatCard
-          icon={<TrendingUp size={24} />}
-          iconClass="network"
-          label="Est. Monthly"
-          value={`$${stats?.earnings.estimatedMonthlyUSD || '0'}`}
-          change={`$${stats?.earnings.estimatedDailyUSD || '0'}/day`}
-          changeType="positive"
-        />
-        <StatCard
-          icon={<Award size={24} />}
-          iconClass="ai"
-          label="Pending Rewards"
-          value={`$${stats?.earnings.totalPendingUSD || '0'}`}
-          change="Claimable now"
-          changeType="positive"
-        />
+        {isLoading ? (
+          <>
+            <SkeletonStatCard />
+            <SkeletonStatCard />
+            <SkeletonStatCard />
+            <SkeletonStatCard />
+          </>
+        ) : (
+          <>
+            <StatCard
+              icon={<Server size={24} />}
+              iconClass="compute"
+              label="Active Nodes"
+              value={stats?.operator.nodesActive.toString() ?? '0'}
+              change={`${stats?.operator.networkSharePercent ?? '0'}% of network`}
+              changeType="neutral"
+            />
+            <StatCard
+              icon={<DollarSign size={24} />}
+              iconClass="storage"
+              label="Total Staked"
+              value={`$${formatNumber(stats?.operator.totalStakedUSD ?? '0')}`}
+              change="USD value"
+              changeType="neutral"
+            />
+            <StatCard
+              icon={<TrendingUp size={24} />}
+              iconClass="network"
+              label="Est. Monthly"
+              value={`$${stats?.earnings.estimatedMonthlyUSD ?? '0'}`}
+              change={`$${stats?.earnings.estimatedDailyUSD ?? '0'}/day`}
+              changeType="positive"
+            />
+            <StatCard
+              icon={<Award size={24} />}
+              iconClass="ai"
+              label="Pending Rewards"
+              value={`$${stats?.earnings.totalPendingUSD ?? '0'}`}
+              change="Claimable now"
+              changeType="positive"
+            />
+          </>
+        )}
       </div>
 
       <div
@@ -120,6 +231,7 @@ export default function NodeOperatorDashboard() {
             <div className="empty-state" style={{ padding: '2rem' }}>
               <Server size={48} />
               <h4>No nodes registered</h4>
+              <p>Register a node to start earning rewards</p>
               <a
                 href="/settings"
                 className="btn btn-primary"
@@ -139,7 +251,7 @@ export default function NodeOperatorDashboard() {
                     <th>Uptime</th>
                     <th>Staked</th>
                     <th>Pending</th>
-                    <th></th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -148,9 +260,16 @@ export default function NodeOperatorDashboard() {
                       key={node.nodeId}
                       node={node}
                       isSelected={selectedNode === node.nodeId}
+                      isClaiming={claimingNode === node.nodeId}
                       onSelect={() =>
                         setSelectedNode(
                           selectedNode === node.nodeId ? null : node.nodeId,
+                        )
+                      }
+                      onClaim={() =>
+                        handleClaimRewards(
+                          node.nodeId,
+                          node.nodeId.slice(0, 10),
                         )
                       }
                     />
@@ -175,29 +294,37 @@ export default function NodeOperatorDashboard() {
             <div style={{ display: 'grid', gap: '1rem' }}>
               <EarningsRow
                 label="Lifetime Earned"
-                value={`$${formatNumber(stats?.operator.lifetimeRewardsUSD || '0')}`}
+                value={`$${formatNumber(stats?.operator.lifetimeRewardsUSD ?? '0')}`}
               />
               <EarningsRow
                 label="Pending Rewards"
-                value={`$${stats?.earnings.totalPendingUSD || '0'}`}
+                value={`$${stats?.earnings.totalPendingUSD ?? '0'}`}
                 highlight
               />
               <EarningsRow
                 label="Est. Monthly"
-                value={`$${stats?.earnings.estimatedMonthlyUSD || '0'}`}
+                value={`$${stats?.earnings.estimatedMonthlyUSD ?? '0'}`}
               />
               <EarningsRow
                 label="Est. Daily"
-                value={`$${stats?.earnings.estimatedDailyUSD || '0'}`}
+                value={`$${stats?.earnings.estimatedDailyUSD ?? '0'}`}
               />
               {nodes.length > 0 &&
-                parseFloat(stats?.earnings.totalPendingUSD || '0') > 0 && (
+                parseFloat(stats?.earnings.totalPendingUSD ?? '0') > 0 && (
                   <button
                     type="button"
                     className="btn btn-primary"
                     style={{ marginTop: '0.5rem' }}
+                    onClick={handleClaimAllRewards}
+                    disabled={claimRewards.isPending}
                   >
-                    <DollarSign size={16} /> Claim All Rewards
+                    {claimRewards.isPending ? (
+                      'Claiming...'
+                    ) : (
+                      <>
+                        <DollarSign size={16} /> Claim All Rewards
+                      </>
+                    )}
                   </button>
                 )}
             </div>
@@ -213,12 +340,12 @@ export default function NodeOperatorDashboard() {
             <div style={{ display: 'grid', gap: '1rem' }}>
               <PerformanceMetric
                 label="Avg. Uptime"
-                value={`${stats?.operator.avgUptimePercent || '0'}%`}
+                value={`${stats?.operator.avgUptimePercent ?? '0'}%`}
                 icon={<Clock size={16} />}
                 status={
-                  parseFloat(stats?.operator.avgUptimePercent || '0') >= 99
+                  parseFloat(stats?.operator.avgUptimePercent ?? '0') >= 99
                     ? 'good'
-                    : parseFloat(stats?.operator.avgUptimePercent || '0') >= 95
+                    : parseFloat(stats?.operator.avgUptimePercent ?? '0') >= 95
                       ? 'warning'
                       : 'bad'
                 }
@@ -226,14 +353,14 @@ export default function NodeOperatorDashboard() {
               <PerformanceMetric
                 label="Requests Served"
                 value={formatNumber(
-                  stats?.operator.totalRequestsServed?.toString() || '0',
+                  stats?.operator.totalRequestsServed?.toString() ?? '0',
                 )}
                 icon={<Zap size={16} />}
                 status="neutral"
               />
               <PerformanceMetric
                 label="Network Share"
-                value={`${stats?.operator.networkSharePercent || '0'}%`}
+                value={`${stats?.operator.networkSharePercent ?? '0'}%`}
                 icon={<Globe size={16} />}
                 status="neutral"
               />
@@ -250,19 +377,19 @@ export default function NodeOperatorDashboard() {
             <div style={{ display: 'grid', gap: '0.75rem' }}>
               <NetworkStat
                 label="Total Nodes"
-                value={stats?.network.totalNodes.toString() || '0'}
+                value={stats?.network.totalNodes.toString() ?? '0'}
               />
               <NetworkStat
                 label="Total Staked"
-                value={`$${formatNumber(stats?.network.totalStakedUSD || '0')}`}
+                value={`$${formatNumber(stats?.network.totalStakedUSD ?? '0')}`}
               />
               <NetworkStat
                 label="Min. Stake"
-                value={`$${formatNumber(stats?.network.minStakeUSD || '0')}`}
+                value={`$${formatNumber(stats?.network.minStakeUSD ?? '0')}`}
               />
               <NetworkStat
                 label="Base Reward"
-                value={`$${formatNumber(stats?.network.baseRewardPerMonthUSD || '0')}/mo`}
+                value={`$${formatNumber(stats?.network.baseRewardPerMonthUSD ?? '0')}/mo`}
               />
             </div>
           </div>
@@ -274,6 +401,8 @@ export default function NodeOperatorDashboard() {
         <NodeDetailsPanel
           node={nodes.find((n) => n.nodeId === selectedNode)}
           onClose={() => setSelectedNode(null)}
+          onClaim={handleClaimRewards}
+          isClaiming={claimingNode === selectedNode}
         />
       )}
 
@@ -344,19 +473,41 @@ function StatCard({
 function NodeRow({
   node,
   isSelected,
+  isClaiming,
   onSelect,
+  onClaim,
 }: {
   node: NodeInfo
   isSelected: boolean
+  isClaiming: boolean
   onSelect: () => void
+  onClaim: () => void
 }) {
+  const hasPendingRewards = parseFloat(node.pendingRewards) > 0
+
+  const handleRowClick = (e: React.MouseEvent) => {
+    // Don't trigger row click when clicking buttons
+    if ((e.target as HTMLElement).closest('button')) return
+    onSelect()
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      onSelect()
+    }
+  }
+
   return (
     <tr
-      onClick={onSelect}
       style={{
         cursor: 'pointer',
         background: isSelected ? 'var(--bg-tertiary)' : undefined,
       }}
+      onClick={handleRowClick}
+      onKeyDown={handleKeyDown}
+      tabIndex={0}
+      aria-selected={isSelected}
     >
       <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }}>
         {node.nodeId.slice(0, 10)}...
@@ -388,7 +539,26 @@ function NodeRow({
         ${formatNumber(node.pendingRewards)}
       </td>
       <td>
-        <ArrowUpRight size={16} style={{ color: 'var(--text-muted)' }} />
+        {hasPendingRewards ? (
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={(e) => {
+              e.stopPropagation()
+              onClaim()
+            }}
+            disabled={isClaiming}
+            title="Claim rewards"
+          >
+            {isClaiming ? '...' : <DollarSign size={14} />}
+          </button>
+        ) : (
+          <ArrowUpRight
+            size={16}
+            style={{ color: 'var(--text-muted)', cursor: 'pointer' }}
+            onClick={onSelect}
+          />
+        )}
       </td>
     </tr>
   )
@@ -489,11 +659,17 @@ function NetworkStat({ label, value }: { label: string; value: string }) {
 function NodeDetailsPanel({
   node,
   onClose,
+  onClaim,
+  isClaiming,
 }: {
   node: NodeInfo | undefined
   onClose: () => void
+  onClaim: (nodeId: string, nodeName: string) => void
+  isClaiming: boolean
 }) {
   if (!node) return null
+
+  const hasPendingRewards = parseFloat(node.pendingRewards) > 0
 
   return (
     <div
@@ -530,7 +706,7 @@ function NodeDetailsPanel({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
           gap: '1.5rem',
         }}
       >
@@ -607,8 +783,19 @@ function NodeDetailsPanel({
       </div>
 
       <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.75rem' }}>
-        <button type="button" className="btn btn-primary">
-          <DollarSign size={16} /> Claim Rewards
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={() => onClaim(node.nodeId, node.nodeId.slice(0, 10))}
+          disabled={!hasPendingRewards || isClaiming}
+        >
+          {isClaiming ? (
+            'Claiming...'
+          ) : (
+            <>
+              <DollarSign size={16} /> Claim Rewards
+            </>
+          )}
         </button>
         <button type="button" className="btn btn-secondary">
           <RefreshCw size={16} /> Update Performance
@@ -675,8 +862,8 @@ function ActivityRow({ item }: { item: EarningsHistoryItem }) {
       </td>
       <td>
         {item.type === 'claim'
-          ? `$${formatNumber(item.amount || '0')}`
-          : `$${formatNumber(item.stakedValueUSD || '0')} staked`}
+          ? `$${formatNumber(item.amount ?? '0')}`
+          : `$${formatNumber(item.stakedValueUSD ?? '0')} staked`}
       </td>
       <td style={{ fontFamily: 'var(--font-mono)' }}>{item.blockNumber}</td>
       <td>

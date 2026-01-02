@@ -26,10 +26,61 @@ const erc8004 = getERC8004Client(erc8004Config)
 
 export const agentsRoutes = new Elysia({ prefix: '/api/v1/agents' })
   .get(
-    '/count',
+    '/',
     async () => {
-      const count = await erc8004.getTotalAgents()
-      return { count }
+      try {
+        const count = await erc8004.getTotalAgents()
+        return {
+          total: count,
+          endpoints: {
+            count: 'GET /api/v1/agents/count',
+            getById: 'GET /api/v1/agents/:id',
+            register: 'POST /api/v1/agents/register',
+            feedback: 'POST /api/v1/agents/:id/feedback',
+            ceo: 'GET /api/v1/agents/ceo',
+            council: 'GET /api/v1/agents/council',
+          },
+        }
+      } catch (error) {
+        console.warn(
+          '[Agents] Error getting agent count:',
+          error instanceof Error ? error.message : String(error),
+        )
+        return {
+          total: 0,
+          endpoints: {
+            count: 'GET /api/v1/agents/count',
+            getById: 'GET /api/v1/agents/:id',
+            register: 'POST /api/v1/agents/register',
+            feedback: 'POST /api/v1/agents/:id/feedback',
+            ceo: 'GET /api/v1/agents/ceo',
+            council: 'GET /api/v1/agents/council',
+          },
+          message: 'Agent registry not available',
+        }
+      }
+    },
+    {
+      detail: {
+        tags: ['agents'],
+        summary: 'List agent endpoints and total count',
+      },
+    },
+  )
+  .get(
+    '/count',
+    async ({ set }) => {
+      try {
+        const count = await erc8004.getTotalAgents()
+        return { count }
+      } catch (error) {
+        console.warn(
+          '[Agents] Error getting count:',
+          error instanceof Error ? error.message : String(error),
+        )
+        set.status = 200
+        return { count: 0, message: 'Agent registry not available' }
+      }
     },
     {
       detail: { tags: ['agents'], summary: 'Get total agent count' },
@@ -97,32 +148,46 @@ export const agentsRoutes = new Elysia({ prefix: '/api/v1/agents' })
   // CEO endpoints
   .get(
     '/ceo',
-    async () => {
-      // Get CEO status via internal call
-      const a2aServer = createAutocratA2AServer(config, blockchain)
-      const response = await a2aServer.getRouter().fetch(
-        new Request('http://localhost/a2a', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            id: 1,
-            method: 'message/send',
-            params: {
-              message: {
-                messageId: `rest-${Date.now()}`,
-                parts: [{ kind: 'data', data: { skillId: 'get-ceo-status' } }],
+    async ({ set }) => {
+      try {
+        // Get CEO status via internal call
+        const a2aServer = createAutocratA2AServer(config, blockchain)
+        const response = await a2aServer.getRouter().fetch(
+          new Request('http://localhost/a2a', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              jsonrpc: '2.0',
+              id: 1,
+              method: 'message/send',
+              params: {
+                message: {
+                  messageId: `rest-${Date.now()}`,
+                  parts: [
+                    { kind: 'data', data: { skillId: 'get-ceo-status' } },
+                  ],
+                },
               },
-            },
+            }),
           }),
-        }),
-      )
-      const result = expectValid(
-        A2AJsonRpcResponseSchema,
-        await response.json(),
-        'CEO status A2A response',
-      )
-      return result
+        )
+        const result = expectValid(
+          A2AJsonRpcResponseSchema,
+          await response.json(),
+          'CEO status A2A response',
+        )
+        return result
+      } catch (error) {
+        console.warn(
+          '[Agents] Error getting CEO status:',
+          error instanceof Error ? error.message : String(error),
+        )
+        set.status = 200
+        return {
+          status: 'unavailable',
+          message: 'CEO status not available - contracts may not be deployed',
+        }
+      }
     },
     {
       detail: { tags: ['agents'], summary: 'Get CEO status' },
@@ -148,6 +213,53 @@ export const agentsRoutes = new Elysia({ prefix: '/api/v1/agents' })
     {
       query: t.Object({ limit: t.Optional(t.String()) }),
       detail: { tags: ['agents'], summary: 'Get recent CEO decisions' },
+    },
+  )
+  .get(
+    '/council',
+    async ({ set }) => {
+      try {
+        // Get council/board members via A2A internal call
+        const a2aServer = createAutocratA2AServer(config, blockchain)
+        const response = await a2aServer.getRouter().fetch(
+          new Request('http://localhost/a2a', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              jsonrpc: '2.0',
+              id: 1,
+              method: 'message/send',
+              params: {
+                message: {
+                  messageId: `rest-${Date.now()}`,
+                  parts: [
+                    { kind: 'data', data: { skillId: 'get-council-status' } },
+                  ],
+                },
+              },
+            }),
+          }),
+        )
+        const result = expectValid(
+          A2AJsonRpcResponseSchema,
+          await response.json(),
+          'Council status A2A response',
+        )
+        return result
+      } catch (error) {
+        console.warn(
+          '[Agents] Error getting council status:',
+          error instanceof Error ? error.message : String(error),
+        )
+        set.status = 200
+        return {
+          members: [],
+          message: 'Council not available - contracts may not be deployed',
+        }
+      }
+    },
+    {
+      detail: { tags: ['agents'], summary: 'Get council/board members' },
     },
   )
   .post(

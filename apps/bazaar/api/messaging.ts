@@ -1,8 +1,9 @@
-import { getCacheClient } from '@jejunetwork/cache'
+import { getCacheClient, safeParseCached } from '@jejunetwork/cache'
 import {
   type FarcasterCast,
   FarcasterClient,
   type FarcasterProfile,
+  FarcasterProfileSchema,
 } from '@jejunetwork/messaging'
 import type { Address, Hex } from 'viem'
 
@@ -201,16 +202,22 @@ class BazaarMessagingService {
     const cacheKey = `profile:${fid}`
 
     // Check DWS cache first
-    const cached = await cache.get(cacheKey).catch(() => null)
-    if (cached) {
-      return JSON.parse(cached) as FarcasterProfile
+    const cached = await cache.get(cacheKey).catch((err) => {
+      console.warn('[Bazaar] Cache read failed:', err)
+      return null
+    })
+    const cachedProfile = safeParseCached(cached, FarcasterProfileSchema)
+    if (cachedProfile) {
+      console.debug('[Bazaar] Cache hit for profile:', fid)
+      return cachedProfile
     }
 
     const profile = await this.hubClient.getProfile(fid)
     if (profile) {
+      console.debug('[Bazaar] Cache miss, caching profile:', fid)
       cache
         .set(cacheKey, JSON.stringify(profile), PROFILE_CACHE_TTL)
-        .catch(() => {})
+        .catch((err) => console.warn('[Bazaar] Cache write failed:', err))
     }
     return profile
   }

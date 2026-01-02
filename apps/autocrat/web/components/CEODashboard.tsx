@@ -68,12 +68,15 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
   const [models, setModels] = useState<ModelCandidate[]>([])
   const [decisions, setDecisions] = useState<Decision[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [expandedModel, setExpandedModel] = useState<string | null>(null)
   const [showNominateModal, setShowNominateModal] = useState(false)
   const [nominating, setNominating] = useState(false)
+  const [nominateError, setNominateError] = useState<string | null>(null)
 
   const loadData = useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
     try {
       const [status, modelCandidates, recentDecisions] = await Promise.all([
         fetchCEOStatus(),
@@ -84,7 +87,9 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
       setModels(modelCandidates)
       setDecisions(recentDecisions)
     } catch (err) {
-      console.error('Failed to load CEO data:', err)
+      const message =
+        err instanceof Error ? err.message : 'Failed to load CEO data'
+      setLoadError(message)
     }
     setLoading(false)
   }, [])
@@ -95,12 +100,15 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
 
   const handleNominate = async (request: NominateModelRequest) => {
     setNominating(true)
+    setNominateError(null)
     try {
       await nominateModel(request)
       setShowNominateModal(false)
       await loadData()
     } catch (err) {
-      console.error('Failed to nominate model:', err)
+      const message =
+        err instanceof Error ? err.message : 'Failed to nominate model'
+      setNominateError(message)
     }
     setNominating(false)
   }
@@ -111,6 +119,24 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
         <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4" />
         <div className="h-24 bg-gray-200 dark:bg-gray-700 rounded mb-4" />
         <div className="h-48 bg-gray-200 dark:bg-gray-700 rounded" />
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div className="card-static p-6">
+        <div className="text-center">
+          <div className="text-red-500 mb-2">Failed to load CEO data</div>
+          <p className="text-sm text-gray-500 mb-4">{loadError}</p>
+          <button
+            type="button"
+            onClick={loadData}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     )
   }
@@ -383,10 +409,14 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
       {/* Nomination Modal */}
       {showNominateModal && (
         <NominateModelModal
-          onClose={() => setShowNominateModal(false)}
+          onClose={() => {
+            setShowNominateModal(false)
+            setNominateError(null)
+          }}
           onNominate={handleNominate}
           nominating={nominating}
           existingModels={models.map((m) => m.modelId)}
+          error={nominateError}
         />
       )}
 
@@ -510,11 +540,13 @@ function NominateModelModal({
   onNominate,
   nominating,
   existingModels,
+  error,
 }: {
   onClose: () => void
   onNominate: (request: NominateModelRequest) => void
   nominating: boolean
   existingModels: string[]
+  error: string | null
 }) {
   const [selectedProvider, setSelectedProvider] = useState<string>('')
   const [selectedModel, setSelectedModel] = useState<string>('')
@@ -574,6 +606,12 @@ function NominateModelModal({
         </div>
 
         <div className="p-4 space-y-4">
+          {error && (
+            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-sm">
+              {error}
+            </div>
+          )}
+
           {/* Provider Selection */}
           <div>
             <label

@@ -442,6 +442,184 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
   // Intel API - AI-powered market intelligence
   app.group('/api', (apiGroup) => apiGroup.use(createIntelRouter()))
 
+  // User API - referrals, preferences, portfolio
+  app.group('/api/users', (usersGroup) =>
+    usersGroup
+      .get('/:address/referrals', async ({ params }) => {
+        const { address } = params
+        if (!address || address.length < 10) {
+          return new Response(JSON.stringify({ error: 'Invalid address' }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        }
+
+        // Generate deterministic referral code from address
+        const referralCode = address.slice(2, 10).toLowerCase()
+
+        // In production, this would query the database for actual referral stats
+        // For now, we track via indexer events or SQLit database
+        try {
+          if (env?.SQLIT_DATABASE_ID) {
+            const db = getDatabase(env as BazaarEnv)
+
+            // Create referrals table if not exists
+            await db.exec(`
+              CREATE TABLE IF NOT EXISTS referrals (
+                id TEXT PRIMARY KEY,
+                referrer TEXT NOT NULL,
+                referee TEXT NOT NULL,
+                points_earned INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+              )
+            `)
+            await db.exec(
+              'CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals(referrer)',
+            )
+
+            // Count referrals for this address
+            const result = await db.query<{
+              count: number
+              total_points: number
+            }>(
+              'SELECT COUNT(*) as count, COALESCE(SUM(points_earned), 0) as total_points FROM referrals WHERE referrer = ?',
+              [address.toLowerCase()],
+            )
+
+            const stats = result.rows[0]
+            return {
+              totalReferrals: stats?.count ?? 0,
+              totalPointsEarned: stats?.total_points ?? 0,
+              referralCode,
+            }
+          }
+        } catch (dbError) {
+          console.warn('[Bazaar] Database query failed for referrals:', dbError)
+        }
+
+        // Fallback: return code with zero stats if DB is not available
+        return {
+          totalReferrals: 0,
+          totalPointsEarned: 0,
+          referralCode,
+        }
+      })
+      .post('/:address/referrals/claim', async ({ params, body }) => {
+        const { address } = params
+        const { referralCode } = body as { referralCode?: string }
+
+        if (!address || !referralCode) {
+          return new Response(
+            JSON.stringify({ error: 'Address and referral code required' }),
+            { status: 400, headers: { 'Content-Type': 'application/json' } },
+          )
+        }
+
+        // Validate referral code format (first 8 chars of address, lowercase)
+        if (referralCode.length !== 8) {
+          return new Response(
+            JSON.stringify({ error: 'Invalid referral code format' }),
+            { status: 400, headers: { 'Content-Type': 'application/json' } },
+          )
+        }
+
+        // Reconstruct referrer address prefix (we only have first 8 chars)
+        const referrerPrefix = `0x${referralCode}`
+
+        try {
+          if (env?.SQLIT_DATABASE_ID) {
+            const db = getDatabase(env as BazaarEnv)
+
+            // Check if this user already claimed a referral
+            const existing = await db.query<{ id: string }>(
+              'SELECT id FROM referrals WHERE referee = ?',
+              [address.toLowerCase()],
+            )
+
+            if (existing.rows.length > 0) {
+              return new Response(
+                JSON.stringify({ error: 'Already claimed a referral' }),
+                {
+                  status: 400,
+                  headers: { 'Content-Type': 'application/json' },
+                },
+              )
+            }
+
+            // Record the referral (we store the code prefix as referrer since we don't have full address)
+            const id = `${referrerPrefix}-${address.slice(0, 10)}-${Date.now()}`
+            await db.exec(
+              `INSERT INTO referrals (id, referrer, referee, points_earned) VALUES (?, ?, ?, ?)`,
+              [id, referrerPrefix.toLowerCase(), address.toLowerCase(), 100],
+            )
+
+            return { success: true, pointsEarned: 100 }
+          }
+        } catch (dbError) {
+          console.warn('[Bazaar] Database insert failed for referral:', dbError)
+        }
+
+        return new Response(
+          JSON.stringify({ error: 'Referral system temporarily unavailable' }),
+          { status: 503, headers: { 'Content-Type': 'application/json' } },
+        )
+      })
+      .get('/:address/preferences', async ({ params }) => {
+        const { address } = params
+
+        try {
+          if (env?.SQLIT_DATABASE_ID) {
+            const db = getDatabase(env as BazaarEnv)
+            const result = await db.query<{ preferences: string }>(
+              'SELECT preferences FROM user_preferences WHERE address = ?',
+              [address.toLowerCase()],
+            )
+
+            if (result.rows[0]) {
+              return JSON.parse(result.rows[0].preferences)
+            }
+          }
+        } catch (dbError) {
+          console.warn('[Bazaar] Failed to fetch preferences:', dbError)
+        }
+
+        // Return default preferences
+        return {
+          theme: 'system',
+          notifications: true,
+          slippage: 0.5,
+          defaultChain: 420691,
+        }
+      })
+      .post('/:address/preferences', async ({ params, body }) => {
+        const { address } = params
+
+        try {
+          if (env?.SQLIT_DATABASE_ID) {
+            const db = getDatabase(env as BazaarEnv)
+            await db.exec(
+              `INSERT INTO user_preferences (address, preferences, updated_at) 
+               VALUES (?, ?, CURRENT_TIMESTAMP)
+               ON CONFLICT(address) DO UPDATE SET preferences = ?, updated_at = CURRENT_TIMESTAMP`,
+              [
+                address.toLowerCase(),
+                JSON.stringify(body),
+                JSON.stringify(body),
+              ],
+            )
+            return { success: true }
+          }
+        } catch (dbError) {
+          console.warn('[Bazaar] Failed to save preferences:', dbError)
+        }
+
+        return new Response(
+          JSON.stringify({ error: 'Failed to save preferences' }),
+          { status: 503, headers: { 'Content-Type': 'application/json' } },
+        )
+      }),
+  )
+
   return app
 }
 

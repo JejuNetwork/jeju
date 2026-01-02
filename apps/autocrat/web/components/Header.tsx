@@ -1,8 +1,43 @@
-import { Building2, Menu, Plus, Sparkles, User, Wallet, X } from 'lucide-react'
+import {
+  Building2,
+  Menu,
+  Moon,
+  Plus,
+  Sparkles,
+  Sun,
+  User,
+  Wallet,
+  X,
+} from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAccount, useConnect, useDisconnect } from 'wagmi'
 import { injected } from 'wagmi/connectors'
+
+function useTheme() {
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('autocrat-theme')
+      if (stored === 'dark' || stored === 'light') return stored
+      return window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'light'
+    }
+    return 'light'
+  })
+
+  useEffect(() => {
+    const root = document.documentElement
+    root.setAttribute('data-theme', theme)
+    localStorage.setItem('autocrat-theme', theme)
+  }, [theme])
+
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'))
+  }, [])
+
+  return { theme, toggleTheme }
+}
 
 interface NavLink {
   to: string
@@ -19,6 +54,7 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const mobileMenuRef = useRef<HTMLDivElement>(null)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
+  const { theme, toggleTheme } = useTheme()
 
   const { address, isConnected } = useAccount()
   const { connect, isPending } = useConnect()
@@ -141,6 +177,27 @@ export function Header() {
 
           {/* Right Section */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Theme Toggle */}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="p-2.5 rounded-xl transition-colors focus:outline-none focus-visible:ring-2"
+              style={
+                {
+                  backgroundColor: 'var(--surface)',
+                  color: 'var(--text-secondary)',
+                  '--tw-ring-color': 'var(--color-primary)',
+                } as React.CSSProperties
+              }
+              aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+            >
+              {theme === 'light' ? (
+                <Moon className="w-5 h-5" aria-hidden="true" />
+              ) : (
+                <Sun className="w-5 h-5" aria-hidden="true" />
+              )}
+            </button>
+
             {/* Create DAO Button - Desktop */}
             <Link
               to="/create"

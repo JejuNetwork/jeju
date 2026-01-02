@@ -9,10 +9,12 @@ import {
   Loader2,
   Shield,
   Users,
+  Wallet,
   XCircle,
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { useAccount } from 'wagmi'
 import {
   conductResearch,
   fetchProposal,
@@ -43,6 +45,7 @@ interface ModerationFlag {
 
 export default function ProposalDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const { address, isConnected } = useAccount()
   const [proposal, setProposal] = useState<Proposal | null>(null)
   const [moderationScore, setModerationScore] =
     useState<ModerationScore | null>(null)
@@ -60,6 +63,7 @@ export default function ProposalDetailPage() {
   const [flagReason, setFlagReason] = useState('')
   const [flagType, setFlagType] = useState('spam')
   const [flagSubmitting, setFlagSubmitting] = useState(false)
+  const [flagError, setFlagError] = useState<string | null>(null)
 
   const loadProposal = useCallback(async () => {
     if (!id) return
@@ -116,17 +120,30 @@ export default function ProposalDetailPage() {
 
   const handleSubmitFlag = async () => {
     if (!proposal || !flagReason.trim()) return
+
+    if (!isConnected || !address) {
+      setFlagError('Please connect your wallet to submit a flag')
+      return
+    }
+
+    setFlagError(null)
     setFlagSubmitting(true)
-    await submitModerationFlag({
-      proposalId: proposal.proposalId,
-      flagger: '0x0000000000000000000000000000000000000000', // Would come from wallet
-      flagType,
-      reason: flagReason,
-    }).catch(() => null)
-    setFlagSubmitting(false)
-    setShowFlagForm(false)
-    setFlagReason('')
-    loadProposal()
+
+    try {
+      await submitModerationFlag({
+        proposalId: proposal.proposalId,
+        flagger: address,
+        flagType,
+        reason: flagReason,
+      })
+      setShowFlagForm(false)
+      setFlagReason('')
+      loadProposal()
+    } catch (err) {
+      setFlagError(err instanceof Error ? err.message : 'Failed to submit flag')
+    } finally {
+      setFlagSubmitting(false)
+    }
   }
 
   const getStatusIcon = (status: string) => {
@@ -502,6 +519,17 @@ export default function ProposalDetailPage() {
 
             {showFlagForm && (
               <div className="mb-4 p-3 border rounded-lg border-[var(--border)] bg-[var(--bg-secondary)]">
+                {!isConnected && (
+                  <div className="mb-3 p-2 rounded bg-[var(--color-warning)]/10 border border-[var(--color-warning)]/30 flex items-center gap-2 text-sm text-[var(--color-warning)]">
+                    <Wallet size={14} aria-hidden="true" />
+                    Connect wallet to submit flags
+                  </div>
+                )}
+                {flagError && (
+                  <div className="mb-3 p-2 rounded bg-[var(--color-error)]/10 border border-[var(--color-error)]/30 text-sm text-[var(--color-error)]">
+                    {flagError}
+                  </div>
+                )}
                 <label htmlFor="flag-type" className="sr-only">
                   Flag Type
                 </label>
@@ -531,7 +559,9 @@ export default function ProposalDetailPage() {
                 <button
                   type="button"
                   onClick={handleSubmitFlag}
-                  disabled={flagSubmitting || !flagReason.trim()}
+                  disabled={
+                    flagSubmitting || !flagReason.trim() || !isConnected
+                  }
                   className="btn-primary w-full mt-2 text-sm"
                 >
                   {flagSubmitting ? (

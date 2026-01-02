@@ -19,6 +19,7 @@ import {
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { formatEther, parseEther } from 'viem'
+import { useAccount } from 'wagmi'
 import {
   assessBugBounty,
   type BountyAssessment,
@@ -118,12 +119,14 @@ const VULN_TYPES = [
 
 export default function BugBountyPage() {
   const navigate = useNavigate()
+  const { address, isConnected } = useAccount()
   const [stats, setStats] = useState<BountyStats | null>(null)
   const [submissions, setSubmissions] = useState<BountySubmission[]>([])
   const [leaderboard, setLeaderboard] = useState<ResearcherLeaderboardEntry[]>(
     [],
   )
   const [loading, setLoading] = useState(true)
+  const [_submitError, _setSubmitError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<
     'overview' | 'submissions' | 'submit' | 'leaderboard'
   >('overview')
@@ -159,13 +162,15 @@ export default function BugBountyPage() {
   }
 
   const handleSubmit = async () => {
+    if (!isConnected || !address) {
+      setSubmitError('Please connect your wallet to submit a bug report')
+      return
+    }
+
     setSubmitting(true)
     setSubmitError(null)
     try {
-      await submitBugBounty(
-        draft,
-        '0x0000000000000000000000000000000000000000', // Would come from wallet
-      )
+      await submitBugBounty(draft, address)
       setActiveTab('submissions')
       setDraft({
         title: '',

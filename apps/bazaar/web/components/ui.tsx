@@ -9,12 +9,14 @@ import { Link } from 'react-router-dom'
 interface PageHeaderProps {
   icon: string
   title: string
-  description: string
-  action?: {
-    label: string
-    href?: string
-    onClick?: () => void
-  }
+  description: ReactNode
+  action?:
+    | {
+        label: string
+        href?: string
+        onClick?: () => void
+      }
+    | ReactNode
 }
 
 export function PageHeader({
@@ -40,21 +42,25 @@ export function PageHeader({
         </p>
       </div>
       {action &&
-        (action.href ? (
-          <Link
-            to={action.href}
-            className="btn-primary w-full sm:w-auto text-center whitespace-nowrap"
-          >
-            {action.label}
-          </Link>
+        (typeof action === 'object' && 'label' in action ? (
+          action.href ? (
+            <Link
+              to={action.href}
+              className="btn-primary w-full sm:w-auto text-center whitespace-nowrap"
+            >
+              {action.label}
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={action.onClick}
+              className="btn-primary w-full sm:w-auto whitespace-nowrap"
+            >
+              {action.label}
+            </button>
+          )
         ) : (
-          <button
-            type="button"
-            onClick={action.onClick}
-            className="btn-primary w-full sm:w-auto whitespace-nowrap"
-          >
-            {action.label}
-          </button>
+          action
         ))}
     </header>
   )

@@ -332,6 +332,61 @@ async function initializeSQLit(): Promise<void> {
   }
 }
 
+async function seedJejuDAO(): Promise<void> {
+  console.log('[Autocrat] Checking Jeju DAO seed...')
+
+  const apiUrl = `http://${host}:${API_PORT}`
+
+  // Wait for API to be ready
+  let ready = false
+  for (let i = 0; i < 10; i++) {
+    const response = await fetch(`${apiUrl}/health`, {
+      signal: AbortSignal.timeout(1000),
+    }).catch(() => null)
+    if (response?.ok) {
+      ready = true
+      break
+    }
+    await Bun.sleep(500)
+  }
+
+  if (!ready) {
+    console.warn('[Autocrat] API not ready, skipping seed')
+    return
+  }
+
+  // Check if Jeju DAO exists
+  const checkResponse = await fetch(`${apiUrl}/api/v1/dao/jeju`, {
+    signal: AbortSignal.timeout(5000),
+  }).catch(() => null)
+
+  if (checkResponse?.ok) {
+    console.log('[Autocrat] Jeju DAO already exists')
+    return
+  }
+
+  console.log('[Autocrat] Seeding Jeju DAO...')
+
+  // Run seed script
+  const proc = Bun.spawn(['bun', 'run', 'scripts/seed.ts', '--skip-wait'], {
+    cwd: APP_DIR,
+    stdout: 'inherit',
+    stderr: 'inherit',
+    env: {
+      ...process.env,
+      AUTOCRAT_API_URL: apiUrl,
+    },
+  })
+
+  const exitCode = await proc.exited
+
+  if (exitCode === 0) {
+    console.log('[Autocrat] Jeju DAO seeded successfully')
+  } else {
+    console.warn('[Autocrat] Jeju DAO seeding failed (may already exist)')
+  }
+}
+
 async function startLocalWorker(): Promise<void> {
   console.log(`[Autocrat] Starting local API server on port ${API_PORT}...`)
 
@@ -438,6 +493,9 @@ async function main(): Promise<void> {
   if (!workerId) {
     await startLocalWorker()
   }
+
+  // Step 8: Seed Jeju DAO
+  await seedJejuDAO()
 
   // Print summary
   const frontendPort = CORE_PORTS.AUTOCRAT_WEB.get()

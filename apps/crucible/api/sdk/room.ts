@@ -15,6 +15,7 @@ import type {
   RoomPhase,
   RoomState,
   RoomType,
+  SearchResult,
 } from '../../lib/types'
 import { expect, expectTrue } from '../schemas'
 import type { KMSSigner } from './kms-signer'
@@ -167,6 +168,61 @@ export class RoomSDK {
 
     this.log.info('Room created', { roomId: roomId.toString(), stateCid })
     return { roomId, stateCid }
+  }
+
+  /**
+   * Search for rooms with optional filters
+   */
+  async searchRooms(filters: {
+    name?: string
+    roomType?: RoomType
+    active?: boolean
+    limit?: number
+    offset?: number
+  }): Promise<SearchResult<Room>> {
+    const limit = filters.limit ?? 20
+    const offset = filters.offset ?? 0
+
+    this.log.debug('Searching rooms', filters)
+
+    // For now, we'll iterate through room IDs and filter
+    // In production, this would use an indexer/subgraph
+    const rooms: Room[] = []
+    let roomId = 1n
+    let total = 0
+    const maxIterations = 1000 // Safety limit
+
+    while (rooms.length < limit + offset && roomId < maxIterations) {
+      const room = await this.getRoom(roomId)
+      roomId++
+
+      if (!room) continue
+
+      // Apply filters
+      if (
+        filters.name &&
+        !room.name.toLowerCase().includes(filters.name.toLowerCase())
+      ) {
+        continue
+      }
+      if (filters.roomType && room.roomType !== filters.roomType) {
+        continue
+      }
+      if (filters.active !== undefined && room.active !== filters.active) {
+        continue
+      }
+
+      total++
+      if (total > offset) {
+        rooms.push(room)
+      }
+    }
+
+    return {
+      items: rooms.slice(0, limit),
+      total,
+      hasMore: rooms.length > limit,
+    }
   }
 
   async getRoom(roomId: bigint): Promise<Room | null> {

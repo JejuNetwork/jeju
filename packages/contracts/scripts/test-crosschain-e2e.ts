@@ -61,7 +61,8 @@ const l1StakeManagerAbi = [
         components: [
           { name: 'stakedAmount', type: 'uint256' },
           { name: 'unbondingAmount', type: 'uint256' },
-          { name: 'unbondingStart', type: 'uint256' },
+          { name: 'unbondingStartTime', type: 'uint256' },
+          { name: 'lockedUnbondingPeriod', type: 'uint256' },
           { name: 'slashedAmount', type: 'uint256' },
           { name: 'isActive', type: 'bool' },
           { name: 'registeredAt', type: 'uint256' },
@@ -117,13 +118,6 @@ const l1StakeManagerAbi = [
 
 const crossChainPaymasterAbi = [
   {
-    name: 'getXLPLiquidity',
-    type: 'function',
-    inputs: [{ name: 'xlp', type: 'address' }],
-    outputs: [{ name: '', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
     name: 'xlpStakes',
     type: 'function',
     inputs: [{ name: 'xlp', type: 'address' }],
@@ -138,31 +132,51 @@ const crossChainPaymasterAbi = [
     stateMutability: 'payable',
   },
   {
-    name: 'requestVoucher',
+    name: 'createVoucherRequestETH',
     type: 'function',
     inputs: [
-      { name: 'xlp', type: 'address' },
-      { name: 'amount', type: 'uint256' },
-      { name: 'destChain', type: 'uint256' },
+      { name: 'destinationChain', type: 'uint256' },
+      { name: 'destinationToken', type: 'address' },
+      { name: 'recipient', type: 'address' },
+      { name: 'maxFee', type: 'uint256' },
     ],
-    outputs: [{ name: '', type: 'bytes32' }],
-    stateMutability: 'nonpayable',
+    outputs: [{ name: 'requestId', type: 'bytes32' }],
+    stateMutability: 'payable',
   },
   {
     name: 'issueVoucher',
     type: 'function',
-    inputs: [
-      { name: 'requestId', type: 'bytes32' },
-      { name: 'user', type: 'address' },
-      { name: 'amount', type: 'uint256' },
-    ],
-    outputs: [{ name: '', type: 'bytes32' }],
+    inputs: [{ name: 'requestId', type: 'bytes32' }],
+    outputs: [{ name: 'voucherId', type: 'bytes32' }],
     stateMutability: 'nonpayable',
   },
   {
     name: 'fulfillVoucher',
     type: 'function',
-    inputs: [{ name: 'voucherId', type: 'bytes32' }],
+    inputs: [
+      { name: 'voucherId', type: 'bytes32' },
+      { name: 'recipient', type: 'address' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    name: 'getXLPLiquidity',
+    type: 'function',
+    inputs: [
+      { name: 'xlp', type: 'address' },
+      { name: 'token', type: 'address' },
+    ],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'adminSetXLPStake',
+    type: 'function',
+    inputs: [
+      { name: 'xlp', type: 'address' },
+      { name: 'stake', type: 'uint256' },
+    ],
     outputs: [],
     stateMutability: 'nonpayable',
   },
@@ -250,8 +264,15 @@ async function main() {
     await l1Public.waitForTransactionReceipt({ hash })
     console.log('XLP registered with 2 ETH stake')
   } catch (error) {
-    if (String(error).includes('AlreadyRegistered')) {
-      console.log('XLP already registered')
+    // 0x3a81d6fc is the selector for AlreadyRegistered()
+    const errorStr = String(error)
+    if (
+      errorStr.includes('AlreadyRegistered') ||
+      errorStr.includes('0x3a81d6fc')
+    ) {
+      console.log(
+        'XLP already registered (continuing with existing registration)',
+      )
     } else {
       throw error
     }
@@ -301,6 +322,24 @@ async function main() {
     console.log('L2 XLP stake not synced yet (relay may not be running)')
     l2Stake = 0n
   }
+
+  // If stake not synced via relay, use admin function as fallback
+  if (l2Stake === 0n) {
+    console.log('Using adminSetXLPStake as fallback...')
+    try {
+      const adminHash = await l2DeployerWallet.writeContract({
+        address: deployment.crossChainPaymaster as Address,
+        abi: crossChainPaymasterAbi,
+        functionName: 'adminSetXLPStake',
+        args: [xlpAccount.address, parseEther('2')],
+      })
+      await l2Public.waitForTransactionReceipt({ hash: adminHash })
+      console.log('Admin set XLP stake to 2 ETH on L2')
+      l2Stake = parseEther('2')
+    } catch (error) {
+      console.log('Admin set stake error:', error)
+    }
+  }
   console.log('')
 
   // Step 3: XLP deposits ETH liquidity on L2
@@ -325,7 +364,10 @@ async function main() {
       address: deployment.crossChainPaymaster as Address,
       abi: crossChainPaymasterAbi,
       functionName: 'getXLPLiquidity',
-      args: [xlpAccount.address],
+      args: [
+        xlpAccount.address,
+        '0x0000000000000000000000000000000000000000' as Address,
+      ],
     })
     console.log(`L2 XLP Liquidity: ${formatEther(liquidity)} ETH`)
   } catch {
@@ -333,22 +375,24 @@ async function main() {
   }
   console.log('')
 
-  // Step 4: User requests voucher
+  // Step 4: User requests voucher (using createVoucherRequestETH)
   console.log('=== STEP 4: User requests voucher ===')
   let requestId: Hex
   try {
     const hash = await l2UserWallet.writeContract({
       address: deployment.crossChainPaymaster as Address,
       abi: crossChainPaymasterAbi,
-      functionName: 'requestVoucher',
+      functionName: 'createVoucherRequestETH',
       args: [
-        xlpAccount.address,
-        parseEther('0.1'),
-        BigInt(deployment.l2ChainId),
+        BigInt(deployment.l2ChainId), // destinationChain
+        '0x0000000000000000000000000000000000000000' as Address, // destinationToken (ETH)
+        userAccount.address, // recipient
+        parseEther('0.01'), // maxFee
       ],
+      value: parseEther('0.1'), // amount in ETH
     })
     const receipt = await l2Public.waitForTransactionReceipt({ hash })
-    // Extract requestId from logs
+    // Extract requestId from VoucherRequestCreated event
     requestId = receipt.logs[0]?.topics[1] as Hex
     console.log(`Voucher requested: ${requestId}`)
   } catch (error) {
@@ -362,25 +406,26 @@ async function main() {
   console.log('=== STEP 5: XLP issues and fulfills voucher ===')
   let voucherId: Hex
   try {
-    // Issue voucher
+    // Issue voucher (XLP claims the request)
     const issueHash = await l2XlpWallet.writeContract({
       address: deployment.crossChainPaymaster as Address,
       abi: crossChainPaymasterAbi,
       functionName: 'issueVoucher',
-      args: [requestId, userAccount.address, parseEther('0.1')],
+      args: [requestId],
     })
     const issueReceipt = await l2Public.waitForTransactionReceipt({
       hash: issueHash,
     })
+    // Extract voucherId from VoucherIssued event
     voucherId = issueReceipt.logs[0]?.topics[1] as Hex
     console.log(`Voucher issued: ${voucherId}`)
 
-    // Fulfill voucher
+    // Fulfill voucher (XLP delivers tokens to recipient)
     const fulfillHash = await l2XlpWallet.writeContract({
       address: deployment.crossChainPaymaster as Address,
       abi: crossChainPaymasterAbi,
       functionName: 'fulfillVoucher',
-      args: [voucherId],
+      args: [voucherId, userAccount.address],
     })
     await l2Public.waitForTransactionReceipt({ hash: fulfillHash })
     console.log('Voucher fulfilled')

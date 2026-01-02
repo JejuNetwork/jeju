@@ -376,6 +376,94 @@ async function registerApp(
   console.log(`   App registered: ${JSON.stringify(result)}`)
 }
 
+// Seed Jeju DAO
+
+async function seedJejuDAO(
+  config: DeployConfig,
+  apiUrl: string,
+): Promise<void> {
+  console.log('Checking if Jeju DAO exists...')
+
+  // Check if Jeju DAO already exists
+  const checkResponse = await fetch(`${apiUrl}/api/v1/dao/jeju`).catch(
+    () => null,
+  )
+
+  if (checkResponse?.ok) {
+    console.log('   Jeju DAO already exists, skipping seed')
+    return
+  }
+
+  console.log('Seeding Jeju DAO...')
+
+  // Import seed data
+  const { JEJU_DAO } = await import('./seed')
+
+  // Get treasury address based on network
+  let treasury: Address
+  if (config.network === 'localnet') {
+    treasury = '0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f' as Address
+  } else {
+    const treasuryEnv = process.env.JEJU_DAO_TREASURY
+    if (!treasuryEnv) {
+      console.warn('   JEJU_DAO_TREASURY not set, using deployer address')
+      treasury = privateKeyToAccount(config.privateKey).address
+    } else {
+      treasury = treasuryEnv as Address
+    }
+  }
+
+  const response = await fetch(`${apiUrl}/api/v1/dao`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-jeju-address': privateKeyToAccount(config.privateKey).address,
+    },
+    body: JSON.stringify({
+      name: JEJU_DAO.name,
+      displayName: JEJU_DAO.displayName,
+      description: JEJU_DAO.description,
+      treasury,
+      manifestCid: JEJU_DAO.manifestCid,
+      director: JEJU_DAO.director,
+      governance: JEJU_DAO.governance,
+    }),
+  })
+
+  if (!response.ok) {
+    const error = await response.text()
+    console.warn(`   Failed to create Jeju DAO: ${error}`)
+    return
+  }
+
+  console.log('   Jeju DAO created')
+
+  // Register board members
+  for (const member of JEJU_DAO.board) {
+    try {
+      await fetch(`${apiUrl}/api/v1/dao/jeju/board`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-jeju-address': privateKeyToAccount(config.privateKey).address,
+        },
+        body: JSON.stringify({
+          role: member.role,
+          name: member.name,
+          description: member.description,
+          weight: member.weight,
+          isHuman: false,
+        }),
+      })
+      console.log(`   Registered ${member.name}`)
+    } catch (error) {
+      console.warn(
+        `   Failed to register ${member.name}: ${(error as Error).message}`,
+      )
+    }
+  }
+}
+
 // Main Deploy Function
 
 async function deploy(): Promise<void> {
@@ -415,6 +503,15 @@ async function deploy(): Promise<void> {
   console.log('Configuring CDN...')
   await setupCDN(config, staticAssets)
 
+  // Calculate API URL
+  const apiUrl = `${config.dwsUrl}/workers/${workerId}`
+
+  // Seed Jeju DAO (for testnet and mainnet, localnet uses dev script)
+  if (config.network !== 'localnet') {
+    console.log('\nSeeding Jeju DAO...')
+    await seedJejuDAO(config, apiUrl)
+  }
+
   // Print summary
   const indexCid = staticAssets.get('index.html')?.cid
   const frontendDomain =
@@ -428,8 +525,13 @@ async function deploy(): Promise<void> {
   console.log('\nEndpoints:')
   console.log(`   Frontend: https://${frontendDomain}`)
   console.log(`   IPFS: ipfs://${indexCid}`)
-  console.log(`   API: ${config.dwsUrl}/workers/${workerId}`)
-  console.log(`   Health: ${config.dwsUrl}/workers/${workerId}/health`)
+  console.log(`   API: ${apiUrl}`)
+  console.log(`   Health: ${apiUrl}/health`)
+
+  if (config.network !== 'localnet') {
+    console.log('\nJeju DAO:')
+    console.log(`   Dashboard: https://${frontendDomain}/dao/jeju`)
+  }
 }
 
 // Run deployment

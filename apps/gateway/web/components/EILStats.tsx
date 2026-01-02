@@ -150,6 +150,22 @@ async function fetchEILStats(): Promise<{
     }))
     .sort((a, b) => parseFloat(b.totalVolume) - parseFloat(a.totalVolume))
 
+  // Calculate average fill time from completed requests
+  // Use the indexer's fulfillment timestamps when available
+  const completedRequests = requests.filter(
+    (r: { status: string; createdAt?: number; filledAt?: number }) =>
+      r.status === 'FULFILLED' && r.createdAt && r.filledAt,
+  )
+  let avgTimeSeconds = 0
+  if (completedRequests.length > 0) {
+    const totalTime = completedRequests.reduce(
+      (sum: number, r: { createdAt: number; filledAt: number }) =>
+        sum + (r.filledAt - r.createdAt),
+      0,
+    )
+    avgTimeSeconds = Math.round(totalTime / completedRequests.length)
+  }
+
   return {
     stats: {
       totalVolumeEth,
@@ -157,7 +173,7 @@ async function fetchEILStats(): Promise<{
       activeXLPs,
       totalStakedEth,
       successRate,
-      avgTimeSeconds: 0,
+      avgTimeSeconds,
     },
     chainStats,
   }

@@ -1675,11 +1675,13 @@ class CompleteBootstrapper {
         'L1StakeManager',
       )
 
-      // Deploy MockL1L2Messenger for local testing
+      // Deploy L2CrossDomainMessenger for local testing
+      // Note: For single-chain localnet, we use L2CrossDomainMessenger on the same chain
+      // For proper dual-chain testing, use deploy-crosschain.ts instead
       const messenger = this.deployContractFromPackages(
-        'src/bridge/eil/MockL1L2Messenger.sol:MockL1L2Messenger',
+        'src/bridge/eil/L2CrossDomainMessenger.sol:L2CrossDomainMessenger',
         [],
-        'MockL1L2Messenger',
+        'L2CrossDomainMessenger',
       )
 
       // Configure L1StakeManager with messenger

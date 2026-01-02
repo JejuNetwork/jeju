@@ -31,7 +31,6 @@ import {
   type AgentConnector,
   BOARD_ROLE_PRESETS,
   type CommunicationTone,
-  type ConnectorType,
   type DAOAgent,
   type DecisionStyle,
   type FarcasterConnectorConfig,
@@ -470,35 +469,6 @@ export default function AgentEditPage() {
     if (values.length > 1) {
       setValues(values.filter((_, i) => i !== index))
     }
-  }
-
-  const addConnector = (type: ConnectorType) => {
-    const newConnector: AgentConnector = {
-      id: `${type}-${Date.now()}`,
-      type,
-      enabled: true,
-      config:
-        type === 'farcaster'
-          ? {
-              channelUrl: '',
-              fid: 0,
-              autoPost: false,
-              monitorMentions: true,
-              postDecisions: false,
-              postProposals: false,
-            }
-          : type === 'github'
-            ? {
-                repoUrl: '',
-                webhookEnabled: true,
-                autoReviewPRs: true,
-                autoLabelIssues: false,
-              }
-            : ({} as AgentConnector['config']),
-      lastSync: 0,
-      status: 'disconnected',
-    }
-    setConnectors([...connectors, newConnector])
   }
 
   const updateConnector = (index: number, connector: AgentConnector) => {
@@ -983,8 +953,22 @@ export default function AgentEditPage() {
           icon={Zap}
         >
           <div className="space-y-4">
+            {/* Coming Soon Notice */}
+            <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <Zap className="w-5 h-5 text-violet-400" />
+                <div>
+                  <p className="font-medium text-violet-300">Coming Soon</p>
+                  <p className="text-sm text-violet-200/70">
+                    Connector integrations for Farcaster, GitHub, Discord, and
+                    more are under development.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {connectors.length > 0 && (
-              <div className="space-y-3">
+              <div className="space-y-3 opacity-50 pointer-events-none">
                 {connectors.map((connector, index) => (
                   <ConnectorForm
                     key={connector.id}
@@ -995,23 +979,21 @@ export default function AgentEditPage() {
                 ))}
               </div>
             )}
-            <div>
-              <p className="text-sm text-slate-400 mb-2">Add connector:</p>
+            <div className="opacity-50">
+              <p className="text-sm text-slate-400 mb-2">
+                Available connectors (coming soon):
+              </p>
               <div className="flex flex-wrap gap-2">
-                {CONNECTOR_OPTIONS.filter(
-                  (opt) => !connectors.some((c) => c.type === opt.type),
-                ).map((opt) => {
+                {CONNECTOR_OPTIONS.map((opt) => {
                   const Icon = opt.icon
                   return (
-                    <button
+                    <span
                       key={opt.type}
-                      type="button"
-                      onClick={() => addConnector(opt.type)}
-                      className="inline-flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-sm text-slate-300 transition-colors"
+                      className="inline-flex items-center gap-2 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-500 cursor-not-allowed"
                     >
                       <Icon className="w-4 h-4" />
                       {opt.label}
-                    </button>
+                    </span>
                   )
                 })}
               </div>

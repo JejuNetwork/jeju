@@ -404,6 +404,20 @@ export const DCPersistenceDataSchema = z
   .strict()
 export type DCPersistenceData = z.infer<typeof DCPersistenceDataSchema>
 
+// FarcasterProfile schema for cached profile validation
+export const FarcasterProfileSchema = z.object({
+  fid: z.number().int().positive(),
+  username: z.string(),
+  displayName: z.string(),
+  bio: z.string(),
+  pfpUrl: z.string(),
+  custodyAddress: AddressSchema,
+  verifiedAddresses: z.array(AddressSchema),
+  followerCount: z.number().int().nonnegative(),
+  followingCount: z.number().int().nonnegative(),
+  registeredAt: z.number().int().nonnegative(),
+})
+
 // Export type helpers (only types used by client or external consumers)
 export type ParsedCastMessage = z.infer<typeof CastMessageSchema>
 export type FrameActionPayload = z.infer<typeof FrameActionPayloadSchema>

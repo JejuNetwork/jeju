@@ -1,6 +1,6 @@
-import { useState } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
+import { useViewMode } from './context/AppContext'
 import AgentsPage from './pages/Agents'
 import AnalyticsPage from './pages/Analytics'
 import EmbeddingsPage from './pages/ai/Embeddings'
@@ -34,13 +34,12 @@ import StorageAnalyticsPage from './pages/storage/Analytics'
 import BucketsPage from './pages/storage/Buckets'
 import CDNPage from './pages/storage/CDN'
 import IPFSPage from './pages/storage/IPFS'
-import type { ViewMode } from './types'
 
 export default function App() {
-  const [viewMode, setViewMode] = useState<ViewMode>('consumer')
+  const { viewMode } = useViewMode()
 
   return (
-    <Layout viewMode={viewMode} setViewMode={setViewMode}>
+    <Layout>
       <Routes>
         <Route path="/" element={<Dashboard viewMode={viewMode} />} />
 

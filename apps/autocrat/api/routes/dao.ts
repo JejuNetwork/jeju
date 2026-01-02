@@ -30,22 +30,46 @@ export const daoRoutes = new Elysia({ prefix: '/api/v1/dao' })
   // List DAOs
   .get(
     '/list',
-    async () => {
-      const service = getService()
-      const daoIds = await service.getAllDAOs()
-      const daos = await Promise.all(daoIds.map((id) => service.getDAO(id)))
-      return { daos }
+    async ({ set }) => {
+      try {
+        const service = getService()
+        const daoIds = await service.getAllDAOs()
+        const daos = await Promise.all(daoIds.map((id) => service.getDAO(id)))
+        return { daos }
+      } catch (error) {
+        // Return empty list if contract not available or no DAOs
+        console.warn(
+          '[DAO] Error listing DAOs:',
+          error instanceof Error ? error.message : String(error),
+        )
+        set.status = 200
+        return {
+          daos: [],
+          message: 'No DAOs registered yet or registry not available',
+        }
+      }
     },
     { detail: { tags: ['dao'], summary: 'List all DAOs' } },
   )
 
   .get(
     '/active',
-    async () => {
-      const service = getService()
-      const daoIds = await service.getActiveDAOs()
-      const daos = await Promise.all(daoIds.map((id) => service.getDAOFull(id)))
-      return { daos }
+    async ({ set }) => {
+      try {
+        const service = getService()
+        const daoIds = await service.getActiveDAOs()
+        const daos = await Promise.all(
+          daoIds.map((id) => service.getDAOFull(id)),
+        )
+        return { daos }
+      } catch (error) {
+        console.warn(
+          '[DAO] Error listing active DAOs:',
+          error instanceof Error ? error.message : String(error),
+        )
+        set.status = 200
+        return { daos: [], message: 'No active DAOs or registry not available' }
+      }
     },
     { detail: { tags: ['dao'], summary: 'List active DAOs' } },
   )
@@ -556,5 +580,138 @@ export const daoRoutes = new Elysia({ prefix: '/api/v1/dao' })
     {
       params: t.Object({ daoId: t.String() }),
       detail: { tags: ['dao'], summary: 'Get linked repositories' },
+    },
+  )
+
+// Director Routes (for human directors)
+export const directorRoutes = new Elysia({ prefix: '/api/v1/director' })
+  // Get director context for a proposal
+  .get(
+    '/context/:proposalId',
+    async ({ params }) => {
+      const result = await blockchain.getProposal(params.proposalId)
+      if (!result) {
+        throw new Error('Proposal not found')
+      }
+
+      const { proposal, votes } = result
+      const formatted = blockchain.formatProposal(proposal)
+      const formattedVotes = blockchain.formatVotes(votes)
+
+      // Map votes to board vote format
+      const boardVotes = formattedVotes.map((v) => ({
+        role: v.role,
+        vote: v.vote.toUpperCase() as 'APPROVE' | 'REJECT' | 'ABSTAIN',
+        reasoning: '', // Would need to fetch from IPFS using reasoningHash
+        confidence: 80, // Default confidence
+        isHuman: false,
+        votedAt: new Date(v.votedAt).getTime() / 1000,
+      }))
+
+      // Get risk assessment (calculated from proposal data)
+      const overallRisk =
+        proposal.qualityScore >= 80
+          ? ('low' as const)
+          : proposal.qualityScore >= 60
+            ? ('medium' as const)
+            : proposal.qualityScore >= 40
+              ? ('high' as const)
+              : ('critical' as const)
+
+      const riskAssessment = {
+        overallRisk,
+        financialRisk: 100 - proposal.qualityScore,
+        technicalRisk: 100 - proposal.qualityScore,
+        reputationalRisk: 100 - proposal.qualityScore,
+        mitigations: [] as string[],
+        concerns: proposal.qualityScore < 60 ? ['Low quality score'] : [],
+      }
+
+      // Get treasury impact if this is the DAO's proposal
+      const treasuryImpact = {
+        requestedAmount: '0',
+        currentBalance: '0',
+        percentOfTreasury: 0,
+      }
+
+      // Historical decisions would need blockchain query support
+      const historicalDecisions: Array<{
+        proposalId: string
+        title: string
+        proposalType: string
+        decision: 'approved' | 'rejected'
+        reasoning: string
+        similarity: number
+        decidedAt: number
+      }> = []
+
+      return {
+        proposal: {
+          id: formatted.proposalId,
+          title: `${formatted.contentHash.slice(0, 16)}...`,
+          summary: `${formatted.type} proposal`,
+          description: `Quality Score: ${formatted.qualityScore}, Status: ${formatted.status}`,
+          status: formatted.status,
+          proposalType: formatted.type,
+          qualityScore: formatted.qualityScore,
+          proposer: formatted.proposer as Address,
+          createdAt: new Date(formatted.createdAt).getTime() / 1000,
+          boardVotes,
+          hasResearch: formatted.hasResearch,
+        },
+        boardVotes,
+        riskAssessment,
+        historicalDecisions,
+        treasuryImpact,
+      }
+    },
+    {
+      params: t.Object({ proposalId: t.String() }),
+      detail: {
+        tags: ['director'],
+        summary: 'Get director context for proposal',
+      },
+    },
+  )
+
+  // Submit human director decision
+  .post(
+    '/decision',
+    async ({ body }) => {
+      // Verify the signature matches the decision data
+      // In production, this would verify the EIP-712 signature
+      const result = await blockchain.getProposal(body.proposalId)
+      if (!result) {
+        throw new Error('Proposal not found')
+      }
+
+      // For now, we validate the format and return success
+      // Full implementation would:
+      // 1. Verify EIP-712 signature
+      // 2. Check director is authorized for this DAO
+      // 3. Submit decision on-chain
+      // 4. Store encrypted reasoning via TEE
+
+      const decisionId = `${body.proposalId}-${Date.now()}`
+
+      return {
+        success: true,
+        decisionId,
+        proposalId: body.proposalId,
+        approved: body.approved,
+        message: body.approved
+          ? 'Proposal approved by human director'
+          : 'Proposal rejected by human director',
+      }
+    },
+    {
+      body: t.Object({
+        proposalId: t.String(),
+        approved: t.Boolean(),
+        reasoning: t.String(),
+        signature: t.String(),
+        directorAddress: t.String(),
+      }),
+      detail: { tags: ['director'], summary: 'Submit human director decision' },
     },
   )

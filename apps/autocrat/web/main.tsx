@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { defineChain } from 'viem'
 import { createConfig, http, WagmiProvider } from 'wagmi'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { Layout } from './components/Layout'
 import AgentEditPage from './pages/AgentEdit'
 import CreateDAOPage from './pages/CreateDAO'
@@ -60,7 +61,7 @@ function App() {
               <Route path="/" element={<DAOListPage />} />
               <Route path="/dao/:daoId" element={<DAODetailPage />} />
               <Route
-                path="/dao/:daoId/agent/:agentId"
+                path="/dao/:daoId/agents/:agentId/edit"
                 element={<AgentEditPage />}
               />
               <Route
@@ -83,6 +84,8 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </StrictMode>,
 )

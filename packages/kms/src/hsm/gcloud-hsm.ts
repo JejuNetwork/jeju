@@ -68,9 +68,7 @@ export class GCloudHSMProvider implements HSMProvider {
   private keyCache = new Map<string, HSMKeyRef>()
   private connected = false
 
-  constructor(config: HSMConfig) {
-    this.config = config
-
+  constructor(_config: HSMConfig) {
     this.projectId = process.env.GOOGLE_CLOUD_PROJECT ?? ''
     this.location = process.env.GOOGLE_CLOUD_LOCATION ?? 'us-east1'
     this.keyRing = process.env.GOOGLE_CLOUD_KEYRING ?? 'jeju-keyring'

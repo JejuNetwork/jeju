@@ -5,10 +5,14 @@
    Theme Variables - Light Mode (default)
    ============================================================================ */
 :root {
-  /* Font family variables */
-  --font-outfit: 'Outfit', system-ui, sans-serif;
-  --font-display: 'Space Grotesk', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  /* Font family variables
+   * Sora - A neo-grotesque with nice geometry, different from typical Inter/Roboto
+   * Plus Jakarta Sans - Modern, slightly humanist with distinctive personality
+   * JetBrains Mono - For code, well-established
+   */
+  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-display: 'Sora', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 
   /* Brand Colors - Vibrant & Fun */
   --color-primary: #FF6B35;
@@ -108,11 +112,13 @@ body {
 }
 
 body {
-  font-family: var(--font-outfit);
+  font-family: var(--font-sans);
   background-color: var(--bg-primary);
   color: var(--text-primary);
   transition: background-color 0.3s ease, color 0.3s ease;
   line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Background Mesh */

@@ -314,19 +314,20 @@ describe('Default Bots Configuration', () => {
 
   test('should create valid trading bot options', () => {
     const botConfig = DEFAULT_BOTS[0]
+    const treasuryAddr = `0x${'2'.repeat(40)}` as `0x${string}`
 
     const options = createTradingBotOptions(
       botConfig,
       1n,
-      `0x${'1'.repeat(64)}`,
       'testnet',
+      treasuryAddr,
     )
 
     expect(options.agentId).toBe(1n)
     expect(options.name).toBe(botConfig.name)
     expect(options.strategies).toEqual(botConfig.strategies)
-    expect(options.privateKey).toBe(`0x${'1'.repeat(64)}`)
     expect(options.maxConcurrentExecutions).toBe(5)
+    expect(options.treasuryAddress).toBe(treasuryAddr)
   })
 })
 

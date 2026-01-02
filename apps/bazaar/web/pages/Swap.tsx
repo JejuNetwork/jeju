@@ -1,161 +1,223 @@
-import { SUPPORTED_CHAINS } from '@jejunetwork/shared'
-import { useState } from 'react'
+/**
+ * Swap Page
+ *
+ * Current capabilities:
+ * - ETH transfers between addresses
+ * - Token transfers (ERC20) on same chain
+ *
+ * Future (when contracts deployed):
+ * - Uniswap V4 pool swaps via SwapRouter
+ * - Cross-chain swaps via EIL bridge
+ */
+
+import { ArrowDownUp, Fuel, Loader2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { formatEther, parseEther } from 'viem'
-import { useAccount } from 'wagmi'
 import {
-  getSwapButtonText,
-  getTokenBySymbol,
-  isSwapButtonDisabled,
-  SWAP_TOKENS,
-  validateSwap,
-} from '../../api/swap'
-import { InfoCard } from '../components/ui'
-import { JEJU_CHAIN_ID } from '../config/chains'
+  type Address,
+  erc20Abi,
+  formatUnits,
+  parseEther,
+  parseUnits,
+} from 'viem'
 import {
-  type ChainInfo,
-  isCrossChainSwap as checkCrossChain,
-  useCrossChainSwap,
-  useEILConfig,
-  useSwapFeeEstimate,
-} from '../hooks/useEIL'
+  useAccount,
+  useBalance,
+  usePublicClient,
+  useSendTransaction,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi'
+import { CHAIN_ID } from '../../config'
+import { InfoCard, PageHeader } from '../components/ui'
+
+interface Token {
+  symbol: string
+  name: string
+  address: Address
+  decimals: number
+  logoUrl?: string
+}
+
+// Native ETH
+const ETH_TOKEN: Token = {
+  symbol: 'ETH',
+  name: 'Ether',
+  address: '0x0000000000000000000000000000000000000000',
+  decimals: 18,
+}
+
+// Common tokens - can be extended from indexer
+const COMMON_TOKENS: Token[] = [ETH_TOKEN]
 
 export default function SwapPage() {
-  const { isConnected, chain, address } = useAccount()
+  const { address, isConnected, chain } = useAccount()
+  const publicClient = usePublicClient()
+  const isCorrectChain = chain?.id === CHAIN_ID
+
+  // Form state
   const [inputAmount, setInputAmount] = useState('')
-  const [inputToken, setInputToken] = useState('ETH')
-  const [outputToken, setOutputToken] = useState('ETH')
-  const [sourceChainId, setSourceChainId] = useState(JEJU_CHAIN_ID)
-  const [destChainId, setDestChainId] = useState(JEJU_CHAIN_ID)
+  const [inputToken, setInputToken] = useState<Token>(ETH_TOKEN)
+  const [outputToken, setOutputToken] = useState<Token>(ETH_TOKEN)
+  const [recipient, setRecipient] = useState('')
+  const [showRecipient, setShowRecipient] = useState(false)
 
-  const isCorrectChain = chain?.id === JEJU_CHAIN_ID
+  // Balance
+  const { data: ethBalance } = useBalance({ address })
+  const [tokenBalance, setTokenBalance] = useState<bigint>(0n)
 
-  const eilConfig = useEILConfig()
-  const eilAvailable = eilConfig?.isAvailable ?? false
-  const crossChainPaymaster = eilConfig?.crossChainPaymaster
+  // ETH transfer
   const {
-    executeCrossChainSwap,
-    swapStatus,
-    isLoading: isSwapping,
-    hash,
-  } = useCrossChainSwap(crossChainPaymaster)
+    sendTransaction,
+    data: sendTxHash,
+    isPending: isSendPending,
+  } = useSendTransaction()
 
-  const isCrossChainSwap = checkCrossChain(sourceChainId, destChainId)
-  const amount = inputAmount ? parseEther(inputAmount) : 0n
-  const feeEstimate = useSwapFeeEstimate(sourceChainId, destChainId, amount)
+  // ERC20 transfer
+  const {
+    writeContract,
+    data: writeTxHash,
+    isPending: isWritePending,
+  } = useWriteContract()
 
-  const sourceChain = SUPPORTED_CHAINS.find(
-    (c: ChainInfo) => c.id === sourceChainId,
-  )
-  const destChain = SUPPORTED_CHAINS.find(
-    (c: ChainInfo) => c.id === destChainId,
-  )
+  const txHash = sendTxHash || writeTxHash
+  const isPending = isSendPending || isWritePending
 
-  // Calculate output - for same token, output equals input minus fees
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash: txHash,
+  })
+
+  // Fetch token balance
+  useEffect(() => {
+    async function fetchBalance() {
+      if (
+        !address ||
+        !publicClient ||
+        inputToken.address === ETH_TOKEN.address
+      ) {
+        setTokenBalance(0n)
+        return
+      }
+
+      const balance = await publicClient.readContract({
+        address: inputToken.address,
+        abi: erc20Abi,
+        functionName: 'balanceOf',
+        args: [address],
+      })
+      setTokenBalance(balance)
+    }
+    fetchBalance()
+  }, [address, inputToken, publicClient])
+
+  // Handle success
+  useEffect(() => {
+    if (isSuccess && txHash) {
+      toast.success('Transfer completed successfully')
+      setInputAmount('')
+      setRecipient('')
+    }
+  }, [isSuccess, txHash])
+
+  const currentBalance =
+    inputToken.address === ETH_TOKEN.address
+      ? (ethBalance?.value ?? 0n)
+      : tokenBalance
+
+  const parsedAmount = inputAmount
+    ? parseUnits(inputAmount, inputToken.decimals)
+    : 0n
+
+  const hasInsufficientBalance = parsedAmount > currentBalance
+  const isTransfer = inputToken.symbol === outputToken.symbol
+
+  // Calculate output - for same token it's 1:1 minus gas
+  const estimatedGas = parseEther('0.001') // ~21k gas at 50 gwei
   const outputAmount =
-    inputAmount && inputToken === outputToken
-      ? formatEther(
-          amount > feeEstimate.totalFee ? amount - feeEstimate.totalFee : 0n,
-        )
+    isTransfer && parsedAmount > estimatedGas
+      ? formatUnits(parsedAmount - estimatedGas, outputToken.decimals)
       : ''
 
   const handleSwap = async () => {
-    const validation = validateSwap(
-      isConnected,
-      inputAmount,
-      inputToken,
-      outputToken,
-      sourceChainId,
-      destChainId,
-      isCorrectChain,
-      eilAvailable,
-    )
-
-    if (!validation.valid) {
-      toast.error(validation.error)
+    if (!isConnected || !address) {
+      toast.error('Connect your wallet first')
       return
     }
 
-    const sourceTokenInfo = getTokenBySymbol(inputToken)
-    const destTokenInfo = getTokenBySymbol(outputToken)
-
-    if (!sourceTokenInfo || !destTokenInfo) {
-      toast.error('Token not supported')
+    if (!inputAmount || parsedAmount <= 0n) {
+      toast.error('Enter an amount')
       return
     }
 
-    if (isCrossChainSwap) {
-      await executeCrossChainSwap({
-        sourceToken: sourceTokenInfo.address,
-        destinationToken: destTokenInfo.address,
-        amount: parseEther(inputAmount),
-        sourceChainId,
-        destinationChainId: destChainId,
+    if (hasInsufficientBalance) {
+      toast.error('Insufficient balance')
+      return
+    }
+
+    const to =
+      recipient.startsWith('0x') && recipient.length === 42
+        ? (recipient as Address)
+        : address
+
+    if (inputToken.address === ETH_TOKEN.address) {
+      // Send ETH
+      sendTransaction({
+        to,
+        value: parsedAmount,
       })
     } else {
-      await executeCrossChainSwap({
-        sourceToken: sourceTokenInfo.address,
-        destinationToken: destTokenInfo.address,
-        amount: parseEther(inputAmount),
-        sourceChainId: JEJU_CHAIN_ID,
-        destinationChainId: JEJU_CHAIN_ID,
-        recipient: address,
+      // Transfer ERC20
+      writeContract({
+        address: inputToken.address,
+        abi: erc20Abi,
+        functionName: 'transfer',
+        args: [to, parsedAmount],
       })
     }
   }
 
-  const swapTokens = () => {
-    setInputToken(outputToken)
-    setOutputToken(inputToken)
-    const temp = sourceChainId
-    setSourceChainId(destChainId)
-    setDestChainId(temp)
+  const getButtonText = () => {
+    if (!isConnected) return 'Connect Wallet'
+    if (!isCorrectChain) return 'Switch Network'
+    if (isPending) return 'Confirm in Wallet...'
+    if (isConfirming) return 'Processing...'
+    if (!inputAmount) return 'Enter Amount'
+    if (hasInsufficientBalance) return 'Insufficient Balance'
+    if (showRecipient && recipient) return 'Send'
+    return isTransfer ? 'Transfer' : 'Swap'
   }
 
-  const buttonText = getSwapButtonText(
-    isConnected,
-    isSwapping,
-    isCorrectChain,
-    Boolean(inputAmount),
-    isCrossChainSwap,
-    destChain?.name ?? 'Unknown',
-  )
-
-  const buttonDisabled = isSwapButtonDisabled(
-    isConnected,
-    isSwapping,
-    isCorrectChain,
-    Boolean(inputAmount),
-    isCrossChainSwap,
-  )
+  const isButtonDisabled =
+    !isConnected ||
+    !isCorrectChain ||
+    isPending ||
+    isConfirming ||
+    !inputAmount ||
+    hasInsufficientBalance
 
   return (
     <div className="max-w-lg mx-auto animate-fade-in">
-      {/* Page Header */}
-      <header className="text-center mb-8">
-        <div className="text-5xl mb-3 animate-float" aria-hidden="true">
-          🔄
-        </div>
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gradient-warm mb-2">
-          Swap
-        </h1>
-        <p className="text-secondary">
-          Trade tokens instantly with the best rates
-        </p>
-      </header>
+      <PageHeader
+        icon="🔄"
+        title="Swap"
+        description="Transfer tokens on the Jeju Network"
+      />
 
-      {/* Warnings */}
+      {/* Info Cards */}
       <div className="space-y-3 mb-6">
-        {!eilAvailable && (
+        {!isTransfer && (
           <InfoCard variant="warning">
-            Cross-chain swaps require EIL integration. Only same-chain ETH
-            transfers are available.
+            <p className="font-medium mb-1">DEX Not Available</p>
+            <p className="text-sm opacity-80">
+              Token swaps require the SwapRouter contract. Currently only
+              same-token transfers are supported.
+            </p>
           </InfoCard>
         )}
 
-        {isConnected && !isCorrectChain && !isCrossChainSwap && (
+        {isConnected && !isCorrectChain && (
           <InfoCard variant="error">
-            Switch to the correct network to swap
+            Please switch to the Jeju network to continue.
           </InfoCard>
         )}
       </div>
@@ -165,172 +227,159 @@ export default function SwapPage() {
         {/* From Section */}
         <div className="mb-2">
           <div className="flex items-center justify-between mb-2">
-            <label
-              htmlFor="swap-input-amount"
-              className="text-sm text-tertiary"
-            >
+            <label htmlFor="input-amount" className="text-sm text-tertiary">
               From
             </label>
-            {eilAvailable && (
-              <select
-                value={sourceChainId}
-                onChange={(e) => setSourceChainId(Number(e.target.value))}
-                className="text-xs px-2 py-1 rounded-lg border-0 bg-surface-secondary text-secondary"
-                aria-label="Source chain"
-              >
-                {SUPPORTED_CHAINS.map((c: ChainInfo) => (
-                  <option key={c.id} value={c.id}>
-                    {c.icon} {c.name}
-                  </option>
-                ))}
-              </select>
-            )}
+            <button
+              type="button"
+              onClick={() => {
+                if (currentBalance > 0n) {
+                  setInputAmount(
+                    formatUnits(currentBalance, inputToken.decimals),
+                  )
+                }
+              }}
+              className="text-xs text-primary-color hover:underline"
+            >
+              Balance:{' '}
+              {formatUnits(currentBalance, inputToken.decimals).slice(0, 10)}{' '}
+              {inputToken.symbol}
+            </button>
           </div>
           <div className="flex gap-2">
             <input
-              id="swap-input-amount"
+              id="input-amount"
               type="number"
               value={inputAmount}
               onChange={(e) => setInputAmount(e.target.value)}
               placeholder="0.0"
-              className="input flex-1 text-xl font-semibold"
-              aria-label="Amount to swap"
+              min="0"
+              step="0.001"
+              className={`input flex-1 text-xl font-semibold ${
+                hasInsufficientBalance ? 'border-error' : ''
+              }`}
             />
             <select
-              value={inputToken}
-              onChange={(e) => setInputToken(e.target.value)}
-              className="input w-28 sm:w-32 font-medium"
-              aria-label="Token to swap from"
+              value={inputToken.symbol}
+              onChange={(e) => {
+                const token = COMMON_TOKENS.find(
+                  (t) => t.symbol === e.target.value,
+                )
+                if (token) setInputToken(token)
+              }}
+              className="input w-28 font-medium"
             >
-              {SWAP_TOKENS.map((token) => (
+              {COMMON_TOKENS.map((token) => (
                 <option key={token.symbol} value={token.symbol}>
-                  {token.icon} {token.symbol}
+                  {token.symbol}
                 </option>
               ))}
             </select>
           </div>
+          {hasInsufficientBalance && (
+            <p className="text-xs text-error mt-1">Insufficient balance</p>
+          )}
         </div>
 
         {/* Swap Direction Button */}
         <div className="flex justify-center my-3">
           <button
             type="button"
-            className="p-2.5 rounded-xl bg-surface-secondary hover:bg-surface-elevated transition-all hover:scale-110 active:scale-95 focus-ring"
-            onClick={swapTokens}
+            onClick={() => {
+              const temp = inputToken
+              setInputToken(outputToken)
+              setOutputToken(temp)
+            }}
+            className="p-2.5 rounded-xl bg-surface-secondary hover:bg-surface-elevated transition-all hover:scale-110 active:scale-95"
             aria-label="Swap tokens"
           >
-            <svg
-              className="w-5 h-5 text-primary"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
-              />
-            </svg>
+            <ArrowDownUp className="w-5 h-5 text-primary" />
           </button>
         </div>
 
         {/* To Section */}
         <div className="mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <label
-              htmlFor="swap-output-amount"
-              className="text-sm text-tertiary"
-            >
-              To
-            </label>
-            {eilAvailable && (
-              <select
-                value={destChainId}
-                onChange={(e) => setDestChainId(Number(e.target.value))}
-                className="text-xs px-2 py-1 rounded-lg border-0 bg-surface-secondary text-secondary"
-                aria-label="Destination chain"
-              >
-                {SUPPORTED_CHAINS.map((c: ChainInfo) => (
-                  <option key={c.id} value={c.id}>
-                    {c.icon} {c.name}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
+          <label
+            htmlFor="output-amount"
+            className="text-sm text-tertiary block mb-2"
+          >
+            To
+          </label>
           <div className="flex gap-2">
             <input
-              id="swap-output-amount"
-              type="number"
+              id="output-amount"
+              type="text"
               value={outputAmount}
               placeholder="0.0"
               readOnly
               className="input flex-1 text-xl font-semibold bg-surface-secondary"
-              aria-label="Amount you will receive"
             />
             <select
-              value={outputToken}
-              onChange={(e) => setOutputToken(e.target.value)}
-              className="input w-28 sm:w-32 font-medium"
-              aria-label="Token to receive"
+              value={outputToken.symbol}
+              onChange={(e) => {
+                const token = COMMON_TOKENS.find(
+                  (t) => t.symbol === e.target.value,
+                )
+                if (token) setOutputToken(token)
+              }}
+              className="input w-28 font-medium"
             >
-              {SWAP_TOKENS.map((token) => (
+              {COMMON_TOKENS.map((token) => (
                 <option key={token.symbol} value={token.symbol}>
-                  {token.icon} {token.symbol}
+                  {token.symbol}
                 </option>
               ))}
             </select>
           </div>
         </div>
 
-        {/* Cross-chain Info */}
-        {isCrossChainSwap && (
-          <div className="mb-4 p-4 rounded-xl bg-surface-secondary animate-fade-in">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-lg" aria-hidden="true">
-                🌉
-              </span>
-              <span className="font-medium text-primary">
-                Cross-Chain Transfer
-              </span>
-            </div>
-            <dl className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <dt className="text-tertiary">Route</dt>
-                <dd className="text-primary">
-                  {sourceChain?.icon} → {destChain?.icon}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-tertiary">Estimated Time</dt>
-                <dd className="text-primary">~{feeEstimate.estimatedTime}s</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-tertiary">Bridge Fee</dt>
-                <dd className="text-primary">
-                  {formatEther(feeEstimate.totalFee)} ETH
-                </dd>
-              </div>
-            </dl>
-          </div>
-        )}
+        {/* Optional Recipient */}
+        <div className="mb-4">
+          <button
+            type="button"
+            onClick={() => setShowRecipient(!showRecipient)}
+            className="text-sm text-primary-color hover:underline"
+          >
+            {showRecipient ? '− Hide recipient' : '+ Send to different address'}
+          </button>
 
-        {/* Same-chain Summary */}
-        {inputAmount && outputAmount && !isCrossChainSwap && (
+          {showRecipient && (
+            <div className="mt-2 animate-fade-in">
+              <input
+                type="text"
+                value={recipient}
+                onChange={(e) => setRecipient(e.target.value)}
+                placeholder="0x..."
+                className="input font-mono text-sm"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Transaction Summary */}
+        {inputAmount && parseFloat(inputAmount) > 0 && (
           <div className="mb-4 p-4 rounded-xl bg-surface-secondary animate-fade-in">
             <dl className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <dt className="text-tertiary">Rate</dt>
-                <dd className="text-primary">1:1 (same token)</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-tertiary">Network Fee</dt>
-                <dd className="text-primary">
-                  {formatEther(feeEstimate.totalFee)} ETH
+                <dt className="text-tertiary">Type</dt>
+                <dd className="text-primary font-medium">
+                  {isTransfer ? 'Transfer' : 'Swap'}
                 </dd>
               </div>
+              <div className="flex justify-between">
+                <dt className="text-tertiary flex items-center gap-1">
+                  <Fuel className="w-3 h-3" /> Estimated Gas
+                </dt>
+                <dd className="text-primary">~0.001 ETH</dd>
+              </div>
+              {recipient && (
+                <div className="flex justify-between">
+                  <dt className="text-tertiary">Recipient</dt>
+                  <dd className="text-primary font-mono text-xs">
+                    {recipient.slice(0, 10)}...{recipient.slice(-8)}
+                  </dd>
+                </div>
+              )}
             </dl>
           </div>
         )}
@@ -339,20 +388,58 @@ export default function SwapPage() {
         <button
           type="button"
           onClick={handleSwap}
-          disabled={buttonDisabled}
-          className="btn-primary w-full py-4 text-lg font-semibold"
+          disabled={isButtonDisabled}
+          className="btn-primary w-full py-4 text-lg font-semibold flex items-center justify-center gap-2"
         >
-          {buttonText}
+          {(isPending || isConfirming) && (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          )}
+          {getButtonText()}
         </button>
 
         {/* Success Message */}
-        {swapStatus === 'complete' && hash && (
-          <div className="mt-4 p-4 rounded-xl border border-green-500/30 bg-green-500/10 text-center animate-scale-in">
-            <span className="text-success font-medium">
-              ✓ Transfer initiated successfully
-            </span>
+        {isSuccess && txHash && (
+          <div className="mt-4 p-4 rounded-xl border border-success/30 bg-success/10 text-center animate-scale-in">
+            <p className="text-success font-medium mb-2">Transfer Successful</p>
+            <a
+              href={`https://explorer.jejunetwork.org/tx/${txHash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-primary-color hover:underline font-mono"
+            >
+              View on Explorer →
+            </a>
           </div>
         )}
+      </div>
+
+      {/* Feature Status */}
+      <div className="mt-6 card p-4">
+        <h3 className="text-sm font-medium text-primary mb-3">
+          Available Features
+        </h3>
+        <ul className="space-y-2 text-sm">
+          <li className="flex items-center gap-2">
+            <span className="text-success">✓</span>
+            <span className="text-secondary">ETH transfers</span>
+          </li>
+          <li className="flex items-center gap-2">
+            <span className="text-success">✓</span>
+            <span className="text-secondary">ERC20 token transfers</span>
+          </li>
+          <li className="flex items-center gap-2">
+            <span className="text-tertiary">○</span>
+            <span className="text-tertiary">
+              Token swaps (requires SwapRouter)
+            </span>
+          </li>
+          <li className="flex items-center gap-2">
+            <span className="text-tertiary">○</span>
+            <span className="text-tertiary">
+              Cross-chain swaps (requires EIL)
+            </span>
+          </li>
+        </ul>
       </div>
     </div>
   )

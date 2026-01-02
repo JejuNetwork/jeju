@@ -108,7 +108,7 @@ export function createVPNApp(env?: Partial<VPNWorkerEnv>) {
           : [
               'https://vpn.jejunetwork.org',
               'https://app.jejunetwork.org',
-              getCoreAppUrl('VPN'),
+              getCoreAppUrl('VPN_WEB'),
             ],
         methods: ['GET', 'POST', 'OPTIONS'],
         allowedHeaders: [

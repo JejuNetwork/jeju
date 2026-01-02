@@ -7,11 +7,31 @@ import { WalletButton } from '@jejunetwork/ui'
 import { useEffect, useMemo, useState } from 'react'
 import type { Address } from 'viem'
 import { useAccount } from 'wagmi'
+import { z } from 'zod'
 import { EXPLORER_URL } from '../../lib/config'
 import { useCrossChainSwap, useEILConfig } from '../hooks/useEIL'
 import { useProtocolTokens } from '../hooks/useProtocolTokens'
 import type { TokenOption } from './TokenSelector'
 import TokenSelector from './TokenSelector'
+
+// Zod schema for transfer validation
+const TransferSchema = z.object({
+  amount: z
+    .string()
+    .min(1, 'Amount is required')
+    .refine((val) => !Number.isNaN(Number(val)) && Number(val) > 0, {
+      message: 'Amount must be a positive number',
+    }),
+  recipient: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Ethereum address')
+    .or(z.literal(''))
+    .optional(),
+  tokenAddress: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid token address'),
+  destinationChainId: z.number().positive('Invalid chain'),
+})
 
 const DESTINATION_CHAINS = [
   { id: 1, name: 'Ethereum', icon: '💎' },
@@ -31,6 +51,7 @@ export default function CrossChainTransfer() {
   const [recipient, setRecipient] = useState('')
   const [destinationChainId, setDestinationChainId] = useState<number>(1)
   const [step, setStep] = useState<TransferStep>('input')
+  const [validationError, setValidationError] = useState<string | null>(null)
 
   const { bridgeableTokens } = useProtocolTokens()
   const tokens = useMemo(
@@ -59,17 +80,35 @@ export default function CrossChainTransfer() {
 
   const handleTransfer = async (e: React.FormEvent) => {
     e.preventDefault()
+    setValidationError(null)
 
-    if (!selectedToken || !userAddress || !crossChainPaymaster) return
+    if (!userAddress || !crossChainPaymaster) {
+      setValidationError('Please connect your wallet')
+      return
+    }
 
-    const amountBigInt = parseTokenAmount(amount, selectedToken.decimals)
+    // Validate with Zod
+    const validation = TransferSchema.safeParse({
+      amount,
+      recipient,
+      tokenAddress: selectedToken?.address ?? '',
+      destinationChainId,
+    })
+
+    if (!validation.success) {
+      const firstError = validation.error.issues[0]
+      setValidationError(firstError.message)
+      return
+    }
+
+    const amountBigInt = parseTokenAmount(amount, selectedToken?.decimals ?? 18)
     const recipientAddress = (recipient || userAddress) as Address
 
     setStep('processing')
 
     await executeCrossChainSwap({
-      sourceToken: selectedToken.address as Address,
-      destinationToken: selectedToken.address as Address,
+      sourceToken: selectedToken?.address as Address,
+      destinationToken: selectedToken?.address as Address,
       amount: amountBigInt,
       sourceChainId: 420691,
       destinationChainId,
@@ -376,6 +415,22 @@ export default function CrossChainTransfer() {
               </span>
             </div>
           </div>
+
+          {validationError && (
+            <div
+              style={{
+                padding: '0.75rem 1rem',
+                background: 'var(--error-soft)',
+                border: '1px solid var(--error)',
+                borderRadius: '8px',
+                marginBottom: '1rem',
+                color: 'var(--error)',
+                fontSize: '0.875rem',
+              }}
+            >
+              {validationError}
+            </div>
+          )}
 
           {isConnected ? (
             <button

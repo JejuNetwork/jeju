@@ -74,8 +74,6 @@ export class AzureHSMProvider implements HSMProvider {
   private clientSecret: string
 
   constructor(config: HSMConfig) {
-    this.config = config
-
     this.vaultUrl = config.endpoint ?? process.env.AZURE_HSM_VAULT_URL ?? ''
     this.tenantId = process.env.AZURE_TENANT_ID ?? ''
     this.clientId = process.env.AZURE_CLIENT_ID ?? ''
