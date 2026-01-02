@@ -581,6 +581,3 @@ export const directorProviders: Provider[] = [
   mcpResourcesProvider,
   feeConfigProvider,
 ]
-
-// Legacy export for backwards compatibility
-export const directorProviders = directorProviders

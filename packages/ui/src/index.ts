@@ -51,7 +51,26 @@ export {
   useTokenRegistry,
 } from './hooks/useTokenRegistryContract'
 export { type AsyncState, requireClient, useAsyncState } from './hooks/utils'
-
+// Miniapp SDK for Telegram and Farcaster
+export {
+  applyMiniappTheme,
+  createFrameResponse,
+  createMiniappStorage,
+  detectMiniappPlatform,
+  type FarcasterFrameContext,
+  type FrameMetadata,
+  generateFrameMetaTags,
+  getFarcasterContext,
+  getMiniappThemeVars,
+  getTelegramTheme,
+  getTelegramUser,
+  haptic,
+  initTelegram,
+  isTelegramDarkMode,
+  type MiniappPlatform,
+  type MiniappStorage,
+  type TelegramWebApp,
+} from './miniapp'
 // Decentralized wallet module (no WalletConnect dependency)
 export {
   type ChainConfig,
@@ -63,24 +82,3 @@ export {
   WalletButton,
   type WalletButtonProps,
 } from './wallet'
-
-// Miniapp SDK for Telegram and Farcaster
-export {
-  applyMiniappTheme,
-  createFrameResponse,
-  createMiniappStorage,
-  detectMiniappPlatform,
-  generateFrameMetaTags,
-  getFarcasterContext,
-  getMiniappThemeVars,
-  getTelegramTheme,
-  getTelegramUser,
-  haptic,
-  initTelegram,
-  isTelegramDarkMode,
-  type FarcasterFrameContext,
-  type FrameMetadata,
-  type MiniappPlatform,
-  type MiniappStorage,
-  type TelegramWebApp,
-} from './miniapp'

@@ -16,10 +16,10 @@ import {
 import type { AutocratConfig } from '../lib'
 import {
   type AutocratVoteFromContract,
-  DIRECTOR_AGENT_ABI,
-  type DirectorStatsFromContract,
   COUNCIL_ABI,
   type DecisionFromContract,
+  DIRECTOR_AGENT_ABI,
+  type DirectorStatsFromContract,
   getAutocratRole,
   getProposalStatus,
   getProposalType,
@@ -157,7 +157,9 @@ function parseModelTuple(t: ModelTuple): ModelFromContract {
   }
 }
 
-function parseDirectorStatsTuple(t: DirectorStatsTuple): DirectorStatsFromContract {
+function parseDirectorStatsTuple(
+  t: DirectorStatsTuple,
+): DirectorStatsFromContract {
   return {
     currentModelId: t[0],
     totalDecisions: t[1],
@@ -236,7 +238,9 @@ export class AutocratBlockchain {
       transport: http(config.rpcUrl),
     }) as PublicClient
     this.councilAddress = toAddress(config.contracts?.council ?? ZERO_ADDRESS)
-    this.directorAgentAddress = toAddress(config.contracts?.directorAgent ?? ZERO_ADDRESS)
+    this.directorAgentAddress = toAddress(
+      config.contracts?.directorAgent ?? ZERO_ADDRESS,
+    )
     this.councilDeployed =
       viemIsAddress(this.councilAddress) && this.councilAddress !== ZERO_ADDRESS
     this.directorDeployed =

@@ -32,7 +32,7 @@ import {
   isProductionEnv,
   tryGetContract,
 } from '@jejunetwork/config'
-import { Elysia, type Context } from 'elysia'
+import { type Context, Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
 import {
   getLocalCDNServer,
@@ -1419,9 +1419,10 @@ if (import.meta.main) {
   }
 
   // Adapter to convert Bun's ServerWebSocket to SubscribableWebSocket
-  function toSubscribableWebSocket(
-    ws: { readonly readyState: number; send(data: string): number },
-  ): SubscribableWebSocket {
+  function toSubscribableWebSocket(ws: {
+    readonly readyState: number
+    send(data: string): number
+  }): SubscribableWebSocket {
     return {
       get readyState() {
         return ws.readyState
@@ -1478,7 +1479,15 @@ if (import.meta.main) {
     port: PORT,
     maxRequestBodySize: 500 * 1024 * 1024, // 500MB for large artifact uploads
     idleTimeout: 120, // 120 seconds - health checks can take time when external services are slow
-    async fetch(req: Request, server: { upgrade(req: Request, options?: { data?: WebSocketData; headers?: HeadersInit }): boolean }) {
+    async fetch(
+      req: Request,
+      server: {
+        upgrade(
+          req: Request,
+          options?: { data?: WebSocketData; headers?: HeadersInit },
+        ): boolean
+      },
+    ) {
       // Handle WebSocket upgrades for price streaming
       const url = new URL(req.url)
       if (
@@ -1676,7 +1685,12 @@ if (import.meta.main) {
       return app.handle(req)
     },
     websocket: {
-      open(ws: { data: WebSocketData; readyState: number; send(data: string): number; close(): void }) {
+      open(ws: {
+        data: WebSocketData
+        readyState: number
+        send(data: string): number
+        close(): void
+      }) {
         const data = ws.data
         if (data.type === 'prices') {
           // Set up price subscription service
@@ -1744,7 +1758,12 @@ if (import.meta.main) {
     if (dwsPrivateKey) {
       const infra = createInfrastructure(
         {
-          network: NETWORK === 'localnet' || NETWORK === 'testnet' || NETWORK === 'mainnet' ? NETWORK : 'localnet',
+          network:
+            NETWORK === 'localnet' ||
+            NETWORK === 'testnet' ||
+            NETWORK === 'mainnet'
+              ? NETWORK
+              : 'localnet',
           privateKey: dwsPrivateKey,
           selfEndpoint: baseUrl,
         },

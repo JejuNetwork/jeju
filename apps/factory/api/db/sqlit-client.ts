@@ -11,41 +11,41 @@
  * - Schema migration on initialization
  */
 
-import { getSQLit, type SQLitClient } from '@jejunetwork/db'
 import { isProductionEnv } from '@jejunetwork/config'
+import { getSQLit, type SQLitClient } from '@jejunetwork/db'
 import { z } from 'zod'
 import { getFactoryConfig } from '../config'
 import FACTORY_SCHEMA from './schema'
 
 // Re-export row schemas and types from the original client for compatibility
-export {
-  type BountyRow,
-  type JobRow,
-  type ProjectRow,
-  type TaskRow,
-  type IssueRow,
-  type PullRequestRow,
-  type DiscussionRow,
-  type CIRunRow,
-  type AgentRow,
-  type ContainerRow,
-  type ContainerInstanceRow,
-  type DatasetRow,
-  type ModelRow,
-  type LeaderboardRow,
-  type IssueCommentRow,
-  type PRReviewRow,
-  type DiscussionReplyRow,
-  type RepoSettingsRow,
-  type CollaboratorRow,
-  type WebhookRow,
-  type PackageSettingsRow,
-  type MaintainerRow,
-  type PackageTokenRow,
-  type FidLinkRow,
-  type FarcasterSignerRow,
-  type ProjectChannelRow,
-  type CastReactionRow,
+export type {
+  AgentRow,
+  BountyRow,
+  CastReactionRow,
+  CIRunRow,
+  CollaboratorRow,
+  ContainerInstanceRow,
+  ContainerRow,
+  DatasetRow,
+  DiscussionReplyRow,
+  DiscussionRow,
+  FarcasterSignerRow,
+  FidLinkRow,
+  IssueCommentRow,
+  IssueRow,
+  JobRow,
+  LeaderboardRow,
+  MaintainerRow,
+  ModelRow,
+  PackageSettingsRow,
+  PackageTokenRow,
+  PRReviewRow,
+  ProjectChannelRow,
+  ProjectRow,
+  PullRequestRow,
+  RepoSettingsRow,
+  TaskRow,
+  WebhookRow,
 } from './client'
 
 let sqlitClient: SQLitClient | null = null
@@ -247,10 +247,9 @@ export async function listBounties(filter?: {
 }
 
 export async function getBounty(id: string): Promise<BountyRow | null> {
-  const row = await queryOne<BountyRow>(
-    'SELECT * FROM bounties WHERE id = ?',
-    [id],
-  )
+  const row = await queryOne<BountyRow>('SELECT * FROM bounties WHERE id = ?', [
+    id,
+  ])
   return row ? BountyRowSchema.parse(row) : null
 }
 
@@ -655,10 +654,9 @@ export async function listCIRuns(filter?: {
 }
 
 export async function getCIRun(id: string): Promise<CIRunRow | null> {
-  const row = await queryOne<CIRunRow>(
-    'SELECT * FROM ci_runs WHERE id = ?',
-    [id],
-  )
+  const row = await queryOne<CIRunRow>('SELECT * FROM ci_runs WHERE id = ?', [
+    id,
+  ])
   return row ? CIRunRowSchema.parse(row) : null
 }
 
@@ -861,7 +859,9 @@ const LeaderboardRowSchema = z.object({
 })
 type LeaderboardRow = z.infer<typeof LeaderboardRowSchema>
 
-export async function getLeaderboard(limit: number = 50): Promise<LeaderboardRow[]> {
+export async function getLeaderboard(
+  limit: number = 50,
+): Promise<LeaderboardRow[]> {
   const rows = await query<LeaderboardRow>(
     'SELECT * FROM leaderboard ORDER BY score DESC LIMIT ?',
     [limit],

@@ -6398,7 +6398,11 @@ export const daoFundingAbi = [
             type: 'uint256',
           },
           { name: 'quadraticEnabled', internalType: 'bool', type: 'bool' },
-          { name: 'directorWeightCap', internalType: 'uint256', type: 'uint256' },
+          {
+            name: 'directorWeightCap',
+            internalType: 'uint256',
+            type: 'uint256',
+          },
           {
             name: 'minStakePerParticipant',
             internalType: 'uint256',
@@ -6696,7 +6700,11 @@ export const daoFundingAbi = [
             type: 'uint256',
           },
           { name: 'quadraticEnabled', internalType: 'bool', type: 'bool' },
-          { name: 'directorWeightCap', internalType: 'uint256', type: 'uint256' },
+          {
+            name: 'directorWeightCap',
+            internalType: 'uint256',
+            type: 'uint256',
+          },
           {
             name: 'minStakePerParticipant',
             internalType: 'uint256',
@@ -6727,7 +6735,11 @@ export const daoFundingAbi = [
             type: 'uint256',
           },
           { name: 'quadraticEnabled', internalType: 'bool', type: 'bool' },
-          { name: 'directorWeightCap', internalType: 'uint256', type: 'uint256' },
+          {
+            name: 'directorWeightCap',
+            internalType: 'uint256',
+            type: 'uint256',
+          },
           {
             name: 'minStakePerParticipant',
             internalType: 'uint256',
@@ -7436,9 +7448,17 @@ export const daoRegistryAbi = [
               { name: 'description', internalType: 'string', type: 'string' },
               { name: 'treasury', internalType: 'address', type: 'address' },
               { name: 'council', internalType: 'address', type: 'address' },
-              { name: 'directorAgent', internalType: 'address', type: 'address' },
+              {
+                name: 'directorAgent',
+                internalType: 'address',
+                type: 'address',
+              },
               { name: 'feeConfig', internalType: 'address', type: 'address' },
-              { name: 'directorModelId', internalType: 'bytes32', type: 'bytes32' },
+              {
+                name: 'directorModelId',
+                internalType: 'bytes32',
+                type: 'bytes32',
+              },
               { name: 'manifestCid', internalType: 'string', type: 'string' },
               {
                 name: 'status',

@@ -22,8 +22,8 @@ export * from './client'
 
 // Export SQLit initialization for production use
 export {
-  initSQLitDB,
   closeSQLitDB,
+  initSQLitDB,
   isSQLitHealthy,
 } from './sqlit-client'
 
@@ -38,5 +38,3 @@ if (typeof process !== 'undefined') {
     `[Factory DB] Using ${USE_SQLIT ? 'DWS SQLit (decentralized)' : 'local SQLite (development)'} database`,
   )
 }
-
-

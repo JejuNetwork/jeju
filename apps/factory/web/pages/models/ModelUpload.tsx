@@ -1,17 +1,17 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  Brain,
-  Upload,
   AlertCircle,
+  Brain,
   CheckCircle,
-  Loader2,
+  Code,
   FileCode,
   Image,
-  Mic,
+  Loader2,
   MessageSquare,
-  Code,
+  Mic,
+  Upload,
 } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { type FormEvent, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAccount } from 'wagmi'
@@ -197,7 +197,7 @@ export function ModelUploadPage() {
     e.preventDefault()
     e.stopPropagation()
     setDragActive(false)
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+    if (e.dataTransfer.files?.[0]) {
       setFormData((prev) => ({ ...prev, file: e.dataTransfer.files[0] }))
     }
   }
@@ -361,7 +361,11 @@ export function ModelUploadPage() {
               className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-purple-500"
             >
               {FRAMEWORKS.map((framework) => (
-                <option key={framework} value={framework} className="bg-gray-900">
+                <option
+                  key={framework}
+                  value={framework}
+                  className="bg-gray-900"
+                >
                   {framework}
                 </option>
               ))}
@@ -491,7 +495,10 @@ export function ModelUploadPage() {
                   className="hidden"
                   onChange={(e) =>
                     e.target.files &&
-                    setFormData((prev) => ({ ...prev, file: e.target.files![0] }))
+                    setFormData((prev) => ({
+                      ...prev,
+                      file: e.target.files?.[0],
+                    }))
                   }
                 />
               </label>
@@ -556,4 +563,3 @@ export function ModelUploadPage() {
     </div>
   )
 }
-

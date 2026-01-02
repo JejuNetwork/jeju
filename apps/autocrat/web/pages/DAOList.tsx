@@ -97,7 +97,9 @@ function DAOCard({ dao }: DAOCardProps) {
             >
               <Crown className="w-3 h-3 text-white" aria-hidden="true" />
             </div>
-            <span style={{ color: 'var(--text-primary)' }}>{dao.directorName}</span>
+            <span style={{ color: 'var(--text-primary)' }}>
+              {dao.directorName}
+            </span>
             <span style={{ color: 'var(--text-tertiary)' }}>·</span>
             <span style={{ color: 'var(--text-tertiary)' }}>
               {dao.boardMemberCount} board members

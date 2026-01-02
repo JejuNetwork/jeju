@@ -5,8 +5,8 @@
  * Supports send/receive, balance checking, and basic transactions.
  */
 
-import { createRoot } from 'react-dom/client'
 import { useEffect, useState } from 'react'
+import { createRoot } from 'react-dom/client'
 
 declare global {
   interface Window {
@@ -94,7 +94,10 @@ function MiniApp() {
 
     // Load or create wallet
     loadWallet()
-  }, [])
+  }, [
+    // Load or create wallet
+    loadWallet,
+  ])
 
   useEffect(() => {
     // Handle Telegram back button
@@ -121,7 +124,7 @@ function MiniApp() {
     }
   }
 
-  async function fetchBalance(addr: string) {
+  async function fetchBalance(_addr: string) {
     // In production, this would call the wallet API
     setBalance('1,234.56')
   }
@@ -212,7 +215,9 @@ function MiniApp() {
         </div>
         <h1 className="text-2xl font-bold mb-2">Network Wallet</h1>
         <p className="text-gray-400 text-center mb-8">
-          One wallet for every chain.<br />No bridging required.
+          One wallet for every chain.
+          <br />
+          No bridging required.
         </p>
         <button
           onClick={createWallet}
@@ -240,7 +245,10 @@ function MiniApp() {
     return (
       <div className="min-h-screen bg-[#0f0f0f] text-white flex flex-col">
         <header className="p-4 border-b border-white/10 flex items-center gap-4">
-          <button onClick={() => setScreen('home')} className="text-emerald-400">
+          <button
+            onClick={() => setScreen('home')}
+            className="text-emerald-400"
+          >
             ← Back
           </button>
           <h1 className="text-lg font-semibold">Send</h1>
@@ -248,7 +256,9 @@ function MiniApp() {
 
         <div className="flex-1 p-4 space-y-4">
           <div>
-            <label className="text-sm text-gray-400 mb-2 block">To Address</label>
+            <label className="text-sm text-gray-400 mb-2 block">
+              To Address
+            </label>
             <input
               type="text"
               placeholder="0x... or ENS name"
@@ -275,7 +285,9 @@ function MiniApp() {
           </div>
 
           <div>
-            <label className="text-sm text-gray-400 mb-2 block">From Chain</label>
+            <label className="text-sm text-gray-400 mb-2 block">
+              From Chain
+            </label>
             <div className="flex gap-2 overflow-x-auto pb-2">
               {CHAINS.map((chain) => (
                 <button
@@ -312,7 +324,10 @@ function MiniApp() {
     return (
       <div className="min-h-screen bg-[#0f0f0f] text-white flex flex-col">
         <header className="p-4 border-b border-white/10 flex items-center gap-4">
-          <button onClick={() => setScreen('home')} className="text-emerald-400">
+          <button
+            onClick={() => setScreen('home')}
+            className="text-emerald-400"
+          >
             ← Back
           </button>
           <h1 className="text-lg font-semibold">Receive</h1>
@@ -337,7 +352,8 @@ function MiniApp() {
             Copy Address
           </button>
           <p className="mt-8 text-sm text-gray-500 text-center">
-            Send any token to this address on any supported chain.<br />
+            Send any token to this address on any supported chain.
+            <br />
             Your balance will update automatically.
           </p>
         </div>
@@ -349,7 +365,10 @@ function MiniApp() {
     return (
       <div className="min-h-screen bg-[#0f0f0f] text-white flex flex-col">
         <header className="p-4 border-b border-white/10 flex items-center gap-4">
-          <button onClick={() => setScreen('home')} className="text-emerald-400">
+          <button
+            onClick={() => setScreen('home')}
+            className="text-emerald-400"
+          >
             ← Back
           </button>
           <h1 className="text-lg font-semibold">History</h1>
@@ -369,7 +388,13 @@ function MiniApp() {
                 >
                   <div className="flex justify-between items-start">
                     <div>
-                      <p className={tx.type === 'receive' ? 'text-emerald-400' : 'text-white'}>
+                      <p
+                        className={
+                          tx.type === 'receive'
+                            ? 'text-emerald-400'
+                            : 'text-white'
+                        }
+                      >
                         {tx.type === 'receive' ? '+' : '-'}
                         {tx.amount} {tx.token}
                       </p>
@@ -379,7 +404,9 @@ function MiniApp() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm text-gray-400">{formatTime(tx.timestamp)}</p>
+                      <p className="text-sm text-gray-400">
+                        {formatTime(tx.timestamp)}
+                      </p>
                       <p className="text-xs text-gray-500">{tx.chain}</p>
                     </div>
                   </div>
@@ -534,7 +561,9 @@ function MiniApp() {
                     <p className="text-sm font-medium">
                       {tx.type === 'receive' ? 'Received' : 'Sent'}
                     </p>
-                    <p className="text-xs text-gray-500">{formatTime(tx.timestamp)}</p>
+                    <p className="text-xs text-gray-500">
+                      {formatTime(tx.timestamp)}
+                    </p>
                   </div>
                 </div>
                 <p

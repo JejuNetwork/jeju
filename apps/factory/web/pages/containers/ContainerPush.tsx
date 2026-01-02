@@ -1,12 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import {
-  Box,
-  Upload,
-  AlertCircle,
-  Loader2,
-  Terminal,
-} from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { AlertCircle, Box, Loader2, Terminal, Upload } from 'lucide-react'
+import { type FormEvent, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAccount } from 'wagmi'
@@ -277,7 +271,9 @@ export function ContainerPushPage() {
           </p>
           <div className="space-y-3">
             <div>
-              <p className="text-xs text-white/40 mb-1">Login to the registry:</p>
+              <p className="text-xs text-white/40 mb-1">
+                Login to the registry:
+              </p>
               <code className="block p-3 bg-black/30 rounded text-sm text-green-400 font-mono">
                 dws auth login registry.dws.jejunetwork.org
               </code>
@@ -285,7 +281,8 @@ export function ContainerPushPage() {
             <div>
               <p className="text-xs text-white/40 mb-1">Tag your image:</p>
               <code className="block p-3 bg-black/30 rounded text-sm text-green-400 font-mono">
-                docker tag my-app registry.dws.jejunetwork.org/my-org/my-app:latest
+                docker tag my-app
+                registry.dws.jejunetwork.org/my-org/my-app:latest
               </code>
             </div>
             <div>
@@ -321,5 +318,3 @@ export function ContainerPushPage() {
     </div>
   )
 }
-
-

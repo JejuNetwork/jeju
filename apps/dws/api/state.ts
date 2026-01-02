@@ -43,8 +43,14 @@ const memoryTables = new Map<string, Map<string, Record<string, unknown>>>()
 // In-memory SQLit mock for test mode
 function createMemorySQLitClient(): MinimalSQLitClient {
   return {
-    async isHealthy() { return true },
-    async query<T>(sql: string, params: QueryParam[], _dbId: string): Promise<QueryResult<T>> {
+    async isHealthy() {
+      return true
+    },
+    async query<T>(
+      sql: string,
+      params: QueryParam[],
+      _dbId: string,
+    ): Promise<QueryResult<T>> {
       // Parse simple SELECT queries for test mode
       const table = sql.match(/FROM\s+(\w+)/i)?.[1]
       if (!table) {
@@ -85,9 +91,15 @@ function createMemorySQLitClient(): MinimalSQLitClient {
         blockHeight: 0,
       }
     },
-    async exec(sql: string, params: QueryParam[], _dbId: string): Promise<ExecResult> {
+    async exec(
+      sql: string,
+      params: QueryParam[],
+      _dbId: string,
+    ): Promise<ExecResult> {
       // Parse INSERT/REPLACE/UPDATE/DELETE for test mode
-      const insertMatch = sql.match(/INSERT\s+(?:OR\s+REPLACE\s+)?INTO\s+(\w+)/i)
+      const insertMatch = sql.match(
+        /INSERT\s+(?:OR\s+REPLACE\s+)?INTO\s+(\w+)/i,
+      )
       if (insertMatch) {
         const table = insertMatch[1]
         if (!memoryTables.has(table)) memoryTables.set(table, new Map())
@@ -98,8 +110,10 @@ function createMemorySQLitClient(): MinimalSQLitClient {
         // Extract columns from SQL
         const colsMatch = sql.match(/\(([^)]+)\)\s*VALUES/i)
         if (colsMatch) {
-          const cols = colsMatch[1].split(',').map(c => c.trim())
-          cols.forEach((col, i) => { record[col] = params[i] })
+          const cols = colsMatch[1].split(',').map((c) => c.trim())
+          cols.forEach((col, i) => {
+            record[col] = params[i]
+          })
         }
         tableData?.set(id, record)
         return {
@@ -111,7 +125,9 @@ function createMemorySQLitClient(): MinimalSQLitClient {
         }
       }
 
-      const deleteMatch = sql.match(/DELETE\s+FROM\s+(\w+)\s+WHERE\s+(\w+)\s*=\s*\?/i)
+      const deleteMatch = sql.match(
+        /DELETE\s+FROM\s+(\w+)\s+WHERE\s+(\w+)\s*=\s*\?/i,
+      )
       if (deleteMatch && params.length > 0) {
         const table = deleteMatch[1]
         const tableData = memoryTables.get(table)
@@ -2313,7 +2329,10 @@ export const workerVersionState = {
     return version
   },
 
-  async getVersion(workerId: string, version: number): Promise<WorkerVersion | null> {
+  async getVersion(
+    workerId: string,
+    version: number,
+  ): Promise<WorkerVersion | null> {
     const versionId = `${workerId}:v${version}`
 
     if (memoryOnlyMode) {
@@ -2401,7 +2420,16 @@ export const cliSecretState = {
   ): Promise<CLISecret> {
     const now = Date.now()
     const id = `${appName}:${key}`
-    const secret: CLISecret = { id, appName, key, value, scope, owner, createdAt: now, updatedAt: now }
+    const secret: CLISecret = {
+      id,
+      appName,
+      key,
+      value,
+      scope,
+      owner,
+      createdAt: now,
+      updatedAt: now,
+    }
 
     if (memoryOnlyMode) {
       memoryStores.cliSecrets.set(id, secret)
@@ -2438,8 +2466,11 @@ export const cliSecretState = {
 
   async listByApp(appName: string, owner: string): Promise<CLISecret[]> {
     if (memoryOnlyMode) {
-      return Array.from(memoryStores.cliSecrets.values())
-        .filter((s) => s.appName === appName && s.owner.toLowerCase() === owner.toLowerCase())
+      return Array.from(memoryStores.cliSecrets.values()).filter(
+        (s) =>
+          s.appName === appName &&
+          s.owner.toLowerCase() === owner.toLowerCase(),
+      )
     }
 
     const client = await getSQLitClient()
@@ -2517,9 +2548,15 @@ function rowToPreview(row: CLIPreviewRow): CLIPreview {
 }
 
 export const cliPreviewState = {
-  async create(preview: Omit<CLIPreview, 'createdAt' | 'updatedAt'>): Promise<CLIPreview> {
+  async create(
+    preview: Omit<CLIPreview, 'createdAt' | 'updatedAt'>,
+  ): Promise<CLIPreview> {
     const now = Date.now()
-    const fullPreview: CLIPreview = { ...preview, createdAt: now, updatedAt: now }
+    const fullPreview: CLIPreview = {
+      ...preview,
+      createdAt: now,
+      updatedAt: now,
+    }
 
     if (memoryOnlyMode) {
       memoryStores.cliPreviews.set(preview.previewId, fullPreview)
@@ -2582,7 +2619,10 @@ export const cliPreviewState = {
     return result.rows.map(rowToPreview)
   },
 
-  async updateStatus(previewId: string, status: CLIPreview['status']): Promise<boolean> {
+  async updateStatus(
+    previewId: string,
+    status: CLIPreview['status'],
+  ): Promise<boolean> {
     if (memoryOnlyMode) {
       const preview = memoryStores.cliPreviews.get(previewId)
       if (preview) {
@@ -2667,7 +2707,15 @@ export const jnsDomainState = {
     await client.exec(
       `INSERT INTO jns_domains (name, owner, content_cid, worker_id, registered_at, expires_at, ttl)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [domain.name, domain.owner, domain.contentCid, domain.workerId, now, domain.expiresAt, domain.ttl],
+      [
+        domain.name,
+        domain.owner,
+        domain.contentCid,
+        domain.workerId,
+        now,
+        domain.expiresAt,
+        domain.ttl,
+      ],
       SQLIT_DATABASE_ID,
     )
 
@@ -2843,14 +2891,26 @@ export const creditTransactionState = {
     await client.exec(
       `INSERT INTO credit_transactions (id, owner, type, amount, balance_after, tx_hash, description, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, owner, type, txn.amount, txn.balanceAfter, txn.txHash, txn.description, now],
+      [
+        id,
+        owner,
+        type,
+        txn.amount,
+        txn.balanceAfter,
+        txn.txHash,
+        txn.description,
+        now,
+      ],
       SQLIT_DATABASE_ID,
     )
 
     return txn
   },
 
-  async listByOwner(owner: string, limit: number = 100): Promise<CreditTransaction[]> {
+  async listByOwner(
+    owner: string,
+    limit: number = 100,
+  ): Promise<CreditTransaction[]> {
     if (memoryOnlyMode) {
       return Array.from(creditTransactionsMemory.values())
         .filter((t) => t.owner.toLowerCase() === owner.toLowerCase())
@@ -2870,7 +2930,9 @@ export const creditTransactionState = {
   async getByTxHash(txHash: string): Promise<CreditTransaction | null> {
     if (memoryOnlyMode) {
       return (
-        Array.from(creditTransactionsMemory.values()).find((t) => t.txHash === txHash) ?? null
+        Array.from(creditTransactionsMemory.values()).find(
+          (t) => t.txHash === txHash,
+        ) ?? null
       )
     }
 
@@ -2887,7 +2949,7 @@ export const creditTransactionState = {
 
 // Track if we're in memory-only mode (no SQLit)
 // Allow memory-only mode when testing (DWS_TEST_MODE=1) or explicitly requested
-let memoryOnlyMode = process.env.DWS_TEST_MODE === '1'
+const memoryOnlyMode = process.env.DWS_TEST_MODE === '1'
 
 // In-memory stores for when SQLit is unavailable
 const memoryStores = {

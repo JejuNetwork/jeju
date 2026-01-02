@@ -598,7 +598,9 @@ export default function AgentEditPage() {
                     {agent.persona.name}
                   </h1>
                   <p className="text-sm text-slate-500">
-                    {isDirector ? 'Director' : BOARD_ROLE_PRESETS[agent.role].name}
+                    {isDirector
+                      ? 'Director'
+                      : BOARD_ROLE_PRESETS[agent.role].name}
                   </p>
                 </div>
               </div>

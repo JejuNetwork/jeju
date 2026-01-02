@@ -392,7 +392,9 @@ test.describe('Agent Endpoints within DAO', () => {
       const daoId = listData.daos[0].daoId
 
       // Try to get Director agent
-      const response = await request.get(`${API_BASE}/dao/${daoId}/agents/director`)
+      const response = await request.get(
+        `${API_BASE}/dao/${daoId}/agents/director`,
+      )
 
       if (response.ok()) {
         const data = await response.json()
@@ -413,7 +415,9 @@ test.describe('Agent Endpoints within DAO', () => {
   })
 
   test('DELETE /dao/:id/agents/director should fail', async ({ request }) => {
-    const response = await request.delete(`${API_BASE}/dao/test-dao/agents/director`)
+    const response = await request.delete(
+      `${API_BASE}/dao/test-dao/agents/director`,
+    )
 
     // Should not allow deleting Director
     if (!response.ok()) {

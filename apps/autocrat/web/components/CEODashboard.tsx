@@ -18,8 +18,8 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import {
-  type DirectorStatus,
   type Decision,
+  type DirectorStatus,
   fetchDirectorStatus,
   fetchModelCandidates,
   fetchRecentDecisions,
@@ -64,7 +64,9 @@ interface DirectorDashboardProps {
 }
 
 export function DirectorDashboard({ compact = false }: DirectorDashboardProps) {
-  const [directorStatus, setDirectorStatus] = useState<DirectorStatus | null>(null)
+  const [directorStatus, setDirectorStatus] = useState<DirectorStatus | null>(
+    null,
+  )
   const [models, setModels] = useState<ModelCandidate[]>([])
   const [decisions, setDecisions] = useState<Decision[]>([])
   const [loading, setLoading] = useState(true)
@@ -163,7 +165,9 @@ export function DirectorDashboard({ compact = false }: DirectorDashboardProps) {
             <div className="flex items-center gap-3">
               <Brain size={32} className="text-accent" />
               <div>
-                <div className="font-medium">{directorStatus.currentModel.name}</div>
+                <div className="font-medium">
+                  {directorStatus.currentModel.name}
+                </div>
                 <div className="text-xs text-gray-500">
                   {directorStatus.currentModel.provider}
                 </div>
@@ -710,9 +714,9 @@ function NominateModelModal({
           {/* Info */}
           <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-sm">
             <p className="text-blue-700 dark:text-blue-300">
-              Nominated models participate in the Director election. Token holders
-              can stake on their preferred model. The model with the most stake
-              becomes the active Director.
+              Nominated models participate in the Director election. Token
+              holders can stake on their preferred model. The model with the
+              most stake becomes the active Director.
             </p>
           </div>
         </div>

@@ -21,8 +21,8 @@ import {
 } from '@jejunetwork/contracts'
 import {
   CHAIN_CONFIG,
-  getDevDirectorAddress,
   getDevCouncilAddresses,
+  getDevDirectorAddress,
   WELL_KNOWN_KEYS,
 } from '../types'
 import { type DAODeployOptions, discoverDAOManifests } from './dao-deploy'
@@ -583,7 +583,9 @@ describe('Data Integrity', () => {
       // Verify all fields are preserved
       expect(discovered.name).toBe(original.name)
       expect(discovered.displayName).toBe(original.displayName)
-      expect(discovered.governance.director.name).toBe(original.governance.director.name)
+      expect(discovered.governance.director.name).toBe(
+        original.governance.director.name,
+      )
       expect(discovered.governance.council.members).toHaveLength(2)
       expect(discovered.funding.minStake).toBe(original.funding.minStake)
       expect(discovered.packages?.seeded).toHaveLength(1)
@@ -703,7 +705,8 @@ describe('Contract ABI Verification', () => {
 
   test('DAOFunding has proposeDirectorWeight function (with timelock)', () => {
     const proposeDirectorWeight = daoFundingAbi.find(
-      (item) => item.type === 'function' && item.name === 'proposeDirectorWeight',
+      (item) =>
+        item.type === 'function' && item.name === 'proposeDirectorWeight',
     )
     expect(proposeDirectorWeight).toBeDefined()
     expect(proposeDirectorWeight?.inputs).toHaveLength(2)

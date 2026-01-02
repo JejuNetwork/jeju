@@ -1,14 +1,14 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  FolderKanban,
   AlertCircle,
-  Loader2,
-  Plus,
+  FolderKanban,
   Globe,
+  Loader2,
   Lock,
+  Plus,
   Users,
 } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { type FormEvent, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAccount } from 'wagmi'
@@ -378,5 +378,3 @@ export function ProjectNewPage() {
     </div>
   )
 }
-
-

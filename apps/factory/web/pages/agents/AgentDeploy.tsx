@@ -1,17 +1,17 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  Bot,
   AlertCircle,
-  Loader2,
-  Rocket,
+  Bot,
   Brain,
-  Settings,
-  Network,
   Check,
-  ChevronRight,
   ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Network,
+  Rocket,
+  Settings,
 } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { type FormEvent, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAccount } from 'wagmi'
@@ -600,7 +600,9 @@ export function AgentDeployPage() {
               </h4>
               <ul className="text-sm text-blue-200/70 space-y-1">
                 <li>• Your agent will be registered on the Crucible network</li>
-                <li>• Other agents can discover and interact with your agent</li>
+                <li>
+                  • Other agents can discover and interact with your agent
+                </li>
                 <li>
                   • You can earn JEJU tokens when your agent completes tasks
                 </li>
@@ -659,5 +661,3 @@ export function AgentDeployPage() {
     </div>
   )
 }
-
-

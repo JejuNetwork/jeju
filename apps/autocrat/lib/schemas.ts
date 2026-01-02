@@ -822,10 +822,6 @@ export const DirectorStatusDataSchema = z.object({
 })
 export type DirectorStatusData = z.infer<typeof DirectorStatusDataSchema>
 
-// Legacy export for backwards compatibility
-export const DirectorStatusDataSchema = DirectorStatusDataSchema
-export type DirectorStatusData = DirectorStatusData
-
 export const AutocratStatusDataSchema = z.object({
   roles: z.array(
     z.object({

@@ -24,7 +24,11 @@ import { HelpPage } from './pages/Help'
 import { HomePage } from './pages/Home'
 import { JobsPage } from './pages/jobs/index'
 import { MessagesPage } from './pages/Messages'
-import { ModelDetailPage, ModelsPage, ModelUploadPage } from './pages/models/index'
+import {
+  ModelDetailPage,
+  ModelsPage,
+  ModelUploadPage,
+} from './pages/models/index'
 import {
   PackageDetailPage,
   PackagePublishPage,
@@ -65,7 +69,10 @@ export function App() {
                   element={<RepoDetailPage />}
                 />
                 <Route path="/packages" element={<PackagesPage />} />
-                <Route path="/packages/publish" element={<PackagePublishPage />} />
+                <Route
+                  path="/packages/publish"
+                  element={<PackagePublishPage />}
+                />
                 <Route
                   path="/packages/:scope/:name"
                   element={<PackageDetailPage />}
@@ -77,7 +84,10 @@ export function App() {
                   element={<ModelDetailPage />}
                 />
                 <Route path="/containers" element={<ContainersPage />} />
-                <Route path="/containers/push" element={<ContainerPushPage />} />
+                <Route
+                  path="/containers/push"
+                  element={<ContainerPushPage />}
+                />
                 <Route
                   path="/containers/:name/:tag"
                   element={<ContainerDetailPage />}

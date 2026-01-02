@@ -120,7 +120,9 @@ function generateLanderHtml(): string {
 </html>`
 }
 
-function generateMiniappHtml(platform: 'web' | 'telegram' | 'farcaster'): string {
+function generateMiniappHtml(
+  platform: 'web' | 'telegram' | 'farcaster',
+): string {
   const baseUrl = getBaseUrl()
 
   const telegramScript =

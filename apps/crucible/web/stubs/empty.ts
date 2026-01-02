@@ -8,17 +8,39 @@ export default {}
 
 // Elysia
 export const Elysia = class {
-  use() { return this }
-  get() { return this }
-  post() { return this }
-  put() { return this }
-  delete() { return this }
-  patch() { return this }
-  group() { return this }
-  onBeforeHandle() { return this }
-  onAfterHandle() { return this }
-  onError() { return this }
-  listen() { return this }
+  use() {
+    return this
+  }
+  get() {
+    return this
+  }
+  post() {
+    return this
+  }
+  put() {
+    return this
+  }
+  delete() {
+    return this
+  }
+  patch() {
+    return this
+  }
+  group() {
+    return this
+  }
+  onBeforeHandle() {
+    return this
+  }
+  onAfterHandle() {
+    return this
+  }
+  onError() {
+    return this
+  }
+  listen() {
+    return this
+  }
 }
 export const cors = () => ({})
 

@@ -15,7 +15,11 @@ interface AgentCardProps {
   onViewDetails: (agent: DAOAgent) => void
 }
 
-function AgentCard({ agent, isDirector = false, onViewDetails }: AgentCardProps) {
+function AgentCard({
+  agent,
+  isDirector = false,
+  onViewDetails,
+}: AgentCardProps) {
   const Icon = AGENT_ROLE_ICONS[agent.role]
   const gradientBg = AGENT_ROLE_GRADIENTS[agent.role]
   const activeConnectors = agent.connectors.filter((c) => c.enabled).length
@@ -271,7 +275,11 @@ export function AgentsTab({ dao }: AgentsTabProps) {
         >
           Chief Executive Officer
         </h3>
-        <AgentCard agent={dao.director} isDirector onViewDetails={handleViewDetails} />
+        <AgentCard
+          agent={dao.director}
+          isDirector
+          onViewDetails={handleViewDetails}
+        />
       </div>
 
       {/* Board Section */}

@@ -315,7 +315,8 @@ async function createDAO(
         name: params.directorName ?? 'Director',
         pfpCid: '',
         description: params.directorDescription ?? 'AI governance leader',
-        personality: params.directorPersonality ?? 'Professional and analytical',
+        personality:
+          params.directorPersonality ?? 'Professional and analytical',
         traits: params.directorTraits ?? ['decisive', 'fair', 'strategic'],
       },
       {

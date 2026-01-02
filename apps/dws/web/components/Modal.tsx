@@ -125,4 +125,3 @@ export function useModal() {
   const modalRef = useRef<{ isOpen: boolean; setOpen: (v: boolean) => void }>()
   return modalRef
 }
-

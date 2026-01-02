@@ -54,12 +54,18 @@ function getServiceRegistry(): Record<
       url: getAutocratA2A(),
       description: 'Autocrat governance A2A server',
     },
-    director: { url: getDirectorA2A(), description: 'AI Director decision-making agent' },
+    director: {
+      url: getDirectorA2A(),
+      description: 'AI Director decision-making agent',
+    },
     'autocrat-mcp': {
       url: getAutocratMCP(),
       description: 'Autocrat MCP tools and resources',
     },
-    'director-mcp': { url: getDirectorMCP(), description: 'Director MCP tools and resources' },
+    'director-mcp': {
+      url: getDirectorMCP(),
+      description: 'Director MCP tools and resources',
+    },
   }
 }
 

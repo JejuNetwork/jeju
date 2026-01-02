@@ -148,4 +148,3 @@ export const IconSize = {
 } as const
 
 export type IconSizeKey = keyof typeof IconSize
-

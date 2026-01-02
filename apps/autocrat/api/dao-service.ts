@@ -1531,7 +1531,11 @@ export class DAOService {
 
   async setDAOContracts(
     daoId: string,
-    contracts: { council?: Address; directorAgent?: Address; feeConfig?: Address },
+    contracts: {
+      council?: Address
+      directorAgent?: Address
+      feeConfig?: Address
+    },
   ): Promise<Hash[]> {
     if (!this.walletClient) {
       throw new Error('Wallet client not initialized')

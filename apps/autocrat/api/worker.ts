@@ -306,7 +306,8 @@ export function createAutocratApp(env?: Partial<AutocratEnv>) {
   app.get('/', () => ({
     name: 'Autocrat API',
     version: '3.0.0',
-    description: 'Multi-tenant DAO governance with AI Directors and deep funding',
+    description:
+      'Multi-tenant DAO governance with AI Directors and deep funding',
     runtime: 'workerd',
     network,
     endpoints: {

@@ -12,27 +12,28 @@
  *   cd apps/dws && bun test api/cli/routes.test.ts
  */
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
-import { createWalletClient, http, type Address, type Hex } from 'viem'
+import { beforeAll, describe, expect, test } from 'bun:test'
+import type { Address, Hex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { localhost } from 'viem/chains'
+import { initializeDWSState } from '../state'
 import { createCLIRoutes } from './routes'
-import { initializeDWSState, dwsWorkerState, cliSecretState, cliPreviewState, jnsDomainState } from '../state'
 
 // ============================================================================
 // Test Constants
 // ============================================================================
 
 // Test wallet (Anvil account #0)
-const TEST_PRIVATE_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as Hex
+const TEST_PRIVATE_KEY =
+  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as Hex
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address
 
 // Second test wallet (Anvil account #1) for ownership tests
-const TEST_PRIVATE_KEY_2 = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as Hex
+const TEST_PRIVATE_KEY_2 =
+  '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as Hex
 const TEST_ADDRESS_2 = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as Address
 
-const account = privateKeyToAccount(TEST_PRIVATE_KEY)
-const account2 = privateKeyToAccount(TEST_PRIVATE_KEY_2)
+const _account = privateKeyToAccount(TEST_PRIVATE_KEY)
+const _account2 = privateKeyToAccount(TEST_PRIVATE_KEY_2)
 
 // ============================================================================
 // Test Helpers
@@ -42,7 +43,10 @@ let app: ReturnType<typeof createCLIRoutes>
 let authToken: string
 let authToken2: string
 
-async function signLoginMessage(privateKey: Hex, message: string): Promise<string> {
+async function signLoginMessage(
+  privateKey: Hex,
+  message: string,
+): Promise<string> {
   const acc = privateKeyToAccount(privateKey)
   return acc.signMessage({ message })
 }
@@ -74,7 +78,7 @@ async function loginUser(address: Address, privateKey: Hex): Promise<string> {
 function authHeaders(token: string): Record<string, string> {
   return {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}`,
+    Authorization: `Bearer ${token}`,
   }
 }
 
@@ -86,7 +90,7 @@ async function request(
 ): Promise<{ status: number; data: Record<string, unknown>; text?: string }> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`
+    headers.Authorization = `Bearer ${token}`
   }
 
   const response = await app.handle(
@@ -146,7 +150,12 @@ describe('Health Check', () => {
 describe('Authentication Routes', () => {
   describe('POST /auth/wallet', () => {
     test('rejects missing fields', async () => {
-      const { status, data } = await request('POST', '/auth/wallet', undefined, {})
+      const { status, data } = await request(
+        'POST',
+        '/auth/wallet',
+        undefined,
+        {},
+      )
 
       expect(status).toBe(200)
       expect(data.error).toBeDefined()
@@ -154,24 +163,34 @@ describe('Authentication Routes', () => {
     })
 
     test('rejects invalid address format', async () => {
-      const { status, data } = await request('POST', '/auth/wallet', undefined, {
-        address: 'not-an-address',
-        signature: '0x123',
-        message: 'test',
-        network: 'localnet',
-      })
+      const { status, data } = await request(
+        'POST',
+        '/auth/wallet',
+        undefined,
+        {
+          address: 'not-an-address',
+          signature: '0x123',
+          message: 'test',
+          network: 'localnet',
+        },
+      )
 
       expect(status).toBe(200)
       expect(data.error).toBe('Invalid request')
     })
 
     test('rejects invalid signature', async () => {
-      const { status, data } = await request('POST', '/auth/wallet', undefined, {
-        address: TEST_ADDRESS,
-        signature: '0x' + '00'.repeat(65),
-        message: 'test message',
-        network: 'localnet',
-      })
+      const { status, data } = await request(
+        'POST',
+        '/auth/wallet',
+        undefined,
+        {
+          address: TEST_ADDRESS,
+          signature: `0x${'00'.repeat(65)}`,
+          message: 'test message',
+          network: 'localnet',
+        },
+      )
 
       // Should reject with invalid signature error - either via JSON error or exception
       expect(status).toBeGreaterThanOrEqual(200)
@@ -183,12 +202,17 @@ describe('Authentication Routes', () => {
       const message = `Test login ${Date.now()}`
       const signature = await signLoginMessage(TEST_PRIVATE_KEY, message)
 
-      const { status, data } = await request('POST', '/auth/wallet', undefined, {
-        address: TEST_ADDRESS,
-        signature,
-        message,
-        network: 'localnet',
-      })
+      const { status, data } = await request(
+        'POST',
+        '/auth/wallet',
+        undefined,
+        {
+          address: TEST_ADDRESS,
+          signature,
+          message,
+          network: 'localnet',
+        },
+      )
 
       expect(status).toBe(200)
       expect(data.token).toBeDefined()
@@ -203,12 +227,17 @@ describe('Authentication Routes', () => {
       const message = 'test'
       const signature = await signLoginMessage(TEST_PRIVATE_KEY, message)
 
-      const { status, data } = await request('POST', '/auth/wallet', undefined, {
-        address: TEST_ADDRESS,
-        signature,
-        message,
-        network: 'invalid-network',
-      })
+      const { status, data } = await request(
+        'POST',
+        '/auth/wallet',
+        undefined,
+        {
+          address: TEST_ADDRESS,
+          signature,
+          message,
+          network: 'invalid-network',
+        },
+      )
 
       expect(status).toBe(200)
       expect(data.error).toBeDefined()
@@ -304,7 +333,9 @@ describe('Account Routes', () => {
       const { status, data } = await request('GET', '/account/info', authToken)
 
       expect(status).toBe(200)
-      expect(data.address?.toString().toLowerCase()).toBe(TEST_ADDRESS.toLowerCase())
+      expect(data.address?.toString().toLowerCase()).toBe(
+        TEST_ADDRESS.toLowerCase(),
+      )
       expect(data.credits).toBeDefined()
       expect(data.tier).toBe('free')
       expect(data.usage).toBeDefined()
@@ -329,7 +360,11 @@ describe('Account Routes', () => {
     })
 
     test('returns daily usage breakdown', async () => {
-      const { status, data } = await request('GET', '/account/usage?days=7', authToken)
+      const { status, data } = await request(
+        'GET',
+        '/account/usage?days=7',
+        authToken,
+      )
 
       expect(status).toBe(200)
       expect(Array.isArray(data.daily)).toBe(true)
@@ -337,7 +372,11 @@ describe('Account Routes', () => {
     })
 
     test('respects days parameter', async () => {
-      const { status, data } = await request('GET', '/account/usage?days=3', authToken)
+      const { status, data } = await request(
+        'GET',
+        '/account/usage?days=3',
+        authToken,
+      )
 
       expect(status).toBe(200)
       const daily = data.daily as Array<{ date: string }>
@@ -352,7 +391,11 @@ describe('Account Routes', () => {
     })
 
     test('returns transaction history', async () => {
-      const { status, data } = await request('GET', '/account/transactions', authToken)
+      const { status, data } = await request(
+        'GET',
+        '/account/transactions',
+        authToken,
+      )
 
       expect(status).toBe(200)
       expect(Array.isArray(data.transactions)).toBe(true)
@@ -360,7 +403,11 @@ describe('Account Routes', () => {
     })
 
     test('respects limit parameter', async () => {
-      const { status, data } = await request('GET', '/account/transactions?limit=5', authToken)
+      const { status, data } = await request(
+        'GET',
+        '/account/transactions?limit=5',
+        authToken,
+      )
 
       expect(status).toBe(200)
       const txns = data.transactions as Array<unknown>
@@ -370,12 +417,19 @@ describe('Account Routes', () => {
 
   describe('POST /account/upgrade', () => {
     test('requires authentication', async () => {
-      const { status } = await request('POST', '/account/upgrade', undefined, { tier: 'pro' })
+      const { status } = await request('POST', '/account/upgrade', undefined, {
+        tier: 'pro',
+      })
       expect(status).toBe(500)
     })
 
     test('accepts tier upgrade request', async () => {
-      const { status, data } = await request('POST', '/account/upgrade', authToken, { tier: 'pro' })
+      const { status, data } = await request(
+        'POST',
+        '/account/upgrade',
+        authToken,
+        { tier: 'pro' },
+      )
 
       expect(status).toBe(200)
       expect(data.success).toBe(true)
@@ -402,7 +456,12 @@ describe('Worker Routes', () => {
     })
 
     test('validates required fields', async () => {
-      const { status, data } = await request('POST', '/workers/deploy', authToken, {})
+      const { status, data } = await request(
+        'POST',
+        '/workers/deploy',
+        authToken,
+        {},
+      )
 
       expect(status).toBe(200)
       expect(data.error).toBe('Invalid request')
@@ -410,71 +469,106 @@ describe('Worker Routes', () => {
     })
 
     test('validates name length (min 1)', async () => {
-      const { status, data } = await request('POST', '/workers/deploy', authToken, {
-        name: '',
-        codeCid: 'QmTest123',
-      })
+      const { status, data } = await request(
+        'POST',
+        '/workers/deploy',
+        authToken,
+        {
+          name: '',
+          codeCid: 'QmTest123',
+        },
+      )
 
       expect(status).toBe(200)
       expect(data.error).toBe('Invalid request')
     })
 
     test('validates name length (max 63)', async () => {
-      const { status, data } = await request('POST', '/workers/deploy', authToken, {
-        name: 'a'.repeat(64),
-        codeCid: 'QmTest123',
-      })
+      const { status, data } = await request(
+        'POST',
+        '/workers/deploy',
+        authToken,
+        {
+          name: 'a'.repeat(64),
+          codeCid: 'QmTest123',
+        },
+      )
 
       expect(status).toBe(200)
       expect(data.error).toBe('Invalid request')
     })
 
     test('validates memory bounds (min 32, max 4096)', async () => {
-      const { status: status1 } = await request('POST', '/workers/deploy', authToken, {
-        name: 'mem-test-1',
-        codeCid: 'QmTest123',
-        memory: 16, // Too low
-      })
+      const { status: status1 } = await request(
+        'POST',
+        '/workers/deploy',
+        authToken,
+        {
+          name: 'mem-test-1',
+          codeCid: 'QmTest123',
+          memory: 16, // Too low
+        },
+      )
       expect(status1).toBe(200)
 
-      const { status: status2 } = await request('POST', '/workers/deploy', authToken, {
-        name: 'mem-test-2',
-        codeCid: 'QmTest123',
-        memory: 8192, // Too high
-      })
+      const { status: status2 } = await request(
+        'POST',
+        '/workers/deploy',
+        authToken,
+        {
+          name: 'mem-test-2',
+          codeCid: 'QmTest123',
+          memory: 8192, // Too high
+        },
+      )
       expect(status2).toBe(200)
     })
 
     test('validates timeout bounds (min 1000, max 300000)', async () => {
-      const { status: status1, data: data1 } = await request('POST', '/workers/deploy', authToken, {
-        name: 'timeout-test-1',
-        codeCid: 'QmTest123',
-        timeout: 500, // Too low
-      })
+      const { status: status1, data: data1 } = await request(
+        'POST',
+        '/workers/deploy',
+        authToken,
+        {
+          name: 'timeout-test-1',
+          codeCid: 'QmTest123',
+          timeout: 500, // Too low
+        },
+      )
       expect(data1.error).toBe('Invalid request')
 
-      const { status: status2, data: data2 } = await request('POST', '/workers/deploy', authToken, {
-        name: 'timeout-test-2',
-        codeCid: 'QmTest123',
-        timeout: 500000, // Too high
-      })
+      const { status: status2, data: data2 } = await request(
+        'POST',
+        '/workers/deploy',
+        authToken,
+        {
+          name: 'timeout-test-2',
+          codeCid: 'QmTest123',
+          timeout: 500000, // Too high
+        },
+      )
       expect(data2.error).toBe('Invalid request')
     })
 
     test('successfully deploys a worker', async () => {
-      const { status, data } = await request('POST', '/workers/deploy', authToken, {
-        name: testWorkerName,
-        codeCid: 'QmTestCodeCid123456',
-        routes: ['/api/*', '/webhook'],
-        memory: 256,
-        timeout: 30000,
-      })
+      const { status, data } = await request(
+        'POST',
+        '/workers/deploy',
+        authToken,
+        {
+          name: testWorkerName,
+          codeCid: 'QmTestCodeCid123456',
+          routes: ['/api/*', '/webhook'],
+          memory: 256,
+          timeout: 30000,
+        },
+      )
 
       expect(status).toBe(200)
       expect(data.workerId).toBeDefined()
       expect(data.name).toBe(testWorkerName)
       expect(data.codeCid).toBe('QmTestCodeCid123456')
-      expect((data.routes as string[])).toContain('/api/*')
+      expect(data.routes as string[]).toContain('/api/*')
       expect(data.memory).toBe(256)
       expect(data.timeout).toBe(30000)
       expect(data.status).toBe('active')
@@ -484,10 +578,15 @@ describe('Worker Routes', () => {
     })
 
     test('increments version on redeploy by same owner', async () => {
-      const { status, data } = await request('POST', '/workers/deploy', authToken, {
-        name: testWorkerName,
-        codeCid: 'QmUpdatedCodeCid',
-      })
+      const { status, data } = await request(
+        'POST',
+        '/workers/deploy',
+        authToken,
+        {
+          name: testWorkerName,
+          codeCid: 'QmUpdatedCodeCid',
+        },
+      )
 
       expect(status).toBe(200)
       expect(data.version).toBe(2)
@@ -529,7 +628,11 @@ describe('Worker Routes', () => {
     })
 
     test('returns worker details', async () => {
-      const { status, data } = await request('GET', `/workers/${deployedWorkerId}`, authToken)
+      const { status, data } = await request(
+        'GET',
+        `/workers/${deployedWorkerId}`,
+        authToken,
+      )
 
       expect(status).toBe(200)
       expect(data.workerId).toBe(deployedWorkerId)
@@ -537,7 +640,11 @@ describe('Worker Routes', () => {
     })
 
     test('returns error for non-existent worker', async () => {
-      const { status, data } = await request('GET', '/workers/wkr_nonexistent', authToken)
+      const { status, data } = await request(
+        'GET',
+        '/workers/wkr_nonexistent',
+        authToken,
+      )
 
       expect(status).toBe(200)
       expect(data.error).toBe('Worker not found')
@@ -566,19 +673,32 @@ describe('Worker Routes', () => {
 
     test('deletes owned worker', async () => {
       // First create a worker to delete
-      const { data: deployData } = await request('POST', '/workers/deploy', authToken, {
-        name: `delete-test-${Date.now()}`,
-        codeCid: 'QmDeleteTest',
-      })
+      const { data: deployData } = await request(
+        'POST',
+        '/workers/deploy',
+        authToken,
+        {
+          name: `delete-test-${Date.now()}`,
+          codeCid: 'QmDeleteTest',
+        },
+      )
       const deleteId = deployData.workerId as string
 
-      const { status, data } = await request('DELETE', `/workers/${deleteId}`, authToken)
+      const { status, data } = await request(
+        'DELETE',
+        `/workers/${deleteId}`,
+        authToken,
+      )
 
       expect(status).toBe(200)
       expect(data.success).toBe(true)
 
       // Verify it's gone
-      const { data: getResult } = await request('GET', `/workers/${deleteId}`, authToken)
+      const { data: getResult } = await request(
+        'GET',
+        `/workers/${deleteId}`,
+        authToken,
+      )
       expect(getResult.error).toBe('Worker not found')
     })
   })
@@ -603,53 +723,78 @@ describe('Secrets Routes', () => {
     })
 
     test('validates required fields', async () => {
-      const { status, data } = await request('POST', '/secrets/set', authToken, {})
+      const { status, data } = await request(
+        'POST',
+        '/secrets/set',
+        authToken,
+        {},
+      )
 
       expect(status).toBe(200)
       expect(data.error).toBe('Invalid request')
     })
 
     test('validates key length (max 128)', async () => {
-      const { status, data } = await request('POST', '/secrets/set', authToken, {
-        app: testApp,
-        key: 'K'.repeat(129),
-        value: 'test',
-      })
+      const { status, data } = await request(
+        'POST',
+        '/secrets/set',
+        authToken,
+        {
+          app: testApp,
+          key: 'K'.repeat(129),
+          value: 'test',
+        },
+      )
 
       expect(status).toBe(200)
       expect(data.error).toBe('Invalid request')
     })
 
     test('validates value length (max 65536)', async () => {
-      const { status, data } = await request('POST', '/secrets/set', authToken, {
-        app: testApp,
-        key: 'LARGE_VALUE',
-        value: 'X'.repeat(65537),
-      })
+      const { status, data } = await request(
+        'POST',
+        '/secrets/set',
+        authToken,
+        {
+          app: testApp,
+          key: 'LARGE_VALUE',
+          value: 'X'.repeat(65537),
+        },
+      )
 
       expect(status).toBe(200)
       expect(data.error).toBe('Invalid request')
     })
 
     test('successfully sets a secret', async () => {
-      const { status, data } = await request('POST', '/secrets/set', authToken, {
-        app: testApp,
-        key: testSecretKey,
-        value: 'my-secret-api-key-123',
-        scope: 'production',
-      })
+      const { status, data } = await request(
+        'POST',
+        '/secrets/set',
+        authToken,
+        {
+          app: testApp,
+          key: testSecretKey,
+          value: 'my-secret-api-key-123',
+          scope: 'production',
+        },
+      )
 
       expect(status).toBe(200)
       expect(data.success).toBe(true)
     })
 
     test('allows updating existing secret', async () => {
-      const { status, data } = await request('POST', '/secrets/set', authToken, {
-        app: testApp,
-        key: testSecretKey,
-        value: 'updated-secret-value',
-        scope: 'production',
-      })
+      const { status, data } = await request(
+        'POST',
+        '/secrets/set',
+        authToken,
+        {
+          app: testApp,
+          key: testSecretKey,
+          value: 'updated-secret-value',
+          scope: 'production',
+        },
+      )
 
       expect(status).toBe(200)
       expect(data.success).toBe(true)
@@ -670,7 +815,11 @@ describe('Secrets Routes', () => {
     })
 
     test('returns secrets for app', async () => {
-      const { status, data } = await request('GET', `/secrets/list?app=${testApp}`, authToken)
+      const { status, data } = await request(
+        'GET',
+        `/secrets/list?app=${testApp}`,
+        authToken,
+      )
 
       expect(status).toBe(200)
       expect(Array.isArray(data.secrets)).toBe(true)
@@ -681,7 +830,11 @@ describe('Secrets Routes', () => {
     })
 
     test('does not return other users secrets', async () => {
-      const { status, data } = await request('GET', `/secrets/list?app=${testApp}`, authToken2)
+      const { status, data } = await request(
+        'GET',
+        `/secrets/list?app=${testApp}`,
+        authToken2,
+      )
 
       expect(status).toBe(200)
       const secrets = data.secrets as Array<{ key: string }>
@@ -696,28 +849,44 @@ describe('Secrets Routes', () => {
     })
 
     test('requires app and key', async () => {
-      const { status, data } = await request('GET', '/secrets/get?app=test', authToken)
+      const { status, data } = await request(
+        'GET',
+        '/secrets/get?app=test',
+        authToken,
+      )
 
       expect(status).toBe(200)
       expect(data.error).toBe('App and key required')
     })
 
     test('returns secret value for owner', async () => {
-      const { status, data } = await request('GET', `/secrets/get?app=${testApp}&key=${testSecretKey}`, authToken)
+      const { status, data } = await request(
+        'GET',
+        `/secrets/get?app=${testApp}&key=${testSecretKey}`,
+        authToken,
+      )
 
       expect(status).toBe(200)
       expect(data.value).toBe('updated-secret-value')
     })
 
     test('denies access to non-owner', async () => {
-      const { status, data } = await request('GET', `/secrets/get?app=${testApp}&key=${testSecretKey}`, authToken2)
+      const { status, data } = await request(
+        'GET',
+        `/secrets/get?app=${testApp}&key=${testSecretKey}`,
+        authToken2,
+      )
 
       expect(status).toBe(200)
       expect(data.error).toBe('Not authorized')
     })
 
     test('returns error for non-existent secret', async () => {
-      const { status, data } = await request('GET', `/secrets/get?app=${testApp}&key=NONEXISTENT`, authToken)
+      const { status, data } = await request(
+        'GET',
+        `/secrets/get?app=${testApp}&key=NONEXISTENT`,
+        authToken,
+      )
 
       expect(status).toBe(200)
       expect(data.error).toBe('Secret not found')
@@ -726,9 +895,14 @@ describe('Secrets Routes', () => {
 
   describe('DELETE /secrets/delete', () => {
     test('requires app and key', async () => {
-      const { status, data } = await request('DELETE', '/secrets/delete', authToken, {
-        app: testApp,
-      })
+      const { status, data } = await request(
+        'DELETE',
+        '/secrets/delete',
+        authToken,
+        {
+          app: testApp,
+        },
+      )
 
       expect(status).toBe(200)
       expect(data.error).toBe('App and key required')
@@ -742,16 +916,25 @@ describe('Secrets Routes', () => {
         value: 'temp',
       })
 
-      const { status, data } = await request('DELETE', '/secrets/delete', authToken, {
-        app: testApp,
-        key: 'DELETE_ME',
-      })
+      const { status, data } = await request(
+        'DELETE',
+        '/secrets/delete',
+        authToken,
+        {
+          app: testApp,
+          key: 'DELETE_ME',
+        },
+      )
 
       expect(status).toBe(200)
       expect(data.success).toBe(true)
 
       // Verify it's gone
-      const { data: getResult } = await request('GET', `/secrets/get?app=${testApp}&key=DELETE_ME`, authToken)
+      const { data: getResult } = await request(
+        'GET',
+        `/secrets/get?app=${testApp}&key=DELETE_ME`,
+        authToken,
+      )
       expect(getResult.error).toBe('Secret not found')
     })
   })
@@ -776,53 +959,78 @@ describe('Preview Routes', () => {
     })
 
     test('validates required fields', async () => {
-      const { status, data } = await request('POST', '/previews/create', authToken, {})
+      const { status, data } = await request(
+        'POST',
+        '/previews/create',
+        authToken,
+        {},
+      )
 
       expect(status).toBe(200)
       expect(data.error).toBe('Invalid request')
     })
 
     test('validates commitSha length (exactly 40)', async () => {
-      const { status, data } = await request('POST', '/previews/create', authToken, {
-        appName: testAppName,
-        branchName: 'test',
-        commitSha: 'short',
-      })
+      const { status, data } = await request(
+        'POST',
+        '/previews/create',
+        authToken,
+        {
+          appName: testAppName,
+          branchName: 'test',
+          commitSha: 'short',
+        },
+      )
 
       expect(status).toBe(200)
       expect(data.error).toBe('Invalid request')
     })
 
     test('validates appName length (max 63)', async () => {
-      const { status, data } = await request('POST', '/previews/create', authToken, {
-        appName: 'a'.repeat(64),
-        branchName: 'test',
-        commitSha: 'a'.repeat(40),
-      })
+      const { status, data } = await request(
+        'POST',
+        '/previews/create',
+        authToken,
+        {
+          appName: 'a'.repeat(64),
+          branchName: 'test',
+          commitSha: 'a'.repeat(40),
+        },
+      )
 
       expect(status).toBe(200)
       expect(data.error).toBe('Invalid request')
     })
 
     test('validates ttlHours bounds (1-720)', async () => {
-      const { status, data } = await request('POST', '/previews/create', authToken, {
-        appName: testAppName,
-        branchName: 'test',
-        commitSha: 'a'.repeat(40),
-        ttlHours: 1000,
-      })
+      const { status, data } = await request(
+        'POST',
+        '/previews/create',
+        authToken,
+        {
+          appName: testAppName,
+          branchName: 'test',
+          commitSha: 'a'.repeat(40),
+          ttlHours: 1000,
+        },
+      )
 
       expect(status).toBe(200)
       expect(data.error).toBe('Invalid request')
     })
 
     test('creates preview deployment', async () => {
-      const { status, data } = await request('POST', '/previews/create', authToken, {
-        appName: testAppName,
-        branchName: 'feature/new-ui',
-        commitSha: 'abcdef1234567890abcdef1234567890abcdef12',
-        ttlHours: 24,
-      })
+      const { status, data } = await request(
+        'POST',
+        '/previews/create',
+        authToken,
+        {
+          appName: testAppName,
+          branchName: 'feature/new-ui',
+          commitSha: 'abcdef1234567890abcdef1234567890abcdef12',
+          ttlHours: 24,
+        },
+      )
 
       expect(status).toBe(200)
       expect(data.previewId).toBeDefined()
@@ -836,11 +1044,16 @@ describe('Preview Routes', () => {
     })
 
     test('sanitizes branch name in preview URL', async () => {
-      const { status, data } = await request('POST', '/previews/create', authToken, {
-        appName: testAppName,
-        branchName: 'Feature/Special_Branch!@#$',
-        commitSha: 'b'.repeat(40),
-      })
+      const { status, data } = await request(
+        'POST',
+        '/previews/create',
+        authToken,
+        {
+          appName: testAppName,
+          branchName: 'Feature/Special_Branch!@#$',
+          commitSha: 'b'.repeat(40),
+        },
+      )
 
       expect(status).toBe(200)
       // Branch is sanitized (lowercase, special chars to -, limited to 20 chars)
@@ -865,7 +1078,11 @@ describe('Preview Routes', () => {
     })
 
     test('filters by app name', async () => {
-      const { status, data } = await request('GET', `/previews/list?app=${testAppName}`, authToken)
+      const { status, data } = await request(
+        'GET',
+        `/previews/list?app=${testAppName}`,
+        authToken,
+      )
 
       expect(status).toBe(200)
       const previews = data.previews as Array<{ appName: string }>
@@ -873,7 +1090,11 @@ describe('Preview Routes', () => {
     })
 
     test('does not return other users previews', async () => {
-      const { status, data } = await request('GET', '/previews/list', authToken2)
+      const { status, data } = await request(
+        'GET',
+        '/previews/list',
+        authToken2,
+      )
 
       expect(status).toBe(200)
       const previews = data.previews as Array<{ previewId: string }>
@@ -889,7 +1110,11 @@ describe('Preview Routes', () => {
     })
 
     test('returns preview details', async () => {
-      const { status, data } = await request('GET', `/previews/${previewId}`, authToken)
+      const { status, data } = await request(
+        'GET',
+        `/previews/${previewId}`,
+        authToken,
+      )
 
       expect(status).toBe(200)
       expect(data.previewId).toBe(previewId)
@@ -897,7 +1122,11 @@ describe('Preview Routes', () => {
     })
 
     test('returns error for non-existent preview', async () => {
-      const { status, data } = await request('GET', '/previews/prv_nonexistent', authToken)
+      const { status, data } = await request(
+        'GET',
+        '/previews/prv_nonexistent',
+        authToken,
+      )
 
       expect(status).toBe(200)
       expect(data.error).toBe('Preview not found')
@@ -906,7 +1135,11 @@ describe('Preview Routes', () => {
 
   describe('DELETE /previews/:previewId', () => {
     test('requires ownership', async () => {
-      const { status, data } = await request('DELETE', `/previews/${previewId}`, authToken2)
+      const { status, data } = await request(
+        'DELETE',
+        `/previews/${previewId}`,
+        authToken2,
+      )
 
       expect(status).toBe(200)
       expect(data.error).toBe('Not authorized')
@@ -914,20 +1147,33 @@ describe('Preview Routes', () => {
 
     test('deletes owned preview', async () => {
       // Create a preview to delete
-      const { data: createData } = await request('POST', '/previews/create', authToken, {
-        appName: 'delete-test',
-        branchName: 'delete-branch',
-        commitSha: 'c'.repeat(40),
-      })
+      const { data: createData } = await request(
+        'POST',
+        '/previews/create',
+        authToken,
+        {
+          appName: 'delete-test',
+          branchName: 'delete-branch',
+          commitSha: 'c'.repeat(40),
+        },
+      )
       const deleteId = createData.previewId as string
 
-      const { status, data } = await request('DELETE', `/previews/${deleteId}`, authToken)
+      const { status, data } = await request(
+        'DELETE',
+        `/previews/${deleteId}`,
+        authToken,
+      )
 
       expect(status).toBe(200)
       expect(data.success).toBe(true)
 
       // Verify it's gone
-      const { data: getResult } = await request('GET', `/previews/${deleteId}`, authToken)
+      const { data: getResult } = await request(
+        'GET',
+        `/previews/${deleteId}`,
+        authToken,
+      )
       expect(getResult.error).toBe('Preview not found')
     })
   })
@@ -949,17 +1195,24 @@ describe('JNS Routes', () => {
     })
 
     test('registers a new domain', async () => {
-      const { status, data } = await request('POST', '/jns/register', authToken, {
-        name: testDomain,
-        contentCid: 'QmTestContent123',
-        years: 2,
-      })
+      const { status, data } = await request(
+        'POST',
+        '/jns/register',
+        authToken,
+        {
+          name: testDomain,
+          contentCid: 'QmTestContent123',
+          years: 2,
+        },
+      )
 
       expect(status).toBe(200)
       expect(data.success).toBe(true)
       expect(data.name).toBe(testDomain)
       expect(data.contentCid).toBe('QmTestContent123')
-      expect(data.expiresAt).toBeGreaterThan(Date.now() + 365 * 24 * 60 * 60 * 1000) // At least 1 year
+      expect(data.expiresAt).toBeGreaterThan(
+        Date.now() + 365 * 24 * 60 * 60 * 1000,
+      ) // At least 1 year
     })
   })
 
@@ -974,7 +1227,10 @@ describe('JNS Routes', () => {
     })
 
     test('shows unregistered domain as available', async () => {
-      const { status, data } = await request('GET', '/jns/check/totally-available-domain-xyz.jeju')
+      const { status, data } = await request(
+        'GET',
+        '/jns/check/totally-available-domain-xyz.jeju',
+      )
 
       expect(status).toBe(200)
       expect(data.available).toBe(true)
@@ -983,17 +1239,25 @@ describe('JNS Routes', () => {
 
   describe('GET /jns/resolve/:name', () => {
     test('resolves registered domain', async () => {
-      const { status, data } = await request('GET', `/jns/resolve/${testDomain}`)
+      const { status, data } = await request(
+        'GET',
+        `/jns/resolve/${testDomain}`,
+      )
 
       expect(status).toBe(200)
       expect(data.resolved).toBe(true)
       expect(data.name).toBe(testDomain)
       expect(data.contentCid).toBe('QmTestContent123')
-      expect(data.owner?.toString().toLowerCase()).toBe(TEST_ADDRESS.toLowerCase())
+      expect(data.owner?.toString().toLowerCase()).toBe(
+        TEST_ADDRESS.toLowerCase(),
+      )
     })
 
     test('returns not found for unregistered domain', async () => {
-      const { status, data } = await request('GET', '/jns/resolve/unregistered.jeju')
+      const { status, data } = await request(
+        'GET',
+        '/jns/resolve/unregistered.jeju',
+      )
 
       expect(status).toBe(200)
       expect(data.resolved).toBe(false)
@@ -1028,64 +1292,95 @@ describe('JNS Routes', () => {
 
   describe('POST /jns/set-content', () => {
     test('requires ownership', async () => {
-      const { status, data } = await request('POST', '/jns/set-content', authToken2, {
-        name: testDomain,
-        contentCid: 'QmNewContent',
-      })
+      const { status, data } = await request(
+        'POST',
+        '/jns/set-content',
+        authToken2,
+        {
+          name: testDomain,
+          contentCid: 'QmNewContent',
+        },
+      )
 
       expect(status).toBe(200)
       expect(data.error).toBe('Not authorized')
     })
 
     test('updates content for owned domain', async () => {
-      const { status, data } = await request('POST', '/jns/set-content', authToken, {
-        name: testDomain,
-        contentCid: 'QmUpdatedContent456',
-      })
+      const { status, data } = await request(
+        'POST',
+        '/jns/set-content',
+        authToken,
+        {
+          name: testDomain,
+          contentCid: 'QmUpdatedContent456',
+        },
+      )
 
       expect(status).toBe(200)
       expect(data.success).toBe(true)
       expect(data.contentCid).toBe('QmUpdatedContent456')
 
       // Verify the update
-      const { data: resolveData } = await request('GET', `/jns/resolve/${testDomain}`)
+      const { data: resolveData } = await request(
+        'GET',
+        `/jns/resolve/${testDomain}`,
+      )
       expect(resolveData.contentCid).toBe('QmUpdatedContent456')
     })
   })
 
   describe('POST /jns/link-worker', () => {
     test('requires ownership', async () => {
-      const { status, data } = await request('POST', '/jns/link-worker', authToken2, {
-        name: testDomain,
-        workerId: 'wkr_test123',
-      })
+      const { status, data } = await request(
+        'POST',
+        '/jns/link-worker',
+        authToken2,
+        {
+          name: testDomain,
+          workerId: 'wkr_test123',
+        },
+      )
 
       expect(status).toBe(200)
       expect(data.error).toBe('Not authorized')
     })
 
     test('links worker to owned domain', async () => {
-      const { status, data } = await request('POST', '/jns/link-worker', authToken, {
-        name: testDomain,
-        workerId: 'wkr_linked123',
-      })
+      const { status, data } = await request(
+        'POST',
+        '/jns/link-worker',
+        authToken,
+        {
+          name: testDomain,
+          workerId: 'wkr_linked123',
+        },
+      )
 
       expect(status).toBe(200)
       expect(data.success).toBe(true)
       expect(data.workerId).toBe('wkr_linked123')
 
       // Verify the link
-      const { data: resolveData } = await request('GET', `/jns/resolve/${testDomain}`)
+      const { data: resolveData } = await request(
+        'GET',
+        `/jns/resolve/${testDomain}`,
+      )
       expect(resolveData.workerId).toBe('wkr_linked123')
     })
   })
 
   describe('POST /jns/transfer', () => {
     test('requires ownership', async () => {
-      const { status, data } = await request('POST', '/jns/transfer', authToken2, {
-        name: testDomain,
-        toAddress: TEST_ADDRESS_2,
-      })
+      const { status, data } = await request(
+        'POST',
+        '/jns/transfer',
+        authToken2,
+        {
+          name: testDomain,
+          toAddress: TEST_ADDRESS_2,
+        },
+      )
 
       expect(status).toBe(200)
       expect(data.error).toBe('Not authorized')
@@ -1094,12 +1389,19 @@ describe('JNS Routes', () => {
     test('transfers domain to new owner', async () => {
       // First create a domain to transfer
       const transferDomain = `transfer-test-${Date.now()}.jeju`
-      await request('POST', '/jns/register', authToken, { name: transferDomain })
-
-      const { status, data } = await request('POST', '/jns/transfer', authToken, {
+      await request('POST', '/jns/register', authToken, {
         name: transferDomain,
-        toAddress: TEST_ADDRESS_2,
       })
+
+      const { status, data } = await request(
+        'POST',
+        '/jns/transfer',
+        authToken,
+        {
+          name: transferDomain,
+          toAddress: TEST_ADDRESS_2,
+        },
+      )
 
       expect(status).toBe(200)
       expect(data.success).toBe(true)
@@ -1133,14 +1435,22 @@ describe('Log Routes', () => {
     })
 
     test('filters by app name', async () => {
-      const { status, data } = await request('GET', '/logs/query?app=test-app', authToken)
+      const { status, data } = await request(
+        'GET',
+        '/logs/query?app=test-app',
+        authToken,
+      )
 
       expect(status).toBe(200)
       expect(Array.isArray(data.logs)).toBe(true)
     })
 
     test('filters by level', async () => {
-      const { status, data } = await request('GET', '/logs/query?level=error', authToken)
+      const { status, data } = await request(
+        'GET',
+        '/logs/query?level=error',
+        authToken,
+      )
 
       expect(status).toBe(200)
       const logs = data.logs as Array<{ level: string }>
@@ -1148,7 +1458,11 @@ describe('Log Routes', () => {
     })
 
     test('filters by source', async () => {
-      const { status, data } = await request('GET', '/logs/query?source=system', authToken)
+      const { status, data } = await request(
+        'GET',
+        '/logs/query?source=system',
+        authToken,
+      )
 
       expect(status).toBe(200)
       const logs = data.logs as Array<{ source: string }>
@@ -1157,7 +1471,11 @@ describe('Log Routes', () => {
 
     test('respects since and limit parameters', async () => {
       const since = Date.now() - 60000
-      const { status, data } = await request('GET', `/logs/query?since=${since}&limit=5`, authToken)
+      const { status, data } = await request(
+        'GET',
+        `/logs/query?since=${since}&limit=5`,
+        authToken,
+      )
 
       expect(status).toBe(200)
       const logs = data.logs as Array<{ timestamp: number }>
@@ -1168,7 +1486,9 @@ describe('Log Routes', () => {
 
   describe('GET /logs/stream', () => {
     test('requires authentication', async () => {
-      const response = await app.handle(new Request('http://localhost/logs/stream'))
+      const response = await app.handle(
+        new Request('http://localhost/logs/stream'),
+      )
       // Should return error or reject
       expect(response.status >= 200).toBe(true)
     })
@@ -1207,15 +1527,20 @@ describe('Funding Routes', () => {
   describe('POST /funding/topup', () => {
     test('requires authentication', async () => {
       const { status } = await request('POST', '/funding/topup', undefined, {
-        txHash: '0x' + 'a'.repeat(64),
+        txHash: `0x${'a'.repeat(64)}`,
       })
       expect(status).toBe(500)
     })
 
     test('validates transaction hash format', async () => {
-      const { status, data } = await request('POST', '/funding/topup', authToken, {
-        txHash: 'invalid-hash',
-      })
+      const { status, data } = await request(
+        'POST',
+        '/funding/topup',
+        authToken,
+        {
+          txHash: 'invalid-hash',
+        },
+      )
 
       // Should fail during transaction lookup
       expect(status).toBe(200)
@@ -1223,9 +1548,14 @@ describe('Funding Routes', () => {
     })
 
     test('rejects non-existent transaction', async () => {
-      const { status, data } = await request('POST', '/funding/topup', authToken, {
-        txHash: '0x' + 'f'.repeat(64),
-      })
+      const { status, data } = await request(
+        'POST',
+        '/funding/topup',
+        authToken,
+        {
+          txHash: `0x${'f'.repeat(64)}`,
+        },
+      )
 
       expect(status).toBe(200)
       expect(data.error).toBeDefined() // Transaction not found
@@ -1282,8 +1612,8 @@ describe('Malformed Input Handling', () => {
 
   test('handles extremely long inputs', async () => {
     const { status, data } = await request('POST', '/auth/wallet', undefined, {
-      address: '0x' + 'a'.repeat(10000),
-      signature: '0x' + 'b'.repeat(10000),
+      address: `0x${'a'.repeat(10000)}`,
+      signature: `0x${'b'.repeat(10000)}`,
       message: 'c'.repeat(100000),
       network: 'localnet',
     })
@@ -1340,7 +1670,11 @@ describe('Concurrent Request Handling', () => {
     expect(results.every((r) => r.data.success)).toBe(true)
 
     // Verify all were created
-    const { data: listData } = await request('GET', `/secrets/list?app=${testApp}`, authToken)
+    const { data: listData } = await request(
+      'GET',
+      `/secrets/list?app=${testApp}`,
+      authToken,
+    )
     const secrets = listData.secrets as Array<{ key: string }>
     expect(secrets.length).toBe(10)
   })
@@ -1358,9 +1692,17 @@ describe('Concurrent Request Handling', () => {
     // Mix of reads and writes concurrently
     const operations = [
       request('GET', `/secrets/get?app=${testApp}&key=SHARED_KEY`, authToken),
-      request('POST', '/secrets/set', authToken, { app: testApp, key: 'SHARED_KEY', value: 'update1' }),
+      request('POST', '/secrets/set', authToken, {
+        app: testApp,
+        key: 'SHARED_KEY',
+        value: 'update1',
+      }),
       request('GET', `/secrets/get?app=${testApp}&key=SHARED_KEY`, authToken),
-      request('POST', '/secrets/set', authToken, { app: testApp, key: 'SHARED_KEY', value: 'update2' }),
+      request('POST', '/secrets/set', authToken, {
+        app: testApp,
+        key: 'SHARED_KEY',
+        value: 'update2',
+      }),
       request('GET', `/secrets/get?app=${testApp}&key=SHARED_KEY`, authToken),
     ]
 
@@ -1368,7 +1710,9 @@ describe('Concurrent Request Handling', () => {
 
     // All should complete without error
     expect(results.every((r) => r.status === 200)).toBe(true)
-    expect(results.every((r) => !r.data.error || r.data.error === undefined)).toBe(true)
+    expect(
+      results.every((r) => !r.data.error || r.data.error === undefined),
+    ).toBe(true)
   })
 })
 
@@ -1378,10 +1722,15 @@ describe('Concurrent Request Handling', () => {
 
 describe('Boundary Conditions', () => {
   test('worker name at exact max length (63)', async () => {
-    const { status, data } = await request('POST', '/workers/deploy', authToken, {
-      name: 'a'.repeat(63),
-      codeCid: 'QmMaxLength',
-    })
+    const { status, data } = await request(
+      'POST',
+      '/workers/deploy',
+      authToken,
+      {
+        name: 'a'.repeat(63),
+        codeCid: 'QmMaxLength',
+      },
+    )
 
     expect(status).toBe(200)
     expect(data.workerId).toBeDefined()
@@ -1400,66 +1749,101 @@ describe('Boundary Conditions', () => {
 
   test('memory at boundary values', async () => {
     // Min boundary (32)
-    const { data: data32 } = await request('POST', '/workers/deploy', authToken, {
-      name: `mem-32-${Date.now()}`,
-      codeCid: 'QmMem32',
-      memory: 32,
-    })
+    const { data: data32 } = await request(
+      'POST',
+      '/workers/deploy',
+      authToken,
+      {
+        name: `mem-32-${Date.now()}`,
+        codeCid: 'QmMem32',
+        memory: 32,
+      },
+    )
     expect(data32.memory).toBe(32)
 
     // Max boundary (4096)
-    const { data: data4096 } = await request('POST', '/workers/deploy', authToken, {
-      name: `mem-4096-${Date.now()}`,
-      codeCid: 'QmMem4096',
-      memory: 4096,
-    })
+    const { data: data4096 } = await request(
+      'POST',
+      '/workers/deploy',
+      authToken,
+      {
+        name: `mem-4096-${Date.now()}`,
+        codeCid: 'QmMem4096',
+        memory: 4096,
+      },
+    )
     expect(data4096.memory).toBe(4096)
   })
 
   test('timeout at boundary values', async () => {
     // Min boundary (1000ms)
-    const { data: data1000 } = await request('POST', '/workers/deploy', authToken, {
-      name: `timeout-1000-${Date.now()}`,
-      codeCid: 'QmTimeout1000',
-      timeout: 1000,
-    })
+    const { data: data1000 } = await request(
+      'POST',
+      '/workers/deploy',
+      authToken,
+      {
+        name: `timeout-1000-${Date.now()}`,
+        codeCid: 'QmTimeout1000',
+        timeout: 1000,
+      },
+    )
     expect(data1000.timeout).toBe(1000)
 
     // Max boundary (300000ms = 5 min)
-    const { data: data300000 } = await request('POST', '/workers/deploy', authToken, {
-      name: `timeout-300000-${Date.now()}`,
-      codeCid: 'QmTimeout300000',
-      timeout: 300000,
-    })
+    const { data: data300000 } = await request(
+      'POST',
+      '/workers/deploy',
+      authToken,
+      {
+        name: `timeout-300000-${Date.now()}`,
+        codeCid: 'QmTimeout300000',
+        timeout: 300000,
+      },
+    )
     expect(data300000.timeout).toBe(300000)
   })
 
   test('preview ttlHours at boundary values', async () => {
     // Min (1 hour)
-    const { data: data1 } = await request('POST', '/previews/create', authToken, {
-      appName: `ttl-1-${Date.now()}`,
-      branchName: 'test',
-      commitSha: 'd'.repeat(40),
-      ttlHours: 1,
-    })
+    const { data: data1 } = await request(
+      'POST',
+      '/previews/create',
+      authToken,
+      {
+        appName: `ttl-1-${Date.now()}`,
+        branchName: 'test',
+        commitSha: 'd'.repeat(40),
+        ttlHours: 1,
+      },
+    )
     expect(data1.previewId).toBeDefined()
 
     // Max (720 hours = 30 days)
-    const { data: data720 } = await request('POST', '/previews/create', authToken, {
-      appName: `ttl-720-${Date.now()}`,
-      branchName: 'test',
-      commitSha: 'e'.repeat(40),
-      ttlHours: 720,
-    })
+    const { data: data720 } = await request(
+      'POST',
+      '/previews/create',
+      authToken,
+      {
+        appName: `ttl-720-${Date.now()}`,
+        branchName: 'test',
+        commitSha: 'e'.repeat(40),
+        ttlHours: 720,
+      },
+    )
     expect(data720.previewId).toBeDefined()
   })
 
   test('empty arrays are handled correctly', async () => {
-    const { status, data } = await request('POST', '/workers/deploy', authToken, {
-      name: `empty-routes-${Date.now()}`,
-      codeCid: 'QmEmptyRoutes',
-      routes: [],
-    })
+    const { status, data } = await request(
+      'POST',
+      '/workers/deploy',
+      authToken,
+      {
+        name: `empty-routes-${Date.now()}`,
+        codeCid: 'QmEmptyRoutes',
+        routes: [],
+      },
+    )
 
     expect(status).toBe(200)
     expect(data.workerId).toBeDefined()

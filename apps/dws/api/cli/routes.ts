@@ -16,7 +16,7 @@ import {
   getRpcUrl,
 } from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
-import { Elysia, type Context } from 'elysia'
+import { type Context, Elysia } from 'elysia'
 import {
   type Address,
   createPublicClient,
@@ -797,99 +797,107 @@ export function createCLIRoutes() {
 
             return { success: true }
           })
-          .post('/:workerId/rollback', async ({ params, headers, body }: Context) => {
-            const session = requireAuth(headers)
-            const worker = await dwsWorkerState.get(params.workerId)
+          .post(
+            '/:workerId/rollback',
+            async ({ params, headers, body }: Context) => {
+              const session = requireAuth(headers)
+              const worker = await dwsWorkerState.get(params.workerId)
 
-            if (!worker) {
-              return { error: 'Worker not found' }
-            }
+              if (!worker) {
+                return { error: 'Worker not found' }
+              }
 
-            if (!addrEq(worker.owner, session.address)) {
-              return { error: 'Not authorized' }
-            }
+              if (!addrEq(worker.owner, session.address)) {
+                return { error: 'Not authorized' }
+              }
 
-            const targetVersion =
-              (body as { version?: number }).version ?? worker.version - 1
+              const targetVersion =
+                (body as { version?: number }).version ?? worker.version - 1
 
-            if (targetVersion < 1) {
-              return { error: 'Cannot rollback to version less than 1' }
-            }
+              if (targetVersion < 1) {
+                return { error: 'Cannot rollback to version less than 1' }
+              }
 
-            const historicalVersion = await workerVersionState.getVersion(
-              params.workerId,
-              targetVersion,
-            )
-
-            if (!historicalVersion) {
-              log('warn', 'workers', 'Rollback target version not found', {
-                workerId: params.workerId,
+              const historicalVersion = await workerVersionState.getVersion(
+                params.workerId,
                 targetVersion,
-              })
-              return { error: `Version ${targetVersion} not found in history` }
-            }
-
-            const updatedWorker: DWSWorker = {
-              ...worker,
-              codeCid: historicalVersion.codeCid,
-              runtime: historicalVersion.runtime as DWSWorker['runtime'],
-              handler: historicalVersion.handler,
-              memory: historicalVersion.memory,
-              timeout: historicalVersion.timeout,
-              env: JSON.parse(historicalVersion.env),
-              version: worker.version + 1, // Increment version for the rollback
-              updatedAt: Date.now(),
-            }
-
-            await dwsWorkerState.save(updatedWorker)
-            await workerVersionState.saveVersion(updatedWorker)
-
-            log('info', 'workers', 'Worker rolled back', {
-              workerId: params.workerId,
-              fromVersion: worker.version,
-              toVersion: targetVersion,
-              newVersion: updatedWorker.version,
-            })
-
-            addLog({
-              level: 'info',
-              message: `Worker ${worker.name} rolled back from v${worker.version} to v${targetVersion} (now v${updatedWorker.version})`,
-              source: 'worker',
-              workerId: params.workerId,
-            })
-
-            return {
-              success: true,
-              previousVersion: worker.version,
-              restoredFrom: targetVersion,
-              newVersion: updatedWorker.version,
-            }
-          })
-          .get('/:workerId/logs', async ({ params, headers, query }: Context) => {
-            const session = requireAuth(headers)
-            const worker = await dwsWorkerState.get(params.workerId)
-
-            if (!worker) {
-              return { error: 'Worker not found' }
-            }
-
-            if (!addrEq(worker.owner, session.address)) {
-              return { error: 'Not authorized' }
-            }
-
-            const since = query.since
-              ? parseInt(String(query.since), 10)
-              : Date.now() - 3600000
-            const limit = parseInt(String(query.limit ?? '100'), 10)
-
-            const workerLogs = logs
-              .filter(
-                (l) => l.workerId === params.workerId && l.timestamp >= since,
               )
-              .slice(-limit)
 
-            return { logs: workerLogs }
-          }),
+              if (!historicalVersion) {
+                log('warn', 'workers', 'Rollback target version not found', {
+                  workerId: params.workerId,
+                  targetVersion,
+                })
+                return {
+                  error: `Version ${targetVersion} not found in history`,
+                }
+              }
+
+              const updatedWorker: DWSWorker = {
+                ...worker,
+                codeCid: historicalVersion.codeCid,
+                runtime: historicalVersion.runtime as DWSWorker['runtime'],
+                handler: historicalVersion.handler,
+                memory: historicalVersion.memory,
+                timeout: historicalVersion.timeout,
+                env: JSON.parse(historicalVersion.env),
+                version: worker.version + 1, // Increment version for the rollback
+                updatedAt: Date.now(),
+              }
+
+              await dwsWorkerState.save(updatedWorker)
+              await workerVersionState.saveVersion(updatedWorker)
+
+              log('info', 'workers', 'Worker rolled back', {
+                workerId: params.workerId,
+                fromVersion: worker.version,
+                toVersion: targetVersion,
+                newVersion: updatedWorker.version,
+              })
+
+              addLog({
+                level: 'info',
+                message: `Worker ${worker.name} rolled back from v${worker.version} to v${targetVersion} (now v${updatedWorker.version})`,
+                source: 'worker',
+                workerId: params.workerId,
+              })
+
+              return {
+                success: true,
+                previousVersion: worker.version,
+                restoredFrom: targetVersion,
+                newVersion: updatedWorker.version,
+              }
+            },
+          )
+          .get(
+            '/:workerId/logs',
+            async ({ params, headers, query }: Context) => {
+              const session = requireAuth(headers)
+              const worker = await dwsWorkerState.get(params.workerId)
+
+              if (!worker) {
+                return { error: 'Worker not found' }
+              }
+
+              if (!addrEq(worker.owner, session.address)) {
+                return { error: 'Not authorized' }
+              }
+
+              const since = query.since
+                ? parseInt(String(query.since), 10)
+                : Date.now() - 3600000
+              const limit = parseInt(String(query.limit ?? '100'), 10)
+
+              const workerLogs = logs
+                .filter(
+                  (l) => l.workerId === params.workerId && l.timestamp >= since,
+                )
+                .slice(-limit)
+
+              return { logs: workerLogs }
+            },
+          ),
       )
 
       // ========================================

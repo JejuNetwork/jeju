@@ -202,7 +202,11 @@ export async function getFeeConfigState(): Promise<FeeConfigState> {
       abi: feeConfigAbi,
       functionName: 'council',
     }),
-    client.readContract({ address, abi: feeConfigAbi, functionName: 'director' }),
+    client.readContract({
+      address,
+      abi: feeConfigAbi,
+      functionName: 'director',
+    }),
   ])
 
   return {
@@ -516,7 +520,9 @@ export async function directorSetTokenOverride(
   return hash
 }
 
-export async function directorRemoveTokenOverride(token: Address): Promise<Hash> {
+export async function directorRemoveTokenOverride(
+  token: Address,
+): Promise<Hash> {
   const { address, wallet } = ensureWrite()
 
   const hash = await wallet.writeContract({

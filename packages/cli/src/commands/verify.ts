@@ -208,7 +208,10 @@ async function runVerification(options: {
 
   results.push(
     await verifyCheck('x402 payments', 'integration', async () => {
-      const response = await fetchWithTimeout(`${backendUrl}/x402/info`, timeout)
+      const response = await fetchWithTimeout(
+        `${backendUrl}/x402/info`,
+        timeout,
+      )
       return { passed: response.ok, details: `Status: ${response.status}` }
     }),
   )
@@ -221,12 +224,12 @@ async function runVerification(options: {
 
     for (const result of results.filter((r) => r.category === category)) {
       const icon = result.passed ? chalk.green('✓') : chalk.red('✗')
-      const status = result.passed
-        ? chalk.green('PASS')
-        : chalk.red('FAIL')
+      const status = result.passed ? chalk.green('PASS') : chalk.red('FAIL')
       const latency = chalk.gray(`${result.latency}ms`)
 
-      console.log(`  ${icon} ${result.name.padEnd(25)} ${status.padEnd(15)} ${latency}`)
+      console.log(
+        `  ${icon} ${result.name.padEnd(25)} ${status.padEnd(15)} ${latency}`,
+      )
 
       if (verbose && result.details) {
         console.log(chalk.gray(`      ${result.details}`))
@@ -249,7 +252,10 @@ export const verifyCommand = new Command()
   .argument('[app]', 'App name or directory')
   .option('-u, --url <url>', 'Backend URL to verify')
   .option('-f, --frontend <url>', 'Frontend URL (if different from backend)')
-  .option('-n, --network <network>', 'Network to verify (localnet/testnet/mainnet)')
+  .option(
+    '-n, --network <network>',
+    'Network to verify (localnet/testnet/mainnet)',
+  )
   .option('-l, --local', 'Verify local deployment (localhost)')
   .option('-t, --timeout <ms>', 'Request timeout in ms', '10000')
   .option('-v, --verbose', 'Show detailed output')
@@ -309,7 +315,7 @@ export const verifyCommand = new Command()
     })
 
     // Summary
-    console.log(chalk.bold('\n' + '='.repeat(60)))
+    console.log(chalk.bold(`\n${'='.repeat(60)}`))
     console.log(chalk.bold('SUMMARY'))
     console.log('='.repeat(60))
     console.log(`  Passed: ${chalk.green(passed)}`)
@@ -317,7 +323,9 @@ export const verifyCommand = new Command()
     console.log('')
 
     if (failed > 0) {
-      console.log(chalk.yellow('⚠️  Some checks failed. Review the errors above.'))
+      console.log(
+        chalk.yellow('⚠️  Some checks failed. Review the errors above.'),
+      )
       process.exit(1)
     }
 

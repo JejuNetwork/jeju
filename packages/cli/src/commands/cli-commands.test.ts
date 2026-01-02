@@ -10,12 +10,12 @@
 
 import { describe, expect, test } from 'bun:test'
 import { Command } from 'commander'
-import { loginCommand, logoutCommand, whoamiCommand } from './login'
 import { accountCommand } from './account'
-import { workerCommand } from './worker'
-import { secretCommand } from './secret'
 import { domainCommand } from './domain'
+import { loginCommand, logoutCommand, whoamiCommand } from './login'
 import { publishCommand } from './publish'
+import { secretCommand } from './secret'
+import { workerCommand } from './worker'
 
 // ============================================================================
 // Test Login Commands

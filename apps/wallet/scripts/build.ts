@@ -117,8 +117,12 @@ async function build() {
     process.exit(1)
   }
 
-  const miniappOutput = miniappResult.outputs.find((o) => o.kind === 'entry-point')
-  const miniappFileName = miniappOutput ? miniappOutput.path.split('/').pop() : 'miniapp.js'
+  const miniappOutput = miniappResult.outputs.find(
+    (o) => o.kind === 'entry-point',
+  )
+  const miniappFileName = miniappOutput
+    ? miniappOutput.path.split('/').pop()
+    : 'miniapp.js'
 
   // Create miniapp HTML with Telegram SDK
   const miniappHtml = `<!DOCTYPE html>

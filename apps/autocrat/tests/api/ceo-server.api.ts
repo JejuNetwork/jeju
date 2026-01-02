@@ -52,7 +52,9 @@ test.describe('Director Server', () => {
   test('agent card returns Director skills', async ({ request }) => {
     test.skip(!serverAvailable, 'Director server not running')
 
-    const response = await request.get(`${DIRECTOR_URL}/.well-known/agent-card.json`)
+    const response = await request.get(
+      `${DIRECTOR_URL}/.well-known/agent-card.json`,
+    )
 
     const card = await response.json()
     expect(card.name).toBe('Eliza - AI Director')

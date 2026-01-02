@@ -669,7 +669,8 @@ export class AutocratOrchestrator {
     if (
       this.account &&
       state.directorAgentAddress &&
-      state.directorAgentAddress !== '0x0000000000000000000000000000000000000000'
+      state.directorAgentAddress !==
+        '0x0000000000000000000000000000000000000000'
     ) {
       const hash = await writeContract(this.walletClient, {
         address: state.directorAgentAddress,

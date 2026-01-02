@@ -3,9 +3,9 @@ import type { Address } from 'viem'
 import {
   type BountyRow,
   createBounty as dbCreateBounty,
+  getBountyStats as dbGetBountyStats,
   listBounties as dbListBounties,
   getBounty,
-  getBountyStats as dbGetBountyStats,
 } from '../db/client'
 import {
   BountiesQuerySchema,

@@ -135,7 +135,7 @@ const checks: Array<{
     check: async () => {
       const html = await fetch(FRONTEND_URL).then((r) => r.text())
       const jsMatch = html.match(/src="([^"]+\.js)"/g)
-      const cssMatch = html.match(/href="([^"]+\.css)"/g)
+      const _cssMatch = html.match(/href="([^"]+\.css)"/g)
 
       const assetChecks: boolean[] = []
 
@@ -171,8 +171,11 @@ const checks: Array<{
         HealthSchema,
       )
       return {
-        passed: ok && (data?.status === 'healthy' || data?.status === 'degraded'),
-        details: data ? `Status: ${data.status}, Services: ${data.services.length}` : `HTTP ${status}`,
+        passed:
+          ok && (data?.status === 'healthy' || data?.status === 'degraded'),
+        details: data
+          ? `Status: ${data.status}, Services: ${data.services.length}`
+          : `HTTP ${status}`,
       }
     },
   },
@@ -183,7 +186,9 @@ const checks: Array<{
       const { data, ok } = await fetchJson(`${BASE_URL}/`, AppInfoSchema)
       return {
         passed: ok && !!data?.name,
-        details: data ? `${data.name} v${data.version}` : 'Failed to load app info',
+        details: data
+          ? `${data.name} v${data.version}`
+          : 'Failed to load app info',
       }
     },
   },
@@ -209,7 +214,9 @@ const checks: Array<{
       )
       return {
         passed: ok && !!data?.skills?.length,
-        details: data ? `${data.skills.length} skills available` : 'No agent card',
+        details: data
+          ? `${data.skills.length} skills available`
+          : 'No agent card',
       }
     },
   },

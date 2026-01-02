@@ -446,11 +446,20 @@ async function deploy(): Promise<void> {
   if (!skipVerify) {
     console.log('[Deploy] Verifying deployment...')
     const verifyUrl = `https://${config.domain}`
-    const proc = Bun.spawn(['bun', 'run', join(APP_DIR, 'scripts/verify-deployment.ts'), '--url', verifyUrl], {
-      cwd: APP_DIR,
-      stdout: 'inherit',
-      stderr: 'inherit',
-    })
+    const proc = Bun.spawn(
+      [
+        'bun',
+        'run',
+        join(APP_DIR, 'scripts/verify-deployment.ts'),
+        '--url',
+        verifyUrl,
+      ],
+      {
+        cwd: APP_DIR,
+        stdout: 'inherit',
+        stderr: 'inherit',
+      },
+    )
     const exitCode = await proc.exited
     if (exitCode !== 0) {
       console.warn('[Deploy] Verification found issues - check logs above')

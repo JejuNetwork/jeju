@@ -4,6 +4,7 @@ import {
   Calendar,
   DollarSign,
   ExternalLink,
+  Info,
   Link2,
   Loader2,
   Plus,
@@ -583,7 +584,9 @@ export function BountyCreatePage() {
                   How escrow works:
                 </p>
                 <ul className="list-disc list-inside space-y-1">
-                  <li>Your reward + 10% stake is locked in the smart contract</li>
+                  <li>
+                    Your reward + 10% stake is locked in the smart contract
+                  </li>
                   <li>Workers apply and you select the best candidate</li>
                   <li>Worker submits deliverables for each milestone</li>
                   <li>You approve milestones to release payments</li>

@@ -262,7 +262,9 @@ test.describe('DAO Creation with Wallet', () => {
     await page.getByRole('button', { name: 'Continue' }).click()
 
     // Director data should be preserved
-    await expect(page.getByLabel('Agent Name')).toHaveValue('Persistent Director')
+    await expect(page.getByLabel('Agent Name')).toHaveValue(
+      'Persistent Director',
+    )
   })
 
   test('can navigate using step indicators', async ({

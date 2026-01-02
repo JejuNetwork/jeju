@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+
 /**
  * Node Identity Registration CLI
  *
@@ -11,10 +12,10 @@
  *   jeju identity verify <nodeId>
  */
 
-import { Command } from 'commander'
 import { secp256k1 } from '@noble/curves/secp256k1'
 import { blake2b } from '@noble/hashes/blake2b'
 import { sha256 } from '@noble/hashes/sha256'
+import { Command } from 'commander'
 import {
   type Address,
   createPublicClient,
@@ -710,18 +711,25 @@ export async function handleVerifyCommand(args: string[]): Promise<void> {
 // Commander Command Export
 // ============================================================================
 
-export const identityCommand = new Command('identity')
-  .description('SQLit node identity management - BLAKE2b proof-of-work mining and registration')
+export const identityCommand = new Command('identity').description(
+  'SQLit node identity management - BLAKE2b proof-of-work mining and registration',
+)
 
 identityCommand
   .command('mine')
   .description('Mine a new node identity with BLAKE2b proof-of-work')
-  .option('-d, --difficulty <bits>', 'Target difficulty in bits (default: 24 = 6 hex zeros)', '24')
+  .option(
+    '-d, --difficulty <bits>',
+    'Target difficulty in bits (default: 24 = 6 hex zeros)',
+    '24',
+  )
   .option('-o, --output <file>', 'Output file for identity', 'identity.json')
   .action(async (options: { difficulty: string; output: string }) => {
     await handleMineCommand([
-      '--difficulty', options.difficulty,
-      '--output', options.output,
+      '--difficulty',
+      options.difficulty,
+      '--output',
+      options.output,
     ])
   })
 
@@ -731,13 +739,18 @@ identityCommand
   .option('-i, --identity <file>', 'Identity file to register', 'identity.json')
   .option('-r, --role <role>', 'Node role: blockproducer or miner', 'miner')
   .option('-e, --endpoint <addr>', 'Node endpoint address', 'localhost:4661')
-  .action(async (options: { identity: string; role: string; endpoint: string }) => {
-    await handleRegisterCommand([
-      '--identity', options.identity,
-      '--role', options.role,
-      '--endpoint', options.endpoint,
-    ])
-  })
+  .action(
+    async (options: { identity: string; role: string; endpoint: string }) => {
+      await handleRegisterCommand([
+        '--identity',
+        options.identity,
+        '--role',
+        options.role,
+        '--endpoint',
+        options.endpoint,
+      ])
+    },
+  )
 
 identityCommand
   .command('verify')

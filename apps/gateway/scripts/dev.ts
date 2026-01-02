@@ -369,8 +369,12 @@ async function main() {
   console.log('[Gateway] Checking contract deployment...')
   const hasContracts = await checkContracts()
   if (!hasContracts) {
-    console.log('[Gateway] Contracts not found. Running with limited functionality.')
-    console.log('[Gateway] For full functionality, run: jeju dev (deploys all contracts)')
+    console.log(
+      '[Gateway] Contracts not found. Running with limited functionality.',
+    )
+    console.log(
+      '[Gateway] For full functionality, run: jeju dev (deploys all contracts)',
+    )
   } else {
     console.log('[Gateway] Contracts verified.')
   }

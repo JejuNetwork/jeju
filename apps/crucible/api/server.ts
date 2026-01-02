@@ -769,10 +769,7 @@ app.get('/info', async ({ request }) => {
 
 // Activity feed endpoint
 app.get('/api/v1/activity', ({ query }) => {
-  const limit = Math.min(
-    Math.max(1, Number(query.limit) || 10),
-    50
-  )
+  const limit = Math.min(Math.max(1, Number(query.limit) || 10), 50)
   return { events: activityStore.getRecent(limit) }
 })
 
@@ -1142,7 +1139,10 @@ app.post('/api/v1/rooms', async ({ body }) => {
     type: 'room_created',
     actor: 'System',
     description: `Room "${parsedBody.name}" created`,
-    metadata: { roomId: result.roomId.toString(), roomType: parsedBody.roomType },
+    metadata: {
+      roomId: result.roomId.toString(),
+      roomType: parsedBody.roomType,
+    },
   })
 
   return { roomId: result.roomId.toString(), stateCid: result.stateCid }
@@ -1325,7 +1325,7 @@ app.post('/api/v1/execute', async ({ body }) => {
 
   const result = await executorSdk.execute(request)
   metrics.agents.executions++
-  
+
   // Track action execution activity
   const actions = result.output?.actions ?? []
   for (const action of actions) {
@@ -1334,8 +1334,8 @@ app.post('/api/v1/execute', async ({ body }) => {
       type: 'action_executed',
       actor: `Agent ${parsedBody.agentId}`,
       description: `${action.type}: ${action.success ? 'success' : 'failed'}`,
-      metadata: { 
-        agentId: parsedBody.agentId, 
+      metadata: {
+        agentId: parsedBody.agentId,
         actionType: action.type,
         success: action.success ? 1 : 0,
       },

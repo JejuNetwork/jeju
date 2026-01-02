@@ -46,8 +46,8 @@ import {
 import {
   CHAIN_CONFIG,
   type DAODeploymentResult,
-  getDevDirectorAddress,
   getDevCouncilAddresses,
+  getDevDirectorAddress,
   type NetworkType,
   WELL_KNOWN_KEYS,
 } from '../types'
@@ -686,7 +686,8 @@ export async function deployDAO(
       daoRegistry: contracts.DAORegistry,
       daoFunding: contracts.DAOFunding,
       council: null,
-      directorAgent: network === 'localnet' ? getDevDirectorAddress() : account.address,
+      directorAgent:
+        network === 'localnet' ? getDevDirectorAddress() : account.address,
       treasury: treasuryAddress,
       feeConfig: contracts.FeeConfig,
     },

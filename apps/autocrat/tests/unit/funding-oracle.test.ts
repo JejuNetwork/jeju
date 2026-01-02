@@ -266,38 +266,40 @@ describe('FundingOracle', () => {
     const MAX_DIRECTOR_WEIGHT = 5000
 
     test('base weight from stake (capped at 2000)', () => {
-      expect(calculateHeuristicWeight(10, false, false, MAX_DIRECTOR_WEIGHT)).toBe(
-        1000,
-      )
-      expect(calculateHeuristicWeight(20, false, false, MAX_DIRECTOR_WEIGHT)).toBe(
-        2000,
-      )
-      expect(calculateHeuristicWeight(30, false, false, MAX_DIRECTOR_WEIGHT)).toBe(
-        2000,
-      ) // Capped
+      expect(
+        calculateHeuristicWeight(10, false, false, MAX_DIRECTOR_WEIGHT),
+      ).toBe(1000)
+      expect(
+        calculateHeuristicWeight(20, false, false, MAX_DIRECTOR_WEIGHT),
+      ).toBe(2000)
+      expect(
+        calculateHeuristicWeight(30, false, false, MAX_DIRECTOR_WEIGHT),
+      ).toBe(2000) // Capped
     })
 
     test('linked project adds 1000 weight', () => {
-      expect(calculateHeuristicWeight(0, true, false, MAX_DIRECTOR_WEIGHT)).toBe(
-        1000,
-      )
-      expect(calculateHeuristicWeight(10, true, false, MAX_DIRECTOR_WEIGHT)).toBe(
-        2000,
-      )
+      expect(
+        calculateHeuristicWeight(0, true, false, MAX_DIRECTOR_WEIGHT),
+      ).toBe(1000)
+      expect(
+        calculateHeuristicWeight(10, true, false, MAX_DIRECTOR_WEIGHT),
+      ).toBe(2000)
     })
 
     test('funded project adds 500 weight', () => {
-      expect(calculateHeuristicWeight(0, false, true, MAX_DIRECTOR_WEIGHT)).toBe(500)
-      expect(calculateHeuristicWeight(10, false, true, MAX_DIRECTOR_WEIGHT)).toBe(
-        1500,
-      )
+      expect(
+        calculateHeuristicWeight(0, false, true, MAX_DIRECTOR_WEIGHT),
+      ).toBe(500)
+      expect(
+        calculateHeuristicWeight(10, false, true, MAX_DIRECTOR_WEIGHT),
+      ).toBe(1500)
     })
 
     test('combined bonuses stack', () => {
       // stake: 10 ETH = 1000, linked: +1000, funded: +500 = 2500
-      expect(calculateHeuristicWeight(10, true, true, MAX_DIRECTOR_WEIGHT)).toBe(
-        2500,
-      )
+      expect(
+        calculateHeuristicWeight(10, true, true, MAX_DIRECTOR_WEIGHT),
+      ).toBe(2500)
     })
 
     test('respects maxDirectorWeight cap', () => {
@@ -307,16 +309,18 @@ describe('FundingOracle', () => {
     })
 
     test('zero stake with no bonuses returns 0', () => {
-      expect(calculateHeuristicWeight(0, false, false, MAX_DIRECTOR_WEIGHT)).toBe(0)
+      expect(
+        calculateHeuristicWeight(0, false, false, MAX_DIRECTOR_WEIGHT),
+      ).toBe(0)
     })
 
     test('fractional stake values work', () => {
-      expect(calculateHeuristicWeight(0.5, false, false, MAX_DIRECTOR_WEIGHT)).toBe(
-        50,
-      )
-      expect(calculateHeuristicWeight(1.5, false, false, MAX_DIRECTOR_WEIGHT)).toBe(
-        150,
-      )
+      expect(
+        calculateHeuristicWeight(0.5, false, false, MAX_DIRECTOR_WEIGHT),
+      ).toBe(50)
+      expect(
+        calculateHeuristicWeight(1.5, false, false, MAX_DIRECTOR_WEIGHT),
+      ).toBe(150)
     })
   })
 

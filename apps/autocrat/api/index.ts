@@ -781,9 +781,8 @@ const app = new Elysia()
         set.status = 503
         return { error: 'DAO Registry not deployed' }
       }
-      const recommendations = await fundingOracle.generateDirectorRecommendations(
-        params.daoId,
-      )
+      const recommendations =
+        await fundingOracle.generateDirectorRecommendations(params.daoId)
       return recommendations
     },
   )
@@ -1109,7 +1108,8 @@ const app = new Elysia()
   .get('/', () => ({
     name: `${getNetworkName()} Autocrat`,
     version: '3.0.0',
-    description: 'Multi-tenant DAO governance with AI Directors and deep funding',
+    description:
+      'Multi-tenant DAO governance with AI Directors and deep funding',
     features: [
       'Multi-DAO support (Jeju DAO, custom DAOs)',
       'Director personas with unique personalities',
@@ -1204,8 +1204,8 @@ export default { port, fetch: app.fetch }
 export { app, config }
 export type {
   CasualProposalCategory,
-  DirectorPersona,
   CouncilConfig,
+  DirectorPersona,
   FundingConfig,
   GovernanceParams,
 } from '../lib'
@@ -1220,8 +1220,8 @@ export { createAutocratA2AServer } from './a2a-server'
 export {
   type AgentVote,
   autocratAgentRuntime,
-  type DirectorDecisionRequest,
   type DeliberationRequest,
+  type DirectorDecisionRequest,
 } from './agents/runtime'
 export { autocratAgentTemplates, getAgentByRole } from './agents/templates'
 export { AutocratBlockchain, getBlockchain } from './blockchain'

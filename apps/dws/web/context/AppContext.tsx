@@ -340,4 +340,3 @@ export function useConfirm() {
   const { confirm } = useApp()
   return confirm
 }
-

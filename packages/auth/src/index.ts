@@ -23,10 +23,10 @@ import './polyfills'
 
 // Multi-tenant Council
 export {
-  type DirectorConfig,
   type CouncilAgentConfig,
   type CouncilDeployment,
   createMultiTenantCouncilManager,
+  type DirectorConfig,
   MultiTenantCouncilManager,
 } from './council/multi-tenant.js'
 // Verifiable Credentials

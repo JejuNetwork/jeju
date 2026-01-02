@@ -532,4 +532,3 @@ function MetricCard({ label, value, color }: MetricCardProps) {
     </div>
   )
 }
-

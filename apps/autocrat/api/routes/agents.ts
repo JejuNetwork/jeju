@@ -197,7 +197,8 @@ export const agentsRoutes = new Elysia({ prefix: '/api/v1/agents' })
         set.status = 200
         return {
           status: 'unavailable',
-          message: 'Director status not available - contracts may not be deployed',
+          message:
+            'Director status not available - contracts may not be deployed',
         }
       }
     },

@@ -560,7 +560,9 @@ export default function CreateDAOPage() {
   const [farcasterChannel, setFarcasterChannel] = useState('')
   const [tags, setTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
-  const [director, setDirector] = useState<CreateAgentDraft>(createEmptyDirector())
+  const [director, setDirector] = useState<CreateAgentDraft>(
+    createEmptyDirector(),
+  )
   const [board, setBoard] = useState<CreateAgentDraft[]>([
     createBoardMember('TREASURY'),
     createBoardMember('CODE'),
@@ -1265,8 +1267,11 @@ export default function CreateDAOPage() {
                       className="text-xs"
                       style={{ color: 'var(--text-tertiary)' }}
                     >
-                      {MODEL_OPTIONS.find((m) => m.id === director.modelId)?.name} ·{' '}
-                      {director.decisionStyle}
+                      {
+                        MODEL_OPTIONS.find((m) => m.id === director.modelId)
+                          ?.name
+                      }{' '}
+                      · {director.decisionStyle}
                     </p>
                   </div>
                 </div>
@@ -1349,9 +1354,13 @@ export default function CreateDAOPage() {
                     </p>
                   </div>
                   <div>
-                    <p style={{ color: 'var(--text-tertiary)' }}>Director Veto</p>
+                    <p style={{ color: 'var(--text-tertiary)' }}>
+                      Director Veto
+                    </p>
                     <p style={{ color: 'var(--text-primary)' }}>
-                      {governanceParams.directorVetoEnabled ? 'Enabled' : 'Disabled'}
+                      {governanceParams.directorVetoEnabled
+                        ? 'Enabled'
+                        : 'Disabled'}
                     </p>
                   </div>
                 </div>

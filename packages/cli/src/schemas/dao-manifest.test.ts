@@ -10,8 +10,8 @@
 
 import { describe, expect, test } from 'bun:test'
 import {
-  DAODirectorConfigSchema,
   DAOCouncilMemberSchema,
+  DAODirectorConfigSchema,
   DAOFundingConfigSchema,
   DAOGovernanceParamsSchema,
   DAOManifestSchema,
@@ -122,7 +122,9 @@ describe('DAODirectorConfigSchema', () => {
   })
 
   test('rejects empty name', () => {
-    expect(() => DAODirectorConfigSchema.parse({ ...VALID_Director, name: '' })).toThrow()
+    expect(() =>
+      DAODirectorConfigSchema.parse({ ...VALID_Director, name: '' }),
+    ).toThrow()
   })
 
   test('rejects empty traits array', () => {

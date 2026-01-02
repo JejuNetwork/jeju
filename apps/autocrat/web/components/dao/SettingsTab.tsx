@@ -272,7 +272,11 @@ export function SettingsTab({ dao }: SettingsTabProps) {
         >
           <InfoRow label="Treasury" value={dao.treasury} copyable />
           <InfoRow label="Council" value={dao.council} copyable />
-          <InfoRow label="Director Agent" value={dao.directorAgentContract} copyable />
+          <InfoRow
+            label="Director Agent"
+            value={dao.directorAgentContract}
+            copyable
+          />
           <InfoRow label="Fee Config" value={dao.feeConfig} copyable />
         </div>
       </Section>
@@ -461,7 +465,9 @@ export function SettingsTab({ dao }: SettingsTabProps) {
               }}
             >
               Director Veto:{' '}
-              {dao.governanceParams.directorVetoEnabled ? 'Enabled' : 'Disabled'}
+              {dao.governanceParams.directorVetoEnabled
+                ? 'Enabled'
+                : 'Disabled'}
             </span>
             <span
               className="px-3 py-1.5 rounded-lg text-sm"

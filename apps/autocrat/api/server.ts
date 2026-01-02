@@ -135,7 +135,8 @@ const app = new Elysia()
     return {
       name: `${getNetworkName()} Autocrat`,
       version: '3.0.0',
-      description: 'Multi-tenant DAO governance with AI Directors and deep funding',
+      description:
+        'Multi-tenant DAO governance with AI Directors and deep funding',
       features: [
         'Multi-DAO support (Jeju DAO, custom DAOs)',
         'Director personas with unique personalities',

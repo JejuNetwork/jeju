@@ -92,7 +92,9 @@ export function createReleasesRouter() {
 
       if (!validPlatforms.includes(platform)) {
         set.status = 400
-        return { error: `Invalid platform. Must be one of: ${validPlatforms.join(', ')}` }
+        return {
+          error: `Invalid platform. Must be one of: ${validPlatforms.join(', ')}`,
+        }
       }
 
       const manifest = await fetchReleaseManifest()

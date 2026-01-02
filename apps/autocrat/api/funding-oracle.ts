@@ -1,7 +1,7 @@
 import { type Address, formatEther, parseEther } from 'viem'
 import type {
-  DirectorPersona,
   DAOFull,
+  DirectorPersona,
   FundingAllocation,
   FundingEpoch,
   FundingProject,

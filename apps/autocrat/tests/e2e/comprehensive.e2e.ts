@@ -398,7 +398,9 @@ test.describe('Autocrat - Create DAO Wizard', () => {
 
     // Should navigate to Director step - "Director configuration"
     await page.waitForTimeout(500)
-    await expect(page.locator('h2:has-text("Director configuration")')).toBeVisible()
+    await expect(
+      page.locator('h2:has-text("Director configuration")'),
+    ).toBeVisible()
   })
 
   test('Step 2: Director configuration', async ({ page }) => {
@@ -412,7 +414,9 @@ test.describe('Autocrat - Create DAO Wizard', () => {
     await page.waitForTimeout(500)
 
     // Step 2: Director configuration
-    await expect(page.locator('h2:has-text("Director configuration")')).toBeVisible()
+    await expect(
+      page.locator('h2:has-text("Director configuration")'),
+    ).toBeVisible()
 
     // Agent Name input with placeholder "e.g., Eliza, Atlas"
     await expect(page.locator('input#agent-name-director')).toBeVisible()
@@ -499,7 +503,9 @@ test.describe('Autocrat - Create DAO Wizard', () => {
     await page.click('button:has-text("Continue")')
     await page.waitForTimeout(300)
 
-    await expect(page.locator('h2:has-text("Director configuration")')).toBeVisible()
+    await expect(
+      page.locator('h2:has-text("Director configuration")'),
+    ).toBeVisible()
 
     // Click Back
     await page.click('button:has-text("Back")')

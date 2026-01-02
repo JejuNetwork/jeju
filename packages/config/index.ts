@@ -1919,7 +1919,8 @@ export function getModelRegistryAddress(): string {
 /** Get AI Director address */
 export function getAiDirectorAddress(): string {
   return (
-    process.env.AI_DIRECTOR_ADDRESS ?? '0x0000000000000000000000000000000000000000'
+    process.env.AI_DIRECTOR_ADDRESS ??
+    '0x0000000000000000000000000000000000000000'
   )
 }
 

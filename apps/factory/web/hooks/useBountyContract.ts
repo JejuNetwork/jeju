@@ -285,7 +285,10 @@ export function useCreateBountyOnChain() {
     const totalValue = rewardWei + stakeWei
 
     // Validate milestones sum to 10000
-    const totalPercentage = params.milestonePercentages.reduce((a, b) => a + b, 0)
+    const totalPercentage = params.milestonePercentages.reduce(
+      (a, b) => a + b,
+      0,
+    )
     if (totalPercentage !== 10000) {
       toast.error('Milestone percentages must sum to 100%')
       throw new Error('Invalid milestone percentages')
@@ -569,15 +572,14 @@ export function useOnChainBounty(bountyId: Hash | undefined) {
     query: { enabled: !!bountyRegistryAddress && !!bountyId },
   })
 
-  const { data: applications, isLoading: applicationsLoading } = useReadContract(
-    {
+  const { data: applications, isLoading: applicationsLoading } =
+    useReadContract({
       address: bountyRegistryAddress ?? undefined,
       abi: bountyRegistryAbi,
       functionName: 'getApplications',
       args: bountyId ? [bountyId] : undefined,
       query: { enabled: !!bountyRegistryAddress && !!bountyId },
-    },
-  )
+    })
 
   return {
     bounty: bounty as OnChainBounty | undefined,
@@ -613,4 +615,3 @@ export function calculateTotalRequired(rewardAmount: string): string {
     return '0'
   }
 }
-
