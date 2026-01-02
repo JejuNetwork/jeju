@@ -98,7 +98,6 @@ import { createA2ARouter } from './routes/a2a'
 import { createAPIMarketplaceRouter } from './routes/api-marketplace'
 import {
   createAppRouter,
-  DEFAULT_API_PATHS,
   getDeployedApp,
   initializeAppRouter,
   proxyToBackend,
@@ -1545,12 +1544,14 @@ if (import.meta.main) {
         const deployedApp = getDeployedApp(appName)
         if (deployedApp?.enabled) {
           console.log(`[Bun.serve] Routing to deployed app: ${appName}`)
-          // Route to backend for API paths (use defaults if not configured)
-          const apiPaths = deployedApp.apiPaths ?? DEFAULT_API_PATHS
-          const isApiRequest = apiPaths.some(
-            (path) =>
-              url.pathname === path || url.pathname.startsWith(`${path}/`),
-          )
+          // Route to backend for API paths
+          const apiPaths = deployedApp.apiPaths ?? []
+          const isApiRequest =
+            apiPaths.length > 0 &&
+            apiPaths.some(
+              (path) =>
+                url.pathname === path || url.pathname.startsWith(`${path}/`),
+            )
           if (
             isApiRequest &&
             (deployedApp.backendEndpoint || deployedApp.backendWorkerId)

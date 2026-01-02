@@ -91,10 +91,7 @@ async function buildFrontend(): Promise<void> {
             path: resolve(process.cwd(), '../../packages/config/index.ts'),
           }))
           build.onResolve({ filter: /^@jejunetwork\/auth\/react$/ }, () => ({
-            path: resolve(
-              process.cwd(),
-              '../../packages/auth/src/react/index.ts',
-            ),
+            path: resolve(process.cwd(), '../../packages/auth/src/react/index.ts'),
           }))
           build.onResolve({ filter: /^@jejunetwork\/auth$/ }, () => ({
             path: resolve(process.cwd(), '../../packages/auth/src/index.ts'),
@@ -102,11 +99,8 @@ async function buildFrontend(): Promise<void> {
 
           // Server-only stubs
           const serverOnlyStub = resolve(process.cwd(), './web/stubs/empty.ts')
-          const authProvidersStub = resolve(
-            process.cwd(),
-            './web/stubs/auth-providers.ts',
-          )
-
+          const authProvidersStub = resolve(process.cwd(), './web/stubs/auth-providers.ts')
+          
           build.onResolve({ filter: /^@jejunetwork\/kms/ }, () => ({
             path: serverOnlyStub,
           }))
@@ -116,9 +110,7 @@ async function buildFrontend(): Promise<void> {
           build.onResolve({ filter: /^@jejunetwork\/messaging/ }, () => ({
             path: serverOnlyStub,
           }))
-          build.onResolve({ filter: /^elysia/ }, () => ({
-            path: serverOnlyStub,
-          }))
+          build.onResolve({ filter: /^elysia/ }, () => ({ path: serverOnlyStub }))
           build.onResolve({ filter: /^@elysiajs\// }, () => ({
             path: serverOnlyStub,
           }))

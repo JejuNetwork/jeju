@@ -94,7 +94,7 @@ function useAuthHeaders() {
     if (isAuthenticated && smartAccountAddress) {
       headers['X-Jeju-Address'] = smartAccountAddress
       if (session?.sessionId) {
-        headers.Authorization = `Bearer ${session.sessionId}`
+        headers['Authorization'] = `Bearer ${session.sessionId}`
       }
     }
 
@@ -149,8 +149,7 @@ export function useMyAgents() {
   const { smartAccountAddress, isAuthenticated } = useOAuth3()
 
   return useAgents({
-    owner:
-      isAuthenticated && smartAccountAddress ? smartAccountAddress : undefined,
+    owner: isAuthenticated && smartAccountAddress ? smartAccountAddress : undefined,
   })
 }
 

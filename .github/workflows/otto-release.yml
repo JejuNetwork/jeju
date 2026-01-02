@@ -1,0 +1,335 @@
+name: Otto Release
+
+on:
+  push:
+    tags:
+      - 'otto-v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.0.0)'
+        required: true
+        type: string
+
+concurrency:
+  group: otto-release
+  cancel-in-progress: false
+
+env:
+  APP_NAME: otto
+  WORKING_DIRECTORY: apps/otto
+
+jobs:
+  prepare:
+    name: Prepare Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Parse version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/otto-v}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: prepare
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Type check
+        run: cd ${{ env.WORKING_DIRECTORY }} && bun run typecheck
+
+      - name: Run unit tests
+        run: cd ${{ env.WORKING_DIRECTORY }} && bun test tests/unit/
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [prepare, test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build Otto
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: bun run build
+
+      - name: Upload web artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: otto-web-${{ needs.prepare.outputs.version }}
+          path: ${{ env.WORKING_DIRECTORY }}/dist/web/
+
+      - name: Upload worker artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: otto-worker-${{ needs.prepare.outputs.version }}
+          path: ${{ env.WORKING_DIRECTORY }}/dist/worker/
+
+      - name: Upload server artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: otto-server-${{ needs.prepare.outputs.version }}
+          path: |
+            ${{ env.WORKING_DIRECTORY }}/dist/server.js
+            ${{ env.WORKING_DIRECTORY }}/dist/index.js
+
+  publish-dws:
+    name: Publish to DWS
+    runs-on: ubuntu-latest
+    needs: [prepare, build]
+    environment: ${{ github.ref_name == 'main' && 'mainnet' || 'testnet' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: otto-*-${{ needs.prepare.outputs.version }}
+
+      - name: Prepare deployment
+        run: |
+          mkdir -p deploy/${{ needs.prepare.outputs.version }}
+          
+          # Copy web
+          cp -r artifacts/otto-web-${{ needs.prepare.outputs.version }}/* deploy/${{ needs.prepare.outputs.version }}/web/
+          
+          # Copy worker
+          cp -r artifacts/otto-worker-${{ needs.prepare.outputs.version }}/* deploy/${{ needs.prepare.outputs.version }}/worker/
+          
+          # Copy server
+          cp artifacts/otto-server-${{ needs.prepare.outputs.version }}/*.js deploy/${{ needs.prepare.outputs.version }}/
+
+      - name: Deploy worker to DWS
+        env:
+          DWS_URL: ${{ vars.DWS_URL || 'https://dws.jejunetwork.org' }}
+          DEPLOYER_PRIVATE_KEY: ${{ secrets.DEPLOYER_PRIVATE_KEY }}
+          NETWORK: ${{ github.ref_name == 'main' && 'mainnet' || 'testnet' }}
+          RPC_URL: ${{ vars.RPC_URL || 'https://mainnet.base.org' }}
+        run: |
+          cd deploy/${{ needs.prepare.outputs.version }}
+          
+          # Upload worker bundle
+          echo "Uploading worker bundle..."
+          WORKER_RESPONSE=$(curl -s -X POST "$DWS_URL/storage/upload" \
+            -F "file=@worker/worker.js" \
+            -F "name=otto-worker-${{ needs.prepare.outputs.version }}.js")
+          WORKER_CID=$(echo "$WORKER_RESPONSE" | jq -r '.cid')
+          echo "Worker CID: $WORKER_CID"
+          
+          # Deploy worker
+          echo "Deploying worker..."
+          DEPLOY_RESPONSE=$(curl -s -X POST "$DWS_URL/workers" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"name\": \"otto-api\",
+              \"codeCid\": \"$WORKER_CID\",
+              \"runtime\": \"bun\",
+              \"handler\": \"worker.js:default\",
+              \"memory\": 512,
+              \"timeout\": 60000,
+              \"env\": {
+                \"NETWORK\": \"$NETWORK\",
+                \"RPC_URL\": \"$RPC_URL\",
+                \"DWS_URL\": \"$DWS_URL\"
+              }
+            }")
+          WORKER_ID=$(echo "$DEPLOY_RESPONSE" | jq -r '.functionId // .workerId // "deployed"')
+          echo "Worker ID: $WORKER_ID"
+          
+          # Upload web assets
+          echo "Uploading web assets..."
+          for file in web/*; do
+            if [ -f "$file" ]; then
+              FILENAME=$(basename "$file")
+              curl -s -X POST "$DWS_URL/storage/upload" \
+                -F "file=@$file" \
+                -F "name=otto-web/$FILENAME"
+            fi
+          done
+          
+          # Create release manifest
+          cat > manifest.json << EOF
+          {
+            "app": "otto",
+            "version": "${{ needs.prepare.outputs.version }}",
+            "releasedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "channel": "stable",
+            "type": "worker",
+            "hasDownloads": false,
+            "workerCid": "$WORKER_CID",
+            "workerId": "$WORKER_ID",
+            "releaseNotes": "Otto v${{ needs.prepare.outputs.version }} - Decentralized AI trading agent."
+          }
+          EOF
+          
+          # Upload manifest
+          curl -s -X POST "$DWS_URL/storage/upload" \
+            -F "file=@manifest.json" \
+            -F "name=otto-${{ needs.prepare.outputs.version }}-manifest.json"
+          
+          # Update latest pointer
+          curl -s -X PUT "$DWS_URL/storage/releases/otto/latest.json" \
+            -H "Content-Type: application/json" \
+            -d @manifest.json
+          
+          echo ""
+          echo "Otto deployed to DWS."
+          echo "  Worker ID: $WORKER_ID"
+
+      - name: Configure CDN
+        env:
+          DWS_URL: ${{ vars.DWS_URL || 'https://dws.jejunetwork.org' }}
+        run: |
+          # Configure CDN routing for Otto
+          curl -s -X POST "$DWS_URL/cdn/configure" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "name": "otto",
+              "domain": "otto.jejunetwork.org",
+              "jnsName": "otto.jeju",
+              "spa": {
+                "enabled": true,
+                "fallback": "/index.html"
+              },
+              "routes": [
+                { "path": "/api/*", "backend": "otto-api" },
+                { "path": "/a2a/*", "backend": "otto-api" },
+                { "path": "/mcp/*", "backend": "otto-api" },
+                { "path": "/frame", "backend": "otto-api" },
+                { "path": "/frame/*", "backend": "otto-api" },
+                { "path": "/miniapp", "backend": "otto-api" },
+                { "path": "/miniapp/*", "backend": "otto-api" },
+                { "path": "/health", "backend": "otto-api" },
+                { "path": "/.well-known/*", "backend": "otto-api" }
+              ]
+            }'
+          
+          echo "CDN configured for otto.jejunetwork.org"
+
+  create-github-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [prepare, build, publish-dws]
+    permissions:
+      contents: write
+    steps:
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: otto-v${{ needs.prepare.outputs.version }}
+          name: Otto v${{ needs.prepare.outputs.version }}
+          draft: false
+          prerelease: ${{ contains(needs.prepare.outputs.version, 'alpha') || contains(needs.prepare.outputs.version, 'beta') }}
+          body: |
+            ## Otto v${{ needs.prepare.outputs.version }}
+            
+            Decentralized multi-platform AI trading agent for Discord, Telegram, Twitter, and WhatsApp.
+            
+            ### Accessing Otto
+            
+            Otto is a serverless agent - no download required. Access it via:
+            
+            - **Web**: https://otto.jejunetwork.org
+            - **Telegram**: @JejuOttoBot
+            - **Discord**: Invite Otto to your server
+            - **Farcaster**: Frame at https://otto.jejunetwork.org/frame
+            
+            ### Features
+            
+            - AI-powered trading assistance
+            - Cross-chain portfolio tracking
+            - Token launch monitoring
+            - Price alerts and notifications
+            - Natural language trading commands
+            
+            ### API Integration
+            
+            Otto supports standard agent protocols:
+            
+            - **A2A Protocol**: `/a2a` - Agent-to-agent communication
+            - **MCP Protocol**: `/mcp` - Model context protocol
+            - **Agent Card**: `/.well-known/agent-card.json`
+            
+            ### Self-Hosting
+            
+            Deploy Otto on your own infrastructure:
+            
+            ```bash
+            # Clone and install
+            git clone https://github.com/${{ github.repository }}
+            cd apps/otto
+            bun install
+            
+            # Configure environment
+            cp .env.example .env
+            # Edit .env with your API keys
+            
+            # Run
+            bun run dev
+            ```
+            
+            ---
+            
+            Website: https://otto.jejunetwork.org
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  docker:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: [prepare, test]
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/otto/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/otto:${{ needs.prepare.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/otto:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

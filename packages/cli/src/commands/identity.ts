@@ -11,6 +11,7 @@
  *   jeju identity verify <nodeId>
  */
 
+import { Command } from 'commander'
 import { secp256k1 } from '@noble/curves/secp256k1'
 import { blake2b } from '@noble/hashes/blake2b'
 import { sha256 } from '@noble/hashes/sha256'
@@ -706,57 +707,42 @@ export async function handleVerifyCommand(args: string[]): Promise<void> {
 }
 
 // ============================================================================
-// Main
+// Commander Command Export
 // ============================================================================
 
-async function main() {
-  const args = process.argv.slice(2)
-  const command = args[0]
+export const identityCommand = new Command('identity')
+  .description('SQLit node identity management - BLAKE2b proof-of-work mining and registration')
 
-  switch (command) {
-    case 'mine':
-      await handleMineCommand(args.slice(1))
-      break
-
-    case 'register':
-      await handleRegisterCommand(args.slice(1))
-      break
-
-    case 'verify':
-      await handleVerifyCommand(args.slice(1))
-      break
-
-    default:
-      console.log(`
-Node Identity CLI - BLAKE2b Proof-of-Work Mining
-
-Usage:
-  jeju identity mine [options]     Mine a new node identity
-  jeju identity register [options] Register identity on-chain
-  jeju identity verify <nodeId>    Verify an identity
-
-Mine Options:
-  -d, --difficulty <bits>  Target difficulty in bits (default: 24 = 6 hex zeros)
-  -o, --output <file>      Output file for identity (default: identity.json)
-
-Register Options:
-  -i, --identity <file>    Identity file to register (default: identity.json)
-  -r, --role <role>        Node role: blockproducer or miner (default: miner)
-  -e, --endpoint <addr>    Node endpoint address (default: localhost:4661)
-
-Environment Variables:
-  OPERATOR_PRIVATE_KEY     Private key for registration transaction
-  SQLIT_IDENTITY_REGISTRY  Registry contract address
-  JEJU_RPC_URL             Jeju network RPC URL
-`)
-      process.exit(1)
-  }
-}
-
-// Only run if called directly
-if (import.meta.main) {
-  main().catch((error) => {
-    console.error('Error:', error)
-    process.exit(1)
+identityCommand
+  .command('mine')
+  .description('Mine a new node identity with BLAKE2b proof-of-work')
+  .option('-d, --difficulty <bits>', 'Target difficulty in bits (default: 24 = 6 hex zeros)', '24')
+  .option('-o, --output <file>', 'Output file for identity', 'identity.json')
+  .action(async (options: { difficulty: string; output: string }) => {
+    await handleMineCommand([
+      '--difficulty', options.difficulty,
+      '--output', options.output,
+    ])
   })
-}
+
+identityCommand
+  .command('register')
+  .description('Register identity on-chain in SQLitIdentityRegistry')
+  .option('-i, --identity <file>', 'Identity file to register', 'identity.json')
+  .option('-r, --role <role>', 'Node role: blockproducer or miner', 'miner')
+  .option('-e, --endpoint <addr>', 'Node endpoint address', 'localhost:4661')
+  .action(async (options: { identity: string; role: string; endpoint: string }) => {
+    await handleRegisterCommand([
+      '--identity', options.identity,
+      '--role', options.role,
+      '--endpoint', options.endpoint,
+    ])
+  })
+
+identityCommand
+  .command('verify')
+  .description('Verify a node identity proof-of-work')
+  .argument('<nodeId>', 'Node ID to verify')
+  .action(async (nodeId: string) => {
+    await handleVerifyCommand([nodeId])
+  })

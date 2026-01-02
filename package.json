@@ -5,8 +5,7 @@
   "type": "module",
   "workspaces": [
     "packages/*",
-    "apps/*",
-    "vendor/*"
+    "apps/*"
   ],
   "overrides": {
     "bigint-buffer": "file:./patches/bigint-buffer-safe",
@@ -87,7 +86,7 @@
     "localnet": "cd packages/deployment && bun run localnet:start",
     "localnet:stop": "cd packages/deployment && bun run localnet:stop",
     "deploy": "bun run jeju -- deploy",
-    "deploy:all": "bun run scripts/deploy-all.ts",
+    "deploy:all": "bun run jeju -- start",
     "deploy:testnet": "bun run jeju -- deploy testnet-full",
     "deploy:mainnet": "bun run jeju -- deploy mainnet",
     "ci": "biome check packages apps && bun run typecheck && bun run test"

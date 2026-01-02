@@ -194,10 +194,10 @@
       "validation": ""
     },
     "moderation": {
-      "banManager": "",
+      "banManager": "0x0000000000000000000000000000000000000000",
       "moderationMarketplace": "",
-      "reportingSystem": "",
-      "reputationLabelManager": ""
+      "reportingSystem": "0x0000000000000000000000000000000000000000",
+      "reputationLabelManager": "0x0000000000000000000000000000000000000000"
     },
     "bazaar": {
       "marketplace": "",

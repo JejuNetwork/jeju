@@ -54,7 +54,7 @@ const POD_ID = `pod-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 const NETWORK = getCurrentNetwork()
 
 // Default API paths to route to backend
-export const DEFAULT_API_PATHS = [
+const DEFAULT_API_PATHS = [
   '/api',
   '/health',
   '/a2a',

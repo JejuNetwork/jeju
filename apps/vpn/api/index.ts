@@ -4,6 +4,7 @@ import { Elysia } from 'elysia'
 import { createA2ARouter } from './a2a'
 import { config as vpnConfig } from './config'
 import { createMCPRouter } from './mcp'
+import { createReleasesRouter } from './releases'
 import { createRESTRouter } from './rest'
 import {
   expectValid,
@@ -12,6 +13,7 @@ import {
 } from './schemas'
 import type { VPNServiceContext } from './types'
 import { checkRateLimit } from './utils/rate-limit'
+import { createWebRouter } from './web'
 import { createX402Middleware } from './x402'
 
 export function createVPNServer(serverConfig: VPNServerConfig) {
@@ -131,6 +133,8 @@ export function createVPNServer(serverConfig: VPNServerConfig) {
     .use(createX402Middleware(ctx))
     .use(createA2ARouter(ctx))
     .use(createMCPRouter(ctx))
+    .use(createReleasesRouter())
+    .use(createWebRouter())
     .get('/.well-known/agent-card.json', () => ({
       protocolVersion: '1.0',
       name: 'Jeju VPN Agent',

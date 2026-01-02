@@ -440,6 +440,22 @@ async function deploy(): Promise<void> {
   }
   console.log(`  JNS:      ${config.jnsName}`)
   console.log('')
+
+  // Auto-verify deployment
+  const skipVerify = process.argv.includes('--skip-verify')
+  if (!skipVerify) {
+    console.log('[Deploy] Verifying deployment...')
+    const verifyUrl = `https://${config.domain}`
+    const proc = Bun.spawn(['bun', 'run', join(APP_DIR, 'scripts/verify-deployment.ts'), '--url', verifyUrl], {
+      cwd: APP_DIR,
+      stdout: 'inherit',
+      stderr: 'inherit',
+    })
+    const exitCode = await proc.exited
+    if (exitCode !== 0) {
+      console.warn('[Deploy] Verification found issues - check logs above')
+    }
+  }
 }
 
 deploy().catch((error) => {
