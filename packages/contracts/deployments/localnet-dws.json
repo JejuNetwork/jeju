@@ -1,3 +1,12 @@
 {
-  "externalChainProvider": "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853"
+  "storageManager": "0x8e264821AFa98DD104eEcfcfa7FD9f8D8B320adA",
+  "workerRegistry": "0x871ACbEabBaf8Bed65c22ba7132beCFaBf8c27B5",
+  "cdnRegistry": "0x6A59CC73e334b018C9922793d96Df84B538E6fD5",
+  "jnsRegistry": "0x976C214741b4657bd99DFD38a5c0E3ac5C99D903",
+  "jnsResolver": "0x8bEe2037448F096900Fd9affc427d38aE6CC0350",
+  "jnsRegistrar": "0x942ED2fa862887Dc698682cc6a86355324F0f01e",
+  "jnsReverseRegistrar": "0x8D81A3DCd17030cD5F23Ac7370e4Efb10D2b3cA4",
+  "identityRegistry": "0x",
+  "nodeRegistry": "0x",
+  "keepaliveRegistry": "0x"
 }

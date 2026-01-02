@@ -434,12 +434,12 @@ export async function processModerationEvent(
   txHash: string,
 ): Promise<void> {
   const contracts = getContracts()
-  
+
   // Skip moderation processing if contracts not configured
   if (!contracts) {
     return
   }
-  
+
   const address = log.address.toLowerCase()
 
   // Route to appropriate handler based on contract address

@@ -99,7 +99,6 @@ import { createAPIMarketplaceRouter } from './routes/api-marketplace'
 import {
   createAppRouter,
   getDeployedApp,
-  getDeployedApps,
   initializeAppRouter,
   proxyToBackend,
 } from './routes/app-router'
@@ -134,9 +133,9 @@ import { createPyPkgRouter } from './routes/pypkg'
 import { createRPCRouter } from './routes/rpc'
 import { createS3Router } from './routes/s3'
 import { createScrapingRouter } from './routes/scraping'
+import { createSQLitProxyRouter } from './routes/sqlit'
 import { createStakingRouter } from './routes/staking'
 import { createStorageRouter } from './routes/storage'
-import { createSQLitProxyRouter } from './routes/sqlit'
 import { createVPNRouter } from './routes/vpn'
 import { createDefaultWorkerdRouter } from './routes/workerd'
 import { createWorkersRouter } from './routes/workers'
@@ -308,24 +307,20 @@ const app = new Elysia()
   })
   .use(
     cors({
-      // Reflect requesting origin to support credentials
-      // When credentials: 'include' is used, Access-Control-Allow-Origin cannot be '*'
-      // Use a function that returns true to allow, which echoes the requesting origin
-      origin: (request) => {
-        const origin = request.headers.get('origin')
-        // Allow any *.jejunetwork.org origin and localhost for dev
-        if (origin) {
-          if (
-            origin.endsWith('.jejunetwork.org') ||
-            origin.includes('localhost') ||
-            origin.includes('127.0.0.1')
-          ) {
-            return true // Allow origin - CORS will reflect the Origin header
-          }
-        }
-        // For requests without origin, allow
-        return true
-      },
+      // Permissionless CORS for decentralized frontends
+      // Frontends may be served from:
+      // - jejunetwork.org (official)
+      // - IPFS gateways (ipfs.io, dweb.link, cloudflare-ipfs.com, etc.)
+      // - Arweave gateways
+      // - Self-hosted instances
+      // - localhost for development
+      //
+      // We allow all origins to support true decentralization.
+      // Security is handled via:
+      // - Rate limiting
+      // - API key authentication for write operations
+      // - Signature verification for sensitive actions
+      origin: true, // Allow all origins for permissionless frontend access
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
       allowedHeaders: [
@@ -335,8 +330,10 @@ const app = new Elysia()
         'X-Babylon-Api-Key',
         'X-Jeju-Address',
         'x-jeju-address',
+        'X-IPFS-Gateway',
+        'X-JNS-Name',
       ],
-      exposeHeaders: ['X-Request-ID', 'X-Rate-Limit-Remaining'],
+      exposeHeaders: ['X-Request-ID', 'X-Rate-Limit-Remaining', 'X-DWS-Node'],
       maxAge: 86400,
     }),
   )
@@ -508,7 +505,10 @@ app
     async function checkEndpoint(
       url: string,
       timeout = 2000,
-    ): Promise<{ status: 'healthy' | 'unhealthy' | 'not-running'; latencyMs?: number }> {
+    ): Promise<{
+      status: 'healthy' | 'unhealthy' | 'not-running'
+      latencyMs?: number
+    }> {
       const start = Date.now()
       try {
         const response = await fetch(url, {
@@ -521,7 +521,9 @@ app
         return { status: 'unhealthy', latencyMs }
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error)
-        console.warn(`[DWS Health] Endpoint check failed for ${url}: ${errorMsg}`)
+        console.warn(
+          `[DWS Health] Endpoint check failed for ${url}: ${errorMsg}`,
+        )
         return { status: 'not-running' }
       }
     }
@@ -542,7 +544,8 @@ app
 
     // Check SQLit status
     const sqlitStatus = getSQLitStatus()
-    const sqlitHealthy = sqlitStatus.running && sqlitStatus.healthStatus === 'healthy'
+    const sqlitHealthy =
+      sqlitStatus.running && sqlitStatus.healthStatus === 'healthy'
 
     // Check cache engine
     const cacheEngine = getSharedEngine()
@@ -582,7 +585,10 @@ app
           backends,
           health: backendHealth,
         },
-        compute: { status: 'available', description: 'Compute scheduling available' },
+        compute: {
+          status: 'available',
+          description: 'Compute scheduling available',
+        },
         cdn: {
           status: getLocalCDNServer() ? 'healthy' : 'available',
           description: 'Decentralized CDN with edge caching',
@@ -1164,16 +1170,17 @@ app.get('/*', async ({ path, set }) => {
     '/_internal/',
     '/.well-known/',
   ]
-  
-  if (apiPrefixes.some(prefix => path.startsWith(prefix))) {
+
+  if (apiPrefixes.some((prefix) => path.startsWith(prefix))) {
     set.status = 404
     return { error: 'NOT_FOUND' }
   }
-  
+
   // Serve index.html for frontend routes (SPA fallback)
-  const decentralizedResponse = await decentralized.frontend.serveAsset('index.html')
+  const decentralizedResponse =
+    await decentralized.frontend.serveAsset('index.html')
   if (decentralizedResponse) return decentralizedResponse
-  
+
   const file = Bun.file('./dist/index.html')
   if (await file.exists()) {
     const html = await file.text()
@@ -1184,7 +1191,7 @@ app.get('/*', async ({ path, set }) => {
       },
     })
   }
-  
+
   set.status = 404
   return { error: 'Frontend not available' }
 })
@@ -1505,17 +1512,22 @@ if (import.meta.main) {
         // Rewrite the request to the internal service path
         // e.g., indexer.testnet.jejunetwork.org/graphql → /indexer/graphql
         const internalPath = `/${appName}${url.pathname}`
-        console.log(`[Bun.serve] Routing core service: ${appName} → ${internalPath}`)
-        
+        console.log(
+          `[Bun.serve] Routing core service: ${appName} → ${internalPath}`,
+        )
+
         const internalUrl = new URL(internalPath, `http://127.0.0.1:${PORT}`)
         internalUrl.search = url.search
-        
+
         const internalRequest = new Request(internalUrl.toString(), {
           method: req.method,
           headers: req.headers,
-          body: req.method !== 'GET' && req.method !== 'HEAD' ? req.body : undefined,
+          body:
+            req.method !== 'GET' && req.method !== 'HEAD'
+              ? req.body
+              : undefined,
         })
-        
+
         return app.handle(internalRequest)
       }
 
@@ -1526,30 +1538,22 @@ if (import.meta.main) {
         hostname !== 'localhost'
       ) {
         const appName = hostname.split('.')[0]
-        // Look up by app name first, then by JNS name
-        let deployedApp = getDeployedApp(appName)
-        if (!deployedApp) {
-          // Try to find by JNS subdomain (e.g., auth.testnet.jejunetwork.org → auth.jeju)
-          const jnsName = `${appName}.jeju`
-          for (const candidate of getDeployedApps()) {
-            if (candidate.jnsName === jnsName) {
-              deployedApp = candidate
-              break
-            }
-          }
-        }
+        const deployedApp = getDeployedApp(appName)
         if (deployedApp?.enabled) {
           console.log(`[Bun.serve] Routing to deployed app: ${appName}`)
           // Route to backend for API paths
           const apiPaths = deployedApp.apiPaths ?? []
-          console.log(`[Bun.serve] apiPaths: ${JSON.stringify(apiPaths)}, pathname: ${url.pathname}, backendEndpoint: ${deployedApp.backendEndpoint}, backendWorkerId: ${deployedApp.backendWorkerId}`)
-          const isApiRequest = apiPaths.length > 0 && apiPaths.some(
-            (path) =>
-              url.pathname === path || url.pathname.startsWith(`${path}/`),
-          )
-          console.log(`[Bun.serve] isApiRequest: ${isApiRequest}`)
-          if (isApiRequest && (deployedApp.backendEndpoint || deployedApp.backendWorkerId)) {
-            console.log(`[Bun.serve] Proxying API to backend via app-router: ${url.pathname}`)
+          const isApiRequest =
+            apiPaths.length > 0 &&
+            apiPaths.some(
+              (path) =>
+                url.pathname === path || url.pathname.startsWith(`${path}/`),
+            )
+          if (
+            isApiRequest &&
+            (deployedApp.backendEndpoint || deployedApp.backendWorkerId)
+          ) {
+            console.log(`[Bun.serve] Proxying API to backend: ${url.pathname}`)
             return proxyToBackend(req, deployedApp, url.pathname)
           }
           // Serve frontend from IPFS/storage if configured
@@ -1630,28 +1634,38 @@ if (import.meta.main) {
           }
           // No frontend CID or staticFiles - proxy all requests to backend
           if (deployedApp.backendEndpoint || deployedApp.backendWorkerId) {
-            console.log(`[Bun.serve] No frontend configured, proxying all to backend: ${url.pathname}`)
+            console.log(
+              `[Bun.serve] No frontend configured, proxying all to backend: ${url.pathname}`,
+            )
             return proxyToBackend(req, deployedApp, url.pathname)
           }
           // App is registered but has no frontend or backend - return 503
-          console.log(`[Bun.serve] App ${appName} has no frontend or backend configured`)
-          return new Response(JSON.stringify({ 
-            error: 'Service unavailable', 
-            message: `App ${appName} is registered but has no frontend or backend configured` 
-          }), {
-            status: 503,
-            headers: { 'Content-Type': 'application/json' },
-          })
+          console.log(
+            `[Bun.serve] App ${appName} has no frontend or backend configured`,
+          )
+          return new Response(
+            JSON.stringify({
+              error: 'Service unavailable',
+              message: `App ${appName} is registered but has no frontend or backend configured`,
+            }),
+            {
+              status: 503,
+              headers: { 'Content-Type': 'application/json' },
+            },
+          )
         }
         // App not found in registry - return 404 instead of falling through to DWS
         console.log(`[Bun.serve] App not found or disabled: ${appName}`)
-        return new Response(JSON.stringify({ 
-          error: 'Not Found', 
-          message: `App ${appName} is not deployed on this network` 
-        }), {
-          status: 404,
-          headers: { 'Content-Type': 'application/json' },
-        })
+        return new Response(
+          JSON.stringify({
+            error: 'Not Found',
+            message: `App ${appName} is not deployed on this network`,
+          }),
+          {
+            status: 404,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        )
       }
 
       return app.handle(req)
@@ -1839,6 +1853,19 @@ if (import.meta.main) {
       console.log('[DWS] Database keepalive service started')
     })
     .catch(console.error)
+
+  // Handle uncaught errors to prevent crashes
+  process.on('uncaughtException', (error) => {
+    console.error('[DWS] Uncaught exception:', error.message)
+    console.error(error.stack)
+    // Don't exit - try to keep running
+  })
+
+  process.on('unhandledRejection', (reason, promise) => {
+    console.error('[DWS] Unhandled rejection at:', promise)
+    console.error('[DWS] Reason:', reason)
+    // Don't exit - try to keep running
+  })
 
   process.on('SIGINT', () => shutdown('SIGINT'))
   process.on('SIGTERM', () => shutdown('SIGTERM'))

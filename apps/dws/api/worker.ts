@@ -320,7 +320,10 @@ export function createDWSApp(env?: Partial<DWSEnv>) {
             .safeParse(body)
 
           if (!parsed.success) {
-            return { error: 'Invalid A2A request', details: parsed.error.issues }
+            return {
+              error: 'Invalid A2A request',
+              details: parsed.error.issues,
+            }
           }
 
           // Route to appropriate service based on skill
@@ -447,7 +450,10 @@ export function createDWSApp(env?: Partial<DWSEnv>) {
             .safeParse(body)
 
           if (!parsed.success) {
-            return { error: 'Invalid MCP request', details: parsed.error.issues }
+            return {
+              error: 'Invalid MCP request',
+              details: parsed.error.issues,
+            }
           }
 
           const { tool, arguments: args } = parsed.data
@@ -583,12 +589,15 @@ export default {
  * Bun server entry point (for local development and genesis nodes)
  */
 if (typeof Bun !== 'undefined') {
-  const port = process.env.PORT ?? process.env.DWS_PORT ?? CORE_PORTS.DWS_API.get()
+  const port =
+    process.env.PORT ?? process.env.DWS_PORT ?? CORE_PORTS.DWS_API.get()
   const host = getLocalhostHost()
 
   console.log(`[DWS Worker] Starting on http://${host}:${port}`)
   console.log(`[DWS Worker] Network: ${getCurrentNetwork()}`)
-  console.log(`[DWS Worker] Mode: ${process.env.GENESIS_MODE === 'true' ? 'genesis' : 'worker'}`)
+  console.log(
+    `[DWS Worker] Mode: ${process.env.GENESIS_MODE === 'true' ? 'genesis' : 'worker'}`,
+  )
 
   Bun.serve({
     port: Number(port),

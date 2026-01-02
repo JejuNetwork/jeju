@@ -331,7 +331,9 @@ echo $!
     this.instances.set(worker.id, instance)
 
     // Wait for ready
-    console.log(`[WorkerdExecutor] Waiting for workerd on port ${port} to become ready...`)
+    console.log(
+      `[WorkerdExecutor] Waiting for workerd on port ${port} to become ready...`,
+    )
     const ready = await this.waitForReady(port)
     console.log(`[WorkerdExecutor] waitForReady result: ${ready}`)
 

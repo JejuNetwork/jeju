@@ -73,16 +73,101 @@ export class WorkerRouter {
   }
 
   async start(): Promise<void> {
-    // Try to refresh nodes from on-chain registry, but don't fail if it's unavailable
+    // Try to refresh nodes from on-chain registry
     try {
       await this.refreshNodes()
+      const nodeCount = this.nodeHealth.size
+      if (nodeCount === 0) {
+        console.warn(
+          '╔═══════════════════════════════════════════════════════════════╗',
+        )
+        console.warn(
+          '║  WARNING: No worker nodes registered in on-chain registry     ║',
+        )
+        console.warn(
+          '╠═══════════════════════════════════════════════════════════════╣',
+        )
+        console.warn(
+          '║  Distributed routing will not work until nodes are registered ║',
+        )
+        console.warn(
+          '║                                                               ║',
+        )
+        console.warn(
+          '║  To register a node, run:                                     ║',
+        )
+        console.warn(
+          '║    bun scripts/register-node.ts --role miner                  ║',
+        )
+        console.warn(
+          '║                                                               ║',
+        )
+        console.warn(
+          '║  Or register via IdentityRegistry contract:                   ║',
+        )
+        console.warn(
+          '║    1. Call register() to get an agentId                       ║',
+        )
+        console.warn(
+          '║    2. Call addTag(agentId, "dws-worker-node")                 ║',
+        )
+        console.warn(
+          '║    3. Set endpoint via setA2AEndpoint(agentId, endpoint)      ║',
+        )
+        console.warn(
+          '╚═══════════════════════════════════════════════════════════════╝',
+        )
+      } else {
+        console.log(
+          `[WorkerRouter] Discovered ${nodeCount} worker nodes from on-chain registry`,
+        )
+      }
     } catch (error) {
-      console.log(
-        `[WorkerRouter] Failed to refresh nodes from registry: ${error instanceof Error ? error.message : String(error)}`,
+      const msg = error instanceof Error ? error.message : String(error)
+      console.error(
+        '╔═══════════════════════════════════════════════════════════════╗',
       )
-      console.log(
-        '[WorkerRouter] Continuing in local-only mode (no distributed routing)',
+      console.error(
+        '║  ERROR: Worker node discovery failed                         ║',
       )
+      console.error(
+        '╠═══════════════════════════════════════════════════════════════╣',
+      )
+      console.error(`║  ${msg.slice(0, 61).padEnd(61)}║`)
+      console.error(
+        '║                                                               ║',
+      )
+      console.error(
+        '║  This could be because:                                       ║',
+      )
+      console.error(
+        '║  1. IdentityRegistry contract not deployed                    ║',
+      )
+      console.error(
+        '║  2. Contract missing getAgentsByTag() function                ║',
+      )
+      console.error(
+        '║  3. RPC node not accessible                                   ║',
+      )
+      console.error(
+        '║                                                               ║',
+      )
+      console.error(
+        '║  To fix:                                                      ║',
+      )
+      console.error(
+        '║  - Ensure anvil/chain is running: anvil -p 6546               ║',
+      )
+      console.error(
+        '║  - Deploy contracts: bun run deploy:localnet                  ║',
+      )
+      console.error(
+        '║  - Register node: bun scripts/register-node.ts                ║',
+      )
+      console.error(
+        '╚═══════════════════════════════════════════════════════════════╝',
+      )
+      // Local mode will still work, just no distributed routing
     }
 
     this.healthCheckInterval = setInterval(

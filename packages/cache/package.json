@@ -21,6 +21,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@jejunetwork/config": "workspace:*",
     "zod": "4.2.1"
   },
   "devDependencies": {

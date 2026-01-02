@@ -779,6 +779,121 @@ export const DATABASE_PROVIDER_ABI = [
   },
 ] as const
 
+// Federation contracts
+export const NETWORK_REGISTRY_ABI = [
+  {
+    type: 'function',
+    name: 'registerNetwork',
+    inputs: [
+      { name: 'chainId', type: 'uint256' },
+      { name: 'name', type: 'string' },
+      { name: 'rpcUrl', type: 'string' },
+      { name: 'bridgeContract', type: 'address' },
+    ],
+    outputs: [{ name: 'networkId', type: 'bytes32' }],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'getNetwork',
+    inputs: [{ name: 'networkId', type: 'bytes32' }],
+    outputs: [
+      { name: 'chainId', type: 'uint256' },
+      { name: 'name', type: 'string' },
+      { name: 'rpcUrl', type: 'string' },
+      { name: 'bridgeContract', type: 'address' },
+      { name: 'isActive', type: 'bool' },
+      { name: 'registeredAt', type: 'uint256' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getActiveNetworks',
+    inputs: [],
+    outputs: [{ name: 'networkIds', type: 'bytes32[]' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'isNetworkActive',
+    inputs: [{ name: 'chainId', type: 'uint256' }],
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'view',
+  },
+] as const
+
+export const REGISTRY_HUB_ABI = [
+  {
+    type: 'function',
+    name: 'registerRegistry',
+    inputs: [
+      { name: 'registryType', type: 'string' },
+      { name: 'registryAddress', type: 'address' },
+      { name: 'chainId', type: 'uint256' },
+    ],
+    outputs: [{ name: 'registryId', type: 'bytes32' }],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'getRegistry',
+    inputs: [
+      { name: 'registryType', type: 'string' },
+      { name: 'chainId', type: 'uint256' },
+    ],
+    outputs: [{ name: 'registryAddress', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'syncRegistry',
+    inputs: [
+      { name: 'sourceChainId', type: 'uint256' },
+      { name: 'targetChainId', type: 'uint256' },
+      { name: 'registryType', type: 'string' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+] as const
+
+export const FEDERATION_BRIDGE_ABI = [
+  {
+    type: 'function',
+    name: 'sendMessage',
+    inputs: [
+      { name: 'targetChainId', type: 'uint256' },
+      { name: 'targetAddress', type: 'address' },
+      { name: 'message', type: 'bytes' },
+    ],
+    outputs: [{ name: 'messageId', type: 'bytes32' }],
+    stateMutability: 'payable',
+  },
+  {
+    type: 'function',
+    name: 'receiveMessage',
+    inputs: [
+      { name: 'sourceChainId', type: 'uint256' },
+      { name: 'sourceAddress', type: 'address' },
+      { name: 'message', type: 'bytes' },
+      { name: 'proof', type: 'bytes' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'getMessageStatus',
+    inputs: [{ name: 'messageId', type: 'bytes32' }],
+    outputs: [
+      { name: 'status', type: 'uint8' },
+      { name: 'timestamp', type: 'uint256' },
+    ],
+    stateMutability: 'view',
+  },
+] as const
+
 export const VPN_REGISTRY_ABI = [
   {
     type: 'function',

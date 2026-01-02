@@ -59,14 +59,14 @@ function getConfig(): DeployConfig {
         '0x5FbDB2315678afecb367f032d93F642f64180aa3' as Address,
     },
     testnet: {
-      dwsUrl: 'https://dws.testnet.jejunetwork.org',
-      rpcUrl: 'https://sepolia.base.org',
+      dwsUrl: getCoreAppUrl('DWS_API'),
+      rpcUrl: getL2RpcUrl(),
       workerRegistryAddress:
         '0x0000000000000000000000000000000000000000' as Address,
     },
     mainnet: {
-      dwsUrl: 'https://dws.jejunetwork.org',
-      rpcUrl: 'https://mainnet.base.org',
+      dwsUrl: getCoreAppUrl('DWS_API'),
+      rpcUrl: getL2RpcUrl(),
       workerRegistryAddress:
         '0x0000000000000000000000000000000000000000' as Address,
     },
@@ -353,7 +353,15 @@ async function registerApp(
       staticFiles: Object.keys(staticFiles).length > 0 ? staticFiles : null,
       backendWorkerId: workerId,
       backendEndpoint: backendEndpoint,
-      apiPaths: ['/api', '/a2a', '/mcp', '/health', '/rlaif', '/fees', '/.well-known'],
+      apiPaths: [
+        '/api',
+        '/a2a',
+        '/mcp',
+        '/health',
+        '/rlaif',
+        '/fees',
+        '/.well-known',
+      ],
       spa: true,
       enabled: true,
     }),

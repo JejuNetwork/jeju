@@ -1,18 +1,16 @@
 {
-  "name": "@jeju/workerd-bun",
-  "version": "1.0.0",
-  "description": "Bun runtime compatibility layer for workerd",
+  "name": "@jeju/workerd-root",
   "private": true,
   "workspaces": [
     "images/container-client-test"
   ],
   "scripts": {
-    "build": "bun src/bun/build.ts",
     "build:bun": "bun src/bun/build.ts",
     "test": "bun src/bun/run-tests.ts",
     "test:unit": "bun test src/bun/bun.test.ts src/bun/sqlite.test.ts",
-    "test:integration": "bun test src/bun/bun-worker.test.ts",
-    "dev": "cd samples/bun-bundle && workerd serve config.capnp"
+    "test:bun": "bun test src/bun/bun.test.ts",
+    "test:sqlite": "bun test src/bun/sqlite.test.ts",
+    "test:worker": "WORKERD_RUNNING=1 bun test src/bun/bun-worker.test.ts"
   },
   "dependencies": {
     "bcryptjs": "3.0.3",
@@ -20,8 +18,8 @@
     "typescript": "5.9.3"
   },
   "devDependencies": {
-    "@eslint/js": "9.39.2",
-    "@types/node": "24.10.4",
+    "@eslint/js": "^9.37.0",
+    "@types/node": "^24.7.2",
     "capnp-es": "0.0.11",
     "chrome-remote-interface": "0.33.3",
     "esbuild": "0.27.2",

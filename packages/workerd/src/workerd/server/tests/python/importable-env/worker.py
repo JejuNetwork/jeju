@@ -1,7 +1,7 @@
+from pyodide.ffi import create_proxy, to_js
 from workers import import_from_javascript
 
 from pyodide import __version__
-from pyodide.ffi import create_proxy, to_js
 
 # Then test the regular import function
 workers_module = import_from_javascript("cloudflare:workers")
@@ -28,7 +28,6 @@ else:
     )
 
 from js import setTimeout
-
 from pyodide.ffi import create_once_callable
 
 

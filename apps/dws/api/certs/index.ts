@@ -19,8 +19,42 @@ function randomBytes(length: number): Buffer {
   return Buffer.from(arr)
 }
 
+// Helper to convert Uint8Array to ArrayBuffer (fixes Bun type conflicts)
+function toArrayBuffer(data: Uint8Array): ArrayBuffer {
+  const buffer = new ArrayBuffer(data.length)
+  new Uint8Array(buffer).set(data)
+  return buffer
+}
+
 import type { Address } from 'viem'
 import { keccak256, toHex } from 'viem'
+
+export type {
+  ACMEAccount as RealACMEAccount,
+  ACMEChallenge as RealACMEChallenge,
+  ACMEConfig,
+  ACMEOrder,
+  IssuedCertificate,
+} from './acme'
+// Re-export ACME and X.509 utilities
+export {
+  ACME_DIRECTORIES as ACME_DIRECTORY_URLS,
+  ACMEClient,
+  createACMECertificateManager,
+} from './acme'
+export type {
+  CertificateInfo,
+  GenerateCertificateOptions,
+  GeneratedCertificate,
+} from './x509'
+export {
+  generateSelfSignedCertificate,
+  isCertificateExpiringSoon,
+  parseCertificate,
+} from './x509'
+
+// Import for internal use
+import { ACMEClient } from './acme'
 
 // Certificate types
 export type CertType = 'acme' | 'self-signed' | 'managed' | 'custom'
@@ -94,6 +128,7 @@ export class CertificateManager {
   private certificates: Map<string, Certificate> = new Map()
   private challenges: Map<string, ACMEChallenge> = new Map()
   private acmeAccount: ACMEAccount | null = null
+  private acmeClient: ACMEClient | null = null
   private renewalInterval: ReturnType<typeof setInterval> | null = null
   private sealingKey: Buffer | null = null
 
@@ -124,39 +159,54 @@ export class CertificateManager {
 
   /**
    * Initialize ACME account
-   *
-   * NOTE: Full ACME implementation requires:
-   * - JOSE library for JWK operations
-   * - Crypto key generation for account key
-   * - HTTP challenge server
-   *
-   * For development, we use self-signed certs.
-   * For production, integrate with acme-client package.
+   * Uses the real ACMEClient for Let's Encrypt integration
    */
   private async initializeACMEAccount(): Promise<void> {
     const isProduction = this.config.acmeDirectory.includes(
       'api.letsencrypt.org',
     )
 
-    if (isProduction) {
-      console.warn('[Certs] ACME production mode requires full implementation')
-      console.warn(
-        '[Certs] Current implementation supports self-signed certs only',
-      )
-      console.warn(
-        '[Certs] For production HTTPS, use a reverse proxy or integrate acme-client',
-      )
-    }
+    try {
+      // Create real ACME client
+      this.acmeClient = new ACMEClient({
+        directory: this.config.acmeDirectory,
+        email: this.config.acmeEmail,
+        acceptTerms: true,
+        challengeType: 'http-01',
+      })
 
-    // Development-only account
-    this.acmeAccount = {
-      accountUrl: 'dev-account',
-      accountKey: 'dev-key',
-      email: this.config.acmeEmail,
-      createdAt: Date.now(),
-    }
+      if (isProduction) {
+        console.log(
+          "[Certs] Initializing production ACME client (Let's Encrypt)...",
+        )
+      } else {
+        console.log('[Certs] Initializing staging ACME client...')
+      }
 
-    console.log('[Certs] Certificate manager ready (self-signed mode)')
+      await this.acmeClient.initialize()
+
+      this.acmeAccount = {
+        accountUrl: 'acme-initialized',
+        accountKey: 'managed-by-client',
+        email: this.config.acmeEmail,
+        createdAt: Date.now(),
+      }
+
+      console.log('[Certs] ACME account initialized')
+    } catch (error) {
+      console.warn(
+        '[Certs] ACME initialization failed, falling back to self-signed mode:',
+        error,
+      )
+
+      this.acmeClient = null
+      this.acmeAccount = {
+        accountUrl: 'fallback-self-signed',
+        accountKey: 'none',
+        email: this.config.acmeEmail,
+        createdAt: Date.now(),
+      }
+    }
   }
 
   /**
@@ -234,67 +284,73 @@ export class CertificateManager {
   }
 
   /**
-   * Start ACME certificate flow
+   * Start ACME certificate flow using real ACMEClient
    */
   private async startACMEFlow(cert: Certificate): Promise<void> {
-    cert.status = 'validating'
-
-    // Step 1: Create order
-    const order = await this.createACMEOrder(cert.domain, cert.altNames)
-    if (!order) {
-      cert.status = 'error'
-      cert.lastError = 'Failed to create ACME order'
+    // If no ACME client, fall back to self-signed
+    if (!this.acmeClient) {
+      console.log(
+        `[Certs] No ACME client available, using self-signed for ${cert.domain}`,
+      )
+      await this.generateSelfSigned(cert)
       return
     }
 
-    // Step 2: Get challenges
-    for (const authz of order.authorizations) {
-      const challenge = await this.getChallenge(authz)
-      if (challenge) {
-        this.challenges.set(challenge.token, challenge)
+    cert.status = 'validating'
+
+    try {
+      // Request certificate using real ACME client
+      const { order, challenges } = await this.acmeClient.requestCertificate(
+        cert.domain,
+        cert.altNames,
+      )
+
+      // Store challenges for HTTP-01 validation
+      for (const [domain, challenge] of Array.from(challenges.entries())) {
+        if (challenge.keyAuthorization) {
+          this.challenges.set(challenge.token, {
+            challengeId: `${domain}-${challenge.token}`,
+            domain,
+            type: challenge.type,
+            token: challenge.token,
+            keyAuth: challenge.keyAuthorization,
+            status: 'pending',
+            expiresAt: Date.now() + 3600000,
+          })
+        }
       }
-    }
 
-    // Step 3: Wait for validation (challenges will be completed via HTTP-01 endpoint)
-    // The actual validation happens when the ACME server hits our endpoint
-    console.log(`[Certs] ACME flow started for ${cert.domain}`)
-  }
+      console.log(`[Certs] ACME challenges ready for ${cert.domain}`)
+      console.log(
+        `[Certs] Waiting for HTTP-01 validation at /.well-known/acme-challenge/`,
+      )
 
-  /**
-   * Create ACME order
-   */
-  private async createACMEOrder(
-    domain: string,
-    _altNames: string[],
-  ): Promise<{ orderUrl: string; authorizations: string[] } | null> {
-    // In production, this would make actual ACME API calls
-    // For now, return a stub order
+      // Complete challenges and get certificate
+      const issuedCert = await this.acmeClient.completeChallenges(
+        order,
+        challenges,
+      )
 
-    console.log(`[Certs] Creating ACME order for ${domain}`)
+      // Store the issued certificate
+      cert.status = 'issued'
+      cert.issuedAt = issuedCert.issuedAt
+      cert.expiresAt = issuedCert.expiresAt
+      cert.renewsAt =
+        cert.expiresAt - this.config.renewalDays * 24 * 60 * 60 * 1000
+      cert.encryptedCert = await this.encrypt(issuedCert.certificate)
+      cert.encryptedKey = await this.encrypt(issuedCert.privateKey)
 
-    return {
-      orderUrl: `${this.config.acmeDirectory}/order/${crypto.randomUUID()}`,
-      authorizations: [
-        `${this.config.acmeDirectory}/authz/${crypto.randomUUID()}`,
-      ],
-    }
-  }
+      // Clear challenges
+      for (const [, challenge] of Array.from(challenges.entries())) {
+        this.challenges.delete(challenge.token)
+      }
 
-  /**
-   * Get challenge for authorization
-   */
-  private async getChallenge(_authzUrl: string): Promise<ACMEChallenge | null> {
-    const token = Buffer.from(randomBytes(32)).toString('base64url')
-    const keyAuth = `${token}.${this.getThumbprint()}`
-
-    return {
-      challengeId: crypto.randomUUID(),
-      domain: '', // Would be parsed from authz
-      type: 'http-01',
-      token,
-      keyAuth,
-      status: 'pending',
-      expiresAt: Date.now() + 3600000, // 1 hour
+      console.log(`[Certs] Certificate issued for ${cert.domain}`)
+    } catch (error) {
+      cert.status = 'error'
+      cert.lastError =
+        error instanceof Error ? error.message : 'ACME flow failed'
+      console.error(`[Certs] ACME flow failed for ${cert.domain}:`, error)
     }
   }
 
@@ -311,121 +367,40 @@ export class CertificateManager {
   }
 
   /**
-   * Complete ACME validation
+   * Complete ACME validation - now handled in startACMEFlow
+   * This method is kept for API compatibility but the real flow
+   * completes automatically in startACMEFlow
    */
   async completeValidation(certId: string): Promise<void> {
     const cert = this.certificates.get(certId)
-    if (!cert || cert.status !== 'validating') return
+    if (!cert) return
 
-    // In production, this would:
-    // 1. Poll ACME server for validation status
-    // 2. Finalize the order
-    // 3. Download the certificate
-    // 4. Store encrypted certificate
-
-    // For now, simulate success
-    cert.status = 'issued'
-    cert.issuedAt = Date.now()
-    cert.expiresAt = Date.now() + 90 * 24 * 60 * 60 * 1000 // 90 days
-    cert.renewsAt =
-      cert.expiresAt - this.config.renewalDays * 24 * 60 * 60 * 1000
-
-    console.log(`[Certs] Certificate issued for ${cert.domain}`)
+    // If still validating, the ACME flow is still in progress
+    if (cert.status === 'validating') {
+      console.log(`[Certs] Validation still in progress for ${cert.domain}`)
+    }
   }
 
   /**
-   * Generate self-signed certificate
-   *
-   * Uses Web Crypto API to generate RSA keypair and create
-   * a basic self-signed X.509 certificate.
+   * Generate self-signed certificate using proper X.509 implementation
    */
   private async generateSelfSigned(cert: Certificate): Promise<void> {
-    // Generate RSA-2048 key pair
-    const keyPair = await crypto.subtle.generateKey(
-      {
-        name: 'RSASSA-PKCS1-v1_5',
-        modulusLength: 2048,
-        publicExponent: new Uint8Array([1, 0, 1]),
-        hash: 'SHA-256',
-      },
-      true,
-      ['sign', 'verify'],
-    )
+    // Import the X.509 certificate generator
+    const { generateSelfSignedCertificate } = await import('./x509')
 
-    // Export private key in PKCS8 format
-    const privateKeyBuffer = await crypto.subtle.exportKey(
-      'pkcs8',
-      keyPair.privateKey,
-    )
-    const privateKeyPem = this.arrayBufferToPem(privateKeyBuffer, 'PRIVATE KEY')
-
-    // Export public key in SPKI format
-    const publicKeyBuffer = await crypto.subtle.exportKey(
-      'spki',
-      keyPair.publicKey,
-    )
-
-    // Create a minimal self-signed certificate
-    // Note: For production, use a proper X.509 library like @peculiar/x509
-    const certPem = this.createMinimalCert(
-      cert.domain,
-      publicKeyBuffer,
-      keyPair.privateKey,
-    )
+    const generated = await generateSelfSignedCertificate({
+      commonName: cert.domain,
+      altNames: cert.altNames,
+      validityDays: 365,
+    })
 
     cert.status = 'issued'
     cert.issuedAt = Date.now()
-    cert.expiresAt = Date.now() + 365 * 24 * 60 * 60 * 1000 // 1 year
-    cert.encryptedCert = await this.encrypt(certPem)
-    cert.encryptedKey = await this.encrypt(privateKeyPem)
+    cert.expiresAt = generated.info.notAfter.getTime()
+    cert.encryptedCert = await this.encrypt(generated.certificate)
+    cert.encryptedKey = await this.encrypt(generated.privateKey)
 
     console.log(`[Certs] Self-signed certificate generated for ${cert.domain}`)
-  }
-
-  /**
-   * Convert ArrayBuffer to PEM format
-   */
-  private arrayBufferToPem(buffer: ArrayBuffer, type: string): string {
-    const base64 = Buffer.from(buffer).toString('base64')
-    const lines = base64.match(/.{1,64}/g) || []
-    return `-----BEGIN ${type}-----\n${lines.join('\n')}\n-----END ${type}-----`
-  }
-
-  /**
-   * Create a minimal self-signed certificate
-   *
-   * This creates a basic certificate structure. For production use,
-   * integrate @peculiar/x509 or similar library for proper X.509 support.
-   */
-  private createMinimalCert(
-    domain: string,
-    _publicKeyBuffer: ArrayBuffer,
-    _privateKey: CryptoKey,
-  ): string {
-    // For development purposes, create a placeholder certificate
-    // In production, this would construct proper ASN.1/DER structure
-    const now = new Date()
-    const expiry = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000)
-
-    // This is a simplified representation - real implementation needs ASN.1
-    const certInfo = {
-      version: 3,
-      serialNumber: Date.now().toString(16),
-      issuer: { CN: domain },
-      subject: { CN: domain },
-      notBefore: now.toISOString(),
-      notAfter: expiry.toISOString(),
-      extensions: {
-        subjectAltName: [domain, `*.${domain}`],
-        keyUsage: ['digitalSignature', 'keyEncipherment'],
-        extKeyUsage: ['serverAuth'],
-      },
-    }
-
-    // Return as base64-encoded placeholder
-    // Real implementation: construct DER-encoded X.509 and sign with private key
-    const certData = Buffer.from(JSON.stringify(certInfo)).toString('base64')
-    return `-----BEGIN CERTIFICATE-----\n${certData.match(/.{1,64}/g)?.join('\n')}\n-----END CERTIFICATE-----`
   }
 
   /**
@@ -464,7 +439,7 @@ export class CertificateManager {
   private async checkRenewals(): Promise<void> {
     const now = Date.now()
 
-    for (const cert of this.certificates.values()) {
+    for (const cert of Array.from(this.certificates.values())) {
       if (cert.status !== 'issued') continue
       if (!cert.renewsAt) continue
 
@@ -603,33 +578,6 @@ export class CertificateManager {
     return Date.now() // Treat as expired to force renewal
   }
 
-  private getThumbprint(): string {
-    // Compute JWK thumbprint of account key per RFC 7638
-    // The thumbprint MUST be deterministic for ACME to work
-    if (!this.acmeAccount?.accountKey) {
-      throw new Error(
-        '[CertManager] ACME account not initialized - cannot compute thumbprint',
-      )
-    }
-
-    // For development mode with 'dev-key', generate deterministic thumbprint
-    // In production, this should use the actual ECDSA key material
-    if (this.acmeAccount.accountKey === 'dev-key') {
-      // Development-only: deterministic thumbprint based on email
-      const devData = `dev:${this.config.acmeEmail}`
-      const hash = keccak256(new TextEncoder().encode(devData))
-      return Buffer.from(hash.slice(2), 'hex')
-        .toString('base64url')
-        .slice(0, 43)
-    }
-
-    // Production: compute actual JWK thumbprint from stored key
-    // This requires proper key parsing - for now throw if we get here
-    throw new Error(
-      '[CertManager] Production ACME requires full JWK implementation. Use acme-client package.',
-    )
-  }
-
   private async encrypt(data: string): Promise<string> {
     if (!this.sealingKey) throw new Error('Sealing key not initialized')
 
@@ -645,10 +593,11 @@ export class CertificateManager {
       ['encrypt'],
     )
 
+    const encData = encoder.encode(data)
     const encrypted = await crypto.subtle.encrypt(
       { name: 'AES-GCM', iv: nonce },
       key,
-      encoder.encode(data),
+      toArrayBuffer(encData),
     )
 
     // Combine nonce and ciphertext
@@ -677,7 +626,7 @@ export class CertificateManager {
     const decrypted = await crypto.subtle.decrypt(
       { name: 'AES-GCM', iv: nonce },
       key,
-      ciphertext,
+      toArrayBuffer(ciphertext),
     )
 
     return new TextDecoder().decode(decrypted)

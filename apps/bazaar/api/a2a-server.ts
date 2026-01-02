@@ -449,7 +449,10 @@ async function executeSkill(
         | Address
         | undefined
 
-      const v4Contracts = getV4Contracts(JEJU_CHAIN_ID)
+      const v4Contracts = expect(
+        getV4Contracts(JEJU_CHAIN_ID),
+        'V4 contracts not deployed',
+      )
       const swapRouter = expect(
         v4Contracts.swapRouter,
         'Swap router not deployed',

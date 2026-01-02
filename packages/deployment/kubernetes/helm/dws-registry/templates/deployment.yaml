@@ -1,0 +1,130 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "dws-registry.fullname" . }}
+  labels:
+    {{- include "dws-registry.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "dws-registry.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "dws-registry.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "dws-registry.serviceAccountName" . }}
+      securityContext:
+        fsGroup: 1000
+        runAsUser: 1000
+        runAsNonRoot: true
+      containers:
+        - name: registry
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 5000
+              protocol: TCP
+            - name: metrics
+              containerPort: 5001
+              protocol: TCP
+          env:
+            - name: REGISTRY_HTTP_ADDR
+              value: ":5000"
+            - name: REGISTRY_HTTP_DEBUG_ADDR
+              value: ":5001"
+            - name: REGISTRY_STORAGE_DELETE_ENABLED
+              value: "true"
+            {{- if .Values.config.storage.backend }}
+            - name: REGISTRY_STORAGE
+              value: {{ .Values.config.storage.backend | quote }}
+            {{- end }}
+            {{- range .Values.env }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+          envFrom:
+            {{- range .Values.secretEnv }}
+            - secretRef:
+                name: {{ .secretName }}
+            {{- end }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/registry
+            - name: config
+              mountPath: /etc/docker/registry
+        {{- if .Values.ipfs.enabled }}
+        # IPFS sidecar for decentralized storage
+        - name: ipfs
+          image: "{{ .Values.ipfs.image.repository }}:{{ .Values.ipfs.image.tag }}"
+          ports:
+            - name: swarm
+              containerPort: 4001
+              protocol: TCP
+            - name: api
+              containerPort: 5001
+              protocol: TCP
+            - name: gateway
+              containerPort: 8080
+              protocol: TCP
+          volumeMounts:
+            - name: ipfs-data
+              mountPath: /data/ipfs
+          resources:
+            limits:
+              cpu: 1000m
+              memory: 2Gi
+            requests:
+              cpu: 250m
+              memory: 512Mi
+        {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "dws-registry.fullname" . }}-config
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "dws-registry.fullname" . }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        {{- if .Values.ipfs.enabled }}
+        - name: ipfs-data
+          {{- if .Values.ipfs.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "dws-registry.fullname" . }}-ipfs
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+

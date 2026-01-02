@@ -12,22 +12,25 @@
  *
  * @example
  * ```typescript
- * import { CacheClient } from '@jejunetwork/cache'
+ * import { CacheClient, getCacheClient } from '@jejunetwork/cache'
  *
+ * // Simple usage with factory function
+ * const cache = getCacheClient('my-app')
+ * await cache.set('key', 'value')
+ * const value = await cache.get('key')
+ *
+ * // Or direct instantiation
  * const cache = new CacheClient({
  *   serverUrl: 'https://dws.jejunetwork.org',
  *   namespace: 'my-app',
  * })
- *
- * // Simple set/get
- * await cache.set('key', 'value')
- * const value = await cache.get('key')
  *
  * // With TTL
  * await cache.set('key', 'value', { ttl: 3600 })
  * ```
  */
 
+import { getDWSCacheUrl } from '@jejunetwork/config'
 import type { CacheClientConfig, CacheSetOptions, CacheStats } from './types'
 import { CacheError, CacheErrorCode } from './types'
 
@@ -73,19 +76,25 @@ export class CacheClient {
 
   /**
    * Set a value in the cache
+   * @param key - Cache key
+   * @param value - Value to store
+   * @param options - TTL in seconds or CacheSetOptions object
    */
   async set(
     key: string,
     value: string,
-    options: CacheSetOptions = {},
+    options?: CacheSetOptions | number,
   ): Promise<{ success: boolean }> {
+    const opts: CacheSetOptions =
+      typeof options === 'number' ? { ttl: options } : (options ?? {})
+
     return this.request<{ success: boolean }>('/cache/set', 'POST', {
       key,
       value,
-      ttl: options.ttl ?? this.defaultTtlSeconds,
+      ttl: opts.ttl ?? this.defaultTtlSeconds,
       namespace: this.namespace,
-      nx: options.nx,
-      xx: options.xx,
+      nx: opts.nx,
+      xx: opts.xx,
     })
   }
 
@@ -117,6 +126,21 @@ export class CacheClient {
       },
     )
     return result.deleted
+  }
+
+  /**
+   * Delete a single key (alias for del)
+   */
+  async delete(key: string): Promise<boolean> {
+    const deleted = await this.del(key)
+    return deleted > 0
+  }
+
+  /**
+   * Clear all keys in the namespace (alias for flushdb)
+   */
+  async clear(): Promise<void> {
+    await this.flushdb()
   }
 
   /**
@@ -559,6 +583,13 @@ export class CacheClient {
   }
 
   /**
+   * Get cache statistics (alias for stats())
+   */
+  async getStats(): Promise<CacheStats> {
+    return this.stats()
+  }
+
+  /**
    * Check if cache is healthy
    */
   async health(): Promise<{ status: string; uptime: number }> {
@@ -692,4 +723,32 @@ export function createCacheClient(
     serverUrl,
     ...options,
   })
+}
+
+// Singleton cache clients per namespace
+const cacheClients = new Map<string, CacheClient>()
+
+/**
+ * Get a cache client for a namespace (singleton per namespace)
+ */
+export function getCacheClient(namespace: string): CacheClient {
+  const existing = cacheClients.get(namespace)
+  if (existing) return existing
+
+  const endpoint = getDWSCacheUrl()
+  const client = new CacheClient({
+    serverUrl: endpoint,
+    namespace,
+    defaultTtlSeconds: 3600,
+  })
+
+  cacheClients.set(namespace, client)
+  return client
+}
+
+/**
+ * Reset all cached clients (useful for testing)
+ */
+export function resetCacheClients(): void {
+  cacheClients.clear()
 }

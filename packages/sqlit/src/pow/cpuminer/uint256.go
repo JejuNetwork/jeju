@@ -44,7 +44,8 @@ func (i *Uint256) Inc() (ret *Uint256) {
 // Bytes converts Uint256 to []byte.
 func (i *Uint256) Bytes() []byte {
 	var binBuf bytes.Buffer
-	binary.Write(&binBuf, binary.BigEndian, i)
+	// binary.Write to bytes.Buffer never fails for fixed-size types
+	_ = binary.Write(&binBuf, binary.BigEndian, i)
 	return binBuf.Bytes()
 }
 
@@ -64,6 +65,7 @@ func Uint256FromBytes(b []byte) (*Uint256, error) {
 		return nil, ErrBytesLen
 	}
 	i := Uint256{}
-	binary.Read(bytes.NewBuffer(b), binary.BigEndian, &i)
+	// binary.Read from bytes.Buffer never fails for exact-length fixed-size types
+	_ = binary.Read(bytes.NewBuffer(b), binary.BigEndian, &i)
 	return &i, nil
 }

@@ -64,6 +64,7 @@ exclude = [
     "venv",
     "node_modules",
     "packages/contracts/lib/**",
+    "packages/workerd/**",
     "**/site-packages/**",
     # Exclude forge-std and openzeppelin from linting (third-party)
     "vendor/babylon/lib/forge-std/**",

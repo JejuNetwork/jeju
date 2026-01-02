@@ -1,0 +1,328 @@
+# ============================================================================
+# Open Intent Framework (OIF) Aggregator Configuration
+#
+# The OIF Aggregator is the central hub for cross-chain intent execution:
+# - Aggregates intents from multiple sources (users, protocols, DAOs)
+# - Routes to optimal solvers (internal + external)
+# - Tracks execution across chains
+# - Ensures atomic settlement
+#
+# Architecture:
+#   Intent Sources (UniswapX, CoW, Across, x402, etc.)
+#        ↓
+#   [OIF Aggregator] ← Registered Solvers
+#        ↓
+#   Execution via Hyperlane/Native Bridges
+# ============================================================================
+
+# Override replica count for aggregator
+replicaCount: 5
+
+# Use the OIF aggregator image
+image:
+  repository: registry.jeju/oif-aggregator
+  tag: "v1.0.0"
+  pullPolicy: IfNotPresent
+
+# Full name override
+fullnameOverride: "oif-aggregator"
+
+# Service configuration - exposed for external protocols
+service:
+  type: LoadBalancer
+  port: 8080
+  targetPort: 8080
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+    service.beta.kubernetes.io/aws-load-balancer-type: "external"
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+
+# Enable ingress for API access
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+  hosts:
+    - host: intents.jejunetwork.org
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: oif-aggregator-tls
+      hosts:
+        - intents.jejunetwork.org
+
+# Higher resources for aggregation workload
+resources:
+  limits:
+    cpu: 4000m
+    memory: 8Gi
+  requests:
+    cpu: 2000m
+    memory: 4Gi
+
+# Aggressive autoscaling for intent volume
+autoscaling:
+  enabled: true
+  minReplicas: 5
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 50
+  targetMemoryUtilizationPercentage: 70
+
+# High availability
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 3
+
+# ============================================================================
+# OIF Aggregator Specific Configuration
+# ============================================================================
+
+env:
+  - name: NODE_ENV
+    value: "production"
+  
+  # Aggregator identity
+  - name: AGGREGATOR_NAME
+    value: "jeju-oif-aggregator"
+  - name: AGGREGATOR_VERSION
+    value: "1.0.0"
+  
+  # ============================================================================
+  # Intent Sources
+  # ============================================================================
+  
+  # Enable all major intent protocols
+  - name: ENABLE_UNISWAPX
+    value: "true"
+  - name: ENABLE_COW_PROTOCOL
+    value: "true"
+  - name: ENABLE_ACROSS_PROTOCOL
+    value: "true"
+  - name: ENABLE_1INCH_FUSION
+    value: "true"
+  - name: ENABLE_X402
+    value: "true"
+  
+  # UniswapX configuration
+  - name: UNISWAPX_API_URL
+    value: "https://api.uniswap.org/v2"
+  - name: UNISWAPX_REACTOR_ETHEREUM
+    value: "0x6000da47483062A0D734Ba3dc7576Ce6A0B645C4"
+  - name: UNISWAPX_REACTOR_ARBITRUM
+    value: "0x1bd1aAdc9E230626C44b2d510F75E65d2c71c4eB"
+  
+  # CoW Protocol configuration
+  - name: COW_ORDERBOOK_URL
+    value: "https://api.cow.fi/mainnet"
+  - name: COW_SETTLEMENT_CONTRACT
+    value: "0x9008D19f58AAbD9eD0D60971565AA8510560ab41"
+  
+  # Across Protocol configuration
+  - name: ACROSS_API_URL
+    value: "https://across.to/api"
+  - name: ACROSS_SPOKE_POOL_ETHEREUM
+    value: "0x5c7BCd6E7De5423a257D81B442095A1a6ced35C5"
+  
+  # x402 (Jeju native intents)
+  - name: X402_REGISTRY_ADDRESS
+    valueFrom:
+      configMapKeyRef:
+        name: oif-contracts
+        key: X402_REGISTRY
+  - name: X402_FACILITATOR_ADDRESS
+    valueFrom:
+      configMapKeyRef:
+        name: oif-contracts
+        key: X402_FACILITATOR
+  
+  # ============================================================================
+  # Solver Registry
+  # ============================================================================
+  
+  # On-chain solver registry
+  - name: SOLVER_REGISTRY_ADDRESS
+    valueFrom:
+      configMapKeyRef:
+        name: oif-contracts
+        key: SOLVER_REGISTRY
+  
+  # Minimum solver stake to be eligible
+  - name: MIN_SOLVER_STAKE_ETH
+    value: "1.0"
+  
+  # Solver selection strategy
+  - name: SOLVER_SELECTION_MODE
+    value: "auction"  # auction, round_robin, reputation
+  
+  # Auction parameters
+  - name: AUCTION_DURATION_MS
+    value: "500"
+  - name: AUCTION_MIN_PARTICIPANTS
+    value: "2"
+  
+  # ============================================================================
+  # Cross-Chain Execution
+  # ============================================================================
+  
+  # Enable multi-chain execution
+  - name: ENABLE_CROSS_CHAIN
+    value: "true"
+  
+  # Bridge protocols
+  - name: ENABLE_HYPERLANE
+    value: "true"
+  - name: ENABLE_LAYERZERO
+    value: "true"
+  - name: ENABLE_CCIP
+    value: "true"
+  
+  # Hyperlane configuration
+  - name: HYPERLANE_MAILBOX_JEJU
+    valueFrom:
+      configMapKeyRef:
+        name: oif-contracts
+        key: HYPERLANE_MAILBOX
+  
+  # Settlement timeout
+  - name: SETTLEMENT_TIMEOUT_SECONDS
+    value: "300"
+  
+  # ============================================================================
+  # MEV Protection
+  # ============================================================================
+  
+  - name: ENABLE_MEV_PROTECTION
+    value: "true"
+  - name: USE_FLASHBOTS
+    value: "true"
+  - name: USE_MEV_SHARE
+    value: "true"
+  - name: USE_MEV_BLOCKER
+    value: "true"
+  
+  # Private mempool settings
+  - name: PRIVATE_MEMPOOL_ENABLED
+    value: "true"
+  - name: BUNDLE_SIMULATION
+    value: "true"
+  
+  # ============================================================================
+  # Analytics & Metrics
+  # ============================================================================
+  
+  - name: METRICS_ENABLED
+    value: "true"
+  - name: METRICS_PORT
+    value: "9090"
+  
+  # Intent tracking
+  - name: INTENT_TRACKING_ENABLED
+    value: "true"
+  - name: INTENT_TTL_SECONDS
+    value: "3600"
+  
+  # ============================================================================
+  # Rate Limiting
+  # ============================================================================
+  
+  - name: RATE_LIMIT_ENABLED
+    value: "true"
+  - name: RATE_LIMIT_REQUESTS_PER_MINUTE
+    value: "100"
+  - name: RATE_LIMIT_BURST
+    value: "20"
+
+# External secrets reference
+envFrom:
+  - secretRef:
+      name: oif-aggregator-secrets
+  - configMapRef:
+      name: oif-aggregator-config
+  - configMapRef:
+      name: oif-contracts
+
+# ============================================================================
+# ConfigMap for OIF contracts
+# ============================================================================
+configMap:
+  enabled: true
+  name: oif-aggregator-config
+  data:
+    # Supported chains
+    SUPPORTED_CHAINS: "1,42161,8453,10,137,56,43114,420691"
+    
+    # Chain names
+    ETHEREUM_CHAIN_ID: "1"
+    ARBITRUM_CHAIN_ID: "42161"
+    BASE_CHAIN_ID: "8453"
+    OPTIMISM_CHAIN_ID: "10"
+    POLYGON_CHAIN_ID: "137"
+    BSC_CHAIN_ID: "56"
+    AVALANCHE_CHAIN_ID: "43114"
+    JEJU_CHAIN_ID: "420691"
+    
+    # Block confirmations per chain
+    CONFIRMATIONS_ETHEREUM: "12"
+    CONFIRMATIONS_ARBITRUM: "1"
+    CONFIRMATIONS_BASE: "1"
+    CONFIRMATIONS_OPTIMISM: "1"
+    CONFIRMATIONS_JEJU: "1"
+
+# Additional ConfigMap for contract addresses
+additionalConfigMaps:
+  - name: oif-contracts
+    data:
+      # Core OIF contracts (deployed on Jeju)
+      X402_REGISTRY: ""  # Set after deployment
+      X402_FACILITATOR: ""
+      SOLVER_REGISTRY: ""
+      INTENT_ROUTER: ""
+      SETTLEMENT_CONTRACT: ""
+      
+      # Hyperlane contracts
+      HYPERLANE_MAILBOX: ""
+      HYPERLANE_IGP: ""
+      
+      # Warp routes (token bridges)
+      WARP_ROUTE_ETH: ""
+      WARP_ROUTE_USDC: ""
+      WARP_ROUTE_JEJU: ""
+
+# Health checks with intent verification
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8080
+  initialDelaySeconds: 30
+  periodSeconds: 30
+  timeoutSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: 8080
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+
+# ============================================================================
+# Secrets (create with external-secrets or manually)
+# ============================================================================
+# Required secrets in oif-aggregator-secrets:
+#   AGGREGATOR_PRIVATE_KEY - Aggregator signer key (for gas payments)
+#   RPC_URL_ETHEREUM - Ethereum RPC (Alchemy/Infura)
+#   RPC_URL_ARBITRUM - Arbitrum RPC
+#   RPC_URL_BASE - Base RPC
+#   RPC_URL_OPTIMISM - Optimism RPC
+#   RPC_URL_POLYGON - Polygon RPC
+#   RPC_URL_BSC - BSC RPC
+#   RPC_URL_AVALANCHE - Avalanche RPC
+#   RPC_URL_JEJU - Jeju RPC
+#   FLASHBOTS_AUTH_KEY - Flashbots signing key
+#   COW_API_KEY - CoW Protocol API key (optional)
+#   UNISWAP_API_KEY - UniswapX API key (optional)
+

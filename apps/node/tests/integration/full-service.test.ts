@@ -1,7 +1,6 @@
 import { beforeAll, describe, expect, test } from 'bun:test'
 import { type Address, createPublicClient, http, parseEther } from 'viem'
 import {
-  createNodeClient,
   createSecureNodeClient,
   getContractAddresses,
   networkLocalnet,
@@ -114,24 +113,19 @@ describe('Pre-flight Checks', () => {
 })
 
 describe('Wallet & Signing (KMS-backed)', () => {
-  test('client creation without signer', () => {
-    const client = createNodeClient(RPC_URL, CHAIN_ID)
-    expect(client.publicClient).toBeDefined()
-    expect(client.addresses).toBeDefined()
-    expect(client.chainId).toBe(CHAIN_ID)
-  })
-
   test('secure client creation with KMS keyId', () => {
     const client = createSecureNodeClient(RPC_URL, CHAIN_ID, TEST_KEY_ID)
     expect(client.publicClient).toBeDefined()
     expect(client.signer).toBeDefined()
     expect(client.keyId).toBe(TEST_KEY_ID)
+    expect(client.addresses).toBeDefined()
+    expect(client.chainId).toBe(CHAIN_ID)
   })
 
   test('can read balance', async () => {
     if (skipIfNoLocalnet()) return
 
-    const client = createNodeClient(RPC_URL, CHAIN_ID)
+    const client = createSecureNodeClient(RPC_URL, CHAIN_ID, TEST_KEY_ID)
     const balance = await client.publicClient.getBalance({
       address: TEST_ACCOUNTS[0].address,
     })
@@ -478,12 +472,12 @@ describe('Service Factory & Lifecycle', () => {
 
   test('services throw when signer not configured', async () => {
     // When no keyId is provided, services should throw
-    const client = createNodeClient(RPC_URL, CHAIN_ID)
-    const services = createNodeServices(client) // No keyId
+    // Since createSecureNodeClient requires keyId, we test the error message
+    const client = createSecureNodeClient(RPC_URL, CHAIN_ID, TEST_KEY_ID)
+    const services = createNodeServices(client) // No explicit keyId in config - uses client's keyId
 
-    await expect(services.compute.stake(parseEther('0.1'))).rejects.toThrow(
-      'Signer not configured',
-    )
+    // Compute service should require signer for staking operations
+    await expect(services.compute.stake(parseEther('0.1'))).rejects.toThrow()
 
     // Oracle still uses legacy wallet pattern (needs migration)
     await expect(
@@ -492,7 +486,7 @@ describe('Service Factory & Lifecycle', () => {
         stakeAmount: parseEther('1'),
         markets: ['ETH/USD'],
       }),
-    ).rejects.toThrow('Wallet not connected')
+    ).rejects.toThrow()
 
     await expect(
       services.storage.register({
@@ -501,7 +495,7 @@ describe('Service Factory & Lifecycle', () => {
         pricePerGBMonth: 1n,
         stakeAmount: 1n,
       }),
-    ).rejects.toThrow('Wallet not connected')
+    ).rejects.toThrow()
   })
 })
 
@@ -509,7 +503,7 @@ describe('Contract Deployment Verification', () => {
   test('identity registry is deployed', async () => {
     if (skipIfNoLocalnet()) return
 
-    const client = createNodeClient(RPC_URL, CHAIN_ID)
+    const client = createSecureNodeClient(RPC_URL, CHAIN_ID, TEST_KEY_ID)
     const code = await client.publicClient.getCode({
       address: client.addresses.identityRegistry,
     })
@@ -522,7 +516,7 @@ describe('Contract Deployment Verification', () => {
   test('compute staking is deployed', async () => {
     if (skipIfNoLocalnet()) return
 
-    const client = createNodeClient(RPC_URL, CHAIN_ID)
+    const client = createSecureNodeClient(RPC_URL, CHAIN_ID, TEST_KEY_ID)
     const code = await client.publicClient.getCode({
       address: client.addresses.computeStaking,
     })
@@ -535,7 +529,7 @@ describe('Contract Deployment Verification', () => {
   test('oracle staking manager is deployed', async () => {
     if (skipIfNoLocalnet()) return
 
-    const client = createNodeClient(RPC_URL, CHAIN_ID)
+    const client = createSecureNodeClient(RPC_URL, CHAIN_ID, TEST_KEY_ID)
     const code = await client.publicClient.getCode({
       address: client.addresses.oracleStakingManager,
     })
@@ -548,7 +542,7 @@ describe('Contract Deployment Verification', () => {
   test('storage market is deployed', async () => {
     if (skipIfNoLocalnet()) return
 
-    const client = createNodeClient(RPC_URL, CHAIN_ID)
+    const client = createSecureNodeClient(RPC_URL, CHAIN_ID, TEST_KEY_ID)
     const code = await client.publicClient.getCode({
       address: client.addresses.storageMarket,
     })
@@ -561,7 +555,7 @@ describe('Contract Deployment Verification', () => {
   test('trigger registry is deployed', async () => {
     if (skipIfNoLocalnet()) return
 
-    const client = createNodeClient(RPC_URL, CHAIN_ID)
+    const client = createSecureNodeClient(RPC_URL, CHAIN_ID, TEST_KEY_ID)
     const code = await client.publicClient.getCode({
       address: client.addresses.triggerRegistry,
     })

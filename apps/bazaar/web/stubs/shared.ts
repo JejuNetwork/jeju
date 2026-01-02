@@ -10,7 +10,8 @@ import { type Address, parseEther } from 'viem'
 export function getEnv(key: string, defaultValue?: string): string {
   if (typeof window !== 'undefined') {
     // Try window.__ENV__ first (injected by server)
-    const windowEnv = (window as Record<string, Record<string, string>>).__ENV__
+    type WindowWithEnv = { __ENV__?: Record<string, string> }
+    const windowEnv = (window as WindowWithEnv).__ENV__
     if (windowEnv && key in windowEnv) {
       return windowEnv[key]
     }

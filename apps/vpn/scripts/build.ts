@@ -119,11 +119,19 @@ async function build() {
     const landerMainEntry = landerResult.outputs.find(
       (o) => o.kind === 'entry-point' && o.path.includes('main'),
     )
-    const landerMainFileName = landerMainEntry ? landerMainEntry.path.split('/').pop() : 'main.js'
+    const landerMainFileName = landerMainEntry
+      ? landerMainEntry.path.split('/').pop()
+      : 'main.js'
 
     // Copy and update lander index.html
-    const landerHtml = readFileSync(resolve(APP_DIR, 'lander/index.html'), 'utf-8')
-    const updatedLanderHtml = landerHtml.replace('/main.tsx', `/${landerMainFileName}`)
+    const landerHtml = readFileSync(
+      resolve(APP_DIR, 'lander/index.html'),
+      'utf-8',
+    )
+    const updatedLanderHtml = landerHtml.replace(
+      '/main.tsx',
+      `/${landerMainFileName}`,
+    )
     writeFileSync(join(outdir, 'lander', 'index.html'), updatedLanderHtml)
 
     console.log('[VPN] Lander built successfully')

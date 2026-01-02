@@ -125,15 +125,15 @@ export {
 } from './releases/core.js'
 export {
   createReleaseRoutes,
-  releasePlugin,
   type ReleasePluginConfig,
+  releasePlugin,
 } from './releases/elysia.js'
 export {
   type AppReleaseConfig,
   AppReleaseConfigSchema,
-  detectPlatform,
   type DetectedPlatform,
   type DownloadInfo,
+  detectPlatform,
   formatFileSize,
   getArchLabel,
   getPlatformIcon,

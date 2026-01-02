@@ -13,8 +13,8 @@ import { getDWSUrl, getLocalhostHost } from '@jejunetwork/config'
 import { Command } from 'commander'
 import type { Address } from 'viem'
 import { logger } from '../lib/logger'
+import type { AppManifest, NetworkType } from '../types'
 import { requireLogin } from './login'
-import type { NetworkType, AppManifest } from '../types'
 
 interface LogEntry {
   timestamp: number
@@ -44,9 +44,15 @@ function getDWSUrlForNetwork(network: NetworkType): string {
     case 'mainnet':
       return process.env.MAINNET_DWS_URL ?? 'https://dws.jejunetwork.org'
     case 'testnet':
-      return process.env.TESTNET_DWS_URL ?? 'https://dws.testnet.jejunetwork.org'
+      return (
+        process.env.TESTNET_DWS_URL ?? 'https://dws.testnet.jejunetwork.org'
+      )
     default:
-      return process.env.DWS_URL ?? getDWSUrl() ?? `http://${getLocalhostHost()}:4020`
+      return (
+        process.env.DWS_URL ??
+        getDWSUrl() ??
+        `http://${getLocalhostHost()}:4020`
+      )
   }
 }
 
@@ -93,7 +99,10 @@ function parseTimeString(timeStr: string): number {
 /**
  * Format log entry for display
  */
-function formatLogEntry(log: LogEntry, options: { json?: boolean; verbose?: boolean }): string {
+function formatLogEntry(
+  log: LogEntry,
+  options: { json?: boolean; verbose?: boolean },
+): string {
   if (options.json) {
     return JSON.stringify(log)
   }
@@ -165,7 +174,7 @@ async function queryLogs(
 
   const response = await fetch(`${dwsUrl}/logs/query?${params}`, {
     headers: {
-      'Authorization': `Bearer ${authToken}`,
+      Authorization: `Bearer ${authToken}`,
       'X-Jeju-Address': address,
     },
   })
@@ -202,9 +211,9 @@ async function streamLogs(
 
   const response = await fetch(`${dwsUrl}/logs/stream?${params}`, {
     headers: {
-      'Authorization': `Bearer ${authToken}`,
+      Authorization: `Bearer ${authToken}`,
       'X-Jeju-Address': address,
-      'Accept': 'text/event-stream',
+      Accept: 'text/event-stream',
     },
   })
 
@@ -267,7 +276,9 @@ export const logsCommand = new Command('logs')
     }
 
     if (!appName) {
-      logger.error('App name required. Use argument or create jeju-manifest.json')
+      logger.error(
+        'App name required. Use argument or create jeju-manifest.json',
+      )
       return
     }
 
@@ -291,7 +302,12 @@ export const logsCommand = new Command('logs')
         credentials.authToken,
         credentials.address as Address,
         (log) => {
-          console.log(formatLogEntry(log, { json: options.json, verbose: options.verbose }))
+          console.log(
+            formatLogEntry(log, {
+              json: options.json,
+              verbose: options.verbose,
+            }),
+          )
         },
         queryOptions,
       )
@@ -322,6 +338,8 @@ export const logsCommand = new Command('logs')
     }
 
     for (const log of logs) {
-      console.log(formatLogEntry(log, { json: options.json, verbose: options.verbose }))
+      console.log(
+        formatLogEntry(log, { json: options.json, verbose: options.verbose }),
+      )
     }
   })

@@ -354,18 +354,26 @@ export class JNSResolver {
 
     if (hash.startsWith('0xe3')) {
       // IPFS
-      const ipfsData = hash.slice(4)
+      const ipfsData = hash.slice(4) // Skip 0xe3
 
-      // Check for CIDv1 prefix (01 70 = dag-pb, 01 55 = raw)
+      // Check for CIDv1-style prefix (01 70 = version 1, dag-pb codec)
+      // or (01 55 = version 1, raw codec)
       if (ipfsData.startsWith('0170') || ipfsData.startsWith('0155')) {
-        const cidBytes = this.hexToBytes(ipfsData)
+        // Skip the version (01) and codec (70/55) bytes to get raw SHA256 hash
+        const rawHash = ipfsData.slice(4) // Skip 0170 or 0155
+        const hashBytes = this.hexToBytes(rawHash)
+        // Prepend sha2-256 multihash prefix (0x12 = sha2-256, 0x20 = 32 bytes)
+        const multihash = new Uint8Array(2 + hashBytes.length)
+        multihash[0] = 0x12
+        multihash[1] = 0x20
+        multihash.set(hashBytes, 2)
         return {
           protocol: 'ipfs',
-          hash: this.bytesToBase58(cidBytes),
+          hash: this.bytesToBase58(multihash),
         }
       }
 
-      // CIDv0 (just the multihash)
+      // CIDv0 (already a multihash with 0x12 0x20 prefix)
       const multihash = this.hexToBytes(ipfsData)
       return {
         protocol: 'ipfs',

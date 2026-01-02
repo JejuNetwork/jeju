@@ -36,7 +36,7 @@ func (ws *WebsocketServer) Serve() error {
 	mux.HandleFunc("/v1/status", func(rw http.ResponseWriter, r *http.Request) {
 		rw.Header().Set("Content-Type", "application/json")
 		rw.WriteHeader(http.StatusOK)
-		rw.Write([]byte(`{"status":"ok","blockHeight":0,"databases":0}`))
+		_, _ = rw.Write([]byte(`{"status":"ok","blockHeight":0,"databases":0}`))
 	})
 
 	mux.HandleFunc("/", func(rw http.ResponseWriter, r *http.Request) {
@@ -44,7 +44,7 @@ func (ws *WebsocketServer) Serve() error {
 		if r.Header.Get("Upgrade") != "websocket" {
 			rw.Header().Set("Content-Type", "application/json")
 			rw.WriteHeader(http.StatusOK)
-			rw.Write([]byte(`{"status":"ok"}`))
+			_, _ = rw.Write([]byte(`{"status":"ok"}`))
 			return
 		}
 

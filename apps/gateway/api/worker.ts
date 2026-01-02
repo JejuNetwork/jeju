@@ -129,10 +129,26 @@ export function createGatewayApp(env?: Partial<GatewayEnv>) {
     description: 'Jeju Gateway - Faucet, RPC Proxy, x402 Payments, Oracle',
     version: '1.0.0',
     skills: [
-      { id: 'faucet-claim', name: 'Claim Faucet', description: 'Claim testnet tokens from faucet' },
-      { id: 'faucet-status', name: 'Faucet Status', description: 'Check faucet claim status' },
-      { id: 'rpc-proxy', name: 'RPC Proxy', description: 'Proxy JSON-RPC requests' },
-      { id: 'x402-verify', name: 'Verify Payment', description: 'Verify x402 payments' },
+      {
+        id: 'faucet-claim',
+        name: 'Claim Faucet',
+        description: 'Claim testnet tokens from faucet',
+      },
+      {
+        id: 'faucet-status',
+        name: 'Faucet Status',
+        description: 'Check faucet claim status',
+      },
+      {
+        id: 'rpc-proxy',
+        name: 'RPC Proxy',
+        description: 'Proxy JSON-RPC requests',
+      },
+      {
+        id: 'x402-verify',
+        name: 'Verify Payment',
+        description: 'Verify x402 payments',
+      },
     ],
     endpoints: {
       a2a: '/a2a',

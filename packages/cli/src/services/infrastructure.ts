@@ -17,6 +17,9 @@ import { execa, type ResultPromise } from 'execa'
 import { logger } from '../lib/logger'
 import { DEFAULT_PORTS } from '../types'
 
+// ERC-4337 Bundler port
+const BUNDLER_PORT = 4337
+
 export interface ServiceHealth {
   name: string
   port: number
@@ -28,7 +31,11 @@ export interface InfrastructureStatus {
   docker: boolean
   sqlit: boolean
   services: ServiceHealth[]
+  l1: boolean
+  l2: boolean
   localnet: boolean
+  bundler: boolean
+  messageRelay: boolean
   allHealthy: boolean
 }
 
@@ -55,9 +62,14 @@ const DOCKER_SERVICES = {
   },
 } as const
 
-const LOCALNET_PORT = DEFAULT_PORTS.l2Rpc
+const L1_PORT = DEFAULT_PORTS.l1Rpc // 6545
+const L2_PORT = DEFAULT_PORTS.l2Rpc // 6546
+const L1_CHAIN_ID = 1337
+const L2_CHAIN_ID = 31337
 
 let sqlitProcess: ResultPromise | null = null
+let bundlerProcess: ResultPromise | null = null
+let messageRelayProcess: ResultPromise | null = null
 
 export class InfrastructureService {
   private rootDir: string
@@ -410,6 +422,12 @@ export class InfrastructureService {
   async stopServices(): Promise<void> {
     logger.step('Stopping all services...')
 
+    await this.stopMessageRelay()
+    logger.success('Message relay stopped')
+
+    await this.stopBundler()
+    logger.success('Bundler stopped')
+
     await this.stopSQLit()
     logger.success('SQLit stopped')
 
@@ -425,10 +443,10 @@ export class InfrastructureService {
     logger.success('Docker services stopped')
   }
 
-  async isLocalnetRunning(): Promise<boolean> {
+  async isL1Running(): Promise<boolean> {
     try {
       const response = await fetch(
-        `http://${getLocalhostHost()}:${LOCALNET_PORT}`,
+        `http://${getLocalhostHost()}:${L1_PORT}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -447,13 +465,133 @@ export class InfrastructureService {
     }
   }
 
-  async startLocalnet(): Promise<boolean> {
-    if (await this.isLocalnetRunning()) {
-      logger.success('Localnet already running')
+  async isL2Running(): Promise<boolean> {
+    try {
+      const response = await fetch(
+        `http://${getLocalhostHost()}:${L2_PORT}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            method: 'eth_chainId',
+            params: [],
+            id: 1,
+          }),
+          signal: AbortSignal.timeout(2000),
+        },
+      )
+      return response.ok
+    } catch {
+      return false
+    }
+  }
+
+  async isLocalnetRunning(): Promise<boolean> {
+    // Both L1 and L2 must be running
+    const [l1, l2] = await Promise.all([this.isL1Running(), this.isL2Running()])
+    return l1 && l2
+  }
+
+  async isBundlerRunning(): Promise<boolean> {
+    try {
+      // Stackup bundler doesn't have /health, use RPC method instead
+      const response = await fetch(
+        `http://${getLocalhostHost()}:${BUNDLER_PORT}/`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            method: 'eth_supportedEntryPoints',
+            params: [],
+            id: 1,
+          }),
+          signal: AbortSignal.timeout(2000),
+        },
+      )
+      if (!response.ok) return false
+      const data = await response.json()
+      return Array.isArray(data.result)
+    } catch {
+      return false
+    }
+  }
+
+  async startBundler(): Promise<boolean> {
+    if (await this.isBundlerRunning()) {
+      logger.success('Bundler already running')
       return true
     }
 
-    logger.step('Starting localnet...')
+    logger.step('Starting ERC-4337 bundler...')
+
+    const bundlerScript = join(
+      this.rootDir,
+      'packages/deployment/scripts/bundler/index.ts',
+    )
+    if (!existsSync(bundlerScript)) {
+      logger.error(
+        'Bundler script not found at packages/deployment/scripts/bundler/index.ts',
+      )
+      return false
+    }
+
+    // Try to read EntryPoint address from deployment file
+    let entryPointAddress: string | undefined
+    const deploymentFile = join(
+      this.rootDir,
+      'packages/contracts/deployments/localnet-complete.json',
+    )
+    if (existsSync(deploymentFile)) {
+      try {
+        const { readFileSync } = await import('node:fs')
+        const deployment = JSON.parse(readFileSync(deploymentFile, 'utf-8'))
+        if (deployment?.contracts?.entryPoint) {
+          entryPointAddress = deployment.contracts.entryPoint
+          logger.debug(`Using EntryPoint from deployment: ${entryPointAddress}`)
+        }
+      } catch {
+        // Use default
+      }
+    }
+
+    bundlerProcess = execa('bun', ['run', bundlerScript], {
+      cwd: this.rootDir,
+      env: {
+        ...process.env,
+        BUNDLER_PORT: String(BUNDLER_PORT),
+        BUNDLER_NETWORK: 'localnet',
+        JEJU_RPC_URL: getL2RpcUrl(),
+        ...(entryPointAddress
+          ? { ENTRY_POINT_ADDRESS: entryPointAddress }
+          : {}),
+      },
+      stdio: 'pipe',
+    })
+
+    // Wait for bundler to start
+    for (let i = 0; i < 30; i++) {
+      await this.sleep(500)
+      if (await this.isBundlerRunning()) {
+        logger.success(`Bundler running on port ${BUNDLER_PORT}`)
+        return true
+      }
+    }
+
+    logger.error('Bundler failed to start within 15 seconds')
+    return false
+  }
+
+  async stopBundler(): Promise<void> {
+    if (bundlerProcess) {
+      bundlerProcess.kill('SIGTERM')
+      bundlerProcess = null
+    }
+  }
+
+  async startLocalnet(): Promise<boolean> {
+    logger.step('Starting dual-chain localnet (L1 + L2)...')
 
     try {
       const { exitCode } = await execa('which', ['anvil'], { reject: false })
@@ -463,16 +601,44 @@ export class InfrastructureService {
         return false
       }
 
-      execa('anvil', ['--port', String(LOCALNET_PORT), '--chain-id', '31337'], {
-        cwd: this.rootDir,
-        stdio: 'ignore',
-        detached: true,
-      }).unref()
+      // Start L1 if not running
+      if (!(await this.isL1Running())) {
+        execa(
+          'anvil',
+          ['--port', String(L1_PORT), '--chain-id', String(L1_CHAIN_ID)],
+          {
+            cwd: this.rootDir,
+            stdio: 'ignore',
+            detached: true,
+          },
+        ).unref()
+        logger.debug(`Starting L1 on port ${L1_PORT} (chain ${L1_CHAIN_ID})`)
+      }
 
+      // Start L2 if not running
+      if (!(await this.isL2Running())) {
+        execa(
+          'anvil',
+          ['--port', String(L2_PORT), '--chain-id', String(L2_CHAIN_ID)],
+          {
+            cwd: this.rootDir,
+            stdio: 'ignore',
+            detached: true,
+          },
+        ).unref()
+        logger.debug(`Starting L2 on port ${L2_PORT} (chain ${L2_CHAIN_ID})`)
+      }
+
+      // Wait for both to be ready
       for (let i = 0; i < 30; i++) {
         await this.sleep(500)
-        if (await this.isLocalnetRunning()) {
-          logger.success(`Localnet running on port ${LOCALNET_PORT}`)
+        const [l1Ready, l2Ready] = await Promise.all([
+          this.isL1Running(),
+          this.isL2Running(),
+        ])
+        if (l1Ready && l2Ready) {
+          logger.success(`L1 running on port ${L1_PORT} (chain ${L1_CHAIN_ID})`)
+          logger.success(`L2 running on port ${L2_PORT} (chain ${L2_CHAIN_ID})`)
           return true
         }
       }
@@ -486,8 +652,76 @@ export class InfrastructureService {
     }
   }
 
+  async startMessageRelay(): Promise<boolean> {
+    logger.step('Starting cross-chain message relay...')
+
+    const relayScript = join(
+      this.rootDir,
+      'packages/deployment/scripts/bridge/message-relay.ts',
+    )
+    if (!existsSync(relayScript)) {
+      logger.warn('Message relay script not found - cross-chain messaging disabled')
+      return false
+    }
+
+    // Check if deployment file exists with messenger addresses
+    const deploymentFile = join(
+      this.rootDir,
+      'packages/contracts/deployments/localnet-crosschain.json',
+    )
+    
+    if (!existsSync(deploymentFile)) {
+      logger.debug('Cross-chain deployment not found, skipping relay')
+      return false
+    }
+
+    try {
+      const { readFileSync } = await import('node:fs')
+      const deployment = JSON.parse(readFileSync(deploymentFile, 'utf-8'))
+      
+      if (!deployment.l1Messenger || !deployment.l2Messenger) {
+        logger.debug('Messenger addresses not found, skipping relay')
+        return false
+      }
+
+      messageRelayProcess = execa('bun', ['run', relayScript], {
+        cwd: this.rootDir,
+        env: {
+          ...process.env,
+          L1_RPC_URL: `http://${getLocalhostHost()}:${L1_PORT}`,
+          L2_RPC_URL: `http://${getLocalhostHost()}:${L2_PORT}`,
+          L1_CHAIN_ID: String(L1_CHAIN_ID),
+          L2_CHAIN_ID: String(L2_CHAIN_ID),
+          L1_MESSENGER_ADDRESS: deployment.l1Messenger,
+          L2_MESSENGER_ADDRESS: deployment.l2Messenger,
+        },
+        stdio: 'pipe',
+      })
+
+      // Give it a moment to start
+      await this.sleep(1000)
+      logger.success('Message relay running')
+      return true
+    } catch (error) {
+      logger.warn('Failed to start message relay')
+      logger.debug(String(error))
+      return false
+    }
+  }
+
+  async stopMessageRelay(): Promise<void> {
+    if (messageRelayProcess) {
+      messageRelayProcess.kill('SIGTERM')
+      messageRelayProcess = null
+    }
+  }
+
   async stopLocalnet(): Promise<void> {
-    await execa('pkill', ['-f', `anvil.*--port.*${LOCALNET_PORT}`], {
+    // Stop both L1 and L2
+    await execa('pkill', ['-f', `anvil.*--port.*${L1_PORT}`], {
+      reject: false,
+    })
+    await execa('pkill', ['-f', `anvil.*--port.*${L2_PORT}`], {
       reject: false,
     })
   }
@@ -496,7 +730,11 @@ export class InfrastructureService {
     const sqlit = await this.isSQLitRunning()
     const docker = await this.isDockerRunning()
     const dockerServices = docker ? await this.checkDockerServices() : []
-    const localnet = await this.isLocalnetRunning()
+    const l1 = await this.isL1Running()
+    const l2 = await this.isL2Running()
+    const localnet = l1 && l2
+    const bundler = await this.isBundlerRunning()
+    const messageRelay = messageRelayProcess !== null
 
     const sqlitHealth = await this.getSQLitHealth()
     const services = [sqlitHealth, ...dockerServices]
@@ -508,7 +746,11 @@ export class InfrastructureService {
       docker,
       sqlit,
       services,
+      l1,
+      l2,
       localnet,
+      bundler,
+      messageRelay,
       allHealthy,
     }
   }
@@ -612,11 +854,29 @@ export class InfrastructureService {
         this.startLocalnet().then((success) => ({ name: 'Localnet', success })),
       )
     } else {
-      logger.success(`Localnet already running on port ${LOCALNET_PORT}`)
+      logger.success('Localnet already running (L1 + L2)')
     }
 
     // Wait for all parallel tasks to complete
     const results = await Promise.all(startTasks)
+
+    // Start bundler after localnet is up (needs chain connection)
+    const bundlerRunning = await this.isBundlerRunning()
+    if (!bundlerRunning) {
+      const bundlerSuccess = await this.startBundler()
+      if (!bundlerSuccess) {
+        logger.warn(
+          'Bundler failed to start - gasless transactions unavailable',
+        )
+      }
+    } else {
+      logger.success(`Bundler already running on port ${BUNDLER_PORT}`)
+    }
+
+    // Start message relay for cross-chain communication
+    if (messageRelayProcess === null) {
+      await this.startMessageRelay()
+    }
 
     // Check all results
     const failures = results.filter((r) => !r.success)
@@ -670,11 +930,39 @@ export class InfrastructureService {
 
     logger.table([
       {
-        label: 'Localnet',
-        value: status.localnet
-          ? `http://${getLocalhostHost()}:${LOCALNET_PORT}`
+        label: 'L1 Chain',
+        value: status.l1
+          ? `http://${getLocalhostHost()}:${L1_PORT} (chain ${L1_CHAIN_ID})`
           : 'stopped',
-        status: status.localnet ? 'ok' : 'error',
+        status: status.l1 ? 'ok' : 'error',
+      },
+    ])
+
+    logger.table([
+      {
+        label: 'L2 Chain',
+        value: status.l2
+          ? `http://${getLocalhostHost()}:${L2_PORT} (chain ${L2_CHAIN_ID})`
+          : 'stopped',
+        status: status.l2 ? 'ok' : 'error',
+      },
+    ])
+
+    logger.table([
+      {
+        label: 'Bundler (ERC-4337)',
+        value: status.bundler
+          ? `http://${getLocalhostHost()}:${BUNDLER_PORT}`
+          : 'stopped',
+        status: status.bundler ? 'ok' : 'warn',
+      },
+    ])
+
+    logger.table([
+      {
+        label: 'Message Relay',
+        value: status.messageRelay ? 'running' : 'stopped',
+        status: status.messageRelay ? 'ok' : 'warn',
       },
     ])
   }
@@ -684,6 +972,7 @@ export class InfrastructureService {
    */
   getEnvVars(): Record<string, string> {
     const dwsUrl = getDWSUrl()
+    const localhost = getLocalhostHost()
     return {
       L2_RPC_URL: getL2RpcUrl(),
       JEJU_RPC_URL: getL2RpcUrl(),
@@ -696,6 +985,8 @@ export class InfrastructureService {
       DWS_URL: dwsUrl,
       FARCASTER_HUB_URL: getFarcasterHubUrl(),
       CHAIN_ID: '31337',
+      // ERC-4337 bundler (v0.7 EntryPoint deployed by bootstrap)
+      BUNDLER_URL: `http://${localhost}:${BUNDLER_PORT}`,
     }
   }
 

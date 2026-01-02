@@ -12,8 +12,7 @@
  * - Error handling for invalid apps/versions
  */
 
-import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
-import { type Server } from 'bun'
+import { beforeAll, describe, expect, it } from 'bun:test'
 
 // Test against running Factory server or spin up test instance
 const FACTORY_PORT = process.env.FACTORY_TEST_PORT || '4009'
@@ -148,7 +147,9 @@ describe('Factory Release API', () => {
     it('accepts channel query parameter for beta', async () => {
       if (!serverAvailable) return
 
-      const response = await apiRequest('/api/releases/otto/latest?channel=beta')
+      const response = await apiRequest(
+        '/api/releases/otto/latest?channel=beta',
+      )
 
       // May return 404 if no beta releases, or 503 if DWS is down
       if (response.status === 404 || response.status === 503) return
@@ -160,7 +161,9 @@ describe('Factory Release API', () => {
     it('accepts channel query parameter for nightly', async () => {
       if (!serverAvailable) return
 
-      const response = await apiRequest('/api/releases/otto/latest?channel=nightly')
+      const response = await apiRequest(
+        '/api/releases/otto/latest?channel=nightly',
+      )
 
       // May return 404 if no nightly releases, or 503 if DWS is down
       if (response.status === 404 || response.status === 503) return
@@ -323,7 +326,7 @@ describe('Factory Release API', () => {
     it('handles very long version strings', async () => {
       if (!serverAvailable) return
 
-      const longVersion = '1.0.0-' + 'a'.repeat(1000)
+      const longVersion = `1.0.0-${'a'.repeat(1000)}`
       const response = await apiRequest(`/api/releases/otto/${longVersion}`)
       // May return 400, 404, or 503 if DWS is unavailable
       expect([400, 404, 503]).toContain(response.status)

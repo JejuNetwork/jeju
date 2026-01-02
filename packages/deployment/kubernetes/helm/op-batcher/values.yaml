@@ -1,8 +1,11 @@
 replicaCount: 1
 
 image:
-  repository: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-batcher
+  # Use Jeju's decentralized registry
+  repository: registry.jeju/op-batcher
   pullPolicy: IfNotPresent
+  # Fallback for bootstrapping
+  fallbackRepository: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-batcher
   tag: "v1.9.4"
 
 nameOverride: ""

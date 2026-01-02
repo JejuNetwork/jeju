@@ -10,7 +10,11 @@
  * - Metrics and monitoring
  */
 
-import { getContract, getCurrentNetwork, getRpcUrl } from '@jejunetwork/config'
+import {
+  getCurrentNetwork,
+  getRpcUrl,
+  tryGetContract,
+} from '@jejunetwork/config'
 import {
   type Address,
   createPublicClient,
@@ -1297,11 +1301,11 @@ export function getManagedDatabaseService(
   if (!managedDatabaseService) {
     const network = getCurrentNetwork()
     const rpcUrl = getRpcUrl(network)
-    const registryAddress = (getContract(
+    const registryAddress = (tryGetContract(
       'dws',
       'managedDatabaseRegistry',
       network,
-    ) ?? '0x0000000000000000000000000000000000000000') as Address
+    ) || '0x0000000000000000000000000000000000000000') as Address
     // Private key is a secret - keep as env var
     const privateKey =
       typeof process !== 'undefined'

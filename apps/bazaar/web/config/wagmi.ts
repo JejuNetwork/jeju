@@ -33,6 +33,9 @@ const localnet = defineChain({
   testnet: true,
 })
 
+const mainnetServices = getServicesConfig('mainnet')
+const testnetServices = getServicesConfig('testnet')
+
 const mainnet = defineChain({
   id: getChainId('mainnet'),
   name: `${NETWORK_NAME} Mainnet`,
@@ -49,7 +52,7 @@ const mainnet = defineChain({
   blockExplorers: {
     default: {
       name: `${NETWORK_NAME} Explorer`,
-      url: 'https://explorer.jejunetwork.org',
+      url: mainnetServices.explorer || 'https://explorer.jejunetwork.org',
     },
   },
 })
@@ -70,7 +73,8 @@ const testnet = defineChain({
   blockExplorers: {
     default: {
       name: `${NETWORK_NAME} Testnet Explorer`,
-      url: 'https://testnet-explorer.jejunetwork.org',
+      url:
+        testnetServices.explorer || 'https://testnet-explorer.jejunetwork.org',
     },
   },
   testnet: true,

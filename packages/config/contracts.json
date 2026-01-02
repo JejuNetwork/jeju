@@ -17,7 +17,7 @@
       "weth": "0x4200000000000000000000000000000000000006"
     },
     "registry": {
-      "identity": "0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE",
+      "identity": "0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496",
       "reputation": "0x68B1D87F95878fE05B998F19b66F4baba5De1aed",
       "validation": "0x3Aa5ebB10DC797CAC828524e59A333d0A371443c",
       "token": "0x322813Fd9A801c5507c9de605d63CEA4f2CE6c44",
@@ -56,8 +56,8 @@
       "performanceOracle": "0x998D98e9480A8f52A5252Faf316d129765773294"
     },
     "jns": {
-      "registry": "0x9C07ab0E706fab71113b27dAFd8a51261453a46f",
-      "resolver": "0x7a6E91C3C4fCB9157A27EB901210Aa1Df9D05B45",
+      "registry": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+      "resolver": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
       "registrar": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
       "reverseRegistrar": "0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9"
     },
@@ -68,17 +68,16 @@
       "staking": "0x0000000000000000000000000000000000000000"
     },
     "dws": {
-      "jnsRegistry": "0x9d4454B023096f34B160D6B654540c56A1F81688",
-      "jnsResolver": "0x5eb3Bc0a489C5A8288765d2336659EbCA68FCd00",
-      "storageManager": "0x46b142DD1E924FAb83eCc3c08e4D46E82f005e0E",
-      "workerRegistry": "0xC9a43158891282A2B1475592D5719c001986Aaec",
-      "cdnRegistry": "0x1c85638e118b37167e9298c2268758e058DdfDA0",
-      "gitRegistry": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
-      "packageRegistry": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
-      "cacheManager": "0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9",
-      "cronOrchestrator": "0xdc64a140aa3e981100a9beca4e685f962f0cf6c9",
-      "containerRegistry": "0x5fc8d32690cc91d4c39d9d3abcbd16989f875707",
-      "managedDatabaseRegistry": "0x0165878a594ca255338adfa4d48449f69242eb8f"
+      "storageManager": "0x610178da211fef7d417bc0e6fed39f05609ad788",
+      "workerRegistry": "0xb7f8bc63bbcad18155201308c8f3540b07f84f5e",
+      "cdnRegistry": "0xa51c1fc2f0d1a1b8494ed1fe312d7c3a78ed91c0",
+      "repoRegistry": "0x0dcd1bf9a1b36ce34237eeafef220932846bcd82",
+      "packageRegistry": "0x9a676e781a523b5d0c0e43731313a708cb607508",
+      "managedDatabaseRegistry": "",
+      "gitRegistry": "",
+      "cacheManager": "",
+      "cronOrchestrator": "",
+      "containerRegistry": ""
     },
     "payments": {
       "creditManager": "0x67d269191c92Caf3cD7723F116c85e6E9bf55933",
@@ -102,7 +101,12 @@
       "inferenceServing": "0x08A90aF9A6eBBe11c322AD9930CC58E122231B5A",
       "staking": "0x7bdd3b028C4796eF0EAf07d11394d0d9d8c24139",
       "workerRegistry": "",
-      "cronTriggerRegistry": "0xdc64a140aa3e981100a9beca4e685f962f0cf6c9"
+      "cronTriggerRegistry": "0x0b306bf915c4d645ff596e518faf3f9669b97016"
+    },
+    "sequencer": {
+      "registry": "",
+      "thresholdBatchSubmitter": "",
+      "forcedInclusion": ""
     },
     "governance": {
       "governor": "",
@@ -121,6 +125,12 @@
       "l1StakeManager": "",
       "crossChainPaymaster": "0xa7Cd0542a8F4CCa6Dd021C3A0Af0E423Ad7DFfB7",
       "liquidityPaymaster": ""
+    },
+    "federation": {
+      "registryHub": "",
+      "networkRegistry": "",
+      "federationBridge": "",
+      "federationGovernance": ""
     },
     "liquidity": {
       "riskSleeve": "",
@@ -249,6 +259,11 @@
       "workerRegistry": "",
       "cronTriggerRegistry": ""
     },
+    "sequencer": {
+      "registry": "",
+      "thresholdBatchSubmitter": "",
+      "forcedInclusion": ""
+    },
     "governance": {
       "governor": "",
       "timelock": "",
@@ -266,6 +281,12 @@
       "l1StakeManager": "0xBf871db95b89Fde7D13b4FAA8b8E47aB5F00C29C",
       "crossChainPaymaster": "",
       "liquidityPaymaster": ""
+    },
+    "federation": {
+      "registryHub": "",
+      "networkRegistry": "",
+      "federationBridge": "",
+      "federationGovernance": ""
     },
     "liquidity": {
       "riskSleeve": "",
@@ -378,6 +399,11 @@
       "workerRegistry": "",
       "cronTriggerRegistry": ""
     },
+    "sequencer": {
+      "registry": "",
+      "thresholdBatchSubmitter": "",
+      "forcedInclusion": ""
+    },
     "governance": {
       "governor": "",
       "timelock": "",
@@ -395,6 +421,12 @@
       "l1StakeManager": "",
       "crossChainPaymaster": "",
       "liquidityPaymaster": ""
+    },
+    "federation": {
+      "registryHub": "",
+      "networkRegistry": "",
+      "federationBridge": "",
+      "federationGovernance": ""
     },
     "liquidity": {
       "riskSleeve": "",

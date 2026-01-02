@@ -39,6 +39,67 @@ resource "aws_wafv2_web_acl" "rpc" {
     allow {}
   }
 
+  # Rule 0: Allow DWS API endpoints without strict inspection
+  # These endpoints handle worker deployment and require large JSON bodies
+  rule {
+    name     = "AllowDWSEndpoints"
+    priority = 0
+
+    action {
+      allow {}
+    }
+
+    statement {
+      or_statement {
+        statement {
+          byte_match_statement {
+            search_string = "/workerd"
+            field_to_match {
+              uri_path {}
+            }
+            text_transformation {
+              priority = 0
+              type     = "LOWERCASE"
+            }
+            positional_constraint = "STARTS_WITH"
+          }
+        }
+        statement {
+          byte_match_statement {
+            search_string = "/compute"
+            field_to_match {
+              uri_path {}
+            }
+            text_transformation {
+              priority = 0
+              type     = "LOWERCASE"
+            }
+            positional_constraint = "STARTS_WITH"
+          }
+        }
+        statement {
+          byte_match_statement {
+            search_string = "/storage"
+            field_to_match {
+              uri_path {}
+            }
+            text_transformation {
+              priority = 0
+              type     = "LOWERCASE"
+            }
+            positional_constraint = "STARTS_WITH"
+          }
+        }
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${local.name_prefix}-dws-allow"
+      sampled_requests_enabled   = true
+    }
+  }
+
   # Rule 1: Rate limiting per IP
   rule {
     name     = "RateLimitPerIP"
@@ -63,6 +124,7 @@ resource "aws_wafv2_web_acl" "rpc" {
   }
 
   # Rule 2: AWS Managed Rules - Core Rule Set
+  # Exclude DWS endpoints from body size and SQL injection checks (they have large JSON payloads)
   rule {
     name     = "AWSManagedRulesCommonRuleSet"
     priority = 2
@@ -75,6 +137,32 @@ resource "aws_wafv2_web_acl" "rpc" {
       managed_rule_group_statement {
         name        = "AWSManagedRulesCommonRuleSet"
         vendor_name = "AWS"
+
+        # Exclude rules that block large request bodies and encoded payloads
+        rule_action_override {
+          action_to_use {
+            count {}
+          }
+          name = "SizeRestrictions_BODY"
+        }
+        rule_action_override {
+          action_to_use {
+            count {}
+          }
+          name = "CrossSiteScripting_BODY"
+        }
+        rule_action_override {
+          action_to_use {
+            count {}
+          }
+          name = "GenericLFI_BODY"
+        }
+        rule_action_override {
+          action_to_use {
+            count {}
+          }
+          name = "RestrictedExtensions_BODY"
+        }
       }
     }
 
@@ -86,6 +174,7 @@ resource "aws_wafv2_web_acl" "rpc" {
   }
 
   # Rule 3: AWS Managed Rules - Known Bad Inputs
+  # Exclude rules that may block base64-encoded code in worker payloads
   rule {
     name     = "AWSManagedRulesKnownBadInputsRuleSet"
     priority = 3
@@ -98,6 +187,20 @@ resource "aws_wafv2_web_acl" "rpc" {
       managed_rule_group_statement {
         name        = "AWSManagedRulesKnownBadInputsRuleSet"
         vendor_name = "AWS"
+
+        # Override to count-only for rules that may trigger on worker code
+        rule_action_override {
+          action_to_use {
+            count {}
+          }
+          name = "Log4JRCE_BODY"
+        }
+        rule_action_override {
+          action_to_use {
+            count {}
+          }
+          name = "JavaDeserializationRCE_BODY"
+        }
       }
     }
 

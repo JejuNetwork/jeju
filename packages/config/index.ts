@@ -150,11 +150,62 @@ export function loadChainConfig(network: NetworkType): ChainConfig {
 }
 
 /**
+ * Detect network from browser hostname
+ * - *.testnet.jejunetwork.org → testnet
+ * - *.jejunetwork.org (without testnet) → mainnet
+ * - localhost/127.0.0.1 → localnet
+ */
+function detectNetworkFromHostname(): NetworkType | null {
+  if (typeof window === 'undefined') return null
+
+  const hostname = window.location.hostname
+
+  // Localhost or local IP → localnet
+  if (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname.startsWith('192.168.') ||
+    hostname.startsWith('10.')
+  ) {
+    return 'localnet'
+  }
+
+  // Check for testnet subdomain
+  if (hostname.includes('.testnet.jejunetwork.org')) {
+    return 'testnet'
+  }
+
+  // Check for testnet domain directly
+  if (hostname === 'testnet.jejunetwork.org') {
+    return 'testnet'
+  }
+
+  // Production jejunetwork.org domains → mainnet
+  if (hostname.endsWith('.jejunetwork.org')) {
+    return 'mainnet'
+  }
+
+  return null
+}
+
+/**
  * Get the current network based on environment or default
  * Browser safe - doesn't use fs
+ *
+ * Priority:
+ * 1. Hostname-based detection in browser (most reliable for deployed apps)
+ * 2. VITE_NETWORK env var (build-time, may be incorrect if build was misconfigured)
+ * 3. JEJU_NETWORK env var (Node.js)
+ * 4. Default to localnet
  */
 export function getCurrentNetwork(): NetworkType {
-  // Browser check - look for Vite env vars
+  // Browser: detect from hostname first (highest priority for deployed apps)
+  const hostnameNetwork = detectNetworkFromHostname()
+  if (hostnameNetwork) {
+    return hostnameNetwork
+  }
+
+  // Browser fallback: check Vite env vars
   if (typeof globalThis !== 'undefined') {
     const g = globalThis as Record<string, unknown>
     const importMeta = g.import as

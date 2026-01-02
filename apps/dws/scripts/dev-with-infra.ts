@@ -189,6 +189,7 @@ async function startFrontend(): Promise<boolean> {
     return true
   }
 
+  const host = getLocalhostHost()
   const proc = Bun.spawn(['bun', 'run', 'scripts/dev-frontend.ts'], {
     cwd: DWS_DIR,
     stdout: 'inherit',

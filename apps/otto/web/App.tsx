@@ -1,8 +1,8 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
+import { Chat } from './pages/Chat'
+import { Configure } from './pages/Configure'
 import { Landing } from './pages/Landing'
 import { Onboard } from './pages/Onboard'
-import { Configure } from './pages/Configure'
-import { Chat } from './pages/Chat'
 
 type Page = 'landing' | 'onboard' | 'configure' | 'chat'
 
@@ -16,12 +16,7 @@ export function App() {
     case 'landing':
       return <Landing onNavigate={navigate} />
     case 'onboard':
-      return (
-        <Onboard
-          onNavigate={navigate}
-          onSessionCreated={setSessionId}
-        />
-      )
+      return <Onboard onNavigate={navigate} onSessionCreated={setSessionId} />
     case 'configure':
       return <Configure onNavigate={navigate} sessionId={sessionId} />
     case 'chat':

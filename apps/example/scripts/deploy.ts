@@ -124,7 +124,7 @@ async function verifyContentRetrievable(
     method: 'HEAD',
     signal: AbortSignal.timeout(10000),
   }).catch(() => null)
-  
+
   return response?.ok === true
 }
 
@@ -153,13 +153,15 @@ async function uploadFile(
       }
 
       const result = IPFSUploadResponseSchema.parse(await response.json())
-      
+
       // Verify the content is retrievable before returning success
       const verified = await verifyContentRetrievable(dwsUrl, result.cid)
       if (!verified) {
-        throw new Error(`Upload verification failed for ${filename} - content not retrievable`)
+        throw new Error(
+          `Upload verification failed for ${filename} - content not retrievable`,
+        )
       }
-      
+
       return { cid: result.cid, size: content.length }
     } catch (err) {
       if (attempt === retries) throw err

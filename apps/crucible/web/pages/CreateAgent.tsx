@@ -26,25 +26,25 @@ export default function CreateAgentPage() {
     }
 
     try {
-      await registerAgent.mutateAsync({
-        character: {
-          id: selectedCharacter.id,
+    await registerAgent.mutateAsync({
+      character: {
+        id: selectedCharacter.id,
           name: customName || selectedCharacter.name,
           description: customDescription || selectedCharacter.description,
-          system: selectedCharacter.system,
-          bio: selectedCharacter.bio,
-          messageExamples: [],
-          topics: selectedCharacter.topics,
-          adjectives: selectedCharacter.adjectives,
-          style: selectedCharacter.style,
-        },
-        initialFunding: initialFunding
-          ? (Number(initialFunding) * 1e18).toString()
-          : undefined,
-      })
+        system: selectedCharacter.system,
+        bio: selectedCharacter.bio,
+        messageExamples: [],
+        topics: selectedCharacter.topics,
+        adjectives: selectedCharacter.adjectives,
+        style: selectedCharacter.style,
+      },
+      initialFunding: initialFunding
+        ? (Number(initialFunding) * 1e18).toString()
+        : undefined,
+    })
 
       toast.success('Agent deployed successfully')
-      navigate('/agents')
+    navigate('/agents')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to deploy agent')
     }
@@ -166,81 +166,81 @@ export default function CreateAgentPage() {
       {/* Step 1: Select Character Template */}
       {authenticated && (
         <section className="mb-8 animate-fade-in" aria-labelledby="step1-heading">
-          <h2
-            id="step1-heading"
-            className="text-lg font-bold mb-4 font-display flex items-center gap-3"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            <span className="step-circle" aria-hidden="true">
+        <h2
+          id="step1-heading"
+          className="text-lg font-bold mb-4 font-display flex items-center gap-3"
+          style={{ color: 'var(--text-primary)' }}
+        >
+          <span className="step-circle" aria-hidden="true">
               2
-            </span>
+          </span>
             Choose Character Template
-          </h2>
+        </h2>
 
-          {selectedCharacterId ? (
-            <div className="card-static p-5 animate-bounce-in">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-4 min-w-0">
+        {selectedCharacterId ? (
+          <div className="card-static p-5 animate-bounce-in">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4 min-w-0">
+                <div className="text-3xl flex-shrink-0" aria-hidden="true">
+                  🤖
+                </div>
+                <div className="min-w-0">
+                  <p
+                    className="font-bold truncate"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
+                    {selectedCharacter?.name}
+                  </p>
+                  <p
+                    className="text-sm truncate"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  >
+                    {selectedCharacter?.description}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedCharacterId(null)}
+                className="btn-ghost btn-sm flex-shrink-0"
+              >
+                Change
+              </button>
+            </div>
+          </div>
+        ) : (
+            <>
+              {characters && characters.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger-children">
+                  {characters.map((character) => (
+              <button
+                key={character.id}
+                type="button"
+                onClick={() => setSelectedCharacterId(character.id)}
+                className="card p-5 text-left transition-all hover:ring-2 hover:ring-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+              >
+                <div className="flex items-start gap-3">
                   <div className="text-3xl flex-shrink-0" aria-hidden="true">
                     🤖
                   </div>
-                  <div className="min-w-0">
+                  <div className="flex-1 min-w-0">
                     <p
-                      className="font-bold truncate"
+                      className="font-bold truncate mb-1"
                       style={{ color: 'var(--text-primary)' }}
                     >
-                      {selectedCharacter?.name}
+                      {character.name}
                     </p>
                     <p
-                      className="text-sm truncate"
+                      className="text-sm line-clamp-2"
                       style={{ color: 'var(--text-tertiary)' }}
                     >
-                      {selectedCharacter?.description}
+                      {character.description}
                     </p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setSelectedCharacterId(null)}
-                  className="btn-ghost btn-sm flex-shrink-0"
-                >
-                  Change
-                </button>
-              </div>
-            </div>
-          ) : (
-            <>
-              {characters && characters.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger-children">
-                  {characters.map((character) => (
-                    <button
-                      key={character.id}
-                      type="button"
-                      onClick={() => setSelectedCharacterId(character.id)}
-                      className="card p-5 text-left transition-all hover:ring-2 hover:ring-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="text-3xl flex-shrink-0" aria-hidden="true">
-                          🤖
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p
-                            className="font-bold truncate mb-1"
-                            style={{ color: 'var(--text-primary)' }}
-                          >
-                            {character.name}
-                          </p>
-                          <p
-                            className="text-sm line-clamp-2"
-                            style={{ color: 'var(--text-tertiary)' }}
-                          >
-                            {character.description}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
+              </button>
+            ))}
+          </div>
               ) : (
                 <div className="card-static p-8 text-center">
                   <div className="text-5xl mb-4" aria-hidden="true">
@@ -253,8 +253,8 @@ export default function CreateAgentPage() {
                 </div>
               )}
             </>
-          )}
-        </section>
+        )}
+      </section>
       )}
 
       {/* Step 2: Configure & Deploy */}

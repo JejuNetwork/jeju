@@ -1,7 +1,13 @@
 /**
  * Otto Trading Service
+ *
+ * Trading operations with DWS cache integration for:
+ * - Token info lookups (60s TTL)
+ * - Token prices (30s TTL)
+ * - User balances (15s TTL)
  */
 
+import { getCacheClient } from '@jejunetwork/cache'
 import { getCoreAppUrl, isDevelopmentEnv } from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import { type Address, formatUnits, type Hex, parseUnits } from 'viem'
@@ -45,6 +51,18 @@ import { getRequiredEnv } from '../utils/validation'
 import { gatewayApi } from './clients'
 
 const DEV_MODE = isDevelopmentEnv()
+
+// Cache TTLs in seconds
+const CACHE_TTL = {
+  TOKEN_INFO: 60,   // 1 minute
+  TOKEN_PRICE: 30,  // 30 seconds
+  BALANCES: 15,     // 15 seconds
+} as const
+
+// Cache client for Otto trading data
+function getOttoCache() {
+  return getCacheClient('otto-trading')
+}
 
 function getBazaarApi(): string {
   return getRequiredEnv('BAZAAR_API_URL', getCoreAppUrl('BAZAAR'))
@@ -104,6 +122,14 @@ export class TradingService {
       return this.getMockTokenInfo(addressOrSymbol, chainId)
     }
 
+    // Check cache first
+    const cache = getOttoCache()
+    const cacheKey = `token:${chainId}:${addressOrSymbol.toLowerCase()}`
+    const cached = await cache.get(cacheKey).catch(() => null)
+    if (cached) {
+      return JSON.parse(cached) as TokenInfo
+    }
+
     const response = await fetch(`${indexerUrl}/graphql`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -148,8 +174,11 @@ export class TradingService {
       return null
     }
 
-    // Validate token data
-    return expectValid(TokenInfoSchema, token, 'token info')
+    // Validate and cache token data
+    const validatedToken = expectValid(TokenInfoSchema, token, 'token info')
+    cache.set(cacheKey, JSON.stringify(validatedToken), CACHE_TTL.TOKEN_INFO).catch(() => {})
+    
+    return validatedToken
   }
 
   private getMockTokenInfo(symbol: string, chainId: number): TokenInfo | null {
@@ -180,8 +209,22 @@ export class TradingService {
       }
     }
 
+    // Check price cache (shorter TTL than token info)
+    const cache = getOttoCache()
+    const cacheKey = `price:${chainId}:${addressOrSymbol.toLowerCase()}`
+    const cached = await cache.get(cacheKey).catch(() => null)
+    if (cached) {
+      return parseFloat(cached)
+    }
+
     const token = await this.getTokenInfo(addressOrSymbol, chainId)
-    return token?.price ?? null
+    const price = token?.price ?? null
+    
+    if (price !== null) {
+      cache.set(cacheKey, price.toString(), CACHE_TTL.TOKEN_PRICE).catch(() => {})
+    }
+    
+    return price
   }
 
   async getBalances(
@@ -199,6 +242,14 @@ export class TradingService {
 
     if (!indexerUrl && DEV_MODE) {
       return this.getMockBalances(userAddress, chainId ?? DEFAULT_CHAIN_ID)
+    }
+
+    // Check cache first
+    const cache = getOttoCache()
+    const cacheKey = `balances:${userAddress.toLowerCase()}:${chains.sort().join(',')}`
+    const cached = await cache.get(cacheKey).catch(() => null)
+    if (cached) {
+      return JSON.parse(cached) as Balance[]
     }
 
     for (const chain of chains) {
@@ -249,6 +300,11 @@ export class TradingService {
 
     if (balances.length === 0 && DEV_MODE) {
       return this.getMockBalances(userAddress, chainId ?? DEFAULT_CHAIN_ID)
+    }
+
+    // Cache the balances
+    if (balances.length > 0) {
+      cache.set(cacheKey, JSON.stringify(balances), CACHE_TTL.BALANCES).catch(() => {})
     }
 
     return balances

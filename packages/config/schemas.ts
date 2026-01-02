@@ -115,6 +115,7 @@ export type ContractCategory =
   | 'governance'
   | 'oif'
   | 'eil'
+  | 'federation'
   | 'security'
   | 'agents'
   | 'amm'
@@ -153,6 +154,7 @@ const NetworkContractsSchema = z.object({
   governance: ContractCategorySchema,
   oif: ContractCategorySchema,
   eil: ContractCategorySchema,
+  federation: ContractCategorySchema.optional(),
   security: ContractCategorySchema,
   agents: ContractCategorySchema.optional(),
   amm: ContractCategorySchema.optional(),
@@ -832,9 +834,7 @@ export const BridgeConfigSchema = z.object({
 })
 export type BridgeConfig = z.infer<typeof BridgeConfigSchema>
 
-// ============================================================================
 // Moderation Configuration
-// ============================================================================
 
 /** Moderation provider pricing */
 const ModerationPricingSchema = z.object({
@@ -921,9 +921,7 @@ export const ModerationConfigSchema = z.object({
 })
 export type ModerationConfig = z.infer<typeof ModerationConfigSchema>
 
-// ============================================================================
 // PoC (Proof of Compute) Verification Configuration
-// ============================================================================
 
 /** AMD KDS configuration */
 export const PoCKdsConfigSchema = z.object({

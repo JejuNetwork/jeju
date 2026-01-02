@@ -8,13 +8,7 @@ import { getLocalhostHost } from '@jejunetwork/config'
 import { type Context, Elysia } from 'elysia'
 import { z } from 'zod'
 import { config } from './config'
-import {
-  count,
-  find,
-  type Block,
-  type RegisteredAgent,
-  type Transaction,
-} from './db'
+import { count, find, type RegisteredAgent } from './db'
 import { getAccountByAddress } from './utils/account-utils'
 import { getAgentsByTag } from './utils/agent-utils'
 import { getBlockByIdentifier } from './utils/block-detail-utils'

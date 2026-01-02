@@ -3,6 +3,7 @@
 // This service MUST run on the DWS node itself, not in a workerd worker
 // Protocol-level networking (UDP, TUN) requires system-level access
 
+import { type ChildProcess, spawn } from 'node:child_process'
 import { WorkerdEventEmitter } from '@jejunetwork/dws/api/utils/event-emitter'
 
 // DWS Exec API for process spawning (for TUN device management)
@@ -13,11 +14,11 @@ interface ExecResult {
   pid?: number
 }
 
-import { config as nodeConfig } from '../config'
+import { config as nodeConfig } from '../../config'
 
 const execUrl = nodeConfig.dwsExecUrl
 
-async function _exec(
+async function dwsExec(
   command: string[],
   options?: {
     env?: Record<string, string>
@@ -35,6 +36,9 @@ async function _exec(
   }
   return response.json() as Promise<ExecResult>
 }
+
+// Export for backwards compatibility
+export { dwsExec as execViaAPI }
 
 // Note: dgram and net are protocol-level APIs not available in workerd
 // VPN service uses these and MUST run on DWS node
@@ -285,10 +289,15 @@ const VPNExitConfigSchema = z.object({
   /**
    * KMS key ID for X25519 key derivation
    * The KMS will derive the WireGuard private key from this ID
+   * Optional for localnet development
    */
-  kmsKeyId: z.string(),
-  endpoint: z.string(),
-  countryCode: z.string().length(2),
+  kmsKeyId: z.string().optional(),
+  /**
+   * Legacy: Base64-encoded private key (INSECURE - use kmsKeyId instead)
+   */
+  privateKey: z.string().optional(),
+  endpoint: z.string().optional(),
+  countryCode: z.string().length(2).optional(),
   regionCode: z.string().optional(),
   maxClients: z.number().min(1).max(1000).default(100),
   bandwidthLimitMbps: z.number().min(1).default(100),
@@ -785,11 +794,11 @@ class TUNDevice extends WorkerdEventEmitter {
       }
     })
 
-    tcpdump.on('error', (err) => {
+    tcpdump.on('error', (err: Error) => {
       console.warn('[TUN] tcpdump error:', err.message)
     })
 
-    tcpdump.on('close', (code) => {
+    tcpdump.on('close', (code: number | null) => {
       if (this.running && code !== 0) {
         console.warn(`[TUN] tcpdump exited with code ${code}`)
       }
@@ -935,7 +944,7 @@ class TUNDevice extends WorkerdEventEmitter {
       const ping = spawn('ping', ['-c', '1', '-W', '1', dstIP], {
         stdio: 'ignore',
       })
-      ping.on('close', (code) => {
+      ping.on('close', (code: number | null) => {
         // Emit response for successful ping
         if (code === 0) {
           this.emit('icmp_response', { dstIP, success: true })
@@ -947,12 +956,12 @@ class TUNDevice extends WorkerdEventEmitter {
   private execCommand(cmd: string, args: string[]): Promise<void> {
     return new Promise((resolve, reject) => {
       const proc = spawn(cmd, args, { stdio: 'ignore' })
-      proc.on('close', (code) => {
+      proc.on('close', (code: number | null) => {
         if (code === 0) resolve()
         else
           reject(new Error(`${cmd} ${args.join(' ')} exited with code ${code}`))
       })
-      proc.on('error', reject)
+      proc.on('error', (err: Error) => reject(err))
     })
   }
 }
@@ -1479,6 +1488,14 @@ export class VPNExitService {
   private privateKey: Uint8Array
   private publicKey: Uint8Array
 
+  // KMS integration
+  private kmsKeyId: string | null = null
+  private keysInitialized = false
+  private hsmProvider: {
+    deriveKey: (keyId: string, context: string) => Promise<Uint8Array>
+    disconnect?: () => Promise<void>
+  } | null = null
+
   // IP allocation
   private ipPool: string[] = []
   private allocatedIPs = new Set<string>()
@@ -1501,6 +1518,8 @@ export class VPNExitService {
 
     const parsedConfig = VPNExitConfigSchema.parse({
       listenPort: config.listenPort ?? 51820,
+      kmsKeyId: config.kmsKeyId,
+      privateKey: config.privateKey,
       endpoint: config.endpoint ?? `0.0.0.0:${config.listenPort ?? 51820}`,
       countryCode: config.countryCode ?? 'US',
       regionCode: config.regionCode,
@@ -1524,10 +1543,10 @@ export class VPNExitService {
     this.config = parsedConfig
 
     // Store KMS key ID for async initialization
-    this.kmsKeyId = config.kmsKeyId ?? null
+    this.kmsKeyId = parsedConfig.kmsKeyId ?? null
 
     // Initialize keys - either synchronously or mark for async init
-    if (config.kmsKeyId) {
+    if (parsedConfig.kmsKeyId) {
       // KMS key derivation requires async initialization
       // Set placeholder keys until start() is called
       this.privateKey = new Uint8Array(32)
@@ -1535,13 +1554,15 @@ export class VPNExitService {
       console.log(
         '[VPNExit] KMS key ID configured. Keys will be derived during start().',
       )
-    } else if (config.privateKey) {
+    } else if (parsedConfig.privateKey) {
       console.warn(
         '[VPNExit] WARNING: Using legacy in-memory private key. ' +
           'This is a security risk in TEE environments. ' +
           'Use kmsKeyId instead.',
       )
-      this.privateKey = new Uint8Array(Buffer.from(config.privateKey, 'base64'))
+      this.privateKey = new Uint8Array(
+        Buffer.from(parsedConfig.privateKey, 'base64'),
+      )
       this.publicKey = X25519.getPublicKey(this.privateKey)
       this.keysInitialized = true
     } else {
@@ -1639,7 +1660,8 @@ export class VPNExitService {
       throw new Error('VPN Registry not deployed')
     }
 
-    const countryBytes: Hex = `0x${Buffer.from(this.config.countryCode).toString('hex')}`
+    const countryCode = this.config.countryCode ?? 'US'
+    const countryBytes: Hex = `0x${Buffer.from(countryCode).toString('hex')}`
 
     const isBlocked = await this.client.publicClient.readContract({
       address: this.client.addresses.vpnRegistry,
@@ -1719,6 +1741,39 @@ export class VPNExitService {
 
     this.running = true
 
+    // Derive keys from KMS if configured
+    if (this.kmsKeyId && !this.keysInitialized) {
+      console.log('[VPNExit] Deriving keys from KMS...')
+      try {
+        // Import HSM provider dynamically
+        const { createHSMProvider } = await import('@jejunetwork/kms')
+        const hsm = await createHSMProvider({ type: 'softhsm' })
+
+        // Derive private key using HKDF from master key
+        const salt = new TextEncoder().encode('jeju-vpn-exit-salt')
+        const info = 'wireguard-vpn-exit'
+        const derivedKey = await hsm.deriveKey(this.kmsKeyId, salt, info, 32)
+
+        this.privateKey = derivedKey
+        this.publicKey = X25519.getPublicKey(this.privateKey)
+        this.keysInitialized = true
+
+        // Store provider for cleanup
+        this.hsmProvider = {
+          deriveKey: async (keyId: string, context: string) => {
+            const ctxSalt = new TextEncoder().encode('jeju-vpn-salt')
+            return hsm.deriveKey(keyId, ctxSalt, context, 32)
+          },
+          disconnect: hsm.disconnect?.bind(hsm),
+        }
+
+        console.log('[VPNExit] Keys derived from KMS successfully')
+      } catch (error) {
+        console.error('[VPNExit] Failed to derive keys from KMS:', error)
+        throw error
+      }
+    }
+
     // Start NAT table
     if (this.config.natEnabled) {
       this.natTable.start()
@@ -1734,8 +1789,10 @@ export class VPNExitService {
       await this.tunDevice.start()
 
       // Handle inbound packets from TUN (internet -> VPN)
-      this.tunDevice.on('inbound', (packet: Uint8Array) => {
-        this.handleInboundPacket(packet)
+      this.tunDevice.on('inbound', (data: unknown) => {
+        if (data instanceof Uint8Array) {
+          this.handleInboundPacket(data)
+        }
       })
     } catch (error) {
       console.warn('[VPNExit] TUN device not available (requires root):', error)
@@ -1787,7 +1844,7 @@ export class VPNExitService {
     if (this.udpSocket) this.udpSocket.close()
 
     // Disconnect HSM provider
-    if (this.hsmProvider) {
+    if (this.hsmProvider?.disconnect) {
       await this.hsmProvider.disconnect()
       this.hsmProvider = null
     }

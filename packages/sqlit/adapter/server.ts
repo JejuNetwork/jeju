@@ -19,7 +19,13 @@ import { join } from 'node:path'
 import { Elysia } from 'elysia'
 
 const PORT = parseInt(process.env.PORT ?? '8546', 10)
-const DATA_DIR = process.env.DATA_DIR ?? '/data/sqlit/databases'
+
+// Default data directory - use local directory for development
+const DATA_DIR =
+  process.env.DATA_DIR ??
+  (process.env.NODE_ENV === 'production'
+    ? '/data/sqlit/databases'
+    : join(import.meta.dir, '..', '.data', 'databases'))
 
 // Ensure data directory exists
 if (!existsSync(DATA_DIR)) {

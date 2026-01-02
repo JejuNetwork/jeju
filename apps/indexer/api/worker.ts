@@ -9,11 +9,9 @@
 
 import { cors } from '@elysiajs/cors'
 import {
-  CORE_PORTS,
   getCoreAppUrl,
   getCurrentNetwork,
   getLocalhostHost,
-  getSQLitBlockProducerUrl,
 } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import { z } from 'zod'
@@ -250,7 +248,10 @@ export function createIndexerApp(env?: Partial<IndexerEnv>) {
             .safeParse(body)
 
           if (!parsed.success) {
-            return { error: 'Invalid A2A request', details: parsed.error.issues }
+            return {
+              error: 'Invalid A2A request',
+              details: parsed.error.issues,
+            }
           }
 
           return { skill: parsed.data.skill, result: 'Query executed' }
@@ -311,7 +312,10 @@ export function createIndexerApp(env?: Partial<IndexerEnv>) {
             .safeParse(body)
 
           if (!parsed.success) {
-            return { error: 'Invalid MCP request', details: parsed.error.issues }
+            return {
+              error: 'Invalid MCP request',
+              details: parsed.error.issues,
+            }
           }
 
           return { tool: parsed.data.tool, result: 'Tool executed' }

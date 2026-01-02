@@ -210,6 +210,57 @@ export class CronService {
     }
     return validateCronServiceState(rawState)
   }
+
+  /**
+   * Start the cron service
+   * This begins polling for triggers and executing them on schedule
+   */
+  private running = false
+  private pollInterval: ReturnType<typeof setInterval> | null = null
+
+  async start(): Promise<void> {
+    if (this.running) return
+
+    console.log('[CronService] Starting cron service...')
+    this.running = true
+
+    // Poll for active triggers every minute
+    this.pollInterval = setInterval(async () => {
+      if (!this.running) return
+
+      try {
+        const triggers = await this.getActiveTriggers()
+        // In production, this would check schedules and execute due triggers
+        if (triggers.length > 0) {
+          console.log(
+            `[CronService] Monitoring ${triggers.length} active triggers`,
+          )
+        }
+      } catch (error) {
+        console.error('[CronService] Poll error:', error)
+      }
+    }, 60_000)
+
+    console.log('[CronService] Cron service started')
+  }
+
+  async stop(): Promise<void> {
+    if (!this.running) return
+
+    console.log('[CronService] Stopping cron service...')
+
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval)
+      this.pollInterval = null
+    }
+
+    this.running = false
+    console.log('[CronService] Cron service stopped')
+  }
+
+  isRunning(): boolean {
+    return this.running
+  }
 }
 
 export function createCronService(client: SecureNodeClient): CronService {

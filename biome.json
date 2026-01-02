@@ -11,7 +11,8 @@
       "packages/**/*.tsx",
       "apps/**/*.ts",
       "apps/**/*.tsx",
-      "!**/model/generated"
+      "!**/model/generated",
+      "!packages/workerd/**"
     ]
   },
   "formatter": {
@@ -26,6 +27,9 @@
       "correctness": {
         "noUnusedVariables": "error",
         "noUnusedImports": "error"
+      },
+      "a11y": {
+        "noSvgWithoutTitle": "off"
       }
     }
   },

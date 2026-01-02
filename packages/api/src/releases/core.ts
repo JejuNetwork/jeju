@@ -7,8 +7,8 @@ import { logger } from '@jejunetwork/shared'
 import {
   type ReleaseArtifact,
   type ReleaseIndex,
-  type ReleaseManifest,
   ReleaseIndexSchema,
+  type ReleaseManifest,
   ReleaseManifestSchema,
 } from '@jejunetwork/types'
 
@@ -63,7 +63,10 @@ export class ReleaseService {
         logger.info('[Releases] No releases found for app', { app })
         return { app, latest: '0.0.0', versions: [] }
       }
-      logger.error('[Releases] Failed to fetch release index', { app, status: response.status })
+      logger.error('[Releases] Failed to fetch release index', {
+        app,
+        status: response.status,
+      })
       throw new Error(`Failed to fetch release index: ${response.statusText}`)
     }
 
@@ -83,7 +86,11 @@ export class ReleaseService {
     )
 
     if (!response.ok) {
-      logger.warn('[Releases] Release manifest not found', { app, version, status: response.status })
+      logger.warn('[Releases] Release manifest not found', {
+        app,
+        version,
+        status: response.status,
+      })
       throw new Error(`Release ${app}@${version} not found`)
     }
 
@@ -101,9 +108,9 @@ export class ReleaseService {
 
     const version =
       channel === 'beta'
-        ? index.latestBeta ?? index.latest
+        ? (index.latestBeta ?? index.latest)
         : channel === 'nightly'
-          ? index.latestNightly ?? index.latest
+          ? (index.latestNightly ?? index.latest)
           : index.latest
 
     if (!version || version === '0.0.0') {

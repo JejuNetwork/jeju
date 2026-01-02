@@ -3,8 +3,8 @@
  */
 
 import {
-  type ReleasePlatform,
   getRecommendedDownloads,
+  type ReleasePlatform,
 } from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'
 import { getReleaseService, type ReleaseServiceConfig } from './core'
@@ -42,11 +42,13 @@ export function createReleaseRoutes(config: ReleasePluginConfig) {
       },
       {
         query: t.Object({
-          channel: t.Optional(t.Union([
-            t.Literal('stable'),
-            t.Literal('beta'),
-            t.Literal('nightly'),
-          ])),
+          channel: t.Optional(
+            t.Union([
+              t.Literal('stable'),
+              t.Literal('beta'),
+              t.Literal('nightly'),
+            ]),
+          ),
         }),
         detail: {
           tags: ['releases'],

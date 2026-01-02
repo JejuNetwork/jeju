@@ -333,8 +333,20 @@ module "alb" {
 }
 
 # ============================================================
-# Module: CDN (S3 + CloudFront for Static Frontends)
-# Only enabled when ACM certificate is validated
+# Module: CDN - DEPRECATED for Apps
+# 
+# ALL apps now deploy to DWS and are served via DWS CDN (decentralized).
+# This CloudFront module is ONLY kept for non-app infrastructure assets
+# (e.g., training data, large static files that benefit from edge caching).
+#
+# App deployment flow:
+#   1. Frontend built and uploaded to IPFS via DWS storage
+#   2. JNS name registered on-chain (e.g., bazaar.jeju)
+#   3. DWS CDN nodes serve content from IPFS
+#   4. DWS ingress routes requests to frontend or backend workers
+#
+# DO NOT add apps to this module - deploy via DWS instead:
+#   bun run packages/deployment/scripts/deploy/deploy-all-apps-to-dws.ts
 # ============================================================
 module "cdn" {
   count  = var.enable_cdn ? 1 : 0
@@ -345,11 +357,9 @@ module "cdn" {
   zone_id             = module.route53.zone_id
   acm_certificate_arn = module.acm.certificate_arn
 
-  # Gateway removed - now served via DWS (decentralized)
-  apps = [
-    { name = "bazaar", subdomain = "bazaar.testnet" },
-    { name = "documentation", subdomain = "docs.testnet" }
-  ]
+  # NO APPS - All apps deploy via DWS (decentralized)
+  # Only infrastructure assets that need centralized CDN go here
+  apps = []
 
   tags = local.common_tags
 

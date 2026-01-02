@@ -3,8 +3,8 @@
  * Production-ready process-isolated worker execution with Bun and workerd support
  */
 
-import { mkdir } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
+import { mkdir } from 'node:fs/promises'
 import type { JSONValue } from '../shared/validation'
 import type { BackendManager } from '../storage/backends'
 import type {
@@ -134,9 +134,8 @@ startWorker().catch(err => {
   console.error('[Bootstrap] Failed to start worker:', err);
   process.exit(1);
 });
-`;
+`
 }
-
 
 export class WorkerRuntime {
   private backend: BackendManager
@@ -155,7 +154,7 @@ export class WorkerRuntime {
   constructor(backend: BackendManager, config: Partial<WorkerPoolConfig> = {}) {
     this.backend = backend
     this.config = { ...DEFAULT_POOL_CONFIG, ...config }
-    
+
     // Always prefer Bun when available since we're running in Bun
     this.runtimeMode = 'bun'
     console.log(`[WorkerRuntime] Using runtime mode: ${this.runtimeMode}`)
@@ -218,7 +217,10 @@ export class WorkerRuntime {
       const codePath = await this.downloadCode(fn.codeCid, fn.handler)
       this.codeCache.set(fn.codeCid, codePath)
     } catch (err) {
-      console.warn(`[WorkerRuntime] Failed to pre-cache code for ${fn.name}:`, err)
+      console.warn(
+        `[WorkerRuntime] Failed to pre-cache code for ${fn.name}:`,
+        err,
+      )
     }
 
     this.functions.set(fn.id, fn)
@@ -407,7 +409,9 @@ export class WorkerRuntime {
       }
     }
 
-    console.warn(`[WorkerRuntime] Cannot create instance for ${fn.name} - max instances reached`)
+    console.warn(
+      `[WorkerRuntime] Cannot create instance for ${fn.name} - max instances reached`,
+    )
     return null
   }
 
@@ -455,7 +459,7 @@ export class WorkerRuntime {
   ): Promise<WorkerInstance | null> {
     try {
       const codeDir = codePath.replace(/\/[^/]+$/, '')
-      
+
       // Create bootstrap file that starts the server
       const bootstrapPath = `${codeDir}/bootstrap.js`
       const bootstrapCode = createWorkerBootstrap(instance.port, fn.handler)
@@ -464,7 +468,9 @@ export class WorkerRuntime {
       // Get bun path
       const bunPath = process.execPath || '/usr/local/bin/bun'
 
-      console.log(`[WorkerRuntime] Starting worker ${fn.name} on port ${instance.port}...`)
+      console.log(
+        `[WorkerRuntime] Starting worker ${fn.name} on port ${instance.port}...`,
+      )
 
       // Spawn the worker process
       const proc = Bun.spawn([bunPath, 'run', bootstrapPath], {
@@ -486,41 +492,51 @@ export class WorkerRuntime {
       instance.process = proc
 
       // Capture stdout for debugging
-      proc.stdout.pipeTo(
-        new WritableStream({
-          write(chunk) {
-            const text = new TextDecoder().decode(chunk)
-            if (text.trim()) {
-              console.log(`[Worker:${fn.name}] ${text.trim()}`)
-            }
-          },
-        }),
-      ).catch(() => {})
+      proc.stdout
+        .pipeTo(
+          new WritableStream({
+            write(chunk) {
+              const text = new TextDecoder().decode(chunk)
+              if (text.trim()) {
+                console.log(`[Worker:${fn.name}] ${text.trim()}`)
+              }
+            },
+          }),
+        )
+        .catch(() => {})
 
       // Capture stderr for debugging
-      proc.stderr.pipeTo(
-        new WritableStream({
-          write(chunk) {
-            const text = new TextDecoder().decode(chunk)
-            if (text.trim()) {
-              console.error(`[Worker:${fn.name}:err] ${text.trim()}`)
-            }
-          },
-        }),
-      ).catch(() => {})
+      proc.stderr
+        .pipeTo(
+          new WritableStream({
+            write(chunk) {
+              const text = new TextDecoder().decode(chunk)
+              if (text.trim()) {
+                console.error(`[Worker:${fn.name}:err] ${text.trim()}`)
+              }
+            },
+          }),
+        )
+        .catch(() => {})
 
       // Wait for the process to become ready
       const ready = await this.waitForReady(instance, 30000)
       instance.status = ready ? 'ready' : 'stopped'
 
       if (!ready) {
-        console.error(`[WorkerRuntime] Worker ${fn.name} failed to start on port ${instance.port}`)
-        try { proc.kill() } catch {}
+        console.error(
+          `[WorkerRuntime] Worker ${fn.name} failed to start on port ${instance.port}`,
+        )
+        try {
+          proc.kill()
+        } catch {}
         this.releasePort(instance.port)
         return null
       }
 
-      console.log(`[WorkerRuntime] Worker ${fn.name} ready on port ${instance.port}`)
+      console.log(
+        `[WorkerRuntime] Worker ${fn.name} ready on port ${instance.port}`,
+      )
       return instance
     } catch (error) {
       console.error(`[WorkerRuntime] Failed to create instance:`, error)
@@ -569,13 +585,16 @@ export class WorkerRuntime {
       try {
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 2000)
-        
-        const response = await fetch(`http://127.0.0.1:${instance.port}/health`, {
-          signal: controller.signal,
-        })
-        
+
+        const response = await fetch(
+          `http://127.0.0.1:${instance.port}/health`,
+          {
+            signal: controller.signal,
+          },
+        )
+
         clearTimeout(timeoutId)
-        
+
         if (response.ok || response.status === 404) {
           // 404 is acceptable - server is up but no health route
           return true
@@ -586,7 +605,9 @@ export class WorkerRuntime {
       await new Promise((r) => setTimeout(r, checkInterval))
     }
 
-    console.log(`[WorkerRuntime] Instance ${instance.id} failed to become ready within ${timeoutMs}ms`)
+    console.log(
+      `[WorkerRuntime] Instance ${instance.id} failed to become ready within ${timeoutMs}ms`,
+    )
     return false
   }
 
@@ -694,9 +715,15 @@ export class WorkerRuntime {
       await proc.exited
 
       // Look for entry point based on handler
-      const handlerFile = handler.split('.')[0] + '.js'
-      const candidates = [handlerFile, 'index.js', 'main.js', 'server.js', 'worker.js']
-      
+      const handlerFile = `${handler.split('.')[0]}.js`
+      const candidates = [
+        handlerFile,
+        'index.js',
+        'main.js',
+        'server.js',
+        'worker.js',
+      ]
+
       for (const file of candidates) {
         const path = `${tempDir}/${file}`
         if (existsSync(path)) {
@@ -706,7 +733,9 @@ export class WorkerRuntime {
         }
       }
 
-      throw new Error(`Entry point not found in tarball. Tried: ${candidates.join(', ')}`)
+      throw new Error(
+        `Entry point not found in tarball. Tried: ${candidates.join(', ')}`,
+      )
     }
 
     // Raw JS file - write as main.js
@@ -764,7 +793,9 @@ export class WorkerRuntime {
       for (const instance of instances) {
         // Check for dead processes
         if (instance.process && instance.process.exitCode !== null) {
-          console.log(`[WorkerRuntime] Instance ${instance.id} process exited, removing`)
+          console.log(
+            `[WorkerRuntime] Instance ${instance.id} process exited, removing`,
+          )
           toRemove.push(instance)
           continue
         }

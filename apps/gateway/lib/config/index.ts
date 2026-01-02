@@ -75,7 +75,7 @@ export const EXPLORER_URL = requireServiceUrl(services.explorer, 'Explorer')
 const contracts = getContractsConfig(NETWORK)
 
 /** Helper to get address - throws if not configured */
-function addr(value: string | undefined, name: string): Address {
+function _addr(value: string | undefined, name: string): Address {
   if (!value) throw new Error(`Contract address not configured: ${name}`)
   return getAddress(value)
 }
@@ -151,5 +151,7 @@ export const CONTRACTS = {
   ),
 
   // Oracle Network - optional
-  oracleNetworkConnector: optionalAddr(contracts.oracle?.oracleNetworkConnector),
+  oracleNetworkConnector: optionalAddr(
+    contracts.oracle?.oracleNetworkConnector,
+  ),
 } as const

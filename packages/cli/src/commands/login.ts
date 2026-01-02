@@ -14,8 +14,8 @@ import { Command } from 'commander'
 import { type Address, verifyMessage } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
-import { logger } from '../lib/logger'
 import { getDefaultDeployerKey } from '../lib/keys'
+import { logger } from '../lib/logger'
 import type { NetworkType } from '../types'
 
 // Schema for stored credentials
@@ -174,9 +174,13 @@ export const loginCommand = new Command('login')
     if (existing && existing.network === network) {
       logger.info(`Already logged in as ${existing.address}`)
       logger.info(`Network: ${existing.network}`)
-      logger.info(`Expires: ${new Date(existing.expiresAt).toLocaleDateString()}`)
+      logger.info(
+        `Expires: ${new Date(existing.expiresAt).toLocaleDateString()}`,
+      )
       logger.newline()
-      logger.info('Run `jeju logout` to sign out, or `jeju login` again to re-authenticate.')
+      logger.info(
+        'Run `jeju logout` to sign out, or `jeju login` again to re-authenticate.',
+      )
       return
     }
 
@@ -296,7 +300,9 @@ export const loginCommand = new Command('login')
 
     logger.success(`Logged in as ${address}`)
     logger.info(`Network: ${network}`)
-    logger.info(`Session expires: ${new Date(authResult.expiresAt).toLocaleDateString()}`)
+    logger.info(
+      `Session expires: ${new Date(authResult.expiresAt).toLocaleDateString()}`,
+    )
     logger.newline()
     logger.info('Run `jeju account` to view your account details')
     logger.info('Run `jeju logout` to sign out')
@@ -338,6 +344,8 @@ export const whoamiCommand = new Command('whoami')
       (credentials.expiresAt - Date.now()) / (24 * 60 * 60 * 1000),
     )
     if (daysRemaining < 7) {
-      logger.warn(`Session expires in ${daysRemaining} days. Run \`jeju login\` to refresh.`)
+      logger.warn(
+        `Session expires in ${daysRemaining} days. Run \`jeju login\` to refresh.`,
+      )
     }
   })

@@ -250,12 +250,13 @@ async function setupCDN(
       path.includes('-') && (path.endsWith('.js') || path.endsWith('.css')),
   }))
 
-  const domain = config.network === 'testnet' 
-    ? 'monitoring.testnet.jejunetwork.org' 
-    : config.network === 'mainnet' 
-      ? 'monitoring.jejunetwork.org' 
-      : 'monitoring.localhost'
-  
+  const domain =
+    config.network === 'testnet'
+      ? 'monitoring.testnet.jejunetwork.org'
+      : config.network === 'mainnet'
+        ? 'monitoring.jejunetwork.org'
+        : 'monitoring.localhost'
+
   const cdnConfig = {
     name: 'monitoring',
     domain,
@@ -327,11 +328,12 @@ async function deploy(): Promise<void> {
   console.log('Configuring CDN...')
   await setupCDN(config, webAssets)
 
-  const frontendUrl = config.network === 'testnet'
-    ? 'https://monitoring.testnet.jejunetwork.org'
-    : config.network === 'mainnet'
-      ? 'https://monitoring.jejunetwork.org'
-      : 'http://monitoring.localhost:4030'
+  const frontendUrl =
+    config.network === 'testnet'
+      ? 'https://monitoring.testnet.jejunetwork.org'
+      : config.network === 'mainnet'
+        ? 'https://monitoring.jejunetwork.org'
+        : 'http://monitoring.localhost:4030'
 
   console.log('')
   console.log('╔════════════════════════════════════════════════════════════╗')

@@ -18,6 +18,12 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "types": ["bun"]
-  }
+    "downlevelIteration": true,
+    "types": ["bun"],
+    "typeRoots": ["./node_modules/@types", "./node_modules/bun-types"]
+  },
+  "exclude": [
+    "node_modules/@types/web",
+    "node_modules/@types/web-bluetooth"
+  ]
 }

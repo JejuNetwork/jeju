@@ -5,9 +5,18 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import {
+  CORE_PORTS,
+  getCoreAppUrl,
+  getLocalhostHost,
+} from '@jejunetwork/config'
 import { z } from 'zod'
 
-const API_URL = process.env.AUTOCRAT_URL ?? 'http://localhost:3001'
+const host = getLocalhostHost()
+const API_URL =
+  process.env.AUTOCRAT_URL ??
+  getCoreAppUrl('AUTOCRAT_API') ??
+  `http://${host}:${CORE_PORTS.AUTOCRAT_API.get()}`
 
 const DAOSchema = z.object({
   daoId: z.string().min(1),

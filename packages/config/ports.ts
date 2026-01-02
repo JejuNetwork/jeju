@@ -368,6 +368,13 @@ export const CORE_PORTS = {
     ENV_VAR: 'BRIDGE_HEALTH_PORT',
     get: () => safeParsePort(process.env.BRIDGE_HEALTH_PORT, 8083),
   },
+
+  /** Otto - AI trading assistant */
+  OTTO: {
+    DEFAULT: 4060,
+    ENV_VAR: 'OTTO_PORT',
+    get: () => safeParsePort(process.env.OTTO_PORT, 4060),
+  },
 } as const
 
 // Vendor Apps (5000-5999 range)

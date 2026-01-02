@@ -1,3 +1,4 @@
+import { getCacheClient } from '@jejunetwork/cache'
 import { getCurrentNetwork, getRpcUrl } from '@jejunetwork/config'
 import {
   type Address,
@@ -63,12 +64,24 @@ interface CacheEntry<T extends CacheableValue> {
 // Maximum cache entries to prevent DoS via unbounded growth
 const MAX_CACHE_ENTRIES = 500
 
+// DWS cache TTLs in seconds (longer than local for durability)
+const DWS_CACHE_TTL = {
+  BALANCE: 15,     // 15 seconds
+  GAS_PRICE: 5,    // 5 seconds
+  TOKEN_BALANCE: 30, // 30 seconds
+} as const
+
+// DWS cache client for wallet RPC data
+function getDWSCache() {
+  return getCacheClient('wallet-rpc')
+}
+
 class RPCService {
   private clients: Map<SupportedChainId, PublicClient<Transport, Chain>> =
     new Map()
   private requestCache: Map<string, CacheEntry<CacheableValue>> = new Map()
   private cacheKeyOrder: string[] = [] // Track insertion order for LRU eviction
-  private cacheTTL = 5000 // 5 seconds
+  private cacheTTL = 5000 // 5 seconds (local cache)
 
   getClient(chainId: SupportedChainId): PublicClient<Transport, Chain> {
     if (!this.clients.has(chainId)) {
@@ -101,12 +114,27 @@ class RPCService {
     address: Address,
   ): Promise<bigint> {
     const cacheKey = `balance:${chainId}:${address}`
-    const cached = this.getFromCache<bigint>(cacheKey)
-    if (cached !== null) return cached
+    
+    // Check local cache first
+    const localCached = this.getFromCache<bigint>(cacheKey)
+    if (localCached !== null) return localCached
+    
+    // Check DWS cache second
+    const dwsCache = getDWSCache()
+    const dwsCached = await dwsCache.get(cacheKey).catch(() => null)
+    if (dwsCached) {
+      const balance = BigInt(dwsCached)
+      this.setCache(cacheKey, balance)
+      return balance
+    }
 
     const client = this.getClient(chainId)
     const balance = await client.getBalance({ address })
+    
+    // Store in both local and DWS cache
     this.setCache(cacheKey, balance)
+    dwsCache.set(cacheKey, balance.toString(), DWS_CACHE_TTL.BALANCE).catch(() => {})
+    
     return balance
   }
 
@@ -116,8 +144,19 @@ class RPCService {
     ownerAddress: Address,
   ): Promise<bigint> {
     const cacheKey = `tokenBalance:${chainId}:${tokenAddress}:${ownerAddress}`
-    const cached = this.getFromCache<bigint>(cacheKey)
-    if (cached !== null) return cached
+    
+    // Check local cache first
+    const localCached = this.getFromCache<bigint>(cacheKey)
+    if (localCached !== null) return localCached
+    
+    // Check DWS cache second
+    const dwsCache = getDWSCache()
+    const dwsCached = await dwsCache.get(cacheKey).catch(() => null)
+    if (dwsCached) {
+      const balance = BigInt(dwsCached)
+      this.setCache(cacheKey, balance)
+      return balance
+    }
 
     const client = this.getClient(chainId)
     // ABI specifies uint256 return type, so result is bigint
@@ -137,18 +176,36 @@ class RPCService {
       args: [ownerAddress],
     })
 
+    // Store in both local and DWS cache
     this.setCache(cacheKey, balance)
+    dwsCache.set(cacheKey, balance.toString(), DWS_CACHE_TTL.TOKEN_BALANCE).catch(() => {})
+    
     return balance
   }
 
   async getGasPrice(chainId: SupportedChainId): Promise<bigint> {
     const cacheKey = `gasPrice:${chainId}`
-    const cached = this.getFromCache<bigint>(cacheKey)
-    if (cached !== null) return cached
+    
+    // Check local cache first
+    const localCached = this.getFromCache<bigint>(cacheKey)
+    if (localCached !== null) return localCached
+    
+    // Check DWS cache second
+    const dwsCache = getDWSCache()
+    const dwsCached = await dwsCache.get(cacheKey).catch(() => null)
+    if (dwsCached) {
+      const gasPrice = BigInt(dwsCached)
+      this.setCache(cacheKey, gasPrice, 3000)
+      return gasPrice
+    }
 
     const client = this.getClient(chainId)
     const gasPrice = await client.getGasPrice()
-    this.setCache(cacheKey, gasPrice, 3000) // 3s cache for gas
+    
+    // Store in both local and DWS cache
+    this.setCache(cacheKey, gasPrice, 3000) // 3s local cache for gas
+    dwsCache.set(cacheKey, gasPrice.toString(), DWS_CACHE_TTL.GAS_PRICE).catch(() => {})
+    
     return gasPrice
   }
 

@@ -1,5 +1,3 @@
-import React, { useState, useEffect } from 'react'
-import { createRoot } from 'react-dom/client'
 import {
   detectPlatform,
   formatFileSize,
@@ -7,11 +5,20 @@ import {
   type ReleaseArtifact,
   type ReleaseManifest,
 } from '@jejunetwork/types'
+import type React from 'react'
+import { useEffect, useState } from 'react'
+import { createRoot } from 'react-dom/client'
 
 // Icons
 function WalletIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-full h-full">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className="w-full h-full"
+    >
       <path d="M21 4H3a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z" />
       <path d="M16 12h.01" />
     </svg>
@@ -20,7 +27,13 @@ function WalletIcon() {
 
 function DownloadIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-full h-full">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className="w-full h-full"
+    >
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="7 10 12 15 17 10" />
       <line x1="12" y1="15" x2="12" y2="3" />
@@ -30,7 +43,13 @@ function DownloadIcon() {
 
 function LinkIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-full h-full">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className="w-full h-full"
+    >
       <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
       <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
     </svg>
@@ -39,7 +58,13 @@ function LinkIcon() {
 
 function ShieldIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-full h-full">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className="w-full h-full"
+    >
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
     </svg>
   )
@@ -47,7 +72,13 @@ function ShieldIcon() {
 
 function ZapIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-full h-full">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className="w-full h-full"
+    >
       <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
     </svg>
   )
@@ -90,7 +121,9 @@ const CHAINS = [
 
 function App() {
   const [release, setRelease] = useState<ReleaseManifest | null>(null)
-  const [detected, setDetected] = useState<ReturnType<typeof detectPlatform> | null>(null)
+  const [detected, setDetected] = useState<ReturnType<
+    typeof detectPlatform
+  > | null>(null)
 
   useEffect(() => {
     setDetected(detectPlatform())
@@ -133,7 +166,11 @@ function App() {
 
   const getRecommendedArtifact = (): ReleaseArtifact | null => {
     if (!release || !detected) return null
-    return release.artifacts.find((a) => a.platform === detected.browser) ?? release.artifacts[0] ?? null
+    return (
+      release.artifacts.find((a) => a.platform === detected.browser) ??
+      release.artifacts[0] ??
+      null
+    )
   }
 
   const recommendedArtifact = getRecommendedArtifact()
@@ -156,7 +193,10 @@ function App() {
       {/* Header */}
       <header className="relative z-10 border-b border-surface-border backdrop-blur-xl bg-surface/80">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <a href="/" className="flex items-center gap-3 text-jeju-400 font-bold text-xl">
+          <a
+            href="/"
+            className="flex items-center gap-3 text-jeju-400 font-bold text-xl"
+          >
             <div className="w-10 h-10 bg-gradient-to-br from-jeju-500 to-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-jeju-500/20">
               <span className="w-5 h-5 text-white">
                 <WalletIcon />
@@ -165,17 +205,30 @@ function App() {
             Network Wallet
           </a>
           <nav className="hidden md:flex items-center gap-8">
-            <a href="#features" className="text-gray-400 hover:text-jeju-400 transition-colors font-medium">
+            <a
+              href="#features"
+              className="text-gray-400 hover:text-jeju-400 transition-colors font-medium"
+            >
               Features
             </a>
-            <a href="#chains" className="text-gray-400 hover:text-jeju-400 transition-colors font-medium">
+            <a
+              href="#chains"
+              className="text-gray-400 hover:text-jeju-400 transition-colors font-medium"
+            >
               Chains
             </a>
-            <a href="#download" className="text-gray-400 hover:text-jeju-400 transition-colors font-medium">
+            <a
+              href="#download"
+              className="text-gray-400 hover:text-jeju-400 transition-colors font-medium"
+            >
               Download
             </a>
             <a
-              href={recommendedArtifact ? `/storage/download/${recommendedArtifact.cid}?filename=${recommendedArtifact.filename}` : '#download'}
+              href={
+                recommendedArtifact
+                  ? `/storage/download/${recommendedArtifact.cid}?filename=${recommendedArtifact.filename}`
+                  : '#download'
+              }
               className="px-6 py-2.5 bg-gradient-to-r from-jeju-500 to-emerald-500 rounded-xl text-white font-semibold hover:from-jeju-400 hover:to-emerald-400 transition-all shadow-lg shadow-jeju-500/20"
             >
               Install Extension
@@ -201,8 +254,8 @@ function App() {
           </h1>
 
           <p className="text-xl md:text-2xl text-gray-400 mb-12 max-w-2xl mx-auto">
-            The cross-chain wallet that just works. No bridging, no chain switching.
-            Your balance, unified across all chains.
+            The cross-chain wallet that just works. No bridging, no chain
+            switching. Your balance, unified across all chains.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -214,7 +267,10 @@ function App() {
                 <span className="w-6 h-6">
                   <DownloadIcon />
                 </span>
-                Install for {getPlatformLabel(detected.browser as 'chrome' | 'firefox' | 'edge' | 'safari')}
+                Install for{' '}
+                {getPlatformLabel(
+                  detected.browser as 'chrome' | 'firefox' | 'edge' | 'safari',
+                )}
               </a>
             )}
             <a
@@ -267,7 +323,9 @@ function App() {
                   key={chain.name}
                   className="aspect-square bg-surface-elevated border border-surface-border rounded-2xl flex flex-col items-center justify-center gap-2 hover:border-jeju-400/30 transition-colors group"
                 >
-                  <span className="text-2xl group-hover:scale-110 transition-transform">{chain.icon}</span>
+                  <span className="text-2xl group-hover:scale-110 transition-transform">
+                    {chain.icon}
+                  </span>
                   <span className="text-xs text-gray-500 group-hover:text-gray-300 transition-colors hidden md:block">
                     {chain.name}
                   </span>
@@ -282,20 +340,25 @@ function App() {
           <div className="max-w-4xl mx-auto text-center">
             <h2 className="text-4xl font-bold mb-6">Get Network Wallet</h2>
             <p className="text-xl text-gray-400 mb-12">
-              Available for all major browsers. Version {release?.version ?? '1.0.0'}
+              Available for all major browsers. Version{' '}
+              {release?.version ?? '1.0.0'}
             </p>
 
             <div className="grid sm:grid-cols-3 gap-6">
               <DownloadCard
                 icon={<ChromeIcon />}
                 name="Chrome"
-                artifact={release?.artifacts.find((a) => a.platform === 'chrome')}
+                artifact={release?.artifacts.find(
+                  (a) => a.platform === 'chrome',
+                )}
                 recommended={detected?.browser === 'chrome'}
               />
               <DownloadCard
                 icon={<FirefoxIcon />}
                 name="Firefox"
-                artifact={release?.artifacts.find((a) => a.platform === 'firefox')}
+                artifact={release?.artifacts.find(
+                  (a) => a.platform === 'firefox',
+                )}
                 recommended={detected?.browser === 'firefox'}
               />
               <DownloadCard
@@ -366,13 +429,22 @@ function App() {
             © 2025 Jeju Network. Open source & self-custodial.
           </p>
           <div className="flex gap-6 text-sm text-gray-400">
-            <a href="https://docs.jejunetwork.io" className="hover:text-white transition-colors">
+            <a
+              href="https://docs.jejunetwork.io"
+              className="hover:text-white transition-colors"
+            >
               Docs
             </a>
-            <a href="https://discord.gg/jeju" className="hover:text-white transition-colors">
+            <a
+              href="https://discord.gg/jeju"
+              className="hover:text-white transition-colors"
+            >
               Discord
             </a>
-            <a href="https://twitter.com/jejunetwork" className="hover:text-white transition-colors">
+            <a
+              href="https://twitter.com/jejunetwork"
+              className="hover:text-white transition-colors"
+            >
               Twitter
             </a>
           </div>
@@ -402,7 +474,15 @@ function FeatureCard({
   )
 }
 
-function Step({ number, title, description }: { number: number; title: string; description: string }) {
+function Step({
+  number,
+  title,
+  description,
+}: {
+  number: number
+  title: string
+  description: string
+}) {
   return (
     <div className="flex gap-6 items-start">
       <div className="w-12 h-12 bg-gradient-to-br from-jeju-500 to-emerald-500 text-white rounded-xl flex items-center justify-center font-bold text-xl flex-shrink-0">
@@ -430,16 +510,22 @@ function DownloadCard({
   return (
     <div
       className={`bg-surface-elevated border rounded-2xl p-6 text-center transition-all ${
-        recommended ? 'border-jeju-400/50 ring-2 ring-jeju-400/20' : 'border-surface-border hover:border-jeju-400/30'
+        recommended
+          ? 'border-jeju-400/50 ring-2 ring-jeju-400/20'
+          : 'border-surface-border hover:border-jeju-400/30'
       }`}
     >
       {recommended && (
-        <span className="text-xs text-jeju-400 font-medium uppercase tracking-wider">Recommended</span>
+        <span className="text-xs text-jeju-400 font-medium uppercase tracking-wider">
+          Recommended
+        </span>
       )}
       <div className="w-12 h-12 mx-auto my-4 text-gray-400">{icon}</div>
       <h3 className="text-lg font-semibold mb-1">{name}</h3>
       {artifact && (
-        <p className="text-sm text-gray-500 mb-4">{formatFileSize(artifact.size)}</p>
+        <p className="text-sm text-gray-500 mb-4">
+          {formatFileSize(artifact.size)}
+        </p>
       )}
       {artifact ? (
         <a

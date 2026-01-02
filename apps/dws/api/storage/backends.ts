@@ -184,9 +184,54 @@ class BackendManagerImpl implements BackendManager {
     options?: UploadOptions,
   ): Promise<UploadResponse> {
     let backendName = options?.preferredBackend
+    const network = getCurrentNetwork()
 
     if (!backendName) {
-      backendName = this.backends.has('ipfs') ? 'ipfs' : 'local'
+      // Try IPFS first - this is the decentralized option
+      if (this.backends.has('ipfs')) {
+        const ipfsBackend = this.backends.get('ipfs')
+        const healthy = await ipfsBackend?.healthCheck().catch(() => false)
+        backendName = healthy ? 'ipfs' : 'local'
+        if (!healthy) {
+          // Warn loudly - local storage is NOT decentralized
+          console.warn('')
+          console.warn(
+            '╔═══════════════════════════════════════════════════════════════╗',
+          )
+          console.warn(
+            '║  WARNING: IPFS not available - using local in-memory storage ║',
+          )
+          console.warn(
+            '╠═══════════════════════════════════════════════════════════════╣',
+          )
+          console.warn(
+            '║  Uploaded content will NOT be:                               ║',
+          )
+          console.warn(
+            '║  - Persisted across restarts                                 ║',
+          )
+          console.warn(
+            '║  - Content-addressed (no real IPFS CID)                      ║',
+          )
+          console.warn(
+            '║  - Accessible from other nodes                               ║',
+          )
+          console.warn(
+            '╚═══════════════════════════════════════════════════════════════╝',
+          )
+          console.warn('')
+
+          // In production, this is a critical error
+          if (network === 'mainnet' || network === 'testnet') {
+            throw new Error(
+              'IPFS backend required for production - local storage disabled',
+            )
+          }
+        }
+      } else {
+        backendName = 'local'
+        console.warn('[Storage] No IPFS backend configured, using local storage')
+      }
     }
 
     const backend = this.backends.get(backendName)
@@ -297,4 +342,9 @@ export function createBackendManager(): BackendManager {
     sharedBackendManager = new BackendManagerImpl()
   }
   return sharedBackendManager
+}
+
+/** Get the shared backend manager instance */
+export function getBackendManager(): BackendManager {
+  return createBackendManager()
 }

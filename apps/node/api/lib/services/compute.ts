@@ -431,6 +431,49 @@ export class ComputeService {
 
     return validateComputeOffer(rawOffer)
   }
+
+  /**
+   * Start the compute service
+   * This registers the node's compute capabilities and begins accepting jobs
+   */
+  private running = false
+
+  async start(): Promise<void> {
+    if (this.running) return
+
+    console.log('[ComputeService] Starting compute service...')
+
+    if (!this.hardware || !this.capabilities) {
+      console.log(
+        '[ComputeService] Warning: Hardware not detected. Call setHardware() first.',
+      )
+      return
+    }
+
+    console.log(
+      `[ComputeService] CPU: ${this.hardware.cpu.cores_physical} cores`,
+    )
+    if (this.hardware.gpus.length > 0) {
+      console.log(
+        `[ComputeService] GPUs: ${this.hardware.gpus.map((g) => g.name).join(', ')}`,
+      )
+    }
+
+    this.running = true
+    console.log('[ComputeService] Compute service started')
+  }
+
+  async stop(): Promise<void> {
+    if (!this.running) return
+
+    console.log('[ComputeService] Stopping compute service...')
+    this.running = false
+    console.log('[ComputeService] Compute service stopped')
+  }
+
+  isRunning(): boolean {
+    return this.running
+  }
 }
 
 export function createComputeService(

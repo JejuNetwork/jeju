@@ -424,7 +424,6 @@ export function createDNSRouter() {
             contentCid,
             metadata: _jnsMetadata,
           } = body
-          // TODO: Store jnsMetadata in the app registration when supported
 
           // For now, we register in the app router's deployed apps
           // In production, this would be an on-chain transaction to the JNS registry

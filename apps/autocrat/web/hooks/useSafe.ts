@@ -4,6 +4,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Address, Hex } from 'viem'
+import { AUTOCRAT_API_URL } from '../config/env'
 
 // ============================================================================
 // Types
@@ -111,8 +112,7 @@ interface TokenTransferInput {
 
 async function fetchSafeInfo(address: Address): Promise<SafeInfo> {
   // Use fetch directly since Eden types are complex
-  const baseUrl =
-    import.meta.env.VITE_AUTOCRAT_API_URL ?? 'http://localhost:3001'
+  const baseUrl = AUTOCRAT_API_URL
   const response = await fetch(`${baseUrl}/api/v1/safe/info/${address}`)
   const json = await response.json()
   if (!json.success) {
@@ -124,8 +124,7 @@ async function fetchSafeInfo(address: Address): Promise<SafeInfo> {
 async function fetchPendingTransactions(
   address: Address,
 ): Promise<TransactionsResponse> {
-  const baseUrl =
-    import.meta.env.VITE_AUTOCRAT_API_URL ?? 'http://localhost:3001'
+  const baseUrl = AUTOCRAT_API_URL
   const response = await fetch(
     `${baseUrl}/api/v1/safe/transactions/pending/${address}`,
   )
@@ -140,8 +139,7 @@ async function fetchTransactionHistory(
   address: Address,
   limit = 20,
 ): Promise<TransactionsResponse> {
-  const baseUrl =
-    import.meta.env.VITE_AUTOCRAT_API_URL ?? 'http://localhost:3001'
+  const baseUrl = AUTOCRAT_API_URL
   const response = await fetch(
     `${baseUrl}/api/v1/safe/transactions/history/${address}?limit=${limit}`,
   )
@@ -155,8 +153,7 @@ async function fetchTransactionHistory(
 async function fetchTransaction(
   safeTxHash: Hex,
 ): Promise<SafeTransaction | null> {
-  const baseUrl =
-    import.meta.env.VITE_AUTOCRAT_API_URL ?? 'http://localhost:3001'
+  const baseUrl = AUTOCRAT_API_URL
   const response = await fetch(
     `${baseUrl}/api/v1/safe/transactions/${safeTxHash}`,
   )
@@ -171,8 +168,7 @@ async function fetchTransaction(
 async function fetchTransactionStatus(
   safeTxHash: Hex,
 ): Promise<TransactionStatus> {
-  const baseUrl =
-    import.meta.env.VITE_AUTOCRAT_API_URL ?? 'http://localhost:3001'
+  const baseUrl = AUTOCRAT_API_URL
   const response = await fetch(
     `${baseUrl}/api/v1/safe/transactions/${safeTxHash}/status`,
   )
@@ -184,8 +180,7 @@ async function fetchTransactionStatus(
 }
 
 async function proposeTransaction(input: ProposeTransactionInput) {
-  const baseUrl =
-    import.meta.env.VITE_AUTOCRAT_API_URL ?? 'http://localhost:3001'
+  const baseUrl = AUTOCRAT_API_URL
   const response = await fetch(`${baseUrl}/api/v1/safe/transactions/propose`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -199,8 +194,7 @@ async function proposeTransaction(input: ProposeTransactionInput) {
 }
 
 async function confirmTransaction(input: ConfirmTransactionInput) {
-  const baseUrl =
-    import.meta.env.VITE_AUTOCRAT_API_URL ?? 'http://localhost:3001'
+  const baseUrl = AUTOCRAT_API_URL
   const response = await fetch(
     `${baseUrl}/api/v1/safe/transactions/${input.safeTxHash}/confirm`,
     {
@@ -220,8 +214,7 @@ async function confirmTransaction(input: ConfirmTransactionInput) {
 }
 
 async function buildExecuteTransaction(safeTxHash: Hex) {
-  const baseUrl =
-    import.meta.env.VITE_AUTOCRAT_API_URL ?? 'http://localhost:3001'
+  const baseUrl = AUTOCRAT_API_URL
   const response = await fetch(
     `${baseUrl}/api/v1/safe/transactions/${safeTxHash}/execute`,
   )
@@ -233,8 +226,7 @@ async function buildExecuteTransaction(safeTxHash: Hex) {
 }
 
 async function proposeTreasuryWithdraw(input: TreasuryWithdrawInput) {
-  const baseUrl =
-    import.meta.env.VITE_AUTOCRAT_API_URL ?? 'http://localhost:3001'
+  const baseUrl = AUTOCRAT_API_URL
   const response = await fetch(
     `${baseUrl}/api/v1/safe/treasury/propose-withdraw`,
     {
@@ -251,8 +243,7 @@ async function proposeTreasuryWithdraw(input: TreasuryWithdrawInput) {
 }
 
 async function proposeTokenTransfer(input: TokenTransferInput) {
-  const baseUrl =
-    import.meta.env.VITE_AUTOCRAT_API_URL ?? 'http://localhost:3001'
+  const baseUrl = AUTOCRAT_API_URL
   const response = await fetch(
     `${baseUrl}/api/v1/safe/treasury/propose-transfer`,
     {

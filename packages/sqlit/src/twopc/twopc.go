@@ -189,10 +189,14 @@ func (c *Coordinator) Put(workers []Worker, wb WriteBatch) (result interface{}, 
 ROLLBACK:
 	if c.option.beforeRollback != nil {
 		// ignore rollback fail options
-		c.option.beforeRollback(ctx)
+		if rbErr := c.option.beforeRollback(ctx); rbErr != nil {
+			log.WithError(rbErr).Debug("beforeRollback hook failed")
+		}
 	}
 
-	c.rollback(ctx, workers, wb)
+	if rbErr := c.rollback(ctx, workers, wb); rbErr != nil {
+		log.WithError(rbErr).Debug("rollback failed")
+	}
 
 	return
 }

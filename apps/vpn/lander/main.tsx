@@ -1,18 +1,24 @@
-import React, { useState, useEffect } from 'react'
-import { createRoot } from 'react-dom/client'
 import {
   detectPlatform,
   formatFileSize,
-  getPlatformIcon,
   getPlatformLabel,
   type ReleaseArtifact,
   type ReleaseManifest,
 } from '@jejunetwork/types'
+import type React from 'react'
+import { useEffect, useState } from 'react'
+import { createRoot } from 'react-dom/client'
 
 // Icons
 function ShieldIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-full h-full">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className="w-full h-full"
+    >
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
     </svg>
   )
@@ -20,7 +26,13 @@ function ShieldIcon() {
 
 function DownloadIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-full h-full">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className="w-full h-full"
+    >
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="7 10 12 15 17 10" />
       <line x1="12" y1="15" x2="12" y2="3" />
@@ -30,7 +42,13 @@ function DownloadIcon() {
 
 function GlobeIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-full h-full">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className="w-full h-full"
+    >
       <circle cx="12" cy="12" r="10" />
       <line x1="2" y1="12" x2="22" y2="12" />
       <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
@@ -40,7 +58,13 @@ function GlobeIcon() {
 
 function HeartIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-full h-full">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className="w-full h-full"
+    >
       <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
     </svg>
   )
@@ -48,7 +72,13 @@ function HeartIcon() {
 
 function UsersIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-full h-full">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className="w-full h-full"
+    >
       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
       <circle cx="9" cy="7" r="4" />
       <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
@@ -83,7 +113,9 @@ function EdgeIcon() {
 
 function App() {
   const [release, setRelease] = useState<ReleaseManifest | null>(null)
-  const [detected, setDetected] = useState<ReturnType<typeof detectPlatform> | null>(null)
+  const [detected, setDetected] = useState<ReturnType<
+    typeof detectPlatform
+  > | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -105,14 +137,20 @@ function App() {
       })
       .catch((err) => {
         console.error('Failed to load release info:', err)
-        setError('Release information temporarily unavailable. Please check back later.')
+        setError(
+          'Release information temporarily unavailable. Please check back later.',
+        )
         setLoading(false)
       })
   }, [])
 
   const getRecommendedArtifact = (): ReleaseArtifact | null => {
     if (!release || !detected) return null
-    return release.artifacts.find((a) => a.platform === detected.browser) ?? release.artifacts[0] ?? null
+    return (
+      release.artifacts.find((a) => a.platform === detected.browser) ??
+      release.artifacts[0] ??
+      null
+    )
   }
 
   const recommendedArtifact = getRecommendedArtifact()
@@ -135,7 +173,10 @@ function App() {
       {/* Header */}
       <header className="relative z-10 border-b border-surface-border backdrop-blur-xl bg-vpn-darker/80">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <a href="/" className="flex items-center gap-3 text-vpn-green font-bold text-xl">
+          <a
+            href="/"
+            className="flex items-center gap-3 text-vpn-green font-bold text-xl"
+          >
             <div className="w-10 h-10 bg-vpn-green rounded-xl flex items-center justify-center glow-green">
               <span className="w-5 h-5 text-vpn-dark">
                 <ShieldIcon />
@@ -144,17 +185,30 @@ function App() {
             Jeju VPN
           </a>
           <nav className="hidden md:flex items-center gap-8">
-            <a href="#features" className="text-white/70 hover:text-vpn-green transition-colors font-medium">
+            <a
+              href="#features"
+              className="text-white/70 hover:text-vpn-green transition-colors font-medium"
+            >
               Features
             </a>
-            <a href="#how-it-works" className="text-white/70 hover:text-vpn-green transition-colors font-medium">
+            <a
+              href="#how-it-works"
+              className="text-white/70 hover:text-vpn-green transition-colors font-medium"
+            >
               How It Works
             </a>
-            <a href="#download" className="text-white/70 hover:text-vpn-green transition-colors font-medium">
+            <a
+              href="#download"
+              className="text-white/70 hover:text-vpn-green transition-colors font-medium"
+            >
               Download
             </a>
             <a
-              href={recommendedArtifact ? `/storage/download/${recommendedArtifact.cid}?filename=${recommendedArtifact.filename}` : '#download'}
+              href={
+                recommendedArtifact
+                  ? `/storage/download/${recommendedArtifact.cid}?filename=${recommendedArtifact.filename}`
+                  : '#download'
+              }
               className="bg-vpn-green text-vpn-dark px-6 py-2.5 rounded-xl font-semibold hover:bg-vpn-green-dark transition-colors"
             >
               Install Extension
@@ -178,8 +232,8 @@ function App() {
           </h1>
 
           <p className="text-xl md:text-2xl text-white/60 max-w-2xl mb-12 animate-fade-in-up">
-            Unlimited VPN access powered by the community. Use the network when you need it,
-            contribute bandwidth when you don't.
+            Unlimited VPN access powered by the community. Use the network when
+            you need it, contribute bandwidth when you don't.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 animate-fade-in-up">
@@ -191,7 +245,10 @@ function App() {
                 <span className="w-6 h-6">
                   <DownloadIcon />
                 </span>
-                Install for {getPlatformLabel(detected.browser as 'chrome' | 'firefox' | 'edge' | 'safari')}
+                Install for{' '}
+                {getPlatformLabel(
+                  detected.browser as 'chrome' | 'firefox' | 'edge' | 'safari',
+                )}
               </a>
             )}
             {loading && (
@@ -261,7 +318,10 @@ function App() {
         </section>
 
         {/* How It Works */}
-        <section id="how-it-works" className="py-20 px-6 bg-surface-elevated/30">
+        <section
+          id="how-it-works"
+          className="py-20 px-6 bg-surface-elevated/30"
+        >
           <div className="max-w-4xl mx-auto">
             <h2 className="text-4xl font-bold text-center mb-16">
               How It Works
@@ -291,52 +351,63 @@ function App() {
         <section id="download" className="py-20 px-6">
           <div className="max-w-4xl mx-auto text-center">
             <h2 className="text-4xl font-bold mb-6">Download Jeju VPN</h2>
-            
+
             {loading && (
-              <p className="text-xl text-white/60 mb-12">Loading release information...</p>
+              <p className="text-xl text-white/60 mb-12">
+                Loading release information...
+              </p>
             )}
-            
+
             {error && (
               <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 mb-12">
                 <p className="text-red-400">{error}</p>
                 <p className="text-sm text-white/50 mt-2">
-                  Extensions will be available in browser stores. Check back soon.
+                  Extensions will be available in browser stores. Check back
+                  soon.
                 </p>
               </div>
             )}
-            
+
             {!loading && !error && (
               <>
                 <p className="text-xl text-white/60 mb-12">
-                  Available for all major browsers. Version {release?.version ?? 'unavailable'}
+                  Available for all major browsers. Version{' '}
+                  {release?.version ?? 'unavailable'}
                 </p>
 
                 <div className="grid sm:grid-cols-3 gap-6">
                   <DownloadCard
                     icon={<ChromeIcon />}
                     name="Chrome"
-                    artifact={release?.artifacts.find((a) => a.platform === 'chrome')}
+                    artifact={release?.artifacts.find(
+                      (a) => a.platform === 'chrome',
+                    )}
                     recommended={detected?.browser === 'chrome'}
                     storeUrl="https://chrome.google.com/webstore"
                   />
                   <DownloadCard
                     icon={<FirefoxIcon />}
                     name="Firefox"
-                    artifact={release?.artifacts.find((a) => a.platform === 'firefox')}
+                    artifact={release?.artifacts.find(
+                      (a) => a.platform === 'firefox',
+                    )}
                     recommended={detected?.browser === 'firefox'}
                     storeUrl="https://addons.mozilla.org"
                   />
                   <DownloadCard
                     icon={<EdgeIcon />}
                     name="Edge"
-                    artifact={release?.artifacts.find((a) => a.platform === 'edge')}
+                    artifact={release?.artifacts.find(
+                      (a) => a.platform === 'edge',
+                    )}
                     recommended={detected?.browser === 'edge'}
                     storeUrl="https://microsoftedge.microsoft.com/addons"
                   />
                 </div>
 
                 <p className="mt-8 text-sm text-white/40">
-                  Extension pending review in browser stores. Direct download available now.
+                  Extension pending review in browser stores. Direct download
+                  available now.
                 </p>
               </>
             )}
@@ -346,9 +417,7 @@ function App() {
         {/* CTA */}
         <section className="py-20 px-6 bg-gradient-to-b from-vpn-green/10 to-transparent">
           <div className="max-w-3xl mx-auto text-center">
-            <h2 className="text-4xl font-bold mb-6">
-              Ready to Browse Freely?
-            </h2>
+            <h2 className="text-4xl font-bold mb-6">Ready to Browse Freely?</h2>
             <p className="text-xl text-white/60 mb-10">
               Join thousands of users who trust Jeju VPN for their privacy.
             </p>
@@ -371,13 +440,26 @@ function App() {
       <footer className="relative z-10 border-t border-surface-border py-10 px-6">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-6">
           <div className="flex gap-6 text-sm text-white/60">
-            <a href="https://jejunetwork.org" target="_blank" rel="noopener" className="hover:text-vpn-green transition-colors">
+            <a
+              href="https://jejunetwork.org"
+              target="_blank"
+              rel="noopener"
+              className="hover:text-vpn-green transition-colors"
+            >
               Jeju Network
             </a>
-            <a href="https://github.com/jejunetwork/vpn" target="_blank" rel="noopener" className="hover:text-vpn-green transition-colors">
+            <a
+              href="https://github.com/jejunetwork/vpn"
+              target="_blank"
+              rel="noopener"
+              className="hover:text-vpn-green transition-colors"
+            >
               GitHub
             </a>
-            <a href="/api/info" className="hover:text-vpn-green transition-colors">
+            <a
+              href="/api/info"
+              className="hover:text-vpn-green transition-colors"
+            >
               API
             </a>
           </div>
@@ -390,7 +472,15 @@ function App() {
   )
 }
 
-function Stat({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) {
+function Stat({
+  icon,
+  value,
+  label,
+}: {
+  icon: React.ReactNode
+  value: string
+  label: string
+}) {
   return (
     <div className="text-center">
       <div className="w-10 h-10 mx-auto mb-3 text-vpn-green">{icon}</div>
@@ -400,7 +490,15 @@ function Stat({ icon, value, label }: { icon: React.ReactNode; value: string; la
   )
 }
 
-function FeatureCard({ icon, title, description }: { icon: string; title: string; description: string }) {
+function FeatureCard({
+  icon,
+  title,
+  description,
+}: {
+  icon: string
+  title: string
+  description: string
+}) {
   return (
     <div className="bg-surface-elevated border border-surface-border rounded-2xl p-6 hover:border-vpn-green/30 transition-colors">
       <div className="text-4xl mb-4">{icon}</div>
@@ -410,7 +508,15 @@ function FeatureCard({ icon, title, description }: { icon: string; title: string
   )
 }
 
-function Step({ number, title, description }: { number: number; title: string; description: string }) {
+function Step({
+  number,
+  title,
+  description,
+}: {
+  number: number
+  title: string
+  description: string
+}) {
   return (
     <div className="flex gap-6 items-start">
       <div className="w-12 h-12 bg-vpn-green text-vpn-dark rounded-xl flex items-center justify-center font-bold text-xl flex-shrink-0">
@@ -440,16 +546,22 @@ function DownloadCard({
   return (
     <div
       className={`bg-surface-elevated border rounded-2xl p-6 text-center transition-all ${
-        recommended ? 'border-vpn-green/50 ring-2 ring-vpn-green/20' : 'border-surface-border hover:border-vpn-green/30'
+        recommended
+          ? 'border-vpn-green/50 ring-2 ring-vpn-green/20'
+          : 'border-surface-border hover:border-vpn-green/30'
       }`}
     >
       {recommended && (
-        <span className="text-xs text-vpn-green font-medium uppercase tracking-wider">Recommended</span>
+        <span className="text-xs text-vpn-green font-medium uppercase tracking-wider">
+          Recommended
+        </span>
       )}
       <div className="w-12 h-12 mx-auto my-4 text-white/80">{icon}</div>
       <h3 className="text-lg font-semibold mb-1">{name}</h3>
       {artifact && (
-        <p className="text-sm text-white/50 mb-4">{formatFileSize(artifact.size)}</p>
+        <p className="text-sm text-white/50 mb-4">
+          {formatFileSize(artifact.size)}
+        </p>
       )}
       {artifact ? (
         <a

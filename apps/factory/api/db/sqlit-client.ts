@@ -5,7 +5,7 @@
  * This file is used when running in workerd environment.
  */
 
-import { getSQLitBlockProducerUrl, getCurrentNetwork } from '@jejunetwork/config'
+import { getSQLitBlockProducerUrl } from '@jejunetwork/config'
 import { z } from 'zod'
 
 // =============================================================================
@@ -72,10 +72,7 @@ class SQLitHttpClient {
     })
   }
 
-  private async fetch<T>(
-    method: 'query' | 'exec',
-    sql: string,
-  ): Promise<T[]> {
+  private async fetch<T>(method: 'query' | 'exec', sql: string): Promise<T[]> {
     const uri = `${this.endpoint}/v1/${method}`
 
     const response = await fetch(uri, {
@@ -149,8 +146,7 @@ let client: SQLitHttpClient | null = null
 function getClient(): SQLitHttpClient {
   if (client) return client
 
-  const network = getCurrentNetwork()
-  const endpoint = getSQLitBlockProducerUrl(network)
+  const endpoint = getSQLitBlockProducerUrl()
   const dbid = process.env.SQLIT_DATABASE_ID ?? 'factory'
 
   client = new SQLitHttpClient({

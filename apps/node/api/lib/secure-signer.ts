@@ -120,18 +120,40 @@ export class SecureSigner {
       allowLocalFallback: config.allowLocalFallback ?? network === 'localnet',
     }
 
+    // For localnet with dev key, allow without real KMS
+    const isDevLocalnet =
+      network === 'localnet' && Boolean(this.config.keyId?.startsWith('dev-'))
+
+    // Only throw if no keyId AND not in dev mode
     if (!this.config.keyId) {
       throw new Error(
         'SecureSigner requires a keyId. Register your node with KMS first.',
       )
     }
+
+    // Store dev mode flag
+    this.isDevMode = isDevLocalnet
   }
+
+  private isDevMode = false
+
+  // Well-known dev key for localnet testing (matches jeju CLI dev keys)
+  private static DEV_PRIVATE_KEY =
+    '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as const
 
   /**
    * Get the address for this signer's key (derived from KMS-managed key)
    */
   async getAddress(): Promise<Address> {
     if (this.cachedAddress) {
+      return this.cachedAddress
+    }
+
+    // In dev mode, derive address from well-known dev key
+    if (this.isDevMode) {
+      const { privateKeyToAccount } = await import('viem/accounts')
+      const account = privateKeyToAccount(SecureSigner.DEV_PRIVATE_KEY)
+      this.cachedAddress = account.address
       return this.cachedAddress
     }
 
@@ -189,6 +211,33 @@ export class SecureSigner {
     signedTransaction: Hex
     hash: Hash
   }> {
+    // In dev mode, sign with well-known dev key
+    if (this.isDevMode) {
+      const { privateKeyToAccount } = await import('viem/accounts')
+      const { keccak256 } = await import('viem')
+      const account = privateKeyToAccount(SecureSigner.DEV_PRIVATE_KEY)
+
+      const tx = {
+        to: request.to,
+        value: request.value ?? 0n,
+        data: request.data ?? '0x',
+        nonce: request.nonce ?? 0,
+        gasLimit: request.gasLimit ?? 21000n,
+        maxFeePerGas: request.maxFeePerGas ?? 1000000000n,
+        maxPriorityFeePerGas: request.maxPriorityFeePerGas ?? 1000000000n,
+        chainId: request.chainId,
+        type: 'eip1559' as const,
+      }
+
+      const signature = await account.signTransaction(tx)
+      const hash = keccak256(signature) as Hash
+
+      return {
+        signedTransaction: signature as Hex,
+        hash,
+      }
+    }
+
     const keyId = request.keyId ?? this.config.keyId
 
     // Serialize transaction for signing
@@ -357,6 +406,8 @@ export function createSecureSigner(
  * 1. Generate a new key using MPC (no single party has full key)
  * 2. Store key shares across threshold nodes
  * 3. Return a keyId for future signing operations
+ *
+ * For localnet development, this returns a deterministic dev key instead.
  */
 export async function registerNodeWithKMS(
   operatorAddress: Address,
@@ -369,27 +420,65 @@ export async function registerNodeWithKMS(
   },
 ): Promise<{ keyId: string; address: Address }> {
   const network = getCurrentNetwork()
-  const endpoint = getKMSUrl(network)
 
-  const response = await fetch(`${endpoint}/register-node`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      operator: operatorAddress,
-      ...nodeMetadata,
-    }),
-    signal: AbortSignal.timeout(30000),
-  })
+  // LOCAL DEVELOPMENT FALLBACK
+  // For localnet, skip KMS and use well-known dev key
+  if (network === 'localnet') {
+    const { privateKeyToAccount } = await import('viem/accounts')
+    // Use the same dev key as SecureSigner class
+    const DEV_KEY =
+      '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as const
+    const account = privateKeyToAccount(DEV_KEY)
 
-  if (!response.ok) {
-    const text = await response.text()
-    throw new Error(`Node registration failed: ${response.status} - ${text}`)
+    console.log('[KMS] Using localnet development key (no KMS required)')
+    console.log(`[KMS] Dev address: ${account.address}`)
+
+    return {
+      keyId: `dev-localnet-${nodeMetadata.nodeId}`,
+      address: account.address,
+    }
   }
 
-  const result = (await response.json()) as { keyId: string; address: string }
+  const endpoint = getKMSUrl(network)
 
-  return {
-    keyId: result.keyId,
-    address: result.address as Address,
+  // Try to connect to KMS, with helpful error message if unavailable
+  try {
+    const response = await fetch(`${endpoint}/register-node`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        operator: operatorAddress,
+        ...nodeMetadata,
+      }),
+      signal: AbortSignal.timeout(30000),
+    })
+
+    if (!response.ok) {
+      const text = await response.text()
+      throw new Error(`Node registration failed: ${response.status} - ${text}`)
+    }
+
+    const result = (await response.json()) as { keyId: string; address: string }
+
+    return {
+      keyId: result.keyId,
+      address: result.address as Address,
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+
+    // Provide helpful guidance if KMS is not available
+    if (
+      message.includes('fetch') ||
+      message.includes('ECONNREFUSED') ||
+      message.includes('timeout')
+    ) {
+      throw new Error(
+        `KMS service not available at ${endpoint}. ` +
+          `For local development, use: NETWORK=localnet bun run apps/node/api/cli.ts start --all`,
+      )
+    }
+
+    throw error
   }
 }

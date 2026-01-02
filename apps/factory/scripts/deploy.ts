@@ -58,22 +58,22 @@ async function verifyContentRetrievable(
   expectedSize?: number,
 ): Promise<boolean> {
   const verifyUrl = `${DWS_URL}/storage/download/${cid}`
-  
+
   const response = await fetch(verifyUrl, {
     method: 'HEAD',
     signal: AbortSignal.timeout(10000),
   }).catch(() => null)
-  
+
   if (!response) {
     console.error(`   VERIFICATION FAILED: ${cid} - timeout or network error`)
     return false
   }
-  
+
   if (!response.ok) {
     console.error(`   VERIFICATION FAILED: ${cid} - status ${response.status}`)
     return false
   }
-  
+
   if (expectedSize !== undefined) {
     const contentLength = response.headers.get('content-length')
     if (contentLength && parseInt(contentLength, 10) !== expectedSize) {
@@ -81,7 +81,7 @@ async function verifyContentRetrievable(
       return false
     }
   }
-  
+
   return true
 }
 
@@ -177,15 +177,19 @@ async function deploy(): Promise<DeployResult> {
             json,
             `upload ${relPath}`,
           )
-          
+
           // Verify the content is retrievable before adding to staticFiles
           const verified = await verifyContentRetrievable(cid)
           if (!verified) {
-            throw new Error(`Upload verification failed for ${relPath} - content not retrievable`)
+            throw new Error(
+              `Upload verification failed for ${relPath} - content not retrievable`,
+            )
           }
-          
+
           staticFiles[relPath] = cid
-          console.log(`  Uploaded ${relPath}: ${cid.slice(0, 12)}... (verified)`)
+          console.log(
+            `  Uploaded ${relPath}: ${cid.slice(0, 12)}... (verified)`,
+          )
         }
       }
     }

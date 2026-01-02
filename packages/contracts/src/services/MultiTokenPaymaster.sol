@@ -126,7 +126,7 @@ contract MultiTokenPaymaster is BasePaymaster {
         address _priceOracle,
         address _revenueWallet,
         address _owner
-    ) BasePaymaster(_entryPoint) {
+    ) BasePaymaster(_entryPoint, _owner) {
         require(_usdc != address(0), "Invalid USDC");
         require(_jeju != address(0), "Invalid JEJU");
         require(_creditManager != address(0), "Invalid credit manager");
@@ -159,7 +159,9 @@ contract MultiTokenPaymaster is BasePaymaster {
             revert InsufficientLiquidity();
         }
 
-        bytes calldata data = userOp.paymasterAndData[20:];
+        // v0.7 format: [paymaster(20)][verificationGas(16)][postOpGas(16)][data...]
+        // Data starts at byte 52, not 20
+        bytes calldata data = userOp.paymasterAndData[52:];
         if (data.length < 2) revert InvalidPaymasterData();
 
         uint8 serviceNameLength = uint8(data[0]);
@@ -299,12 +301,12 @@ contract MultiTokenPaymaster is BasePaymaster {
     }
 
     function depositToEntryPoint() external payable onlyOwner {
-        entryPoint.depositTo{value: msg.value}(address(this));
+        entryPoint().depositTo{value: msg.value}(address(this));
         emit EntryPointFunded(msg.value);
     }
 
     function withdrawFromEntryPoint(address payable to, uint256 amount) external onlyOwner {
-        entryPoint.withdrawTo(to, amount);
+        entryPoint().withdrawTo(to, amount);
     }
 
     function pause() external onlyOwner {

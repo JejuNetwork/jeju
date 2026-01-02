@@ -4,6 +4,7 @@
  * Local Development Stack
  *
  * Starts all Jeju services locally with:
+ * - SQLit (required for decentralized state persistence)
  * - Simulated TEE (exact same config as testnet, just simulated)
  * - All apps running through DWS workerd where possible
  * - Service discovery via local registry
@@ -14,6 +15,7 @@
  *   bun run scripts/local-stack.ts --verbose
  */
 
+import { existsSync } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { getContract, getLocalhostHost, getRpcUrl } from '@jejunetwork/config'
@@ -21,6 +23,11 @@ import { type Subprocess, spawn } from 'bun'
 import { JEJU_APPS, type JejuAppName } from '../api/workers/app-sdk'
 import { getRegionConfig } from '../api/workers/tee/regions'
 import type { NetworkEnvironment } from '../api/workers/tee/types'
+
+// SQLit configuration
+const SQLIT_PORT = 8546
+const SQLIT_DATA_DIR = join(process.cwd(), '.local-stack', 'sqlit')
+let sqlitProcess: Subprocess | null = null
 
 // Configuration
 
@@ -121,6 +128,70 @@ Examples:
   # Verbose mode
   bun run scripts/local-stack.ts --verbose
 `)
+}
+
+// SQLit Management
+
+async function startSQLit(config: StackConfig): Promise<void> {
+  console.log(`[Stack] Starting SQLit on port ${SQLIT_PORT}`)
+
+  // Ensure data directory exists
+  await mkdir(SQLIT_DATA_DIR, { recursive: true })
+
+  // Check if adapter exists
+  const adapterPath = join(
+    process.cwd(),
+    '..',
+    '..',
+    'packages',
+    'sqlit',
+    'adapter',
+  )
+  const serverPath = join(adapterPath, 'server.ts')
+
+  if (!existsSync(serverPath)) {
+    throw new Error(
+      `SQLit adapter not found at ${serverPath}. ` +
+        'Run: cd packages/sqlit/adapter && bun install',
+    )
+  }
+
+  const host = getLocalhostHost()
+  const env: Record<string, string> = {
+    ...process.env,
+    PORT: String(SQLIT_PORT),
+    DATA_DIR: SQLIT_DATA_DIR,
+  }
+
+  sqlitProcess = spawn(['bun', 'run', 'server.ts'], {
+    cwd: adapterPath,
+    env,
+    stdout: config.verbose ? 'inherit' : 'pipe',
+    stderr: config.verbose ? 'inherit' : 'pipe',
+  })
+
+  // Wait for SQLit to be ready
+  const deadline = Date.now() + 15000
+  while (Date.now() < deadline) {
+    const healthy = await fetch(`http://${host}:${SQLIT_PORT}/v1/status`)
+      .then((r) => r.ok)
+      .catch(() => false)
+    if (healthy) {
+      console.log(`[Stack] SQLit ready at http://${host}:${SQLIT_PORT}`)
+      return
+    }
+    await new Promise((r) => setTimeout(r, 300))
+  }
+
+  throw new Error('SQLit did not start within timeout. Check logs for errors.')
+}
+
+async function stopSQLit(): Promise<void> {
+  if (sqlitProcess) {
+    console.log('  Stopping SQLit...')
+    sqlitProcess.kill()
+    sqlitProcess = null
+  }
 }
 
 // Service Management
@@ -257,12 +328,17 @@ async function stopAllServices(): Promise<void> {
   }
 
   services.clear()
+
+  // Stop SQLit last
+  await stopSQLit()
 }
 
 // Stack Orchestration
 
 async function startStack(config: StackConfig): Promise<void> {
   const regionConfig = getRegionConfig(config.environment)
+  const host = getLocalhostHost()
+  const sqlitUrl = `http://${host}:${SQLIT_PORT}`
 
   console.log('\n╔════════════════════════════════════════════════════════╗')
   console.log('║           JEJU LOCAL DEVELOPMENT STACK                 ║')
@@ -276,12 +352,22 @@ async function startStack(config: StackConfig): Promise<void> {
       .padEnd(42)}║`,
   )
   console.log(`║ RPC:         ${config.rpcUrl.padEnd(42)}║`)
+  console.log(`║ SQLit:       ${sqlitUrl.padEnd(42)}║`)
   console.log('╚════════════════════════════════════════════════════════╝\n')
 
   // Create data directory
   await mkdir(config.dataDir, { recursive: true })
 
-  // Start services in dependency order
+  // 1. Start SQLit first - required for all apps
+  console.log('[Stack] Phase 1: Starting SQLit (decentralized database)')
+  await startSQLit(config)
+
+  // Set SQLit URL for all services
+  process.env.SQLIT_URL = sqlitUrl
+  process.env.SQLIT_MINER_URL = sqlitUrl
+
+  // 2. Start services in dependency order
+  console.log('\n[Stack] Phase 2: Starting services')
   const startOrder: JejuAppName[] = []
 
   // Core infrastructure first
@@ -304,7 +390,11 @@ async function startStack(config: StackConfig): Promise<void> {
   console.log('║              ALL SERVICES STARTED                       ║')
   console.log('╠════════════════════════════════════════════════════════╣')
 
-  const host = getLocalhostHost()
+  // Show SQLit status first
+  console.log(
+    `${`║ [OK] sqlit        http://${host}:${SQLIT_PORT}`.padEnd(57)}║`,
+  )
+
   for (const [name, service] of services) {
     const status = service.ready ? '[OK]' : '[--]'
     const url = `http://${host}:${service.port}`
@@ -312,6 +402,7 @@ async function startStack(config: StackConfig): Promise<void> {
   }
 
   console.log('╠════════════════════════════════════════════════════════╣')
+  console.log('║ SQLit: Decentralized database persistence enabled      ║')
   console.log('║ Press Ctrl+C to stop all services                      ║')
   console.log('╚════════════════════════════════════════════════════════╝\n')
 }

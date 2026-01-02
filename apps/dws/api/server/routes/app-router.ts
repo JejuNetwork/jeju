@@ -173,9 +173,6 @@ function isAssetPath(pathname: string): boolean {
 
 /**
  * Register a deployed app (persists to ConfigMap in K8s, SQLit otherwise)
- * 
- * IMPORTANT: This function will throw if persistence fails in production.
- * Memory-only mode is only allowed in localnet for development.
  */
 export async function registerDeployedApp(
   app: Omit<DeployedApp, 'deployedAt' | 'updatedAt'>,
@@ -192,20 +189,13 @@ export async function registerDeployedApp(
   // Update cache first
   deployedAppsCache.set(app.name, deployedApp)
 
-  // Track persistence success
-  let persisted = false
-  let persistenceError: Error | null = null
-
   // Persist to ConfigMap (primary for K8s) or SQLit (fallback)
   if (isConfigMapAvailable()) {
     // Save all apps to ConfigMap
     const allApps = Array.from(deployedAppsCache.values())
-    persisted = await saveAppsToConfigMap(allApps)
-    if (!persisted) {
-      persistenceError = new Error('ConfigMap save returned false')
-    }
+    await saveAppsToConfigMap(allApps)
   } else {
-    // Try SQLit as fallback
+    // Try SQLit as fallback (for local development)
     try {
       await deployedAppState.save({
         name: app.name,
@@ -218,38 +208,18 @@ export async function registerDeployedApp(
         spa: app.spa,
         enabled: app.enabled,
       })
-      persisted = true
-    } catch (error) {
-      persistenceError = error instanceof Error ? error : new Error(String(error))
-    }
-  }
-
-  // In production (testnet/mainnet), persistence failures are fatal
-  // In localnet, we allow memory-only mode for development
-  if (!persisted) {
-    const network = NETWORK
-    if (network === 'testnet' || network === 'mainnet') {
-      console.error(
-        `[AppRouter] CRITICAL: Failed to persist app registration for ${app.name}`,
-      )
-      console.error(
-        `[AppRouter] Error: ${persistenceError?.message ?? 'Unknown error'}`,
-      )
-      console.error(
-        '[AppRouter] App registrations will NOT survive pod restart. Fix persistence immediately.',
-      )
-      // Don't throw in API context to avoid breaking HTTP response, but log loudly
-    } else {
-      console.warn(
-        `[AppRouter] Memory-only mode (localnet): ${app.name} - not persisted`,
+    } catch (_error) {
+      // Neither ConfigMap nor SQLit available - cache-only mode
+      console.log(
+        `[AppRouter] Running in memory-only mode (no persistence): ${app.name}`,
       )
     }
   }
 
   console.log(
-    `[AppRouter] Registered app: ${app.name} (frontend: ${app.frontendCid ?? 'local'}, backend: ${app.backendWorkerId ?? app.backendEndpoint ?? 'none'}, persisted: ${persisted})`,
+    `[AppRouter] Registered app: ${app.name} (frontend: ${app.frontendCid ?? 'local'}, backend: ${app.backendWorkerId ?? app.backendEndpoint ?? 'none'})`,
   )
-  
+
   // Notify other pods to sync their cache (fire-and-forget)
   notifyOtherPods()
 }
@@ -342,7 +312,9 @@ export async function reloadCacheFromPersistence(): Promise<{
               name: row.name,
               jnsName: row.jns_name,
               frontendCid: row.frontend_cid,
-              staticFiles: row.static_files ? JSON.parse(row.static_files) : null,
+              staticFiles: row.static_files
+                ? JSON.parse(row.static_files)
+                : null,
               backendWorkerId: row.backend_worker_id,
               backendEndpoint: row.backend_endpoint,
               apiPaths: JSON.parse(row.api_paths),
@@ -378,13 +350,17 @@ let syncIntervalId: ReturnType<typeof setInterval> | null = null
 export function startBackgroundSync(): void {
   if (syncIntervalId) return // Already running
 
-  console.log(`[AppRouter] Starting background sync (interval: ${SYNC_INTERVAL_MS}ms, pod: ${POD_ID})`)
+  console.log(
+    `[AppRouter] Starting background sync (interval: ${SYNC_INTERVAL_MS}ms, pod: ${POD_ID})`,
+  )
 
   syncIntervalId = setInterval(async () => {
     try {
       const { loaded, source } = await reloadCacheFromPersistence()
       if (loaded > 0) {
-        console.log(`[AppRouter] Background sync: ${loaded} apps from ${source}`)
+        console.log(
+          `[AppRouter] Background sync: ${loaded} apps from ${source}`,
+        )
       }
     } catch (error) {
       console.warn(
@@ -410,14 +386,14 @@ async function notifyOtherPods(): Promise<void> {
   // In K8s, pods can be discovered via the service DNS
   // DWS service: dws.dws.svc.cluster.local
   // We call the /apps/sync endpoint on the service which load-balances across pods
-  
+
   // Only attempt if running in K8s
   if (!isConfigMapAvailable()) return
-  
+
   const podNamespace = process.env.POD_NAMESPACE ?? 'dws'
   const serviceName = process.env.DWS_SERVICE_NAME ?? 'dws'
   const serviceUrl = `http://${serviceName}.${podNamespace}.svc.cluster.local`
-  
+
   // Fire-and-forget - don't block on pod notification
   // Call sync endpoint multiple times to hit different pods (load balancer will distribute)
   for (let i = 0; i < 3; i++) {
@@ -455,33 +431,18 @@ async function serveFrontendFromStorage(
   }
 
   // Try to find CID for this path in staticFiles map
-  // Deploy scripts may store paths with or without leading slashes, so try both
   let fileCid: string | null = null
   if (app.staticFiles) {
-    // First try the path as-is (without leading slash)
     fileCid = app.staticFiles[path] ?? null
-    
-    // Try with leading slash
-    if (!fileCid) {
-      fileCid = app.staticFiles[`/${path}`] ?? null
-    }
-    
     // Also try with dist/ prefix for legacy paths like /dist/web/main.js
     if (!fileCid && path.startsWith('dist/')) {
       const withoutDist = path.replace(/^dist\//, '')
-      fileCid = app.staticFiles[withoutDist] ?? app.staticFiles[`/${withoutDist}`] ?? null
+      fileCid = app.staticFiles[withoutDist] ?? null
     }
-    
     // Try web/ prefix for /dist/web/* paths
     if (!fileCid && path.startsWith('dist/web/')) {
       const withoutDistWeb = path.replace(/^dist\/web\//, 'web/')
-      fileCid = app.staticFiles[withoutDistWeb] ?? app.staticFiles[`/${withoutDistWeb}`] ?? null
-    }
-    
-    // Try web/ prefix stripping (some apps use web/ subfolder)
-    if (!fileCid && path.startsWith('web/')) {
-      const withoutWeb = path.replace(/^web\//, '')
-      fileCid = app.staticFiles[withoutWeb] ?? app.staticFiles[`/${withoutWeb}`] ?? null
+      fileCid = app.staticFiles[withoutDistWeb] ?? null
     }
   }
 
@@ -677,9 +638,6 @@ export async function ensureWorkerDeployed(
   return result.functionId
 }
 
-// Backend proxy timeout in milliseconds (30 seconds)
-const BACKEND_PROXY_TIMEOUT_MS = 30000
-
 /**
  * Proxy request to backend
  */
@@ -694,12 +652,10 @@ export async function proxyToBackend(
     // Direct endpoint (container or external service)
     targetUrl = `${app.backendEndpoint}${pathname}`
   } else if (app.backendWorkerId) {
-    // DWS worker - route through workerd runtime (V8 isolates, Cloudflare Workers compatible)
-    // This provides proper V8 isolation, not child process spawning
+    // DWS worker - route through workers runtime
     const host = getLocalhostHost()
-    
-    // Route to the workerd HTTP handler
-    targetUrl = `http://${host}:4030/workerd/${app.backendWorkerId}/http${pathname}`
+    // Use the workers router which handles deployment from IPFS if needed
+    targetUrl = `http://${host}:4030/workers/${app.backendWorkerId}/http${pathname}`
   } else {
     return new Response(JSON.stringify({ error: 'No backend configured' }), {
       status: 502,
@@ -724,22 +680,7 @@ export async function proxyToBackend(
         : undefined,
   })
 
-  // Add timeout to prevent hanging requests
-  const response = await fetch(proxyRequest, {
-    signal: AbortSignal.timeout(BACKEND_PROXY_TIMEOUT_MS),
-  }).catch((error: Error) => {
-    console.error(`[AppRouter] Backend proxy failed: ${error.message}`)
-    if (error.name === 'TimeoutError' || error.message.includes('timeout')) {
-      return new Response(JSON.stringify({ error: 'Backend timeout' }), {
-        status: 504,
-        headers: { 'Content-Type': 'application/json' },
-      })
-    }
-    return new Response(JSON.stringify({ error: `Backend error: ${error.message}` }), {
-      status: 502,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  })
+  const response = await fetch(proxyRequest)
 
   // Clone response with DWS headers
   const headers = new Headers(response.headers)
@@ -804,20 +745,8 @@ export function createAppRouter() {
           return undefined
         }
 
-        // Look up deployed app (from cache) by name first, then by JNS name
+        // Look up deployed app (from cache)
         let app = deployedAppsCache.get(appName)
-        
-        // If not found by name, try to find by JNS subdomain
-        // e.g., auth.testnet.jejunetwork.org → look for app with jnsName 'auth.jeju'
-        if (!app) {
-          const jnsName = `${appName}.jeju`
-          for (const candidate of deployedAppsCache.values()) {
-            if (candidate.jnsName === jnsName) {
-              app = candidate
-              break
-            }
-          }
-        }
         console.log(
           `[AppRouter] Found app: ${app?.name}, apiPaths: ${JSON.stringify(app?.apiPaths)}`,
         )
@@ -956,18 +885,7 @@ export function createAppRouter() {
           return { error: 'App name is required' }
         }
         await registerDeployedApp(data)
-        
-        // Warn if DWS is running in degraded mode (no persistence)
-        const degraded = isDegradedMode()
-        if (degraded) {
-          set.headers['X-DWS-Warning'] = 'Degraded mode - app registration will NOT persist'
-        }
-        
-        return { 
-          success: true, 
-          app: getDeployedApp(data.name),
-          warning: degraded ? 'DWS is running in degraded mode without persistence. App registration will be lost on restart.' : undefined,
-        }
+        return { success: true, app: getDeployedApp(data.name) }
       })
 
       .delete('/apps/deployed/:name', async ({ params }) => {
@@ -1097,8 +1015,10 @@ export async function initializeAppRouter(): Promise<void> {
     console.log('[AppRouter] Ingress controller not available, skipping')
   }
 
-  console.log(`[AppRouter] Initialized with ${deployedAppsCache.size} apps (pod: ${POD_ID})`)
-  
+  console.log(
+    `[AppRouter] Initialized with ${deployedAppsCache.size} apps (pod: ${POD_ID})`,
+  )
+
   // Start background sync for cross-pod state consistency
   startBackgroundSync()
 }

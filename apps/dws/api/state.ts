@@ -37,15 +37,80 @@ let initPromise: Promise<void> | null = null
 
 // SQLit is always required - no in-memory fallback for serverless compatibility
 
+// In-memory storage for test mode
+const memoryTables = new Map<string, Map<string, Record<string, unknown>>>()
+
+// In-memory SQLit mock for test mode
+function createMemorySQLitClient(): MinimalSQLitClient {
+  return {
+    async isHealthy() { return true },
+    async query<T>(sql: string, params: QueryParam[], _dbId: string): Promise<QueryResult<T>> {
+      // Parse simple SELECT queries for test mode
+      const table = sql.match(/FROM\s+(\w+)/i)?.[1]
+      if (!table) return { rows: [] }
+
+      const tableData = memoryTables.get(table) ?? new Map()
+      const rows = Array.from(tableData.values())
+
+      // Basic WHERE clause support
+      const whereMatch = sql.match(/WHERE\s+(LOWER\()?(\w+)\)?\s*=\s*\?/i)
+      if (whereMatch && params.length > 0) {
+        const field = whereMatch[2]
+        const value = String(params[0]).toLowerCase()
+        const filtered = rows.filter((r) => String(r[field]).toLowerCase() === value)
+        return { rows: filtered as T[] }
+      }
+
+      return { rows: rows as T[] }
+    },
+    async exec(sql: string, params: QueryParam[], _dbId: string): Promise<ExecResult> {
+      // Parse INSERT/REPLACE/UPDATE/DELETE for test mode
+      const insertMatch = sql.match(/INSERT\s+(?:OR\s+REPLACE\s+)?INTO\s+(\w+)/i)
+      if (insertMatch) {
+        const table = insertMatch[1]
+        if (!memoryTables.has(table)) memoryTables.set(table, new Map())
+        const tableData = memoryTables.get(table)
+        // Use first param as ID
+        const id = String(params[0])
+        const record: Record<string, unknown> = {}
+        // Extract columns from SQL
+        const colsMatch = sql.match(/\(([^)]+)\)\s*VALUES/i)
+        if (colsMatch) {
+          const cols = colsMatch[1].split(',').map(c => c.trim())
+          cols.forEach((col, i) => { record[col] = params[i] })
+        }
+        tableData?.set(id, record)
+        return { rowsAffected: 1 }
+      }
+
+      const deleteMatch = sql.match(/DELETE\s+FROM\s+(\w+)\s+WHERE\s+(\w+)\s*=\s*\?/i)
+      if (deleteMatch && params.length > 0) {
+        const table = deleteMatch[1]
+        const tableData = memoryTables.get(table)
+        if (tableData) {
+          const id = String(params[0])
+          tableData.delete(id)
+        }
+        return { rowsAffected: 1 }
+      }
+
+      return { rowsAffected: 0 }
+    },
+  }
+}
+
 async function getSQLitClient(): Promise<MinimalSQLitClient> {
   // Wait for initialization if in progress
   if (initPromise) {
     await initPromise
   }
 
-  // If already in memory-only mode, throw immediately
+  // If in memory-only mode (test mode), return a mock client
   if (memoryOnlyMode) {
-    throw new Error('SQLit unavailable (memory-only mode)')
+    if (!sqlitClient) {
+      sqlitClient = createMemorySQLitClient()
+    }
+    return sqlitClient
   }
 
   if (!sqlitClient) {
@@ -522,7 +587,9 @@ export const computeJobState = {
     } catch (error) {
       // SQLit failed - log error and save to memory store
       const errorMsg = error instanceof Error ? error.message : String(error)
-      console.error(`[DWS State] SQLit save failed for job ${row.job_id}: ${errorMsg}`)
+      console.error(
+        `[DWS State] SQLit save failed for job ${row.job_id}: ${errorMsg}`,
+      )
       memoryStores.computeJobs.set(row.job_id, row)
     }
   },
@@ -544,7 +611,9 @@ export const computeJobState = {
     } catch (error) {
       // SQLit failed - log error and use memory store
       const errorMsg = error instanceof Error ? error.message : String(error)
-      console.error(`[DWS State] SQLit get failed for job ${jobId}: ${errorMsg}`)
+      console.error(
+        `[DWS State] SQLit get failed for job ${jobId}: ${errorMsg}`,
+      )
       return memoryStores.computeJobs.get(jobId) ?? null
     }
   },
@@ -1044,7 +1113,9 @@ export const apiUserAccountState = {
     } catch (error) {
       // SQLit failed - log error and use memory store
       const errorMsg = error instanceof Error ? error.message : String(error)
-      console.error(`[DWS State] SQLit getOrCreate user failed for ${addr}: ${errorMsg}`)
+      console.error(
+        `[DWS State] SQLit getOrCreate user failed for ${addr}: ${errorMsg}`,
+      )
       const existing = memoryStores.apiUserAccounts.get(addr)
       if (existing) return existing
 
@@ -2764,7 +2835,8 @@ export const creditTransactionState = {
 }
 
 // Track if we're in memory-only mode (no SQLit)
-let memoryOnlyMode = false
+// Allow memory-only mode when testing (DWS_TEST_MODE=1) or explicitly requested
+let memoryOnlyMode = process.env.DWS_TEST_MODE === '1'
 
 // In-memory stores for when SQLit is unavailable
 const memoryStores = {
@@ -2787,6 +2859,13 @@ export async function initializeDWSState(): Promise<void> {
 
   // Start initialization and store the promise
   initPromise = (async () => {
+    // If test mode, use memory-only without trying SQLit
+    if (memoryOnlyMode) {
+      initialized = true
+      console.log('[DWS State] Running in test mode - memory-only persistence')
+      return
+    }
+
     try {
       await getSQLitClient()
       initialized = true
@@ -2794,33 +2873,91 @@ export async function initializeDWSState(): Promise<void> {
     } catch (error) {
       // Log the actual error for debugging
       const errorMsg = error instanceof Error ? error.message : String(error)
-      console.error(`[DWS State] SQLit connection failed: ${errorMsg}`)
-      
       const network = getCurrentNetwork()
-      
-      // In production on testnet/mainnet, SQLit failure is CRITICAL
-      // We allow the service to start but mark it as degraded
-      if (isProductionEnv() && (network === 'testnet' || network === 'mainnet')) {
-        console.error('╔═══════════════════════════════════════════════════════════════╗')
-        console.error('║  CRITICAL: DWS RUNNING IN DEGRADED MODE - NO PERSISTENCE     ║')
-        console.error('╠═══════════════════════════════════════════════════════════════╣')
-        console.error('║  SQLit is REQUIRED for production. App registrations will    ║')
-        console.error('║  NOT persist across pod restarts. This is NOT decentralized. ║')
-        console.error('║                                                               ║')
-        console.error('║  Fix: Ensure SQLit is running and SQLIT_URL is configured.   ║')
-        console.error('╚═══════════════════════════════════════════════════════════════╝')
-      }
-      
-      // Allow running without SQLit for localnet development
-      // BUT mark as memory-only mode so consumers know data won't persist
-      memoryOnlyMode = true
-      initialized = true
-      
-      if (network === 'localnet') {
-        console.warn('[DWS State] Memory-only mode (localnet) - data will not persist')
-      } else {
-        console.error('[DWS State] Memory-only mode (PRODUCTION) - THIS IS A LARP')
-      }
+      const sqlitUrl = getSQLitUrl()
+      const sqlitMinerUrl = getSQLitMinerUrl()
+
+      console.error('')
+      console.error(
+        '╔═══════════════════════════════════════════════════════════════╗',
+      )
+      console.error(
+        '║  ERROR: SQLit connection failed - DWS cannot start           ║',
+      )
+      console.error(
+        '╠═══════════════════════════════════════════════════════════════╣',
+      )
+      console.error(`║  Network: ${network.padEnd(52)}║`)
+      console.error(
+        `║  SQLit URL: ${(sqlitUrl ?? 'not configured').slice(0, 49).padEnd(49)}║`,
+      )
+      console.error(
+        `║  Miner URL: ${(sqlitMinerUrl ?? 'not configured').slice(0, 49).padEnd(49)}║`,
+      )
+      console.error(`║  Error: ${errorMsg.slice(0, 52).padEnd(52)}║`)
+      console.error(
+        '║                                                               ║',
+      )
+      console.error(
+        '║  SQLit is REQUIRED for decentralized state persistence.      ║',
+      )
+      console.error(
+        '║  Memory-only mode is NOT allowed - no fallbacks, no LARP.    ║',
+      )
+      console.error(
+        '║                                                               ║',
+      )
+      console.error(
+        '║  TO FIX (choose one):                                        ║',
+      )
+      console.error(
+        '║                                                               ║',
+      )
+      console.error(
+        '║  1. Start SQLit with Docker:                                 ║',
+      )
+      console.error(
+        '║     cd packages/sqlit && docker compose up -d sqlit_bp_0     ║',
+      )
+      console.error(
+        '║                                                               ║',
+      )
+      console.error(
+        '║  2. Start SQLit adapter (simpler):                           ║',
+      )
+      console.error(
+        '║     cd packages/sqlit/adapter && bun run server.ts           ║',
+      )
+      console.error(
+        '║                                                               ║',
+      )
+      console.error(
+        '║  3. Build and run native SQLit:                              ║',
+      )
+      console.error(
+        '║     cd packages/sqlit && make bin/sqlitd                     ║',
+      )
+      console.error(
+        '║     ./bin/sqlitd -config config-minimal.yaml                 ║',
+      )
+      console.error(
+        '║                                                               ║',
+      )
+      console.error(
+        '║  4. Start full local stack (recommended):                    ║',
+      )
+      console.error(
+        '║     bun run apps/dws/scripts/local-stack.ts                  ║',
+      )
+      console.error(
+        '╚═══════════════════════════════════════════════════════════════╝',
+      )
+      console.error('')
+
+      // FAIL HARD - no fallback to memory mode
+      throw new Error(
+        `SQLit connection failed: ${errorMsg}. See above for resolution steps.`,
+      )
     }
   })()
 

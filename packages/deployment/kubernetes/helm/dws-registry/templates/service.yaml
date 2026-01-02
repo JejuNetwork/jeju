@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "dws-registry.fullname" . }}
+  labels:
+    {{- include "dws-registry.labels" . | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+    - port: 5001
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+  selector:
+    {{- include "dws-registry.selectorLabels" . | nindent 4 }}
+---
+{{- if .Values.ipfs.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "dws-registry.fullname" . }}-ipfs
+  labels:
+    {{- include "dws-registry.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5001
+      targetPort: api
+      protocol: TCP
+      name: api
+    - port: 8080
+      targetPort: gateway
+      protocol: TCP
+      name: gateway
+    - port: 4001
+      targetPort: swarm
+      protocol: TCP
+      name: swarm
+  selector:
+    {{- include "dws-registry.selectorLabels" . | nindent 4 }}
+{{- end }}
+
+

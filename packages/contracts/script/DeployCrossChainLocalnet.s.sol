@@ -2,212 +2,131 @@
 pragma solidity ^0.8.26;
 
 import {Script, console2} from "forge-std/Script.sol";
-import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
-
-// OIF Components
-import {SolverRegistry} from "../src/oif/SolverRegistry.sol";
-import {SimpleOracle} from "../src/oif/OracleAdapter.sol";
-import {InputSettler} from "../src/oif/InputSettler.sol";
-import {OutputSettler} from "../src/oif/OutputSettler.sol";
-
-// EIL Components
+import {EntryPoint} from "account-abstraction/core/EntryPoint.sol";
 import {L1StakeManager} from "../src/bridge/eil/L1StakeManager.sol";
-import {CrossChainPaymaster} from "../src/bridge/eil/CrossChainPaymaster.sol";
-
-// X402 Components
-import {X402Facilitator} from "../src/x402/X402Facilitator.sol";
-import {X402IntentBridge} from "../src/x402/X402IntentBridge.sol";
+import {CrossChainPaymasterUpgradeable} from "../src/bridge/eil/CrossChainPaymasterUpgradeable.sol";
+import {L1CrossDomainMessenger} from "../src/bridge/eil/L1CrossDomainMessenger.sol";
+import {L2CrossDomainMessenger} from "../src/bridge/eil/L2CrossDomainMessenger.sol";
+import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /**
  * @title DeployCrossChainLocalnet
- * @notice Unified deployment of OIF + EIL + X402 for local cross-chain testing
- * @dev Usage:
- *   forge script script/DeployCrossChainLocalnet.s.sol \
- *     --rpc-url http://localhost:6546 \
- *     --broadcast
- *
- * This deploys the complete cross-chain infrastructure needed to test:
- * - Cross-chain purchases without bridging (via OIF intents)
- * - Gasless transactions (via X402 + EIP-3009)
- * - Multi-token gas sponsorship (via EIL + ERC-4337 paymasters)
- *
- * For a user with tokens on Base to buy on Jeju L2 without bridging:
- * 1. User signs EIP-3009 authorization for tokens on Base
- * 2. X402IntentBridge creates OIF intent
- * 3. Solver fills intent on destination (Jeju L2)
- * 4. Oracle attests fill completion
- * 5. Tokens released to solver on source chain
- *
- * Local testing simulates this with all contracts on one chain.
+ * @notice Deploys EIL contracts across L1 and L2 for local cross-chain testing
+ * 
+ * Run this script TWICE:
+ * 1. First on L1: L1_DEPLOY=true forge script ... --rpc-url $L1_RPC_URL --broadcast
+ * 2. Then on L2: L2_DEPLOY=true L1_MESSENGER=<addr> L1_STAKE_MANAGER=<addr> forge script ... --rpc-url $L2_RPC_URL --broadcast
  */
 contract DeployCrossChainLocalnet is Script {
-    // Deployed addresses
-    SolverRegistry public solverRegistry;
-    SimpleOracle public oifOracle;
-    InputSettler public inputSettler;
-    OutputSettler public outputSettler;
-    L1StakeManager public l1StakeManager;
-    MockL1L2Messenger public messenger;
-    CrossChainPaymaster public crossChainPaymaster;
-    X402Facilitator public x402Facilitator;
-    X402IntentBridge public x402IntentBridge;
+    // Chain IDs
+    uint256 constant L1_CHAIN_ID = 1337;
+    uint256 constant L2_CHAIN_ID = 31337;
 
     function run() external {
-        // Default to Anvil's first test account if no key provided
+        bool deployL1 = vm.envOr("L1_DEPLOY", false);
+        bool deployL2 = vm.envOr("L2_DEPLOY", false);
+
+        if (deployL1) {
+            deployToL1();
+        } else if (deployL2) {
+            deployToL2();
+        } else {
+            console2.log("Set L1_DEPLOY=true or L2_DEPLOY=true");
+        }
+    }
+
+    function deployToL1() internal {
         uint256 deployerPrivateKey = vm.envOr(
-            "PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80)
+            "PRIVATE_KEY",
+            uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80)
         );
         address deployer = vm.addr(deployerPrivateKey);
 
-        // Get existing contract addresses from localnet deployment
-        address entryPoint = vm.envOr("ENTRY_POINT", address(0xF6733AB90988c457a5Ac360D7f8dfB9E24aA108F));
-        address usdc = vm.envOr("USDC", address(0x407DD50f9c614f773E62f6c4041418186ad4b2a9));
-        address jeju = vm.envOr("JEJU", address(0x9Be48cB9Eb443E850316DD09cdF1c2E150b09245));
-
-        uint256 localChainId = block.chainid;
-
-        console2.log("====================================");
-        console2.log("  CROSS-CHAIN LOCALNET DEPLOYMENT");
-        console2.log("====================================");
+        console2.log("=== L1 DEPLOYMENT ===");
         console2.log("Deployer:", deployer);
-        console2.log("Chain ID:", localChainId);
-        console2.log("EntryPoint:", entryPoint);
-        console2.log("USDC:", usdc);
-        console2.log("JEJU:", jeju);
-        console2.log("");
+        console2.log("Chain ID:", block.chainid);
 
         vm.startBroadcast(deployerPrivateKey);
 
-        // ========== OIF DEPLOYMENT ==========
-        console2.log("--- OIF Stack ---");
+        // 1. Deploy L1CrossDomainMessenger
+        L1CrossDomainMessenger l1Messenger = new L1CrossDomainMessenger();
+        console2.log("L1Messenger:", address(l1Messenger));
 
-        solverRegistry = new SolverRegistry();
-        console2.log("SolverRegistry:", address(solverRegistry));
-
-        oifOracle = new SimpleOracle();
-        console2.log("SimpleOracle:", address(oifOracle));
-
-        // Authorize deployer as attester
-        oifOracle.setAttester(deployer, true);
-
-        inputSettler = new InputSettler(localChainId, address(oifOracle), address(solverRegistry));
-        console2.log("InputSettler:", address(inputSettler));
-
-        outputSettler = new OutputSettler(localChainId);
-        console2.log("OutputSettler:", address(outputSettler));
-
-        // Register deployer as solver (MIN_STAKE is 0.5 ETH)
-        solverRegistry.register{value: 0.5 ether}(new uint256[](0));
-        console2.log("Registered deployer as solver with 0.5 ETH stake");
-
-        // ========== EIL DEPLOYMENT ==========
-        console2.log("");
-        console2.log("--- EIL Stack ---");
-
-        l1StakeManager = new L1StakeManager();
+        // 2. Deploy L1StakeManager
+        L1StakeManager l1StakeManager = new L1StakeManager();
         console2.log("L1StakeManager:", address(l1StakeManager));
 
-        messenger = new MockL1L2Messenger();
-        console2.log("MockL1L2Messenger:", address(messenger));
+        // 3. Configure L1StakeManager with messenger
+        l1StakeManager.setMessenger(address(l1Messenger));
 
-        l1StakeManager.setMessenger(address(messenger));
-
-        // Get price oracle from localnet deployment (or use zero for testing)
-        address priceOracle = vm.envOr("PRICE_ORACLE", address(0x5d67Aa374909D7Fadf88389ba4f635469f1c12BF));
-
-        // Deploy CrossChainPaymaster with full constructor args
-        crossChainPaymaster = new CrossChainPaymaster(
-            IEntryPoint(entryPoint),
-            address(l1StakeManager),
-            localChainId,
-            priceOracle,
-            deployer
-        );
-        console2.log("CrossChainPaymaster:", address(crossChainPaymaster));
-
-        // Configure messenger for local testing
-        crossChainPaymaster.setMessenger(address(messenger));
-
-        // Register L2 paymaster on L1StakeManager
-        l1StakeManager.registerL2Paymaster(localChainId, address(crossChainPaymaster));
-        messenger.setTargets(address(l1StakeManager), address(crossChainPaymaster));
-
-        // Create chain array for XLP registration
-        uint256[] memory supportedChains = new uint256[](1);
-        supportedChains[0] = localChainId;
-
-        // Register deployer as XLP with 1 ETH stake (MIN_STAKE)
-        l1StakeManager.register{value: 1 ether}(supportedChains);
-        console2.log("Registered deployer as XLP with 1 ETH stake");
-
-        // ========== X402 DEPLOYMENT ==========
-        console2.log("");
-        console2.log("--- X402 Stack ---");
-
-        address[] memory supportedTokens = new address[](2);
-        supportedTokens[0] = usdc;
-        supportedTokens[1] = jeju;
-
-        x402Facilitator = new X402Facilitator(deployer, deployer, supportedTokens);
-        x402Facilitator.setTokenDecimals(usdc, 6);
-        x402Facilitator.setTokenDecimals(jeju, 18);
-        console2.log("X402Facilitator:", address(x402Facilitator));
-
-        x402IntentBridge = new X402IntentBridge(address(x402Facilitator), address(oifOracle), deployer);
-        x402IntentBridge.registerSolver(deployer, true);
-        console2.log("X402IntentBridge:", address(x402IntentBridge));
+        // 4. Register L2 chain
+        l1StakeManager.registerChain(L2_CHAIN_ID);
+        console2.log("Registered L2 chain:", L2_CHAIN_ID);
 
         vm.stopBroadcast();
 
-        // ========== OUTPUT ==========
+        // Output for L2 deployment
         console2.log("");
-        console2.log("====================================");
-        console2.log("        DEPLOYMENT COMPLETE");
-        console2.log("====================================");
-        console2.log("");
-        console2.log("=== OIF ===");
-        console2.log("solverRegistry:", address(solverRegistry));
-        console2.log("oracle:", address(oifOracle));
-        console2.log("inputSettler:", address(inputSettler));
-        console2.log("outputSettler:", address(outputSettler));
-        console2.log("");
-        console2.log("=== EIL ===");
-        console2.log("l1StakeManager:", address(l1StakeManager));
-        console2.log("messenger:", address(messenger));
-        console2.log("crossChainPaymaster:", address(crossChainPaymaster));
-        console2.log("");
-        console2.log("=== X402 ===");
-        console2.log("facilitator:", address(x402Facilitator));
-        console2.log("intentBridge:", address(x402IntentBridge));
-    }
-}
-
-/**
- * @title MockL1L2Messenger
- * @notice Mock cross-domain messenger for local testing
- * @dev Simulates OP Stack's CrossDomainMessenger for local development
- */
-contract MockL1L2Messenger {
-    address public l1Target;
-    address public l2Target;
-    address public xDomainMessageSender;
-
-    event MessageRelayed(address indexed target, bytes data);
-
-    function setTargets(address _l1Target, address _l2Target) external {
-        l1Target = _l1Target;
-        l2Target = _l2Target;
+        console2.log("=== L1 DEPLOYMENT COMPLETE ===");
+        console2.log("Export these for L2 deployment:");
+        console2.log("  export L1_MESSENGER=%s", address(l1Messenger));
+        console2.log("  export L1_STAKE_MANAGER=%s", address(l1StakeManager));
     }
 
-    function sendMessage(address target, bytes calldata message, uint32 /* gasLimit */ ) external {
-        xDomainMessageSender = msg.sender;
-        (bool success,) = target.call(message);
-        require(success, "Message relay failed");
-        emit MessageRelayed(target, message);
-        xDomainMessageSender = address(0);
-    }
+    function deployToL2() internal {
+        uint256 deployerPrivateKey = vm.envOr(
+            "PRIVATE_KEY",
+            uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80)
+        );
+        address deployer = vm.addr(deployerPrivateKey);
 
-    function getCrossDomainMessageSender() external view returns (address) {
-        return xDomainMessageSender;
+        // Get L1 contract addresses from environment
+        address l1Messenger = vm.envAddress("L1_MESSENGER");
+        address l1StakeManager = vm.envAddress("L1_STAKE_MANAGER");
+
+        console2.log("=== L2 DEPLOYMENT ===");
+        console2.log("Deployer:", deployer);
+        console2.log("Chain ID:", block.chainid);
+        console2.log("L1 Messenger:", l1Messenger);
+        console2.log("L1 StakeManager:", l1StakeManager);
+
+        vm.startBroadcast(deployerPrivateKey);
+
+        // 1. Deploy EntryPoint
+        EntryPoint entryPoint = new EntryPoint();
+        console2.log("EntryPoint:", address(entryPoint));
+
+        // 2. Deploy L2CrossDomainMessenger
+        L2CrossDomainMessenger l2Messenger = new L2CrossDomainMessenger();
+        console2.log("L2Messenger:", address(l2Messenger));
+
+        // 3. Link L1 and L2 messengers
+        l2Messenger.setL1Messenger(l1Messenger);
+
+        // 4. Deploy CrossChainPaymasterUpgradeable (implementation)
+        CrossChainPaymasterUpgradeable paymasterImpl = new CrossChainPaymasterUpgradeable();
+        console2.log("PaymasterImpl:", address(paymasterImpl));
+
+        // 5. Deploy proxy and initialize
+        bytes memory initData = abi.encodeCall(
+            CrossChainPaymasterUpgradeable.initialize,
+            (deployer, L1_CHAIN_ID, l1StakeManager, address(entryPoint))
+        );
+        ERC1967Proxy paymasterProxy = new ERC1967Proxy(address(paymasterImpl), initData);
+        CrossChainPaymasterUpgradeable paymaster = CrossChainPaymasterUpgradeable(payable(address(paymasterProxy)));
+        console2.log("CrossChainPaymaster:", address(paymaster));
+
+        // 6. Configure paymaster with L2 messenger
+        paymaster.setL2Messenger(address(l2Messenger));
+
+        vm.stopBroadcast();
+
+        // Output for relay service
+        console2.log("");
+        console2.log("=== L2 DEPLOYMENT COMPLETE ===");
+        console2.log("Export these for message relay:");
+        console2.log("  export L2_MESSENGER=%s", address(l2Messenger));
+        console2.log("  export ENTRY_POINT=%s", address(entryPoint));
+        console2.log("  export CROSS_CHAIN_PAYMASTER=%s", address(paymaster));
     }
 }

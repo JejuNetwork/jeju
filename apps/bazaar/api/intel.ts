@@ -1,3 +1,4 @@
+import { getCacheClient } from '@jejunetwork/cache'
 import { getServiceUrl } from '@jejunetwork/config'
 import { logger } from '@jejunetwork/shared'
 import { Elysia } from 'elysia'
@@ -296,15 +297,23 @@ function formatNumber(num: number): string {
   return num.toFixed(2)
 }
 
-let intelCache: IntelResponse | null = null
-let cacheTime = 0
-const CACHE_TTL_MS = 5 * 60 * 1000
+// Cache TTLs in seconds
+const INTEL_CACHE_TTL = 300 // 5 minutes
+
+// DWS cache client for intel data
+function getIntelCache() {
+  return getCacheClient('bazaar-intel')
+}
 
 async function getIntelData(): Promise<IntelResponse> {
   const now = Date.now()
+  const cache = getIntelCache()
+  const cacheKey = 'intel:full'
 
-  if (intelCache && now - cacheTime < CACHE_TTL_MS) {
-    return intelCache
+  // Check DWS cache first
+  const cached = await cache.get(cacheKey).catch(() => null)
+  if (cached) {
+    return JSON.parse(cached) as IntelResponse
   }
 
   const [marketStats, trending, gainers, losers, newTokens] = await Promise.all(
@@ -357,8 +366,8 @@ async function getIntelData(): Promise<IntelResponse> {
     generatedAt: now,
   }
 
-  intelCache = response
-  cacheTime = now
+  // Store in DWS cache
+  cache.set(cacheKey, JSON.stringify(response), INTEL_CACHE_TTL).catch(() => {})
 
   return response
 }
@@ -367,8 +376,9 @@ export function createIntelRouter() {
   return new Elysia({ prefix: '/intel' })
     .get('/', async () => getIntelData())
     .get('/refresh', async () => {
-      intelCache = null
-      cacheTime = 0
+      // Clear DWS cache and refresh
+      const cache = getIntelCache()
+      await cache.delete('intel:full').catch(() => {})
       return getIntelData()
     })
     .get('/insights', async () => {

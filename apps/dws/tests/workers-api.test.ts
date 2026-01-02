@@ -1,7 +1,7 @@
 /**
  * Workers API Tests
  * Tests for Bun/Node/Deno runtime workers deployment and invocation
- * 
+ *
  * Covers:
  * - Worker deployment (inline code and CID-based)
  * - Worker lifecycle (create, list, get, update, delete)
@@ -301,7 +301,7 @@ describe('Workers API - CID-based Deployment', () => {
       })
       uploadedCid = uploadRes.cid
       expect(uploadedCid).toBeDefined()
-    } catch (err) {
+    } catch (_err) {
       // Storage backend may not be available in test environment
       console.log('[Test] Storage backend not available, skipping CID tests')
       uploadedCid = null
@@ -432,7 +432,9 @@ describe('Workers API - Listing and Retrieval', () => {
 
   test('GET /workers/ returns empty for unknown owner', async () => {
     const res = await request('/workers/', {
-      headers: { 'x-jeju-address': '0x0000000000000000000000000000000000000000' },
+      headers: {
+        'x-jeju-address': '0x0000000000000000000000000000000000000000',
+      },
     })
     expect(res.status).toBe(200)
 
@@ -549,9 +551,9 @@ describe('Workers API - Updates', () => {
         'x-jeju-address': testAddr,
       },
       body: JSON.stringify({
-        code: Buffer.from('export default { fetch() { return new Response("v2") } }').toString(
-          'base64'
-        ),
+        code: Buffer.from(
+          'export default { fetch() { return new Response("v2") } }',
+        ).toString('base64'),
       }),
     })
 
@@ -714,11 +716,14 @@ describe('Workers API - Invocation', () => {
   })
 
   test('POST /workers/:id/invoke returns 404 for non-existent worker', async () => {
-    const res = await request('/workers/00000000-0000-0000-0000-000000000000/invoke', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ method: 'GET', path: '/' }),
-    })
+    const res = await request(
+      '/workers/00000000-0000-0000-0000-000000000000/invoke',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ method: 'GET', path: '/' }),
+      },
+    )
 
     expect(res.status).toBe(404)
   })
@@ -737,7 +742,7 @@ describe('Workers API - Concurrent Operations', () => {
           name: `concurrent-worker-${i}-${Date.now()}`,
           code: Buffer.from(simpleWorkerCode).toString('base64'),
         }),
-      })
+      }),
     )
 
     const results = await Promise.all(deployPromises)

@@ -1,0 +1,445 @@
+{
+  "version": "1.1.0",
+  "lastUpdated": "2025-12-29",
+  "description": "All contract addresses for Jeju networks. Env overrides use VITE_/PUBLIC_ + name (e.g., VITE_BAN_MANAGER_ADDRESS)",
+  "constants": {
+    "entryPoint": "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789",
+    "entryPointV07": "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
+    "l2Messenger": "0x4200000000000000000000000000000000000007",
+    "l2StandardBridge": "0x4200000000000000000000000000000000000010",
+    "weth": "0x4200000000000000000000000000000000000006"
+  },
+  "localnet": {
+    "chainId": 31337,
+    "tokens": {
+      "jeju": "0x7a2088a1bFc9d81c55368AE168C2C02570cB814F",
+      "usdc": "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82",
+      "weth": "0x4200000000000000000000000000000000000006"
+    },
+    "registry": {
+      "identity": "0xC9a43158891282A2B1475592D5719c001986Aaec",
+      "reputation": "0x68B1D87F95878fE05B998F19b66F4baba5De1aed",
+      "validation": "0x3Aa5ebB10DC797CAC828524e59A333d0A371443c",
+      "token": "0x322813Fd9A801c5507c9de605d63CEA4f2CE6c44",
+      "app": "",
+      "node": "",
+      "githubReputationProvider": "0x68B1D87F95878fE05B998F19b66F4baba5De1aed"
+    },
+    "rpc": {
+      "staking": "0x95401dc811bb5740090279Ba06cfA8fcF6113778"
+    },
+    "moderation": {
+      "banManager": "0x0000000000000000000000000000000000000000",
+      "reportingSystem": "",
+      "reputationLabelManager": "0x0000000000000000000000000000000000000000",
+      "moderationMarketplace": ""
+    },
+    "bazaar": {
+      "marketplace": "0x0355B7B8cb128fA5692729Ab3AAa199C1753f726",
+      "simpleCollectible": "0x172076E0166D1F9Cc711C77Adf8488051744980C",
+      "predictionMarket": "",
+      "tokenFactory": "",
+      "featuredToken": ""
+    },
+    "perps": {
+      "market": "",
+      "marginManager": "",
+      "insuranceFund": "",
+      "priceOracle": ""
+    },
+    "security": {
+      "bountyRegistry": "0x0B36Ef2cb78859C20c8C1380CeAdB75043aA92b3"
+    },
+    "nodeStaking": {
+      "manager": "0xa00F03Ea2d0a6e4961CaAFcA61A78334049c1848",
+      "performanceOracle": "0x998D98e9480A8f52A5252Faf316d129765773294"
+    },
+    "jns": {
+      "registry": "0xcbEAF3BDe82155F56486Fb5a1072cb8baAf547cc",
+      "resolver": "0x1429859428C0aBc9C2C47C8Ee9FBaf82cFA0F20f",
+      "registrar": "0xB0D4afd8879eD9F52b28595d31B441D079B2Ca07",
+      "reverseRegistrar": "0x162A433068F51e18b7d13932F27e66a3f99E6890"
+    },
+    "oauth3": {
+      "teeVerifier": "0x0000000000000000000000000000000000000000",
+      "identityRegistry": "0x0000000000000000000000000000000000000000",
+      "appRegistry": "0x0000000000000000000000000000000000000000",
+      "staking": "0x0000000000000000000000000000000000000000"
+    },
+    "dws": {
+      "storageManager": "0x21dF544947ba3E8b3c32561399E88B52Dc8b2823",
+      "workerRegistry": "0x2E2Ed0Cfd3AD2f1d34481277b3204d807Ca2F8c2",
+      "cdnRegistry": "0xD8a5a9b31c3C0232E196d518E89Fd8bF83AcAd43",
+      "repoRegistry": "0xDC11f7E700A4c898AE5CAddB1082cFfa76512aDD",
+      "packageRegistry": "0x51A1ceB83B83F1985a81C295d1fF28Afef186E02",
+      "managedDatabaseRegistry": ""
+    },
+    "payments": {
+      "creditManager": "0x67d269191c92Caf3cD7723F116c85e6E9bf55933",
+      "universalPaymaster": "0x84eA74d481Ee0A5332c457a4d796187F6Ba67fEB",
+      "paymasterFactory": "0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f"
+    },
+    "commerce": {
+      "authCaptureEscrow": "",
+      "commerceOperator": ""
+    },
+    "defi": {
+      "poolManager": "",
+      "positionManager": "",
+      "swapRouter": "",
+      "quoterV4": "",
+      "stateView": ""
+    },
+    "compute": {
+      "registry": "0x53AAfBd184086d72fA233AE83e1a7B1339B5415C",
+      "ledgerManager": "0xcb65A63B74F009A1C724AC221601d7DDD90f67C2",
+      "inferenceServing": "0x08A90aF9A6eBBe11c322AD9930CC58E122231B5A",
+      "staking": "0x7bdd3b028C4796eF0EAf07d11394d0d9d8c24139",
+      "workerRegistry": "",
+      "cronTriggerRegistry": "0x0dcd1bf9a1b36ce34237eeafef220932846bcd82"
+    },
+    "sequencer": {
+      "registry": "",
+      "thresholdBatchSubmitter": "",
+      "forcedInclusion": ""
+    },
+    "governance": {
+      "governor": "",
+      "timelock": "",
+      "futarchyGovernor": "",
+      "registryGovernance": "0x7E6C94173C264aaE66Bf36ce047b0Aef585C2181",
+      "autocrat": ""
+    },
+    "oif": {
+      "solverRegistry": "0x13D5bd265A9FC5454e81bC05a5643fa4809A584b",
+      "inputSettler": "0x0B7108B29ad73097cF7E549D542915348d885e5f",
+      "outputSettler": "",
+      "oracleAdapter": ""
+    },
+    "eil": {
+      "l1StakeManager": "",
+      "crossChainPaymaster": "0xa7Cd0542a8F4CCa6Dd021C3A0Af0E423Ad7DFfB7",
+      "liquidityPaymaster": ""
+    },
+    "sequencer": {
+      "registry": "",
+      "thresholdBatchSubmitter": "",
+      "forcedInclusion": ""
+    },
+    "governance": {
+      "governor": "",
+      "timelock": "",
+      "futarchyGovernor": "",
+      "registryGovernance": "",
+      "autocrat": ""
+    },
+    "oif": {
+      "solverRegistry": "",
+      "inputSettler": "",
+      "outputSettler": "",
+      "oracleAdapter": ""
+    },
+    "eil": {
+      "l1StakeManager": "0xBf871db95b89Fde7D13b4FAA8b8E47aB5F00C29C",
+      "crossChainPaymaster": "",
+      "liquidityPaymaster": ""
+    },
+    "sequencer": {
+      "registry": "",
+      "thresholdBatchSubmitter": "",
+      "forcedInclusion": ""
+    },
+    "governance": {
+      "governor": "",
+      "timelock": "",
+      "futarchyGovernor": "",
+      "registryGovernance": "",
+      "autocrat": ""
+    },
+    "oif": {
+      "solverRegistry": "",
+      "inputSettler": "",
+      "outputSettler": "",
+      "oracleAdapter": ""
+    },
+    "eil": {
+      "l1StakeManager": "",
+      "crossChainPaymaster": "",
+      "liquidityPaymaster": ""
+    },
+    "federation": {
+      "registryHub": "",
+      "networkRegistry": "",
+      "federationBridge": "",
+      "federationGovernance": ""
+    },
+    "liquidity": {
+      "riskSleeve": "",
+      "liquidityRouter": "",
+      "multiServiceStakeManager": "",
+      "liquidityVault": "",
+      "federatedLiquidity": ""
+    },
+    "fees": {
+      "feeConfig": "",
+      "feeDistributor": "",
+      "feeGovernance": ""
+    },
+    "oracle": {
+      "feedRegistry": "",
+      "reportVerifier": "",
+      "attestationVerifier": "",
+      "rewardManager": ""
+    },
+    "chainlink": {
+      "vrfCoordinator": "",
+      "vrfSubscription": "",
+      "automationRegistry": "",
+      "automationForwarder": "",
+      "linkToken": ""
+    },
+    "cdn": {
+      "registry": "",
+      "billing": "",
+      "nodeRegistry": ""
+    },
+    "training": {
+      "coordinator": "",
+      "rewards": "",
+      "modelRegistry": "",
+      "teeRegistry": "",
+      "aiCeo": ""
+    },
+    "agents": {
+      "agent0Registry": ""
+    }
+  },
+  "external": {
+    "sepolia": {
+      "chainId": 11155111,
+      "rpcUrl": "https://ethereum-sepolia-rpc.publicnode.com",
+      "oif": {
+        "solverRegistry": "0x08cAa161780d195E0799b73b318da5D175b85313",
+        "inputSettler": "0xD28752E9bBC29DDc14DA83dD673a36A5A19e91B1",
+        "outputSettler": "0x198D8D23B57C3F490Bc78dbe66D9c23B27A289ca",
+        "oracleAdapter": "0xe1f87369beED68C52003372Fe33Db8A245317B6E"
+      },
+      "eil": {
+        "l1StakeManager": "0xBf871db95b89Fde7D13b4FAA8b8E47aB5F00C29C"
+      },
+      "payments": {
+        "x402Facilitator": ""
+      },
+      "tokens": {
+        "usdc": "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238"
+      }
+    },
+    "baseSepolia": {
+      "chainId": 84532,
+      "rpcUrl": "https://sepolia.base.org"
+    },
+    "base-sepolia": {
+      "chainId": 84532,
+      "rpcUrl": "https://sepolia.base.org",
+      "oif": {
+        "solverRegistry": "0xecfE47302D941c8ce5B0009C0ac2E6D6ee2A42de",
+        "inputSettler": "0x9bb59d0329FcCEdD99f1753D20AF50347Ad2eB75",
+        "outputSettler": "0xf7ef3C6a54dA3E03A96D23864e5865E7e3EBEcF5",
+        "oracleAdapter": "0xE30218678a940d1553b285B0eB5C5364BBF70ed9"
+      },
+      "eil": {
+        "crossChainPaymaster": ""
+      },
+      "payments": {
+        "x402Facilitator": "0x478C844b1Ee90F9668c1F7945cb16981eCBa23c3",
+        "authCaptureEscrow": "0x75165D5EF5e35A511D70DecFE8A4c30B8D2a14Af"
+      },
+      "poc": {
+        "identityRegistry": "0x7324287d2587D75496C4aB0030610223A5bf28D2",
+        "validator": "0xF866a84615c33Fa6a3e97084E67f3E355CBf6De1"
+      },
+      "tokens": {
+        "usdc": "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+      }
+    },
+    "arbitrumSepolia": {
+      "chainId": 421614,
+      "rpcUrl": "https://sepolia-rollup.arbitrum.io/rpc",
+      "oif": {
+        "solverRegistry": "",
+        "inputSettler": "",
+        "outputSettler": "",
+        "oracleAdapter": ""
+      },
+      "eil": {
+        "crossChainPaymaster": ""
+      },
+      "payments": {
+        "x402Facilitator": ""
+      },
+      "tokens": {
+        "usdc": "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d"
+      }
+    },
+    "optimismSepolia": {
+      "chainId": 11155420,
+      "rpcUrl": "https://sepolia.optimism.io",
+      "oif": {
+        "solverRegistry": "",
+        "inputSettler": "",
+        "outputSettler": "",
+        "oracleAdapter": ""
+      },
+      "eil": {
+        "crossChainPaymaster": ""
+      },
+      "payments": {
+        "x402Facilitator": ""
+      },
+      "tokens": {
+        "usdc": "0x5fd84259d66Cd46123540766Be93DFE6D43130D7"
+      }
+    },
+    "bscTestnet": {
+      "chainId": 97,
+      "rpcUrl": "https://data-seed-prebsc-1-s1.bnbchain.org:8545",
+      "oif": {
+        "solverRegistry": "",
+        "inputSettler": "",
+        "outputSettler": "",
+        "oracleAdapter": ""
+      },
+      "eil": {
+        "crossChainPaymaster": ""
+      },
+      "payments": {
+        "x402Facilitator": ""
+      },
+      "tokens": {
+        "usdc": "",
+        "usdt": "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd"
+      }
+    },
+    "bsc": {
+      "chainId": 56,
+      "rpcUrl": "https://bsc-dataseed.bnbchain.org",
+      "oif": {
+        "solverRegistry": "",
+        "inputSettler": "",
+        "outputSettler": "",
+        "oracleAdapter": ""
+      },
+      "payments": {
+        "x402Facilitator": ""
+      },
+      "tokens": {
+        "usdc": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+        "usdt": "0x55d398326f99059fF775485246999027B3197955"
+      }
+    },
+    "ethereum": {
+      "chainId": 1,
+      "rpcUrl": "https://eth.llamarpc.com",
+      "oif": {
+        "inputSettler": ""
+      },
+      "eil": {
+        "l1StakeManager": ""
+      },
+      "payments": {
+        "x402Facilitator": ""
+      },
+      "tokens": {
+        "usdc": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+      }
+    },
+    "base": {
+      "chainId": 8453,
+      "rpcUrl": "https://mainnet.base.org",
+      "oif": {
+        "solverRegistry": "",
+        "inputSettler": "",
+        "outputSettler": "",
+        "oracleAdapter": ""
+      },
+      "payments": {
+        "x402Facilitator": "",
+        "authCaptureEscrow": ""
+      },
+      "tokens": {
+        "usdc": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "eurc": "0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42"
+      }
+    },
+    "arbitrum": {
+      "chainId": 42161,
+      "rpcUrl": "https://arb1.arbitrum.io/rpc",
+      "oif": {
+        "solverRegistry": "",
+        "inputSettler": "",
+        "outputSettler": "",
+        "oracleAdapter": ""
+      },
+      "payments": {
+        "x402Facilitator": ""
+      },
+      "tokens": {
+        "usdc": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"
+      }
+    },
+    "optimism": {
+      "chainId": 10,
+      "rpcUrl": "https://mainnet.optimism.io",
+      "oif": {
+        "solverRegistry": "",
+        "inputSettler": "",
+        "outputSettler": "",
+        "oracleAdapter": ""
+      },
+      "payments": {
+        "x402Facilitator": ""
+      },
+      "tokens": {
+        "usdc": "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85"
+      }
+    },
+    "polygon": {
+      "chainId": 137,
+      "rpcUrl": "https://polygon-rpc.com",
+      "oif": {
+        "solverRegistry": "",
+        "inputSettler": "",
+        "outputSettler": "",
+        "oracleAdapter": ""
+      },
+      "payments": {
+        "x402Facilitator": ""
+      },
+      "tokens": {
+        "usdc": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359"
+      }
+    },
+    "solana": {
+      "chainId": 101,
+      "rpcUrl": "https://api.mainnet-beta.solana.com",
+      "bridge": {
+        "programId": "",
+        "evmLightClientProgramId": ""
+      },
+      "tokens": {
+        "usdc": ""
+      }
+    },
+    "solanaDevnet": {
+      "chainId": 103,
+      "rpcUrl": "https://api.devnet.solana.com",
+      "bridge": {
+        "programId": "",
+        "evmLightClientProgramId": ""
+      },
+      "tokens": {
+        "usdc": ""
+      }
+    }
+  }
+}

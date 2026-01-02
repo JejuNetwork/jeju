@@ -1,0 +1,332 @@
+# Hyperlane Multi-Chain Interoperability Configuration
+# Enables cross-chain messaging and bridging for Jeju Network
+
+# Global settings
+global:
+  network: testnet
+  
+# Jeju chain configuration
+jeju:
+  chainId: 420690
+  rpcUrl: "https://testnet-rpc.jejunetwork.org"
+  name: "Jeju Testnet"
+  domainId: 420690  # Hyperlane domain ID
+
+# Connected chains
+connectedChains:
+  ethereum:
+    enabled: true
+    chainId: 1
+    domainId: 1
+    rpcUrl: "${ETHEREUM_RPC_URL}"
+    name: "Ethereum Mainnet"
+    type: "evm"
+    
+  arbitrum:
+    enabled: true
+    chainId: 42161
+    domainId: 42161
+    rpcUrl: "${ARBITRUM_RPC_URL}"
+    name: "Arbitrum One"
+    type: "evm"
+    
+  optimism:
+    enabled: true
+    chainId: 10
+    domainId: 10
+    rpcUrl: "${OPTIMISM_RPC_URL}"
+    name: "Optimism"
+    type: "evm"
+    
+  base:
+    enabled: true
+    chainId: 8453
+    domainId: 8453
+    rpcUrl: "${BASE_RPC_URL}"
+    name: "Base"
+    type: "evm"
+    
+  polygon:
+    enabled: true
+    chainId: 137
+    domainId: 137
+    rpcUrl: "${POLYGON_RPC_URL}"
+    name: "Polygon"
+    type: "evm"
+    
+  bsc:
+    enabled: true
+    chainId: 56
+    domainId: 56
+    rpcUrl: "${BSC_RPC_URL}"
+    name: "BNB Chain"
+    type: "evm"
+    
+  avalanche:
+    enabled: true
+    chainId: 43114
+    domainId: 43114
+    rpcUrl: "${AVALANCHE_RPC_URL}"
+    name: "Avalanche C-Chain"
+    type: "evm"
+    
+  solana:
+    enabled: true
+    chainId: 0  # Solana uses different format
+    domainId: 1399811149  # Hyperlane Solana domain
+    rpcUrl: "${SOLANA_RPC_URL}"
+    name: "Solana"
+    type: "svm"
+    
+  cosmos:
+    enabled: false  # Future support
+    chainId: "cosmoshub-4"
+    domainId: 0
+    rpcUrl: "${COSMOS_RPC_URL}"
+    name: "Cosmos Hub"
+    type: "cosmos"
+
+# Hyperlane Agents
+agents:
+  # Validator - signs attestations for outbound messages
+  validator:
+    enabled: true
+    replicaCount: 3  # Run 3 validators for redundancy
+    image:
+      repository: gcr.io/abacus-labs-dev/hyperlane-agent
+      tag: "4.0.0"
+      pullPolicy: IfNotPresent
+    
+    # Validator configuration
+    config:
+      # Chains to validate
+      originChainNames: ["jeju"]
+      # Signature type: "local" or "kms"
+      signatureType: "kms"
+      # AWS KMS key ID (for production)
+      kmsKeyId: "${HYPERLANE_VALIDATOR_KMS_KEY}"
+      # Checkpoint storage
+      checkpointStorage:
+        type: "s3"
+        bucket: "jeju-hyperlane-checkpoints"
+        region: "us-east-1"
+      # Interval between attestations
+      interval: "10s"
+    
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+    
+    persistence:
+      enabled: true
+      size: 10Gi
+      storageClass: "local-path"
+  
+  # Relayer - delivers messages between chains
+  relayer:
+    enabled: true
+    replicaCount: 2
+    image:
+      repository: gcr.io/abacus-labs-dev/hyperlane-agent
+      tag: "4.0.0"
+      pullPolicy: IfNotPresent
+    
+    config:
+      # Chains to relay between
+      relayChains: ["jeju", "ethereum", "arbitrum", "optimism", "base"]
+      # Gas payment enforcement
+      gasPaymentEnforcement:
+        type: "minimum"
+        minimum: "0.001"
+      # Whitelist/blacklist (empty = all)
+      messageWhitelist: []
+      messageBlacklist: []
+      # Retry configuration
+      maxRetries: 10
+      retryInterval: "30s"
+    
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+      requests:
+        cpu: 500m
+        memory: 512Mi
+    
+    persistence:
+      enabled: true
+      size: 20Gi
+      storageClass: "local-path"
+  
+  # Scraper - indexes messages for UI/API
+  scraper:
+    enabled: true
+    replicaCount: 1
+    image:
+      repository: gcr.io/abacus-labs-dev/hyperlane-agent
+      tag: "4.0.0"
+      pullPolicy: IfNotPresent
+    
+    config:
+      chains: ["jeju", "ethereum", "arbitrum", "optimism", "base"]
+      # Database for message indexing
+      database:
+        type: "postgres"
+        connectionUrl: "${DATABASE_URL}"
+    
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+
+# Hyperlane Contracts (deployed on each chain)
+contracts:
+  # Mailbox - core messaging contract
+  mailbox:
+    jeju: ""  # Will be set after deployment
+    ethereum: "0x35231d4c2D8B8ADcB5617A638A0c4548684c7C70"
+    arbitrum: "0x979Ca5202784112f4738403dBec5D0F3B9daabB9"
+    optimism: "0xd4C1905BB1D26BC93DAC913e13CaCC278CdCC80D"
+    base: "0xeA87ae93Fa0019a82A727bfd3eBd1cFCa8f64f1D"
+  
+  # InterchainGasPaymaster - handles gas payments
+  igp:
+    jeju: ""
+    ethereum: "0x56f52c0A1ddcD557285f7CBc782D3d83096CE1Cc"
+    arbitrum: "0x3b6044acd6767f017e99318AA6Ef93b7B06A5a22"
+    optimism: "0xD8A76C4D91fCbB7Cc8eA795DFDF870E48368995C"
+    base: "0xc3F23848Ed2e04C0c6d41bd7804fa8f89F940B94"
+  
+  # ValidatorAnnounce - stores validator announcements
+  validatorAnnounce:
+    jeju: ""
+    ethereum: "0x9bBdef63594D5FFc2f370Fe52115DdFFe97Bc524"
+
+# Warp Routes (token bridges)
+warpRoutes:
+  # Native ETH bridge
+  eth:
+    enabled: true
+    type: "native"
+    chains:
+      ethereum:
+        type: "collateral"
+        address: ""  # HypNative address
+      jeju:
+        type: "synthetic"
+        address: ""  # HypERC20 address
+  
+  # USDC bridge
+  usdc:
+    enabled: true
+    type: "erc20"
+    chains:
+      ethereum:
+        type: "collateral"
+        address: ""  # Collateral token address
+        token: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"  # USDC
+      jeju:
+        type: "synthetic"
+        address: ""  # Synthetic token address
+  
+  # JEJU token bridge (for governance token)
+  jeju:
+    enabled: true
+    type: "erc20"
+    chains:
+      jeju:
+        type: "native"
+        address: ""  # Native token contract
+      ethereum:
+        type: "synthetic"
+        address: ""  # Synthetic JEJU on Ethereum
+
+# Interchain accounts
+interchainAccounts:
+  enabled: true
+  # Router contract address per chain
+  routers:
+    jeju: ""
+    ethereum: ""
+    
+# Interchain queries
+interchainQueries:
+  enabled: true
+  # Query router addresses
+  routers:
+    jeju: ""
+    ethereum: ""
+
+# Monitoring
+monitoring:
+  enabled: true
+  prometheus:
+    enabled: true
+    port: 9090
+  grafana:
+    enabled: true
+    dashboards:
+      - hyperlane-overview
+      - message-latency
+      - validator-health
+      - relayer-metrics
+
+# Service configuration
+service:
+  type: ClusterIP
+  ports:
+    metrics: 9090
+    grpc: 50051
+
+# Ingress for Hyperlane API
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: hyperlane.testnet.jejunetwork.org
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: hyperlane-tls
+      hosts:
+        - hyperlane.testnet.jejunetwork.org
+
+# Resource defaults
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - hyperlane
+          topologyKey: kubernetes.io/hostname
+

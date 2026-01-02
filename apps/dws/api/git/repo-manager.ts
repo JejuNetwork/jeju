@@ -284,7 +284,6 @@ export class GitRepoManager {
   private inMemoryMode: boolean
   private inMemoryRepos: Map<Hex, Repository> = new Map()
   private inMemoryBranches: Map<Hex, Branch[]> = new Map()
-  private inMemoryRepoCounter = 0
 
   constructor(config: RepoManagerConfig, backend: BackendManager) {
     this.backend = backend

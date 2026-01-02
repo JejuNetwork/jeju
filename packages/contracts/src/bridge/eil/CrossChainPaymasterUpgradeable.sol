@@ -63,6 +63,9 @@ contract CrossChainPaymasterUpgradeable is Initializable, OwnableUpgradeable, Re
     /// @notice Fee rate in basis points
     uint256 public feeRate;
 
+    /// @notice L2 CrossDomainMessenger
+    address public l2Messenger;
+
     // ============ Structs ============
 
     struct VoucherRequest {
@@ -115,6 +118,24 @@ contract CrossChainPaymasterUpgradeable is Initializable, OwnableUpgradeable, Re
     error NotXLP();
     error InvalidToken();
     error InvalidAmount();
+    error OnlyL1StakeManager();
+    error MessengerNotSet();
+
+    // ============ Modifiers ============
+
+    /// @notice Only allows calls from L1StakeManager via the cross-domain messenger
+    modifier onlyL1StakeManager() {
+        if (l2Messenger == address(0)) revert MessengerNotSet();
+        if (msg.sender != l2Messenger) revert OnlyL1StakeManager();
+        // Check xDomainMessageSender() is the L1StakeManager
+        (bool success, bytes memory data) = l2Messenger.staticcall(
+            abi.encodeWithSignature("xDomainMessageSender()")
+        );
+        if (!success || data.length != 32) revert OnlyL1StakeManager();
+        address sender = abi.decode(data, (address));
+        if (sender != l1StakeManager) revert OnlyL1StakeManager();
+        _;
+    }
 
     // ============ Initializer ============
 
@@ -331,9 +352,24 @@ contract CrossChainPaymasterUpgradeable is Initializable, OwnableUpgradeable, Re
         emit VoucherFulfilled(voucherId, recipient, amountAfterFee);
     }
 
+    // ============ Cross-Chain Stake Sync ============
+
+    /// @notice Updates XLP stake - can only be called via L1 cross-chain message
+    /// @dev Called by L1StakeManager.syncStakeToL2() via the CrossDomainMessenger
+    function updateXLPStake(address xlp, uint256 stake) external onlyL1StakeManager {
+        xlpStakes[xlp] = stake;
+        emit XLPStakeUpdated(xlp, stake);
+    }
+
     // ============ Admin Functions ============
 
-    function updateXLPStake(address xlp, uint256 stake) external onlyOwner {
+    /// @notice Set the L2 messenger address
+    function setL2Messenger(address _messenger) external onlyOwner {
+        l2Messenger = _messenger;
+    }
+
+    /// @notice Emergency stake update by owner (only for initial setup/migration)
+    function adminSetXLPStake(address xlp, uint256 stake) external onlyOwner {
         xlpStakes[xlp] = stake;
         emit XLPStakeUpdated(xlp, stake);
     }

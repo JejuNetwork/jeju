@@ -1,3 +1,4 @@
+import { getCacheClient } from '@jejunetwork/cache'
 import {
   RPC_CHAINS as CHAINS,
   getRpcChain as getChain,
@@ -15,6 +16,30 @@ const endpointHealth = new Map<string, EndpointHealth>()
 const FAILURE_THRESHOLD = 3
 const HEALTH_WINDOW_MS = 5 * 60 * 1000
 const HEALTH_RECOVERY_MS = 60 * 1000
+
+// Cacheable RPC methods with their TTLs in seconds
+const CACHEABLE_METHODS: Record<string, number> = {
+  eth_chainId: 3600,        // 1 hour - never changes
+  net_version: 3600,        // 1 hour - never changes
+  eth_blockNumber: 2,       // 2 seconds - changes frequently
+  eth_gasPrice: 5,          // 5 seconds - changes frequently
+  eth_getCode: 3600,        // 1 hour - contract code doesn't change
+  eth_call: 15,             // 15 seconds - depends on block
+  eth_getBalance: 15,       // 15 seconds
+  eth_getStorageAt: 15,     // 15 seconds
+  eth_getTransactionCount: 15, // 15 seconds
+}
+
+// DWS cache for RPC responses
+function getRpcCache() {
+  return getCacheClient('gateway-rpc')
+}
+
+// Create cache key from request
+function getCacheKey(chainId: number, request: JsonRpcRequest): string {
+  const paramsHash = JSON.stringify(request.params ?? [])
+  return `rpc:${chainId}:${request.method}:${paramsHash.slice(0, 64)}`
+}
 
 function isEndpointHealthy(url: string): boolean {
   const health = endpointHealth.get(url)
@@ -95,6 +120,26 @@ export async function proxyRequest(
     }
   }
 
+  // Check if method is cacheable
+  const cacheTtl = CACHEABLE_METHODS[request.method]
+  if (cacheTtl) {
+    const cacheKey = getCacheKey(chainId, request)
+    const cache = getRpcCache()
+    
+    const cached = await cache.get(cacheKey).catch(() => null)
+    if (cached) {
+      const cachedResponse = JSON.parse(cached) as JsonRpcResponse
+      // Update the ID to match the request
+      cachedResponse.id = request.id
+      return {
+        response: cachedResponse,
+        latencyMs: 0,
+        endpoint: 'cache',
+        usedFallback: false,
+      }
+    }
+  }
+
   const chain = getChain(chainId)
   const endpoints = [chain.rpcUrl, ...chain.fallbackRpcs].filter(
     isEndpointHealthy,
@@ -111,6 +156,14 @@ export async function proxyRequest(
     try {
       const response = await makeRpcRequest(endpoint, request)
       recordSuccess(endpoint)
+      
+      // Cache successful response if method is cacheable
+      if (cacheTtl && !response.error) {
+        const cacheKey = getCacheKey(chainId, request)
+        const cache = getRpcCache()
+        cache.set(cacheKey, JSON.stringify(response), cacheTtl).catch(() => {})
+      }
+      
       return {
         response,
         latencyMs: Date.now() - startTime,

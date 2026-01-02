@@ -220,18 +220,60 @@ async function initSQLit(): Promise<boolean> {
 
   const sqlitUrl = getSQLitUrl()
   if (!sqlitUrl) {
-    return false
+    console.error('')
+    console.error(
+      '╔═══════════════════════════════════════════════════════════════╗',
+    )
+    console.error(
+      '║  ERROR: CredentialVault requires SQLit for persistence       ║',
+    )
+    console.error(
+      '╠═══════════════════════════════════════════════════════════════╣',
+    )
+    console.error(
+      '║  SQLIT_URL is not configured. Credentials will NOT persist.  ║',
+    )
+    console.error(
+      '║  In-memory fallback is DISABLED for security.                ║',
+    )
+    console.error('║                                                               ║')
+    console.error(
+      '║  To fix: Start SQLit or configure SQLIT_URL                  ║',
+    )
+    console.error(
+      '╚═══════════════════════════════════════════════════════════════╝',
+    )
+    console.error('')
+    throw new Error('CredentialVault requires SQLit - in-memory storage disabled')
   }
 
   sqlitClient = getSQLit({ databaseId: SQLIT_DATABASE_ID, timeout: 30000 })
   const healthy = await sqlitClient.isHealthy().catch(() => false)
 
   if (!healthy) {
-    console.warn(
-      '[CredentialVault] SQLit not available, using in-memory storage',
+    console.error('')
+    console.error(
+      '╔═══════════════════════════════════════════════════════════════╗',
     )
-    sqlitClient = null
-    return false
+    console.error(
+      '║  ERROR: CredentialVault - SQLit health check failed          ║',
+    )
+    console.error(
+      '╠═══════════════════════════════════════════════════════════════╣',
+    )
+    console.error(`║  SQLit URL: ${(sqlitUrl ?? '').slice(0, 49).padEnd(49)}║`)
+    console.error(
+      '║  Credentials will NOT persist without SQLit.                 ║',
+    )
+    console.error('║                                                               ║')
+    console.error(
+      '║  To fix: Ensure SQLit is running and accessible              ║',
+    )
+    console.error(
+      '╚═══════════════════════════════════════════════════════════════╝',
+    )
+    console.error('')
+    throw new Error('CredentialVault SQLit health check failed')
   }
 
   await ensureTablesExist()
@@ -436,7 +478,10 @@ const storage = {
 
 // Initialize storage on module load (non-blocking)
 initSQLit().catch((error) => {
-  console.error('[CredentialVault] SQLit initialization failed:', error instanceof Error ? error.message : String(error))
+  console.error(
+    '[CredentialVault] SQLit initialization failed:',
+    error instanceof Error ? error.message : String(error),
+  )
 })
 
 // Metrics for Prometheus

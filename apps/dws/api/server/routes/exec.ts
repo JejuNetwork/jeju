@@ -69,7 +69,6 @@ async function executeCommand(
     const data = isBase64
       ? Buffer.from(stdin, 'base64')
       : new TextEncoder().encode(stdin)
-    // Bun's FileSink has write() and end() methods directly
     proc.stdin.write(data)
     proc.stdin.end()
   }

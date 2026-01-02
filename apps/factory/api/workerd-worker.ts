@@ -8,17 +8,11 @@
  */
 
 import { cors } from '@elysiajs/cors'
-import {
-  CORE_PORTS,
-  getCoreAppUrl,
-  getCurrentNetwork,
-  getLocalhostHost,
-} from '@jejunetwork/config'
+import { getCoreAppUrl, getCurrentNetwork } from '@jejunetwork/config'
 import { Elysia, t } from 'elysia'
 import {
   checkDatabaseHealth,
   createBountyAsync,
-  generateId,
   getAgentAsync,
   getBountyAsync,
   getJobAsync,
@@ -219,7 +213,10 @@ export function createFactoryWorkerdApp(env?: Partial<FactoryEnv>) {
 
     .post('/a2a', async ({ body }) => {
       // Simple A2A endpoint for agent communication
-      const request = body as { method: string; params?: Record<string, unknown> }
+      const request = body as {
+        method: string
+        params?: Record<string, unknown>
+      }
 
       switch (request.method) {
         case 'factory.listBounties':

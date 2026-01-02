@@ -173,7 +173,10 @@ export function createOttoApp(env?: Partial<OttoEnv>) {
             .safeParse(body)
 
           if (!parsed.success) {
-            return { error: 'Invalid quote request', details: parsed.error.issues }
+            return {
+              error: 'Invalid quote request',
+              details: parsed.error.issues,
+            }
           }
 
           return {
@@ -202,7 +205,10 @@ export function createOttoApp(env?: Partial<OttoEnv>) {
             .safeParse(body)
 
           if (!parsed.success) {
-            return { error: 'Invalid swap request', details: parsed.error.issues }
+            return {
+              error: 'Invalid swap request',
+              details: parsed.error.issues,
+            }
           }
 
           return { status: 'pending', txHash: null }
@@ -224,7 +230,10 @@ export function createOttoApp(env?: Partial<OttoEnv>) {
             .safeParse(body)
 
           if (!parsed.success) {
-            return { error: 'Invalid bridge request', details: parsed.error.issues }
+            return {
+              error: 'Invalid bridge request',
+              details: parsed.error.issues,
+            }
           }
 
           return { status: 'pending', txHash: null }
@@ -272,7 +281,13 @@ export function createOttoApp(env?: Partial<OttoEnv>) {
           description: 'Multi-Platform AI Trading Agent',
           version: '1.0.0',
           protocol: 'a2a',
-          capabilities: ['swap', 'bridge', 'portfolio', 'limit-orders', 'launch'],
+          capabilities: [
+            'swap',
+            'bridge',
+            'portfolio',
+            'limit-orders',
+            'launch',
+          ],
         }))
         .post('/invoke', async ({ body }) => {
           const parsed = z
@@ -283,7 +298,10 @@ export function createOttoApp(env?: Partial<OttoEnv>) {
             .safeParse(body)
 
           if (!parsed.success) {
-            return { error: 'Invalid A2A request', details: parsed.error.issues }
+            return {
+              error: 'Invalid A2A request',
+              details: parsed.error.issues,
+            }
           }
 
           return { skill: parsed.data.skill, result: 'Skill executed' }
@@ -348,7 +366,10 @@ export function createOttoApp(env?: Partial<OttoEnv>) {
             .safeParse(body)
 
           if (!parsed.success) {
-            return { error: 'Invalid MCP request', details: parsed.error.issues }
+            return {
+              error: 'Invalid MCP request',
+              details: parsed.error.issues,
+            }
           }
 
           return { tool: parsed.data.tool, result: 'Tool executed' }

@@ -137,7 +137,11 @@ func runNode(nodeID proto.NodeID, listenAddr string) (err error) {
 		return err
 	}
 	chain.Start()
-	defer chain.Stop()
+	defer func() {
+		if stopErr := chain.Stop(); stopErr != nil {
+			log.WithError(stopErr).Error("stop chain failed")
+		}
+	}()
 
 	log.Info(conf.StartSucceedMessage)
 

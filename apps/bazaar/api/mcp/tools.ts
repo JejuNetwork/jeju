@@ -345,7 +345,10 @@ export async function callMCPTool(
       const validatedToToken = AddressSchema.parse(toToken) as Address
       expect(amount, 'amount is required')
 
-      const contracts = getV4Contracts(JEJU_CHAIN_ID)
+      const contracts = expect(
+        getV4Contracts(JEJU_CHAIN_ID),
+        'V4 contracts not deployed on this chain',
+      )
       const swapRouter = expect(
         contracts.swapRouter,
         'Swap router not deployed on this chain',

@@ -93,7 +93,7 @@ export function createAutocratApp(env?: Partial<AutocratEnv>) {
             'https://autocrat.jejunetwork.org',
             'https://autocrat.testnet.jejunetwork.org',
             'https://jejunetwork.org',
-            getCoreAppUrl('AUTOCRAT_WEB'),
+            getCoreAppUrl('AUTOCRAT_API'),
           ],
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
@@ -333,13 +333,30 @@ export function createAutocratApp(env?: Partial<AutocratEnv>) {
   // Agent card endpoint
   app.get('/.well-known/agent-card.json', () => ({
     name: 'Autocrat',
-    description: 'AI-powered autonomous governance with futarchy and multi-agent decision making',
+    description:
+      'AI-powered autonomous governance with futarchy and multi-agent decision making',
     version: '3.0.0',
     skills: [
-      { id: 'list-daos', name: 'List DAOs', description: 'List all registered DAOs' },
-      { id: 'get-dao', name: 'Get DAO', description: 'Get details about a specific DAO' },
-      { id: 'list-proposals', name: 'List Proposals', description: 'List proposals for a DAO' },
-      { id: 'create-proposal', name: 'Create Proposal', description: 'Submit a new proposal' },
+      {
+        id: 'list-daos',
+        name: 'List DAOs',
+        description: 'List all registered DAOs',
+      },
+      {
+        id: 'get-dao',
+        name: 'Get DAO',
+        description: 'Get details about a specific DAO',
+      },
+      {
+        id: 'list-proposals',
+        name: 'List Proposals',
+        description: 'List proposals for a DAO',
+      },
+      {
+        id: 'create-proposal',
+        name: 'Create Proposal',
+        description: 'Submit a new proposal',
+      },
       { id: 'vote', name: 'Vote', description: 'Cast a vote on a proposal' },
     ],
     endpoints: {

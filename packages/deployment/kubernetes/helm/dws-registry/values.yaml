@@ -228,6 +228,7 @@ ipfs:
     repository: ipfs/kubo
     tag: "v0.27.0"
   persistence:
+    enabled: true
     size: 200Gi
     storageClass: "local-path"
 

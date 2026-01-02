@@ -1,3 +1,4 @@
+import { getCacheClient } from '@jejunetwork/cache'
 import { getFarcasterHubUrl } from '@jejunetwork/config'
 import {
   type CastFilter,
@@ -61,24 +62,30 @@ export interface EnrichedCast {
   replies: number
 }
 
-/** Profile cache to avoid repeated lookups */
-const profileCache = new Map<
-  number,
-  { profile: FarcasterProfile; cachedAt: number }
->()
-const PROFILE_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+/** DWS cache for Farcaster profiles (5 minute TTL) */
+const PROFILE_CACHE_TTL = 300 // 5 minutes in seconds
+
+function getProfileCache() {
+  return getCacheClient('factory-profiles')
+}
 
 async function getCachedProfile(fid: number): Promise<FarcasterProfile | null> {
-  const cached = profileCache.get(fid)
-  if (cached && Date.now() - cached.cachedAt < PROFILE_CACHE_TTL) {
-    return cached.profile
+  const cache = getProfileCache()
+  const cacheKey = `profile:${fid}`
+  
+  // Check DWS cache first
+  const cached = await cache.get(cacheKey).catch(() => null)
+  if (cached) {
+    return JSON.parse(cached) as FarcasterProfile
   }
 
   const hub = getHubClient()
 
   try {
     const profile = await hub.getProfile(fid)
-    profileCache.set(fid, { profile, cachedAt: Date.now() })
+    if (profile) {
+      cache.set(cacheKey, JSON.stringify(profile), PROFILE_CACHE_TTL).catch(() => {})
+    }
     return profile
   } catch (error) {
     // Only swallow NOT_FOUND errors (profile doesn't exist)

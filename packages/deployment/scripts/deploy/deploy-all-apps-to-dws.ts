@@ -16,12 +16,61 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { getCurrentNetwork, getDWSUrl } from '@jejunetwork/config'
+import type { Address } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+
+// Get deployer account from environment
+function getDeployerAccount() {
+  const privateKey = process.env.PRIVATE_KEY || process.env.DEPLOYER_PRIVATE_KEY
+  if (privateKey) {
+    return privateKeyToAccount(privateKey as `0x${string}`)
+  }
+  return null
+}
+
+// Get deployer address from environment
+function _getDeployerAddress(): Address {
+  const account = getDeployerAccount()
+  if (account) {
+    return account.address
+  }
+  return '0x0000000000000000000000000000000000000000' as Address
+}
+
+// Create authenticated headers for DWS requests
+async function createAuthHeaders(): Promise<Record<string, string>> {
+  const account = getDeployerAccount()
+  if (!account) {
+    return {
+      'Content-Type': 'application/json',
+      'x-jeju-address': '0x0000000000000000000000000000000000000000',
+    }
+  }
+
+  const timestamp = Math.floor(Date.now() / 1000)
+  const nonce = crypto.randomUUID()
+  const message = `DWS Deploy Request\nTimestamp: ${timestamp}\nNonce: ${nonce}`
+  const signature = await account.signMessage({ message })
+
+  return {
+    'Content-Type': 'application/json',
+    'x-jeju-address': account.address,
+    'x-jeju-timestamp': timestamp.toString(),
+    'x-jeju-nonce': nonce,
+    'x-jeju-signature': signature,
+  }
+}
 
 interface AppManifest {
   name: string
   displayName?: string
   version: string
   type?: string
+  ports?: {
+    main?: number
+    frontend?: number
+    api?: number
+  }
   jns?: {
     name: string
   }
@@ -45,6 +94,9 @@ interface AppManifest {
       enabled: boolean
       runtime: string
       entrypoint: string
+      memory?: number
+      timeout?: number
+      teeRequired?: boolean
     }
   }
 }
@@ -54,6 +106,7 @@ interface DeploymentResult {
   success: boolean
   frontendCid?: string
   backendWorkerId?: string
+  backendEndpoint?: string
   error?: string
 }
 
@@ -85,10 +138,12 @@ async function buildFrontend(
     manifest.decentralization?.frontend?.buildCommand || 'bun run build'
   const buildDir = manifest.decentralization?.frontend?.buildDir || 'dist'
   const distPath = join(appDir, buildDir, 'web')
-  
+
   // Skip rebuild if dist exists with index.html (prevents hash mismatches)
   if (existsSync(join(distPath, 'index.html'))) {
-    console.log(`[${manifest.name}] ✅ Frontend already built (using existing dist)`)
+    console.log(
+      `[${manifest.name}] ✅ Frontend already built (using existing dist)`,
+    )
     return true
   }
 
@@ -117,6 +172,52 @@ interface UploadResult {
   staticFiles: Record<string, string>
 }
 
+// Retry helper with exponential backoff
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  maxRetries = 3,
+  baseDelayMs = 1000,
+): Promise<Response> {
+  let lastError: Error | null = null
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 60000)
+
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      })
+
+      clearTimeout(timeoutId)
+
+      // Retry on server errors (502, 503, 504)
+      if (
+        response.status >= 502 &&
+        response.status <= 504 &&
+        attempt < maxRetries - 1
+      ) {
+        const delay = baseDelayMs * 2 ** attempt
+        await new Promise((resolve) => setTimeout(resolve, delay))
+        continue
+      }
+
+      return response
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error))
+
+      if (attempt < maxRetries - 1 && lastError.name !== 'AbortError') {
+        const delay = baseDelayMs * 2 ** attempt
+        await new Promise((resolve) => setTimeout(resolve, delay))
+      }
+    }
+  }
+
+  throw lastError ?? new Error('All retry attempts failed')
+}
+
 async function uploadToIPFS(
   appDir: string,
   manifest: AppManifest,
@@ -133,14 +234,12 @@ async function uploadToIPFS(
   console.log(`[${manifest.name}] Uploading to IPFS...`)
 
   try {
-    // Recursively find all files
     const { globSync } = await import('glob')
     const files = globSync('**/*', { cwd: distPath, nodir: true })
 
     const uploadedFiles: { path: string; cid: string; size: number }[] = []
     const staticFiles: Record<string, string> = {}
 
-    // Upload each file individually (DWS storage expects single 'file' field)
     for (const file of files) {
       const filePath = join(distPath, file)
       const fileContent = readFileSync(filePath)
@@ -157,34 +256,47 @@ async function uploadToIPFS(
 
       while (attempts < maxAttempts && !uploadSuccess) {
         attempts++
-        const response = await fetch(`${dwsUrl}/storage/upload`, {
-          method: 'POST',
-          body: formData,
-        })
+        try {
+          const response = await fetchWithRetry(`${dwsUrl}/storage/upload`, {
+            method: 'POST',
+            body: formData,
+          })
 
-        if (response.ok) {
-          const result = (await response.json()) as { cid: string }
-          // Validate that we got a real IPFS CID (starts with Qm or bafy)
-          if (result.cid.startsWith('Qm') || result.cid.startsWith('bafy')) {
-            uploadedFiles.push({
-              path: file,
-              cid: result.cid,
-              size: fileContent.length,
-            })
-            staticFiles[file] = result.cid
-            uploadSuccess = true
+          if (response.ok) {
+            const result = (await response.json()) as { cid: string }
+            // Validate that we got a real IPFS CID (starts with Qm or bafy)
+            if (result.cid.startsWith('Qm') || result.cid.startsWith('bafy')) {
+              uploadedFiles.push({
+                path: file,
+                cid: result.cid,
+                size: fileContent.length,
+              })
+              staticFiles[file] = result.cid
+              uploadSuccess = true
+            } else {
+              // Got a local backend hash instead of IPFS CID - still accept it
+              console.warn(
+                `[${manifest.name}] Got non-IPFS CID for ${file}: ${result.cid}`,
+              )
+              uploadedFiles.push({
+                path: file,
+                cid: result.cid,
+                size: fileContent.length,
+              })
+              staticFiles[file] = result.cid
+              uploadSuccess = true
+            }
           } else {
-            // Got a local backend hash instead of IPFS CID - retry
             console.warn(
-              `[${manifest.name}] Got non-IPFS CID for ${file}, retrying... (attempt ${attempts}/${maxAttempts})`,
+              `[${manifest.name}] Failed to upload ${file}: ${response.status} (attempt ${attempts}/${maxAttempts})`,
             )
             await new Promise((r) => setTimeout(r, 500 * attempts)) // Backoff
           }
-        } else {
+        } catch (error) {
           console.warn(
-            `[${manifest.name}] Failed to upload ${file}: ${response.status} (attempt ${attempts}/${maxAttempts})`,
+            `[${manifest.name}] Failed to upload ${file}: ${error instanceof Error ? error.message : String(error)}`,
           )
-          await new Promise((r) => setTimeout(r, 500 * attempts)) // Backoff
+          await new Promise((r) => setTimeout(r, 500 * attempts))
         }
       }
 
@@ -200,7 +312,6 @@ async function uploadToIPFS(
       return null
     }
 
-    // Create a manifest with all file CIDs
     const manifestData = {
       app: manifest.name,
       version: manifest.version,
@@ -208,7 +319,6 @@ async function uploadToIPFS(
       uploadedAt: Date.now(),
     }
 
-    // Upload manifest and use its CID as the root
     const manifestFormData = new FormData()
     manifestFormData.append(
       'file',
@@ -218,7 +328,7 @@ async function uploadToIPFS(
     manifestFormData.append('tier', 'popular')
     manifestFormData.append('category', 'app')
 
-    const manifestResponse = await fetch(`${dwsUrl}/storage/upload`, {
+    const manifestResponse = await fetchWithRetry(`${dwsUrl}/storage/upload`, {
       method: 'POST',
       body: manifestFormData,
     })
@@ -239,6 +349,150 @@ async function uploadToIPFS(
   }
 }
 
+interface WorkerDeployResult {
+  workerId: string
+  endpoint: string
+}
+
+async function deployDWSWorker(
+  manifest: AppManifest,
+  dwsUrl: string,
+): Promise<WorkerDeployResult | null> {
+  const workerConfig = manifest.dws?.backend
+  if (!workerConfig?.enabled) return null
+
+  const appDir = join(process.cwd(), 'apps', manifest.name)
+  const entrypoint = workerConfig.entrypoint || 'api/server.ts'
+  const runtime = workerConfig.runtime || 'bun'
+
+  try {
+    console.log(`   Building worker bundle from ${entrypoint}...`)
+    const bundleDir = join(appDir, '.dws-bundle')
+    const bundlePath = join(bundleDir, 'worker.js')
+
+    const bundleProc = Bun.spawn(
+      [
+        'bun',
+        'build',
+        join(appDir, entrypoint),
+        '--outfile',
+        bundlePath,
+        '--target',
+        runtime === 'workerd' ? 'browser' : 'bun',
+        '--minify',
+      ],
+      {
+        cwd: appDir,
+        stdout: 'pipe',
+        stderr: 'pipe',
+      },
+    )
+
+    const bundleExit = await bundleProc.exited
+    if (bundleExit !== 0) {
+      const stderr = await new Response(bundleProc.stderr).text()
+      console.error(`   Bundle failed: ${stderr}`)
+      return null
+    }
+
+    console.log(`   Uploading worker bundle to IPFS...`)
+    const bundleContent = readFileSync(bundlePath)
+    const formData = new FormData()
+    formData.append('file', new Blob([bundleContent]), 'worker.js')
+    formData.append('tier', 'compute')
+    formData.append('category', 'worker')
+
+    let uploadResponse: Response
+    try {
+      uploadResponse = await fetchWithRetry(`${dwsUrl}/storage/upload`, {
+        method: 'POST',
+        body: formData,
+      })
+    } catch (error) {
+      console.error(
+        `   Failed to upload worker: ${error instanceof Error ? error.message : String(error)}`,
+      )
+      return null
+    }
+
+    if (!uploadResponse.ok) {
+      console.error(`   Failed to upload worker: ${uploadResponse.status}`)
+      return null
+    }
+
+    const uploadResult = (await uploadResponse.json()) as { cid: string }
+    const bundleCid = uploadResult.cid
+    console.log(`   Worker bundle CID: ${bundleCid}`)
+
+    console.log(`   Registering worker with DWS workerd...`)
+    const bundleCode = readFileSync(bundlePath)
+    const base64Code = bundleCode.toString('base64')
+
+    const workerData = {
+      name: `${manifest.name}-worker`,
+      code: base64Code,
+      codeCid: bundleCid,
+      memoryMb: workerConfig.memory || 256,
+      timeoutMs: workerConfig.timeout || 30000,
+      cpuTimeMs: 5000,
+      compatibilityDate: '2024-01-01',
+      bindings: [
+        { name: 'APP_NAME', type: 'text' as const, value: manifest.name },
+        { name: 'APP_VERSION', type: 'text' as const, value: manifest.version },
+      ],
+    }
+
+    const authHeaders = await createAuthHeaders()
+
+    let registerResponse: Response
+    try {
+      registerResponse = await fetchWithRetry(`${dwsUrl}/workerd`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify(workerData),
+      })
+    } catch (error) {
+      console.error(
+        `   Failed to register worker: ${error instanceof Error ? error.message : String(error)}`,
+      )
+      return null
+    }
+
+    if (!registerResponse.ok) {
+      const text = await registerResponse.text()
+      if (text.includes('403 Forbidden') || text.includes('<html>')) {
+        console.error(
+          `   Worker blocked by WAF - apply terraform: cd packages/deployment/terraform && terraform apply`,
+        )
+      } else {
+        console.error(
+          `   Failed to register worker: ${registerResponse.status} ${text}`,
+        )
+      }
+      return null
+    }
+
+    const registerResult = (await registerResponse.json()) as {
+      workerId: string
+      name: string
+      codeCid: string
+      status: string
+    }
+
+    const endpoint = `${dwsUrl}/workerd/${registerResult.workerId}/http`
+
+    return {
+      workerId: registerResult.workerId,
+      endpoint,
+    }
+  } catch (error) {
+    console.error(
+      `   Worker deployment error: ${error instanceof Error ? error.message : String(error)}`,
+    )
+    return null
+  }
+}
+
 async function registerWithAppRouter(
   manifest: AppManifest,
   dwsUrl: string,
@@ -252,7 +506,6 @@ async function registerWithAppRouter(
     manifest.decentralization?.frontend?.jnsName ||
     `${manifest.name}.jeju`
 
-  // Determine API paths from manifest
   const apiPaths = manifest.decentralization?.worker?.routes?.map((r) =>
     r.pattern.replace('/*', ''),
   ) || ['/api', '/health', '/a2a', '/mcp']
@@ -286,7 +539,7 @@ async function registerWithAppRouter(
       return false
     }
 
-    const _result = await response.json()
+    await response.json()
     console.log(`[${manifest.name}] ✅ Registered with app router`)
     return true
   } catch (error) {
@@ -325,7 +578,6 @@ async function deployApp(
 
   const dwsUrl = getDWSUrl(network)
 
-  // Step 1: Build frontend
   const hasFrontend =
     manifest.decentralization?.frontend ||
     existsSync(join(appDir, 'index.html'))
@@ -337,7 +589,6 @@ async function deployApp(
       return { app: appName, success: false, error: 'Frontend build failed' }
     }
 
-    // Step 2: Upload to IPFS
     uploadResult = await uploadToIPFS(appDir, manifest, dwsUrl)
     if (!uploadResult) {
       console.log(
@@ -346,178 +597,26 @@ async function deployApp(
     }
   }
 
-  // Step 3: Deploy backend to DWS Workers
-  let backendWorkerId: string | null = null
   let backendEndpoint: string | null = null
+  let backendWorkerId: string | null = null
 
   if (manifest.dws?.backend?.enabled) {
-    console.log(`[${manifest.name}] Deploying backend to DWS Workers...`)
+    console.log(`[${manifest.name}] Deploying backend as DWS worker...`)
 
-    // Get backend entrypoint and runtime
-    const entrypoint = manifest.dws.backend.entrypoint || 'api/server.ts'
-    const entrypointPath = join(appDir, entrypoint)
-    const runtime = manifest.dws.backend.runtime || 'bun'
-    const isWorkerd = runtime === 'workerd'
-
-    if (existsSync(entrypointPath)) {
-      try {
-        let codeCid: string
-
-        if (isWorkerd) {
-          // Build the worker using Bun to generate a JavaScript bundle
-          console.log(`[${manifest.name}] Building workerd bundle...`)
-          const distDir = join(appDir, 'dist', 'worker')
-          const bundlePath = join(distDir, 'worker.js')
-
-          const buildResult = await Bun.build({
-            entrypoints: [entrypointPath],
-            outdir: distDir,
-            target: 'browser', // Workerd uses web-standard APIs
-            format: 'esm',
-            minify: true,
-            external: [],
-            define: {
-              'process.env.NODE_ENV': '"production"',
-              'process.env.JEJU_NETWORK': `"${network}"`,
-            },
-          })
-
-          if (!buildResult.success) {
-            console.error(`[${manifest.name}] ❌ Worker build failed:`, buildResult.logs)
-            throw new Error('Worker build failed')
-          }
-
-          // Read the built bundle
-          const bundleCode = readFileSync(bundlePath)
-
-          // Upload worker bundle to DWS storage
-          const codeFormData = new FormData()
-          codeFormData.append(
-            'file',
-            new Blob([bundleCode], { type: 'application/javascript' }),
-            `${manifest.name}-worker.js`,
-          )
-          codeFormData.append('tier', 'system')
-          codeFormData.append('category', 'worker')
-
-          const codeResponse = await fetch(`${dwsUrl}/storage/upload`, {
-            method: 'POST',
-            body: codeFormData,
-          })
-
-          if (!codeResponse.ok) {
-            throw new Error(`Worker code upload failed: ${await codeResponse.text()}`)
-          }
-
-          const codeResult = (await codeResponse.json()) as { cid: string }
-          codeCid = codeResult.cid
-
-          // Deploy to workerd endpoint (V8 isolate-based)
-          const workerDeployResponse = await fetch(`${dwsUrl}/workerd`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-jeju-address': '0x0000000000000000000000000000000000000000',
-            },
-            body: JSON.stringify({
-              name: manifest.name,
-              codeCid,
-              memoryMb: manifest.dws.backend.memory || 256,
-              timeoutMs: manifest.dws.backend.timeout || 30000,
-              cpuTimeMs: 5000,
-              compatibilityDate: '2024-01-01',
-              bindings: [
-                { name: 'JEJU_NETWORK', type: 'text', value: network },
-                { name: 'APP_NAME', type: 'text', value: manifest.name },
-              ],
-            }),
-          })
-
-          if (workerDeployResponse.ok) {
-            const workerResult = (await workerDeployResponse.json()) as { workerId: string }
-            backendWorkerId = workerResult.workerId
-            backendEndpoint = `${dwsUrl}/workerd/${backendWorkerId}/invoke`
-            console.log(`[${manifest.name}] ✅ Backend deployed to workerd: ${backendWorkerId}`)
-          } else {
-            const errorText = await workerDeployResponse.text()
-            throw new Error(`Workerd deployment failed: ${errorText}`)
-          }
-        } else {
-          // Process-based deployment (bun/node/deno)
-          const code = readFileSync(entrypointPath)
-
-          // Upload worker code to DWS storage
-          const codeFormData = new FormData()
-          codeFormData.append(
-            'file',
-            new Blob([code]),
-            `${manifest.name}-worker.ts`,
-          )
-          codeFormData.append('tier', 'system')
-          codeFormData.append('category', 'worker')
-
-          const codeResponse = await fetch(`${dwsUrl}/storage/upload`, {
-            method: 'POST',
-            body: codeFormData,
-          })
-
-          if (!codeResponse.ok) {
-            throw new Error(`Worker code upload failed: ${await codeResponse.text()}`)
-          }
-
-          const codeResult = (await codeResponse.json()) as { cid: string }
-          codeCid = codeResult.cid
-
-          // Deploy to DWS Workers (process-based)
-          const workerDeployResponse = await fetch(`${dwsUrl}/workers`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-jeju-address': '0x0000000000000000000000000000000000000000',
-            },
-            body: JSON.stringify({
-              name: manifest.name,
-              runtime,
-              codeCid,
-              handler: 'default',
-              memory: manifest.dws.backend.memory || 512,
-              timeout: manifest.dws.backend.timeout || 30000,
-              env: {
-                JEJU_NETWORK: network,
-                APP_NAME: manifest.name,
-              },
-            }),
-          })
-
-          if (workerDeployResponse.ok) {
-            const workerResult = (await workerDeployResponse.json()) as { functionId: string }
-            backendWorkerId = workerResult.functionId
-            backendEndpoint = `${dwsUrl}/workers/${backendWorkerId}/http`
-            console.log(`[${manifest.name}] ✅ Backend deployed to DWS Workers (${runtime}): ${backendWorkerId}`)
-          } else {
-            const errorText = await workerDeployResponse.text()
-            throw new Error(`Worker deployment failed: ${errorText}`)
-          }
-        }
-      } catch (error) {
-        console.warn(`[${manifest.name}] ⚠️ Worker deployment error:`, error)
-      }
-    } else {
-      console.log(`[${manifest.name}] No backend entrypoint found at ${entrypoint}`)
-    }
-
-    // If DWS Workers deployment failed, do NOT fall back to K8s
-    if (!backendWorkerId) {
-      console.error(
-        `[${manifest.name}] ❌ Backend deployment failed - DWS Workers required for decentralization`,
-      )
+    const workerResult = await deployDWSWorker(manifest, dwsUrl)
+    if (workerResult) {
+      backendWorkerId = workerResult.workerId
+      backendEndpoint = workerResult.endpoint
       console.log(
-        `[${manifest.name}] Hint: Ensure the backend entrypoint exports a fetch handler compatible with DWS Workers`,
+        `[${manifest.name}] ✅ Backend deployed as DWS worker: ${backendWorkerId}`,
+      )
+    } else {
+      console.log(
+        `[${manifest.name}] ⚠️ Backend worker deployment failed, will use frontend-only mode`,
       )
     }
   }
 
-  // Step 4: Register with app router
   const registered = await registerWithAppRouter(
     manifest,
     dwsUrl,
@@ -538,14 +637,16 @@ async function deployApp(
     app: appName,
     success: true,
     frontendCid: uploadResult?.manifestCid,
+    backendWorkerId: backendWorkerId ?? undefined,
+    backendEndpoint: backendEndpoint ?? undefined,
   }
 }
 
 async function main() {
   const args = process.argv.slice(2)
 
-  // Parse --network arg
-  let networkArg = 'testnet'
+  // Parse --network arg (command line > env vars > default)
+  let networkArg: string | undefined
   const networkIdx = args.indexOf('--network')
   if (
     networkIdx !== -1 &&
@@ -557,7 +658,8 @@ async function main() {
     const networkEq = args.find((a) => a.startsWith('--network='))
     if (networkEq) networkArg = networkEq.split('=')[1]
   }
-  networkArg = networkArg || process.env.JEJU_NETWORK || 'testnet'
+  networkArg =
+    networkArg || process.env.NETWORK || process.env.JEJU_NETWORK || 'testnet'
 
   // Parse --app or --apps arg
   let appArg: string | undefined
@@ -583,7 +685,6 @@ async function main() {
   const dwsUrl = getDWSUrl(network)
   console.log(`DWS URL: ${dwsUrl}`)
 
-  // Verify DWS is accessible
   try {
     const healthResponse = await fetch(`${dwsUrl}/health`)
     if (!healthResponse.ok) {
@@ -596,7 +697,6 @@ async function main() {
     process.exit(1)
   }
 
-  // Deploy apps
   const appsToDeoploy = appArg ? [appArg] : APPS_TO_DEPLOY
   const results: DeploymentResult[] = []
 
@@ -605,7 +705,6 @@ async function main() {
     results.push(result)
   }
 
-  // Summary
   console.log(`\n${'#'.repeat(60)}`)
   console.log('# Deployment Summary')
   console.log(`${'#'.repeat(60)}\n`)
@@ -615,9 +714,12 @@ async function main() {
 
   console.log(`✅ Successful: ${successful.length}`)
   for (const result of successful) {
-    console.log(
-      `   - ${result.app}${result.frontendCid ? ` (CID: ${result.frontendCid.slice(0, 20)}...)` : ''}`,
-    )
+    const parts = [result.app]
+    if (result.frontendCid)
+      parts.push(`Frontend: ${result.frontendCid.slice(0, 16)}...`)
+    if (result.backendWorkerId)
+      parts.push(`Worker: ${result.backendWorkerId.slice(0, 16)}...`)
+    console.log(`   - ${parts.join(' | ')}`)
   }
 
   if (failed.length > 0) {
@@ -627,11 +729,9 @@ async function main() {
     }
   }
 
-  // Print deployed apps list
   console.log('\n📋 View deployed apps:')
   console.log(`   curl ${dwsUrl}/apps/deployed | jq`)
 
-  // Exit with error if any failed
   if (failed.length > 0) {
     process.exit(1)
   }

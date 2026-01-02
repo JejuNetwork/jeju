@@ -104,6 +104,10 @@ interface BootstrapResult {
     // Bazaar Marketplace
     nftMarketplace?: string
     simpleCollectible?: string
+    // EIL (Ethereum Interop Layer) - Cross-chain gas sponsorship
+    l1StakeManager?: string
+    crossChainPaymaster?: string
+    l1L2Messenger?: string
   }
   pools: {
     'USDC-ETH'?: string
@@ -356,6 +360,15 @@ class CompleteBootstrapper {
     )
     console.log('')
 
+    // Step 5.15: Deploy EIL (Ethereum Interop Layer) - Cross-chain gas sponsorship
+    console.log('⛓️  STEP 5.15: Deploying EIL (Cross-Chain Gas Sponsorship)')
+    console.log('-'.repeat(70))
+    const eil = await this.deployEIL(result.contracts)
+    result.contracts.l1StakeManager = eil.l1StakeManager
+    result.contracts.crossChainPaymaster = eil.crossChainPaymaster
+    result.contracts.l1L2Messenger = eil.messenger
+    console.log('')
+
     // Step 6: Authorize Services
     console.log('🔐 STEP 6: Authorizing Services')
     console.log('-'.repeat(70))
@@ -547,11 +560,12 @@ class CompleteBootstrapper {
   }
 
   private async deployEntryPoint(): Promise<string> {
-    // Deploy mock EntryPoint for localnet (on mainnet, use standard address)
+    // Deploy real EntryPoint v0.7 for ERC-4337
+    // This is the same contract as the canonical 0x0000000071727De22E5E9d8BAf0edAc6f37da032
     return this.deployContract(
-      'test/mocks/MockEntryPoint.sol:MockEntryPoint',
+      'lib/account-abstraction/contracts/core/EntryPoint.sol:EntryPoint',
       [],
-      'MockEntryPoint (ERC-4337)',
+      'EntryPoint v0.7 (ERC-4337)',
     )
   }
 
@@ -1644,6 +1658,123 @@ class CompleteBootstrapper {
       JSON.stringify(deployment, null, 2),
     )
     console.log('  📁 Saved to simple-collectible-31337.json')
+  }
+
+  private async deployEIL(
+    contracts: Partial<BootstrapResult['contracts']>,
+  ): Promise<{
+    l1StakeManager: string
+    crossChainPaymaster: string
+    messenger: string
+  }> {
+    try {
+      // Deploy L1StakeManager (manages XLP stakes on L1)
+      const l1StakeManager = this.deployContractFromPackages(
+        'src/bridge/eil/L1StakeManager.sol:L1StakeManager',
+        [],
+        'L1StakeManager',
+      )
+
+      // Deploy MockL1L2Messenger for local testing
+      const messenger = this.deployContractFromPackages(
+        'src/bridge/eil/MockL1L2Messenger.sol:MockL1L2Messenger',
+        [],
+        'MockL1L2Messenger',
+      )
+
+      // Configure L1StakeManager with messenger
+      execSync(
+        `cast send ${l1StakeManager} "setMessenger(address)" ${messenger} --private-key ${this.deployerKey} --rpc-url ${this.rpcUrl}`,
+        { stdio: 'pipe' },
+      )
+
+      // Deploy CrossChainPaymasterUpgradeable (implementation + proxy)
+      const paymasterImpl = this.deployContractFromPackages(
+        'src/bridge/eil/CrossChainPaymasterUpgradeable.sol:CrossChainPaymasterUpgradeable',
+        [],
+        'CrossChainPaymasterUpgradeable (impl)',
+      )
+
+      // Deploy ERC1967Proxy with initialize call
+      const entryPoint =
+        contracts.entryPoint || '0x0000000071727De22E5E9d8BAf0edAc6f37da032'
+      const initData = this.encodeInitialize(
+        this.deployerAddress, // owner
+        '31337', // l1ChainId
+        l1StakeManager, // l1StakeManager
+        entryPoint, // entryPoint
+      )
+
+      const crossChainPaymaster = this.deployContractFromPackages(
+        'lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol:ERC1967Proxy',
+        [paymasterImpl, initData],
+        'CrossChainPaymaster (proxy)',
+      )
+
+      // Configure paymaster with messenger
+      execSync(
+        `cast send ${crossChainPaymaster} "setL2Messenger(address)" ${messenger} --private-key ${this.deployerKey} --rpc-url ${this.rpcUrl}`,
+        { stdio: 'pipe' },
+      )
+
+      // Register paymaster with L1StakeManager
+      execSync(
+        `cast send ${l1StakeManager} "registerL2Paymaster(uint256,address)" 31337 ${crossChainPaymaster} --private-key ${this.deployerKey} --rpc-url ${this.rpcUrl}`,
+        { stdio: 'pipe' },
+      )
+
+      // Configure mock messenger targets
+      execSync(
+        `cast send ${messenger} "setTargets(address,address)" ${l1StakeManager} ${crossChainPaymaster} --private-key ${this.deployerKey} --rpc-url ${this.rpcUrl}`,
+        { stdio: 'pipe' },
+      )
+
+      console.log('  ✅ EIL (Ethereum Interop Layer) deployed')
+      console.log('     ⛓️  Cross-chain gas sponsorship ready')
+      console.log('     🔗 XLP staking on L1, gas sponsorship on L2')
+
+      return { l1StakeManager, crossChainPaymaster, messenger }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      console.log('  ⚠️  EIL deployment skipped')
+      console.log('     Error:', errorMsg)
+      return {
+        l1StakeManager: '0x0000000000000000000000000000000000000000',
+        crossChainPaymaster: '0x0000000000000000000000000000000000000000',
+        messenger: '0x0000000000000000000000000000000000000000',
+      }
+    }
+  }
+
+  private encodeInitialize(
+    owner: string,
+    l1ChainId: string,
+    l1StakeManager: string,
+    entryPoint: string,
+  ): string {
+    // Encode CrossChainPaymasterUpgradeable.initialize(address,uint256,address,address)
+    // Function selector: 0x3c17b2f7
+    const selector = 'initialize(address,uint256,address,address)'
+    try {
+      const result = execSync(
+        `cast calldata "${selector}" ${owner} ${l1ChainId} ${l1StakeManager} ${entryPoint}`,
+        { encoding: 'utf-8' },
+      ).trim()
+      return result
+    } catch {
+      // Fallback: manual encoding
+      const padded = (addr: string) =>
+        addr.slice(2).toLowerCase().padStart(64, '0')
+      const padNum = (n: string) => BigInt(n).toString(16).padStart(64, '0')
+      return (
+        '0x' +
+        'f8c8765e' + // initialize selector
+        padded(owner) +
+        padNum(l1ChainId) +
+        padded(l1StakeManager) +
+        padded(entryPoint)
+      )
+    }
   }
 
   private async seedNFTMarketplace(

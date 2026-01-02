@@ -152,21 +152,65 @@ interface CredentialRow {
 
 async function initSQLit(): Promise<boolean> {
   if (isTestMode()) {
-    return false
+    return false // Tests can use in-memory
   }
 
   const sqlitUrl = getSQLitUrl()
   if (!sqlitUrl) {
-    return false
+    console.error('')
+    console.error(
+      '╔═══════════════════════════════════════════════════════════════╗',
+    )
+    console.error(
+      '║  ERROR: SSHGateway requires SQLit for credential persistence ║',
+    )
+    console.error(
+      '╠═══════════════════════════════════════════════════════════════╣',
+    )
+    console.error(
+      '║  SQLIT_URL is not configured. SSH credentials will NOT       ║',
+    )
+    console.error(
+      '║  persist across restarts - this is a security risk.          ║',
+    )
+    console.error('║                                                               ║')
+    console.error(
+      '║  To fix: Start SQLit or configure SQLIT_URL                  ║',
+    )
+    console.error(
+      '╚═══════════════════════════════════════════════════════════════╝',
+    )
+    console.error('')
+    throw new Error('SSHGateway requires SQLit - in-memory storage disabled')
   }
 
   sqlitClient = getSQLit({ databaseId: SQLIT_DATABASE_ID, timeout: 30000 })
   const healthy = await sqlitClient.isHealthy().catch(() => false)
 
   if (!healthy) {
-    console.warn('[SSHGateway] SQLit not available, using in-memory storage')
-    sqlitClient = null
-    return false
+    console.error('')
+    console.error(
+      '╔═══════════════════════════════════════════════════════════════╗',
+    )
+    console.error(
+      '║  ERROR: SSHGateway - SQLit health check failed               ║',
+    )
+    console.error(
+      '╠═══════════════════════════════════════════════════════════════╣',
+    )
+    console.error(`║  SQLit URL: ${(sqlitUrl ?? '').slice(0, 49).padEnd(49)}║`)
+    console.error(
+      '║  SSH credentials require persistent storage.                 ║',
+    )
+    console.error('║                                                               ║')
+    console.error(
+      '║  To fix: Ensure SQLit is running and accessible              ║',
+    )
+    console.error(
+      '╚═══════════════════════════════════════════════════════════════╝',
+    )
+    console.error('')
+    throw new Error('SSHGateway SQLit health check failed')
   }
 
   await ensureTablesExist()
@@ -301,7 +345,10 @@ const credentialStorage = {
 
 // Initialize storage on module load
 initSQLit().catch((error) => {
-  console.error('[SSHGateway] SQLit initialization failed:', error instanceof Error ? error.message : String(error))
+  console.error(
+    '[SSHGateway] SQLit initialization failed:',
+    error instanceof Error ? error.message : String(error),
+  )
 })
 
 // Metrics for Prometheus

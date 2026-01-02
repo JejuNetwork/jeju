@@ -26,6 +26,7 @@ import { decentralizeCommand } from './commands/decentralize'
 import { deployCommand } from './commands/deploy'
 import { deployMipsCommand } from './commands/deploy-mips'
 import { devCommand } from './commands/dev'
+import { domainCommand } from './commands/domain'
 import { dwsCommand } from './commands/dws'
 import { faucetCommand } from './commands/faucet'
 import { federationCommand } from './commands/federation'
@@ -34,15 +35,16 @@ import { fundCommand } from './commands/fund'
 import { infraCommand } from './commands/infra'
 import { initCommand } from './commands/init'
 import { keysCommand } from './commands/keys'
+import { localnetFullCommand } from './commands/localnet-full'
 import { loginCommand, logoutCommand, whoamiCommand } from './commands/login'
 import { logsCommand } from './commands/logs'
-import { domainCommand } from './commands/domain'
 import { pkgCommand } from './commands/pkg'
 import { portsCommand } from './commands/ports'
 import { previewCommand } from './commands/preview'
 import { proxyCommand } from './commands/proxy'
 import { publishCommand } from './commands/publish'
 import { pypkgCommand } from './commands/pypkg'
+import { releaseCommand } from './commands/release'
 import { secretCommand } from './commands/secret'
 import { seedCommand } from './commands/seed'
 import { serviceCommand } from './commands/service'
@@ -59,7 +61,6 @@ import { validateCommand } from './commands/validate'
 import { vendorCommand } from './commands/vendor'
 import { verifyStage2Command } from './commands/verify-stage2'
 import { workerCommand } from './commands/worker'
-import { releaseCommand } from './commands/release'
 import { logger } from './lib/logger'
 import { CommanderErrorSchema, PackageJsonSchema, validate } from './schemas'
 
@@ -145,6 +146,7 @@ program.addCommand(storageCommand)
 program.addCommand(dwsCommand)
 program.addCommand(sqlitCommand)
 program.addCommand(proxyCommand)
+program.addCommand(localnetFullCommand)
 
 // Network and federation
 program.addCommand(forkCommand)
@@ -184,15 +186,9 @@ program.action(() => {
       chalk.cyan(`${cliName} login`) +
       '            Authenticate with your wallet',
   )
+  console.log(`  ${chalk.cyan(`${cliName} logout`)}           Sign out`)
   console.log(
-    '  ' +
-      chalk.cyan(`${cliName} logout`) +
-      '           Sign out',
-  )
-  console.log(
-    '  ' +
-      chalk.cyan(`${cliName} whoami`) +
-      '           Show current user',
+    `  ${chalk.cyan(`${cliName} whoami`)}           Show current user`,
   )
   console.log(
     '  ' +
@@ -212,9 +208,7 @@ program.action(() => {
       '          Create preview deployment',
   )
   console.log(
-    '  ' +
-      chalk.cyan(`${cliName} logs`) +
-      '             View application logs',
+    `  ${chalk.cyan(`${cliName} logs`)}             View application logs`,
   )
   console.log(
     '  ' +
@@ -229,24 +223,14 @@ program.action(() => {
       '       Run worker locally with hot reload',
   )
   console.log(
-    '  ' +
-      chalk.cyan(`${cliName} worker deploy`) +
-      '    Deploy worker to DWS',
+    `  ${chalk.cyan(`${cliName} worker deploy`)}    Deploy worker to DWS`,
   )
   console.log(
-    '  ' +
-      chalk.cyan(`${cliName} worker list`) +
-      '      List deployed workers',
+    `  ${chalk.cyan(`${cliName} worker list`)}      List deployed workers`,
   )
+  console.log(`  ${chalk.cyan(`${cliName} worker logs`)}      View worker logs`)
   console.log(
-    '  ' +
-      chalk.cyan(`${cliName} worker logs`) +
-      '      View worker logs',
-  )
-  console.log(
-    '  ' +
-      chalk.cyan(`${cliName} worker tail`) +
-      '      Stream worker logs\n',
+    `  ${chalk.cyan(`${cliName} worker tail`)}      Stream worker logs\n`,
   )
 
   console.log(chalk.bold('Secrets & Environment:\n'))
@@ -256,9 +240,7 @@ program.action(() => {
       '  Set an environment secret',
   )
   console.log(
-    '  ' +
-      chalk.cyan(`${cliName} secret list`) +
-      '        List all secrets',
+    `  ${chalk.cyan(`${cliName} secret list`)}        List all secrets`,
   )
   console.log(
     '  ' +
@@ -518,6 +500,11 @@ program.action(() => {
   )
 
   console.log(chalk.bold('Infrastructure:\n'))
+  console.log(
+    '  ' +
+      chalk.cyan(`${cliName} localnet-full`) +
+      '       Full stack (L1 + L2 + SQLit + Solana + DWS)',
+  )
   console.log(
     '  ' +
       chalk.cyan(`${cliName} infra start`) +

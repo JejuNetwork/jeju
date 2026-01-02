@@ -178,6 +178,7 @@ async function deployAppsProduction(
       env: {
         ...process.env,
         NODE_ENV: 'production',
+        JEJU_NETWORK: 'localnet',
         RPC_URL: rpcUrl,
         WORKER_REGISTRY_ADDRESS: dwsContracts.workerRegistry,
         STORAGE_MANAGER_ADDRESS: dwsContracts.storageManager,
@@ -185,6 +186,8 @@ async function deployAppsProduction(
         JNS_REGISTRY_ADDRESS: dwsContracts.jnsRegistry,
         JNS_RESOLVER_ADDRESS: dwsContracts.jnsResolver,
         FARCASTER_HUB_URL: getFarcasterHubUrl(),
+        // SQLit private key for local development
+        SQLIT_PRIVATE_KEY: WELL_KNOWN_KEYS.dev[0].privateKey,
       },
       stdio: 'pipe',
     })

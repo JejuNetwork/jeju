@@ -1,0 +1,193 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "sequencer.fullname" . }}
+  labels:
+    {{- include "sequencer.labels" . | nindent 4 }}
+    component: sequencer
+spec:
+  serviceName: {{ include "sequencer.fullname" . }}-headless
+  replicas: {{ .Values.replicaCount }}
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      {{- include "sequencer.selectorLabels" . | nindent 6 }}
+      component: sequencer
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ .Values.metrics.port }}"
+      labels:
+        {{- include "sequencer.selectorLabels" . | nindent 8 }}
+        component: sequencer
+    spec:
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        # Wait for other sequencers to be discoverable (for p2p)
+        - name: wait-for-peers
+          image: busybox:1.36
+          command: ['sh', '-c', 'sleep 5']
+      containers:
+        # Reth execution client
+        - name: reth
+          image: "{{ .Values.reth.image.repository }}:{{ .Values.reth.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - node
+            - --chain={{ .Values.global.network }}
+            - --datadir=/data
+            - --authrpc.addr=0.0.0.0
+            - --authrpc.port=8551
+            - --authrpc.jwtsecret=/secrets/jwt.hex
+            - --http
+            - --http.addr=0.0.0.0
+            - --http.port=8545
+            - --http.api=eth,net,web3,debug,trace
+            - --ws
+            - --ws.addr=0.0.0.0
+            - --ws.port=8546
+            - --ws.api=eth,net,web3,debug,trace
+            - --metrics=0.0.0.0:9001
+            {{- if .Values.multiSequencer.p2p.enabled }}
+            - --port={{ .Values.multiSequencer.p2p.port }}
+            - --discovery.port={{ .Values.multiSequencer.p2p.port }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: 8545
+              protocol: TCP
+            - name: ws
+              containerPort: 8546
+              protocol: TCP
+            - name: authrpc
+              containerPort: 8551
+              protocol: TCP
+            - name: p2p
+              containerPort: {{ .Values.multiSequencer.p2p.port }}
+              protocol: TCP
+            - name: p2p-udp
+              containerPort: {{ .Values.multiSequencer.p2p.port }}
+              protocol: UDP
+            - name: metrics-reth
+              containerPort: 9001
+              protocol: TCP
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: jwt-secret
+              mountPath: /secrets
+          resources:
+            {{- toYaml .Values.resources.sequencer | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+        
+        # Op-node consensus client
+        - name: op-node
+          image: "{{ .Values.opNode.image.repository }}:{{ .Values.opNode.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - op-node
+            - --network={{ .Values.global.network }}
+            - --l1={{ .Values.l1RpcUrl | default "http://geth-l1:8545" }}
+            - --l1.rpckind=standard
+            - --l2=http://localhost:8551
+            - --l2.jwt-secret=/secrets/jwt.hex
+            - --rpc.addr=0.0.0.0
+            - --rpc.port=9545
+            - --rpc.enable-admin
+            {{- if .Values.multiSequencer.enabled }}
+            - --sequencer.enabled=true
+            - --sequencer.l1-confs=4
+            {{- if .Values.multiSequencer.conductor.enabled }}
+            - --conductor.enabled=true
+            - --conductor.rpc=http://{{ include "sequencer.fullname" . }}-conductor:9000
+            {{- end }}
+            {{- end }}
+            - --p2p.listen.ip=0.0.0.0
+            - --p2p.listen.tcp={{ .Values.multiSequencer.p2p.port }}
+            - --p2p.listen.udp={{ .Values.multiSequencer.p2p.port }}
+            - --metrics.enabled
+            - --metrics.addr=0.0.0.0
+            - --metrics.port={{ .Values.metrics.port }}
+          ports:
+            - name: rpc
+              containerPort: 9545
+              protocol: TCP
+            - name: p2p-opnode
+              containerPort: {{ .Values.multiSequencer.p2p.port }}
+              protocol: TCP
+            - name: metrics
+              containerPort: {{ .Values.metrics.port }}
+              protocol: TCP
+          volumeMounts:
+            - name: op-data
+              mountPath: /data
+            - name: jwt-secret
+              mountPath: /secrets
+          resources:
+            {{- toYaml .Values.resources.sequencer | nindent 12 }}
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: rpc
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: rpc
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: jwt-secret
+          secret:
+            secretName: {{ include "sequencer.fullname" . }}-jwt
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: {{ .Values.persistence.storageClass }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.sequencer.size }}
+    - metadata:
+        name: op-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: {{ .Values.persistence.storageClass }}
+        resources:
+          requests:
+            storage: {{ .Values.opNode.persistence.size }}
+

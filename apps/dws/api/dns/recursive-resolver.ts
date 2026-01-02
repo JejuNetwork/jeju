@@ -176,7 +176,9 @@ export class RecursiveResolver {
         // Use configured gateway IP or log warning and use localhost for dev only
         const gatewayIp = this.config.gatewayIp
         if (!gatewayIp) {
-          console.warn(`[RecursiveResolver] No gatewayIp configured for A record resolution of ${question.name}. Set gatewayIp in config for production.`)
+          console.warn(
+            `[RecursiveResolver] No gatewayIp configured for A record resolution of ${question.name}. Set gatewayIp in config for production.`,
+          )
         }
         records.push({
           name: question.name,
@@ -365,7 +367,9 @@ export class RecursiveResolver {
 
     // All upstreams failed - log the last error
     if (lastError) {
-      console.warn(`[RecursiveResolver] All upstream DNS servers failed for ${question.name}: ${lastError}`)
+      console.warn(
+        `[RecursiveResolver] All upstream DNS servers failed for ${question.name}: ${lastError}`,
+      )
     }
     return {
       name: question.name,

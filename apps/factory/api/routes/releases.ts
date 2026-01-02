@@ -7,15 +7,15 @@
  * - Download redirects
  */
 
-import { Elysia, t } from 'elysia'
 import {
+  formatFileSize,
+  getPlatformLabel,
   type ReleaseArtifact,
   type ReleaseIndex,
   type ReleaseManifest,
   ReleaseManifestSchema,
-  formatFileSize,
-  getPlatformLabel,
 } from '@jejunetwork/types'
+import { Elysia, t } from 'elysia'
 import { getFactoryConfig } from '../config'
 
 // Supported apps with releases
@@ -48,7 +48,7 @@ async function fetchFromDWS<T>(path: string): Promise<T> {
   let response: Response
   try {
     response = await fetch(`${dwsUrl}${path}`)
-  } catch (err) {
+  } catch (_err) {
     throw new DWSError(`Failed to connect to DWS at ${dwsUrl}`, 503)
   }
 
@@ -56,7 +56,10 @@ async function fetchFromDWS<T>(path: string): Promise<T> {
     if (response.status === 404) {
       throw new DWSError(`Resource not found: ${path}`, 404)
     }
-    throw new DWSError(`DWS request failed: ${response.status} ${response.statusText}`, response.status)
+    throw new DWSError(
+      `DWS request failed: ${response.status} ${response.statusText}`,
+      response.status,
+    )
   }
 
   try {
@@ -75,7 +78,9 @@ async function getAppReleaseIndex(app: string): Promise<ReleaseIndex> {
   // Fetch from DWS
   let index: ReleaseIndex
   try {
-    index = await fetchFromDWS<ReleaseIndex>(`/storage/releases/${app}/index.json`)
+    index = await fetchFromDWS<ReleaseIndex>(
+      `/storage/releases/${app}/index.json`,
+    )
   } catch (err) {
     // If the index doesn't exist, return an empty index (no releases yet)
     if (err instanceof DWSError && err.status === 404) {
@@ -94,7 +99,10 @@ async function getAppReleaseIndex(app: string): Promise<ReleaseIndex> {
   return index
 }
 
-async function getAppReleaseManifest(app: string, version: string): Promise<ReleaseManifest> {
+async function getAppReleaseManifest(
+  app: string,
+  version: string,
+): Promise<ReleaseManifest> {
   // Check cache first
   const cached = releaseStore[app]?.manifests.get(version)
   if (cached) {
@@ -110,7 +118,9 @@ async function getAppReleaseManifest(app: string, version: string): Promise<Rele
   }
 
   // Fetch manifest by CID
-  const manifest = await fetchFromDWS<ReleaseManifest>(`/storage/download/${versionEntry.manifestCid}`)
+  const manifest = await fetchFromDWS<ReleaseManifest>(
+    `/storage/download/${versionEntry.manifestCid}`,
+  )
   const parsed = ReleaseManifestSchema.parse(manifest)
 
   // Cache it
@@ -137,7 +147,12 @@ export const releasesRoutes = new Elysia({ prefix: '/api/releases' })
       return { error: { code: 'NOT_FOUND', message: error.message } }
     }
     set.status = 500
-    return { error: { code: 'INTERNAL_ERROR', message: error instanceof Error ? error.message : 'Unknown error' } }
+    return {
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+    }
   })
   // List all apps with releases
   .get(
@@ -217,7 +232,8 @@ export const releasesRoutes = new Elysia({ prefix: '/api/releases' })
     '/:app/latest',
     async ({ params, query, set }) => {
       const { app } = params
-      const channel = (query.channel as 'stable' | 'beta' | 'nightly') ?? 'stable'
+      const channel =
+        (query.channel as 'stable' | 'beta' | 'nightly') ?? 'stable'
 
       if (!RELEASE_APPS.includes(app as ReleaseApp)) {
         set.status = 404
@@ -240,7 +256,12 @@ export const releasesRoutes = new Elysia({ prefix: '/api/releases' })
 
       if (version === '0.0.0' || !version) {
         set.status = 404
-        return { error: { code: 'NOT_FOUND', message: `No ${channel} release found for ${app}` } }
+        return {
+          error: {
+            code: 'NOT_FOUND',
+            message: `No ${channel} release found for ${app}`,
+          },
+        }
       }
 
       const manifest = await getAppReleaseManifest(app, version)
@@ -251,7 +272,13 @@ export const releasesRoutes = new Elysia({ prefix: '/api/releases' })
         app: t.String(),
       }),
       query: t.Object({
-        channel: t.Optional(t.Union([t.Literal('stable'), t.Literal('beta'), t.Literal('nightly')])),
+        channel: t.Optional(
+          t.Union([
+            t.Literal('stable'),
+            t.Literal('beta'),
+            t.Literal('nightly'),
+          ]),
+        ),
       }),
       detail: {
         tags: ['releases'],
