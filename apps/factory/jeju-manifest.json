@@ -89,7 +89,7 @@
     "backend": {
       "enabled": true,
       "runtime": "workerd",
-      "entrypoint": "api/worker.ts",
+      "entrypoint": "api/workerd-worker.ts",
       "memory": 512,
       "timeout": 30000,
       "minInstances": 1,

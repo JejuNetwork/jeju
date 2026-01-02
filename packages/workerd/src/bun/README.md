@@ -167,3 +167,85 @@ To run a Bun application on DWS Workers:
 4. Deploy to DWS using the worker deployment API
 
 The `Bun.serve()` handler will be connected to the workerd fetch handler automatically.
+
+## API Status
+
+### bun:sqlite
+
+| API | Status | Notes |
+|-----|--------|-------|
+| `Database` class | ✅ | In-memory |
+| `Database.open()` | ✅ | |
+| `Database.close()` | ✅ | |
+| `db.exec()` | ✅ | |
+| `db.query()` | ✅ | |
+| `db.prepare()` | ✅ | |
+| `db.transaction()` | ✅ | |
+| `Statement.all()` | ✅ | |
+| `Statement.get()` | ✅ | |
+| `Statement.run()` | ✅ | |
+| `Statement.values()` | ✅ | |
+| `Statement.finalize()` | ✅ | |
+| WAL mode | ❌ | In-memory only |
+| File persistence | ❌ | In-memory only |
+
+### bun:ffi
+
+Not available in workerd - throws `ERR_WORKERD_UNAVAILABLE`.
+
+### bun:test
+
+Stubs only - throws `ERR_WORKERD_UNAVAILABLE`.
+
+## Architecture
+
+```
+src/bun/
+├── bun.ts           # Core Bun API (795 lines)
+├── sqlite.ts        # SQLite implementation (~1170 lines)
+├── test.ts          # Test stubs
+├── ffi.ts           # FFI stubs
+├── internal/
+│   ├── errors.ts    # Error types (34 lines)
+│   └── types.ts     # Type guards (13 lines)
+├── build.ts         # Bundle build script (~650 lines)
+├── run-tests.ts     # Test runner
+├── bun.test.ts      # Unit tests (170 tests)
+├── sqlite.test.ts   # SQLite tests (83 tests)
+└── bun-worker.test.ts # Integration tests (35 tests)
+
+dist/bun/
+├── bun-bundle.js    # Standalone bundle (~15KB, REAL implementations)
+├── bun.js           # Individual module
+├── sqlite.js        # Individual module
+├── test.js          # Individual module
+└── ffi.js           # Individual module
+
+samples/bun-bundle/
+├── config.capnp     # Workerd config
+└── worker.js        # Sample worker
+```
+
+## Native bun:* Support (Future)
+
+The codebase also includes C++ integration for native `bun:*` module support:
+
+- `src/workerd/api/bun/bun.h` - C++ module registration
+- `src/workerd/api/bun/BUILD.bazel` - Bazel build target
+- `src/bun/BUILD.bazel` - TypeScript to Cap'n Proto bundle
+
+To enable native imports (`import Bun from 'bun:bun'`), workerd must be built from source:
+
+```bash
+bazel build //src/workerd/server:workerd
+```
+
+Note: Building from source requires:
+- **Linux**: Clang/LLVM 19+ with libc++ and LLD
+- **macOS**: Xcode 16.3+ OR Homebrew LLVM (`brew install llvm`) with `--config=macos_llvm`
+
+For macOS with Xcode < 16.3, run: `bazel build --config=macos_llvm //src/workerd/server:workerd`
+
+## License
+
+Apache 2.0

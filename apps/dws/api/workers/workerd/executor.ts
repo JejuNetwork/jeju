@@ -567,7 +567,7 @@ export class WorkerdExecutor implements IWorkerdExecutor {
 
   private async waitForReady(
     port: number,
-    timeoutMs = 30000,
+    timeoutMs = 60000, // 60s timeout for larger bundles with Node.js compat
   ): Promise<boolean> {
     const deadline = Date.now() + timeoutMs
     const host = getLocalhostHost()

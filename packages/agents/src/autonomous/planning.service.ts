@@ -74,6 +74,7 @@ interface PlanningContext {
     timestamp: Date
     success: boolean
   }>
+  lastActivity: number | null
 }
 
 /**
@@ -97,6 +98,7 @@ interface ExecutionResult {
  * Agent planning configuration
  */
 interface PlanningAgentConfig {
+  agentId: string
   displayName: string
   systemPrompt?: string
   maxActionsPerTick: number
@@ -105,6 +107,10 @@ interface PlanningAgentConfig {
   autonomousPosting: boolean
   autonomousCommenting: boolean
   autonomousDMs: boolean
+  schedule: {
+    activePeriods: Array<{ start: string; end: string }>
+    maxDailyActions: number
+  }
 }
 
 /**
@@ -119,6 +125,7 @@ export class AutonomousPlanningCoordinator {
 
     // In a full implementation, this would fetch from database
     return {
+      agentId,
       displayName: `Agent-${agentId.slice(0, 8)}`,
       systemPrompt: 'You are an AI agent on Jeju Network.',
       maxActionsPerTick: 3,
@@ -127,6 +134,10 @@ export class AutonomousPlanningCoordinator {
       autonomousPosting: true,
       autonomousCommenting: true,
       autonomousDMs: true,
+      schedule: {
+        activePeriods: [{ start: '09:00', end: '17:00' }],
+        maxDailyActions: 100,
+      },
     }
   }
 
@@ -162,6 +173,7 @@ export class AutonomousPlanningCoordinator {
       },
       pending: [],
       recentActions: [],
+      lastActivity: null,
     }
   }
 
@@ -244,7 +256,9 @@ export class AutonomousPlanningCoordinator {
     try {
       const prompt = this.buildPlanningPrompt(config, context)
 
-      const result = await runtime.generateText(prompt)
+      const result = await runtime.generateText(prompt, {
+        modelType: 'TEXT_SMALL',
+      })
 
       // Parse LLM response into plan
       const plan = this.parseLLMPlan(result.text, config, context)
@@ -335,7 +349,7 @@ Respond with JSON: { "actions": [...] }`
           type: a.type as PlanStep['type'],
           priority: Math.min(10, Math.max(1, a.priority ?? 5)),
           reasoning: a.description ?? `Execute ${a.type} action`,
-          estimatedImpact: 0.5,
+          estimatedImpact: (a.estimatedDuration ?? 5) / 60,
           params: {},
           goalId: context.goals.active[0]?.id,
         }))
@@ -350,7 +364,7 @@ Respond with JSON: { "actions": [...] }`
         actions,
         totalActions: actions.length,
         reasoning: 'LLM-generated plan based on active goals',
-        goalsAddressed,
+        goalsAddressed: context.goals.active.map((g) => g.id),
         estimatedCost: actions.length,
       }
     } catch {

@@ -28,7 +28,7 @@ interface PublishResult {
 /**
  * Get DWS URL for network
  */
-function getDWSUrlForNetwork(network: NetworkType): string {
+export function getDWSUrlForNetwork(network: NetworkType): string {
   switch (network) {
     case 'mainnet':
       return (

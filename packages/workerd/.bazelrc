@@ -371,6 +371,13 @@ build:release_macos --linkopt="-Wl,-no_function_starts"
 build:release_macos_cross_x86_64 --config=release_macos
 build:release_macos_cross_x86_64 --config=macos-cross-x86_64
 
+# On macOS with Xcode < 16.3, use LLVM 20.1.2 toolchain which supports C23's #embed directive.
+# This downloads LLVM 20.1.2 and uses it instead of Apple's Clang.
+# Build with: bazel build --config=llvm_toolchain //src/workerd/server:workerd
+build:llvm_toolchain --extra_toolchains=@llvm_toolchain//:all
+# Disable incompatible apple toolchain features when using LLVM toolchain
+build:llvm_toolchain --features=-supports_start_end_lib
+
 # On macOS, optionally compile using LLD (19 or higher is compatible with the default flags added by
 # apple_support). Requires Homebrew's lld package to be installed and symlinked into /usr/local/bin.
 # This is less CPU intensive than the system linker, but also slightly slower in terms of wall time

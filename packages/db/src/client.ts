@@ -370,11 +370,11 @@ class SQLitConnectionImpl implements SQLitConnection {
   ): Promise<QueryResult<unknown> | ExecResult> {
     const startTime = Date.now()
 
+    // Use 'query' and 'args' field names for compatibility with Go sqlit-adapter
     const payload = {
       database: this.databaseId,
-      type,
-      sql,
-      params: params?.map((p) =>
+      query: sql,
+      args: params?.map((p) =>
         p === null || p === undefined
           ? null
           : typeof p === 'bigint'
@@ -383,13 +383,13 @@ class SQLitConnectionImpl implements SQLitConnection {
               ? toHex(p)
               : p,
       ),
-      timestamp: Date.now(),
+      assoc: true,
     }
 
     const response = await fetch(`${this.endpoint}/v1/${type}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ assoc: true, ...payload }),
+      body: JSON.stringify(payload),
       signal: AbortSignal.timeout(this.timeout),
     })
 

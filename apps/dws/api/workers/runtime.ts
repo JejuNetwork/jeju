@@ -31,9 +31,40 @@ function createWorkerBootstrap(port: number, _handler: string): string {
 // DWS Worker Bootstrap - Starts worker on port ${port}
 const PORT = ${port};
 
+// Provide default environment for workers
+const workerEnv = {
+  ...process.env,
+  PORT: String(PORT),
+  NETWORK: process.env.NETWORK || process.env.JEJU_NETWORK || 'testnet',
+  TEE_MODE: process.env.TEE_MODE || 'simulated',
+  TEE_PLATFORM: process.env.TEE_PLATFORM || 'dws',
+  TEE_REGION: process.env.TEE_REGION || 'global',
+  RPC_URL: process.env.RPC_URL || process.env.L2_RPC_URL || 'https://sepolia.base.org',
+  DWS_URL: process.env.DWS_URL || 'https://dws.testnet.jejunetwork.org',
+  INDEXER_URL: process.env.INDEXER_URL || 'https://indexer.testnet.jejunetwork.org/graphql',
+  SQLIT_NODES: process.env.SQLIT_NODES || process.env.SQLIT_URL || '',
+  SQLIT_DATABASE_ID: process.env.SQLIT_DATABASE_ID || '',
+  SQLIT_PRIVATE_KEY: process.env.SQLIT_PRIVATE_KEY || '',
+};
+
+// ExecutionContext stub for Cloudflare Workers compatibility
+const execCtx = {
+  waitUntil: (promise) => promise?.catch?.(() => {}),
+  passThroughOnException: () => {}
+};
+
 async function startWorker() {
+  console.log('[Bootstrap] Loading worker module...');
+  
   // Import the worker module
-  const mod = await import('./main.js');
+  let mod;
+  try {
+    mod = await import('./main.js');
+    console.log('[Bootstrap] Module loaded, exports:', Object.keys(mod));
+  } catch (err) {
+    console.error('[Bootstrap] Failed to import module:', err);
+    throw err;
+  }
   
   // Check if module exports a fetch handler (workerd/CF Workers style)
   const handler = mod.default?.fetch || mod.fetch || mod.default;
@@ -42,23 +73,26 @@ async function startWorker() {
     // Create a server wrapping the fetch handler
     console.log('[Bootstrap] Starting fetch-handler server on port ' + PORT);
     
-    Bun.serve({
+    const server = Bun.serve({
       port: PORT,
       async fetch(request) {
         try {
-          // Call the worker's fetch handler
-          const env = process.env;
-          const ctx = { waitUntil: () => {}, passThroughOnException: () => {} };
-          return await handler(request, env, ctx);
+          // Call the worker's fetch handler with proper env
+          return await handler(request, workerEnv, execCtx);
         } catch (err) {
           console.error('[Worker Error]', err);
-          return new Response(JSON.stringify({ error: err.message }), {
+          return new Response(JSON.stringify({ 
+            error: err.message,
+            stack: process.env.NODE_ENV !== 'production' ? err.stack : undefined
+          }), {
             status: 500,
             headers: { 'Content-Type': 'application/json' }
           });
         }
       }
     });
+    
+    console.log('[Bootstrap] Server started on port ' + PORT);
   } else if (mod.default?.listen || mod.listen) {
     // Elysia/Express style - call listen
     console.log('[Bootstrap] Starting listener server on port ' + PORT);

@@ -1,0 +1,30 @@
+{
+  "name": "{{APP_NAME}}",
+  "displayName": "{{DISPLAY_NAME}}",
+  "version": "1.0.0",
+  "type": "app",
+  "description": "{{DESCRIPTION}}",
+  "commands": {
+    "dev": "bun run vite",
+    "build": "bun run vite build",
+    "preview": "bun run vite preview"
+  },
+  "ports": {
+    "frontend": 5173
+  },
+  "jns": {
+    "name": "{{JNS_NAME}}"
+  },
+  "architecture": {
+    "frontend": {
+      "outputDir": "dist"
+    }
+  },
+  "decentralization": {
+    "frontend": {
+      "ipfs": true,
+      "arweave": false,
+      "buildDir": "dist"
+    }
+  }
+}

@@ -13,6 +13,7 @@
     "indexer": {
       "api": "http://127.0.0.1:4350",
       "graphql": "http://127.0.0.1:4350/graphql",
+      "graphqlCors": "http://127.0.0.1:4352/graphql",
       "websocket": "ws://127.0.0.1:4350/graphql",
       "rest": "http://127.0.0.1:4352",
       "dws": "http://127.0.0.1:4030/indexer/graphql"
@@ -141,8 +142,9 @@
     "indexer": {
       "api": "https://indexer.testnet.jejunetwork.org",
       "graphql": "https://indexer.testnet.jejunetwork.org/graphql",
+      "graphqlCors": "https://dws.testnet.jejunetwork.org/indexer/graphql",
       "websocket": "wss://indexer.testnet.jejunetwork.org/graphql",
-      "rest": "https://indexer.testnet.jejunetwork.org/rest",
+      "rest": "https://dws.testnet.jejunetwork.org/indexer/api",
       "dws": "https://dws.testnet.jejunetwork.org/indexer/graphql"
     },
     "gateway": {
@@ -271,8 +273,9 @@
     "indexer": {
       "api": "https://indexer.jejunetwork.org",
       "graphql": "https://indexer.jejunetwork.org/graphql",
+      "graphqlCors": "https://dws.jejunetwork.org/indexer/graphql",
       "websocket": "wss://indexer.jejunetwork.org/graphql",
-      "rest": "https://indexer.jejunetwork.org/rest",
+      "rest": "https://dws.jejunetwork.org/indexer/api",
       "dws": "https://dws.jejunetwork.org/indexer/graphql"
     },
     "gateway": {

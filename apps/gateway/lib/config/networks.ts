@@ -82,11 +82,17 @@ export const CHAINS = {
 } as const
 
 // Service URLs (using centralized port config)
+// Use graphqlCors endpoint in browser for CORS support
+const network = getCurrentNetwork()
+const isBrowser = typeof window !== 'undefined'
 export const SERVICES = {
   rpcGateway: getCoreAppUrl('RPC_GATEWAY'),
   indexer:
     (typeof process !== 'undefined' ? process.env.INDEXER_URL : undefined) ||
-    getServiceUrl('indexer', 'graphql', getCurrentNetwork()),
+    // Use CORS-enabled DWS proxy in browser, direct endpoint server-side
+    (isBrowser && network !== 'localnet'
+      ? getServiceUrl('indexer', 'graphqlCors', network)
+      : getServiceUrl('indexer', 'graphql', network)),
   ipfsApi: getCoreAppUrl('IPFS'),
   ipfsGateway: getCoreAppUrl('IPFS'),
 } as const

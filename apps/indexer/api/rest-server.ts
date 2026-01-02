@@ -107,20 +107,30 @@ if (!REST_PORT || REST_PORT <= 0 || REST_PORT > 65535) {
 
 const CORS_ORIGINS = config.corsOrigins
 
-const corsOptions = CORS_ORIGINS.length
-  ? {
-      origin: CORS_ORIGINS,
-      credentials: true,
-      methods: ['GET', 'POST', 'OPTIONS'] as ('GET' | 'POST' | 'OPTIONS')[],
-      allowedHeaders: [
-        'Content-Type',
-        'Authorization',
-        'X-API-Key',
-        'X-Wallet-Address',
-        'X-Agent-Id',
-      ],
-    }
-  : undefined
+// Default CORS origins for cross-origin GraphQL/API access
+const DEFAULT_CORS_ORIGINS = [
+  'https://gateway.testnet.jejunetwork.org',
+  'https://gateway.jejunetwork.org',
+  'https://dws.testnet.jejunetwork.org',
+  'https://dws.jejunetwork.org',
+  'https://jejunetwork.org',
+]
+
+const effectiveCorsOrigins =
+  CORS_ORIGINS.length > 0 ? CORS_ORIGINS : DEFAULT_CORS_ORIGINS
+
+const corsOptions = {
+  origin: effectiveCorsOrigins,
+  credentials: true,
+  methods: ['GET', 'POST', 'OPTIONS'] as ('GET' | 'POST' | 'OPTIONS')[],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-API-Key',
+    'X-Wallet-Address',
+    'X-Agent-Id',
+  ],
+}
 
 const app = new Elysia()
   .use(cors(corsOptions))

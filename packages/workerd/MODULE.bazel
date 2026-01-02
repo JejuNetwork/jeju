@@ -20,6 +20,24 @@ bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "apple_support", version = "2.0.0")
 bazel_dep(name = "rules_cc", version = "0.2.15")
 
+# toolchains_llvm provides a way to use a custom LLVM toolchain, bypassing apple_support's
+# wrapped_clang which doesn't support C23's #embed directive on older Xcode versions.
+# Use --config=llvm_toolchain to enable this on macOS with Xcode < 16.3.
+bazel_dep(name = "toolchains_llvm", version = "1.4.0")
+
+# Configure LLVM toolchain for macOS - uses LLVM 20.1.2 which supports C23 #embed directive
+# This bypasses apple_support's wrapped_clang that uses Apple's Clang (which lacks --embed-dir)
+llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
+llvm.toolchain(
+    name = "llvm_toolchain",
+    llvm_version = "20.1.2",
+    stdlib = {
+        "darwin-aarch64": "builtin-libc++",
+        "darwin-x86_64": "builtin-libc++",
+    },
+)
+use_repo(llvm, "llvm_toolchain", "llvm_toolchain_llvm")
+
 # compatibility proxy is needed when using current rules_cc with Bazel 8
 compat = use_extension("@rules_cc//cc:extensions.bzl", "compatibility_proxy")
 use_repo(compat, "cc_compatibility_proxy")

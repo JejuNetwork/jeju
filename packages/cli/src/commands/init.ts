@@ -83,9 +83,16 @@ interface InitConfig {
   oauth3Enabled: boolean
   oauth3AppId: string
   outputDir: string
+  template: 'fullstack' | 'worker' | 'frontend'
 }
 
-const TEMPLATE_PATH = join(import.meta.dir, '../../../../apps/example')
+type TemplateType = 'fullstack' | 'worker' | 'frontend'
+
+const TEMPLATE_PATHS: Record<TemplateType, string> = {
+  fullstack: join(import.meta.dir, '../../../../apps/example'),
+  worker: join(import.meta.dir, '../../templates/worker'),
+  frontend: join(import.meta.dir, '../../templates/frontend'),
+}
 
 const vendorSubcommand = new Command('vendor')
   .description('Create vendor app manifest')
@@ -119,34 +126,44 @@ export const initCommand = new Command('init')
   .option('-d, --dir <directory>', 'Output directory')
   .option('-y, --yes', 'Skip prompts and use defaults')
   .option('--no-x402', 'Disable x402 payment support')
+  .option(
+    '-t, --template <template>',
+    'Template type (fullstack, worker, frontend)',
+  )
   .addHelpText(
     'after',
     `
+Templates:
+  ${chalk.cyan('fullstack')}   Full-stack app (React + Elysia worker + SQLit)
+  ${chalk.cyan('worker')}      Worker only (Elysia API, deploy to DWS)
+  ${chalk.cyan('frontend')}    Frontend only (React, deploy to IPFS)
+
 Examples:
-  ${chalk.cyan('jeju init my-app')}                Create new dApp named "my-app"
-  ${chalk.cyan('jeju init my-app -d ./projects')}  Create in specific directory
-  ${chalk.cyan('jeju init -y')}                    Quick create with defaults
-  ${chalk.cyan('jeju init --no-x402')}             Create without x402 payments
-  ${chalk.cyan('jeju init vendor my-app')}          Create vendor app manifest
+  ${chalk.cyan('jeju init my-app')}                  Create new fullstack dApp
+  ${chalk.cyan('jeju init my-api -t worker')}        Create worker-only project
+  ${chalk.cyan('jeju init my-site -t frontend')}     Create frontend-only project
+  ${chalk.cyan('jeju init my-app -d ./projects')}    Create in specific directory
+  ${chalk.cyan('jeju init -y')}                      Quick create with defaults
+  ${chalk.cyan('jeju init vendor my-app')}           Create vendor app manifest
 `,
   )
   .action(
     async (
       nameArg: string | undefined,
-      options: { dir?: string; yes?: boolean; x402?: boolean },
+      options: {
+        dir?: string
+        yes?: boolean
+        x402?: boolean
+        template?: TemplateType
+      },
     ) => {
-      logger.header('CREATE NEW DAPP')
-
-      if (!existsSync(TEMPLATE_PATH)) {
-        logger.error(`Template not found at ${TEMPLATE_PATH}`)
-        logger.info('Make sure example exists in apps/')
-        process.exit(1)
-      }
+      logger.header('CREATE NEW PROJECT')
 
       let config: InitConfig
 
       if (options.yes && nameArg) {
         const validName = validateAppName(nameArg)
+        const template = options.template ?? 'fullstack'
 
         const outputDir = resolve(
           normalize(options.dir || join(process.cwd(), validName)),
@@ -167,17 +184,30 @@ Examples:
           databaseId: `${validName}-db`,
           description: `A decentralized ${validName} application`,
           x402Enabled: options.x402 !== false,
-          oauth3Enabled: true,
-          oauth3AppId: `${validName}.oauth3.jeju`,
+          oauth3Enabled: template === 'fullstack',
+          oauth3AppId:
+            template === 'fullstack' ? `${validName}.oauth3.jeju` : '',
           outputDir,
+          template,
         }
       } else {
         // Interactive prompts
         const answers = await prompts([
           {
+            type: 'select',
+            name: 'template',
+            message: 'Project template:',
+            choices: [
+              { title: 'Full-stack (React + Worker + SQLit)', value: 'fullstack' },
+              { title: 'Worker only (API, deploy to DWS)', value: 'worker' },
+              { title: 'Frontend only (React, deploy to IPFS)', value: 'frontend' },
+            ],
+            initial: options.template === 'worker' ? 1 : options.template === 'frontend' ? 2 : 0,
+          },
+          {
             type: 'text',
             name: 'name',
-            message: 'App name (lowercase, hyphens allowed):',
+            message: 'Project name (lowercase, hyphens allowed):',
             initial: nameArg || 'my-dapp',
             validate: (value: string) => {
               try {
@@ -209,26 +239,36 @@ Examples:
               `${values.name}.jeju`,
           },
           {
-            type: 'text',
+            type: (
+              _prev: string,
+              values: { template: TemplateType },
+            ) => (values.template !== 'frontend' ? 'text' : null),
             name: 'databaseId',
             message: 'Database ID:',
             initial: (_prev: string, values: { name: string }) =>
               `${values.name}-db`,
           },
           {
-            type: 'confirm',
+            type: (
+              _prev: string,
+              values: { template: TemplateType },
+            ) => (values.template !== 'frontend' ? 'confirm' : null),
             name: 'x402Enabled',
             message: 'Enable x402 payments?',
             initial: true,
           },
           {
-            type: 'confirm',
+            type: (
+              _prev: string,
+              values: { template: TemplateType },
+            ) => (values.template === 'fullstack' ? 'confirm' : null),
             name: 'oauth3Enabled',
             message: 'Enable OAuth3 authentication?',
             initial: true,
           },
           {
-            type: (_prev: boolean) => (_prev ? 'text' : null),
+            type: (_prev: boolean, values: { oauth3Enabled?: boolean }) =>
+              values.oauth3Enabled ? 'text' : null,
             name: 'oauth3AppId',
             message: 'OAuth3 App ID:',
             initial: (_prev: string, values: { name: string }) =>
@@ -248,7 +288,13 @@ Examples:
           process.exit(1)
         }
 
-        // Default oauth3AppId if OAuth3 disabled
+        // Set defaults for non-prompted fields
+        if (answers.template === 'frontend') {
+          answers.databaseId = ''
+          answers.x402Enabled = false
+          answers.oauth3Enabled = false
+          answers.oauth3AppId = ''
+        }
         if (!answers.oauth3Enabled) {
           answers.oauth3AppId = ''
         }
@@ -257,6 +303,14 @@ Examples:
         answers.outputDir = resolve(normalize(answers.outputDir))
 
         config = answers as InitConfig
+      }
+
+      // Verify template exists
+      const templatePath = TEMPLATE_PATHS[config.template]
+      if (!existsSync(templatePath)) {
+        logger.error(`Template not found at ${templatePath}`)
+        logger.info(`Make sure the ${config.template} template exists`)
+        process.exit(1)
       }
 
       if (existsSync(config.outputDir)) {
@@ -276,41 +330,72 @@ Examples:
         }
       }
 
-      logger.step(`Creating ${config.displayName}...`)
+      logger.step(`Creating ${config.displayName} (${config.template} template)...`)
 
       mkdirSync(config.outputDir, { recursive: true })
 
-      await copyTemplate(TEMPLATE_PATH, config.outputDir, config)
+      await copyTemplate(templatePath, config.outputDir, config)
 
       await generateCustomFiles(config)
 
       logger.success(`\nCreated ${config.displayName} at ${config.outputDir}`)
 
-      // Print next steps
+      // Print next steps based on template
       console.log(chalk.bold('\nNext steps:\n'))
       console.log(
         `  ${chalk.cyan('cd')} ${relative(process.cwd(), config.outputDir)}`,
       )
       console.log(`  ${chalk.cyan('bun install')}`)
-      console.log(`  ${chalk.cyan('bun run migrate')}  # Set up database`)
-      console.log(
-        `  ${chalk.cyan('bun run seed')}     # Seed OAuth3 registry (dev)`,
-      )
-      console.log(
-        `  ${chalk.cyan('bun run dev')}      # Start development server`,
-      )
-
-      console.log(chalk.bold('\nTo deploy:\n'))
-      console.log(`  ${chalk.cyan('bun run deploy')}   # Deploy to network`)
 
       const host = getLocalhostHost()
-      console.log(chalk.bold('\nEndpoints:\n'))
-      console.log(`  REST API:   http://${host}:4500/api/v1`)
-      console.log(`  A2A:        http://${host}:4500/a2a`)
-      console.log(`  MCP:        http://${host}:4500/mcp`)
-      console.log(`  x402:       http://${host}:4500/x402`)
-      console.log(`  Auth:       http://${host}:4500/auth`)
-      console.log(`  Health:     http://${host}:4500/health`)
+
+      if (config.template === 'fullstack') {
+        console.log(`  ${chalk.cyan('bun run migrate')}  # Set up database`)
+        console.log(
+          `  ${chalk.cyan('bun run seed')}     # Seed OAuth3 registry (dev)`,
+        )
+        console.log(
+          `  ${chalk.cyan('bun run dev')}      # Start development server`,
+        )
+
+        console.log(chalk.bold('\nTo deploy:\n'))
+        console.log(
+          `  ${chalk.cyan('jeju publish')}     # Deploy to Jeju Network`,
+        )
+
+        console.log(chalk.bold('\nEndpoints:\n'))
+        console.log(`  REST API:   http://${host}:4500/api/v1`)
+        console.log(`  A2A:        http://${host}:4500/a2a`)
+        console.log(`  MCP:        http://${host}:4500/mcp`)
+        console.log(`  x402:       http://${host}:4500/x402`)
+        console.log(`  Auth:       http://${host}:4500/auth`)
+        console.log(`  Health:     http://${host}:4500/health`)
+      } else if (config.template === 'worker') {
+        console.log(
+          `  ${chalk.cyan('bun run dev')}      # Start worker with hot reload`,
+        )
+
+        console.log(chalk.bold('\nTo deploy:\n'))
+        console.log(`  ${chalk.cyan('jeju login')}       # Authenticate`)
+        console.log(`  ${chalk.cyan('jeju publish')}     # Deploy to DWS`)
+
+        console.log(chalk.bold('\nEndpoints:\n'))
+        console.log(`  API:        http://${host}:8787/api`)
+        console.log(`  Health:     http://${host}:8787/health`)
+      } else if (config.template === 'frontend') {
+        console.log(
+          `  ${chalk.cyan('bun run dev')}      # Start Vite dev server`,
+        )
+
+        console.log(chalk.bold('\nTo deploy:\n'))
+        console.log(`  ${chalk.cyan('jeju login')}       # Authenticate`)
+        console.log(
+          `  ${chalk.cyan('jeju publish')}     # Deploy to IPFS via DWS`,
+        )
+
+        console.log(chalk.bold('\nEndpoints:\n'))
+        console.log(`  Dev:        http://${host}:5173`)
+      }
 
       console.log(
         chalk.dim(`\nDocumentation: https://docs.jejunetwork.org/templates\n`),
@@ -382,66 +467,132 @@ async function copyTemplate(
 }
 
 function transformContent(content: string, config: InitConfig): string {
-  // Replace template placeholders
-  return content
-    .replace(/example/g, config.name)
-    .replace(/Example/g, config.displayName)
-    .replace(/template\.jeju/g, config.jnsName)
-    .replace(/example-db/g, config.databaseId)
-    .replace(/@jejunetwork\/example/g, `@jejunetwork/${config.name}`)
-    .replace(
-      /A production-ready template for building fully decentralized applications/g,
-      config.description,
-    )
+  // Handle {{PLACEHOLDER}} style replacements (worker/frontend templates)
+  let result = content
+    .replace(/\{\{APP_NAME\}\}/g, config.name)
+    .replace(/\{\{DISPLAY_NAME\}\}/g, config.displayName)
+    .replace(/\{\{DESCRIPTION\}\}/g, config.description)
+    .replace(/\{\{JNS_NAME\}\}/g, config.jnsName)
+    .replace(/\{\{DATABASE_ID\}\}/g, config.databaseId || '')
+
+  // Also handle literal replacements for fullstack template (apps/example)
+  if (config.template === 'fullstack') {
+    result = result
+      .replace(/example/g, config.name)
+      .replace(/Example/g, config.displayName)
+      .replace(/template\.jeju/g, config.jnsName)
+      .replace(/example-db/g, config.databaseId)
+      .replace(/@jejunetwork\/example/g, `@jejunetwork/${config.name}`)
+      .replace(
+        /A production-ready template for building fully decentralized applications/g,
+        config.description,
+      )
+  }
+
+  return result
 }
 
 async function generateCustomFiles(config: InitConfig): Promise<void> {
-  // Generate customized package.json
-  const packageJsonPath = join(config.outputDir, 'package.json')
-  const rawPackageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'))
-  const packageJson = validate(
-    rawPackageJson,
-    TemplatePackageJsonSchema,
-    `template package.json at ${packageJsonPath}`,
-  )
-
-  packageJson.name = `@jejunetwork/${config.name}`
-  packageJson.description = config.description
-
-  writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2))
-
-  // Generate customized manifest
-  const manifestPath = join(config.outputDir, 'jeju-manifest.json')
-  const rawManifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
-  const manifest = validate(
-    rawManifest,
-    TemplateManifestSchema,
-    `template manifest at ${manifestPath}`,
-  )
-
-  manifest.name = config.name
-  manifest.displayName = config.displayName
-  manifest.description = config.description
-  if (manifest.jns) {
-    manifest.jns.name = config.jnsName
-    manifest.jns.description = config.displayName
-  }
-  if (manifest.services?.database) {
-    manifest.services.database.databaseId = config.databaseId
-  }
-  if (manifest.agent) {
-    manifest.agent.jnsName = config.jnsName
-    manifest.agent.x402Support = config.x402Enabled
-  }
-
-  // Remove template-specific fields
-  delete manifest.template
-
-  writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
-
-  // Generate .env.example
   const host = getLocalhostHost()
-  const envContent = `# ${config.displayName} Configuration
+
+  // For worker/frontend templates, the placeholders are already replaced during copy
+  // We just need to finalize the package.json name
+  const packageJsonPath = join(config.outputDir, 'package.json')
+  if (existsSync(packageJsonPath)) {
+    const rawPackageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'))
+    const packageJson = validate(
+      rawPackageJson,
+      TemplatePackageJsonSchema,
+      `template package.json at ${packageJsonPath}`,
+    )
+
+    // For worker/frontend templates, name is already set via placeholder
+    // For fullstack, we need to prefix it
+    if (config.template === 'fullstack') {
+      packageJson.name = `@jejunetwork/${config.name}`
+    }
+    packageJson.description = config.description
+
+    writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2))
+  }
+
+  // Update manifest for fullstack template (worker/frontend already done via placeholders)
+  if (config.template === 'fullstack') {
+    const manifestPath = join(config.outputDir, 'jeju-manifest.json')
+    if (existsSync(manifestPath)) {
+      const rawManifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
+      const manifest = validate(
+        rawManifest,
+        TemplateManifestSchema,
+        `template manifest at ${manifestPath}`,
+      )
+
+      manifest.name = config.name
+      manifest.displayName = config.displayName
+      manifest.description = config.description
+      if (manifest.jns) {
+        manifest.jns.name = config.jnsName
+        manifest.jns.description = config.displayName
+      }
+      if (manifest.services?.database) {
+        manifest.services.database.databaseId = config.databaseId
+      }
+      if (manifest.agent) {
+        manifest.agent.jnsName = config.jnsName
+        manifest.agent.x402Support = config.x402Enabled
+      }
+
+      // Remove template-specific fields
+      delete manifest.template
+
+      writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
+    }
+  }
+
+  // Generate .env.example based on template type
+  let envContent: string
+
+  if (config.template === 'worker') {
+    envContent = `# ${config.displayName} Configuration
+
+# Server
+PORT=8787
+APP_NAME="${config.displayName}"
+
+# Network
+NETWORK=localnet
+L2_RPC_URL=http://${host}:6546
+
+# Services
+SQLIT_BLOCK_PRODUCER_ENDPOINT=http://${host}:4661
+SQLIT_DATABASE_ID=${config.databaseId}
+DWS_URL=http://${host}:4030
+
+# x402 Payments
+X402_ENABLED=${config.x402Enabled}
+X402_PAYMENT_ADDRESS=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+
+# Deployment
+DEPLOYER_PRIVATE_KEY=
+JNS_NAME=${config.jnsName}
+`
+  } else if (config.template === 'frontend') {
+    envContent = `# ${config.displayName} Configuration
+
+# Network
+VITE_NETWORK=localnet
+VITE_RPC_URL=http://${host}:6546
+VITE_DWS_URL=http://${host}:4030
+
+# JNS
+VITE_JNS_NAME=${config.jnsName}
+
+# Deployment
+DEPLOYER_PRIVATE_KEY=
+`
+  } else {
+    // Fullstack template
+    envContent = `# ${config.displayName} Configuration
 
 # Server
 PORT=4500
@@ -478,95 +629,7 @@ OAUTH3_REDIRECT_URI=http://${host}:4501/auth/callback
 DEPLOYER_PRIVATE_KEY=
 JNS_NAME=${config.jnsName}
 `
+  }
 
   writeFileSync(join(config.outputDir, '.env.example'), envContent)
-
-  // Generate README
-  const readmeContent = `# ${config.displayName}
-
-${config.description}
-
-## Features
-
-- **Fully Decentralized**: SQLit database, IPFS storage, KMS encryption
-- **AI Integration**: A2A and MCP protocols for agent communication
-- **Monetization**: x402 payment protocol for paid APIs
-- **OAuth3 Authentication**: TEE-backed decentralized auth with social logins
-- **Scheduled Tasks**: On-chain cron triggers
-- **Human-readable Names**: JNS integration (${config.jnsName})
-
-## Quick Start
-
-\`\`\`bash
-# Install dependencies
-bun install
-
-# Set up database
-bun run migrate
-
-# Seed OAuth3 registry (development)
-bun run seed
-
-# Start development server
-bun run dev
-\`\`\`
-
-## Endpoints
-
-| Endpoint | URL |
-|----------|-----|
-| REST API | http://${host}:4500/api/v1 |
-| A2A | http://${host}:4500/a2a |
-| MCP | http://${host}:4500/mcp |
-| x402 | http://${host}:4500/x402 |
-| Auth | http://${host}:4500/auth |
-| Health | http://${host}:4500/health |
-
-## Authentication
-
-This app supports OAuth3 decentralized authentication:
-
-- **Wallet**: Direct wallet signature (always available)
-- **Social**: GitHub, Google, Twitter, Discord, Farcaster (requires TEE agent)
-
-\`\`\`bash
-# Check available providers
-curl http://${host}:4500/auth/providers
-
-# Get session info
-curl -H "x-oauth3-session: <session-id>" http://${host}:4500/auth/session
-\`\`\`
-
-## Testing
-
-\`\`\`bash
-# Unit tests
-bun test
-
-# E2E tests (requires server running)
-bun run test:e2e
-
-# Synpress tests (wallet integration)
-bun run test:synpress
-\`\`\`
-
-## Deployment
-
-\`\`\`bash
-# Deploy to localnet
-bun run deploy
-
-# Deploy to testnet
-NETWORK=testnet DEPLOYER_PRIVATE_KEY=0x... bun run deploy
-
-# Deploy to mainnet
-NETWORK=mainnet DEPLOYER_PRIVATE_KEY=0x... bun run deploy
-\`\`\`
-
-## License
-
-MIT
-`
-
-  writeFileSync(join(config.outputDir, 'README.md'), readmeContent)
 }

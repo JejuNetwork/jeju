@@ -74,6 +74,8 @@ export default function App() {
         <Route path="/security/keys" element={<KeysPage />} />
         <Route path="/security/secrets" element={<SecretsPage />} />
         <Route path="/security/oauth3" element={<OAuth3Page />} />
+        {/* Redirect old /oauth3 path to new location */}
+        <Route path="/oauth3" element={<Navigate to="/security/oauth3" replace />} />
 
         {/* Network */}
         <Route path="/network/rpc" element={<RPCGatewayPage />} />

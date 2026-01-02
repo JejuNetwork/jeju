@@ -53,10 +53,11 @@ export function generateWorkerConfig(
     })
     .join(',\n')
 
-  // Generate compatibility flags
-  const compatFlags = worker.compatibilityFlags?.length
-    ? `\n    compatibilityFlags = [${worker.compatibilityFlags.map((f) => `"${f}"`).join(', ')}],`
-    : ''
+  // Generate compatibility flags - always include nodejs_compat for framework support
+  const flags = worker.compatibilityFlags?.length
+    ? worker.compatibilityFlags
+    : ['nodejs_compat'] // Default to nodejs_compat for Elysia/viem bundle support
+  const compatFlags = `\n    compatibilityFlags = [${flags.map((f) => `"${f}"`).join(', ')}],`
 
   // Use camelCase for the worker name to comply with Cap'n Proto conventions
   const camelCaseName = workerName.replace(/_([a-z])/g, (_, c) =>

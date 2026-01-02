@@ -37,6 +37,7 @@ import { keysCommand } from './commands/keys'
 import { localnetFullCommand } from './commands/localnet-full'
 import { loginCommand, logoutCommand, whoamiCommand } from './commands/login'
 import { logsCommand } from './commands/logs'
+import { domainCommand } from './commands/domain'
 import { pkgCommand } from './commands/pkg'
 import { portsCommand } from './commands/ports'
 import { previewCommand } from './commands/preview'
@@ -128,6 +129,9 @@ program.addCommand(workerCommand)
 // Logs and secrets
 program.addCommand(logsCommand)
 program.addCommand(secretCommand)
+
+// Domain management (JNS)
+program.addCommand(domainCommand)
 
 // Keys and accounts
 program.addCommand(keysCommand)
