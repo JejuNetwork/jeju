@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'bun:test'
-import { privateKeyToAccount } from 'viem/accounts'
 import {
-  keccak256,
-  encodeAbiParameters,
   type Address,
+  encodeAbiParameters,
   hashMessage,
+  keccak256,
   recoverAddress,
+  stringToHex,
 } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 
 /**
  * Threshold Signing Unit Tests
@@ -42,7 +43,9 @@ describe('Threshold Signing', () => {
 
     it('should compute struct hash for EIP-712', () => {
       const BATCH_TYPEHASH = keccak256(
-        'BatchSubmission(bytes32 batchHash,uint256 nonce,uint256 chainId)',
+        stringToHex(
+          'BatchSubmission(bytes32 batchHash,uint256 nonce,uint256 chainId)',
+        ),
       )
       const batchHash = keccak256('0xdeadbeef')
       const nonce = 0n
@@ -65,10 +68,12 @@ describe('Threshold Signing', () => {
 
     it('should compute domain separator', () => {
       const domainTypehash = keccak256(
-        'EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)',
+        stringToHex(
+          'EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)',
+        ),
       )
-      const nameHash = keccak256('ThresholdBatchSubmitter')
-      const versionHash = keccak256('1')
+      const nameHash = keccak256(stringToHex('ThresholdBatchSubmitter'))
+      const versionHash = keccak256(stringToHex('1'))
       const chainId = 901n
       const contract = '0x1234567890123456789012345678901234567890' as Address
 
@@ -228,7 +233,9 @@ describe('Threshold Signing', () => {
 
       // 2. Compute EIP-712 components
       const BATCH_TYPEHASH = keccak256(
-        'BatchSubmission(bytes32 batchHash,uint256 nonce,uint256 chainId)',
+        stringToHex(
+          'BatchSubmission(bytes32 batchHash,uint256 nonce,uint256 chainId)',
+        ),
       )
 
       const structHash = keccak256(
@@ -244,8 +251,10 @@ describe('Threshold Signing', () => {
       )
 
       // 3. Collect threshold signatures
-      const signatureData: Array<{ signer: Address; signature: `0x${string}` }> =
-        []
+      const signatureData: Array<{
+        signer: Address
+        signature: `0x${string}`
+      }> = []
 
       for (let i = 0; i < THRESHOLD; i++) {
         const signature = await sequencerAccounts[i].signMessage({
@@ -279,7 +288,7 @@ describe('Threshold Signing', () => {
 
   describe('Error Cases', () => {
     it('should handle insufficient signatures', () => {
-      const signatures = ['0x' + '00'.repeat(65)] as `0x${string}`[]
+      const signatures = [`0x${'00'.repeat(65)}`] as `0x${string}`[]
       expect(signatures.length < THRESHOLD).toBe(true)
     })
 
@@ -287,7 +296,7 @@ describe('Threshold Signing', () => {
       const invalidSig = '0x1234' // Too short
       expect(invalidSig.length).not.toBe(132)
 
-      const validSig = ('0x' + '00'.repeat(65)) as `0x${string}`
+      const validSig = `0x${'00'.repeat(65)}` as `0x${string}`
       expect(validSig.length).toBe(132)
     })
 

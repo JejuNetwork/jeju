@@ -97,7 +97,9 @@ async function setContent(
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}))
-    logger.error(`Failed to set content: ${(error as { error?: string }).error || response.statusText}`)
+    logger.error(
+      `Failed to set content: ${(error as { error?: string }).error || response.statusText}`,
+    )
     process.exit(1)
   }
 
@@ -135,7 +137,9 @@ async function linkWorker(
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}))
-    logger.error(`Failed to link worker: ${(error as { error?: string }).error || response.statusText}`)
+    logger.error(
+      `Failed to link worker: ${(error as { error?: string }).error || response.statusText}`,
+    )
     process.exit(1)
   }
 
@@ -277,7 +281,9 @@ async function transferDomain(
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}))
-    logger.error(`Failed to transfer: ${(error as { error?: string }).error || response.statusText}`)
+    logger.error(
+      `Failed to transfer: ${(error as { error?: string }).error || response.statusText}`,
+    )
     process.exit(1)
   }
 

@@ -736,6 +736,13 @@ export function getCacheClient(namespace: string): CacheClient {
   if (existing) return existing
 
   const endpoint = getDWSCacheUrl()
+  if (!endpoint) {
+    throw new CacheError(
+      CacheErrorCode.SERVER_ERROR,
+      'DWS cache URL not configured. Set DWS_CACHE_URL environment variable.',
+    )
+  }
+
   const client = new CacheClient({
     serverUrl: endpoint,
     namespace,

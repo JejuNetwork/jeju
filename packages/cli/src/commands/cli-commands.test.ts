@@ -12,9 +12,15 @@
  *   bun test cli-commands.test.ts
  */
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
-import { execSync, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import { spawnSync } from 'node:child_process'
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -30,9 +36,9 @@ const CREDENTIALS_FILE = join(
 )
 
 // Test wallet (Anvil default)
-const TEST_PRIVATE_KEY =
+const _TEST_PRIVATE_KEY =
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
-const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
+const _TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
 
 interface CLIResult {
   stdout: string
@@ -181,7 +187,7 @@ describe('CLI Command Tests', () => {
     })
 
     test('account topup requires amount argument', async () => {
-      const { stderr, exitCode } = await runCLI(['account', 'topup'])
+      const { exitCode } = await runCLI(['account', 'topup'])
       expect(exitCode).not.toBe(0)
     })
 
@@ -230,37 +236,33 @@ describe('CLI Command Tests', () => {
     })
 
     test('worker list shows empty when not authenticated', async () => {
-      const { stdout, stderr, exitCode } = await runCLI(['worker', 'list'])
+      const { stdout, stderr } = await runCLI(['worker', 'list'])
       // Should either show empty list or require auth
       expect(stdout.length + stderr.length).toBeGreaterThan(0)
     })
 
     test('worker info requires worker argument', async () => {
-      const { stderr, exitCode } = await runCLI(['worker', 'info'])
+      const { exitCode } = await runCLI(['worker', 'info'])
       expect(exitCode).not.toBe(0)
     })
 
     test('worker logs requires worker argument', async () => {
-      const { stderr, exitCode } = await runCLI(['worker', 'logs'])
+      const { exitCode } = await runCLI(['worker', 'logs'])
       expect(exitCode).not.toBe(0)
     })
 
     test('worker delete requires worker argument', async () => {
-      const { stderr, exitCode } = await runCLI(['worker', 'delete'])
+      const { exitCode } = await runCLI(['worker', 'delete'])
       expect(exitCode).not.toBe(0)
     })
 
     test('worker delete with --force skips confirmation', async () => {
-      const { stdout, exitCode } = await runCLI([
-        'worker',
-        'delete',
-        '--help',
-      ])
+      const { stdout } = await runCLI(['worker', 'delete', '--help'])
       expect(stdout).toContain('--force')
     })
 
     test('worker rollback requires worker argument', async () => {
-      const { stderr, exitCode } = await runCLI(['worker', 'rollback'])
+      const { exitCode } = await runCLI(['worker', 'rollback'])
       expect(exitCode).not.toBe(0)
     })
   })
@@ -313,7 +315,7 @@ describe('CLI Command Tests', () => {
       mkdirSync(join(projectDir, 'dist'), { recursive: true })
       writeFileSync(join(projectDir, 'dist', 'index.html'), '<html></html>')
 
-      const { stdout, stderr, exitCode } = await runCLI(
+      const { stdout, stderr } = await runCLI(
         ['publish', '--dry-run', '--skip-build'],
         { cwd: projectDir },
       )
@@ -344,7 +346,7 @@ describe('CLI Command Tests', () => {
     })
 
     test('preview delete requires preview-id', async () => {
-      const { stderr, exitCode } = await runCLI(['preview', 'delete'])
+      const { exitCode } = await runCLI(['preview', 'delete'])
       expect(exitCode).not.toBe(0)
     })
 
@@ -402,7 +404,7 @@ describe('CLI Command Tests', () => {
     })
 
     test('secret set requires key argument', async () => {
-      const { stderr, exitCode } = await runCLI(['secret', 'set'])
+      const { exitCode } = await runCLI(['secret', 'set'])
       expect(exitCode).not.toBe(0)
     })
 
@@ -413,22 +415,22 @@ describe('CLI Command Tests', () => {
     })
 
     test('secret delete requires key argument', async () => {
-      const { stderr, exitCode } = await runCLI(['secret', 'delete'])
+      const { exitCode } = await runCLI(['secret', 'delete'])
       expect(exitCode).not.toBe(0)
     })
 
     test('secret list --help shows options', async () => {
-      const { stdout, exitCode } = await runCLI(['secret', 'list', '--help'])
+      const { exitCode } = await runCLI(['secret', 'list', '--help'])
       expect(exitCode).toBe(0)
     })
 
     test('secret pull --help shows options', async () => {
-      const { stdout, exitCode } = await runCLI(['secret', 'pull', '--help'])
+      const { exitCode } = await runCLI(['secret', 'pull', '--help'])
       expect(exitCode).toBe(0)
     })
 
     test('secret push --help shows options', async () => {
-      const { stdout, exitCode } = await runCLI(['secret', 'push', '--help'])
+      const { exitCode } = await runCLI(['secret', 'push', '--help'])
       expect(exitCode).toBe(0)
     })
 
@@ -458,7 +460,7 @@ describe('CLI Command Tests', () => {
     })
 
     test('domain register requires name argument', async () => {
-      const { stderr, exitCode } = await runCLI(['domain', 'register'])
+      const { exitCode } = await runCLI(['domain', 'register'])
       expect(exitCode).not.toBe(0)
     })
 
@@ -473,37 +475,37 @@ describe('CLI Command Tests', () => {
     })
 
     test('domain set requires name and cid arguments', async () => {
-      const { stderr, exitCode } = await runCLI(['domain', 'set'])
+      const { exitCode } = await runCLI(['domain', 'set'])
       expect(exitCode).not.toBe(0)
     })
 
     test('domain set with only name fails', async () => {
-      const { stderr, exitCode } = await runCLI(['domain', 'set', 'test.jeju'])
+      const { exitCode } = await runCLI(['domain', 'set', 'test.jeju'])
       expect(exitCode).not.toBe(0)
     })
 
     test('domain link requires name and worker-id', async () => {
-      const { stderr, exitCode } = await runCLI(['domain', 'link'])
+      const { exitCode } = await runCLI(['domain', 'link'])
       expect(exitCode).not.toBe(0)
     })
 
     test('domain resolve requires name argument', async () => {
-      const { stderr, exitCode } = await runCLI(['domain', 'resolve'])
+      const { exitCode } = await runCLI(['domain', 'resolve'])
       expect(exitCode).not.toBe(0)
     })
 
     test('domain transfer requires name and to-address', async () => {
-      const { stderr, exitCode } = await runCLI(['domain', 'transfer'])
+      const { exitCode } = await runCLI(['domain', 'transfer'])
       expect(exitCode).not.toBe(0)
     })
 
     test('domain check requires name argument', async () => {
-      const { stderr, exitCode } = await runCLI(['domain', 'check'])
+      const { exitCode } = await runCLI(['domain', 'check'])
       expect(exitCode).not.toBe(0)
     })
 
     test('domain --network option is validated', async () => {
-      const { stdout, exitCode } = await runCLI([
+      const { exitCode } = await runCLI([
         'domain',
         '--network',
         'testnet',
@@ -568,7 +570,7 @@ describe('CLI Command Tests', () => {
 
   describe('error handling', () => {
     test('unknown command shows helpful output', async () => {
-      const { stdout, stderr, exitCode } = await runCLI(['unknown-command-xyz'])
+      const { stdout, stderr } = await runCLI(['unknown-command-xyz'])
       // Commander.js shows help for unknown commands (exit 0) or error (exit 1)
       // Either behavior is acceptable
       const output = stdout + stderr
@@ -576,13 +578,13 @@ describe('CLI Command Tests', () => {
     })
 
     test('invalid option shows error', async () => {
-      const { stderr, exitCode } = await runCLI(['worker', '--invalid-option'])
+      const { stderr } = await runCLI(['worker', '--invalid-option'])
       // Should error on invalid option
       expect(stderr.length).toBeGreaterThan(0)
     })
 
     test('missing required argument shows error', async () => {
-      const { stderr, exitCode } = await runCLI(['domain', 'register'])
+      const { exitCode } = await runCLI(['domain', 'register'])
       expect(exitCode).not.toBe(0)
     })
   })
@@ -613,7 +615,7 @@ describe('CLI Command Tests', () => {
       const startTime = Date.now()
       try {
         await runCLI(['status', '--check'], { timeout: 100 })
-      } catch (error) {
+      } catch (_error) {
         // Should timeout
         expect(Date.now() - startTime).toBeLessThan(5000)
       }

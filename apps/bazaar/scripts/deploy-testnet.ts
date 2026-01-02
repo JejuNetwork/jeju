@@ -22,14 +22,7 @@
 import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import {
-  createPublicClient,
-  createWalletClient,
-  http,
-  type Address,
-  type Chain,
-  formatEther,
-} from 'viem'
+import { type Address, createPublicClient, formatEther, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 
 // Network configurations
@@ -52,7 +45,8 @@ const NETWORKS = {
 
 type NetworkName = keyof typeof NETWORKS
 
-const ANVIL_DEFAULT_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
+const ANVIL_DEFAULT_KEY =
+  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
 
 interface DeploymentResult {
   chainId: number
@@ -93,7 +87,9 @@ function parseArgs(): { network: NetworkName } {
       if (n in NETWORKS) {
         network = n
       } else {
-        throw new Error(`Unknown network: ${n}. Valid options: ${Object.keys(NETWORKS).join(', ')}`)
+        throw new Error(
+          `Unknown network: ${n}. Valid options: ${Object.keys(NETWORKS).join(', ')}`,
+        )
       }
     }
   }
@@ -113,7 +109,7 @@ function getDeployerKey(networkName: NetworkName): string {
 
   throw new Error(
     'PRIVATE_KEY environment variable required for non-local deployments.\n' +
-    'Usage: PRIVATE_KEY=0x... bun run scripts/deploy-testnet.ts'
+      'Usage: PRIVATE_KEY=0x... bun run scripts/deploy-testnet.ts',
   )
 }
 
@@ -131,7 +127,10 @@ function exec(cmd: string, options?: { cwd?: string }): string {
   }).trim()
 }
 
-async function checkChainHealth(rpcUrl: string, config: typeof NETWORKS[NetworkName]): Promise<void> {
+async function checkChainHealth(
+  rpcUrl: string,
+  config: (typeof NETWORKS)[NetworkName],
+): Promise<void> {
   console.log('\nChecking chain health...')
 
   const client = createPublicClient({
@@ -144,13 +143,17 @@ async function checkChainHealth(rpcUrl: string, config: typeof NETWORKS[NetworkN
     blockNumber = await client.getBlockNumber()
     console.log(`  Block number: ${blockNumber}`)
   } catch (error) {
-    throw new Error(`Cannot connect to RPC at ${rpcUrl}: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    throw new Error(
+      `Cannot connect to RPC at ${rpcUrl}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    )
   }
 
   // Check chain ID
   const chainId = await client.getChainId()
   if (chainId !== config.chainId) {
-    throw new Error(`Chain ID mismatch. Expected ${config.chainId}, got ${chainId}`)
+    throw new Error(
+      `Chain ID mismatch. Expected ${config.chainId}, got ${chainId}`,
+    )
   }
   console.log(`  Chain ID: ${chainId}`)
 
@@ -173,9 +176,9 @@ async function checkChainHealth(rpcUrl: string, config: typeof NETWORKS[NetworkN
     const blockDate = new Date(Number(block.timestamp) * 1000).toISOString()
     throw new Error(
       `Chain appears to be stalled. Last block (${blockNumber}) was produced ${blockAge}s ago at ${blockDate}.\n` +
-      `The ${config.name} sequencer may need to be restarted.\n\n` +
-      `For localnet, run: cd /Users/shawwalters/jeju && jeju dev --start\n` +
-      `For testnet, check Kubernetes deployment status.`
+        `The ${config.name} sequencer may need to be restarted.\n\n` +
+        `For localnet, run: cd /Users/shawwalters/jeju && jeju dev --start\n` +
+        `For testnet, check Kubernetes deployment status.`,
     )
   }
 
@@ -184,21 +187,26 @@ async function checkChainHealth(rpcUrl: string, config: typeof NETWORKS[NetworkN
   const startBlock = blockNumber
 
   for (let i = 0; i < 10; i++) {
-    await new Promise(resolve => setTimeout(resolve, config.blockTime))
+    await new Promise((resolve) => setTimeout(resolve, config.blockTime))
     const currentBlock = await client.getBlockNumber()
     if (currentBlock > startBlock) {
-      console.log(`  Chain is producing blocks (${startBlock} -> ${currentBlock})`)
+      console.log(
+        `  Chain is producing blocks (${startBlock} -> ${currentBlock})`,
+      )
       return
     }
   }
 
   throw new Error(
     `Chain is not producing new blocks. Waited ${(10 * config.blockTime) / 1000}s but block number stayed at ${startBlock}.\n` +
-    `The sequencer may be stalled.`
+      `The sequencer may be stalled.`,
   )
 }
 
-async function checkDeployerBalance(rpcUrl: string, deployer: Address): Promise<void> {
+async function checkDeployerBalance(
+  rpcUrl: string,
+  deployer: Address,
+): Promise<void> {
   const client = createPublicClient({
     transport: http(rpcUrl),
   })
@@ -209,7 +217,7 @@ async function checkDeployerBalance(rpcUrl: string, deployer: Address): Promise<
   if (balance < BigInt(1e16)) {
     throw new Error(
       `Deployer ${deployer} needs at least 0.01 ETH for gas.\n` +
-      `Current balance: ${formatEther(balance)} ETH`
+        `Current balance: ${formatEther(balance)} ETH`,
     )
   }
 }
@@ -219,7 +227,7 @@ function deployContract(
   privateKey: string,
   path: string,
   args: string[],
-  name: string
+  name: string,
 ): string {
   console.log(`  Deploying ${name}...`)
 
@@ -235,7 +243,9 @@ function deployContract(
   // Encode constructor args if any
   if (args.length > 0) {
     // Build the constructor types from the ABI
-    const ctor = artifact.abi.find((x: { type: string }) => x.type === 'constructor')
+    const ctor = artifact.abi.find(
+      (x: { type: string }) => x.type === 'constructor',
+    )
     if (ctor) {
       const types = ctor.inputs.map((i: { type: string }) => i.type).join(',')
       const argsStr = args.map((a) => `"${a}"`).join(' ')
@@ -254,7 +264,9 @@ function deployContract(
   const contractAddress = result.contractAddress
 
   if (!contractAddress) {
-    throw new Error(`Deployment failed for ${name}. Transaction: ${result.transactionHash}`)
+    throw new Error(
+      `Deployment failed for ${name}. Transaction: ${result.transactionHash}`,
+    )
   }
 
   console.log(`    ${name}: ${contractAddress}`)
@@ -278,7 +290,7 @@ function sendTx(
 async function deployTokens(
   rpcUrl: string,
   privateKey: string,
-  deployer: string
+  deployer: string,
 ): Promise<{ jeju: string; usdc: string }> {
   console.log('\n=== Deploying Tokens ===\n')
 
@@ -288,7 +300,7 @@ async function deployTokens(
     privateKey,
     'src/tokens/MockJEJU.sol:MockJEJU',
     [deployer],
-    'JEJU Token'
+    'JEJU Token',
   )
 
   // Check if USDC already exists from config
@@ -303,7 +315,7 @@ async function deployTokens(
       privateKey,
       'src/tokens/NetworkUSDC.sol:NetworkUSDC',
       [deployer, '1000000000000000', 'true'], // 1B USDC, mintable
-      'Mock USDC'
+      'Mock USDC',
     )
   } else {
     console.log(`  Using existing USDC: ${usdc}`)
@@ -330,7 +342,7 @@ async function deployPredictionMarkets(
     privateKey,
     'src/prediction/PredictionOracle.sol:PredictionOracle',
     [deployer],
-    'PredictionOracle'
+    'PredictionOracle',
   )
 
   // Deploy PredictionMarket
@@ -339,7 +351,7 @@ async function deployPredictionMarkets(
     privateKey,
     'src/prediction/PredictionMarket.sol:PredictionMarket',
     [tokens.usdc, predictionOracle, deployer, deployer],
-    'PredictionMarket'
+    'PredictionMarket',
   )
 
   // Enable JEJU as supported token
@@ -349,7 +361,7 @@ async function deployPredictionMarkets(
     predictionMarket,
     'setTokenSupport(address,bool)',
     [tokens.jeju, 'true'],
-    'JEJU token enabled for betting'
+    'JEJU token enabled for betting',
   )
 
   // Create prediction markets
@@ -387,7 +399,7 @@ async function deployPredictionMarkets(
         predictionOracle,
         'commitGame(bytes32,string,bytes32)',
         [sessionIdHex, market.question, commitment],
-        `Oracle: Committed "${market.question.substring(0, 30)}..."`
+        `Oracle: Committed "${market.question.substring(0, 30)}..."`,
       )
 
       // Create market
@@ -397,7 +409,7 @@ async function deployPredictionMarkets(
         predictionMarket,
         'createMarket(bytes32,string,uint256)',
         [sessionIdHex, market.question, market.liquidity],
-        `Market created with ${Number(BigInt(market.liquidity) / BigInt(1e18))} USDC liquidity`
+        `Market created with ${Number(BigInt(market.liquidity) / BigInt(1e18))} USDC liquidity`,
       )
 
       markets.push({
@@ -439,7 +451,7 @@ async function deployPerps(
       '0x0000000000000000000000000000000000000000', // Pyth
       deployer,
     ],
-    'PerpsPriceOracle'
+    'PerpsPriceOracle',
   )
 
   // Deploy MarginManager
@@ -448,7 +460,7 @@ async function deployPerps(
     privateKey,
     'src/perps/MarginManager.sol:MarginManager',
     [priceOracle, deployer],
-    'MarginManager'
+    'MarginManager',
   )
 
   // Deploy InsuranceFund
@@ -457,7 +469,7 @@ async function deployPerps(
     privateKey,
     'src/perps/InsuranceFund.sol:InsuranceFund',
     [priceOracle, deployer],
-    'InsuranceFund'
+    'InsuranceFund',
   )
 
   // Deploy PerpetualMarket
@@ -466,7 +478,7 @@ async function deployPerps(
     privateKey,
     'src/perps/PerpetualMarket.sol:PerpetualMarket',
     [marginManager, insuranceFund, priceOracle, deployer],
-    'PerpetualMarket'
+    'PerpetualMarket',
   )
 
   // Configure margin manager
@@ -477,7 +489,7 @@ async function deployPerps(
     marginManager,
     'addAcceptedToken(address,uint256)',
     [tokens.usdc, '10000'],
-    'USDC added as collateral (100% factor)'
+    'USDC added as collateral (100% factor)',
   )
   sendTx(
     rpcUrl,
@@ -485,7 +497,7 @@ async function deployPerps(
     marginManager,
     'addAcceptedToken(address,uint256)',
     [tokens.jeju, '8000'],
-    'JEJU added as collateral (80% factor)'
+    'JEJU added as collateral (80% factor)',
   )
 
   // Set initial prices (manual for testnet)
@@ -496,7 +508,7 @@ async function deployPerps(
     priceOracle,
     'setManualPrice(address,uint256)',
     [tokens.jeju, '100000000'], // $1.00 (8 decimals)
-    'JEJU price set to $1.00'
+    'JEJU price set to $1.00',
   )
   sendTx(
     rpcUrl,
@@ -504,7 +516,7 @@ async function deployPerps(
     priceOracle,
     'setManualPrice(address,uint256)',
     [tokens.usdc, '100000000'], // $1.00
-    'USDC price set to $1.00'
+    'USDC price set to $1.00',
   )
 
   // Create JEJU-USD perp market
@@ -549,7 +561,7 @@ async function deployPerps(
 async function deployNFT(
   rpcUrl: string,
   privateKey: string,
-  deployer: string
+  deployer: string,
 ): Promise<string> {
   console.log('\n=== Deploying NFT Collection ===\n')
 
@@ -560,15 +572,15 @@ async function deployNFT(
     privateKey,
     'src/bazaar/SimpleCollectible.sol:SimpleCollectible',
     [
-      'Jeju Genesis',           // name
-      'JEJUNFT',                // symbol
-      deployer,                 // owner
-      '0',                      // mintFee (free mints for testnet)
-      deployer,                 // feeRecipient
-      '10000',                  // maxSupply
-      '10',                     // maxPerAddress
+      'Jeju Genesis', // name
+      'JEJUNFT', // symbol
+      deployer, // owner
+      '0', // mintFee (free mints for testnet)
+      deployer, // feeRecipient
+      '10000', // maxSupply
+      '10', // maxPerAddress
     ],
-    'Jeju Genesis NFT'
+    'Jeju Genesis NFT',
   )
 
   // Mint some genesis NFTs
@@ -587,7 +599,7 @@ async function deployNFT(
         simpleCollectible,
         'mint(string)',
         [uri],
-        `Minted NFT: ${uri.slice(0, 30)}...`
+        `Minted NFT: ${uri.slice(0, 30)}...`,
       )
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error)
@@ -600,7 +612,10 @@ async function deployNFT(
 
 function saveDeployment(result: DeploymentResult, networkName: string): void {
   // Save to deployments folder
-  const deployPath = join(CONTRACTS_DIR, `deployments/bazaar-${networkName}.json`)
+  const deployPath = join(
+    CONTRACTS_DIR,
+    `deployments/bazaar-${networkName}.json`,
+  )
   writeFileSync(deployPath, JSON.stringify(result, null, 2))
   console.log(`\nSaved: ${deployPath}`)
 
@@ -682,7 +697,9 @@ async function main(): Promise<void> {
   const { network } = parseArgs()
   const config = NETWORKS[network]
 
-  console.log(`Bazaar ${network.charAt(0).toUpperCase() + network.slice(1)} Deployment`)
+  console.log(
+    `Bazaar ${network.charAt(0).toUpperCase() + network.slice(1)} Deployment`,
+  )
   console.log('='.repeat(50))
   console.log(`Network: ${config.name}`)
   console.log(`RPC URL: ${config.rpcUrl}`)
@@ -702,7 +719,10 @@ async function main(): Promise<void> {
   await checkDeployerBalance(config.rpcUrl, deployer)
 
   // Ensure contracts are built
-  const artifactPath = join(CONTRACTS_DIR, 'out/PredictionMarket.sol/PredictionMarket.json')
+  const artifactPath = join(
+    CONTRACTS_DIR,
+    'out/PredictionMarket.sol/PredictionMarket.json',
+  )
   if (!existsSync(artifactPath)) {
     console.log('\nBuilding contracts...')
     exec('forge build', { cwd: CONTRACTS_DIR })
@@ -711,7 +731,12 @@ async function main(): Promise<void> {
 
   // Deploy all contracts
   const tokens = await deployTokens(config.rpcUrl, privateKey, deployer)
-  const predictions = await deployPredictionMarkets(config.rpcUrl, privateKey, deployer, tokens)
+  const predictions = await deployPredictionMarkets(
+    config.rpcUrl,
+    privateKey,
+    deployer,
+    tokens,
+  )
   const perps = await deployPerps(config.rpcUrl, privateKey, deployer, tokens)
   const simpleCollectible = await deployNFT(config.rpcUrl, privateKey, deployer)
 

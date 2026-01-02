@@ -7,6 +7,7 @@
 
 import {
   type Address,
+  bytesToHex,
   type Chain,
   createPublicClient,
   createWalletClient,
@@ -166,18 +167,21 @@ export class CloudIntegration {
   ): Promise<bigint> {
     this.config.logger.info('Registering cloud service as agent...')
 
-    // Convert metadata to contract format
-    const metadataEntries = [
-      { key: 'name', value: stringToBytes(metadata.name) },
-      { key: 'description', value: stringToBytes(metadata.description) },
-      { key: 'endpoint', value: stringToBytes(metadata.endpoint) },
-      { key: 'version', value: stringToBytes(metadata.version) },
+    // Convert metadata to contract format - bytesToHex for proper Hex type
+    const metadataEntries: readonly { key: string; value: `0x${string}` }[] = [
+      { key: 'name', value: bytesToHex(stringToBytes(metadata.name)) },
+      {
+        key: 'description',
+        value: bytesToHex(stringToBytes(metadata.description)),
+      },
+      { key: 'endpoint', value: bytesToHex(stringToBytes(metadata.endpoint)) },
+      { key: 'version', value: bytesToHex(stringToBytes(metadata.version)) },
       {
         key: 'capabilities',
-        value: stringToBytes(JSON.stringify(metadata.capabilities)),
+        value: bytesToHex(stringToBytes(JSON.stringify(metadata.capabilities))),
       },
-      { key: 'type', value: stringToBytes('cloud-service') },
-    ]
+      { key: 'type', value: bytesToHex(stringToBytes('cloud-service')) },
+    ] as const
 
     const hash = await this.walletClient.writeContract({
       chain: this.chain,

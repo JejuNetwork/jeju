@@ -54,7 +54,7 @@ const POD_ID = `pod-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 const NETWORK = getCurrentNetwork()
 
 // Default API paths to route to backend
-const DEFAULT_API_PATHS = [
+export const DEFAULT_API_PATHS = [
   '/api',
   '/health',
   '/a2a',
@@ -606,7 +606,9 @@ export async function ensureWorkerDeployed(
 
   // Deploy the worker from CID
   const host = getLocalhostHost()
-  console.log(`[AppRouter] Deploying worker for ${appName} from CID: ${workerId}`)
+  console.log(
+    `[AppRouter] Deploying worker for ${appName} from CID: ${workerId}`,
+  )
 
   const response = await fetch(`http://${host}:4030/workers`, {
     method: 'POST',
@@ -807,7 +809,9 @@ export function createAppRouter() {
 
         // If no frontend configured but backend exists, proxy all to backend
         if (app.backendEndpoint || app.backendWorkerId) {
-          console.log(`[AppRouter] No frontend configured for ${appName}, proxying to backend: ${pathname}`)
+          console.log(
+            `[AppRouter] No frontend configured for ${appName}, proxying to backend: ${pathname}`,
+          )
           return proxyToBackend(request, app, pathname)
         }
 
@@ -818,14 +822,19 @@ export function createAppRouter() {
         }
 
         // App is registered but has no frontend or backend - return 503
-        console.log(`[AppRouter] App ${appName} has no frontend or backend configured`)
-        return new Response(JSON.stringify({ 
-          error: 'Service unavailable', 
-          message: `App ${appName} is registered but has no frontend assets deployed` 
-        }), {
-          status: 503,
-          headers: { 'Content-Type': 'application/json' },
-        })
+        console.log(
+          `[AppRouter] App ${appName} has no frontend or backend configured`,
+        )
+        return new Response(
+          JSON.stringify({
+            error: 'Service unavailable',
+            message: `App ${appName} is registered but has no frontend assets deployed`,
+          }),
+          {
+            status: 503,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        )
       })
 
       // Management endpoints for app deployments

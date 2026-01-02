@@ -328,6 +328,28 @@ function getContentType(path: string): string {
   return 'application/octet-stream'
 }
 
+async function seedJejuDAO(): Promise<void> {
+  console.log('[Autocrat] Seeding Jeju DAO...')
+
+  const proc = Bun.spawn(['bun', 'run', 'scripts/seed.ts', '--skip-wait'], {
+    cwd: APP_DIR,
+    stdout: 'inherit',
+    stderr: 'inherit',
+    env: {
+      ...process.env,
+      AUTOCRAT_API_URL: `http://${getLocalhostHost()}:${API_PORT}`,
+    },
+  })
+
+  const exitCode = await proc.exited
+
+  if (exitCode !== 0) {
+    console.warn(
+      '[Autocrat] Seeding failed but continuing (DAO may already exist)',
+    )
+  }
+}
+
 async function main() {
   const host = getLocalhostHost()
   console.log('╔════════════════════════════════════════════════════════════╗')
@@ -340,6 +362,9 @@ async function main() {
     cleanup()
     process.exit(1)
   }
+
+  // Seed Jeju DAO automatically
+  await seedJejuDAO()
 
   // Start frontend dev server
   if (!(await startFrontendServer())) {
@@ -357,6 +382,8 @@ async function main() {
   console.log(
     `║  Frontend:  http://${host}:${FRONTEND_PORT}                          ║`,
   )
+  console.log('║                                                            ║')
+  console.log('║  Jeju DAO seeded automatically                             ║')
   console.log('╚════════════════════════════════════════════════════════════╝')
   console.log('')
   console.log('Press Ctrl+C to stop all services')

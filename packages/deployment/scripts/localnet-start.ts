@@ -225,7 +225,7 @@ async function startIPFSIfNeeded(): Promise<boolean> {
 
   // Try to start IPFS daemon
   console.log('   📦 Starting IPFS daemon...')
-  const _ipfsStart = await $`ipfs daemon --init &`.quiet().nothrow()
+  await $`ipfs daemon --init &`.quiet().nothrow()
 
   // Wait a bit for IPFS to start
   await new Promise((resolve) => setTimeout(resolve, 3000))

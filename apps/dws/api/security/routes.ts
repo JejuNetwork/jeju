@@ -830,7 +830,7 @@ export function createSecurityRoutes() {
             },
           })
         }
-        
+
         set.status = 404
         return { error: 'Frontend not available' }
       })

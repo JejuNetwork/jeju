@@ -242,11 +242,19 @@ async function main() {
   console.log('  Target Difficulty:', targetDifficulty, 'bits')
   console.log('')
 
-  // Setup clients
+  // Setup clients with chain configuration
   const account = privateKeyToAccount(operatorKey)
-  const publicClient = createPublicClient({ transport: http(rpcUrl) })
+  // Define chain for localnet/testnet use
+  const chain = {
+    id: 31337,
+    name: 'Anvil',
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    rpcUrls: { default: { http: [rpcUrl] } },
+  } as const
+  const publicClient = createPublicClient({ chain, transport: http(rpcUrl) })
   const walletClient = createWalletClient({
     account,
+    chain,
     transport: http(rpcUrl),
   })
 

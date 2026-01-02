@@ -273,4 +273,3 @@ describe.skipIf(SKIP_INTEGRATION)('getCacheClient factory', () => {
     expect(client1).not.toBe(client3) // Different reference
   })
 })
-

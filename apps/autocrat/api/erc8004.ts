@@ -22,9 +22,9 @@ import {
   zeroHash,
 } from 'viem'
 import { type LocalAccount, privateKeyToAccount } from 'viem/accounts'
-import { inferChainFromRpcUrl } from './chains'
 import { z } from 'zod'
 import { toAddress, toHex } from '../lib'
+import { inferChainFromRpcUrl } from './chains'
 import { createKMSHttpWalletClient } from './kms-signer'
 
 // Schema for tokenURI JSON

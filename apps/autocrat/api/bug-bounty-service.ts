@@ -18,7 +18,6 @@ import {
   keccak256,
   stringToHex,
 } from 'viem'
-import { jejuMainnet, jejuTestnet, localhost } from './chains'
 import {
   type BountyAssessment,
   type BountyGuardianVote,
@@ -49,6 +48,7 @@ import {
   VulnerabilityTypeName,
   VulnerabilityTypeSchema,
 } from '../lib'
+import { jejuMainnet, jejuTestnet, localhost } from './chains'
 import { config } from './config'
 import { createKMSHttpWalletClient, getOperatorConfig } from './kms-signer'
 

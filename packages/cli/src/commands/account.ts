@@ -8,7 +8,12 @@
  * - Manage billing tier
  */
 
-import { getDWSUrl, getL2RpcUrl, getLocalhostHost, getChainId } from '@jejunetwork/config'
+import {
+  getChainId,
+  getDWSUrl,
+  getL2RpcUrl,
+  getLocalhostHost,
+} from '@jejunetwork/config'
 import { Command } from 'commander'
 import {
   type Address,
@@ -255,7 +260,9 @@ async function topupAccount(
   const paymentInfoResponse = await fetch(`${dwsUrl}/funding/info`)
 
   if (!paymentInfoResponse.ok) {
-    throw new Error(`Failed to get payment info: ${paymentInfoResponse.statusText}. Is DWS running?`)
+    throw new Error(
+      `Failed to get payment info: ${paymentInfoResponse.statusText}. Is DWS running?`,
+    )
   }
 
   const paymentInfo = await paymentInfoResponse.json()

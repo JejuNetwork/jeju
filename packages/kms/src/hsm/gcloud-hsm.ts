@@ -60,7 +60,6 @@ interface GCloudCryptoKeyVersion {
  * Google Cloud HSM Provider
  */
 export class GCloudHSMProvider implements HSMProvider {
-  private readonly config: HSMConfig
   private projectId: string
   private location: string
   private keyRing: string

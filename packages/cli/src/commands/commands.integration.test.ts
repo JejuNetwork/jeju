@@ -181,7 +181,11 @@ describe('CLI Integration Tests', () => {
   describe('validate command', () => {
     test('validate manifests --help shows options', async () => {
       // Just verify the command exists - actual validation may hang
-      const { stdout, exitCode } = await runCLI(['validate', 'manifests', '--help'])
+      const { stdout, exitCode } = await runCLI([
+        'validate',
+        'manifests',
+        '--help',
+      ])
       expect(exitCode).toBe(0)
       expect(stdout).toContain('Validate')
     }, 5000)

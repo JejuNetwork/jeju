@@ -240,7 +240,9 @@ async function registerJNS(
       return jnsName
     }
 
-    throw new Error(`JNS registration failed for ${jnsName}: ${response.statusText}`)
+    throw new Error(
+      `JNS registration failed for ${jnsName}: ${response.statusText}`,
+    )
   }
 
   return jnsName

@@ -192,7 +192,14 @@ export async function sqlitQuery(
       const db = getEmbeddedDatabase(database)
       const stmt = db.prepare(query)
       // Cast args to SQLite bindings - at runtime, values are validated by bun:sqlite
-      const bindArgs = (args ?? []) as (string | number | bigint | boolean | null | Uint8Array)[]
+      const bindArgs = (args ?? []) as (
+        | string
+        | number
+        | bigint
+        | boolean
+        | null
+        | Uint8Array
+      )[]
       const rows = stmt.all(...bindArgs) as Record<string, unknown>[]
       return {
         success: true,
@@ -241,8 +248,24 @@ export async function sqlitExec(
   if (sqlitEndpoint === 'embedded') {
     try {
       const db = getEmbeddedDatabase(database)
-      const bindings = (args ?? []) as (string | bigint | Uint8Array | number | boolean | null)[]
-      const result = db.run(query, ...bindings)
+      // db.run requires SQLQueryBindings array - filter and cast appropriately
+      type SQLQueryBinding =
+        | string
+        | bigint
+        | Uint8Array
+        | number
+        | boolean
+        | null
+      const bindings = (args ?? []).filter(
+        (v): v is SQLQueryBinding =>
+          v === null ||
+          typeof v === 'string' ||
+          typeof v === 'number' ||
+          typeof v === 'bigint' ||
+          typeof v === 'boolean' ||
+          v instanceof Uint8Array,
+      )
+      const result = db.run(query, bindings)
       return {
         success: true,
         status: 'ok',

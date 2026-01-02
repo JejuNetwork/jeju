@@ -23,7 +23,7 @@ import { foundry } from 'viem/chains'
 
 // Contract addresses - v0.7 stack from DeployFullLocalnet
 const ENTRY_POINT = '0x922D6956C99E12DFeB3224DEA977D0939758A1Fe'
-const CROSS_CHAIN_PAYMASTER = '0x4C4a2f8c81640e47606d3fd77B353E87Ba015584'
+const _CROSS_CHAIN_PAYMASTER = '0x4C4a2f8c81640e47606d3fd77B353E87Ba015584'
 
 // URLs
 const RPC_URL = 'http://127.0.0.1:6546'

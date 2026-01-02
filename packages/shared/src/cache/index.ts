@@ -88,12 +88,12 @@ export interface CacheClientConfig {
 
 export interface CacheClient {
   get(key: string): Promise<string | null>
-  set(key: string, value: string, ttl?: number): Promise<void>
+  set(key: string, value: string, ttl?: number): Promise<{ success: boolean }>
   delete(key: string): Promise<boolean>
-  mget(keys: string[]): Promise<Map<string, string | null>>
+  mget(...keys: string[]): Promise<Map<string, string | null>>
   mset(
     entries: Array<{ key: string; value: string; ttl?: number }>,
-  ): Promise<void>
+  ): Promise<boolean>
   keys(pattern?: string): Promise<string[]>
   ttl(key: string): Promise<number>
   expire(key: string, ttl: number): Promise<boolean>
@@ -104,12 +104,20 @@ export interface CacheClient {
 export interface CacheStats {
   totalKeys: number
   namespaces: number
-  usedMemoryMb: number
-  totalMemoryMb: number
+  usedMemoryMb?: number
+  totalMemoryMb?: number
+  usedMemoryBytes?: number
+  maxMemoryBytes?: number
   hits: number
   misses: number
   hitRate: number
-  totalInstances: number
+  totalInstances?: number
+  evictions?: number
+  expiredKeys?: number
+  avgKeySize?: number
+  avgValueSize?: number
+  oldestKeyAge?: number
+  uptime?: number
 }
 
 export interface CacheInstance {
@@ -163,7 +171,11 @@ class DecentralizedCacheClient implements CacheClient {
     return data.found ? data.value : null
   }
 
-  async set(key: string, value: string, ttl?: number): Promise<void> {
+  async set(
+    key: string,
+    value: string,
+    ttl?: number,
+  ): Promise<{ success: boolean }> {
     const response = await fetch(`${this.config.endpoint}/cache/set`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -179,6 +191,8 @@ class DecentralizedCacheClient implements CacheClient {
     if (!response.ok) {
       throw new Error(`Cache set failed: ${response.statusText}`)
     }
+
+    return { success: true }
   }
 
   async delete(key: string): Promise<boolean> {
@@ -200,7 +214,7 @@ class DecentralizedCacheClient implements CacheClient {
     return data.success
   }
 
-  async mget(keys: string[]): Promise<Map<string, string | null>> {
+  async mget(...keys: string[]): Promise<Map<string, string | null>> {
     const response = await fetch(`${this.config.endpoint}/cache/mget`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -222,7 +236,7 @@ class DecentralizedCacheClient implements CacheClient {
 
   async mset(
     entries: Array<{ key: string; value: string; ttl?: number }>,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const response = await fetch(`${this.config.endpoint}/cache/mset`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -236,6 +250,8 @@ class DecentralizedCacheClient implements CacheClient {
     if (!response.ok) {
       throw new Error(`Cache mset failed: ${response.statusText}`)
     }
+
+    return true
   }
 
   async keys(pattern?: string): Promise<string[]> {
@@ -460,22 +476,23 @@ export function resetCacheRentalClient(): void {
 
 // Re-export cache helpers
 export {
-  CacheTTL,
-  hashKey,
-  hashRpcParams,
-  withCache,
-  withJsonCache,
-  isRpcMethodCacheable,
-  getRpcMethodTtl,
-  createRpcCacheKey,
-  cachedRpcCall,
-  getCachedProfile,
-  invalidateProfile,
-  getCachedTokenPrice,
-  getCachedTokenPrices,
-  getCachedTokenInfo,
-  createHybridCache,
-  resetSharedCaches,
   type CachedFarcasterProfile,
   type CachedTokenInfo,
+  type HybridCache,
+  CacheTTL,
+  cachedRpcCall,
+  createHybridCache,
+  createRpcCacheKey,
+  getCachedProfile,
+  getCachedTokenInfo,
+  getCachedTokenPrice,
+  getCachedTokenPrices,
+  getRpcMethodTtl,
+  hashKey,
+  hashRpcParams,
+  invalidateProfile,
+  isRpcMethodCacheable,
+  resetSharedCaches,
+  withCache,
+  withJsonCache,
 } from './helpers'

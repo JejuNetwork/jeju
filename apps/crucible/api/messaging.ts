@@ -12,12 +12,12 @@ const HUB_URL = config.farcasterHubUrl
 const CRUCIBLE_CHANNEL_ID = 'crucible'
 const CRUCIBLE_CHANNEL_URL = `https://warpcast.com/~/channel/${CRUCIBLE_CHANNEL_ID}`
 
-// Cache for profiles
-const profileCache = new Map<
-  number,
-  { profile: FarcasterProfile; cachedAt: number }
->()
-const CACHE_TTL = 5 * 60 * 1000
+// DWS cache for Farcaster profiles (5 minute TTL)
+const PROFILE_CACHE_TTL = 300 // 5 minutes in seconds
+
+function getProfileCache() {
+  return getCacheClient('crucible-profiles')
+}
 
 export interface CrucibleFeedCast {
   hash: string
@@ -80,9 +80,13 @@ class CrucibleMessagingService {
    * Note: Returns null if profile fetch fails (Hub API limitations)
    */
   async getProfile(fid: number): Promise<FarcasterProfile | null> {
-    const cached = profileCache.get(fid)
-    if (cached && Date.now() - cached.cachedAt < CACHE_TTL) {
-      return cached.profile
+    const cache = getProfileCache()
+    const cacheKey = `profile:${fid}`
+
+    // Check DWS cache first
+    const cached = await cache.get(cacheKey).catch(() => null)
+    if (cached) {
+      return JSON.parse(cached) as FarcasterProfile
     }
 
     // Profile fetch may fail due to Hub API limitations (e.g. getLinksByTargetFid returns 400)
@@ -94,7 +98,9 @@ class CrucibleMessagingService {
       return null
     })
     if (profile) {
-      profileCache.set(fid, { profile, cachedAt: Date.now() })
+      cache
+        .set(cacheKey, JSON.stringify(profile), PROFILE_CACHE_TTL)
+        .catch(() => {})
     }
     return profile
   }

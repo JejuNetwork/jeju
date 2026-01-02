@@ -21,7 +21,7 @@ import type { Address, Chain, Hash } from 'viem'
 import { createPublicClient, createWalletClient, formatEther, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
-import { inferChainFromRpcUrl, jejuMainnet, jejuTestnet, localhost } from './chains'
+import { jejuMainnet, jejuTestnet, localhost } from './chains'
 
 function getViemChain(): Chain {
   const network = getCurrentNetwork()

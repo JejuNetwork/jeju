@@ -108,12 +108,12 @@ function validatePromQLQuery(query: string): {
 
 // Cache TTLs in seconds
 const CACHE_TTL = {
-  BLOCK_NUMBER: 2,    // Very short - changes every block
-  GAS_PRICE: 5,       // Short - changes frequently
-  PROMETHEUS: 10,     // Metrics queries
-  ALERTS: 15,         // Alert status
-  TARGETS: 30,        // Target health
-  TPS: 10,            // Transaction rate
+  BLOCK_NUMBER: 2, // Very short - changes every block
+  GAS_PRICE: 5, // Short - changes frequently
+  PROMETHEUS: 10, // Metrics queries
+  ALERTS: 15, // Alert status
+  TARGETS: 30, // Target health
+  TPS: 10, // Transaction rate
 } as const
 
 // Cache client for monitoring data
@@ -126,7 +126,7 @@ function hashPromQuery(query: string): string {
   let hash = 0
   for (let i = 0; i < query.length; i++) {
     const char = query.charCodeAt(i)
-    hash = ((hash << 5) - hash) + char
+    hash = (hash << 5) - hash + char
     hash = hash & hash
   }
   return Math.abs(hash).toString(36)
@@ -403,18 +403,27 @@ async function executeSkill(
 
     case 'check-all-services': {
       const cache = getMonitoringCache()
-      
+
       // Check cache for targets
       const cacheKey = 'targets:all'
       const cached = await cache.get(cacheKey).catch(() => null)
       if (cached) {
-        const cachedData = JSON.parse(cached) as { services: Array<{ name: string; status: string; instances: number; healthy: number }>; healthy: number; unhealthy: number }
+        const cachedData = JSON.parse(cached) as {
+          services: Array<{
+            name: string
+            status: string
+            instances: number
+            healthy: number
+          }>
+          healthy: number
+          unhealthy: number
+        }
         return {
           message: `${cachedData.healthy}/${cachedData.services.length} services healthy`,
           data: cachedData,
         }
       }
-      
+
       const response = await safeFetch(`${PROMETHEUS_URL}/api/v1/targets`)
       if (!response) {
         return {
@@ -465,10 +474,12 @@ async function executeSkill(
 
       const healthy = services.filter((s) => s.status === 'healthy').length
       const unhealthy = services.filter((s) => s.status === 'down').length
-      
+
       // Cache the result
       const resultData = { services, healthy, unhealthy }
-      cache.set(cacheKey, JSON.stringify(resultData), CACHE_TTL.TARGETS).catch(() => {})
+      cache
+        .set(cacheKey, JSON.stringify(resultData), CACHE_TTL.TARGETS)
+        .catch(() => {})
 
       return {
         message: `${healthy}/${services.length} services healthy`,
@@ -478,18 +489,25 @@ async function executeSkill(
 
     case 'list-alerts': {
       const cache = getMonitoringCache()
-      
+
       // Check cache for alerts
       const cacheKey = 'alerts:active'
       const cached = await cache.get(cacheKey).catch(() => null)
       if (cached) {
-        const cachedData = JSON.parse(cached) as { alerts: unknown[]; count: number }
+        const cachedData = JSON.parse(cached) as {
+          alerts: Array<{
+            state: string
+            labels: Record<string, string>
+            annotations: Record<string, string>
+          }>
+          count: number
+        }
         return {
           message: `${cachedData.count} active alerts`,
           data: cachedData,
         }
       }
-      
+
       const response = await safeFetch(`${PROMETHEUS_URL}/api/v1/alerts`)
       if (!response) {
         return {
@@ -516,10 +534,12 @@ async function executeSkill(
       const activeAlerts = parsed.data.data.alerts.filter(
         (a) => a.state === 'firing',
       )
-      
+
       // Cache the result
       const resultData = { alerts: activeAlerts, count: activeAlerts.length }
-      cache.set(cacheKey, JSON.stringify(resultData), CACHE_TTL.ALERTS).catch(() => {})
+      cache
+        .set(cacheKey, JSON.stringify(resultData), CACHE_TTL.ALERTS)
+        .catch(() => {})
 
       return {
         message: `${activeAlerts.length} active alerts`,
@@ -529,7 +549,7 @@ async function executeSkill(
 
     case 'get-chain-stats': {
       const cache = getMonitoringCache()
-      
+
       // Check block number cache first
       let blockNumber = 0
       const cachedBlock = await cache.get('chain:block').catch(() => null)
@@ -570,7 +590,9 @@ async function executeSkill(
         }
 
         blockNumber = parseInt(blockParsed.data.result, 16)
-        cache.set('chain:block', blockNumber.toString(), CACHE_TTL.BLOCK_NUMBER).catch(() => {})
+        cache
+          .set('chain:block', blockNumber.toString(), CACHE_TTL.BLOCK_NUMBER)
+          .catch(() => {})
       }
 
       // Check gas price cache
@@ -598,7 +620,9 @@ async function executeSkill(
             .safeParse(gasPriceData)
           if (gasParsed.success) {
             gasPrice = (parseInt(gasParsed.data.result, 16) / 1e9).toFixed(2)
-            cache.set('chain:gas', gasPrice, CACHE_TTL.GAS_PRICE).catch(() => {})
+            cache
+              .set('chain:gas', gasPrice, CACHE_TTL.GAS_PRICE)
+              .catch(() => {})
           }
         }
       }
@@ -619,7 +643,9 @@ async function executeSkill(
             const result = tpsParsed.data.data?.result?.[0]
             if (result?.value) {
               tps = Math.round(parseFloat(result.value[1]))
-              cache.set('chain:tps', tps.toString(), CACHE_TTL.TPS).catch(() => {})
+              cache
+                .set('chain:tps', tps.toString(), CACHE_TTL.TPS)
+                .catch(() => {})
             }
           }
         }
@@ -962,7 +988,11 @@ export function createMonitoringMCPServer() {
           const cacheKey = `prom:${hashPromQuery(args.query)}`
           const cached = await cache.get(cacheKey).catch(() => null)
           if (cached) {
-            result = JSON.parse(cached) as { logs: string[]; total: number; query: string }
+            result = JSON.parse(cached) as {
+              logs: string[]
+              total: number
+              query: string
+            }
             break
           }
 
@@ -993,9 +1023,11 @@ export function createMonitoringMCPServer() {
             total: values.length,
             query: args.query,
           }
-          
+
           // Cache the query result
-          cache.set(cacheKey, JSON.stringify(result), CACHE_TTL.PROMETHEUS).catch(() => {})
+          cache
+            .set(cacheKey, JSON.stringify(result), CACHE_TTL.PROMETHEUS)
+            .catch(() => {})
           break
         }
 

@@ -195,7 +195,9 @@ export class WorkerdExecutor implements IWorkerdExecutor {
 
     if (this.isGzip(result.content)) {
       // For tarballs, we need a different approach - extract in the exec call
-      throw new Error('Tarball extraction not yet supported in bundled deployment')
+      throw new Error(
+        'Tarball extraction not yet supported in bundled deployment',
+      )
     } else {
       code = Buffer.from(result.content).toString('utf-8')
       code = wrapHandlerAsWorker(code, 'handler')
@@ -223,7 +225,9 @@ export class WorkerdExecutor implements IWorkerdExecutor {
 
     // Bundle ALL operations into a single exec call to ensure they run on the same pod
     // This is critical for load-balanced environments where exec requests may hit different pods
-    console.log(`[WorkerdExecutor] Deploying worker ${worker.id} to port ${port} (bundled)`)
+    console.log(
+      `[WorkerdExecutor] Deploying worker ${worker.id} to port ${port} (bundled)`,
+    )
 
     // Create a shell script that does everything atomically
     const deployScript = `
@@ -272,18 +276,23 @@ echo $!
 
     if (deployData.exitCode !== 0) {
       this.releasePort(port)
-      console.error(`[WorkerdExecutor] Deploy script failed:`, deployData.stderr)
+      console.error(
+        `[WorkerdExecutor] Deploy script failed:`,
+        deployData.stderr,
+      )
       throw new Error(`Deploy script failed: ${deployData.stderr}`)
     }
 
     // Parse PID from stdout
     const pid = parseInt(deployData.stdout.trim(), 10)
-    if (isNaN(pid)) {
+    if (Number.isNaN(pid)) {
       this.releasePort(port)
       throw new Error(`Failed to parse workerd PID from: ${deployData.stdout}`)
     }
 
-    console.log(`[WorkerdExecutor] Spawned workerd process: PID=${pid}, port=${port}`)
+    console.log(
+      `[WorkerdExecutor] Spawned workerd process: PID=${pid}, port=${port}`,
+    )
 
     // Create process tracking object
     const processId = crypto.randomUUID()
@@ -353,7 +362,9 @@ echo $!
       const logResult = await fetch(execUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ command: ['cat', `/tmp/workerd-${worker.id}.log`] }),
+        body: JSON.stringify({
+          command: ['cat', `/tmp/workerd-${worker.id}.log`],
+        }),
       }).catch(() => null)
 
       let logs = ''

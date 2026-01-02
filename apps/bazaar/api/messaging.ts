@@ -199,7 +199,7 @@ class BazaarMessagingService {
   async getProfile(fid: number): Promise<FarcasterProfile | null> {
     const cache = getProfileCache()
     const cacheKey = `profile:${fid}`
-    
+
     // Check DWS cache first
     const cached = await cache.get(cacheKey).catch(() => null)
     if (cached) {
@@ -208,7 +208,9 @@ class BazaarMessagingService {
 
     const profile = await this.hubClient.getProfile(fid)
     if (profile) {
-      cache.set(cacheKey, JSON.stringify(profile), PROFILE_CACHE_TTL).catch(() => {})
+      cache
+        .set(cacheKey, JSON.stringify(profile), PROFILE_CACHE_TTL)
+        .catch(() => {})
     }
     return profile
   }

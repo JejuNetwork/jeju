@@ -1,4 +1,11 @@
 import {
+  asTuple,
+  expectTrue as expect,
+  toBigInt,
+  expectValid as validateOrThrow,
+  ZERO_ADDRESS,
+} from '@jejunetwork/types'
+import {
   type Address,
   createPublicClient,
   formatEther,
@@ -6,16 +13,6 @@ import {
   type PublicClient,
   isAddress as viemIsAddress,
 } from 'viem'
-
-import { inferChainFromRpcUrl } from './chains'
-
-import {
-  asTuple,
-  expectTrue as expect,
-  toBigInt,
-  expectValid as validateOrThrow,
-  ZERO_ADDRESS,
-} from '@jejunetwork/types'
 import type { AutocratConfig } from '../lib'
 import {
   type AutocratVoteFromContract,
@@ -32,6 +29,7 @@ import {
   ProposalIdSchema,
   toAddress,
 } from '../lib'
+import { inferChainFromRpcUrl } from './chains'
 
 // Contract return tuple types for proper typing
 type ProposalTuple = readonly [

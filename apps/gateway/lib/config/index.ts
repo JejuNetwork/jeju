@@ -75,10 +75,13 @@ export const EXPLORER_URL = requireServiceUrl(services.explorer, 'Explorer')
 const contracts = getContractsConfig(NETWORK)
 
 /** Helper to get address - throws if not configured */
-function _addr(value: string | undefined, name: string): Address {
+function _requireAddr(value: string | undefined, name: string): Address {
   if (!value) throw new Error(`Contract address not configured: ${name}`)
   return getAddress(value)
 }
+
+// Suppress unused variable warning - kept for future use
+void _requireAddr
 
 /** Helper to get optional address - returns ZERO_ADDRESS if not configured */
 function optionalAddr(value: string | undefined): Address {

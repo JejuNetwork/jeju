@@ -236,7 +236,9 @@ async function initSQLit(): Promise<boolean> {
     console.error(
       '║  In-memory fallback is DISABLED for security.                ║',
     )
-    console.error('║                                                               ║')
+    console.error(
+      '║                                                               ║',
+    )
     console.error(
       '║  To fix: Start SQLit or configure SQLIT_URL                  ║',
     )
@@ -244,7 +246,9 @@ async function initSQLit(): Promise<boolean> {
       '╚═══════════════════════════════════════════════════════════════╝',
     )
     console.error('')
-    throw new Error('CredentialVault requires SQLit - in-memory storage disabled')
+    throw new Error(
+      'CredentialVault requires SQLit - in-memory storage disabled',
+    )
   }
 
   sqlitClient = getSQLit({ databaseId: SQLIT_DATABASE_ID, timeout: 30000 })
@@ -265,7 +269,9 @@ async function initSQLit(): Promise<boolean> {
     console.error(
       '║  Credentials will NOT persist without SQLit.                 ║',
     )
-    console.error('║                                                               ║')
+    console.error(
+      '║                                                               ║',
+    )
     console.error(
       '║  To fix: Ensure SQLit is running and accessible              ║',
     )

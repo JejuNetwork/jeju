@@ -9,6 +9,7 @@ import "account-abstraction/interfaces/PackedUserOperation.sol";
  * @title RealUserOpTest
  * @notice Tests ERC-4337 with REAL EntryPoint (not mock)
  * @dev Run with: forge test --match-contract RealUserOpTest --fork-url http://127.0.0.1:6546 -vvv
+ *      These tests are skipped when not running with --fork-url
  */
 contract RealUserOpTest is Test {
     // REAL deployed contracts on localnet
@@ -17,7 +18,15 @@ contract RealUserOpTest is Test {
     address user = 0x70997970C51812dc3A010C7d01b50e0d17dc79C8;
     uint256 userKey = 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d;
 
-    function test_RealEntryPointNotMock() public view {
+    modifier onlyFork() {
+        // Skip if not forked - check if the EntryPoint has code
+        if (address(entryPoint).code.length == 0) {
+            vm.skip(true);
+        }
+        _;
+    }
+
+    function test_RealEntryPointNotMock() public onlyFork {
         console.log("=== Verifying REAL EntryPoint ===");
 
         // Create a dummy UserOperation
@@ -44,7 +53,7 @@ contract RealUserOpTest is Test {
         console.log("SUCCESS: EntryPoint is REAL (not mock)");
     }
 
-    function test_PaymasterFunded() public view {
+    function test_PaymasterFunded() public onlyFork {
         console.log("=== Verifying Paymaster Funding ===");
 
         uint256 deposit = entryPoint.balanceOf(paymaster);
@@ -54,7 +63,7 @@ contract RealUserOpTest is Test {
         console.log("SUCCESS: Paymaster is funded");
     }
 
-    function test_SimulateHandleOps() public {
+    function test_SimulateHandleOps() public onlyFork {
         console.log("=== Simulating handleOps (bundler behavior) ===");
 
         // Note: This will revert because:
@@ -84,6 +93,3 @@ contract RealUserOpTest is Test {
         console.log("SUCCESS: EntryPoint properly validates (reverts on invalid op)");
     }
 }
-
-
-

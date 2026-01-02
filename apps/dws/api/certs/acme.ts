@@ -360,8 +360,13 @@ export class ACMEClient {
       contact: [`mailto:${this.config.email}`],
     }
 
+    const newAccountUrl = this.directory?.newAccount
+    if (!newAccountUrl) {
+      throw new Error('ACME directory not initialized - no newAccount URL')
+    }
+
     const response = await this.signedRequest(
-      this.directory?.newAccount,
+      newAccountUrl,
       payload,
       keyPair.privateKey,
       jwk,
@@ -386,7 +391,11 @@ export class ACMEClient {
   private async createOrder(
     identifiers: Array<{ type: 'dns'; value: string }>,
   ): Promise<ACMEOrder> {
-    const response = await this.signedRequest(this.directory?.newOrder, {
+    const newOrderUrl = this.directory?.newOrder
+    if (!newOrderUrl) {
+      throw new Error('ACME directory not initialized - no newOrder URL')
+    }
+    const response = await this.signedRequest(newOrderUrl, {
       identifiers,
     })
 
@@ -453,6 +462,13 @@ export class ACMEClient {
   ): Promise<Response> {
     const key = privateKey ?? this.account?.privateKey
     const accountJwk = jwk ?? this.account?.jwk
+
+    if (!key) {
+      throw new Error('No private key available for signing')
+    }
+    if (!accountJwk) {
+      throw new Error('No JWK available for signing')
+    }
 
     // Build protected header
     const protectedHeader: Record<string, unknown> = {
@@ -526,6 +542,9 @@ export class ACMEClient {
 
   private async computeKeyAuthorization(token: string): Promise<string> {
     const jwk = this.account?.jwk
+    if (!jwk) {
+      throw new Error('No JWK available for key authorization')
+    }
 
     // Compute JWK thumbprint
     const thumbprintInput = JSON.stringify({

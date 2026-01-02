@@ -172,7 +172,7 @@ async function checkContainerRegistry() {
         category: 'Registry',
         status: 'warn',
         message: 'Container registry source unclear',
-        details: { images: images.split(' ').slice(0, 5) },
+        details: { images: images.split(' ').slice(0, 5).join(', ') },
       })
     }
   } catch (error) {

@@ -172,9 +172,8 @@ async function printEnclaveInfo(): Promise<void> {
 
 async function getStackConfig(): Promise<StackConfig | null> {
   try {
-    // Get service info from Kurtosis
-    const _inspectResult =
-      await $`kurtosis enclave inspect ${ENCLAVE_NAME} --full-uuids`.text()
+    // Get service info from Kurtosis (used for debugging if needed)
+    await $`kurtosis enclave inspect ${ENCLAVE_NAME} --full-uuids`.text()
 
     // Parse endpoints from the output
     // This is a simplified parser - ethpandaops packages output structured JSON
@@ -186,10 +185,9 @@ async function getStackConfig(): Promise<StackConfig | null> {
 
     // Try to get deployed contract addresses from the package output
     // ethpandaops packages typically save this to a file
-    const _contractsResult =
-      await $`kurtosis files inspect ${ENCLAVE_NAME} op-deployer-configs`
-        .nothrow()
-        .quiet()
+    await $`kurtosis files inspect ${ENCLAVE_NAME} op-deployer-configs`
+      .nothrow()
+      .quiet()
 
     // Default addresses (these will be the actual deployed addresses)
     // In a real setup, we'd parse the deployer output

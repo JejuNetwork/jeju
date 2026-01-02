@@ -99,7 +99,7 @@ export interface TFMMPool {
 }
 
 // Pool registry ABI for fetching pools from on-chain registry
-const POOL_REGISTRY_ABI = [
+const _POOL_REGISTRY_ABI = [
   {
     name: 'getAllPools',
     type: 'function',
@@ -125,7 +125,7 @@ const POOL_REGISTRY_ABI = [
 export function useTFMMPools() {
   useAccount()
   const [selectedPool, setSelectedPool] = useState<Address | null>(null)
-  const [pools, setPools] = useState<TFMMPool[]>([])
+  const [pools, _setPools] = useState<TFMMPool[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   // TODO: Replace with actual pool registry address from config when deployed

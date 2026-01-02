@@ -79,14 +79,16 @@ const app = new Elysia()
     try {
       const db = getDatabase(req.database)
       const stmt = db.prepare(req.query)
-      const rows = stmt.all(...(req.args ?? []))
+      const rows = stmt.all(...(req.args ?? [])) as Record<string, unknown>[]
 
+      // Return format expected by @jejunetwork/db SQLit client
       return {
+        rows: rows,
+        rowCount: rows.length,
+        columns: rows.length > 0 ? Object.keys(rows[0]) : [],
+        blockHeight: 0, // Dev mode - no real blockchain
+        executionTime: 0,
         success: true,
-        status: 'ok',
-        data: {
-          rows: rows as Record<string, unknown>[],
-        },
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -114,13 +116,14 @@ const app = new Elysia()
       const db = getDatabase(req.database)
       const result = db.run(req.query, ...(req.args ?? []))
 
+      // Return format expected by @jejunetwork/db SQLit client
       return {
+        rowsAffected: result.changes,
+        lastInsertId: String(result.lastInsertRowid),
+        txHash: `0x${randomBytes(32).toString('hex')}`, // Simulated tx hash for dev
+        blockHeight: 0, // Dev mode - no real blockchain
+        gasUsed: '0',
         success: true,
-        status: 'ok',
-        data: {
-          last_insert_id: Number(result.lastInsertRowid),
-          affected_rows: result.changes,
-        },
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)

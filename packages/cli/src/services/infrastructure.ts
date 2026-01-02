@@ -445,20 +445,17 @@ export class InfrastructureService {
 
   async isL1Running(): Promise<boolean> {
     try {
-      const response = await fetch(
-        `http://${getLocalhostHost()}:${L1_PORT}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            method: 'eth_chainId',
-            params: [],
-            id: 1,
-          }),
-          signal: AbortSignal.timeout(2000),
-        },
-      )
+      const response = await fetch(`http://${getLocalhostHost()}:${L1_PORT}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'eth_chainId',
+          params: [],
+          id: 1,
+        }),
+        signal: AbortSignal.timeout(2000),
+      })
       return response.ok
     } catch {
       return false
@@ -467,20 +464,17 @@ export class InfrastructureService {
 
   async isL2Running(): Promise<boolean> {
     try {
-      const response = await fetch(
-        `http://${getLocalhostHost()}:${L2_PORT}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            method: 'eth_chainId',
-            params: [],
-            id: 1,
-          }),
-          signal: AbortSignal.timeout(2000),
-        },
-      )
+      const response = await fetch(`http://${getLocalhostHost()}:${L2_PORT}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'eth_chainId',
+          params: [],
+          id: 1,
+        }),
+        signal: AbortSignal.timeout(2000),
+      })
       return response.ok
     } catch {
       return false
@@ -660,7 +654,9 @@ export class InfrastructureService {
       'packages/deployment/scripts/bridge/message-relay.ts',
     )
     if (!existsSync(relayScript)) {
-      logger.warn('Message relay script not found - cross-chain messaging disabled')
+      logger.warn(
+        'Message relay script not found - cross-chain messaging disabled',
+      )
       return false
     }
 
@@ -669,7 +665,7 @@ export class InfrastructureService {
       this.rootDir,
       'packages/contracts/deployments/localnet-crosschain.json',
     )
-    
+
     if (!existsSync(deploymentFile)) {
       logger.debug('Cross-chain deployment not found, skipping relay')
       return false
@@ -678,7 +674,7 @@ export class InfrastructureService {
     try {
       const { readFileSync } = await import('node:fs')
       const deployment = JSON.parse(readFileSync(deploymentFile, 'utf-8'))
-      
+
       if (!deployment.l1Messenger || !deployment.l2Messenger) {
         logger.debug('Messenger addresses not found, skipping relay')
         return false

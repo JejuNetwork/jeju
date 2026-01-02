@@ -18,10 +18,10 @@ import {
   waitForTransactionReceipt,
   writeContract,
 } from 'viem/actions'
-import { inferChainFromRpcUrl } from './chains'
 import { type CEOPersona, toHex } from '../lib'
 import type { DAOFull, FundingProject } from '../lib/types'
 import type { AutocratBlockchain } from './blockchain'
+import { inferChainFromRpcUrl } from './chains'
 import { createDAOService, type DAOService } from './dao-service'
 import {
   createKMSAccount,

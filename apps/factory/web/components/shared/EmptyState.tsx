@@ -19,9 +19,8 @@ export function EmptyState({
   onAction,
 }: EmptyStateProps) {
   return (
-    <div
+    <output
       className="card p-8 sm:p-12 text-center animate-in flex flex-col items-center justify-center"
-      role="status"
       aria-label={title}
     >
       <div className="w-16 h-16 mb-5 rounded-2xl bg-surface-800/80 border border-surface-700/50 flex items-center justify-center">
@@ -47,6 +46,6 @@ export function EmptyState({
             {actionLabel}
           </button>
         ))}
-    </div>
+    </output>
   )
 }

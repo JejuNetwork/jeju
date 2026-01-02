@@ -7,10 +7,11 @@
  * - User balances (15s TTL)
  */
 
-import { getCacheClient } from '@jejunetwork/cache'
+import { getCacheClient, safeParseCached } from '@jejunetwork/cache'
 import { getCoreAppUrl, isDevelopmentEnv } from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import { type Address, formatUnits, type Hex, parseUnits } from 'viem'
+import { z } from 'zod'
 import {
   type Balance,
   BalanceSchema,
@@ -54,9 +55,9 @@ const DEV_MODE = isDevelopmentEnv()
 
 // Cache TTLs in seconds
 const CACHE_TTL = {
-  TOKEN_INFO: 60,   // 1 minute
-  TOKEN_PRICE: 30,  // 30 seconds
-  BALANCES: 15,     // 15 seconds
+  TOKEN_INFO: 60, // 1 minute
+  TOKEN_PRICE: 30, // 30 seconds
+  BALANCES: 15, // 15 seconds
 } as const
 
 // Cache client for Otto trading data
@@ -125,9 +126,13 @@ export class TradingService {
     // Check cache first
     const cache = getOttoCache()
     const cacheKey = `token:${chainId}:${addressOrSymbol.toLowerCase()}`
-    const cached = await cache.get(cacheKey).catch(() => null)
-    if (cached) {
-      return JSON.parse(cached) as TokenInfo
+    const cached = await cache.get(cacheKey).catch((err) => {
+      console.warn('[Otto] Cache read failed:', err)
+      return null
+    })
+    const cachedToken = safeParseCached(cached, TokenInfoSchema)
+    if (cachedToken) {
+      return cachedToken
     }
 
     const response = await fetch(`${indexerUrl}/graphql`, {
@@ -176,8 +181,10 @@ export class TradingService {
 
     // Validate and cache token data
     const validatedToken = expectValid(TokenInfoSchema, token, 'token info')
-    cache.set(cacheKey, JSON.stringify(validatedToken), CACHE_TTL.TOKEN_INFO).catch(() => {})
-    
+    cache
+      .set(cacheKey, JSON.stringify(validatedToken), CACHE_TTL.TOKEN_INFO)
+      .catch((err) => console.warn('[Otto] Cache write failed:', err))
+
     return validatedToken
   }
 
@@ -212,18 +219,23 @@ export class TradingService {
     // Check price cache (shorter TTL than token info)
     const cache = getOttoCache()
     const cacheKey = `price:${chainId}:${addressOrSymbol.toLowerCase()}`
-    const cached = await cache.get(cacheKey).catch(() => null)
+    const cached = await cache.get(cacheKey).catch((err) => {
+      console.warn('[Otto] Cache read failed:', err)
+      return null
+    })
     if (cached) {
       return parseFloat(cached)
     }
 
     const token = await this.getTokenInfo(addressOrSymbol, chainId)
     const price = token?.price ?? null
-    
+
     if (price !== null) {
-      cache.set(cacheKey, price.toString(), CACHE_TTL.TOKEN_PRICE).catch(() => {})
+      cache
+        .set(cacheKey, price.toString(), CACHE_TTL.TOKEN_PRICE)
+        .catch((err) => console.warn('[Otto] Cache write failed:', err))
     }
-    
+
     return price
   }
 
@@ -247,9 +259,13 @@ export class TradingService {
     // Check cache first
     const cache = getOttoCache()
     const cacheKey = `balances:${userAddress.toLowerCase()}:${chains.sort().join(',')}`
-    const cached = await cache.get(cacheKey).catch(() => null)
-    if (cached) {
-      return JSON.parse(cached) as Balance[]
+    const cached = await cache.get(cacheKey).catch((err) => {
+      console.warn('[Otto] Cache read failed:', err)
+      return null
+    })
+    const cachedBalances = safeParseCached(cached, z.array(BalanceSchema))
+    if (cachedBalances) {
+      return cachedBalances
     }
 
     for (const chain of chains) {
@@ -304,7 +320,9 @@ export class TradingService {
 
     // Cache the balances
     if (balances.length > 0) {
-      cache.set(cacheKey, JSON.stringify(balances), CACHE_TTL.BALANCES).catch(() => {})
+      cache
+        .set(cacheKey, JSON.stringify(balances), CACHE_TTL.BALANCES)
+        .catch((err) => console.warn('[Otto] Cache write failed:', err))
     }
 
     return balances

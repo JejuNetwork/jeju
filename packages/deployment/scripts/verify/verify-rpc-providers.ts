@@ -13,15 +13,17 @@
 import type { NetworkType } from '@jejunetwork/config'
 import { z } from 'zod'
 
-const _RPCProviderSchema = z.object({
-  id: z.string(),
-  chainId: z.number(),
-  region: z.string(),
-  tier: z.string(),
-  latency: z.number(),
-  uptime: z.number(),
-  status: z.string(),
-})
+// Schema for RPC provider response validation
+// TODO: Use for runtime validation of DWS provider responses
+// const RPCProviderSchema = z.object({
+//   id: z.string(),
+//   chainId: z.number(),
+//   region: z.string(),
+//   tier: z.string(),
+//   latency: z.number(),
+//   uptime: z.number(),
+//   status: z.string(),
+// })
 
 const ChainInfoSchema = z.object({
   chainId: z.number(),
@@ -168,7 +170,7 @@ async function main() {
     args.find((a) => a.startsWith('--network='))?.split('=')[1] ??
     args[args.indexOf('--network') + 1] ??
     'testnet'
-  const _verbose = args.includes('--verbose') || args.includes('-v')
+  // const verbose = args.includes('--verbose') || args.includes('-v')
 
   const network = networkArg as NetworkType
   console.log(`\n${'='.repeat(80)}`)

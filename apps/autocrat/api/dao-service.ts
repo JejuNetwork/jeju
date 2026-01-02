@@ -17,7 +17,6 @@ import {
   http,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { getChainById } from './chains'
 import {
   type BoardMemberConfig,
   type DAOStatus,
@@ -33,6 +32,7 @@ import type {
   FundingAllocation,
   FundingProject,
 } from '../lib/types'
+import { getChainById } from './chains'
 import { createKMSHttpWalletClient } from './kms-signer'
 
 // Types FundingEpoch is local to this service (not in lib/types.ts)

@@ -31,11 +31,12 @@ interface DeploymentStep {
 
 // Parse arguments
 const args = process.argv.slice(2)
-const networkArg =
-  args.find((a) => a.startsWith('--network='))?.split('=')[1] ||
+const networkArg = (args
+  .find((a) => a.startsWith('--network='))
+  ?.split('=')[1] ||
   args[args.indexOf('--network') + 1] ||
   process.env.NETWORK ||
-  'testnet'
+  'testnet') as 'localnet' | 'testnet' | 'mainnet'
 const stepArg =
   args.find((a) => a.startsWith('--step='))?.split('=')[1] ||
   args[args.indexOf('--step') + 1]
@@ -420,7 +421,7 @@ async function verifyJNS(): Promise<boolean> {
   try {
     const response = await fetch(`${dwsUrl}/dns/health`)
     if (!response.ok) return false
-    const _status = await response.json()
+    await response.json() // validate JSON response
     console.log('[JNS] DNS service healthy')
     return true
   } catch {

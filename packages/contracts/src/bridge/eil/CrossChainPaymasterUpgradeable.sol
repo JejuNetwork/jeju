@@ -4,6 +4,8 @@ pragma solidity ^0.8.33;
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
+import {IPaymaster} from "account-abstraction/interfaces/IPaymaster.sol";
+import {PackedUserOperation} from "account-abstraction/interfaces/PackedUserOperation.sol";
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
@@ -382,6 +384,97 @@ contract CrossChainPaymasterUpgradeable is Initializable, OwnableUpgradeable, Re
     function setFeeRate(uint256 _feeRate) external onlyOwner {
         require(_feeRate <= MAX_FEE_RATE, "Fee too high");
         feeRate = _feeRate;
+    }
+
+    // ============ ERC-4337 Paymaster Interface ============
+
+    /// @notice Validates a UserOperation for gas sponsorship
+    /// @dev XLPs with sufficient stake can sponsor UserOperations
+    /// @param userOp The packed user operation
+    /// @param userOpHash Hash of the user operation
+    /// @param maxCost Maximum cost the paymaster must cover
+    /// @return context Data to pass to postOp
+    /// @return validationData 0 for success, 1 for failure, or packed sigFailed|validUntil|validAfter
+    function validatePaymasterUserOp(
+        PackedUserOperation calldata userOp,
+        bytes32 userOpHash,
+        uint256 maxCost
+    ) external returns (bytes memory context, uint256 validationData) {
+        // Only EntryPoint can call this
+        require(msg.sender == address(entryPoint), "Only EntryPoint");
+
+        // Decode paymasterAndData: first 20 bytes = paymaster address (this)
+        // Next 20 bytes = XLP address who is sponsoring
+        // Remaining bytes = optional data
+        if (userOp.paymasterAndData.length < 52) {
+            // Not enough data - reject
+            return ("", 1);
+        }
+
+        // Extract XLP address from paymasterAndData (bytes 20-40 after gas limits at 20-52)
+        // In v0.7, paymasterAndData format is:
+        // [0:20] paymaster address
+        // [20:36] paymasterVerificationGasLimit (16 bytes)
+        // [36:52] paymasterPostOpGasLimit (16 bytes)
+        // [52:72] XLP address (20 bytes)
+        // [72:...] optional data
+        address xlp;
+        if (userOp.paymasterAndData.length >= 72) {
+            xlp = address(bytes20(userOp.paymasterAndData[52:72]));
+        } else {
+            // If no XLP specified, use the first registered XLP (simplified)
+            return ("", 1);
+        }
+
+        // Check XLP has sufficient stake
+        if (xlpStakes[xlp] < MIN_XLP_STAKE) {
+            return ("", 1);
+        }
+
+        // Check XLP has sufficient ETH liquidity to cover gas
+        if (xlpEthBalance[xlp] < maxCost) {
+            return ("", 1);
+        }
+
+        // Deduct gas cost from XLP balance
+        xlpEthBalance[xlp] -= maxCost;
+
+        // Return context for postOp to refund excess
+        context = abi.encode(xlp, maxCost, userOp.sender);
+        return (context, 0);
+    }
+
+    /// @notice Post-operation hook called by EntryPoint
+    /// @dev Refunds excess gas to XLP
+    /// @param mode 0=success, 1=revert in account, 2=revert in postOp
+    /// @param context Data from validatePaymasterUserOp
+    /// @param actualGasCost Actual gas used
+    /// @param actualUserOpFeePerGas Actual fee per gas
+    function postOp(
+        IPaymaster.PostOpMode mode,
+        bytes calldata context,
+        uint256 actualGasCost,
+        uint256 actualUserOpFeePerGas
+    ) external {
+        require(msg.sender == address(entryPoint), "Only EntryPoint");
+
+        (address xlp, uint256 maxCost, ) = abi.decode(context, (address, uint256, address));
+
+        // Refund unused gas to XLP
+        uint256 refund = maxCost > actualGasCost ? maxCost - actualGasCost : 0;
+        if (refund > 0) {
+            xlpEthBalance[xlp] += refund;
+        }
+    }
+
+    /// @notice Deposit ETH to EntryPoint for gas
+    function depositToEntryPoint() external payable onlyOwner {
+        entryPoint.depositTo{value: msg.value}(address(this));
+    }
+
+    /// @notice Get paymaster deposit on EntryPoint
+    function getEntryPointDeposit() external view returns (uint256) {
+        return entryPoint.balanceOf(address(this));
     }
 
     // ============ View Functions ============

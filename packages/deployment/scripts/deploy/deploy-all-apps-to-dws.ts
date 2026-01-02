@@ -15,7 +15,11 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { getCurrentNetwork, getDWSUrl } from '@jejunetwork/config'
+import {
+  getCurrentNetwork,
+  getDWSUrl,
+  type NetworkType,
+} from '@jejunetwork/config'
 import type { Address } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 
@@ -28,14 +32,16 @@ function getDeployerAccount() {
   return null
 }
 
-// Get deployer address from environment
-function _getDeployerAddress(): Address {
+// Get deployer address from environment - used for JNS registration
+function getDeployerAddress(): Address {
   const account = getDeployerAccount()
   if (account) {
     return account.address
   }
   return '0x0000000000000000000000000000000000000000' as Address
 }
+// Export for potential future use in JNS registration
+export { getDeployerAddress }
 
 // Create authenticated headers for DWS requests
 async function createAuthHeaders(): Promise<Record<string, string>> {
@@ -550,7 +556,7 @@ async function registerWithAppRouter(
 
 async function deployApp(
   appName: string,
-  network: string,
+  network: NetworkType,
 ): Promise<DeploymentResult> {
   const appsDir = join(process.cwd(), 'apps')
   const appDir = join(appsDir, appName)

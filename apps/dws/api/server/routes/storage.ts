@@ -11,7 +11,7 @@
  * - Content moderation before upload (CSAM, malware, illegal content)
  */
 
-import { getCurrentNetwork } from '@jejunetwork/config'
+// Network configuration handled internally by MultiBackendManager
 import {
   ContentModerationPipeline,
   type ModerationResult,
@@ -35,7 +35,7 @@ const JsonValueSchema: z.ZodType<unknown> = z.lazy(() =>
 )
 
 import { extractClientRegion } from '../../shared/utils/common'
-import { type BackendManager, getBackendManager } from '../../storage/backends'
+import type { BackendManager } from '../../storage/backends'
 import { getMultiBackendManager } from '../../storage/multi-backend'
 import type {
   ContentCategory,
@@ -230,11 +230,9 @@ function getQueryInt(
   return val !== undefined ? parseInt(val, 10) : defaultVal
 }
 
-export function createStorageRouter(backend?: BackendManager) {
-  // For localnet, use simple backend (local + IPFS) to avoid Filecoin/WebTorrent crashes
-  const network = getCurrentNetwork()
-  const storageManager =
-    network === 'localnet' ? getBackendManager() : getMultiBackendManager()
+export function createStorageRouter(_backend?: BackendManager) {
+  // Always use MultiBackendManager - it handles localnet configuration internally
+  const storageManager = getMultiBackendManager()
 
   return (
     new Elysia({ prefix: '/storage' })
@@ -363,12 +361,6 @@ export function createStorageRouter(backend?: BackendManager) {
         }
         // ========================================
 
-        // Use the simple backend if provided, otherwise use multi-backend
-        if (backend) {
-          const cid = await backend.upload(content, { filename })
-          return { cid, size: content.length }
-        }
-
         const result = await storageManager.upload(content, {
           filename,
           tier,
@@ -479,21 +471,6 @@ export function createStorageRouter(backend?: BackendManager) {
         const decrypt = query.decrypt === 'true'
         const preferredBackend = query.backend as StorageBackendType | undefined
 
-        // Use simple backend if provided
-        if (backend) {
-          const result = await backend.download(cid)
-          if (!result) {
-            set.status = 404
-            return { error: 'Not found' }
-          }
-          const respContentType =
-            'contentType' in result && typeof result.contentType === 'string'
-              ? result.contentType
-              : 'application/octet-stream'
-          set.headers['Content-Type'] = respContentType
-          return new Response(new Uint8Array(result.content))
-        }
-
         const result = await storageManager.download(cid, {
           region,
           preferredBackends: preferredBackend ? [preferredBackend] : undefined,
@@ -573,12 +550,6 @@ export function createStorageRouter(backend?: BackendManager) {
       // Check if content exists
       .get('/exists/:cid', async ({ params }) => {
         const cid = params.cid
-
-        // Use simple backend if provided
-        if (backend) {
-          const result = await backend.download(cid)
-          return { cid, exists: !!result }
-        }
 
         const exists = await storageManager.exists(cid)
         return { cid, exists }

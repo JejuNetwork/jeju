@@ -50,6 +50,35 @@ export {
   resetCacheClients,
 } from './client'
 
+/**
+ * Safely parse cached JSON with a Zod schema
+ *
+ * @example
+ * const cached = await cache.get(key)
+ * const data = safeParseCached(cached, MySchema)
+ * if (data) {
+ *   // data is validated
+ * }
+ */
+export function safeParseCached<T>(
+  cached: string | null,
+  schema: { safeParse: (data: unknown) => { success: boolean; data?: T } },
+): T | null {
+  if (cached === null) return null
+  try {
+    const parsed = JSON.parse(cached)
+    const result = schema.safeParse(parsed)
+    if (result.success && result.data !== undefined) {
+      return result.data
+    }
+    console.warn('[Cache] Failed to validate cached data, ignoring')
+    return null
+  } catch {
+    console.warn('[Cache] Failed to parse cached JSON, ignoring')
+    return null
+  }
+}
+
 // Types
 export {
   // Types

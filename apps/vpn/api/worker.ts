@@ -409,7 +409,10 @@ export function createVPNApp(env?: Partial<VPNWorkerEnv>) {
 
           if (!parsed.success) {
             set.status = 400
-            return { error: 'Invalid A2A request', details: parsed.error.issues }
+            return {
+              error: 'Invalid A2A request',
+              details: parsed.error.issues,
+            }
           }
 
           const { skill, params } = parsed.data
@@ -457,7 +460,10 @@ export function createVPNApp(env?: Partial<VPNWorkerEnv>) {
               parameters: {
                 type: 'object',
                 properties: {
-                  countryCode: { type: 'string', description: 'Target country' },
+                  countryCode: {
+                    type: 'string',
+                    description: 'Target country',
+                  },
                   protocol: {
                     type: 'string',
                     enum: ['wireguard', 'socks5'],
@@ -483,7 +489,10 @@ export function createVPNApp(env?: Partial<VPNWorkerEnv>) {
               parameters: {
                 type: 'object',
                 properties: {
-                  countryCode: { type: 'string', description: 'Filter by country' },
+                  countryCode: {
+                    type: 'string',
+                    description: 'Filter by country',
+                  },
                 },
               },
             },
@@ -511,7 +520,10 @@ export function createVPNApp(env?: Partial<VPNWorkerEnv>) {
 
           if (!parsed.success) {
             set.status = 400
-            return { error: 'Invalid MCP request', details: parsed.error.issues }
+            return {
+              error: 'Invalid MCP request',
+              details: parsed.error.issues,
+            }
           }
 
           return { tool: parsed.data.tool, result: 'Tool executed' }

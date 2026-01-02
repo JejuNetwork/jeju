@@ -9,8 +9,8 @@
  * - Token price caching (cachedTokenPrice)
  */
 
-import { getCacheClient, type CacheClient } from '@jejunetwork/cache'
-import { createHash } from 'crypto'
+import { createHash } from 'node:crypto'
+import { type CacheClient, getCacheClient } from '@jejunetwork/cache'
 
 /**
  * Cache configuration for different data types
@@ -297,7 +297,9 @@ export async function getCachedTokenPrices(
 
   // Check cache for each symbol
   for (const symbol of symbols) {
-    const cached = await cache.get(`price:${symbol.toUpperCase()}`).catch(() => null)
+    const cached = await cache
+      .get(`price:${symbol.toUpperCase()}`)
+      .catch(() => null)
     if (cached !== null) {
       result.set(symbol, parseFloat(cached))
     } else {
@@ -310,7 +312,13 @@ export async function getCachedTokenPrices(
     const fetched = await fetcher(missingSymbols)
     for (const [symbol, price] of fetched) {
       result.set(symbol, price)
-      cache.set(`price:${symbol.toUpperCase()}`, price.toString(), CacheTTL.TOKEN_PRICE).catch(() => {})
+      cache
+        .set(
+          `price:${symbol.toUpperCase()}`,
+          price.toString(),
+          CacheTTL.TOKEN_PRICE,
+        )
+        .catch(() => {})
     }
   }
 
@@ -366,22 +374,29 @@ export async function getCachedTokenInfo(
 }
 
 /**
+ * Hybrid cache interface with cleanup function
+ */
+export interface HybridCache {
+  get: (key: string) => Promise<string | null>
+  set: (key: string, value: string, ttl: number) => Promise<void>
+  delete: (key: string) => Promise<void>
+  /** Call this to stop the cleanup interval when cache is no longer needed */
+  destroy: () => void
+}
+
+/**
  * Create a hybrid cache that checks local memory first, then DWS
  */
 export function createHybridCache(
   namespace: string,
   localMaxSize = 1000,
   localTtlMs = 5000,
-): {
-  get: (key: string) => Promise<string | null>
-  set: (key: string, value: string, ttl: number) => Promise<void>
-  delete: (key: string) => Promise<void>
-} {
+): HybridCache {
   const localCache = new Map<string, { value: string; expiresAt: number }>()
   const dwsCache = getCacheClient(namespace)
 
   // Periodic cleanup of local cache
-  setInterval(() => {
+  const cleanupInterval = setInterval(() => {
     const now = Date.now()
     for (const [key, entry] of localCache) {
       if (entry.expiresAt < now) {
@@ -434,6 +449,11 @@ export function createHybridCache(
       localCache.delete(key)
       await dwsCache.delete(key)
     },
+
+    destroy(): void {
+      clearInterval(cleanupInterval)
+      localCache.clear()
+    },
   }
 }
 
@@ -445,5 +465,3 @@ export function resetSharedCaches(): void {
   priceCache = null
   tokenInfoCache = null
 }
-
-

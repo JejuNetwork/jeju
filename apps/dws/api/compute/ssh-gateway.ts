@@ -173,7 +173,9 @@ async function initSQLit(): Promise<boolean> {
     console.error(
       '║  persist across restarts - this is a security risk.          ║',
     )
-    console.error('║                                                               ║')
+    console.error(
+      '║                                                               ║',
+    )
     console.error(
       '║  To fix: Start SQLit or configure SQLIT_URL                  ║',
     )
@@ -202,7 +204,9 @@ async function initSQLit(): Promise<boolean> {
     console.error(
       '║  SSH credentials require persistent storage.                 ║',
     )
-    console.error('║                                                               ║')
+    console.error(
+      '║                                                               ║',
+    )
     console.error(
       '║  To fix: Ensure SQLit is running and accessible              ║',
     )

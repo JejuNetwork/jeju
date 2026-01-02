@@ -72,7 +72,7 @@ function getProfileCache() {
 async function getCachedProfile(fid: number): Promise<FarcasterProfile | null> {
   const cache = getProfileCache()
   const cacheKey = `profile:${fid}`
-  
+
   // Check DWS cache first
   const cached = await cache.get(cacheKey).catch(() => null)
   if (cached) {
@@ -84,7 +84,9 @@ async function getCachedProfile(fid: number): Promise<FarcasterProfile | null> {
   try {
     const profile = await hub.getProfile(fid)
     if (profile) {
-      cache.set(cacheKey, JSON.stringify(profile), PROFILE_CACHE_TTL).catch(() => {})
+      cache
+        .set(cacheKey, JSON.stringify(profile), PROFILE_CACHE_TTL)
+        .catch(() => {})
     }
     return profile
   } catch (error) {
@@ -270,8 +272,9 @@ export async function getHubInfo() {
 /**
  * Clear profile cache
  */
-export function clearProfileCache(): void {
-  profileCache.clear()
+export async function clearProfileCache(): Promise<void> {
+  const cache = getProfileCache()
+  await cache.clear()
 }
 
 /**

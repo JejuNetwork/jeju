@@ -42,7 +42,7 @@ function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <OAuth3Provider config={oauth3Config}>
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </OAuth3Provider>
   )
 }

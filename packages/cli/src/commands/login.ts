@@ -188,8 +188,12 @@ export const loginCommand = new Command('login')
     if (options.hardware) {
       logger.error('Hardware wallet authentication is not supported.')
       logger.info('Alternatives:')
-      logger.info('  - Use --external to sign with your hardware wallet manually')
-      logger.info('  - Export private key and use --private-key (not recommended)')
+      logger.info(
+        '  - Use --external to sign with your hardware wallet manually',
+      )
+      logger.info(
+        '  - Export private key and use --private-key (not recommended)',
+      )
       process.exit(1)
     }
 

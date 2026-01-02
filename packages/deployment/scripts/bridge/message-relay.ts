@@ -13,7 +13,6 @@ import {
   type Address,
   createPublicClient,
   createWalletClient,
-  decodeEventLog,
   type Hex,
   http,
   parseAbiItem,
@@ -30,9 +29,16 @@ const L2_CHAIN_ID = parseInt(process.env.L2_CHAIN_ID || '31337', 10)
 const RELAYER_PRIVATE_KEY = (process.env.RELAYER_PRIVATE_KEY ||
   '0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6') as Hex
 
-// Deployed contract addresses (set via environment)
-const L1_MESSENGER = process.env.L1_MESSENGER_ADDRESS as Address | undefined
-const L2_MESSENGER = process.env.L2_MESSENGER_ADDRESS as Address | undefined
+// Deployed contract addresses (set via environment or discovered)
+function getMessengerAddresses(): {
+  l1Messenger: Address | undefined
+  l2Messenger: Address | undefined
+} {
+  return {
+    l1Messenger: process.env.L1_MESSENGER_ADDRESS as Address | undefined,
+    l2Messenger: process.env.L2_MESSENGER_ADDRESS as Address | undefined,
+  }
+}
 
 // ABI for CrossDomainMessenger events
 const SENT_MESSAGE_EVENT = parseAbiItem(
@@ -68,6 +74,8 @@ class MessageRelayer {
   private relayerAccount = privateKeyToAccount(RELAYER_PRIVATE_KEY)
   private processedMessages: Set<string> = new Set()
   private isRunning = true
+  private l1Messenger: Address | null = null
+  private l2Messenger: Address | null = null
 
   async start() {
     console.log('='.repeat(60))
@@ -79,7 +87,11 @@ class MessageRelayer {
     console.log(`L2 RPC:   ${L2_RPC} (chain ${L2_CHAIN_ID})`)
     console.log('')
 
-    if (!L1_MESSENGER || !L2_MESSENGER) {
+    const addresses = getMessengerAddresses()
+    this.l1Messenger = addresses.l1Messenger ?? null
+    this.l2Messenger = addresses.l2Messenger ?? null
+
+    if (!this.l1Messenger || !this.l2Messenger) {
       console.log('Waiting for messenger addresses...')
       console.log('Set L1_MESSENGER_ADDRESS and L2_MESSENGER_ADDRESS env vars')
       console.log('')
@@ -88,8 +100,12 @@ class MessageRelayer {
       await this.waitForDeployment()
     }
 
-    console.log(`L1 Messenger: ${L1_MESSENGER}`)
-    console.log(`L2 Messenger: ${L2_MESSENGER}`)
+    if (!this.l1Messenger || !this.l2Messenger) {
+      throw new Error('Failed to obtain messenger addresses')
+    }
+
+    console.log(`L1 Messenger: ${this.l1Messenger}`)
+    console.log(`L2 Messenger: ${this.l2Messenger}`)
     console.log('')
     console.log('Listening for cross-chain messages...')
     console.log('='.repeat(60))
@@ -101,8 +117,8 @@ class MessageRelayer {
         sourceChainId: L1_CHAIN_ID,
         targetRpc: L2_RPC,
         targetChainId: L2_CHAIN_ID,
-        sourceMessenger: L1_MESSENGER!,
-        targetMessenger: L2_MESSENGER!,
+        sourceMessenger: this.l1Messenger,
+        targetMessenger: this.l2Messenger,
         name: 'L1→L2',
       }),
       this.watchAndRelay({
@@ -110,8 +126,8 @@ class MessageRelayer {
         sourceChainId: L2_CHAIN_ID,
         targetRpc: L1_RPC,
         targetChainId: L1_CHAIN_ID,
-        sourceMessenger: L2_MESSENGER!,
-        targetMessenger: L1_MESSENGER!,
+        sourceMessenger: this.l2Messenger,
+        targetMessenger: this.l1Messenger,
         name: 'L2→L1',
       }),
     ])
@@ -126,13 +142,18 @@ class MessageRelayer {
       'packages/contracts/deployments/localnet-crosschain.json',
     )
 
-    while (!L1_MESSENGER || !L2_MESSENGER) {
+    while (!this.l1Messenger || !this.l2Messenger) {
       if (existsSync(deploymentFile)) {
         try {
-          const deployment = JSON.parse(readFileSync(deploymentFile, 'utf-8'))
+          const deployment = JSON.parse(
+            readFileSync(deploymentFile, 'utf-8'),
+          ) as {
+            l1Messenger?: Address
+            l2Messenger?: Address
+          }
           if (deployment.l1Messenger && deployment.l2Messenger) {
-            process.env.L1_MESSENGER_ADDRESS = deployment.l1Messenger
-            process.env.L2_MESSENGER_ADDRESS = deployment.l2Messenger
+            this.l1Messenger = deployment.l1Messenger
+            this.l2Messenger = deployment.l2Messenger
             return
           }
         } catch {
@@ -199,13 +220,14 @@ class MessageRelayer {
 
             this.processedMessages.add(messageKey)
 
-            const { target, sender, message, messageNonce, gasLimit } = log.args as {
-              target: Address
-              sender: Address
-              message: Hex
-              messageNonce: bigint
-              gasLimit: bigint
-            }
+            const { target, sender, message, messageNonce, gasLimit } =
+              log.args as {
+                target: Address
+                sender: Address
+                message: Hex
+                messageNonce: bigint
+                gasLimit: bigint
+              }
 
             console.log(`\n[${config.name}] Message detected:`)
             console.log(`  From: ${sender}`)
@@ -223,7 +245,9 @@ class MessageRelayer {
                 gas: gasLimit > 0n ? gasLimit : 500000n,
               })
 
-              const receipt = await targetClient.waitForTransactionReceipt({ hash })
+              const receipt = await targetClient.waitForTransactionReceipt({
+                hash,
+              })
               console.log(
                 `  ✅ Relayed: ${hash} (${receipt.status === 'success' ? 'success' : 'failed'})`,
               )
@@ -265,5 +289,3 @@ relayer.start().catch((error) => {
   console.error('Relay service failed:', error)
   process.exit(1)
 })
-
-

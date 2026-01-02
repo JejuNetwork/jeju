@@ -13,7 +13,7 @@ import { createLogger, type Logger } from './logger'
 const SQLitQueryResultSchema = z.object({
   data: z
     .object({
-      rows: z.array(z.record(z.unknown())).nullable(),
+      rows: z.array(z.record(z.string(), z.unknown())).nullable(),
     })
     .optional(),
   status: z.string(),
@@ -192,9 +192,9 @@ export class CrucibleDatabase {
     sql: string,
     values: unknown[] = [],
   ): Promise<T[]> {
-    if (this.state !== 'connected') {
-      await this.connect()
-      if (this.state !== 'connected') {
+    if (!this.isConnected) {
+      const connected = await this.connect()
+      if (!connected) {
         return []
       }
     }
@@ -211,9 +211,9 @@ export class CrucibleDatabase {
     sql: string,
     values: unknown[] = [],
   ): Promise<Record<string, unknown>[] | null> {
-    if (this.state !== 'connected') {
-      await this.connect()
-      if (this.state !== 'connected') {
+    if (!this.isConnected) {
+      const connected = await this.connect()
+      if (!connected) {
         return null
       }
     }
@@ -503,4 +503,3 @@ export function getDatabase(config?: DatabaseConfig): CrucibleDatabase {
 export function createDatabase(config?: DatabaseConfig): CrucibleDatabase {
   return new CrucibleDatabase(config)
 }
-

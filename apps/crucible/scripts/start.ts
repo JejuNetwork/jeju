@@ -533,7 +533,10 @@ async function startFrontendServer(config: StartConfig): Promise<void> {
         const indexFile = Bun.file(join(WEB_DIR, 'index.html'))
         if (await indexFile.exists()) {
           return new Response(await indexFile.arrayBuffer(), {
-            headers: { 'Content-Type': 'text/html', 'Cache-Control': 'no-cache' },
+            headers: {
+              'Content-Type': 'text/html',
+              'Cache-Control': 'no-cache',
+            },
           })
         }
       }

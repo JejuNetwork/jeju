@@ -230,7 +230,9 @@ class BackendManagerImpl implements BackendManager {
         }
       } else {
         backendName = 'local'
-        console.warn('[Storage] No IPFS backend configured, using local storage')
+        console.warn(
+          '[Storage] No IPFS backend configured, using local storage',
+        )
       }
     }
 
