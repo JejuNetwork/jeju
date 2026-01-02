@@ -26,6 +26,7 @@ import {
   type DWSWorker,
   type CLISecret,
 } from '../state'
+import { getFreeTierService, type TierType, TIER_LIMITS } from '../shared/free-tier'
 
 // CLI Routes Configuration
 interface CLIRoutesConfig {
@@ -358,37 +359,52 @@ export function createCLIRoutes() {
           const session = requireAuth(headers)
           const credits = await x402State.getCredits(session.address)
 
+          // Get real tier status and usage from FreeTierService
+          const freeTierService = getFreeTierService()
+          const tierStatus = await freeTierService.getUserStatus(session.address)
+          const tierLimits = TIER_LIMITS[tierStatus.tier]
+
           const userWorkers = await dwsWorkerState.listByOwner(session.address)
           const totalInvocations = userWorkers.reduce((sum, w) => sum + w.invocationCount, 0)
 
           const usage: AccountUsage = {
-            cpuHoursUsed: 0, // Requires actual CPU tracking
-            cpuHoursLimit: 100,
-            storageUsedGb: 0, // Requires storage tracking
-            storageGbLimit: 1,
-            bandwidthUsedGb: 0, // Requires bandwidth tracking
-            bandwidthGbLimit: 10,
+            cpuHoursUsed: tierStatus.usage.cpuHoursUsed,
+            cpuHoursLimit: tierLimits.cpuHoursPerMonth,
+            storageUsedGb: tierStatus.usage.storageGbUsed,
+            storageGbLimit: tierLimits.storageGbLimit,
+            bandwidthUsedGb: tierStatus.usage.bandwidthGbUsed,
+            bandwidthGbLimit: tierLimits.bandwidthGbPerMonth,
             deploymentsUsed: userWorkers.length,
-            deploymentsLimit: 3,
+            deploymentsLimit: tierLimits.concurrentDeployments,
             invocationsUsed: totalInvocations,
-            invocationsLimit: 100_000,
+            invocationsLimit: tierLimits.functionInvocationsPerMonth,
           }
+
+          // Calculate estimated cost based on overage
+          const cpuOverage = Math.max(0, usage.cpuHoursUsed - usage.cpuHoursLimit)
+          const storageOverage = Math.max(0, usage.storageUsedGb - usage.storageGbLimit)
+          const bandwidthOverage = Math.max(0, usage.bandwidthUsedGb - usage.bandwidthGbLimit)
+          const estimatedCost = (cpuOverage * 0.01 + storageOverage * 0.02 + bandwidthOverage * 0.005).toFixed(4)
 
           return {
             address: session.address,
             credits: credits.toString(),
-            tier: 'free',
+            tier: tierStatus.tier,
             usage,
             billing: {
-              periodStart: Date.now() - 30 * 24 * 60 * 60 * 1000,
-              periodEnd: Date.now(),
-              estimatedCost: '0',
+              periodStart: tierStatus.quotaResetAt - 30 * 24 * 60 * 60 * 1000,
+              periodEnd: tierStatus.quotaResetAt,
+              estimatedCost,
             },
           }
         })
         .get('/usage', async ({ headers, query }) => {
           const session = requireAuth(headers)
           const days = parseInt(String(query.days ?? '30'), 10)
+
+          // Get real usage from FreeTierService
+          const freeTierService = getFreeTierService()
+          const usageReport = await freeTierService.getUsageReport(session.address, days)
 
           const userWorkers = await dwsWorkerState.listByOwner(session.address)
           const totalInvocations = userWorkers.reduce((sum, w) => sum + w.invocationCount, 0)
@@ -416,6 +432,7 @@ export function createCLIRoutes() {
             dailyMap.set(date, existing)
           }
 
+          // Merge real usage data with log-based invocation counts
           const daily: Array<{
             date: string
             cpuHours: number
@@ -428,12 +445,13 @@ export function createCLIRoutes() {
             const date = new Date(Date.now() - i * 24 * 60 * 60 * 1000)
             const dateStr = date.toISOString().split('T')[0]
             const dayData = dailyMap.get(dateStr) ?? { invocations: 0, errors: 0 }
+            const reportDay = usageReport.daily.find((d) => d.date === dateStr)
 
             daily.push({
               date: dateStr,
-              cpuHours: 0, // CPU tracking requires runtime integration
-              storageGb: 0, // Storage tracking requires storage service integration
-              invocations: dayData.invocations,
+              cpuHours: reportDay?.cpuHours ?? 0,
+              storageGb: reportDay?.storageGb ?? 0,
+              invocations: dayData.invocations || (reportDay?.invocations ?? 0),
               errors: dayData.errors,
             })
           }
@@ -441,9 +459,12 @@ export function createCLIRoutes() {
           return {
             daily: daily.reverse(),
             totals: {
-              invocations: totalInvocations,
+              invocations: totalInvocations || usageReport.totals.invocations,
               errors: totalErrors,
               workers: userWorkers.length,
+              cpuHours: usageReport.totals.cpuHours,
+              storageGb: usageReport.totals.storageGb,
+              bandwidthGb: usageReport.totals.bandwidthGb,
             },
           }
         })
@@ -470,7 +491,28 @@ export function createCLIRoutes() {
         })
         .post('/upgrade', async ({ headers, body }) => {
           const session = requireAuth(headers)
-          const tier = (body as { tier: string }).tier
+          const { tier, paymentTxHash } = body as { tier: string; paymentTxHash?: string }
+
+          // Validate tier
+          const validTiers: TierType[] = ['free', 'hobby', 'pro', 'enterprise']
+          if (!validTiers.includes(tier as TierType)) {
+            return { error: `Invalid tier. Must be one of: ${validTiers.join(', ')}` }
+          }
+
+          // Actually upgrade the tier using FreeTierService
+          const freeTierService = getFreeTierService()
+          const result = await freeTierService.upgradeTier(
+            session.address,
+            tier as TierType,
+            paymentTxHash,
+          )
+
+          if (!result.success) {
+            log('warn', 'account', 'Tier upgrade failed', { address: session.address, tier, reason: result.reason })
+            return { error: result.reason ?? 'Upgrade failed' }
+          }
+
+          log('info', 'account', 'Tier upgraded', { address: session.address, tier })
 
           addLog({
             level: 'info',
@@ -478,7 +520,11 @@ export function createCLIRoutes() {
             source: 'system',
           })
 
-          return { success: true, tier }
+          return {
+            success: true,
+            tier,
+            newLimits: TIER_LIMITS[tier as TierType],
+          }
         }),
     )
 

@@ -694,13 +694,12 @@ export async function proxyToBackend(
     // Direct endpoint (container or external service)
     targetUrl = `${app.backendEndpoint}${pathname}`
   } else if (app.backendWorkerId) {
-    // DWS worker - route through workers runtime (Bun-based)
-    // Pass the workerId directly - workers router handles execution
-    // Note: Workers router also supports on-demand deployment from CIDs
+    // DWS worker - route through workerd runtime (V8 isolates, Cloudflare Workers compatible)
+    // This provides proper V8 isolation, not child process spawning
     const host = getLocalhostHost()
     
-    // Route to the workers HTTP handler (Bun runtime, supports auto-deploy from CID)
-    targetUrl = `http://${host}:4030/workers/${app.backendWorkerId}/http${pathname}`
+    // Route to the workerd HTTP handler
+    targetUrl = `http://${host}:4030/workerd/${app.backendWorkerId}/http${pathname}`
   } else {
     return new Response(JSON.stringify({ error: 'No backend configured' }), {
       status: 502,

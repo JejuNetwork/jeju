@@ -143,7 +143,8 @@ async function buildFrontend(): Promise<void> {
     entrypoints: ['./web/client.tsx'],
     outdir: WEB_DIR,
     target: 'browser',
-    splitting: true,
+    // Disabled splitting due to Bun bundler bug with @noble/curves creating duplicate exports
+    splitting: false,
     packages: 'bundle',
     minify: true,
     sourcemap: 'external',
