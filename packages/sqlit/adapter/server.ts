@@ -49,9 +49,11 @@ function getDatabase(dbid: string): Database {
 
 interface QueryRequest {
   database: string
-  query: string
+  query?: string
+  sql?: string // Alias for compatibility
   assoc?: boolean
   args?: unknown[]
+  params?: unknown[] // Alias for compatibility
 }
 
 const app = new Elysia()
@@ -68,18 +70,20 @@ const app = new Elysia()
   // Execute SELECT query
   .post('/v1/query', ({ body }) => {
     const req = body as QueryRequest
-    if (!req.database || !req.query) {
+    const sqlQuery = req.query ?? req.sql
+    const sqlArgs = req.args ?? req.params ?? []
+    if (!req.database || !sqlQuery) {
       return {
         success: false,
-        status: 'Missing database or query parameter',
+        status: 'Missing database or query/sql parameter',
         data: null,
       }
     }
 
     try {
       const db = getDatabase(req.database)
-      const stmt = db.prepare(req.query)
-      const rows = stmt.all(...(req.args ?? [])) as Record<string, unknown>[]
+      const stmt = db.prepare(sqlQuery)
+      const rows = stmt.all(...sqlArgs) as Record<string, unknown>[]
 
       // Return format expected by @jejunetwork/db SQLit client
       return {
@@ -104,17 +108,19 @@ const app = new Elysia()
   // Execute write query (INSERT, UPDATE, DELETE)
   .post('/v1/exec', ({ body }) => {
     const req = body as QueryRequest
-    if (!req.database || !req.query) {
+    const sqlQuery = req.query ?? req.sql
+    const sqlArgs = req.args ?? req.params ?? []
+    if (!req.database || !sqlQuery) {
       return {
         success: false,
-        status: 'Missing database or query parameter',
+        status: 'Missing database or query/sql parameter',
         data: null,
       }
     }
 
     try {
       const db = getDatabase(req.database)
-      const result = db.run(req.query, ...(req.args ?? []))
+      const result = db.run(sqlQuery, ...sqlArgs)
 
       // Return format expected by @jejunetwork/db SQLit client
       return {

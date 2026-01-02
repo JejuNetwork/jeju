@@ -353,13 +353,18 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         uint256 _chainId,
         address _priceOracle,
         address _owner
-    ) BasePaymaster(_entryPoint, _owner) {
+    ) BasePaymaster(_entryPoint) {
         require(_l1StakeManager != address(0), "Invalid stake manager");
         l1StakeManager = _l1StakeManager;
         chainId = _chainId;
         messenger = ICrossDomainMessenger(0x4200000000000000000000000000000000000007);
         if (_priceOracle != address(0)) {
             priceOracle = IPriceOracle(_priceOracle);
+        }
+
+        // Transfer ownership if specified different from deployer
+        if (_owner != msg.sender) {
+            _transferOwnership(_owner);
         }
     }
 
@@ -1080,7 +1085,7 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
 
         // Verify pool has enough ETH liquidity to sponsor gas
         // Use totalETHLiquidity as the available pool
-        uint256 entryPointDeposit = entryPoint().balanceOf(address(this));
+        uint256 entryPointDeposit = entryPoint.balanceOf(address(this));
         if (entryPointDeposit < maxCost) {
             return ("", 1);
         }
@@ -1426,7 +1431,7 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         tokenCost = _calculateTokenCost(gasCost, paymentToken);
         userBal = IERC20(paymentToken).balanceOf(userAddress);
         uint256 userAllowance = IERC20(paymentToken).allowance(userAddress, address(this));
-        uint256 entryPointBalance = entryPoint().balanceOf(address(this));
+        uint256 entryPointBalance = entryPoint.balanceOf(address(this));
 
         canSponsorTx = userBal >= tokenCost && userAllowance >= tokenCost && entryPointBalance >= gasCost;
     }
@@ -1451,7 +1456,7 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         )
     {
         ethLiquidity = totalETHLiquidity;
-        entryPointBalance = entryPoint().balanceOf(address(this));
+        entryPointBalance = entryPoint.balanceOf(address(this));
         supportedTokenCount = 0; // Requires off-chain enumeration
         totalGasFees = totalGasFeesCollected;
         oracleSet = address(priceOracle) != address(0);
@@ -1462,7 +1467,7 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
      * @dev Called by owner or XLPs to fund gas sponsorship
      */
     function fundEntryPoint() external payable onlyOwner {
-        entryPoint().depositTo{value: msg.value}(address(this));
+        entryPoint.depositTo{value: msg.value}(address(this));
     }
 
     /**
@@ -1471,7 +1476,7 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
      */
     function refillEntryPoint(uint256 amount) external onlyOwner {
         require(totalETHLiquidity >= amount, "Insufficient pool liquidity");
-        entryPoint().depositTo{value: amount}(address(this));
+        entryPoint.depositTo{value: amount}(address(this));
     }
 
     /// @notice Swap fee in basis points (30 = 0.3%)

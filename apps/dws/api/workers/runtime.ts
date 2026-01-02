@@ -552,17 +552,20 @@ export class WorkerRuntime {
     for (let attempt = 0; attempt < 100; attempt++) {
       const port = min + Math.floor(Math.random() * (max - min))
       if (!this.usedPorts.has(port)) {
-        // Check if port is actually available
+        // Reserve the port FIRST to prevent race conditions
+        this.usedPorts.add(port)
+
+        // Check if port is actually available on the system
         try {
           const server = Bun.serve({
             port,
             fetch: () => new Response('test'),
           })
           server.stop()
-          this.usedPorts.add(port)
           return port
         } catch {
-          // Port in use, try another
+          // Port in use by another process, release and try another
+          this.usedPorts.delete(port)
         }
       }
     }

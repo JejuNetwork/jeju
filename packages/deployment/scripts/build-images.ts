@@ -29,6 +29,7 @@ interface AppConfig {
 }
 
 const APPS: Record<string, AppConfig> = {
+  dws: { dockerfile: 'apps/dws/Dockerfile', context: '.' },
   bazaar: { dockerfile: 'apps/bazaar/Dockerfile', context: 'apps/bazaar' },
   gateway: { dockerfile: 'apps/gateway/Dockerfile', context: 'apps/gateway' },
   ipfs: { dockerfile: 'apps/ipfs/Dockerfile', context: 'apps/ipfs' },
