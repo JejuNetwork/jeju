@@ -47,7 +47,8 @@
     "eil"
   ],
   "devDependencies": {
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "viem": "2.43.3"
   },
   "peerDependencies": {
     "zod": ">=4.0.0"

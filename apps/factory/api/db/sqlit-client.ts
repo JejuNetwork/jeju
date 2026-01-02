@@ -844,3 +844,60 @@ export async function getModel(
   ])
   return row ? ModelRowSchema.parse(row) : null
 }
+
+// ============================================================================
+// LEADERBOARD
+// ============================================================================
+
+const LeaderboardRowSchema = z.object({
+  address: z.string(),
+  name: z.string(),
+  avatar: z.string(),
+  score: z.number(),
+  contributions: z.number(),
+  bounties_completed: z.number(),
+  tier: z.enum(['bronze', 'silver', 'gold', 'diamond']),
+  updated_at: z.number(),
+})
+type LeaderboardRow = z.infer<typeof LeaderboardRowSchema>
+
+export async function getLeaderboard(limit: number = 50): Promise<LeaderboardRow[]> {
+  const rows = await query<LeaderboardRow>(
+    'SELECT * FROM leaderboard ORDER BY score DESC LIMIT ?',
+    [limit],
+  )
+  return rows.map((r) => LeaderboardRowSchema.parse(r))
+}
+
+// ============================================================================
+// ASYNC ALIASES FOR WORKERD WORKER
+// ============================================================================
+
+/**
+ * Check database health for workerd
+ */
+export async function checkDatabaseHealth(): Promise<{
+  healthy: boolean
+  latencyMs?: number
+  error?: string
+}> {
+  const start = Date.now()
+  const healthy = await isSQLitHealthy()
+  return {
+    healthy,
+    latencyMs: Date.now() - start,
+    error: healthy ? undefined : 'SQLit connection failed',
+  }
+}
+
+// Async aliases for functions that are already async
+export const listBountiesAsync = listBounties
+export const getBountyAsync = getBounty
+export const createBountyAsync = createBounty
+export const listJobsAsync = listJobs
+export const getJobAsync = getJob
+export const listProjectsAsync = listProjects
+export const getProjectAsync = getProject
+export const listAgentsAsync = listAgents
+export const getAgentAsync = getAgent
+export const getLeaderboardAsync = getLeaderboard

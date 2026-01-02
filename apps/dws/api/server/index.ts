@@ -32,7 +32,7 @@ import {
   isProductionEnv,
   tryGetContract,
 } from '@jejunetwork/config'
-import { Elysia } from 'elysia'
+import { Elysia, type Context } from 'elysia'
 import type { Address, Hex } from 'viem'
 import {
   getLocalCDNServer,
@@ -220,7 +220,7 @@ function rateLimiter() {
     async ({
       request,
       set,
-    }): Promise<
+    }: Context): Promise<
       { error: string; message: string; retryAfter: number } | undefined
     > => {
       const url = new URL(request.url)
@@ -658,7 +658,7 @@ app
   })
 
   // Serve frontend at root
-  .get('/', async ({ set }) => {
+  .get('/', async ({ set }: Context) => {
     const decentralizedResponse =
       await decentralized.frontend.serveAsset('index.html')
     if (decentralizedResponse) return decentralizedResponse
@@ -885,7 +885,7 @@ app.use(createServiceMeshRouter(getServiceMesh()))
 app.use(createKubernetesBridgeRouter())
 
 // Serve static assets (JS, CSS, images) from /web/*
-app.get('/web/*', async ({ request, set }) => {
+app.get('/web/*', async ({ request, set }: Context) => {
   const url = new URL(request.url)
   const assetPath = url.pathname.replace('/web/', '')
 
@@ -926,7 +926,7 @@ app.get('/web/*', async ({ request, set }) => {
 })
 
 // Serve frontend - from IPFS when configured, fallback to local
-app.get('/app', async ({ set }) => {
+app.get('/app', async ({ set }: Context) => {
   const decentralizedResponse =
     await decentralized.frontend.serveAsset('index.html')
   if (decentralizedResponse) return decentralizedResponse
@@ -949,7 +949,7 @@ app.get('/app', async ({ set }) => {
   }
 })
 
-app.get('/app/ci', async ({ set }) => {
+app.get('/app/ci', async ({ set }: Context) => {
   const decentralizedResponse =
     await decentralized.frontend.serveAsset('ci.html')
   if (decentralizedResponse) return decentralizedResponse
@@ -969,7 +969,7 @@ app.get('/app/ci', async ({ set }) => {
   return { error: 'CI frontend not available' }
 })
 
-app.get('/app/da', async ({ set }) => {
+app.get('/app/da', async ({ set }: Context) => {
   const decentralizedResponse =
     await decentralized.frontend.serveAsset('da.html')
   if (decentralizedResponse) return decentralizedResponse
@@ -989,7 +989,7 @@ app.get('/app/da', async ({ set }) => {
   return { error: 'DA dashboard not available' }
 })
 
-app.get('/app/*', async ({ request, set }) => {
+app.get('/app/*', async ({ request, set }: Context) => {
   const url = new URL(request.url)
   const path = url.pathname.replace('/app', '')
 
@@ -1012,7 +1012,7 @@ app.get('/app/*', async ({ request, set }) => {
 })
 
 // Internal P2P endpoints
-app.get('/_internal/ratelimit/:clientKey', ({ params }) => {
+app.get('/_internal/ratelimit/:clientKey', ({ params }: Context) => {
   const count = distributedRateLimiter?.getLocalCount(params.clientKey) ?? 0
   return { count }
 })
@@ -1139,7 +1139,7 @@ app.get('/stats', () => {
 // SPA catch-all route for frontend routes like /security/oauth3
 // This must come after all API routes but before 404 fallback
 // Only serves index.html for paths that look like frontend routes (not API endpoints)
-app.get('/*', async ({ path, set }) => {
+app.get('/*', async ({ path, set }: Context) => {
   // Skip API-like paths that should return 404 if not handled
   const apiPrefixes = [
     '/api/',
@@ -1390,7 +1390,12 @@ if (import.meta.main) {
   const appsDir =
     serverConfig.appsDir ??
     (typeof process !== 'undefined' ? process.env.JEJU_APPS_DIR : undefined) ??
-    join(import.meta.dir, '../../../../apps') // Default to monorepo apps directory
+    join(
+      typeof import.meta !== 'undefined' && 'dir' in import.meta
+        ? import.meta.dir
+        : process.cwd(),
+      '../../../../apps',
+    ) // Default to monorepo apps directory
   if (
     (!isProduction || serverConfig.devnet || isLocalnet(NETWORK)) &&
     existsSync(appsDir)
@@ -1413,16 +1418,9 @@ if (import.meta.main) {
       })
   }
 
-  // Adapter types for Bun's ServerWebSocket
-  interface BunServerWebSocket {
-    readonly readyState: number
-    send(data: string): number
-    close(): void
-  }
-
   // Adapter to convert Bun's ServerWebSocket to SubscribableWebSocket
   function toSubscribableWebSocket(
-    ws: BunServerWebSocket,
+    ws: { readonly readyState: number; send(data: string): number },
   ): SubscribableWebSocket {
     return {
       get readyState() {
@@ -1430,12 +1428,17 @@ if (import.meta.main) {
       },
       send(data: string) {
         ws.send(data)
+        return
       },
     }
   }
 
   // Adapter to convert Bun's ServerWebSocket to EdgeWebSocket (includes close)
-  function toEdgeWebSocket(ws: BunServerWebSocket) {
+  function toEdgeWebSocket(ws: {
+    readonly readyState: number
+    send(data: string): number
+    close(): void
+  }) {
     return {
       get readyState() {
         return ws.readyState
@@ -1471,11 +1474,11 @@ if (import.meta.main) {
   /** WebSocket data attached to each connection */
   type WebSocketData = PriceWebSocketData | EdgeWebSocketData
 
-  server = Bun.serve({
+  server = Bun.serve<WebSocketData>({
     port: PORT,
     maxRequestBodySize: 500 * 1024 * 1024, // 500MB for large artifact uploads
     idleTimeout: 120, // 120 seconds - health checks can take time when external services are slow
-    async fetch(req, server) {
+    async fetch(req: Request, server: { upgrade(req: Request, options?: { data?: WebSocketData; headers?: HeadersInit }): boolean }) {
       // Handle WebSocket upgrades for price streaming
       const url = new URL(req.url)
       if (
@@ -1671,8 +1674,8 @@ if (import.meta.main) {
       return app.handle(req)
     },
     websocket: {
-      open(ws) {
-        const data = ws.data as WebSocketData
+      open(ws: { data: WebSocketData; readyState: number; send(data: string): number; close(): void }) {
+        const data = ws.data
         if (data.type === 'prices') {
           // Set up price subscription service
           const service = getPriceService()
@@ -1706,16 +1709,16 @@ if (import.meta.main) {
           data.handlers.error = callbacks.onError
         }
       },
-      message(ws, message) {
-        const data = ws.data as WebSocketData
+      message(ws: { data: WebSocketData }, message: string | Buffer) {
+        const data = ws.data
         const msgStr =
           typeof message === 'string'
             ? message
             : new TextDecoder().decode(message)
         data.handlers.message?.(msgStr)
       },
-      close(ws) {
-        const data = ws.data as WebSocketData
+      close(ws: { data: WebSocketData }) {
+        const data = ws.data
         data.handlers.close?.()
       },
     },
@@ -1739,7 +1742,7 @@ if (import.meta.main) {
     if (dwsPrivateKey) {
       const infra = createInfrastructure(
         {
-          network: NETWORK,
+          network: NETWORK === 'localnet' || NETWORK === 'testnet' || NETWORK === 'mainnet' ? NETWORK : 'localnet',
           privateKey: dwsPrivateKey,
           selfEndpoint: baseUrl,
         },

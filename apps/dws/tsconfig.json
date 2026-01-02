@@ -4,8 +4,7 @@
     "outDir": "./dist",
     "rootDir": ".",
     "noEmit": true,
-    "skipLibCheck": true,
-    "types": ["bun"]
+    "skipLibCheck": true
   },
   "include": ["api/**/*", "lib/**/*", "src/**/*"],
   "exclude": [

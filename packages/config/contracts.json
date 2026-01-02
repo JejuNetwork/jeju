@@ -56,10 +56,10 @@
       "performanceOracle": "0x998D98e9480A8f52A5252Faf316d129765773294"
     },
     "jns": {
-      "registry": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
-      "resolver": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
-      "registrar": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
-      "reverseRegistrar": "0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9"
+      "registry": "0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519",
+      "resolver": "0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496",
+      "registrar": "0x34A1D3fff3958843C43aD80F30b94c510645C316",
+      "reverseRegistrar": "0x90193C961A926261B756D1E5bb255e67ff9498A1"
     },
     "oauth3": {
       "teeVerifier": "0x0000000000000000000000000000000000000000",
@@ -68,16 +68,16 @@
       "staking": "0x0000000000000000000000000000000000000000"
     },
     "dws": {
-      "storageManager": "0x610178da211fef7d417bc0e6fed39f05609ad788",
-      "workerRegistry": "0xb7f8bc63bbcad18155201308c8f3540b07f84f5e",
-      "cdnRegistry": "0xa51c1fc2f0d1a1b8494ed1fe312d7c3a78ed91c0",
-      "repoRegistry": "0x0dcd1bf9a1b36ce34237eeafef220932846bcd82",
-      "packageRegistry": "0x9a9f2ccfde556a7e9ff0848998aa4a0cfd8863ae",
-      "managedDatabaseRegistry": "0x59b670e9fa9d0a427751af201d676719a970857b",
-      "gitRegistry": "0x959922be3caee4b8cd9a407cc3ac1c251c2007b1",
-      "cacheManager": "0x68b1d87f95878fe05b998f19b66f4baba5de1aed",
-      "cronOrchestrator": "0x3aa5ebb10dc797cac828524e59a333d0a371443c",
-      "containerRegistry": "0xc6e7df5e7b4f2a278906862b61205850344d4e7d"
+      "storageManager": "0xD718d5A27a29FF1cD22403426084bA0d479869a0",
+      "workerRegistry": "0x4f559F30f5eB88D635FDe1548C4267DB8FaB0351",
+      "cdnRegistry": "0x416C42991d05b31E9A6dC209e91AD22b79D87Ae6",
+      "repoRegistry": "0xd21060559c9beb54fC07aFd6151aDf6cFCDDCAeB",
+      "packageRegistry": "0x4C52a6277b1B84121b3072C0c92b6Be0b7CC10F1",
+      "managedDatabaseRegistry": "",
+      "gitRegistry": "",
+      "cacheManager": "",
+      "cronOrchestrator": "",
+      "containerRegistry": ""
     },
     "payments": {
       "creditManager": "0x67d269191c92Caf3cD7723F116c85e6E9bf55933",
@@ -202,10 +202,10 @@
       "validation": ""
     },
     "moderation": {
-      "banManager": "",
+      "banManager": "0x0000000000000000000000000000000000000000",
       "moderationMarketplace": "",
-      "reportingSystem": "",
-      "reputationLabelManager": ""
+      "reportingSystem": "0x0000000000000000000000000000000000000000",
+      "reputationLabelManager": "0x0000000000000000000000000000000000000000"
     },
     "bazaar": {
       "marketplace": "",

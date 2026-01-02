@@ -10,7 +10,7 @@
  *
  * Prerequisites:
  *   - Anvil running on port 6546
- *   - All contracts deployed via: bun run scripts/deploy-all-localnet-contracts.ts
+ *   - All contracts deployed via: bun run jeju deploy localnet
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'

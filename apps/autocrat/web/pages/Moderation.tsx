@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useAccount } from 'wagmi'
 import {
   fetchActiveFlags,
   fetchModeratorLeaderboard,
@@ -207,6 +208,12 @@ export default function ModerationPage() {
                       </div>
                     )}
 
+                    {voteError && (
+                      <div className="mb-3 p-2 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-sm">
+                        {voteError}
+                      </div>
+                    )}
+
                     <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-800">
                       <div className="flex items-center gap-4 text-sm text-gray-500">
                         <span>By: {formatAddress(flag.flagger)}</span>
@@ -216,8 +223,8 @@ export default function ModerationPage() {
                         <button
                           type="button"
                           onClick={() => handleVote(flag.id, true)}
-                          disabled={votingId === flag.id}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm bg-green-50 text-green-700 hover:bg-green-100 transition-colors"
+                          disabled={votingId === flag.id || !isConnected}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm bg-green-50 text-green-700 hover:bg-green-100 transition-colors disabled:opacity-50"
                         >
                           {votingId === flag.id ? (
                             <Loader2 className="animate-spin" size={14} />
@@ -229,8 +236,8 @@ export default function ModerationPage() {
                         <button
                           type="button"
                           onClick={() => handleVote(flag.id, false)}
-                          disabled={votingId === flag.id}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
+                          disabled={votingId === flag.id || !isConnected}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm bg-red-50 text-red-700 hover:bg-red-100 transition-colors disabled:opacity-50"
                         >
                           {votingId === flag.id ? (
                             <Loader2 className="animate-spin" size={14} />

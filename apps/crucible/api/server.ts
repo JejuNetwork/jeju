@@ -767,6 +767,15 @@ app.get('/info', async ({ request }) => {
   return basicInfo
 })
 
+// Activity feed endpoint
+app.get('/api/v1/activity', ({ query }) => {
+  const limit = Math.min(
+    Math.max(1, Number(query.limit) || 10),
+    50
+  )
+  return { events: activityStore.getRecent(limit) }
+})
+
 // Agent Chat API - ElizaOS + @jejunetwork/eliza-plugin (60+ actions)
 
 // Chat with an agent
@@ -944,6 +953,14 @@ app.post('/api/v1/agents', async ({ body }) => {
   })
   metrics.agents.registered++
 
+  // Track agent creation activity
+  activityStore.add({
+    type: 'agent_created',
+    actor: character.name,
+    description: `Agent "${character.name}" deployed`,
+    metadata: { agentId: result.agentId.toString() },
+  })
+
   return {
     agentId: result.agentId.toString(),
     vaultAddress: result.vaultAddress,
@@ -1120,6 +1137,14 @@ app.post('/api/v1/rooms', async ({ body }) => {
   )
   metrics.rooms.created++
 
+  // Track room creation activity
+  activityStore.add({
+    type: 'room_created',
+    actor: 'System',
+    description: `Room "${parsedBody.name}" created`,
+    metadata: { roomId: result.roomId.toString(), roomType: parsedBody.roomType },
+  })
+
   return { roomId: result.roomId.toString(), stateCid: result.stateCid }
 })
 
@@ -1198,6 +1223,15 @@ app.post('/api/v1/rooms/:roomId/message', async ({ params, body }) => {
     parsedBody.action ?? undefined,
   )
   metrics.rooms.messages++
+
+  // Track message activity
+  activityStore.add({
+    type: 'message_sent',
+    actor: `Agent ${parsedBody.agentId}`,
+    description: `Message in room ${parsedParams.roomId}`,
+    metadata: { roomId: parsedParams.roomId, agentId: parsedBody.agentId },
+  })
+
   return { message }
 })
 
@@ -1292,9 +1326,20 @@ app.post('/api/v1/execute', async ({ body }) => {
   const result = await executorSdk.execute(request)
   metrics.agents.executions++
   
-  // Increment action counter for each action executed
-  for (const _action of result.actions) {
+  // Track action execution activity
+  const actions = result.output?.actions ?? []
+  for (const action of actions) {
     actionCounter.increment()
+    activityStore.add({
+      type: 'action_executed',
+      actor: `Agent ${parsedBody.agentId}`,
+      description: `${action.type}: ${action.success ? 'success' : 'failed'}`,
+      metadata: { 
+        agentId: parsedBody.agentId, 
+        actionType: action.type,
+        success: action.success ? 1 : 0,
+      },
+    })
   }
 
   return {

@@ -123,29 +123,27 @@ export default function CreateAgentPage() {
     }
 
     try {
-      await registerAgent.mutateAsync({
-        character: {
-          id: selectedCharacter.id,
+    await registerAgent.mutateAsync({
+      character: {
+        id: selectedCharacter.id,
           name: customName || selectedCharacter.name,
           description: customDescription || selectedCharacter.description,
-          system: selectedCharacter.system,
-          bio: selectedCharacter.bio,
-          messageExamples: [],
-          topics: selectedCharacter.topics,
-          adjectives: selectedCharacter.adjectives,
-          style: selectedCharacter.style,
-        },
-        initialFunding: initialFunding
-          ? (Number(initialFunding) * 1e18).toString()
-          : undefined,
-      })
+        system: selectedCharacter.system,
+        bio: selectedCharacter.bio,
+        messageExamples: [],
+        topics: selectedCharacter.topics,
+        adjectives: selectedCharacter.adjectives,
+        style: selectedCharacter.style,
+      },
+      initialFunding: initialFunding
+        ? (Number(initialFunding) * 1e18).toString()
+        : undefined,
+    })
 
       toast.success('Agent deployed successfully')
-      navigate('/agents')
+    navigate('/agents')
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : 'Failed to deploy agent',
-      )
+      toast.error(error instanceof Error ? error.message : 'Failed to deploy agent')
     }
   }
 

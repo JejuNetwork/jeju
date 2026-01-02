@@ -19,19 +19,14 @@ export function useAuthenticatedFetch() {
 
   const authenticatedFetch = useCallback(
     async <T>(endpoint: string, options: ApiOptions = {}): Promise<T> => {
-      const {
-        method = 'GET',
-        body,
-        headers = {},
-        requireAuth = false,
-      } = options
+      const { method = 'GET', body, headers = {}, requireAuth = false } = options
 
       // Build auth headers if authenticated
       const authHeaders: Record<string, string> = {}
       if (isAuthenticated && smartAccountAddress) {
         authHeaders['X-Jeju-Address'] = smartAccountAddress
         if (session?.sessionId) {
-          authHeaders.Authorization = `Bearer ${session.sessionId}`
+          authHeaders['Authorization'] = `Bearer ${session.sessionId}`
         }
       } else if (requireAuth) {
         throw new Error('Authentication required')
@@ -114,6 +109,8 @@ interface InfoResponse {
   hasSigner: boolean
   dwsAvailable: boolean
   runtimes: number
+  rooms: number
+  actionsToday: number
 }
 
 export function useInfo() {

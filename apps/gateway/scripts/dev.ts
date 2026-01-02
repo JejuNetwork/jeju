@@ -329,11 +329,51 @@ async function startFrontendServer(): Promise<boolean> {
   return true
 }
 
+async function checkContracts(): Promise<boolean> {
+  const { getContractsConfig } = await import('@jejunetwork/config')
+  const { createPublicClient, http } = await import('viem')
+
+  try {
+    const config = getContractsConfig('localnet')
+    const rpcUrl = getRpcUrl('localnet')
+    const client = createPublicClient({
+      transport: http(rpcUrl, { timeout: 3000 }),
+    })
+
+    // Check if chain is available
+    await client.getChainId()
+
+    // Check if key contracts are deployed
+    const identityRegistry = config.registry?.IdentityRegistry as
+      | `0x${string}`
+      | undefined
+    if (!identityRegistry || identityRegistry === '0x') {
+      return false
+    }
+
+    const code = await client.getCode({ address: identityRegistry })
+    return code !== undefined && code !== '0x' && code.length > 2
+  } catch {
+    return false
+  }
+}
+
 async function main() {
   const host = getLocalhostHost()
   console.log('╔════════════════════════════════════════════════════════════╗')
   console.log('║              Gateway Development Server                     ║')
   console.log('╚════════════════════════════════════════════════════════════╝')
+  console.log('')
+
+  // Check if contracts are deployed
+  console.log('[Gateway] Checking contract deployment...')
+  const hasContracts = await checkContracts()
+  if (!hasContracts) {
+    console.log('[Gateway] Contracts not found. Running with limited functionality.')
+    console.log('[Gateway] For full functionality, run: jeju dev (deploys all contracts)')
+  } else {
+    console.log('[Gateway] Contracts verified.')
+  }
   console.log('')
 
   // Start API services

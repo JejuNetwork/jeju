@@ -226,8 +226,7 @@ export function createCrucibleApp(env?: Partial<CrucibleEnv>) {
           balance: '0',
         }))
         .post('/:agentId/fund', () => ({
-          txHash:
-            '0x0000000000000000000000000000000000000000000000000000000000000000',
+          txHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
         })),
     )
 
@@ -258,19 +257,12 @@ export function createCrucibleApp(env?: Partial<CrucibleEnv>) {
             .object({
               name: z.string(),
               description: z.string().optional(),
-              roomType: z.enum([
-                'collaboration',
-                'adversarial',
-                'debate',
-                'council',
-              ]),
-              config: z
-                .object({
-                  maxMembers: z.number().optional(),
-                  turnBased: z.boolean().optional(),
-                  turnTimeout: z.number().optional(),
-                })
-                .optional(),
+              roomType: z.enum(['collaboration', 'adversarial', 'debate', 'council']),
+              config: z.object({
+                maxMembers: z.number().optional(),
+                turnBased: z.boolean().optional(),
+                turnTimeout: z.number().optional(),
+              }).optional(),
             })
             .safeParse(body)
 
@@ -278,11 +270,7 @@ export function createCrucibleApp(env?: Partial<CrucibleEnv>) {
             return { error: 'Invalid room data', details: parsed.error.issues }
           }
 
-          return {
-            success: true,
-            roomId: crypto.randomUUID(),
-            stateCid: 'pending',
-          }
+          return { success: true, roomId: crypto.randomUUID(), stateCid: 'pending' }
         })
         .post('/:roomId/message', async ({ params, body }) => {
           const parsed = z.object({ content: z.string() }).safeParse(body)
@@ -319,7 +307,7 @@ export function createCrucibleApp(env?: Partial<CrucibleEnv>) {
         return { error: 'Invalid chat request' }
       }
 
-      const _messageText = parsed.data.text ?? parsed.data.message ?? ''
+      const messageText = parsed.data.text ?? parsed.data.message ?? ''
 
       // In worker mode, return a placeholder response
       // Full chat requires the ElizaOS runtime from server.ts
@@ -458,7 +446,6 @@ export const fetch = app.fetch
 
 /**
  * Default export - the Elysia app instance
- * Using the app directly (not { fetch }) to avoid Bun auto-serve behavior
  */
 export default app
 

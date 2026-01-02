@@ -61,6 +61,7 @@ export const jobsRoutes = new Elysia({ prefix: '/api/jobs' })
             : validated.remote === 'false'
               ? false
               : undefined,
+        search: validated.q,
         page,
         limit,
       })

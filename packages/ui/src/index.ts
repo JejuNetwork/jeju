@@ -63,3 +63,24 @@ export {
   WalletButton,
   type WalletButtonProps,
 } from './wallet'
+
+// Miniapp SDK for Telegram and Farcaster
+export {
+  applyMiniappTheme,
+  createFrameResponse,
+  createMiniappStorage,
+  detectMiniappPlatform,
+  generateFrameMetaTags,
+  getFarcasterContext,
+  getMiniappThemeVars,
+  getTelegramTheme,
+  getTelegramUser,
+  haptic,
+  initTelegram,
+  isTelegramDarkMode,
+  type FarcasterFrameContext,
+  type FrameMetadata,
+  type MiniappPlatform,
+  type MiniappStorage,
+  type TelegramWebApp,
+} from './miniapp'

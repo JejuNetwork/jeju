@@ -5,6 +5,7 @@ import {
   createBounty as dbCreateBounty,
   listBounties as dbListBounties,
   getBounty,
+  getBountyStats as dbGetBountyStats,
 } from '../db/client'
 import {
   BountiesQuerySchema,
@@ -71,6 +72,7 @@ export const bountiesRoutes = new Elysia({ prefix: '/api/bounties' })
       const result = dbListBounties({
         status: validated.status,
         skill: validated.skill,
+        search: validated.q,
         page,
         limit,
       })
@@ -95,24 +97,13 @@ export const bountiesRoutes = new Elysia({ prefix: '/api/bounties' })
   )
   .get(
     '/stats',
-    async () => {
-      // Get all bounties for stats calculation
-      const result = dbListBounties({ limit: 10000 })
-      const bounties = result.bounties
-
-      const openBounties = bounties.filter((b) => b.status === 'open').length
-      const completed = bounties.filter((b) => b.status === 'completed').length
-      const totalValue = bounties.reduce(
-        (sum, b) => sum + Number.parseFloat(b.reward),
-        0,
-      )
-      const avgPayout = completed > 0 ? totalValue / completed : 0
-
+    () => {
+      const stats = dbGetBountyStats()
       return {
-        openBounties,
-        totalValue: `${totalValue.toFixed(2)} ETH`,
-        completed,
-        avgPayout: `${avgPayout.toFixed(2)} ETH`,
+        openBounties: stats.openBounties,
+        totalValue: `${stats.totalValue.toFixed(2)} ETH`,
+        completed: stats.completed,
+        avgPayout: `${stats.avgPayout.toFixed(2)} ETH`,
       }
     },
     {

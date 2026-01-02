@@ -473,7 +473,10 @@ export function createHybridCache(
       localCache.delete(key)
 
       // Check DWS
-      const remote = await dwsCache.get(key).catch(() => null)
+      const remote = await dwsCache.get(key).catch((err) => {
+        console.warn(`[HybridCache] Failed to get ${key} from DWS:`, err)
+        return null
+      })
       if (remote !== null) {
         // Store locally for fast access
         localCache.set(key, {

@@ -16,7 +16,7 @@ import {
   getRpcUrl,
 } from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
-import { Elysia } from 'elysia'
+import { Elysia, type Context } from 'elysia'
 import {
   type Address,
   createPublicClient,
@@ -317,7 +317,7 @@ export function createCLIRoutes() {
       // ========================================
       .group('/auth', (auth) =>
         auth
-          .post('/wallet', async ({ body }) => {
+          .post('/wallet', async ({ body }: Context) => {
             const parsed = WalletAuthSchema.safeParse(body)
             if (!parsed.success) {
               return { error: 'Invalid request', details: parsed.error.issues }
@@ -363,14 +363,14 @@ export function createCLIRoutes() {
               network,
             }
           })
-          .post('/logout', ({ headers }) => {
+          .post('/logout', ({ headers }: Context) => {
             const authHeader = headers.authorization
             if (authHeader?.startsWith('Bearer ')) {
               sessions.delete(authHeader.slice(7))
             }
             return { success: true }
           })
-          .get('/verify', ({ headers }) => {
+          .get('/verify', ({ headers }: Context) => {
             const session = validateAuth(headers)
             if (!session) {
               return { valid: false }
@@ -389,7 +389,7 @@ export function createCLIRoutes() {
       // ========================================
       .group('/account', (account) =>
         account
-          .get('/info', async ({ headers }) => {
+          .get('/info', async ({ headers }: Context) => {
             const session = requireAuth(headers)
             const credits = await x402State.getCredits(session.address)
             const userWorkers = await dwsWorkerState.listByOwner(
@@ -477,7 +477,7 @@ export function createCLIRoutes() {
               },
             }
           })
-          .get('/usage', async ({ headers, query }) => {
+          .get('/usage', async ({ headers, query }: Context) => {
             const session = requireAuth(headers)
             const days = parseInt(String(query.days ?? '30'), 10)
 
@@ -607,7 +607,7 @@ export function createCLIRoutes() {
               },
             }
           })
-          .get('/transactions', async ({ headers, query }) => {
+          .get('/transactions', async ({ headers, query }: Context) => {
             const session = requireAuth(headers)
             const limit = parseInt(String(query.limit ?? '50'), 10)
 
@@ -631,7 +631,7 @@ export function createCLIRoutes() {
               currentBalance: credits.toString(),
             }
           })
-          .post('/upgrade', async ({ headers, body }) => {
+          .post('/upgrade', async ({ headers, body }: Context) => {
             const session = requireAuth(headers)
             const { tier, paymentTxHash } = body as {
               tier: string
@@ -704,14 +704,14 @@ export function createCLIRoutes() {
       // ========================================
       .group('/workers', (workerRoutes) =>
         workerRoutes
-          .get('/list', async ({ headers }) => {
+          .get('/list', async ({ headers }: Context) => {
             const session = requireAuth(headers)
             const allWorkers = await dwsWorkerState.listByOwner(session.address)
             const userWorkers = allWorkers.map((w) => dwsWorkerToDeployed(w))
 
             return { workers: userWorkers }
           })
-          .get('/:workerId', async ({ params, headers }) => {
+          .get('/:workerId', async ({ params, headers }: Context) => {
             requireAuth(headers)
             const worker = await dwsWorkerState.get(params.workerId)
             if (!worker) {
@@ -719,7 +719,7 @@ export function createCLIRoutes() {
             }
             return dwsWorkerToDeployed(worker)
           })
-          .post('/deploy', async ({ body, headers }) => {
+          .post('/deploy', async ({ body, headers }: Context) => {
             const session = requireAuth(headers)
             const parsed = WorkerDeploySchema.safeParse(body)
 
@@ -774,7 +774,7 @@ export function createCLIRoutes() {
 
             return dwsWorkerToDeployed(worker, routes ?? [`/${name}/*`])
           })
-          .delete('/:workerId', async ({ params, headers }) => {
+          .delete('/:workerId', async ({ params, headers }: Context) => {
             const session = requireAuth(headers)
             const worker = await dwsWorkerState.get(params.workerId)
 
@@ -797,7 +797,7 @@ export function createCLIRoutes() {
 
             return { success: true }
           })
-          .post('/:workerId/rollback', async ({ params, headers, body }) => {
+          .post('/:workerId/rollback', async ({ params, headers, body }: Context) => {
             const session = requireAuth(headers)
             const worker = await dwsWorkerState.get(params.workerId)
 
@@ -865,7 +865,7 @@ export function createCLIRoutes() {
               newVersion: updatedWorker.version,
             }
           })
-          .get('/:workerId/logs', async ({ params, headers, query }) => {
+          .get('/:workerId/logs', async ({ params, headers, query }: Context) => {
             const session = requireAuth(headers)
             const worker = await dwsWorkerState.get(params.workerId)
 
@@ -897,7 +897,7 @@ export function createCLIRoutes() {
       // ========================================
       .group('/secrets', (secretRoutes) =>
         secretRoutes
-          .get('/list', async ({ headers, query }) => {
+          .get('/list', async ({ headers, query }: Context) => {
             const session = requireAuth(headers)
             const app = query.app as string
 
@@ -919,7 +919,7 @@ export function createCLIRoutes() {
               })),
             }
           })
-          .get('/get', async ({ headers, query }) => {
+          .get('/get', async ({ headers, query }: Context) => {
             const session = requireAuth(headers)
             const app = query.app as string
             const key = query.key as string
@@ -940,7 +940,7 @@ export function createCLIRoutes() {
 
             return { value: secret.value }
           })
-          .post('/set', async ({ body, headers }) => {
+          .post('/set', async ({ body, headers }: Context) => {
             const session = requireAuth(headers)
             const parsed = SecretSetSchema.safeParse(body)
 
@@ -967,7 +967,7 @@ export function createCLIRoutes() {
 
             return { success: true }
           })
-          .delete('/delete', async ({ body, headers }) => {
+          .delete('/delete', async ({ body, headers }: Context) => {
             requireAuth(headers)
             const { app, key } = body as { app: string; key: string }
 
@@ -993,7 +993,7 @@ export function createCLIRoutes() {
       // ========================================
       .group('/logs', (logRoutes) =>
         logRoutes
-          .get('/query', ({ headers, query }) => {
+          .get('/query', ({ headers, query }: Context) => {
             requireAuth(headers)
             const app = query.app as string
             const since = query.since
@@ -1017,7 +1017,7 @@ export function createCLIRoutes() {
 
             return { logs: filteredLogs.slice(-limit) }
           })
-          .get('/stream', async ({ headers, query }) => {
+          .get('/stream', async ({ headers, query }: Context) => {
             requireAuth(headers)
 
             const workerId = query.workerId as string | undefined
@@ -1080,7 +1080,7 @@ export function createCLIRoutes() {
       // ========================================
       .group('/previews', (previewRoutes) =>
         previewRoutes
-          .get('/list', async ({ headers, query }) => {
+          .get('/list', async ({ headers, query }: Context) => {
             const session = requireAuth(headers)
             const app = query.app as string | undefined
 
@@ -1094,7 +1094,7 @@ export function createCLIRoutes() {
 
             return { previews: userPreviews }
           })
-          .get('/:previewId', async ({ params, headers }) => {
+          .get('/:previewId', async ({ params, headers }: Context) => {
             requireAuth(headers)
             const preview = await cliPreviewState.get(params.previewId)
 
@@ -1104,7 +1104,7 @@ export function createCLIRoutes() {
 
             return preview
           })
-          .post('/create', async ({ body, headers }) => {
+          .post('/create', async ({ body, headers }: Context) => {
             const session = requireAuth(headers)
             const parsed = PreviewCreateSchema.safeParse(body)
 
@@ -1181,7 +1181,7 @@ export function createCLIRoutes() {
 
             return preview
           })
-          .delete('/:previewId', async ({ params, headers }) => {
+          .delete('/:previewId', async ({ params, headers }: Context) => {
             const session = requireAuth(headers)
             const preview = await cliPreviewState.get(params.previewId)
 
@@ -1211,7 +1211,7 @@ export function createCLIRoutes() {
       // ========================================
       .group('/jns', (jnsRoutes) =>
         jnsRoutes
-          .post('/register', async ({ body, headers }) => {
+          .post('/register', async ({ body, headers }: Context) => {
             const session = requireAuth(headers)
             const { name, contentCid, workerId, years } = body as {
               name: string
@@ -1246,7 +1246,7 @@ export function createCLIRoutes() {
               expiresAt: domain.expiresAt,
             }
           })
-          .post('/set-content', async ({ body, headers }) => {
+          .post('/set-content', async ({ body, headers }: Context) => {
             const session = requireAuth(headers)
             const { name, contentCid } = body as {
               name: string
@@ -1272,7 +1272,7 @@ export function createCLIRoutes() {
 
             return { success: true, name, contentCid }
           })
-          .post('/link-worker', async ({ body, headers }) => {
+          .post('/link-worker', async ({ body, headers }: Context) => {
             const session = requireAuth(headers)
             const { name, workerId } = body as {
               name: string
@@ -1298,7 +1298,7 @@ export function createCLIRoutes() {
 
             return { success: true, name, workerId }
           })
-          .get('/resolve/:name', async ({ params }) => {
+          .get('/resolve/:name', async ({ params }: Context) => {
             const domain = await jnsDomainState.get(params.name)
             if (!domain) {
               return { error: 'Domain not found', resolved: false }
@@ -1314,7 +1314,7 @@ export function createCLIRoutes() {
               expiry: Math.floor(domain.expiresAt / 1000),
             }
           })
-          .get('/list', async ({ headers }) => {
+          .get('/list', async ({ headers }: Context) => {
             const session = requireAuth(headers)
 
             const userDomains = await jnsDomainState.listByOwner(
@@ -1323,7 +1323,7 @@ export function createCLIRoutes() {
 
             return { domains: userDomains }
           })
-          .post('/transfer', async ({ body, headers }) => {
+          .post('/transfer', async ({ body, headers }: Context) => {
             const session = requireAuth(headers)
             const { name, toAddress } = body as {
               name: string
@@ -1349,7 +1349,7 @@ export function createCLIRoutes() {
 
             return { success: true, name, newOwner: toAddress }
           })
-          .get('/check/:name', async ({ params }) => {
+          .get('/check/:name', async ({ params }: Context) => {
             const available = await jnsDomainState.isAvailable(params.name)
             const domain = await jnsDomainState.get(params.name)
             return {
@@ -1370,7 +1370,7 @@ export function createCLIRoutes() {
             acceptedTokens: cliConfig.acceptedTokens ?? ['ETH', 'JEJU'],
             minAmount: cliConfig.minTopupAmount ?? '0.001',
           }))
-          .post('/topup', async ({ body, headers }) => {
+          .post('/topup', async ({ body, headers }: Context) => {
             const session = requireAuth(headers)
             const { txHash } = body as { txHash: string }
 
@@ -1386,10 +1386,10 @@ export function createCLIRoutes() {
 
             const receipt = await publicClient
               .getTransactionReceipt({ hash: txHash as Hex })
-              .catch((err) => {
+              .catch((err: Error) => {
                 log('error', 'funding', 'Failed to fetch tx receipt', {
                   txHash,
-                  error: (err as Error).message,
+                  error: err.message,
                 })
                 return null
               })

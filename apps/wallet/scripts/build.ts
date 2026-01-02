@@ -2,7 +2,7 @@
 /**
  * Wallet Production Build Script
  *
- * Builds the web lander for deployment.
+ * Builds the web lander and miniapp for deployment.
  * The full app is built separately via Tauri/Capacitor.
  */
 
@@ -13,9 +13,10 @@ import { resolve } from 'node:path'
 const APP_DIR = resolve(import.meta.dir, '..')
 const LANDER_DIR = resolve(APP_DIR, 'lander')
 const DIST_DIR = resolve(APP_DIR, 'dist')
+const MINIAPP_DIR = resolve(DIST_DIR, 'miniapp')
 
 async function build() {
-  console.log('[Wallet] Building web lander for production...')
+  console.log('[Wallet] Building web lander and miniapp for production...')
   const startTime = Date.now()
 
   // Clean dist
@@ -23,6 +24,7 @@ async function build() {
     await rm(DIST_DIR, { recursive: true })
   }
   await mkdir(DIST_DIR, { recursive: true })
+  await mkdir(MINIAPP_DIR, { recursive: true })
 
   // Build the lander with Bun
   const result = await Bun.build({
@@ -89,12 +91,76 @@ async function build() {
 
   await Bun.write(resolve(DIST_DIR, 'index.html'), html)
 
+  // Build miniapp
+  console.log('[Wallet] Building miniapp...')
+  const miniappResult = await Bun.build({
+    entrypoints: [resolve(LANDER_DIR, 'miniapp.tsx')],
+    outdir: MINIAPP_DIR,
+    target: 'browser',
+    minify: true,
+    splitting: false,
+    sourcemap: 'external',
+    define: {
+      'process.env.NODE_ENV': JSON.stringify('production'),
+    },
+    external: [],
+    naming: {
+      entry: 'miniapp.[hash].js',
+    },
+  })
+
+  if (!miniappResult.success) {
+    console.error('[Wallet] Miniapp build failed:')
+    for (const log of miniappResult.logs) {
+      console.error(log)
+    }
+    process.exit(1)
+  }
+
+  const miniappOutput = miniappResult.outputs.find((o) => o.kind === 'entry-point')
+  const miniappFileName = miniappOutput ? miniappOutput.path.split('/').pop() : 'miniapp.js'
+
+  // Create miniapp HTML with Telegram SDK
+  const miniappHtml = `<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="description" content="Network Wallet - Cross-chain wallet miniapp" />
+    <title>Network Wallet</title>
+    
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <!-- Farcaster Frame Meta -->
+    <meta property="fc:frame" content="vNext">
+    <meta property="fc:frame:image" content="https://wallet.jejunetwork.org/frame-image.png">
+    <meta property="fc:frame:button:1" content="Open Wallet">
+    <meta property="fc:frame:button:1:action" content="link">
+    <meta property="fc:frame:button:1:target" content="https://wallet.jejunetwork.org/miniapp">
+    
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHJ4PSI2IiBmaWxsPSIjMTBCOTgxIi8+PHRleHQgeD0iMTYiIHk9IjIwIiBmb250LXNpemU9IjE2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSIgZm9udC1mYW1pbHk9InN5c3RlbS11aSIgZm9udC13ZWlnaHQ9ImJvbGQiPko8L3RleHQ+PC9zdmc+" />
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body { background: #0f0f0f; color: #fff; font-family: system-ui, -apple-system, sans-serif; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/${miniappFileName}"></script>
+  </body>
+</html>`
+
+  await Bun.write(resolve(MINIAPP_DIR, 'index.html'), miniappHtml)
+
   const duration = Date.now() - startTime
   console.log('')
   console.log(`[Wallet] Build complete in ${duration}ms`)
   console.log('[Wallet] Output:')
-  console.log(`  dist/index.html    - Landing page`)
-  console.log(`  dist/${mainFileName} - JavaScript bundle`)
+  console.log(`  dist/index.html           - Landing page`)
+  console.log(`  dist/${mainFileName}      - Lander bundle`)
+  console.log(`  dist/miniapp/index.html   - Miniapp page`)
+  console.log(`  dist/miniapp/${miniappFileName} - Miniapp bundle`)
 }
 
 build().catch((err) => {

@@ -80,6 +80,7 @@ export const projectsRoutes = new Elysia({ prefix: '/api/projects' })
       const result = dbListProjects({
         status: validated.status,
         owner: validated.owner,
+        search: validated.q,
         page,
         limit,
       })

@@ -126,7 +126,6 @@ export default function BugBountyPage() {
     [],
   )
   const [loading, setLoading] = useState(true)
-  const [_submitError, _setSubmitError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<
     'overview' | 'submissions' | 'submit' | 'leaderboard'
   >('overview')

@@ -651,8 +651,13 @@ export async function proxyToBackend(
   let targetUrl: string
 
   if (app.backendEndpoint) {
-    // Direct endpoint (container or external service)
-    targetUrl = `${app.backendEndpoint}${pathname}`
+    // Check if this is a DWS worker endpoint that needs /http prefix
+    if (app.backendEndpoint.includes('/workers/')) {
+      targetUrl = `${app.backendEndpoint}/http${pathname}`
+    } else {
+      // Direct endpoint (container or external service)
+      targetUrl = `${app.backendEndpoint}${pathname}`
+    }
   } else if (app.backendWorkerId) {
     // DWS worker - route through workers runtime
     const host = getLocalhostHost()

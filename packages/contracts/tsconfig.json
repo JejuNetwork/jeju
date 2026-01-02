@@ -3,8 +3,7 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./ts",
-    "noEmit": false,
-    "types": ["node"]
+    "noEmit": false
   },
   "include": ["ts/**/*.ts"],
   "exclude": ["node_modules", "dist", "lib", "out", "cache", "broadcast", "ts/__tests__"]

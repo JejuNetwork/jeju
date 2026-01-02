@@ -97,7 +97,7 @@ export class WorkerRouter {
           '║  To register a node, run:                                     ║',
         )
         console.warn(
-          '║    bun scripts/register-node.ts --role miner                  ║',
+          '║    bun run jeju node register --role miner                    ║',
         )
         console.warn(
           '║                                                               ║',
@@ -162,7 +162,7 @@ export class WorkerRouter {
         '║  - Deploy contracts: bun run deploy:localnet                  ║',
       )
       console.error(
-        '║  - Register node: bun scripts/register-node.ts                ║',
+        '║  - Register node: bun run jeju node register                  ║',
       )
       console.error(
         '╚═══════════════════════════════════════════════════════════════╝',
