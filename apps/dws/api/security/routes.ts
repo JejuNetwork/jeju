@@ -815,5 +815,24 @@ export function createSecurityRoutes() {
             })
           }),
       )
+
+      // SPA fallback for frontend routes like /security/keys, /security/secrets, /security/oauth3
+      // These are frontend pages that conflict with the /security API prefix
+      .get('/*', async ({ set }) => {
+        // Serve index.html for frontend SPA routing
+        const file = Bun.file('./dist/index.html')
+        if (await file.exists()) {
+          const html = await file.text()
+          return new Response(html, {
+            headers: {
+              'Content-Type': 'text/html',
+              'X-DWS-Source': 'local',
+            },
+          })
+        }
+        
+        set.status = 404
+        return { error: 'Frontend not available' }
+      })
   )
 }

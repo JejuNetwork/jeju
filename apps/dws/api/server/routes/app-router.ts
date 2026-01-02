@@ -575,6 +575,69 @@ async function serveFrontendFromLocalCDN(
   })
 }
 
+// Cache for deployed worker function IDs (CID -> functionId)
+const workerDeploymentCache = new Map<string, string>()
+
+/**
+ * Check if string looks like an IPFS CID
+ */
+function isIPFSCid(str: string): boolean {
+  return str.startsWith('Qm') || str.startsWith('bafy')
+}
+
+/**
+ * Deploy a worker from CID if not already deployed on this pod
+ * @internal Reserved for future lazy worker deployment
+ */
+export async function ensureWorkerDeployed(
+  workerId: string,
+  appName: string,
+): Promise<string> {
+  // If it's a UUID (already deployed), return as-is
+  if (!isIPFSCid(workerId)) {
+    return workerId
+  }
+
+  // Check if we've already deployed this CID on this pod
+  const cached = workerDeploymentCache.get(workerId)
+  if (cached) {
+    return cached
+  }
+
+  // Deploy the worker from CID
+  const host = getLocalhostHost()
+  console.log(`[AppRouter] Deploying worker for ${appName} from CID: ${workerId}`)
+
+  const response = await fetch(`http://${host}:4030/workers`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-jeju-address': '0x0000000000000000000000000000000000000000',
+    },
+    body: JSON.stringify({
+      name: appName,
+      codeCid: workerId,
+      runtime: 'bun',
+      handler: 'fetch',
+      memory: 512,
+      timeout: 60000,
+    }),
+  })
+
+  if (!response.ok) {
+    const error = await response.text()
+    console.error(`[AppRouter] Failed to deploy worker: ${error}`)
+    throw new Error(`Worker deployment failed: ${error}`)
+  }
+
+  const result = (await response.json()) as { functionId: string }
+  console.log(`[AppRouter] Worker deployed: ${result.functionId}`)
+
+  // Cache the function ID
+  workerDeploymentCache.set(workerId, result.functionId)
+  return result.functionId
+}
+
 /**
  * Proxy request to backend
  */

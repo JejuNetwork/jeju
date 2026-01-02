@@ -1134,6 +1134,65 @@ app.get('/stats', () => {
   }
 })
 
+// SPA catch-all route for frontend routes like /security/oauth3
+// This must come after all API routes but before 404 fallback
+// Only serves index.html for paths that look like frontend routes (not API endpoints)
+app.get('/*', async ({ path, set }) => {
+  // Skip API-like paths that should return 404 if not handled
+  const apiPrefixes = [
+    '/api/',
+    '/storage/',
+    '/compute/',
+    '/workers/',
+    '/containers/',
+    '/cdn/',
+    '/git/',
+    '/pkg/',
+    '/ci/',
+    '/kms/',
+    '/vpn/',
+    '/scraping/',
+    '/rpc/',
+    '/s3/',
+    '/workerd/',
+    '/a2a/',
+    '/mcp/',
+    '/oauth3/',
+    '/edge/',
+    '/agents/',
+    '/moderation/',
+    '/cache/',
+    '/sqlit/',
+    '/prices/',
+    '/indexer/',
+    '/_internal/',
+    '/.well-known/',
+  ]
+  
+  if (apiPrefixes.some(prefix => path.startsWith(prefix))) {
+    set.status = 404
+    return { error: 'NOT_FOUND' }
+  }
+  
+  // Serve index.html for frontend routes (SPA fallback)
+  const decentralizedResponse = await decentralized.frontend.serveAsset('index.html')
+  if (decentralizedResponse) return decentralizedResponse
+  
+  const file = Bun.file('./dist/index.html')
+  if (await file.exists()) {
+    const html = await file.text()
+    return new Response(html, {
+      headers: {
+        'Content-Type': 'text/html',
+        'X-DWS-Source': 'local',
+      },
+    })
+  }
+  
+  set.status = 404
+  return { error: 'Frontend not available' }
+})
+
 // Initialize services
 initializeMarketplace()
 initializeContainerSystem()
