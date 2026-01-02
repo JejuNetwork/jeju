@@ -457,30 +457,54 @@ async function serveFrontendFromStorage(
 
   // Fallback to frontendCid as directory (legacy behavior)
   if (!fileCid && app.frontendCid) {
-    // Try using IPFS gateway with directory CID
-    const gateway = getIpfsGatewayUrl(NETWORK)
-    const url = `${gateway}/ipfs/${app.frontendCid}/${path}`
-    console.log(`[AppRouter] Trying IPFS directory: ${url}`)
-
-    const response = await fetch(url, {
-      headers: { Accept: '*/*' },
-      signal: AbortSignal.timeout(5000),
-    }).catch(() => null)
-
-    if (response?.ok) {
-      const contentType = getContentType(path)
-      return new Response(response.body, {
-        headers: {
-          'Content-Type': contentType,
-          'X-DWS-Source': 'ipfs-gateway',
-          'X-DWS-CID': app.frontendCid,
-        },
-      })
+    // First check if frontendCid is a manifest (has .files property)
+    const storageBaseUrl = NETWORK === 'localnet'
+      ? `http://${getLocalhostHost()}:4030`
+      : `https://dws.${NETWORK === 'testnet' ? 'testnet.' : ''}jejunetwork.org`
+    
+    try {
+      const manifestUrl = `${storageBaseUrl}/storage/ipfs/${app.frontendCid}`
+      const manifestResponse = await fetch(manifestUrl, {
+        signal: AbortSignal.timeout(5000),
+      }).catch(() => null)
+      
+      if (manifestResponse?.ok) {
+        const content = await manifestResponse.text()
+        // Check if it's a manifest JSON with files property
+        if (content.startsWith('{') && content.includes('"files"')) {
+          const manifest = JSON.parse(content) as { files?: Record<string, string> }
+          if (manifest.files) {
+            // Look up the file in the manifest
+            fileCid = manifest.files[path] ?? null
+            console.log(`[AppRouter] Found ${path} in manifest: ${fileCid ? 'yes' : 'no'}`)
+          }
+        }
+      }
+    } catch {
+      // Ignore manifest parsing errors
     }
+    
+    // If still no CID, try using IPFS gateway with directory CID
+    if (!fileCid) {
+      const gateway = getIpfsGatewayUrl(NETWORK)
+      const url = `${gateway}/ipfs/${app.frontendCid}/${path}`
+      console.log(`[AppRouter] Trying IPFS directory: ${url}`)
 
-    // If IPFS gateway fails, use frontendCid directly as the index.html CID
-    if (path === 'index.html') {
-      fileCid = app.frontendCid
+      const response = await fetch(url, {
+        headers: { Accept: '*/*' },
+        signal: AbortSignal.timeout(5000),
+      }).catch(() => null)
+
+      if (response?.ok) {
+        const contentType = getContentType(path)
+        return new Response(response.body, {
+          headers: {
+            'Content-Type': contentType,
+            'X-DWS-Source': 'ipfs-gateway',
+            'X-DWS-CID': app.frontendCid,
+          },
+        })
+      }
     }
   }
 
