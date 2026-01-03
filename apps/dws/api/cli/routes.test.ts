@@ -525,7 +525,7 @@ describe('Worker Routes', () => {
     })
 
     test('validates timeout bounds (min 1000, max 300000)', async () => {
-      const { status: status1, data: data1 } = await request(
+      const { data: data1 } = await request(
         'POST',
         '/workers/deploy',
         authToken,
@@ -537,7 +537,7 @@ describe('Worker Routes', () => {
       )
       expect(data1.error).toBe('Invalid request')
 
-      const { status: status2, data: data2 } = await request(
+      const { data: data2 } = await request(
         'POST',
         '/workers/deploy',
         authToken,

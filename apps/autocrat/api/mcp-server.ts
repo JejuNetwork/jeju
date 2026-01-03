@@ -476,7 +476,7 @@ export class AutocratMCPServer {
 
     return {
       transaction: {
-        to: this.config.contracts?.council ?? ZERO_ADDRESS,
+        to: this.config.contracts?.board ?? ZERO_ADDRESS,
         method: 'submitProposal',
         params: {
           proposalType: typeIndex,

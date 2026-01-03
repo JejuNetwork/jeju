@@ -107,8 +107,6 @@ interface IDAORegistry {
     event GovernanceParamsUpdated(bytes32 indexed daoId);
 
     // ============ Legacy Events (for backwards compatibility) ============
-    event DirectorPersonaUpdated(bytes32 indexed daoId, string name, string pfpCid);
-    event DirectorModelChanged(bytes32 indexed daoId, bytes32 oldModel, bytes32 newModel);
     event CouncilMemberAdded(bytes32 indexed daoId, address indexed member, string role, uint256 weight);
     event CouncilMemberRemoved(bytes32 indexed daoId, address indexed member);
     event CouncilMemberUpdated(bytes32 indexed daoId, address indexed member, uint256 newWeight);
@@ -212,8 +210,6 @@ interface IDAORegistry {
     function getRepoDAO(bytes32 repoId) external view returns (bytes32 daoId);
 
     // ============ Legacy View Functions (backwards compatibility) ============
-
-    function getDirectorPersona(bytes32 daoId) external view returns (DirectorPersona memory);
 
     function getCouncilMembers(bytes32 daoId) external view returns (BoardMember[] memory);
 

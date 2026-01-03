@@ -226,10 +226,10 @@ export function ModelUploadPage() {
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Model Type Selection */}
         <div>
-          <label className="block text-sm font-medium text-white/90 mb-3">
+          <span className="block text-sm font-medium text-white/90 mb-3">
             Model Type <span className="text-red-400">*</span>
-          </label>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          </span>
+          <fieldset className="grid grid-cols-2 md:grid-cols-3 gap-3 border-0 p-0 m-0">
             {MODEL_TYPES.map((type) => {
               const TypeIcon = type.icon
               return (
@@ -267,15 +267,19 @@ export function ModelUploadPage() {
                 </button>
               )
             })}
-          </div>
+          </fieldset>
         </div>
 
         {/* Organization */}
         <div>
-          <label className="block text-sm font-medium text-white/90 mb-2">
+          <label
+            htmlFor="model-organization"
+            className="block text-sm font-medium text-white/90 mb-2"
+          >
             Organization <span className="text-red-400">*</span>
           </label>
           <input
+            id="model-organization"
             type="text"
             value={formData.organization}
             onChange={(e) =>
@@ -293,10 +297,14 @@ export function ModelUploadPage() {
 
         {/* Model Name */}
         <div>
-          <label className="block text-sm font-medium text-white/90 mb-2">
+          <label
+            htmlFor="model-name"
+            className="block text-sm font-medium text-white/90 mb-2"
+          >
             Model Name <span className="text-red-400">*</span>
           </label>
           <input
+            id="model-name"
             type="text"
             value={formData.name}
             onChange={(e) =>
@@ -314,10 +322,14 @@ export function ModelUploadPage() {
 
         {/* Description */}
         <div>
-          <label className="block text-sm font-medium text-white/90 mb-2">
+          <label
+            htmlFor="model-description"
+            className="block text-sm font-medium text-white/90 mb-2"
+          >
             Description <span className="text-red-400">*</span>
           </label>
           <textarea
+            id="model-description"
             value={formData.description}
             onChange={(e) =>
               setFormData((prev) => ({ ...prev, description: e.target.value }))
@@ -332,10 +344,14 @@ export function ModelUploadPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Version */}
           <div>
-            <label className="block text-sm font-medium text-white/90 mb-2">
+            <label
+              htmlFor="model-version"
+              className="block text-sm font-medium text-white/90 mb-2"
+            >
               Version <span className="text-red-400">*</span>
             </label>
             <input
+              id="model-version"
               type="text"
               value={formData.version}
               onChange={(e) =>
@@ -350,10 +366,14 @@ export function ModelUploadPage() {
 
           {/* Framework */}
           <div>
-            <label className="block text-sm font-medium text-white/90 mb-2">
+            <label
+              htmlFor="model-framework"
+              className="block text-sm font-medium text-white/90 mb-2"
+            >
               Framework
             </label>
             <select
+              id="model-framework"
               value={formData.framework}
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, framework: e.target.value }))
@@ -375,10 +395,14 @@ export function ModelUploadPage() {
 
         {/* License */}
         <div>
-          <label className="block text-sm font-medium text-white/90 mb-2">
+          <label
+            htmlFor="model-license"
+            className="block text-sm font-medium text-white/90 mb-2"
+          >
             License <span className="text-red-400">*</span>
           </label>
           <select
+            id="model-license"
             value={formData.license}
             onChange={(e) =>
               setFormData((prev) => ({ ...prev, license: e.target.value }))
@@ -396,11 +420,15 @@ export function ModelUploadPage() {
 
         {/* Tags */}
         <div>
-          <label className="block text-sm font-medium text-white/90 mb-2">
+          <label
+            htmlFor="model-tag-input"
+            className="block text-sm font-medium text-white/90 mb-2"
+          >
             Tags
           </label>
           <div className="flex gap-2">
             <input
+              id="model-tag-input"
               type="text"
               value={tagInput}
               onChange={(e) => setTagInput(e.target.value)}
@@ -440,13 +468,17 @@ export function ModelUploadPage() {
 
         {/* File URI or Upload */}
         <div>
-          <label className="block text-sm font-medium text-white/90 mb-2">
+          <label
+            htmlFor="model-file-uri"
+            className="block text-sm font-medium text-white/90 mb-2"
+          >
             Model File
           </label>
           <div className="space-y-4">
             {/* IPFS URI Input */}
             <div>
               <input
+                id="model-file-uri"
                 type="text"
                 value={formData.fileUri}
                 onChange={(e) =>
@@ -467,6 +499,7 @@ export function ModelUploadPage() {
             </div>
 
             {/* File Upload */}
+            {/* biome-ignore lint/a11y/noStaticElementInteractions: Drop zone uses drag events with hidden file input */}
             <div
               className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
                 dragActive
@@ -493,13 +526,15 @@ export function ModelUploadPage() {
                   type="file"
                   accept=".gguf,.bin,.safetensors,.pt,.pth,.onnx"
                   className="hidden"
-                  onChange={(e) =>
-                    e.target.files &&
-                    setFormData((prev) => ({
-                      ...prev,
-                      file: e.target.files?.[0],
-                    }))
-                  }
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) {
+                      setFormData((prev) => ({
+                        ...prev,
+                        file,
+                      }))
+                    }
+                  }}
                 />
               </label>
               {formData.file && (

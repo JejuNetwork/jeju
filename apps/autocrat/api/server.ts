@@ -209,7 +209,11 @@ const app = new Elysia()
     metricsData.errors++
     const message = error instanceof Error ? error.message : String(error)
     console.error(`[Error] ${path}:`, message)
-    return { error: message }
+
+    // Return JSON error response with proper status
+    set.status = 500
+    set.headers['content-type'] = 'application/json'
+    return JSON.stringify({ error: message, path })
   })
 
 async function start() {

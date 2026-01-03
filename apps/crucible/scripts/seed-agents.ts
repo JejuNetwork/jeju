@@ -98,8 +98,11 @@ function getAgentsToSeed(network: string): AgentCharacter[] {
 async function checkDWS(
   network: string,
 ): Promise<{ available: boolean; endpoint: string }> {
+  // Check DWS_URL env var first, then fall back to defaults
+  const envDwsUrl = process.env.DWS_URL
+
   const endpoints: Record<string, string> = {
-    localnet: 'http://localhost:4100',
+    localnet: envDwsUrl ?? 'http://127.0.0.1:4030',
     testnet: 'https://dws.testnet.jejunetwork.org',
     mainnet: 'https://dws.jejunetwork.org',
   }
@@ -137,37 +140,41 @@ async function registerAgent(
   }
 
   try {
-    // Store character on DWS storage (IPFS)
-    const storeResponse = await fetch(`${dwsEndpoint}/storage/api/v1/add`, {
+    // Store character on DWS storage
+    const formData = new FormData()
+    const charBlob = new Blob([JSON.stringify(char)], {
+      type: 'application/json',
+    })
+    formData.append('file', charBlob, `character-${char.id}.json`)
+    formData.append('tier', 'popular')
+
+    const storeResponse = await fetch(`${dwsEndpoint}/storage/upload`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        content: JSON.stringify(char),
-        filename: `character-${char.id}.json`,
-        pin: true,
-      }),
+      body: formData,
     })
 
     if (!storeResponse.ok) {
-      throw new Error(`Failed to store character: ${storeResponse.status}`)
+      const errorText = await storeResponse.text()
+      throw new Error(
+        `Failed to store character: ${storeResponse.status} - ${errorText}`,
+      )
     }
 
     const storeResult = (await storeResponse.json()) as { cid: string }
     result.characterCid = storeResult.cid
 
     // Register with Crucible API
-    const registerResponse = await fetch(
-      `${dwsEndpoint.replace(':4100', ':4021')}/api/agents/register`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          characterCid: result.characterCid,
-          initialFunding: parseEther('0.01').toString(),
-          botType: 'ai_agent',
-        }),
-      },
-    )
+    const crucibleApiUrl =
+      process.env.CRUCIBLE_API_URL ?? 'http://127.0.0.1:4021'
+    const registerResponse = await fetch(`${crucibleApiUrl}/api/v1/agents`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        characterCid: result.characterCid,
+        initialFunding: parseEther('0.01').toString(),
+        botType: 'ai_agent',
+      }),
+    })
 
     if (!registerResponse.ok) {
       const errorText = await registerResponse.text()

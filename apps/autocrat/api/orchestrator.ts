@@ -337,7 +337,7 @@ export class AutocratOrchestrator {
       if (this.daoStates.has(daoId)) continue
 
       const daoFull = await this.daoService.getDAOFull(daoId)
-      const councilAddr = daoFull.dao.council
+      const councilAddr = daoFull.dao.board
       const directorAgentAddr = daoFull.dao.directorAgent
       if (
         !councilAddr ||
@@ -923,7 +923,7 @@ export class AutocratOrchestrator {
     if (!this.daoService) return
 
     const daoFull = await this.daoService.getDAOFull(daoId)
-    const councilAddr = daoFull.dao.council
+    const councilAddr = daoFull.dao.board
     const directorAgentAddr = daoFull.dao.directorAgent
 
     if (!councilAddr || !directorAgentAddr) {

@@ -331,10 +331,14 @@ export function AgentDeployPage() {
           <div className="space-y-6">
             <h2 className="text-xl font-semibold text-white">Agent Details</h2>
             <div>
-              <label className="block text-sm font-medium text-white/90 mb-2">
+              <label
+                htmlFor="agent-name"
+                className="block text-sm font-medium text-white/90 mb-2"
+              >
                 Agent Name <span className="text-red-400">*</span>
               </label>
               <input
+                id="agent-name"
                 type="text"
                 value={formData.name}
                 onChange={(e) =>
@@ -346,10 +350,14 @@ export function AgentDeployPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-white/90 mb-2">
+              <label
+                htmlFor="agent-description"
+                className="block text-sm font-medium text-white/90 mb-2"
+              >
                 Description <span className="text-red-400">*</span>
               </label>
               <textarea
+                id="agent-description"
                 value={formData.description}
                 onChange={(e) =>
                   setFormData((prev) => ({
@@ -365,10 +373,14 @@ export function AgentDeployPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-white/90 mb-2">
+              <label
+                htmlFor="agent-model"
+                className="block text-sm font-medium text-white/90 mb-2"
+              >
                 Base Model (optional)
               </label>
               <input
+                id="agent-model"
                 type="text"
                 value={formData.modelId}
                 onChange={(e) =>
@@ -437,10 +449,14 @@ export function AgentDeployPage() {
               agent.
             </p>
             <div>
-              <label className="block text-sm font-medium text-white/90 mb-2">
+              <label
+                htmlFor="a2a-endpoint"
+                className="block text-sm font-medium text-white/90 mb-2"
+              >
                 A2A Endpoint (Agent-to-Agent)
               </label>
               <input
+                id="a2a-endpoint"
                 type="url"
                 value={formData.a2aEndpoint}
                 onChange={(e) =>
@@ -457,10 +473,14 @@ export function AgentDeployPage() {
               </p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-white/90 mb-2">
+              <label
+                htmlFor="mcp-endpoint"
+                className="block text-sm font-medium text-white/90 mb-2"
+              >
                 MCP Endpoint
               </label>
               <input
+                id="mcp-endpoint"
                 type="url"
                 value={formData.mcpEndpoint}
                 onChange={(e) =>
@@ -477,11 +497,15 @@ export function AgentDeployPage() {
               </p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-white/90 mb-2">
+              <label
+                htmlFor="config-key"
+                className="block text-sm font-medium text-white/90 mb-2"
+              >
                 Additional Configuration
               </label>
               <div className="flex gap-2 mb-3">
                 <input
+                  id="config-key"
                   type="text"
                   value={configKey}
                   onChange={(e) => setConfigKey(e.target.value)}

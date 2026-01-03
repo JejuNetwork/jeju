@@ -11,7 +11,7 @@
  * - Geo-routing for low latency
  */
 
-import { SQLitRateLimitStore } from '../../../../packages/api/src/rate-limiting/sqlit-store'
+import { SQLitRateLimitStore } from '@jejunetwork/api'
 import { getSQLit, type SQLitClient } from '@jejunetwork/db'
 import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'

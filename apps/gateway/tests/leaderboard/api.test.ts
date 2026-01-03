@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, mock, test } from 'bun:test'
-import { leaderboardApp } from '../../src/leaderboard/server'
+import { leaderboardApp } from '../../api/leaderboard/server'
 
 // Test response types
 interface StatusResponse {
@@ -67,7 +67,7 @@ const mockDb = {
 }
 
 // Mock database module
-mock.module('../../src/leaderboard/db', () => ({
+mock.module('../../api/leaderboard/db', () => ({
   getLeaderboardDB: () => mockDb,
   initLeaderboardDB: async () => {
     /* mock init */

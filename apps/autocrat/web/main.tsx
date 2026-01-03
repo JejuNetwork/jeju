@@ -6,13 +6,18 @@ import { defineChain } from 'viem'
 import { createConfig, http, WagmiProvider } from 'wagmi'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { Layout } from './components/Layout'
+import AdminPage from './pages/Admin'
 import AgentEditPage from './pages/AgentEdit'
+import BugBountyPage from './pages/BugBounty'
+import BugBountyDetailPage from './pages/BugBountyDetail'
 import CreateDAOPage from './pages/CreateDAO'
 import DAODetailPage from './pages/DAODetail'
 import DAOListPage from './pages/DAOList'
 import DirectorDashboardPage from './pages/DirectorDashboard'
+import ModerationPage from './pages/Moderation'
 import MyDAOsPage from './pages/MyDAOs'
 import ProposalPage from './pages/Proposal'
+import ProposalDetailPage from './pages/ProposalDetail'
 import './app/globals.css'
 
 // Define chains inline to avoid bundling issues with wagmi/chains
@@ -68,7 +73,18 @@ function App() {
                 path="/dao/:daoId/proposal/:proposalId"
                 element={<ProposalPage />}
               />
+              <Route
+                path="/dao/:daoId/proposals/:proposalId"
+                element={<ProposalDetailPage />}
+              />
               <Route path="/my-daos" element={<MyDAOsPage />} />
+              <Route path="/admin" element={<AdminPage />} />
+              <Route path="/moderation" element={<ModerationPage />} />
+              <Route path="/bug-bounty" element={<BugBountyPage />} />
+              <Route
+                path="/bug-bounty/:submissionId"
+                element={<BugBountyDetailPage />}
+              />
             </Route>
           </Routes>
         </BrowserRouter>

@@ -56,9 +56,9 @@
       "performanceOracle": "0x998D98e9480A8f52A5252Faf316d129765773294"
     },
     "jns": {
-      "registry": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-      "resolver": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
-      "registrar": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+      "registry": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+      "resolver": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
+      "registrar": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
       "reverseRegistrar": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"
     },
     "oauth3": {
@@ -72,12 +72,14 @@
       "workerRegistry": "0xb7f8bc63bbcad18155201308c8f3540b07f84f5e",
       "cdnRegistry": "0xa51c1fc2f0d1a1b8494ed1fe312d7c3a78ed91c0",
       "repoRegistry": "0x0dcd1bf9a1b36ce34237eeafef220932846bcd82",
-      "packageRegistry": "0x3aa5ebb10dc797cac828524e59a333d0a371443c",
-      "managedDatabaseRegistry": "0x322813fd9a801c5507c9de605d63cea4f2ce6c44",
-      "gitRegistry": "0x68b1d87f95878fe05b998f19b66f4baba5de1aed",
-      "cacheManager": "0xc6e7df5e7b4f2a278906862b61205850344d4e7d",
-      "cronOrchestrator": "0x59b670e9fa9d0a427751af201d676719a970857b",
-      "containerRegistry": "0x4ed7c70f96b99c776995fb64377f0d4ab3b0e1c1"
+      "packageRegistry": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
+      "managedDatabaseRegistry": "0x5fc8d32690cc91d4c39d9d3abcbd16989f875707",
+      "gitRegistry": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+      "cacheManager": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
+      "cronOrchestrator": "0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9",
+      "containerRegistry": "0xdc64a140aa3e981100a9beca4e685f962f0cf6c9",
+      "storageProviderRegistry": "0xdc64a140aa3e981100a9beca4e685f962f0cf6c9",
+      "identityRegistry": "0x5fc8d32690cc91d4c39d9d3abcbd16989f875707"
     },
     "payments": {
       "creditManager": "0x67d269191c92Caf3cD7723F116c85e6E9bf55933",
@@ -102,7 +104,7 @@
       "inferenceServing": "0x08A90aF9A6eBBe11c322AD9930CC58E122231B5A",
       "staking": "0x7bdd3b028C4796eF0EAf07d11394d0d9d8c24139",
       "workerRegistry": "",
-      "cronTriggerRegistry": "0x59b670e9fa9d0a427751af201d676719a970857b"
+      "cronTriggerRegistry": "0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9"
     },
     "sequencer": {
       "registry": "",

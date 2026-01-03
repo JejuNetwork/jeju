@@ -2,8 +2,8 @@
   "network": "localnet",
   "chainId": 31337,
   "l1ChainId": 31337,
-  "deployedAt": null,
-  "deployer": null,
+  "deployedAt": "2026-01-02T19:30:00.000Z",
+  "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
   "tokens": {
     "weth": "0x4200000000000000000000000000000000000006",
     "jeju": null,
@@ -20,7 +20,7 @@
   "infrastructure": {
     "entryPoint": "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
     "priceOracle": null,
-    "serviceRegistry": null,
+    "serviceRegistry": "0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519",
     "creditManager": null
   },
   "paymaster": {
@@ -30,7 +30,7 @@
     "multiTokenPaymaster": null
   },
   "registry": {
-    "identityRegistry": null,
+    "identityRegistry": "0xf5059a5D33d5853360D16C683c16e67980206f36",
     "reputationRegistry": null,
     "validationRegistry": null,
     "registryGovernance": null
@@ -76,6 +76,27 @@
   "bazaar": {
     "predictionMarket": "0x33f4f8bf90d8AA3d19fF812B50e79c15Df0d0b03",
     "predictionOracle": "0x0C8542AB89c1C60D711B00F309f7EF63b5D9d6eb"
+  },
+  "jns": {
+    "registry": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0",
+    "resolver": "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82",
+    "registrar": "0x9A676e781A523b5d0C0e43731313A708CB607508",
+    "reverseRegistrar": "0x0B306BF915C4d645ff596e518fAf3F9669b97016"
+  },
+  "dws": {
+    "storageManager": "0x4ed7c70F96B99c776995fB64377f0d4aB3B0e1C1",
+    "workerRegistry": "0x322813Fd9A801c5507c9de605d63CEA4f2CE6c44",
+    "cdnRegistry": "0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f",
+    "repoRegistry": "0x4A679253410272dd5232B3Ff7cF5dbB88f295319",
+    "packageRegistry": "0x7a2088a1bFc9d81c55368AE168C2C02570cB814F",
+    "providerRegistry": "0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519",
+    "billing": "0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496",
+    "serviceProvisioning": "0x34A1D3fff3958843C43aD80F30b94c510645C316"
+  },
+  "governance": {
+    "daoRegistry": "0x998abeb3E57409262aE5b751f60747921B33613E",
+    "daoFunding": "0x70e0bA845a1A0F2DA3359C97E0285013525FFC49",
+    "feeConfig": "0x95401dc811bb5740090279Ba06cfA8fcF6113778"
   },
   "_note": "Localnet deployment for local development. null values indicate not yet deployed."
 }

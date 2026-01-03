@@ -75,7 +75,11 @@ interface DeploymentResult {
       symbol: string
     }>
   }
+  warnings: string[]
 }
+
+// Track deployment warnings globally
+const deploymentWarnings: string[] = []
 
 function parseArgs(): { network: NetworkName } {
   const args = process.argv.slice(2)
@@ -177,7 +181,7 @@ async function checkChainHealth(
     throw new Error(
       `Chain appears to be stalled. Last block (${blockNumber}) was produced ${blockAge}s ago at ${blockDate}.\n` +
         `The ${config.name} sequencer may need to be restarted.\n\n` +
-        `For localnet, run: cd /Users/shawwalters/jeju && jeju dev --start\n` +
+        `For localnet, run: jeju dev --start\n` +
         `For testnet, check Kubernetes deployment status.`,
     )
   }
@@ -419,7 +423,9 @@ async function deployPredictionMarkets(
       })
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error)
-      console.log(`    Skipped market ${i + 1}: ${msg.slice(0, 50)}`)
+      const warning = `Prediction market ${i + 1} failed: ${msg.slice(0, 100)}`
+      console.log(`    WARNING: ${warning}`)
+      deploymentWarnings.push(warning)
     }
   }
 
@@ -551,7 +557,9 @@ async function deployPerps(
       })
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error)
-      console.log(`    Skipped ${mc.symbol}: ${msg.slice(0, 100)}`)
+      const warning = `Perp market ${mc.symbol} failed: ${msg.slice(0, 100)}`
+      console.log(`    WARNING: ${warning}`)
+      deploymentWarnings.push(warning)
     }
   }
 
@@ -583,12 +591,13 @@ async function deployNFT(
     'Jeju Genesis NFT',
   )
 
-  // Mint some genesis NFTs
+  // Mint some genesis NFTs for testing
+  // These use placeholder metadata - in production, upload real metadata to IPFS first
   console.log('\n  Minting genesis NFTs...')
   const nftMetadata = [
-    'ipfs://QmJejuGenesis1/metadata.json',
-    'ipfs://QmJejuGenesis2/metadata.json',
-    'ipfs://QmJejuGenesis3/metadata.json',
+    'data:application/json,{"name":"Jeju Genesis #1","description":"Jeju Network Genesis NFT","image":""}',
+    'data:application/json,{"name":"Jeju Genesis #2","description":"Jeju Network Genesis NFT","image":""}',
+    'data:application/json,{"name":"Jeju Genesis #3","description":"Jeju Network Genesis NFT","image":""}',
   ]
 
   for (const uri of nftMetadata) {
@@ -603,7 +612,9 @@ async function deployNFT(
       )
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error)
-      console.log(`    Failed to mint: ${msg.slice(0, 50)}`)
+      const warning = `NFT mint failed: ${msg.slice(0, 100)}`
+      console.log(`    WARNING: ${warning}`)
+      deploymentWarnings.push(warning)
     }
   }
 
@@ -680,6 +691,14 @@ function printSummary(result: DeploymentResult): void {
   console.log('\nNFT:')
   console.log(`  Simple Collectible: ${result.contracts.simpleCollectible}`)
 
+  // Show warnings if any
+  if (result.warnings.length > 0) {
+    console.log('\nWarnings:')
+    for (const warning of result.warnings) {
+      console.log(`  - ${warning}`)
+    }
+  }
+
   if (result.network === 'testnet') {
     console.log('\nNext Steps:')
     console.log('  1. Visit: https://bazaar.testnet.jejunetwork.org')
@@ -690,7 +709,15 @@ function printSummary(result: DeploymentResult): void {
     console.log('  1. Start the dev server: bun run dev')
     console.log('  2. Visit: http://localhost:5173')
   }
-  console.log('')
+
+  // Exit with error if there were warnings
+  if (result.warnings.length > 0) {
+    console.log(
+      `\nDeployment completed with ${result.warnings.length} warning(s).\n`,
+    )
+  } else {
+    console.log('\nDeployment completed successfully.\n')
+  }
 }
 
 async function main(): Promise<void> {
@@ -760,6 +787,7 @@ async function main(): Promise<void> {
       predictions: predictions.markets,
       perps: perps.markets,
     },
+    warnings: deploymentWarnings,
   }
 
   saveDeployment(result, network)

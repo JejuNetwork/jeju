@@ -92,7 +92,7 @@ export interface FeeConfigState {
   names: NamesFees
   token: TokenFees
   treasury: Address
-  council: Address
+  board: Address
   director: Address
 }
 let feeConfigAddress: Address | null = null
@@ -149,7 +149,7 @@ export async function getFeeConfigState(): Promise<FeeConfigState> {
     names,
     token,
     treasury,
-    council,
+    board,
     director,
   ] = await Promise.all([
     client.readContract({
@@ -260,7 +260,7 @@ export async function getFeeConfigState(): Promise<FeeConfigState> {
       zkProofDiscountBps: token.zkProofDiscountBps,
     },
     treasury,
-    council,
+    board,
     director,
   }
 }

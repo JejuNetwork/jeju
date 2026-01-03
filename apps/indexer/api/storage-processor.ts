@@ -462,9 +462,10 @@ async function updateStorageStats(
     totalProviders++
     if (p.isActive) activeProviders++
     if (p.isVerified || p.agentId) verifiedProviders++
-    totalStaked += p.stakeAmount
-    totalCapacity += p.totalCapacityGB
-    usedCapacity += p.usedCapacityGB
+    // Ensure BigInt conversion (values may be strings from SQLit)
+    totalStaked += BigInt(p.stakeAmount ?? 0)
+    totalCapacity += BigInt(p.totalCapacityGB ?? 0)
+    usedCapacity += BigInt(p.usedCapacityGB ?? 0)
   }
 
   stats.totalProviders = Math.max(stats.totalProviders, totalProviders)

@@ -1491,15 +1491,7 @@ if (import.meta.main) {
     port: PORT,
     maxRequestBodySize: 500 * 1024 * 1024, // 500MB for large artifact uploads
     idleTimeout: 120, // 120 seconds - health checks can take time when external services are slow
-    async fetch(
-      req: Request,
-      server: {
-        upgrade(
-          req: Request,
-          options?: { data?: WebSocketData; headers?: HeadersInit },
-        ): boolean
-      },
-    ) {
+    async fetch(req: Request, server) {
       // Handle WebSocket upgrades for price streaming
       const url = new URL(req.url)
       if (

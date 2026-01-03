@@ -541,7 +541,7 @@ Return ONLY a JSON object with these exact fields (scores 0-100):
     )
     const qualityScore = validated.qualityScore
     expect(qualityScore >= 90, `Quality score must be 90+, got ${qualityScore}`)
-    const councilAddress = this.config.contracts?.council
+    const councilAddress = this.config.contracts?.board
     expectDefined(councilAddress, 'Council contract address must be configured')
     return {
       message: 'Ready to submit',
@@ -593,7 +593,7 @@ Return ONLY a JSON object with these exact fields (scores 0-100):
       params,
       'Back proposal params',
     )
-    const councilAddress = this.config.contracts?.council
+    const councilAddress = this.config.contracts?.board
     expectDefined(councilAddress, 'Council contract address must be configured')
     return {
       message: 'Ready to back',
@@ -861,7 +861,7 @@ Return ONLY a JSON object with these exact fields (scores 0-100):
       params,
       'Cast veto params',
     )
-    const councilAddress = this.config.contracts?.council
+    const councilAddress = this.config.contracts?.board
     expectDefined(councilAddress, 'Council contract address must be configured')
     return {
       message: 'Ready to veto',

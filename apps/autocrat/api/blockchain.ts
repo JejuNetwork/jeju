@@ -237,7 +237,7 @@ export class AutocratBlockchain {
       chain,
       transport: http(config.rpcUrl),
     }) as PublicClient
-    this.councilAddress = toAddress(config.contracts?.council ?? ZERO_ADDRESS)
+    this.councilAddress = toAddress(config.contracts?.board ?? ZERO_ADDRESS)
     this.directorAgentAddress = toAddress(
       config.contracts?.directorAgent ?? ZERO_ADDRESS,
     )

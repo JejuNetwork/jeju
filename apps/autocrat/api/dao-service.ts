@@ -1532,7 +1532,7 @@ export class DAOService {
   async setDAOContracts(
     daoId: string,
     contracts: {
-      council?: Address
+      board?: Address
       directorAgent?: Address
       feeConfig?: Address
     },
@@ -1543,12 +1543,12 @@ export class DAOService {
 
     const hashes: Hash[] = []
 
-    if (contracts.council) {
+    if (contracts.board) {
       const hash = await this.walletClient.writeContract({
         address: this.config.daoRegistryAddress,
         abi: DAORegistryABI,
         functionName: 'setDAOCouncilContract',
-        args: [toHex(daoId), contracts.council],
+        args: [toHex(daoId), contracts.board],
       })
       hashes.push(hash)
     }
@@ -1936,7 +1936,7 @@ export class DAOService {
       displayName: raw.displayName,
       description: raw.description,
       treasury: raw.treasury,
-      board: raw.council,
+      board: raw.council, // Map from raw 'council' to typed 'board'
       directorAgent: raw.directorAgent,
       feeConfig: raw.feeConfig,
       directorModelId: raw.directorModelId,

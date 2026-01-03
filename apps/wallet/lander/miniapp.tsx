@@ -5,7 +5,7 @@
  * Supports send/receive, balance checking, and basic transactions.
  */
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 
 declare global {
@@ -84,52 +84,12 @@ function MiniApp() {
   const [sendTo, setSendTo] = useState('')
   const [isTelegram, setIsTelegram] = useState(false)
 
-  useEffect(() => {
-    // Initialize Telegram WebApp if available
-    if (window.Telegram?.WebApp) {
-      setIsTelegram(true)
-      window.Telegram.WebApp.ready()
-      window.Telegram.WebApp.expand()
-    }
-
-    // Load or create wallet
-    loadWallet()
-  }, [
-    // Load or create wallet
-    loadWallet,
-  ])
-
-  useEffect(() => {
-    // Handle Telegram back button
-    if (isTelegram && window.Telegram?.WebApp) {
-      if (screen === 'home') {
-        window.Telegram.WebApp.BackButton.hide()
-      } else {
-        window.Telegram.WebApp.BackButton.show()
-        const handleBack = () => setScreen('home')
-        window.Telegram.WebApp.BackButton.onClick(handleBack)
-        return () => window.Telegram.WebApp.BackButton.offClick?.(handleBack)
-      }
-    }
-    return undefined
-  }, [screen, isTelegram])
-
-  async function loadWallet() {
-    // Check localStorage for existing wallet
-    const saved = localStorage.getItem('wallet-address')
-    if (saved) {
-      setAddress(saved)
-      fetchBalance(saved)
-      fetchHistory(saved)
-    }
-  }
-
-  async function fetchBalance(_addr: string) {
+  const fetchBalance = useCallback((_addr: string) => {
     // In production, this would call the wallet API
     setBalance('1,234.56')
-  }
+  }, [])
 
-  async function fetchHistory(addr: string) {
+  const fetchHistory = useCallback((addr: string) => {
     // Mock transactions
     setTransactions([
       {
@@ -155,7 +115,44 @@ function MiniApp() {
         status: 'confirmed',
       },
     ])
-  }
+  }, [])
+
+  const loadWallet = useCallback(() => {
+    // Check localStorage for existing wallet
+    const saved = localStorage.getItem('wallet-address')
+    if (saved) {
+      setAddress(saved)
+      fetchBalance(saved)
+      fetchHistory(saved)
+    }
+  }, [fetchBalance, fetchHistory])
+
+  useEffect(() => {
+    // Initialize Telegram WebApp if available
+    if (window.Telegram?.WebApp) {
+      setIsTelegram(true)
+      window.Telegram.WebApp.ready()
+      window.Telegram.WebApp.expand()
+    }
+
+    // Load or create wallet
+    loadWallet()
+  }, [loadWallet])
+
+  useEffect(() => {
+    // Handle Telegram back button
+    if (isTelegram && window.Telegram?.WebApp) {
+      if (screen === 'home') {
+        window.Telegram.WebApp.BackButton.hide()
+      } else {
+        window.Telegram.WebApp.BackButton.show()
+        const handleBack = () => setScreen('home')
+        window.Telegram.WebApp.BackButton.onClick(handleBack)
+        return () => window.Telegram.WebApp.BackButton.offClick?.(handleBack)
+      }
+    }
+    return undefined
+  }, [screen, isTelegram])
 
   async function createWallet() {
     // Generate address (in production, use proper key derivation)
@@ -220,12 +217,14 @@ function MiniApp() {
           No bridging required.
         </p>
         <button
+          type="button"
           onClick={createWallet}
           className="w-full max-w-xs bg-gradient-to-r from-emerald-500 to-green-600 text-white py-4 px-8 rounded-xl font-semibold text-lg"
         >
           Create Wallet
         </button>
         <button
+          type="button"
           onClick={() => {
             const addr = prompt('Enter your address:')
             if (addr) {
@@ -246,6 +245,7 @@ function MiniApp() {
       <div className="min-h-screen bg-[#0f0f0f] text-white flex flex-col">
         <header className="p-4 border-b border-white/10 flex items-center gap-4">
           <button
+            type="button"
             onClick={() => setScreen('home')}
             className="text-emerald-400"
           >
@@ -256,10 +256,14 @@ function MiniApp() {
 
         <div className="flex-1 p-4 space-y-4">
           <div>
-            <label className="text-sm text-gray-400 mb-2 block">
+            <label
+              htmlFor="send-to"
+              className="text-sm text-gray-400 mb-2 block"
+            >
               To Address
             </label>
             <input
+              id="send-to"
               type="text"
               placeholder="0x... or ENS name"
               value={sendTo}
@@ -269,9 +273,15 @@ function MiniApp() {
           </div>
 
           <div>
-            <label className="text-sm text-gray-400 mb-2 block">Amount</label>
+            <label
+              htmlFor="send-amount"
+              className="text-sm text-gray-400 mb-2 block"
+            >
+              Amount
+            </label>
             <div className="relative">
               <input
+                id="send-amount"
                 type="text"
                 placeholder="0.00"
                 value={sendAmount}
@@ -285,12 +295,11 @@ function MiniApp() {
           </div>
 
           <div>
-            <label className="text-sm text-gray-400 mb-2 block">
-              From Chain
-            </label>
-            <div className="flex gap-2 overflow-x-auto pb-2">
+            <span className="text-sm text-gray-400 mb-2 block">From Chain</span>
+            <fieldset className="flex gap-2 overflow-x-auto pb-2 border-0 p-0 m-0">
               {CHAINS.map((chain) => (
                 <button
+                  type="button"
                   key={chain.id}
                   onClick={() => setSelectedChain(chain)}
                   className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap ${
@@ -303,12 +312,13 @@ function MiniApp() {
                   <span>{chain.name}</span>
                 </button>
               ))}
-            </div>
+            </fieldset>
           </div>
         </div>
 
         <div className="p-4 border-t border-white/10">
           <button
+            type="button"
             onClick={handleSend}
             disabled={!sendAmount || !sendTo}
             className="w-full bg-gradient-to-r from-emerald-500 to-green-600 text-white py-4 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
@@ -325,6 +335,7 @@ function MiniApp() {
       <div className="min-h-screen bg-[#0f0f0f] text-white flex flex-col">
         <header className="p-4 border-b border-white/10 flex items-center gap-4">
           <button
+            type="button"
             onClick={() => setScreen('home')}
             className="text-emerald-400"
           >
@@ -343,6 +354,7 @@ function MiniApp() {
             {address}
           </p>
           <button
+            type="button"
             onClick={() => {
               navigator.clipboard.writeText(address)
               haptic('success')
@@ -366,6 +378,7 @@ function MiniApp() {
       <div className="min-h-screen bg-[#0f0f0f] text-white flex flex-col">
         <header className="p-4 border-b border-white/10 flex items-center gap-4">
           <button
+            type="button"
             onClick={() => setScreen('home')}
             className="text-emerald-400"
           >
@@ -444,6 +457,7 @@ function MiniApp() {
             </div>
           </div>
           <button
+            type="button"
             onClick={() => setScreen('history')}
             className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center"
           >
@@ -471,6 +485,7 @@ function MiniApp() {
       {/* Actions */}
       <div className="px-4 flex gap-3">
         <button
+          type="button"
           onClick={() => {
             haptic('light')
             setScreen('send')
@@ -490,6 +505,7 @@ function MiniApp() {
           <span className="text-sm font-medium">Send</span>
         </button>
         <button
+          type="button"
           onClick={() => {
             haptic('light')
             setScreen('receive')
@@ -535,6 +551,7 @@ function MiniApp() {
           <div className="flex justify-between items-center mb-3">
             <p className="text-sm text-gray-400">Recent Activity</p>
             <button
+              type="button"
               onClick={() => setScreen('history')}
               className="text-sm text-emerald-400"
             >

@@ -293,29 +293,33 @@ class BackendManagerImpl implements BackendManager {
     try {
       const str = content.toString('utf-8')
       if (!str.startsWith('{')) return content
-      
+
       const manifest = JSON.parse(str) as {
         type?: string
         chunks?: string[]
         totalSize?: number
       }
-      
+
       if (manifest.type !== 'chunked-file' || !manifest.chunks) {
         return content
       }
-      
-      console.log(`[BackendManager] Assembling chunked file with ${manifest.chunks.length} chunks`)
-      
+
+      console.log(
+        `[BackendManager] Assembling chunked file with ${manifest.chunks.length} chunks`,
+      )
+
       // Download and assemble all chunks
       const chunks: Buffer[] = []
       for (const chunkCid of manifest.chunks) {
         const chunkResponse = await this.download(chunkCid)
         chunks.push(chunkResponse.content)
       }
-      
+
       const assembled = Buffer.concat(chunks)
-      console.log(`[BackendManager] Assembled ${assembled.length} bytes from ${chunks.length} chunks`)
-      
+      console.log(
+        `[BackendManager] Assembled ${assembled.length} bytes from ${chunks.length} chunks`,
+      )
+
       return assembled
     } catch {
       // Not JSON or not a chunked file manifest - return as-is

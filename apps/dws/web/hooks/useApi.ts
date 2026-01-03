@@ -888,7 +888,7 @@ export function useProviderStats() {
   const { address } = useAccount()
   return useQuery({
     queryKey: ['provider-stats', address],
-    queryFn: () => fetchApi<OperatorStats>(`/staking/nodes/${address}`),
+    queryFn: () => fetchApi<OperatorStats>(`/staking/operator/${address}`),
     enabled: !!address,
     refetchInterval: 30000,
   })

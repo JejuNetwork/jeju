@@ -8,7 +8,7 @@ contract FeeConfigTest is Test {
     FeeConfig public feeConfig;
 
     address council = makeAddr("council");
-    address director = makeAddr("ceo");
+    address director = makeAddr("director");
     address treasury = makeAddr("treasury");
     address owner = makeAddr("owner");
 
@@ -128,7 +128,7 @@ contract FeeConfigTest is Test {
         (,,, uint256 effectiveAt,,) = feeConfig.pendingChanges(changeId);
 
         // Try to execute immediately - should fail with TimelockNotExpired
-        vm.prank(ceo);
+        vm.prank(director);
         vm.expectRevert(abi.encodeWithSelector(FeeConfig.TimelockNotExpired.selector, effectiveAt, block.timestamp));
         feeConfig.executeFeeChange(changeId);
 
@@ -136,7 +136,7 @@ contract FeeConfigTest is Test {
         vm.warp(block.timestamp + 3 days + 1);
 
         // Execute should succeed
-        vm.prank(ceo);
+        vm.prank(director);
         feeConfig.executeFeeChange(changeId);
 
         // Verify fees changed
@@ -160,7 +160,7 @@ contract FeeConfigTest is Test {
         assertEq(effectiveAt, block.timestamp); // Instant
 
         // Execute immediately
-        vm.prank(ceo);
+        vm.prank(director);
         feeConfig.executeFeeChange(changeId);
 
         // Verify fees changed
@@ -180,7 +180,7 @@ contract FeeConfigTest is Test {
 
         // Try to execute - should fail because it's marked as executed
         vm.warp(block.timestamp + 3 days + 1);
-        vm.prank(ceo);
+        vm.prank(director);
         vm.expectRevert(FeeConfig.AlreadyExecuted.selector);
         feeConfig.executeFeeChange(changeId);
     }
@@ -229,10 +229,10 @@ contract FeeConfigTest is Test {
     }
 
     function test_SetDirector() public {
-        address newCeo = makeAddr("newCeo");
+        address newDirector = makeAddr("newDirector");
         vm.prank(owner);
-        feeConfig.setDirector(newCeo);
-        assertEq(feeConfig.ceo(), newCeo);
+        feeConfig.setDirector(newDirector);
+        assertEq(feeConfig.director(), newDirector);
     }
 
     function test_SetTreasury() public {

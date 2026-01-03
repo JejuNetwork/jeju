@@ -368,10 +368,10 @@ def run_real_op_stack(plan, args):
 def start_sqlit(plan, sqlit_image):
     """Start SQLit node."""
     
-    sqlit_config = plan.render_templates(
-        config={
-            "config.yaml": struct(
-                template="""# SQLit single-node config for local development
+        sqlit_config = plan.render_templates(
+            config={
+                "config.yaml": struct(
+                    template="""# SQLit single-node config for local development
 WorkingRoot: "/data"
 ThisNodeID: "00000000000000000000000000000000"
 ListenAddr: "0.0.0.0:4661"
@@ -381,64 +381,64 @@ Genesis:
   Timestamp: "2024-01-01T00:00:00Z"
   BaseVersion: "1.0.0"
 """,
-                data={},
-            ),
-        },
-        name="sqlit-config",
-    )
-    
-    sqlit = plan.add_service(
-        name="sqlit",
-        config=ServiceConfig(
-            image=sqlit_image,
-            ports={
-                "api": PortSpec(number=4661, transport_protocol="TCP"),
+                    data={},
+                ),
             },
-            cmd=[
-                "-config", "/app/config.yaml",
-                "-single-node",
-            ],
-            env_vars={
-                "SQLIT_LOG_LEVEL": "info",
-            },
-            files={
-                "/app": sqlit_config,
-            },
+            name="sqlit-config",
         )
-    )
-    
-    plan.print("SQLit started")
+        
+        sqlit = plan.add_service(
+            name="sqlit",
+            config=ServiceConfig(
+                image=sqlit_image,
+                ports={
+                "api": PortSpec(number=4661, transport_protocol="TCP"),
+                },
+                cmd=[
+                    "-config", "/app/config.yaml",
+                    "-single-node",
+                ],
+                env_vars={
+                    "SQLIT_LOG_LEVEL": "info",
+                },
+                files={
+                    "/app": sqlit_config,
+                },
+            )
+        )
+        
+        plan.print("SQLit started")
 
 
 def start_solana(plan, solana_image):
     """Start Solana test validator."""
     
-    solana = plan.add_service(
-        name="solana-validator",
-        config=ServiceConfig(
-            image=solana_image,
-            ports={
+        solana = plan.add_service(
+            name="solana-validator",
+            config=ServiceConfig(
+                image=solana_image,
+                ports={
                 "rpc": PortSpec(number=8899, transport_protocol="TCP"),
                 "ws": PortSpec(number=8900, transport_protocol="TCP"),
                 "faucet": PortSpec(number=9900, transport_protocol="TCP"),
-            },
-            cmd=[
-                "solana-test-validator",
-                "--bind-address", "0.0.0.0",
-                "--rpc-port", "8899",
-                "--faucet-port", "9900",
-                "--ledger", "/data/ledger",
-                "--log",
+                },
+                cmd=[
+                    "solana-test-validator",
+                    "--bind-address", "0.0.0.0",
+                    "--rpc-port", "8899",
+                    "--faucet-port", "9900",
+                    "--ledger", "/data/ledger",
+                    "--log",
                 "--reset",
-                "--quiet",
-            ],
-            env_vars={
-                "RUST_LOG": "solana_runtime::system_instruction_processor=warn,solana_runtime::message_processor=warn,solana_bpf_loader=warn,solana_rbpf=warn",
-            },
+                    "--quiet",
+                ],
+                env_vars={
+                    "RUST_LOG": "solana_runtime::system_instruction_processor=warn,solana_runtime::message_processor=warn,solana_bpf_loader=warn,solana_rbpf=warn",
+                },
+            )
         )
-    )
-    
-    plan.print("Solana Test Validator started")
+        
+        plan.print("Solana Test Validator started")
 
 
 def print_endpoints(plan, real, enable_sqlit, enable_solana):

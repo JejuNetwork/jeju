@@ -1576,7 +1576,10 @@ deployCommand
     'Network: localnet | testnet | mainnet',
     'localnet',
   )
-  .option('--app <name>', 'Deploy only a specific app (otto, vpn, wallet, node)')
+  .option(
+    '--app <name>',
+    'Deploy only a specific app (otto, vpn, wallet, node)',
+  )
   .option('--skip-build', 'Skip building apps')
   .option('--skip-jns', 'Skip JNS registration')
   .option('--dry-run', 'Simulate without making changes')

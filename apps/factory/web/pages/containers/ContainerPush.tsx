@@ -128,10 +128,14 @@ export function ContainerPushPage() {
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Image Name */}
         <div>
-          <label className="block text-sm font-medium text-white/90 mb-2">
+          <label
+            htmlFor="image-name"
+            className="block text-sm font-medium text-white/90 mb-2"
+          >
             Image Name <span className="text-red-400">*</span>
           </label>
           <input
+            id="image-name"
             type="text"
             value={formData.name}
             onChange={(e) =>
@@ -150,10 +154,14 @@ export function ContainerPushPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Tag */}
           <div>
-            <label className="block text-sm font-medium text-white/90 mb-2">
+            <label
+              htmlFor="image-tag"
+              className="block text-sm font-medium text-white/90 mb-2"
+            >
               Tag <span className="text-red-400">*</span>
             </label>
             <input
+              id="image-tag"
               type="text"
               value={formData.tag}
               onChange={(e) =>
@@ -167,10 +175,14 @@ export function ContainerPushPage() {
 
           {/* Platform */}
           <div>
-            <label className="block text-sm font-medium text-white/90 mb-2">
+            <label
+              htmlFor="image-platform"
+              className="block text-sm font-medium text-white/90 mb-2"
+            >
               Platform
             </label>
             <select
+              id="image-platform"
               value={formData.platform}
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, platform: e.target.value }))
@@ -188,10 +200,14 @@ export function ContainerPushPage() {
 
         {/* Digest */}
         <div>
-          <label className="block text-sm font-medium text-white/90 mb-2">
+          <label
+            htmlFor="image-digest"
+            className="block text-sm font-medium text-white/90 mb-2"
+          >
             Image Digest
           </label>
           <input
+            id="image-digest"
             type="text"
             value={formData.digest}
             onChange={(e) =>
@@ -207,11 +223,15 @@ export function ContainerPushPage() {
 
         {/* Labels */}
         <div>
-          <label className="block text-sm font-medium text-white/90 mb-2">
+          <label
+            htmlFor="label-key"
+            className="block text-sm font-medium text-white/90 mb-2"
+          >
             Labels
           </label>
           <div className="flex gap-2 mb-3">
             <input
+              id="label-key"
               type="text"
               value={labelKey}
               onChange={(e) => setLabelKey(e.target.value)}

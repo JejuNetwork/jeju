@@ -6,25 +6,21 @@
  * and configures JNS and CDN routing.
  */
 
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
+import { getL2RpcUrl, getServicesConfig } from '@jejunetwork/config'
 import {
-  getCurrentNetwork,
-  getL2RpcUrl,
-  getServicesConfig,
-} from '@jejunetwork/config'
-import {
+  type Address,
   createPublicClient,
   createWalletClient,
+  type Hex,
   http,
   keccak256,
   stringToBytes,
-  type Address,
-  type Hex,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { baseSepolia, base } from 'viem/chains'
+import { base, baseSepolia } from 'viem/chains'
 import { z } from 'zod'
 
 const APPS = ['otto', 'vpn', 'wallet', 'node'] as const
@@ -102,7 +98,9 @@ async function main() {
   }
 
   if (options.app && !APPS.includes(options.app)) {
-    console.error(`Invalid app: ${options.app}. Must be one of: ${APPS.join(', ')}`)
+    console.error(
+      `Invalid app: ${options.app}. Must be one of: ${APPS.join(', ')}`,
+    )
     process.exit(1)
   }
 
@@ -130,7 +128,9 @@ async function main() {
   console.log('╠════════════════════════════════════════════════════════════╣')
   for (const appName of appsToProcess) {
     const appConfig = APP_CONFIGS[appName]
-    console.log(`║  ${appConfig.jnsName.padEnd(15)} -> ${appConfig.name}.jejunetwork.org`.padEnd(60) + '║')
+    console.log(
+      `${`║  ${appConfig.jnsName.padEnd(15)} -> ${appConfig.name}.jejunetwork.org`.padEnd(60)}║`,
+    )
   }
   console.log('╚════════════════════════════════════════════════════════════╝')
 }
@@ -143,7 +143,9 @@ interface DeployConfig {
 }
 
 function getDeployConfig(network: string): DeployConfig {
-  const services = getServicesConfig(network as 'localnet' | 'testnet' | 'mainnet')
+  const services = getServicesConfig(
+    network as 'localnet' | 'testnet' | 'mainnet',
+  )
 
   const privateKey = process.env.DEPLOYER_PRIVATE_KEY ?? process.env.PRIVATE_KEY
   if (!privateKey) {
@@ -208,7 +210,12 @@ async function deployApp(
 
   // Upload files to DWS storage
   console.log(`[${appName}] Uploading to DWS storage...`)
-  const uploadedFiles = await uploadDirectory(config.dwsUrl, distDir, `${appName}-lander`, options.dryRun)
+  const uploadedFiles = await uploadDirectory(
+    config.dwsUrl,
+    distDir,
+    `${appName}-lander`,
+    options.dryRun,
+  )
   console.log(`[${appName}] Uploaded ${uploadedFiles.size} files`)
 
   // Get index.html CID
@@ -234,7 +241,10 @@ async function deployApp(
         { path: '/storage/*', backend: 'dws-storage' },
         ...(appConfig.hasMiniapp
           ? [
-              { path: '/miniapp', static: `${appName}-lander/miniapp/index.html` },
+              {
+                path: '/miniapp',
+                static: `${appName}-lander/miniapp/index.html`,
+              },
               { path: '/miniapp/*', static: `${appName}-lander/miniapp/` },
             ]
           : []),
@@ -248,8 +258,10 @@ async function deployApp(
         body: JSON.stringify(cdnConfig),
       })
       console.log(`[${appName}] CDN configured`)
-    } catch (e) {
-      console.warn(`[${appName}] CDN configuration failed (may not be available)`)
+    } catch (_e) {
+      console.warn(
+        `[${appName}] CDN configuration failed (may not be available)`,
+      )
     }
   }
 
@@ -275,7 +287,10 @@ async function uploadDirectory(
 ): Promise<Map<string, string>> {
   const results = new Map<string, string>()
 
-  async function uploadFile(filePath: string, relativePath: string): Promise<void> {
+  async function uploadFile(
+    filePath: string,
+    relativePath: string,
+  ): Promise<void> {
     const key = relativePath
 
     if (dryRun) {
@@ -502,7 +517,10 @@ function encodeIPFSContenthash(cid: string): Hex {
 function findMonorepoRoot(): string {
   let dir = process.cwd()
   while (dir !== '/') {
-    if (existsSync(join(dir, 'package.json')) && existsSync(join(dir, 'apps'))) {
+    if (
+      existsSync(join(dir, 'package.json')) &&
+      existsSync(join(dir, 'apps'))
+    ) {
       return dir
     }
     dir = resolve(dir, '..')

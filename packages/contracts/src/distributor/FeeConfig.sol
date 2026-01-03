@@ -98,9 +98,8 @@ contract FeeConfig is Ownable, Pausable {
     address public board; // Board governance contract (formerly council)
     address public director; // Director agent (formerly director)
     address public treasury;
-    // Legacy aliases for backwards compatibility
+    // Legacy alias for backwards compatibility
     address public council;
-    address public director;
 
     mapping(bytes32 => PendingFeeChange) public pendingChanges;
     mapping(bytes32 => uint256) public lastUpdated;
@@ -145,9 +144,8 @@ contract FeeConfig is Ownable, Pausable {
     event BoardUpdated(address indexed oldBoard, address indexed newBoard);
     event DirectorUpdated(address indexed oldDirector, address indexed newDirector);
     event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
-    // Legacy events for backwards compatibility
+    // Legacy event alias
     event CouncilUpdated(address indexed oldCouncil, address indexed newCouncil);
-    event DirectorUpdated(address indexed oldCeo, address indexed newCeo);
     // App-specific fee events
     event AppFeeOverrideSet(bytes32 indexed daoId, bytes32 indexed feeKey, uint256 newValue, address setBy);
     event AppFeeOverrideRemoved(bytes32 indexed daoId, bytes32 indexed feeKey);
@@ -180,14 +178,9 @@ contract FeeConfig is Ownable, Pausable {
         _;
     }
 
-    // Legacy modifiers for backwards compatibility
+    // Legacy modifier for backwards compatibility
     modifier onlyCouncil() {
         if (msg.sender != board && msg.sender != owner()) revert NotAuthorized();
-        _;
-    }
-
-    modifier onlyDirector() {
-        if (msg.sender != director && msg.sender != owner()) revert NotAuthorized();
         _;
     }
 
@@ -767,24 +760,14 @@ contract FeeConfig is Ownable, Pausable {
     function setDirector(address newDirector) external onlyOwner {
         emit DirectorUpdated(director, newDirector);
         director = newDirector;
-        // Update legacy alias
-        director = newDirector;
-        emit DirectorUpdated(director, newDirector);
     }
 
-    // Legacy setters for backwards compatibility
+    // Legacy setter for backwards compatibility
     function setCouncil(address newCouncil) external onlyOwner {
         emit BoardUpdated(board, newCouncil);
         board = newCouncil;
         council = newCouncil;
         emit CouncilUpdated(board, newCouncil);
-    }
-
-    function setDirector(address newCeo) external onlyOwner {
-        emit DirectorUpdated(director, newCeo);
-        director = newCeo;
-        director = newCeo;
-        emit DirectorUpdated(director, newCeo);
     }
 
     function setTreasury(address newTreasury) external onlyOwner {

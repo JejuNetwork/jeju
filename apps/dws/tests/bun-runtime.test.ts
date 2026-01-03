@@ -9,10 +9,10 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
-import { WorkerRuntime } from '../api/workers/runtime'
 import type { BackendManager } from '../api/storage/backends'
-import type { WorkerFunction } from '../api/workers/types'
 import type { UploadResult } from '../api/storage/types'
+import { WorkerRuntime } from '../api/workers/runtime'
+import type { WorkerFunction } from '../api/workers/types'
 
 // Test configuration
 const TEST_TIMEOUT = 20000 // 20 seconds
@@ -516,7 +516,9 @@ export default {
 
     if (unexpectedErrors.length > 0) {
       console.log('Unexpected errors:')
-      unexpectedErrors.forEach((err) => console.log(' -', err.slice(0, 200)))
+      for (const err of unexpectedErrors) {
+        console.log(' -', err.slice(0, 200))
+      }
     }
 
     expect(unexpectedErrors.length).toBe(0)

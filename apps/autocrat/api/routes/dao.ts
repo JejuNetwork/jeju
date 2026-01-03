@@ -178,29 +178,42 @@ export const daoRoutes = new Elysia({ prefix: '/api/v1/dao' })
   // Update DAO (Director persona/model)
   .patch(
     '/:daoId',
-    async ({ params, body }) => {
-      const service = getService()
-      const exists = await service.daoExists(params.daoId)
-      if (!exists) throw new Error('DAO not found')
+    async ({ params, body, set }) => {
+      try {
+        const service = getService()
+        const exists = await service.daoExists(params.daoId)
+        if (!exists) {
+          set.status = 404
+          return { error: 'DAO not found', daoId: params.daoId }
+        }
 
-      if (body.directorPersona) {
-        await service.setDirectorPersona(params.daoId, {
-          name: body.directorPersona.name,
-          pfpCid: body.directorPersona.pfpCid ?? '',
-          description: body.directorPersona.description,
-          personality: body.directorPersona.personality,
-          traits: body.directorPersona.traits ?? [],
-          voiceStyle: 'professional',
-          communicationTone: 'professional' as const,
-          specialties: [],
-          isHuman: body.directorPersona.isHuman ?? false,
-          decisionFallbackDays: body.directorPersona.decisionFallbackDays ?? 7,
-        })
+        if (body.directorPersona) {
+          await service.setDirectorPersona(params.daoId, {
+            name: body.directorPersona.name,
+            pfpCid: body.directorPersona.pfpCid ?? '',
+            description: body.directorPersona.description,
+            personality: body.directorPersona.personality,
+            traits: body.directorPersona.traits ?? [],
+            voiceStyle: 'professional',
+            communicationTone: 'professional' as const,
+            specialties: [],
+            isHuman: body.directorPersona.isHuman ?? false,
+            decisionFallbackDays:
+              body.directorPersona.decisionFallbackDays ?? 7,
+          })
+        }
+        if (body.directorModel) {
+          await service.setDirectorModel(params.daoId, body.directorModel)
+        }
+        return service.getDAOFull(params.daoId)
+      } catch (error) {
+        set.status = 404
+        return {
+          error: 'DAO update failed',
+          daoId: params.daoId,
+          details: error instanceof Error ? error.message : String(error),
+        }
       }
-      if (body.directorModel) {
-        await service.setDirectorModel(params.daoId, body.directorModel)
-      }
-      return service.getDAOFull(params.daoId)
     },
     {
       params: t.Object({ daoId: t.String() }),
@@ -225,19 +238,31 @@ export const daoRoutes = new Elysia({ prefix: '/api/v1/dao' })
   // Update governance params
   .patch(
     '/:daoId/governance',
-    async ({ params, body }) => {
-      const service = getService()
-      const exists = await service.daoExists(params.daoId)
-      if (!exists) throw new Error('DAO not found')
+    async ({ params, body, set }) => {
+      try {
+        const service = getService()
+        const exists = await service.daoExists(params.daoId)
+        if (!exists) {
+          set.status = 404
+          return { error: 'DAO not found', daoId: params.daoId }
+        }
 
-      await service.setGovernanceParams(params.daoId, {
-        minQualityScore: body.minQualityScore,
-        boardVotingPeriod: body.boardVotingPeriod,
-        gracePeriod: body.gracePeriod,
-        minProposalStake: BigInt(body.minProposalStake),
-        quorumBps: body.quorumBps,
-      })
-      return service.getDAOFull(params.daoId)
+        await service.setGovernanceParams(params.daoId, {
+          minQualityScore: body.minQualityScore,
+          boardVotingPeriod: body.boardVotingPeriod,
+          gracePeriod: body.gracePeriod,
+          minProposalStake: BigInt(body.minProposalStake),
+          quorumBps: body.quorumBps,
+        })
+        return service.getDAOFull(params.daoId)
+      } catch (error) {
+        set.status = 500
+        return {
+          error: 'Governance update failed',
+          daoId: params.daoId,
+          details: error instanceof Error ? error.message : String(error),
+        }
+      }
     },
     {
       params: t.Object({ daoId: t.String() }),
@@ -282,23 +307,35 @@ export const daoRoutes = new Elysia({ prefix: '/api/v1/dao' })
   // Add council member (agent)
   .post(
     '/:daoId/agents',
-    async ({ params, body }) => {
-      const service = getService()
-      const exists = await service.daoExists(params.daoId)
-      if (!exists) throw new Error('DAO not found')
+    async ({ params, body, set }) => {
+      try {
+        const service = getService()
+        const exists = await service.daoExists(params.daoId)
+        if (!exists) {
+          set.status = 404
+          return { error: 'DAO not found', daoId: params.daoId }
+        }
 
-      const txHash = await service.addCouncilMember(
-        params.daoId,
-        body.address as Address,
-        BigInt(body.agentId),
-        body.role,
-        body.weight,
-      )
-      const members = await service.getBoardMembers(params.daoId)
-      const newMember = members.find(
-        (m) => m.member.toLowerCase() === body.address.toLowerCase(),
-      )
-      return { ...newMember, txHash }
+        const txHash = await service.addCouncilMember(
+          params.daoId,
+          body.address as Address,
+          BigInt(body.agentId),
+          body.role,
+          body.weight,
+        )
+        const members = await service.getBoardMembers(params.daoId)
+        const newMember = members.find(
+          (m) => m.member.toLowerCase() === body.address.toLowerCase(),
+        )
+        return { ...newMember, txHash }
+      } catch (error) {
+        set.status = 500
+        return {
+          error: 'Failed to add council member',
+          daoId: params.daoId,
+          details: error instanceof Error ? error.message : String(error),
+        }
+      }
     },
     {
       params: t.Object({ daoId: t.String() }),
@@ -315,14 +352,31 @@ export const daoRoutes = new Elysia({ prefix: '/api/v1/dao' })
   // Get single agent
   .get(
     '/:daoId/agents/:agentId',
-    async ({ params }) => {
-      const service = getService()
-      const members = await service.getBoardMembers(params.daoId)
-      const member = members.find(
-        (m) => m.agentId.toString() === params.agentId,
-      )
-      if (!member) throw new Error('Agent not found')
-      return member
+    async ({ params, set }) => {
+      try {
+        const service = getService()
+        const members = await service.getBoardMembers(params.daoId)
+        const member = members.find(
+          (m) => m.agentId.toString() === params.agentId,
+        )
+        if (!member) {
+          set.status = 404
+          return {
+            error: 'Agent not found',
+            daoId: params.daoId,
+            agentId: params.agentId,
+          }
+        }
+        return member
+      } catch (error) {
+        set.status = 404
+        return {
+          error: 'Agent lookup failed',
+          daoId: params.daoId,
+          agentId: params.agentId,
+          details: error instanceof Error ? error.message : String(error),
+        }
+      }
     },
     {
       params: t.Object({ daoId: t.String(), agentId: t.String() }),
@@ -333,42 +387,62 @@ export const daoRoutes = new Elysia({ prefix: '/api/v1/dao' })
   // Update agent (for Director, use setDirectorPersona; for council, limited update)
   .patch(
     '/:daoId/agents/:agentId',
-    async ({ params, body }) => {
-      const service = getService()
-      const exists = await service.daoExists(params.daoId)
-      if (!exists) throw new Error('DAO not found')
+    async ({ params, body, set }) => {
+      try {
+        const service = getService()
+        const exists = await service.daoExists(params.daoId)
+        if (!exists) {
+          set.status = 404
+          return { error: 'DAO not found', daoId: params.daoId }
+        }
 
-      // If updating Director (agentId = 0 or role = Director), update persona
-      if (params.agentId === '0' || body.role === 'Director') {
-        if (body.persona) {
-          await service.setDirectorPersona(params.daoId, {
-            name: body.persona.name,
-            pfpCid: body.persona.pfpCid ?? '',
-            description: body.persona.description,
-            personality: body.persona.personality,
-            traits: body.persona.traits ?? [],
-            voiceStyle: 'professional',
-            communicationTone: 'professional' as const,
-            specialties: [],
-            isHuman: body.persona.isHuman ?? false,
-            decisionFallbackDays: body.persona.decisionFallbackDays ?? 7,
-          })
+        // If updating Director (agentId = 0 or role = Director), update persona
+        if (params.agentId === '0' || body.role === 'Director') {
+          if (body.persona) {
+            await service.setDirectorPersona(params.daoId, {
+              name: body.persona.name,
+              pfpCid: body.persona.pfpCid ?? '',
+              description: body.persona.description,
+              personality: body.persona.personality,
+              traits: body.persona.traits ?? [],
+              voiceStyle: 'professional',
+              communicationTone: 'professional' as const,
+              specialties: [],
+              isHuman: body.persona.isHuman ?? false,
+              decisionFallbackDays: body.persona.decisionFallbackDays ?? 7,
+            })
+          }
+          if (body.model) {
+            await service.setDirectorModel(params.daoId, body.model)
+          }
+          const persona = await service.getDirectorPersona(params.daoId)
+          return { agentId: '0', role: 'Director', persona }
         }
-        if (body.model) {
-          await service.setDirectorModel(params.daoId, body.model)
+
+        // For council members, would need contract support for weight updates
+        // For now, return current state
+        const members = await service.getBoardMembers(params.daoId)
+        const member = members.find(
+          (m) => m.agentId.toString() === params.agentId,
+        )
+        if (!member) {
+          set.status = 404
+          return {
+            error: 'Agent not found',
+            daoId: params.daoId,
+            agentId: params.agentId,
+          }
         }
-        const persona = await service.getDirectorPersona(params.daoId)
-        return { agentId: '0', role: 'Director', persona }
+        return member
+      } catch (error) {
+        set.status = 404
+        return {
+          error: 'Agent update failed',
+          daoId: params.daoId,
+          agentId: params.agentId,
+          details: error instanceof Error ? error.message : String(error),
+        }
       }
-
-      // For council members, would need contract support for weight updates
-      // For now, return current state
-      const members = await service.getBoardMembers(params.daoId)
-      const member = members.find(
-        (m) => m.agentId.toString() === params.agentId,
-      )
-      if (!member) throw new Error('Agent not found')
-      return member
     },
     {
       params: t.Object({ daoId: t.String(), agentId: t.String() }),

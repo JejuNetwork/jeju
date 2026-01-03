@@ -86,33 +86,6 @@ export const agentsRoutes = new Elysia({ prefix: '/api/v1/agents' })
       detail: { tags: ['agents'], summary: 'Get total agent count' },
     },
   )
-  .get(
-    '/:id',
-    async ({ params, set }) => {
-      try {
-        const agentId = BigInt(params.id)
-        const identity = await erc8004.getAgentIdentity(agentId)
-        if (!identity) {
-          set.status = 404
-          return { error: 'Agent not found', agentId: params.id }
-        }
-        const reputation = await erc8004.getAgentReputation(agentId)
-        const validation = await erc8004.getValidationSummary(agentId)
-        return { ...identity, reputation, validation }
-      } catch (error) {
-        set.status = 404
-        return {
-          error: 'Agent not found or registry unavailable',
-          agentId: params.id,
-          details: error instanceof Error ? error.message : String(error),
-        }
-      }
-    },
-    {
-      params: t.Object({ id: t.String() }),
-      detail: { tags: ['agents'], summary: 'Get agent by ID' },
-    },
-  )
   .post(
     '/register',
     async ({ body }) => {
@@ -273,6 +246,34 @@ export const agentsRoutes = new Elysia({ prefix: '/api/v1/agents' })
     },
     {
       detail: { tags: ['agents'], summary: 'Get council/board members' },
+    },
+  )
+  // Get agent by ID - must be after specific routes like /director, /council
+  .get(
+    '/:id',
+    async ({ params, set }) => {
+      try {
+        const agentId = BigInt(params.id)
+        const identity = await erc8004.getAgentIdentity(agentId)
+        if (!identity) {
+          set.status = 404
+          return { error: 'Agent not found', agentId: params.id }
+        }
+        const reputation = await erc8004.getAgentReputation(agentId)
+        const validation = await erc8004.getValidationSummary(agentId)
+        return { ...identity, reputation, validation }
+      } catch (error) {
+        set.status = 404
+        return {
+          error: 'Agent not found or registry unavailable',
+          agentId: params.id,
+          details: error instanceof Error ? error.message : String(error),
+        }
+      }
+    },
+    {
+      params: t.Object({ id: t.String() }),
+      detail: { tags: ['agents'], summary: 'Get agent by ID' },
     },
   )
   .post(

@@ -194,8 +194,6 @@ contract DAORegistry is IDAORegistry, Ownable, Pausable, ReentrancyGuard {
 
         emit DAOCreated(daoId, name, treasury, msg.sender);
         emit DirectorPersonaUpdated(daoId, directorPersona.name, directorPersona.pfpCid, directorPersona.isHuman);
-        // Legacy event for backwards compatibility
-        emit DirectorPersonaUpdated(daoId, directorPersona.name, directorPersona.pfpCid);
     }
 
     /**
@@ -274,16 +272,6 @@ contract DAORegistry is IDAORegistry, Ownable, Pausable, ReentrancyGuard {
     }
 
     /**
-     * @notice Set DAO Director agent contract address (legacy alias)
-     */
-    function setDAODirectorAgent(bytes32 daoId, address directorAgent) external onlyExistingDAO(daoId) onlyDAOAdmin(daoId) {
-        _daos[daoId].directorAgent = directorAgent;
-        _daos[daoId].updatedAt = block.timestamp;
-
-        emit DAOUpdated(daoId, "directorAgent", abi.encode(ceoAgent));
-    }
-
-    /**
      * @notice Set DAO fee config contract address
      */
     function setDAOFeeConfig(bytes32 daoId, address feeConfig) external onlyExistingDAO(daoId) onlyDAOAdmin(daoId) {
@@ -319,35 +307,6 @@ contract DAORegistry is IDAORegistry, Ownable, Pausable, ReentrancyGuard {
         _daos[daoId].updatedAt = block.timestamp;
 
         emit DirectorPersonaUpdated(daoId, persona.name, persona.pfpCid, persona.isHuman);
-        // Legacy event
-        emit DirectorPersonaUpdated(daoId, persona.name, persona.pfpCid);
-    }
-
-    /**
-     * @notice Update Director persona (legacy alias)
-     */
-    function setDirectorPersona(bytes32 daoId, DirectorPersona calldata persona)
-        external
-        onlyExistingDAO(daoId)
-        onlyDAOAdmin(daoId)
-    {
-        if (persona.decisionFallbackDays > 30) revert InvalidFallbackDays();
-
-        _directorPersonas[daoId] = DirectorPersona({
-            name: persona.name,
-            pfpCid: persona.pfpCid,
-            description: persona.description,
-            personality: persona.personality,
-            traits: persona.traits,
-            isHuman: persona.isHuman,
-            humanAddress: persona.humanAddress,
-            agentId: persona.agentId,
-            decisionFallbackDays: persona.decisionFallbackDays
-        });
-        _daos[daoId].updatedAt = block.timestamp;
-
-        emit DirectorPersonaUpdated(daoId, persona.name, persona.pfpCid, persona.isHuman);
-        emit DirectorPersonaUpdated(daoId, persona.name, persona.pfpCid);
     }
 
     /**
@@ -358,20 +317,6 @@ contract DAORegistry is IDAORegistry, Ownable, Pausable, ReentrancyGuard {
         _daos[daoId].directorModelId = modelId;
         _daos[daoId].updatedAt = block.timestamp;
 
-        emit DirectorModelChanged(daoId, oldModel, modelId);
-        // Legacy event
-        emit DirectorModelChanged(daoId, oldModel, modelId);
-    }
-
-    /**
-     * @notice Set Director model (legacy alias)
-     */
-    function setDirectorModel(bytes32 daoId, bytes32 modelId) external onlyExistingDAO(daoId) onlyDAOAdmin(daoId) {
-        bytes32 oldModel = _daos[daoId].directorModelId;
-        _daos[daoId].directorModelId = modelId;
-        _daos[daoId].updatedAt = block.timestamp;
-
-        emit DirectorModelChanged(daoId, oldModel, modelId);
         emit DirectorModelChanged(daoId, oldModel, modelId);
     }
 
@@ -651,13 +596,6 @@ contract DAORegistry is IDAORegistry, Ownable, Pausable, ReentrancyGuard {
 
     /**
      * @notice Get Director persona for a DAO
-     */
-    function getDirectorPersona(bytes32 daoId) external view returns (DirectorPersona memory) {
-        return _directorPersonas[daoId];
-    }
-
-    /**
-     * @notice Get Director persona for a DAO (legacy alias)
      */
     function getDirectorPersona(bytes32 daoId) external view returns (DirectorPersona memory) {
         return _directorPersonas[daoId];

@@ -155,12 +155,16 @@ export function PackagePublishPage() {
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Package Name */}
         <div>
-          <label className="block text-sm font-medium text-white/90 mb-2">
+          <label
+            htmlFor="package-name"
+            className="block text-sm font-medium text-white/90 mb-2"
+          >
             Package Name <span className="text-red-400">*</span>
           </label>
           <div className="relative">
             <Package className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
             <input
+              id="package-name"
               type="text"
               value={formData.name}
               onChange={(e) =>
@@ -180,10 +184,14 @@ export function PackagePublishPage() {
 
         {/* Version */}
         <div>
-          <label className="block text-sm font-medium text-white/90 mb-2">
+          <label
+            htmlFor="package-version"
+            className="block text-sm font-medium text-white/90 mb-2"
+          >
             Version <span className="text-red-400">*</span>
           </label>
           <input
+            id="package-version"
             type="text"
             value={formData.version}
             onChange={(e) =>
@@ -201,10 +209,14 @@ export function PackagePublishPage() {
 
         {/* Description */}
         <div>
-          <label className="block text-sm font-medium text-white/90 mb-2">
+          <label
+            htmlFor="package-description"
+            className="block text-sm font-medium text-white/90 mb-2"
+          >
             Description
           </label>
           <textarea
+            id="package-description"
             value={formData.description}
             onChange={(e) =>
               setFormData((prev) => ({ ...prev, description: e.target.value }))
@@ -221,10 +233,14 @@ export function PackagePublishPage() {
 
         {/* License */}
         <div>
-          <label className="block text-sm font-medium text-white/90 mb-2">
+          <label
+            htmlFor="package-license"
+            className="block text-sm font-medium text-white/90 mb-2"
+          >
             License <span className="text-red-400">*</span>
           </label>
           <select
+            id="package-license"
             value={formData.license}
             onChange={(e) =>
               setFormData((prev) => ({ ...prev, license: e.target.value }))
@@ -242,10 +258,14 @@ export function PackagePublishPage() {
 
         {/* Repository */}
         <div>
-          <label className="block text-sm font-medium text-white/90 mb-2">
+          <label
+            htmlFor="package-repository"
+            className="block text-sm font-medium text-white/90 mb-2"
+          >
             Repository URL
           </label>
           <input
+            id="package-repository"
             type="url"
             value={formData.repository}
             onChange={(e) =>
@@ -258,11 +278,15 @@ export function PackagePublishPage() {
 
         {/* Keywords */}
         <div>
-          <label className="block text-sm font-medium text-white/90 mb-2">
+          <label
+            htmlFor="package-keyword-input"
+            className="block text-sm font-medium text-white/90 mb-2"
+          >
             Keywords
           </label>
           <div className="flex gap-2">
             <input
+              id="package-keyword-input"
               type="text"
               value={keywordInput}
               onChange={(e) => setKeywordInput(e.target.value)}
@@ -302,9 +326,10 @@ export function PackagePublishPage() {
 
         {/* File Upload */}
         <div>
-          <label className="block text-sm font-medium text-white/90 mb-2">
+          <span className="block text-sm font-medium text-white/90 mb-2">
             Package Files
-          </label>
+          </span>
+          {/* biome-ignore lint/a11y/noStaticElementInteractions: Drop zone uses drag events with hidden file input */}
           <div
             className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
               dragActive

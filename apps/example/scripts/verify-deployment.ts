@@ -21,7 +21,10 @@ const args = parseArgs({
   },
 })
 
-const BASE_URL = args.values.url!
+if (!args.values.url) {
+  throw new Error('URL is required')
+}
+const BASE_URL = args.values.url
 const FRONTEND_URL = args.values.frontend || BASE_URL
 const TIMEOUT = Number(args.values.timeout)
 const VERBOSE = args.values.verbose

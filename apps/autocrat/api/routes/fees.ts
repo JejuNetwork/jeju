@@ -178,7 +178,7 @@ export const feesRoutes = new Elysia({ prefix: '/fees' })
       },
       governance: {
         treasury: state.treasury,
-        council: state.council,
+        council: state.board,
         director: state.director,
       },
     }

@@ -171,10 +171,14 @@ export function ProjectNewPage() {
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Project Name */}
         <div>
-          <label className="block text-sm font-medium text-white/90 mb-2">
+          <label
+            htmlFor="project-name"
+            className="block text-sm font-medium text-white/90 mb-2"
+          >
             Project Name <span className="text-red-400">*</span>
           </label>
           <input
+            id="project-name"
             type="text"
             value={formData.name}
             onChange={(e) =>
@@ -188,10 +192,14 @@ export function ProjectNewPage() {
 
         {/* Description */}
         <div>
-          <label className="block text-sm font-medium text-white/90 mb-2">
+          <label
+            htmlFor="project-description"
+            className="block text-sm font-medium text-white/90 mb-2"
+          >
             Description <span className="text-red-400">*</span>
           </label>
           <textarea
+            id="project-description"
             value={formData.description}
             onChange={(e) =>
               setFormData((prev) => ({ ...prev, description: e.target.value }))
@@ -206,10 +214,10 @@ export function ProjectNewPage() {
 
         {/* Visibility */}
         <div>
-          <label className="block text-sm font-medium text-white/90 mb-3">
+          <span className="block text-sm font-medium text-white/90 mb-3">
             Visibility <span className="text-red-400">*</span>
-          </label>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          </span>
+          <fieldset className="grid grid-cols-1 md:grid-cols-3 gap-3 border-0 p-0 m-0">
             {VISIBILITY_OPTIONS.map((option) => {
               const VisibilityIcon = option.icon
               return (
@@ -250,16 +258,20 @@ export function ProjectNewPage() {
                 </button>
               )
             })}
-          </div>
+          </fieldset>
         </div>
 
         {/* Tags */}
         <div>
-          <label className="block text-sm font-medium text-white/90 mb-2">
+          <label
+            htmlFor="project-tag-input"
+            className="block text-sm font-medium text-white/90 mb-2"
+          >
             Tags
           </label>
           <div className="flex gap-2">
             <input
+              id="project-tag-input"
               type="text"
               value={tagInput}
               onChange={(e) => setTagInput(e.target.value)}
@@ -299,11 +311,15 @@ export function ProjectNewPage() {
 
         {/* Team Members */}
         <div>
-          <label className="block text-sm font-medium text-white/90 mb-2">
+          <label
+            htmlFor="project-member-input"
+            className="block text-sm font-medium text-white/90 mb-2"
+          >
             Team Members
           </label>
           <div className="flex gap-2">
             <input
+              id="project-member-input"
               type="text"
               value={memberInput}
               onChange={(e) => setMemberInput(e.target.value)}

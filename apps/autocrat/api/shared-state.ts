@@ -142,7 +142,7 @@ export function getSharedState(): {
     contracts: {
       feeConfig: config.contracts.feeConfig ?? ZERO_ADDRESS,
       treasury: config.contracts.treasury ?? ZERO_ADDRESS,
-      council: config.contracts.council ?? ZERO_ADDRESS,
+      council: config.contracts.board ?? ZERO_ADDRESS,
       daoRegistry: config.contracts.daoRegistry ?? ZERO_ADDRESS,
     },
     clients: {

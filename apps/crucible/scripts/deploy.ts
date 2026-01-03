@@ -101,9 +101,6 @@ interface UploadResult {
   size: number
 }
 
-const MAX_UPLOAD_RETRIES = 5
-const RETRY_DELAY_MS = 3000
-
 async function uploadToIPFS(
   dwsUrl: string,
   filePath: string,
@@ -112,62 +109,30 @@ async function uploadToIPFS(
   const content = await readFile(resolve(APP_DIR, filePath))
   const hash = keccak256(content) as `0x${string}`
 
-  let lastError: Error | null = null
+  const formData = new FormData()
+  formData.append('file', new Blob([content]), name)
+  formData.append('name', name)
 
-  for (let attempt = 1; attempt <= MAX_UPLOAD_RETRIES; attempt++) {
-    const formData = new FormData()
-    formData.append('file', new Blob([content]), name)
-    formData.append('name', name)
+  const response = await fetch(`${dwsUrl}/storage/upload`, {
+    method: 'POST',
+    body: formData,
+  })
 
-    const response = await fetch(`${dwsUrl}/storage/upload`, {
-      method: 'POST',
-      body: formData,
-    }).catch((err: Error) => {
-      lastError = err
-      return null
-    })
-
-    if (!response) {
-      console.log(
-        `   Retry ${attempt}/${MAX_UPLOAD_RETRIES} for ${name}: Network error`,
-      )
-      await new Promise((r) => setTimeout(r, RETRY_DELAY_MS))
-      continue
-    }
-
-    if (!response.ok) {
-      lastError = new Error(await response.text())
-      console.log(
-        `   Retry ${attempt}/${MAX_UPLOAD_RETRIES} for ${name}: ${lastError.message}`,
-      )
-      await new Promise((r) => setTimeout(r, RETRY_DELAY_MS))
-      continue
-    }
-
-    const rawJson: unknown = await response.json()
-    const parsed = IPFSUploadResponseSchema.safeParse(rawJson)
-    if (!parsed.success) {
-      throw new Error(`Invalid upload response: ${parsed.error.message}`)
-    }
-
-    return {
-      cid: parsed.data.cid,
-      hash,
-      size: content.length,
-    }
+  if (!response.ok) {
+    throw new Error(`Upload failed: ${await response.text()}`)
   }
 
-  throw new Error(
-    `Upload failed after ${MAX_UPLOAD_RETRIES} attempts: ${lastError?.message}`,
-  )
-}
+  const rawJson: unknown = await response.json()
+  const parsed = IPFSUploadResponseSchema.safeParse(rawJson)
+  if (!parsed.success) {
+    throw new Error(`Invalid upload response: ${parsed.error.message}`)
+  }
 
-// Files that are essential - must upload successfully
-function isEssentialFile(path: string): boolean {
-  // Source maps are not essential
-  if (path.endsWith('.map')) return false
-  // All other files are essential
-  return true
+  return {
+    cid: parsed.data.cid,
+    hash,
+    size: content.length,
+  }
 }
 
 async function uploadDirectory(
@@ -190,17 +155,9 @@ async function uploadDirectory(
         results.set(k, v)
       }
     } else {
-      try {
-        const result = await uploadToIPFS(dwsUrl, fullPath, key)
-        results.set(key, result)
-        console.log(`   ${key} -> ${result.cid}`)
-      } catch (err) {
-        if (isEssentialFile(key)) {
-          throw err // Re-throw for essential files
-        }
-        // Skip non-essential files (like source maps)
-        console.log(`   ${key} -> SKIPPED (non-essential)`)
-      }
+      const result = await uploadToIPFS(dwsUrl, fullPath, key)
+      results.set(key, result)
+      console.log(`   ${key} -> ${result.cid}`)
     }
   }
 
@@ -213,8 +170,46 @@ async function deployWorker(
 ): Promise<string> {
   const account = privateKeyToAccount(config.privateKey)
 
-  // Step 1: Register with workers management API
-  console.log('   Registering with workers management API...')
+  const deployRequest = {
+    name: 'crucible-api',
+    owner: account.address,
+    codeCid: apiBundle.cid,
+    codeHash: apiBundle.hash,
+    entrypoint: 'index.js',
+    runtime: 'bun',
+    resources: {
+      memoryMb: 512,
+      cpuMillis: 2000,
+      timeoutMs: 60000,
+      maxConcurrency: 100,
+    },
+    scaling: {
+      minInstances: 2,
+      maxInstances: 20,
+      targetConcurrency: 10,
+      scaleToZero: false,
+      cooldownMs: 60000,
+    },
+    requirements: {
+      teeRequired: true,
+      teePreferred: true,
+      minNodeReputation: 75,
+    },
+    routes: [
+      { pattern: '/api/*', zone: 'crucible' },
+      { pattern: '/a2a/*', zone: 'crucible' },
+      { pattern: '/mcp/*', zone: 'crucible' },
+      { pattern: '/health', zone: 'crucible' },
+      { pattern: '/.well-known/*', zone: 'crucible' },
+    ],
+    env: {
+      NETWORK: config.network,
+      RPC_URL: config.rpcUrl,
+      DWS_URL: config.dwsUrl,
+    },
+    secrets: ['ELIZA_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY'],
+  }
+
   const response = await fetch(`${config.dwsUrl}/workers`, {
     method: 'POST',
     headers: {
@@ -226,18 +221,14 @@ async function deployWorker(
       codeCid: apiBundle.cid,
       runtime: 'bun',
       handler: 'index.js:default',
-      memory: 512,
-      timeout: 60000,
-      env: {
-        NETWORK: config.network,
-        RPC_URL: config.rpcUrl,
-        DWS_URL: config.dwsUrl,
-      },
+      memory: deployRequest.resources.memoryMb,
+      timeout: deployRequest.resources.timeoutMs,
+      env: deployRequest.env,
     }),
   })
 
   if (!response.ok) {
-    throw new Error(`Worker registration failed: ${await response.text()}`)
+    throw new Error(`Worker deployment failed: ${await response.text()}`)
   }
 
   const rawJson: unknown = await response.json()
@@ -245,44 +236,7 @@ async function deployWorker(
   if (!parsed.success) {
     throw new Error(`Invalid deploy response: ${parsed.error.message}`)
   }
-
-  const workerId = parsed.data.functionId
-  console.log(`   Worker registered: ${workerId}`)
-
-  // Step 2: Deploy to workerd executor (makes it actually runnable)
-  // Note: This may timeout if IPFS/storage is slow, but the worker will be deployed
-  console.log('   Deploying to workerd executor (may take a minute)...')
-  try {
-    const workerdResponse = await fetch(`${config.dwsUrl}/workerd/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-jeju-address': account.address,
-      },
-      body: JSON.stringify({
-        name: 'crucible-api',
-        codeCid: apiBundle.cid,
-        handler: 'index.js:default',
-        memoryMb: 512,
-        timeoutMs: 60000,
-      }),
-      signal: AbortSignal.timeout(120000), // 2 minute timeout
-    })
-
-    if (workerdResponse.ok) {
-      console.log('   Workerd deployment complete')
-    } else {
-      const text = await workerdResponse.text()
-      console.warn(`   Workerd deployment warning: ${text}`)
-    }
-  } catch (err) {
-    // Workerd deployment might timeout but still succeed
-    console.warn(
-      `   Workerd deployment may still be in progress: ${err instanceof Error ? err.message : err}`,
-    )
-  }
-
-  return workerId
+  return parsed.data.functionId
 }
 
 function getContentType(path: string): string {
@@ -350,75 +304,6 @@ async function setupCDN(
   }
 }
 
-/**
- * Register app with DWS app router
- *
- * This is the key step for decentralized routing - registers the app's
- * staticFiles map with the app router so SPA routing works correctly.
- */
-async function registerWithAppRouter(
-  config: DeployConfig,
-  staticAssets: Map<string, UploadResult>,
-  workerId: string,
-): Promise<void> {
-  // Build staticFiles map: path -> CID
-  const staticFiles: Record<string, string> = {}
-  for (const [path, result] of staticAssets) {
-    // Store with leading slash for consistency
-    staticFiles[`/${path}`] = result.cid
-  }
-
-  // For localnet, use direct endpoint. For testnet/mainnet, use worker routing only
-  // Don't set backendEndpoint to the same URL as frontend - that creates a routing loop
-  const backendEndpoint =
-    config.network === 'localnet' ? 'http://localhost:4021' : null
-
-  const appData = {
-    name: 'crucible',
-    jnsName: 'crucible.jeju',
-    frontendCid: staticFiles['/index.html'],
-    staticFiles,
-    backendWorkerId: workerId,
-    backendEndpoint,
-    apiPaths: ['/api', '/a2a', '/mcp', '/health', '/.well-known'],
-    spa: true,
-    enabled: true,
-  }
-
-  console.log(
-    `   Registering with staticFiles: ${Object.keys(staticFiles).length} paths`,
-  )
-
-  const response = await fetch(`${config.dwsUrl}/apps/deployed`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(appData),
-  })
-
-  if (!response.ok) {
-    const text = await response.text()
-    throw new Error(`App router registration failed: ${text}`)
-  }
-
-  const rawJson: unknown = await response.json()
-  const result = z
-    .object({
-      success: z.boolean(),
-      warning: z.string().optional(),
-    })
-    .safeParse(rawJson)
-
-  if (!result.success) {
-    throw new Error(`Invalid registration response: ${result.error.message}`)
-  }
-
-  if (result.data.warning) {
-    console.warn(`   Warning: ${result.data.warning}`)
-  }
-
-  console.log('   App router registration complete')
-}
-
 async function deploy(): Promise<void> {
   console.log('╔════════════════════════════════════════════════════════════╗')
   console.log('║              Crucible Deployment to DWS                     ║')
@@ -451,13 +336,9 @@ async function deploy(): Promise<void> {
   const workerId = await deployWorker(config, apiBundle)
   console.log(`   Worker ID: ${workerId}\n`)
 
-  // Setup CDN (optional, provides caching layer)
+  // Setup CDN
   console.log('Configuring CDN...')
   await setupCDN(config, webAssets)
-
-  // Register with app router (required for SPA routing)
-  console.log('\nRegistering with app router...')
-  await registerWithAppRouter(config, webAssets, workerId)
 
   const indexCid = webAssets.get('index.html')?.cid
   const frontendDomain =

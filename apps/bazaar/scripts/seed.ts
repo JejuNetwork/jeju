@@ -20,7 +20,8 @@
 import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { getL2RpcUrl, isLocalnet } from '@jejunetwork/config'
+import { getL2RpcUrl, getLocalhostHost } from '@jejunetwork/config'
+import { isLocalnet as isLocalRpc } from '@jejunetwork/config/ports'
 import {
   bootstrapPerps,
   bootstrapPredictionMarkets,
@@ -36,7 +37,7 @@ function getDeployerKey(): string {
   const envKey = process.env.PRIVATE_KEY
   if (envKey) return envKey
 
-  if (!isLocalnet(RPC_URL)) {
+  if (!isLocalRpc(RPC_URL)) {
     throw new Error(
       'PRIVATE_KEY environment variable required for non-local deployments.',
     )

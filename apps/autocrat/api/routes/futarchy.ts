@@ -8,8 +8,8 @@ const ZERO_ADDR = ZERO_ADDRESS
 
 const futarchyConfig: FutarchyConfig = {
   rpcUrl: config.rpcUrl,
-  councilAddress: config.contracts.council
-    ? toAddress(config.contracts.council)
+  councilAddress: config.contracts.board
+    ? toAddress(config.contracts.board)
     : ZERO_ADDR,
   predictionMarketAddress: ZERO_ADDR,
   operatorKey: autocratConfig.operatorKey ?? autocratConfig.privateKey,

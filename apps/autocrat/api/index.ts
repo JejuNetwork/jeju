@@ -287,8 +287,8 @@ const predictionMarketAddr =
     : undefined
 const futarchyConfig: FutarchyConfig = {
   rpcUrl: config.rpcUrl,
-  councilAddress: config.contracts.council
-    ? toAddress(config.contracts.council)
+  councilAddress: config.contracts.board
+    ? toAddress(config.contracts.board)
     : ZERO_ADDRESS,
   predictionMarketAddress:
     typeof predictionMarketAddr === 'string'
