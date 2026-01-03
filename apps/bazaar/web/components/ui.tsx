@@ -12,10 +12,10 @@ interface PageHeaderProps {
   description: ReactNode
   action?:
     | {
-    label: string
-    href?: string
-    onClick?: () => void
-  }
+        label: string
+        href?: string
+        onClick?: () => void
+      }
     | ReactNode
 }
 
@@ -44,20 +44,20 @@ export function PageHeader({
       {action &&
         (typeof action === 'object' && 'label' in action ? (
           action.href ? (
-          <Link
-            to={action.href}
-            className="btn-primary w-full sm:w-auto text-center whitespace-nowrap"
-          >
-            {action.label}
-          </Link>
-        ) : (
-          <button
-            type="button"
-            onClick={action.onClick}
-            className="btn-primary w-full sm:w-auto whitespace-nowrap"
-          >
-            {action.label}
-          </button>
+            <Link
+              to={action.href}
+              className="btn-primary w-full sm:w-auto text-center whitespace-nowrap"
+            >
+              {action.label}
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={action.onClick}
+              className="btn-primary w-full sm:w-auto whitespace-nowrap"
+            >
+              {action.label}
+            </button>
           )
         ) : (
           action

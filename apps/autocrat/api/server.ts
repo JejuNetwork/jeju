@@ -123,6 +123,7 @@ const app = new Elysia()
   .use(mcpRoutes)
   .use(rlaifRoutes)
   .use(bugBountyRoutes)
+  .use(safeRoutes)
   // Root route - serve SPA if static files exist, otherwise return API info
   .get('/', () => {
     // If static files exist, serve index.html for the root

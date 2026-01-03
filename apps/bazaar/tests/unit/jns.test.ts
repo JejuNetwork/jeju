@@ -10,10 +10,10 @@ import {
   formatTimeRemaining,
   getNameLengthCategory,
   isExpired,
+  MAX_NAME_LENGTH,
   normalizeName,
   SECONDS_PER_DAY,
   validateName,
-  MAX_NAME_LENGTH,
 } from '../../lib/jns'
 
 describe('JNS Name Normalization', () => {
@@ -210,4 +210,3 @@ describe('JNS Edge Cases', () => {
     expect(result.valid).toBe(true)
   })
 })
-

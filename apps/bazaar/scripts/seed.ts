@@ -413,7 +413,9 @@ function printSummary(result: SeedResult): void {
   console.log('  3. Browse Coins, Items, and Prediction markets')
 
   if (result.warnings.length > 0) {
-    console.log(`\nSeeding completed with ${result.warnings.length} warning(s).\n`)
+    console.log(
+      `\nSeeding completed with ${result.warnings.length} warning(s).\n`,
+    )
   } else {
     console.log('\nSeeding completed successfully.\n')
   }

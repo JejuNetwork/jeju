@@ -19,6 +19,7 @@ import {
 } from '@jejunetwork/config'
 import { type Subprocess, spawn } from 'bun'
 import { z } from 'zod'
+import worker, { createBazaarApp } from '../../api/worker'
 import {
   A2AServiceInfoResponseSchema,
   AgentCardResponseSchema,
@@ -28,7 +29,6 @@ import {
   DWSWorkerDeployResponseSchema,
   DWSWorkerdHealthResponseSchema,
 } from '../../schemas/api'
-import worker, { createBazaarApp } from '../../api/worker'
 
 // Worker response body schemas for testing
 const WorkerHealthBodySchema = z.object({

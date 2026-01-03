@@ -393,7 +393,7 @@ export type VoteType = (typeof VoteType)[keyof typeof VoteType]
 export interface BoardVote {
   proposalId: string
   daoId: string
-  boardAgentId: string // Formerly boardAgentId
+  boardAgentId: string
   role: BoardRole
   vote: VoteType
   reasoning: string
@@ -402,12 +402,7 @@ export interface BoardVote {
   votedAt: number
   weight: number
   isHuman: boolean
-  // Legacy accessor
-  boardAgentId?: string
 }
-
-// Legacy alias
-export type BoardVote = BoardVote
 
 export interface BoardDeliberation {
   proposalId: string
@@ -420,9 +415,6 @@ export interface BoardDeliberation {
   summary: string
   requiredChanges: string[]
 }
-
-// Legacy alias
-export type BoardDeliberation = BoardDeliberation
 
 export interface DirectorDecision {
   proposalId: string
