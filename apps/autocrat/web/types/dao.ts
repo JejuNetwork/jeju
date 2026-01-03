@@ -173,7 +173,7 @@ export interface DAODetail {
   feeConfig: Address
   manifestCid: string
   director: DAOAgent
-  board: DAOAgent[]
+  boardAgents: DAOAgent[]
   governanceParams: GovernanceParams
   fundingConfig: FundingConfig
   networkPermissions: NetworkPermissions

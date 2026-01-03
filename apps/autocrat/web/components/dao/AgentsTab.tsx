@@ -228,7 +228,7 @@ function OrgChart({ dao }: { dao: DAODetail }) {
 
         {/* Board members */}
         <div className="flex justify-center gap-4 flex-wrap">
-          {dao.board.map((agent) => {
+          {dao.boardAgents.map((agent) => {
             const Icon = AGENT_ROLE_ICONS[agent.role]
             const gradient = AGENT_ROLE_GRADIENTS[agent.role]
             return (
@@ -289,7 +289,7 @@ export function AgentsTab({ dao }: AgentsTabProps) {
             className="text-sm font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
-            Board of Directors ({dao.board.length} members)
+            Board of Directors ({dao.boardAgents.length} members)
           </h3>
           <Link
             to={`/dao/${dao.daoId}/agents/add`}
@@ -301,7 +301,7 @@ export function AgentsTab({ dao }: AgentsTabProps) {
           </Link>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
-          {dao.board.map((agent) => (
+          {dao.boardAgents.map((agent) => (
             <AgentCard
               key={agent.id}
               agent={agent}

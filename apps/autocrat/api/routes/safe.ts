@@ -30,6 +30,26 @@ const HexSchema = t.String({ pattern: '^0x[a-fA-F0-9]*$' })
 // ============================================================================
 
 export const safeRoutes = new Elysia({ prefix: '/api/v1/safe' })
+  // Root endpoint
+  .get(
+    '/',
+    () => ({
+      service: 'safe',
+      status: 'available',
+      description: 'Safe multisig wallet integration service',
+      endpoints: {
+        info: 'GET /api/v1/safe/info/:address',
+        isSafe: 'GET /api/v1/safe/is-safe/:address',
+        owners: 'GET /api/v1/safe/owners/:address',
+        transactions: 'GET /api/v1/safe/transactions/:address',
+        propose: 'POST /api/v1/safe/transactions/propose',
+        submit: 'POST /api/v1/safe/transactions/submit',
+      },
+    }),
+    {
+      detail: { tags: ['safe'], summary: 'Get Safe service info' },
+    },
+  )
   // ==========================================================================
   // Safe Info
   // ==========================================================================

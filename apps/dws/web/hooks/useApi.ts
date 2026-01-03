@@ -1007,7 +1007,11 @@ export function useDeregisterNode() {
 
   return useMutation({
     mutationFn: (nodeId: string) =>
-      postApi<{ success: boolean }>('/staking/deregister', { nodeId }, { address }),
+      postApi<{ success: boolean }>(
+        '/staking/deregister',
+        { nodeId },
+        { address },
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['compute-nodes'] })
       queryClient.invalidateQueries({ queryKey: ['provider-stats'] })
@@ -1021,11 +1025,10 @@ export function useUpdateNodePerformance() {
 
   return useMutation({
     mutationFn: (nodeId: string) =>
-      postApi<{ success: boolean; performance: { uptimeScore: number; requestsServed: number } }>(
-        '/staking/update-performance',
-        { nodeId },
-        { address },
-      ),
+      postApi<{
+        success: boolean
+        performance: { uptimeScore: number; requestsServed: number }
+      }>('/staking/update-performance', { nodeId }, { address }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['provider-stats'] })
     },

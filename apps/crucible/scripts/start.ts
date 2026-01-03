@@ -143,7 +143,7 @@ async function uploadToIPFS(
   const response = await fetch(`${dwsUrl}/storage/upload`, {
     method: 'POST',
     body: formData,
-    signal: AbortSignal.timeout(30000),
+    signal: AbortSignal.timeout(120000), // 2 minutes for large files
   })
 
   if (!response.ok) {
@@ -284,9 +284,14 @@ async function deployWorker(
     })
   }
 
-  // Start local Bun process for the worker (ensures immediate availability)
-  // Use --no-install to skip package checks and speed up startup
-  console.log('[Crucible] Starting worker process...')
+  return workerId
+}
+
+/**
+ * Start worker process locally
+ * Used for localnet development
+ */
+async function startWorkerProcess(config: StartConfig): Promise<void> {
   _workerProcess = Bun.spawn(
     [
       'bun',
@@ -328,8 +333,6 @@ async function deployWorker(
   if (!workerReady) {
     throw new Error('Worker failed to start')
   }
-
-  return workerId
 }
 
 /**
@@ -641,34 +644,54 @@ async function start(): Promise<void> {
   // 3. Build if needed
   await build()
 
-  // 4. Upload frontend to DWS IPFS
-  console.log('')
-  console.log('[Crucible] Uploading frontend to DWS IPFS...')
-  const webAssets = await uploadDirectory(config.dwsUrl, 'dist/web')
-  console.log(`[Crucible] Uploaded ${webAssets.size} files to IPFS`)
+  let webAssets: Map<string, { cid: string }> = new Map()
+  let workerId = 'local-worker'
+  let indexCid: string | undefined
 
-  // 5. Upload and deploy backend worker
-  console.log('[Crucible] Deploying backend worker to DWS...')
-  const apiBundle = await uploadToIPFS(
-    config.dwsUrl,
-    'dist/api/index.js',
-    'crucible-api.js',
-  )
-  console.log(`[Crucible] API CID: ${apiBundle.cid}`)
+  // For localnet, skip IPFS upload and use local files directly
+  // This avoids timeouts and makes local development faster
+  if (config.network === 'localnet') {
+    console.log('')
+    console.log('[Crucible] Localnet mode - using local files...')
+  } else {
+    // 4. Upload frontend to DWS IPFS (testnet/mainnet)
+    console.log('')
+    console.log('[Crucible] Uploading frontend to DWS IPFS...')
+    webAssets = await uploadDirectory(config.dwsUrl, 'dist/web')
+    console.log(`[Crucible] Uploaded ${webAssets.size} files to IPFS`)
+    indexCid = webAssets.get('index.html')?.cid
 
-  const workerId = await deployWorker(config, apiBundle.cid, apiBundle.hash)
-  console.log(`[Crucible] Worker deployed: ${workerId}`)
+    // 5. Upload and deploy backend worker
+    console.log('[Crucible] Deploying backend worker to DWS...')
+    const apiBundle = await uploadToIPFS(
+      config.dwsUrl,
+      'dist/api/index.js',
+      'crucible-api.js',
+    )
+    console.log(`[Crucible] API CID: ${apiBundle.cid}`)
 
-  // 6. Setup CDN routing
-  console.log('[Crucible] Configuring CDN...')
-  await setupCDN(config, webAssets)
+    workerId = await deployWorker(config, apiBundle.cid, apiBundle.hash)
+    console.log(`[Crucible] Worker deployed: ${workerId}`)
+
+    // 6. Setup CDN routing
+    console.log('[Crucible] Configuring CDN...')
+    await setupCDN(config, webAssets)
+  }
+
+  // Start worker process (always for localnet, registered via DWS for others)
+  if (config.network === 'localnet') {
+    console.log('[Crucible] Starting worker process...')
+    await startWorkerProcess(config)
+  }
 
   // 7. Start frontend server
   console.log('')
   console.log('[Crucible] Starting frontend server...')
   await startFrontendServer(config)
 
-  const indexCid = webAssets.get('index.html')?.cid
+  const isLocalnet = config.network === 'localnet'
+  const storageType = isLocalnet ? 'Local Files' : 'DWS IPFS'
+  const runtimeType = isLocalnet ? 'Bun (local)' : 'DWS Workerd'
 
   console.log('')
   console.log('╔════════════════════════════════════════════════════════════╗')
@@ -678,13 +701,15 @@ async function start(): Promise<void> {
     `${`║  Frontend:  http://${host}:${config.frontendPort}`.padEnd(63)}║`,
   )
   console.log(`${`║  API:       http://${host}:${config.apiPort}`.padEnd(63)}║`)
-  console.log(
-    `${`║  IPFS:      ipfs://${indexCid?.slice(0, 32)}...`.padEnd(63)}║`,
-  )
+  if (indexCid) {
+    console.log(
+      `${`║  IPFS:      ipfs://${indexCid.slice(0, 32)}...`.padEnd(63)}║`,
+    )
+  }
   console.log(`${`║  Worker:    ${workerId.slice(0, 40)}...`.padEnd(63)}║`)
   console.log(`${'║'.padEnd(63)}║`)
-  console.log(`${'║  Storage:   DWS IPFS'.padEnd(63)}║`)
-  console.log(`${'║  Runtime:   DWS Workerd'.padEnd(63)}║`)
+  console.log(`${`║  Storage:   ${storageType}`.padEnd(63)}║`)
+  console.log(`${`║  Runtime:   ${runtimeType}`.padEnd(63)}║`)
   console.log(
     `${`║  Database:  SQLit ${sqlitReady ? '(connected)' : '(unavailable)'}`.padEnd(63)}║`,
   )

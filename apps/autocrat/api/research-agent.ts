@@ -158,9 +158,15 @@ async function computeMarketplaceInference(
 }
 
 async function checkComputeMarketplace(): Promise<boolean> {
-  const computeEndpoint = getComputeEndpoint()
-  const response = await fetch(`${computeEndpoint}/health`)
-  return response.ok
+  try {
+    const computeEndpoint = getComputeEndpoint()
+    const response = await fetch(`${computeEndpoint}/health`, {
+      signal: AbortSignal.timeout(2000),
+    })
+    return response.ok
+  } catch {
+    return false
+  }
 }
 
 export class ResearchAgent {

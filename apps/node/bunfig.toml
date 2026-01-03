@@ -4,7 +4,9 @@
 plugins = ["bun-plugin-tailwind"]
 
 [test]
+# Preload shared test infrastructure - ensures jeju CLI is running
+preload = ["@jejunetwork/tests/bun-global-setup"]
 coverage = true
 coverageDir = "./test-results/coverage"
-timeout = 30000
+timeout = 60000
 # Unit tests are co-located with source files in api/, lib/, web/

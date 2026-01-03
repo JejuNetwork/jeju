@@ -124,12 +124,18 @@ const discoverServicesAction: Action = {
 
     const results: string[] = []
     for (const service of services) {
-      const healthUrl = service.url
-        .replace('/a2a', '/health')
-        .replace('/mcp', '/health')
-      const response = await fetch(healthUrl)
-      const status = response.ok ? '✅ Online' : '❌ Offline'
-      results.push(`${status} ${service.name}: ${service.url}`)
+      try {
+        const healthUrl = service.url
+          .replace('/a2a', '/health')
+          .replace('/mcp', '/health')
+        const response = await fetch(healthUrl, {
+          signal: AbortSignal.timeout(2000),
+        })
+        const status = response.ok ? '✅ Online' : '❌ Offline'
+        results.push(`${status} ${service.name}: ${service.url}`)
+      } catch {
+        results.push(`❌ Offline ${service.name}: ${service.url}`)
+      }
     }
 
     if (callback) {

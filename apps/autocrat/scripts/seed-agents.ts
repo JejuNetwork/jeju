@@ -172,17 +172,17 @@ async function registerBoardAgent(
   }
 
   try {
-    // Initialize agent via autocrat API
+    // Register agent via autocrat API
     const response = await fetch(
-      `${autocratEndpoint}/api/agents/initialize`,
+      `${autocratEndpoint}/api/v1/agents/register`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          agentId: template.id,
-          daoId,
+          name: template.name,
           role: template.role,
-          character: template.character,
+          a2aEndpoint: `${autocratEndpoint}/a2a`,
+          mcpEndpoint: `${autocratEndpoint}/mcp`,
         }),
       },
     )
@@ -192,22 +192,22 @@ async function registerBoardAgent(
       // If agent already exists, that's OK
       if (
         errorText.includes('already exists') ||
-        errorText.includes('already initialized')
+        errorText.includes('already registered')
       ) {
-        console.log(`  Agent ${template.name} already initialized`)
+        console.log(`  Agent ${template.name} already registered`)
         result.success = true
         return result
       }
       throw new Error(
-        `Failed to initialize agent: ${response.status} - ${errorText}`,
+        `Failed to register agent: ${response.status} - ${errorText}`,
       )
     }
 
     result.success = true
-    console.log(`  Initialized: ${template.name} (${template.role})`)
+    console.log(`  Registered: ${template.name} (${template.role})`)
   } catch (err) {
     result.error = err instanceof Error ? err.message : String(err)
-    console.error(`  Failed to initialize ${template.name}: ${result.error}`)
+    console.error(`  Failed to register ${template.name}: ${result.error}`)
   }
 
   return result
@@ -228,7 +228,7 @@ async function seedDAO(
   try {
     // Check if DAO exists
     const checkResponse = await fetch(
-      `${autocratEndpoint}/api/dao/${config.daoName}`,
+      `${autocratEndpoint}/api/v1/dao/${config.daoName}`,
       { method: 'GET' },
     )
 
@@ -236,20 +236,32 @@ async function seedDAO(
       console.log(`DAO ${config.daoName} already exists, updating persona...`)
     }
 
-    // Create or update DAO
-    const response = await fetch(`${autocratEndpoint}/api/dao`, {
+    // Create or update DAO with correct API path and schema
+    const displayName = config.daoName.charAt(0).toUpperCase() + config.daoName.slice(1)
+    const response = await fetch(`${autocratEndpoint}/api/v1/dao`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        id: config.daoName,
-        name: config.daoName.charAt(0).toUpperCase() + config.daoName.slice(1),
-        description: `${config.daoName} DAO - AI-powered autonomous governance`,
-        directorPersona: persona,
-        governanceParams: {
-          votingPeriod: 86400 * 3, // 3 days
-          quorum: 0.04, // 4%
-          proposalThreshold: 1000,
-          executionDelay: 86400, // 1 day
+        name: config.daoName,
+        displayName,
+        description: `${displayName} DAO - AI-powered autonomous governance`,
+        treasury: '0x0000000000000000000000000000000000000000',
+        manifestCid: '',
+        director: {
+          name: persona.name,
+          pfpCid: persona.pfpCid ?? '',
+          description: persona.description,
+          personality: persona.personality,
+          traits: persona.traits ?? [],
+          isHuman: persona.isHuman ?? false,
+          decisionFallbackDays: persona.decisionFallbackDays ?? 7,
+        },
+        governance: {
+          minQualityScore: 0.5,
+          boardVotingPeriod: 86400 * 3, // 3 days
+          gracePeriod: 86400, // 1 day
+          minProposalStake: '1000000000000000000', // 1 token
+          quorumBps: 400, // 4%
         },
       }),
     })

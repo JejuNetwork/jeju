@@ -209,8 +209,12 @@ function getComputeRegistryAddress(): Address {
   return computeRegistryAddress
 }
 
+// Track nodes registered locally (not on-chain)
+const locallyRegisteredNodes = new Set<string>()
+
 /**
  * Sync inference nodes from on-chain ComputeRegistry
+ * Preserves nodes that were registered locally (for dev/testing)
  */
 export async function syncFromChain(): Promise<void> {
   const now = Date.now()
@@ -221,16 +225,28 @@ export async function syncFromChain(): Promise<void> {
   const client = getClient()
   const registryAddress = getComputeRegistryAddress()
 
-  // Get active inference providers
-  const activeAddresses = (await client.readContract({
-    address: registryAddress,
-    abi: COMPUTE_REGISTRY_ABI,
-    functionName: 'getActiveProvidersByService',
-    args: [SERVICE_INFERENCE],
-  })) as Address[]
+  // Get active inference providers from chain
+  let activeAddresses: Address[] = []
+  try {
+    activeAddresses = (await client.readContract({
+      address: registryAddress,
+      abi: COMPUTE_REGISTRY_ABI,
+      functionName: 'getActiveProvidersByService',
+      args: [SERVICE_INFERENCE],
+    })) as Address[]
+  } catch (err) {
+    // Chain sync failed - preserve local nodes
+    console.log(`[Inference] Chain sync failed, preserving ${locallyRegisteredNodes.size} local nodes`)
+    lastSyncTimestamp = now
+    return
+  }
 
-  // Clear stale nodes
-  inferenceNodes.clear()
+  // Remove only on-chain nodes (preserve locally registered ones)
+  for (const [address] of inferenceNodes) {
+    if (!locallyRegisteredNodes.has(address.toLowerCase())) {
+      inferenceNodes.delete(address)
+    }
+  }
 
   // Fetch each provider's details
   for (const address of activeAddresses) {
@@ -472,7 +488,7 @@ export async function isRegisteredProvider(address: Address): Promise<boolean> {
 }
 
 /**
- * Register a node directly (for testing only)
+ * Register a node directly (for local development/testing)
  * In production, nodes register on-chain via ComputeRegistry
  */
 export function registerNode(
@@ -495,9 +511,12 @@ export function registerNode(
     lastHeartbeat: Date.now(),
   }
 
-  inferenceNodes.set(node.address.toLowerCase(), fullNode)
+  const addressLower = node.address.toLowerCase()
+  inferenceNodes.set(addressLower, fullNode)
+  locallyRegisteredNodes.add(addressLower)
+  
   console.log(
-    `[Inference] Node registered: ${node.address} (${node.provider}, ${node.models.length} models)`,
+    `[Inference] Node registered locally: ${node.address} (${node.provider}, ${node.models.length} models)`,
   )
 
   return fullNode
@@ -508,7 +527,9 @@ export function registerNode(
  * In production, nodes deactivate on-chain via ComputeRegistry
  */
 export function unregisterNode(address: string): boolean {
-  return inferenceNodes.delete(address.toLowerCase())
+  const addrLower = address.toLowerCase()
+  locallyRegisteredNodes.delete(addrLower)
+  return inferenceNodes.delete(addrLower)
 }
 
 // Export for testing

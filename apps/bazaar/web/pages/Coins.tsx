@@ -22,6 +22,7 @@ import {
   Grid,
   InfoCard,
   PageHeader,
+  Pagination,
 } from '../components/ui'
 import { JEJU_CHAIN_ID } from '../config/chains'
 
@@ -164,9 +165,12 @@ async function fetchDefaultTokens(): Promise<Token[]> {
   return tokens
 }
 
+const ITEMS_PER_PAGE = 12
+
 export default function CoinsPage() {
   const [filter, setFilter] = useState<FilterType>('all')
   const [orderBy, setOrderBy] = useState<OrderByType>('recent')
+  const [page, setPage] = useState(1)
 
   // Check if indexer is healthy
   const { data: indexerUp } = useQuery({
@@ -187,7 +191,7 @@ export default function CoinsPage() {
       if (indexerUp) {
         try {
           const result = await fetchTokensWithMarketData({
-            limit: 50,
+            limit: 100,
             verified: filter === 'verified' ? true : undefined,
             orderBy,
           })
@@ -213,6 +217,19 @@ export default function CoinsPage() {
     return tokens
   }, [tokens, filter])
 
+  // Pagination
+  const totalPages = Math.ceil(filteredTokens.length / ITEMS_PER_PAGE)
+  const paginatedTokens = useMemo(() => {
+    const start = (page - 1) * ITEMS_PER_PAGE
+    return filteredTokens.slice(start, start + ITEMS_PER_PAGE)
+  }, [filteredTokens, page])
+
+  // Reset page when filter changes
+  const handleFilterChange = (newFilter: FilterType) => {
+    setFilter(newFilter)
+    setPage(1)
+  }
+
   return (
     <div className="animate-fade-in">
       <PageHeader
@@ -237,7 +254,7 @@ export default function CoinsPage() {
         <FilterTabs
           options={FILTER_OPTIONS}
           value={filter}
-          onChange={setFilter}
+          onChange={handleFilterChange}
           className="flex-1"
         />
 
@@ -282,13 +299,21 @@ export default function CoinsPage() {
 
       {/* Tokens Grid */}
       {!isLoading && !error && filteredTokens.length > 0 && (
-        <Grid cols={3}>
-          {filteredTokens.map((token, index) => (
-            <div key={token.address} className={`stagger-${(index % 6) + 1}`}>
-              <TokenCard token={token} />
-            </div>
-          ))}
-        </Grid>
+        <>
+          <Grid cols={3}>
+            {paginatedTokens.map((token, index) => (
+              <div key={token.address} className={`stagger-${(index % 6) + 1}`}>
+                <TokenCard token={token} />
+              </div>
+            ))}
+          </Grid>
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            className="mt-8"
+          />
+        </>
       )}
     </div>
   )

@@ -20,7 +20,11 @@ import { useState } from 'react'
 import { useAccount } from 'wagmi'
 import { SkeletonStatCard } from '../../components/Skeleton'
 import { useConfirm, useToast } from '../../context/AppContext'
-import { useClaimRewards, useDeregisterNode, useUpdateNodePerformance } from '../../hooks'
+import {
+  useClaimRewards,
+  useDeregisterNode,
+  useUpdateNodePerformance,
+} from '../../hooks'
 import {
   type EarningsHistoryItem,
   type NodeInfo,
@@ -46,7 +50,9 @@ export default function NodeOperatorDashboard() {
   const [selectedNode, setSelectedNode] = useState<string | null>(null)
   const [claimingNode, setClaimingNode] = useState<string | null>(null)
   const [updatingNode, setUpdatingNode] = useState<string | null>(null)
-  const [deregisteringNode, setDeregisteringNode] = useState<string | null>(null)
+  const [deregisteringNode, setDeregisteringNode] = useState<string | null>(
+    null,
+  )
 
   const handleClaimRewards = async (nodeId: string, nodeName: string) => {
     const confirmed = await confirm({
@@ -152,7 +158,10 @@ export default function NodeOperatorDashboard() {
     setUpdatingNode(nodeId)
     try {
       await updatePerformance.mutateAsync(nodeId)
-      showSuccess('Performance updated', `Node ${nodeName} performance metrics refreshed`)
+      showSuccess(
+        'Performance updated',
+        `Node ${nodeName} performance metrics refreshed`,
+      )
       refetchStats()
     } catch (error) {
       showError(

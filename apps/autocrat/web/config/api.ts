@@ -762,9 +762,6 @@ export async function fetchDAOBoard(daoId: string) {
   return extractData(response)
 }
 
-// Legacy alias
-export const fetchDAOBoard = fetchDAOBoard
-
 export async function submitModerationFlag(params: {
   proposalId: string
   flagger: string

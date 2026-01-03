@@ -842,9 +842,6 @@ export interface BoardConfig {
   storageEndpoint: string
 }
 
-// Legacy alias
-export type BoardConfig = BoardConfig
-
 export interface AgentConfig {
   id: string
   name: string
@@ -936,9 +933,6 @@ export interface BoardVoteCastEventData {
   weight: number
   isHuman: boolean
 }
-
-// Legacy alias
-export type BoardVoteCastEventData = BoardVoteCastEventData
 
 export interface DirectorDecisionMadeEventData {
   proposalId: string

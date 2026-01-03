@@ -24,8 +24,11 @@ external = [
 ]
 
 [test]
+# Preload shared test infrastructure - ensures jeju CLI is running
+preload = ["@jejunetwork/tests/bun-global-setup"]
 coverage = true
 coverageDir = "./test-results/coverage"
+timeout = 60000
 # Only run unit and integration tests with bun test
 # E2E/Playwright tests are run separately with: bunx playwright test
 include = ["tests/unit/**/*.test.ts", "tests/integration/**/*.test.ts", "tests/validation-checks.test.ts", "api/__tests__/**/*.test.ts", "web/**/__tests__/**/*.test.ts"]

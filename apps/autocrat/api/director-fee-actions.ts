@@ -200,13 +200,13 @@ export async function getFeeConfigState(): Promise<FeeConfigState> {
     client.readContract({
       address,
       abi: feeConfigAbi,
-      functionName: 'board',
-    }),
+      functionName: 'board' as 'getTreasury', // Type workaround for viem inference
+    }) as Promise<Address>,
     client.readContract({
       address,
       abi: feeConfigAbi,
-      functionName: 'director',
-    }),
+      functionName: 'director' as 'getTreasury', // Type workaround for viem inference
+    }) as Promise<Address>,
   ])
 
   return {

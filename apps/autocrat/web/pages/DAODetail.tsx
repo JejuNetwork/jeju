@@ -341,7 +341,7 @@ export default function DAODetailPage() {
                   </div>
                   <div>
                     <p className="text-white font-medium">
-                      {dao.board.length} Members
+                      {dao.boardAgents.length} Members
                     </p>
                     <p className="text-xs text-white/60">Board</p>
                   </div>

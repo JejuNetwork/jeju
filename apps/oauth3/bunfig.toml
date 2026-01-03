@@ -2,4 +2,7 @@
 peer = false
 
 [test]
+# Preload shared test infrastructure - ensures jeju CLI is running
+preload = ["@jejunetwork/tests/bun-global-setup"]
 coverage = true
+timeout = 60000

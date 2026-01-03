@@ -9,7 +9,6 @@ export const moderationRoutes = new Elysia({ prefix: '/api/v1/moderation' })
     '/',
     async () => {
       try {
-        const system = getModerationSystem()
         return {
           service: 'moderation',
           status: 'available',

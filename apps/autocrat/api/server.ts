@@ -232,12 +232,19 @@ async function start() {
   await autocratAgentRuntime.initialize()
 
   const computeClient = getComputeTriggerClient()
-  const computeAvailable = await computeClient.isAvailable()
+  let computeAvailable = false
   let triggerMode = 'local'
 
-  if (computeAvailable) {
-    await registerAutocratTriggers()
-    triggerMode = 'compute'
+  try {
+    computeAvailable = await computeClient.isAvailable()
+    if (computeAvailable) {
+      await registerAutocratTriggers()
+      triggerMode = 'compute'
+    }
+  } catch (error) {
+    console.warn(
+      '[Council] Compute service unavailable (DWS not running). Using local mode.',
+    )
   }
 
   const host = getLocalhostHost()

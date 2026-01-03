@@ -146,13 +146,19 @@ const serviceDiscoveryProvider: Provider = {
         }
       } else {
         // Check MCP health
-        const healthUrl = service.url.replace('/mcp', '/health')
-        const response = await fetch(healthUrl)
-        services.push({
-          name,
-          url: service.url,
-          status: response.ok ? 'online' : 'offline',
-        })
+        try {
+          const healthUrl = service.url.replace('/mcp', '/health')
+          const response = await fetch(healthUrl, {
+            signal: AbortSignal.timeout(2000),
+          })
+          services.push({
+            name,
+            url: service.url,
+            status: response.ok ? 'online' : 'offline',
+          })
+        } catch {
+          services.push({ name, url: service.url, status: 'offline' })
+        }
       }
     }
 

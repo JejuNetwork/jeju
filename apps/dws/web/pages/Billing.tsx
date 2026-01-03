@@ -15,7 +15,6 @@ import { useAccount } from 'wagmi'
 import { SkeletonStatCard, SkeletonTable } from '../components/Skeleton'
 import { useConfirm, useToast } from '../context/AppContext'
 import {
-  type Transaction,
   useDeposit,
   useProviderStats,
   useTransactionHistory,
@@ -44,7 +43,7 @@ export default function BillingPage({ viewMode }: BillingProps) {
 
   const [showDepositModal, setShowDepositModal] = useState(false)
   const [depositAmount, setDepositAmount] = useState('0.01')
-  
+
   const transactions = txHistory?.transactions ?? []
 
   const handleDeposit = async (e: React.FormEvent) => {
@@ -160,9 +159,12 @@ export default function BillingPage({ viewMode }: BillingProps) {
               type="button"
               className="btn btn-primary"
               onClick={handleWithdraw}
-              disabled={!isConnected || totalPendingRewards === 0 || withdraw.isPending}
+              disabled={
+                !isConnected || totalPendingRewards === 0 || withdraw.isPending
+              }
             >
-              <ArrowUpRight size={16} /> {withdraw.isPending ? 'Withdrawing...' : 'Withdraw'}
+              <ArrowUpRight size={16} />{' '}
+              {withdraw.isPending ? 'Withdrawing...' : 'Withdraw'}
             </button>
           )}
         </div>

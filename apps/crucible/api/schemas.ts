@@ -66,16 +66,24 @@ export const RegisterAgentRequestSchema = z.object({
 })
 
 export const AgentStartRequestSchema = z.object({
-  agentId: z.coerce.number().int().positive(),
+  // Numeric agent ID (for on-chain registered agents)
+  agentId: z.coerce.number().int().positive().optional(),
+  // Character CID or built-in character ID
   characterCid: NonEmptyStringSchema.optional(),
-  // Autonomous agent fields
   characterId: NonEmptyStringSchema.optional(),
+  // Autonomous agent config
   tickIntervalMs: z.number().int().positive().optional(),
   capabilities: z
     .object({
       canTrade: z.boolean().optional(),
-      canSocial: z.boolean().optional(),
-      canResearch: z.boolean().optional(),
+      canChat: z.boolean().optional(),
+      canPropose: z.boolean().optional(),
+      canVote: z.boolean().optional(),
+      canDelegate: z.boolean().optional(),
+      canStake: z.boolean().optional(),
+      canBridge: z.boolean().optional(),
+      a2a: z.boolean().optional(),
+      compute: z.boolean().optional(),
     })
     .optional(),
 })

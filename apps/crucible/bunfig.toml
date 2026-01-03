@@ -1,10 +1,10 @@
 [test]
-# Preload test setup to ensure infrastructure is running
-preload = ["./tests/setup.ts"]
+# Preload shared test infrastructure - ensures jeju CLI is running
+# The shared setup handles starting jeju dev --minimal if needed
+preload = ["@jejunetwork/tests/bun-global-setup", "./tests/setup.ts"]
 
 # Test timeout (60 seconds for integration tests)
 timeout = 60000
 
 # Retry flaky tests once
 retry = 1
-

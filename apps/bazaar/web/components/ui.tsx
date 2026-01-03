@@ -476,3 +476,107 @@ export function Skeleton({
     />
   )
 }
+
+// ============================================================================
+// Pagination - Page navigation for lists
+// ============================================================================
+
+interface PaginationProps {
+  currentPage: number
+  totalPages: number
+  onPageChange: (page: number) => void
+  className?: string
+}
+
+export function Pagination({
+  currentPage,
+  totalPages,
+  onPageChange,
+  className = '',
+}: PaginationProps) {
+  if (totalPages <= 1) return null
+
+  const pages: (number | 'ellipsis')[] = []
+
+  // Always show first page
+  pages.push(1)
+
+  // Show ellipsis or pages near current
+  if (currentPage > 3) {
+    pages.push('ellipsis')
+  }
+
+  // Pages around current
+  for (
+    let i = Math.max(2, currentPage - 1);
+    i <= Math.min(totalPages - 1, currentPage + 1);
+    i++
+  ) {
+    if (!pages.includes(i)) {
+      pages.push(i)
+    }
+  }
+
+  // Show ellipsis before last
+  if (currentPage < totalPages - 2) {
+    pages.push('ellipsis')
+  }
+
+  // Always show last page
+  if (totalPages > 1 && !pages.includes(totalPages)) {
+    pages.push(totalPages)
+  }
+
+  return (
+    <nav
+      className={`flex items-center justify-center gap-1 ${className}`}
+      aria-label="Pagination"
+    >
+      <button
+        type="button"
+        onClick={() => onPageChange(currentPage - 1)}
+        disabled={currentPage === 1}
+        className="p-2 rounded-lg hover:bg-surface-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        aria-label="Previous page"
+      >
+        ‹
+      </button>
+
+      {pages.map((page, idx) =>
+        page === 'ellipsis' ? (
+          <span
+            key={`ellipsis-${idx}`}
+            className="px-2 text-tertiary"
+            aria-hidden="true"
+          >
+            …
+          </span>
+        ) : (
+          <button
+            key={page}
+            type="button"
+            onClick={() => onPageChange(page)}
+            className={`min-w-[36px] h-9 rounded-lg text-sm font-medium transition-colors ${
+              page === currentPage
+                ? 'bg-accent text-white'
+                : 'hover:bg-surface-secondary text-secondary'
+            }`}
+            aria-current={page === currentPage ? 'page' : undefined}
+          >
+            {page}
+          </button>
+        ),
+      )}
+
+      <button
+        type="button"
+        onClick={() => onPageChange(currentPage + 1)}
+        disabled={currentPage === totalPages}
+        className="p-2 rounded-lg hover:bg-surface-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        aria-label="Next page"
+      >
+        ›
+      </button>
+    </nav>
+  )
+}
