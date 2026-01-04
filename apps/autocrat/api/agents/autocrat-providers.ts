@@ -9,6 +9,7 @@ import {
   getAutocratA2AUrl,
   getAutocratUrl,
   getCoreAppUrl,
+  getServicesConfig,
 } from '@jejunetwork/config'
 import type { JsonRecord } from '@jejunetwork/types'
 import { expectValid } from '@jejunetwork/types'
@@ -49,6 +50,7 @@ function getServiceRegistry(): Record<
   string,
   { url: string; description: string }
 > {
+  const services = getServicesConfig()
   return {
     autocrat: {
       url: getAutocratA2A(),
@@ -65,6 +67,14 @@ function getServiceRegistry(): Record<
     'director-mcp': {
       url: getDirectorMCP(),
       description: 'Director MCP tools and resources',
+    },
+    bazaar: {
+      url: `${services.bazaar}/a2a`,
+      description: 'Bazaar marketplace A2A server - tokens, NFTs, markets',
+    },
+    crucible: {
+      url: `${services.crucible.api}/a2a`,
+      description: 'Crucible agent platform A2A server - autonomous agents',
     },
   }
 }

@@ -65,9 +65,16 @@ export const feesRoutes = new Elysia({ prefix: '/fees' })
     }
 
     const state = await getFeeConfigState()
+    // Convert bigint to string for JSON serialization
     return {
       success: true,
-      data: state,
+      data: {
+        ...state,
+        names: {
+          ...state.names,
+          baseRegistrationPrice: state.names.baseRegistrationPrice.toString(),
+        },
+      },
       timestamp: Date.now(),
     }
   })
@@ -186,7 +193,13 @@ export const feesRoutes = new Elysia({ prefix: '/fees' })
     return {
       success: true,
       summary,
-      raw: state,
+      raw: {
+        ...state,
+        names: {
+          ...state.names,
+          baseRegistrationPrice: state.names.baseRegistrationPrice.toString(),
+        },
+      },
     }
   })
 

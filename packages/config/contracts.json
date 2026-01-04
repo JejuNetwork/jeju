@@ -17,7 +17,7 @@
       "weth": "0x4200000000000000000000000000000000000006"
     },
     "registry": {
-      "identity": "0x0165878a594ca255338adfa4d48449f69242eb8f",
+      "identity": "0x68B1D87F95878fE05B998F19b66F4baba5De1aed",
       "reputation": "0x68B1D87F95878fE05B998F19b66F4baba5De1aed",
       "validation": "0x3Aa5ebB10DC797CAC828524e59A333d0A371443c",
       "token": "0x322813Fd9A801c5507c9de605d63CEA4f2CE6c44",
@@ -85,7 +85,7 @@
       "creditManager": "0x67d269191c92Caf3cD7723F116c85e6E9bf55933",
       "universalPaymaster": "0x84eA74d481Ee0A5332c457a4d796187F6Ba67fEB",
       "paymasterFactory": "0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f",
-      "feeConfig": "0x4c5859f0F772848b2D91F1D83E2Fe57935348029"
+      "feeConfig": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0"
     },
     "commerce": {
       "authCaptureEscrow": "",
@@ -117,8 +117,8 @@
       "futarchyGovernor": "",
       "registryGovernance": "0x7E6C94173C264aaE66Bf36ce047b0Aef585C2181",
       "autocrat": "",
-      "daoRegistry": "0x1291Be112d480055DaFd8a610b7d1e203891C274",
-      "daoFunding": "0x5f3f1dBD7B74C6B46e8c44f98792A1dAf8d69154"
+      "daoRegistry": "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82",
+      "daoFunding": "0x9A676e781A523b5d0C0e43731313A708CB607508"
     },
     "oif": {
       "solverRegistry": "0x13D5bd265A9FC5454e81bC05a5643fa4809A584b",
@@ -145,7 +145,7 @@
       "federatedLiquidity": ""
     },
     "fees": {
-      "feeConfig": "",
+      "feeConfig": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0",
       "feeDistributor": "",
       "feeGovernance": ""
     },
@@ -183,9 +183,9 @@
       "creditManager": "0x67d269191c92Caf3cD7723F116c85e6E9bf55933"
     },
     "autocrat": {
-      "daoRegistry": "0x1291Be112d480055DaFd8a610b7d1e203891C274",
-      "daoFunding": "0x5f3f1dBD7B74C6B46e8c44f98792A1dAf8d69154",
-      "feeConfig": "0x4c5859f0F772848b2D91F1D83E2Fe57935348029"
+      "daoRegistry": "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82",
+      "daoFunding": "0x9A676e781A523b5d0C0e43731313A708CB607508",
+      "feeConfig": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0"
     }
   },
   "testnet": {

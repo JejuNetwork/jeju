@@ -11,6 +11,7 @@ import {
   getAutocratA2AUrl,
   getAutocratUrl,
   getCoreAppUrl,
+  getServicesConfig,
 } from '@jejunetwork/config'
 import type { JsonRecord } from '@jejunetwork/types'
 import { expectValid } from '@jejunetwork/types'
@@ -107,6 +108,7 @@ const discoverServicesAction: Action = {
     _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
+    const servicesConfig = getServicesConfig()
     const services = [
       { name: 'Autocrat A2A', url: getA2AEndpoint(), type: 'a2a' },
       {
@@ -120,6 +122,9 @@ const discoverServicesAction: Action = {
         url: `${getCoreAppUrl('AUTOCRAT_AGENT')}/mcp`,
         type: 'mcp',
       },
+      // Cross-app A2A discovery
+      { name: 'Bazaar A2A', url: `${servicesConfig.bazaar}/a2a`, type: 'a2a' },
+      { name: 'Crucible A2A', url: `${servicesConfig.crucible.api}/a2a`, type: 'a2a' },
     ]
 
     const results: string[] = []
