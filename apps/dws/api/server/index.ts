@@ -379,30 +379,46 @@ function getContractOrZero(
 }
 
 /**
- * SECURITY WARNING: Private Key Configuration
+ * SECURITY: Private Key Configuration
  *
- * The DWS_PRIVATE_KEY is used for on-chain transactions (git registry, pkg registry, CI).
- * In production with TEE, this key is vulnerable to side-channel attacks.
+ * In production, private keys MUST be managed through KMS.
+ * Direct private keys (DWS_PRIVATE_KEY) are BLOCKED in production.
  *
- * Recommended production configuration:
- * 1. Use KMS-backed signing via DWS_KMS_KEY_ID environment variable
- * 2. Or use TX_RELAY_URL for HSM-backed transaction relay
- * 3. Never store raw private keys in TEE memory
- *
- * The current implementation uses direct keys for development compatibility.
+ * Production: Set DWS_KMS_KEY_ID for KMS-backed signing
+ * Development: Can use DWS_PRIVATE_KEY for local testing only
  */
-const dwsPrivateKey =
+const kmsKeyId = process.env.DWS_KMS_KEY_ID
+const directKey =
   (serverConfig.privateKey as Hex | undefined) ??
   (typeof process !== 'undefined'
     ? (process.env.DWS_PRIVATE_KEY as Hex | undefined)
     : undefined)
 
-// Warn about direct key usage in production
-if (isProduction && dwsPrivateKey) {
-  console.warn(
-    '[DWS] WARNING: Using DWS_PRIVATE_KEY directly in production. ' +
-      'Set DWS_KMS_KEY_ID for KMS-backed signing to protect against side-channel attacks.',
-  )
+let dwsPrivateKey: Hex | undefined
+
+if (isProduction) {
+  // In production, BLOCK direct private keys
+  if (directKey) {
+    console.error(
+      '[DWS] SECURITY ERROR: DWS_PRIVATE_KEY detected in production. ' +
+      'Direct private keys are BLOCKED. Use DWS_KMS_KEY_ID for KMS-backed signing.',
+    )
+    // Don't use the direct key
+    dwsPrivateKey = undefined
+  }
+  if (!kmsKeyId) {
+    console.warn(
+      '[DWS] WARNING: DWS_KMS_KEY_ID not set. On-chain operations may fail.',
+    )
+  }
+} else {
+  // Development: allow direct key with warning
+  if (directKey) {
+    console.warn(
+      '[DWS] WARNING: Using DWS_PRIVATE_KEY for development. Use KMS in production.',
+    )
+    dwsPrivateKey = directKey
+  }
 }
 
 // Git configuration - uses centralized config
@@ -848,12 +864,30 @@ app.use(createSecurityRoutes())
 app.use(createObservabilityRoutes('dws'))
 
 // Data Availability Layer
+// SECURITY: DA_OPERATOR_PRIVATE_KEY blocked in production, use DA_OPERATOR_KMS_KEY_ID
+const daDirectKey =
+  (serverConfig.daOperatorPrivateKey as Hex | undefined) ??
+  (typeof process !== 'undefined'
+    ? (process.env.DA_OPERATOR_PRIVATE_KEY as Hex | undefined)
+    : undefined)
+
+let daOperatorPrivateKey: Hex | undefined
+if (isProduction && daDirectKey) {
+  console.error(
+    '[DWS] SECURITY ERROR: DA_OPERATOR_PRIVATE_KEY detected in production. ' +
+    'Use DA_OPERATOR_KMS_KEY_ID instead.',
+  )
+  // Don't use direct key in production
+} else if (daDirectKey) {
+  console.warn(
+    '[DWS] WARNING: Using DA_OPERATOR_PRIVATE_KEY for development. Use KMS in production.',
+  )
+  daOperatorPrivateKey = daDirectKey
+}
+
 const daConfig = {
-  operatorPrivateKey:
-    (serverConfig.daOperatorPrivateKey as Hex | undefined) ??
-    (typeof process !== 'undefined'
-      ? (process.env.DA_OPERATOR_PRIVATE_KEY as Hex | undefined)
-      : undefined),
+  operatorPrivateKey: daOperatorPrivateKey,
+  operatorKmsKeyId: process.env.DA_OPERATOR_KMS_KEY_ID,
   operatorEndpoint:
     serverConfig.daOperatorEndpoint ??
     serverConfig.baseUrl ??

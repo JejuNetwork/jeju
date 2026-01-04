@@ -56,10 +56,13 @@ const workerEnv = {
   KMS_URL: process.env.KMS_URL || 'https://kms.testnet.jejunetwork.org',
   OAUTH3_URL: process.env.OAUTH3_URL || 'https://oauth3.testnet.jejunetwork.org',
   // SQLit
+  // SECURITY: In production, workers should use KMS for signing (SQLIT_KMS_KEY_ID)
+  // Direct SQLIT_PRIVATE_KEY is for development only
   SQLIT_NODES: process.env.SQLIT_NODES || process.env.SQLIT_URL || '',
   SQLIT_URL: process.env.SQLIT_URL || process.env.SQLIT_NODES || '',
   SQLIT_DATABASE_ID: process.env.SQLIT_DATABASE_ID || '',
-  SQLIT_PRIVATE_KEY: process.env.SQLIT_PRIVATE_KEY || '',
+  SQLIT_KMS_KEY_ID: process.env.SQLIT_KMS_KEY_ID || '',
+  SQLIT_PRIVATE_KEY: process.env.NODE_ENV === 'production' ? '' : (process.env.SQLIT_PRIVATE_KEY || ''),
   SQLIT_MINER_ENDPOINT: process.env.SQLIT_MINER_ENDPOINT || '',
 };
 

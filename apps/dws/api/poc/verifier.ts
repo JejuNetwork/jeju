@@ -19,6 +19,7 @@ import {
 } from 'viem'
 import { type LocalAccount, privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia } from 'viem/chains'
+import { getKMSSecret } from '../shared/kms-secrets'
 import {
   createKMSWalletClient,
   isKMSAvailable,
@@ -501,13 +502,97 @@ export class PoCVerifier {
    * - identityRegistryAddress: contracts.json -> external.baseSepolia.poc.identityRegistry
    * - rpcUrl: contracts.json -> external.baseSepolia.rpcUrl
    *
-   * Required env vars (secrets):
-   * - POC_SIGNER_KEY: Oracle signer private key
+   * Production: Uses KMS for signing (POC_VERIFIER_KMS_KEY_ID)
+   * Development: Can use POC_SIGNER_KEY for testing only
+   */
+  static async fromEnvAsync(): Promise<PoCVerifier> {
+    const network = getCurrentNetwork()
+    const chain = network === 'mainnet' ? base : baseSepolia
+    const pocConfig = getPoCConfig()
+    const isProduction = isProductionEnv()
+
+    if (!pocConfig.validatorAddress)
+      throw new Error('PoC validator not configured')
+    if (!pocConfig.identityRegistryAddress)
+      throw new Error('PoC identity registry not configured')
+
+    // In production, require KMS - no direct private keys allowed
+    const kmsKeyId = process.env.POC_VERIFIER_KMS_KEY_ID
+    const ownerAddress = process.env.POC_VERIFIER_OWNER_ADDRESS as Address | undefined
+    let signerKey: Hex | undefined
+
+    if (isProduction) {
+      if (!kmsKeyId || !ownerAddress) {
+        throw new Error(
+          'SECURITY: POC_VERIFIER_KMS_KEY_ID and POC_VERIFIER_OWNER_ADDRESS required in production. ' +
+          'Direct private keys (POC_SIGNER_KEY) are not allowed in production.',
+        )
+      }
+      // Use a placeholder - actual signing will be done by KMS via initializeSecureSigning()
+      signerKey = '0x0000000000000000000000000000000000000000000000000000000000000001' as Hex
+    } else {
+      // Development: allow direct key with warning
+      signerKey = process.env.POC_SIGNER_KEY as Hex | undefined
+      if (!signerKey) {
+        throw new Error(
+          'POC_SIGNER_KEY required for development. Use KMS in production.',
+        )
+      }
+      if (signerKey.startsWith('0x') && signerKey.length === 66) {
+        console.warn(
+          '[PoC Verifier] WARNING: Using direct POC_SIGNER_KEY. Use KMS (POC_VERIFIER_KMS_KEY_ID) for production.',
+        )
+      }
+    }
+
+    // Get hardware ID salt from KMS
+    const hardwareIdSalt = await getKMSSecret('hardware_id_salt')
+    if (!hardwareIdSalt) {
+      if (isProduction) {
+        throw new Error(
+          'CRITICAL: hardware_id_salt not found in KMS. Store using: jeju secrets set HARDWARE_ID_SALT <value>',
+        )
+      }
+      console.warn(
+        '[PoC Verifier] WARNING: HARDWARE_ID_SALT not set. Using dev-only salt.',
+      )
+    }
+    const salt = hardwareIdSalt
+      ? (hardwareIdSalt as Hex)
+      : keccak256(toBytes('DEV_ONLY_INSECURE_POC_SALT'))
+
+    const verifier = new PoCVerifier({
+      chain,
+      rpcUrl: pocConfig.rpcUrl,
+      signerKey: signerKey as Hex,
+      validatorAddress: pocConfig.validatorAddress as Address,
+      identityRegistryAddress: pocConfig.identityRegistryAddress as Address,
+      registryEndpoint: process.env.POC_REGISTRY_ENDPOINT,
+      hardwareIdSalt: salt as Hex,
+    })
+
+    // Initialize KMS signing in production
+    if (isProduction && kmsKeyId) {
+      await verifier.initializeSecureSigning()
+    }
+
+    return verifier
+  }
+
+  /**
+   * @deprecated Use fromEnvAsync() instead. This method uses direct private keys.
    */
   static fromEnv(): PoCVerifier {
     const network = getCurrentNetwork()
     const chain = network === 'mainnet' ? base : baseSepolia
     const pocConfig = getPoCConfig()
+    const isProduction = isProductionEnv()
+
+    if (isProduction) {
+      throw new Error(
+        'SECURITY: fromEnv() cannot be used in production. Use fromEnvAsync() with KMS.',
+      )
+    }
 
     const signerKey = process.env.POC_SIGNER_KEY
     if (!signerKey) throw new Error('POC_SIGNER_KEY required')
@@ -519,11 +604,6 @@ export class PoCVerifier {
 
     const hardwareIdSalt = process.env.HARDWARE_ID_SALT
     if (!hardwareIdSalt) {
-      if (network === 'mainnet') {
-        throw new Error(
-          'CRITICAL: HARDWARE_ID_SALT must be set in mainnet. PoC verification cannot be secured without it.',
-        )
-      }
       console.warn(
         '[PoC Verifier] WARNING: HARDWARE_ID_SALT not set. Using dev-only salt.',
       )

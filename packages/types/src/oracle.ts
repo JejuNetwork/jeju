@@ -21,8 +21,12 @@ import {
 export interface OracleNodeConfig {
   rpcUrl: string
   chainId: number
-  operatorPrivateKey: Hex
-  workerPrivateKey: Hex
+  // Direct keys (development only - blocked in production)
+  operatorPrivateKey?: Hex
+  workerPrivateKey?: Hex
+  // KMS key IDs (required in production)
+  operatorKmsKeyId?: string
+  workerKmsKeyId?: string
   feedRegistry: Address
   reportVerifier: Address
   committeeManager: Address

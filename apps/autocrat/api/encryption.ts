@@ -4,9 +4,10 @@ import {
   getRpcUrl,
   getServiceUrl,
 } from '@jejunetwork/config'
+import { deriveKeyFromSecretAsync } from '@jejunetwork/kms'
 import { keccak256, stringToHex } from 'viem'
 import { z } from 'zod'
-import { config } from './config'
+import { getTEEEncryptionKeyId } from './secrets'
 
 // Schemas for JSON parsing
 const EncryptedCiphertextSchema = z.object({
@@ -160,21 +161,36 @@ function getDAUrl(): string {
   return getServiceUrl('storage', 'api')
 }
 
+// Cached derived key (only in memory, never persisted)
+let cachedDerivedKey: Uint8Array | null = null
+
 /**
- * SECURITY: Get encryption key WITHOUT caching in memory.
- * In production, this should NOT be called - use KMS encryption directly.
+ * SECURITY: Get encryption key derived from KMS key ID.
+ * In production, the key ID references a key stored in KMS.
+ * The actual encryption key is derived using HKDF, never stored directly.
  */
-function getEncryptionKeyOnce(): string {
-  const key = config.teeEncryptionSecret
-  if (!key) {
-    throw new Error('TEE_ENCRYPTION_SECRET environment variable is required')
-  }
-  return key
+async function getEncryptionKey(): Promise<Uint8Array> {
+  if (cachedDerivedKey) return cachedDerivedKey
+
+  const keyId = await getTEEEncryptionKeyId()
+  
+  // Derive the encryption key from the key ID using HKDF
+  // This ensures we never store raw secrets, only derived material
+  cachedDerivedKey = await deriveKeyFromSecretAsync(
+    keyId,
+    'autocrat:tee:encryption:v1',
+  )
+  
+  return cachedDerivedKey
 }
 
-function isInitialized(): boolean {
-  // Check config which has localnet default, not just the raw env var
-  return config.teeEncryptionSecret !== undefined
+async function isInitialized(): Promise<boolean> {
+  try {
+    await getTEEEncryptionKeyId()
+    return true
+  } catch {
+    return false
+  }
 }
 
 function reset(): void {
@@ -225,13 +241,18 @@ function createAccessConditions(
 
 /**
  * SECURITY: Derive encryption key from the base key and policy.
- * Key is NOT cached - derived fresh each time and cleared after use.
- * In production, use KMS encryption endpoints instead.
+ * Uses KMS-derived key material as base.
  */
 async function deriveKey(policyHash: string): Promise<CryptoKey> {
-  const baseKey = getEncryptionKeyOnce()
-  const keyMaterial = new TextEncoder().encode(`${baseKey}:${policyHash}`)
-  const hashBuffer = await crypto.subtle.digest('SHA-256', keyMaterial)
+  const baseKey = await getEncryptionKey()
+  const policyBytes = new TextEncoder().encode(policyHash)
+  
+  // Combine base key with policy for unique per-policy key
+  const combined = new Uint8Array(baseKey.length + policyBytes.length)
+  combined.set(baseKey)
+  combined.set(policyBytes, baseKey.length)
+  
+  const hashBuffer = await crypto.subtle.digest('SHA-256', combined)
 
   return crypto.subtle.importKey(
     'raw',
@@ -515,13 +536,18 @@ export async function canDecrypt(
   return status === 7
 }
 
-export function getEncryptionStatus(): {
+export async function getEncryptionStatus(): Promise<{
   provider: string
   connected: boolean
-} {
-  return { provider: 'jeju-kms', connected: isInitialized() }
+}> {
+  return { provider: 'jeju-kms', connected: await isInitialized() }
 }
 
 export async function disconnect(): Promise<void> {
+  // Clear cached derived key from memory
+  if (cachedDerivedKey) {
+    cachedDerivedKey.fill(0)
+    cachedDerivedKey = null
+  }
   reset()
 }

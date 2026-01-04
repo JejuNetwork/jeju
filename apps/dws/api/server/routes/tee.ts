@@ -32,8 +32,8 @@ const TDX_VERIFIER_ADDRESS = ((typeof process !== 'undefined'
 const RPC_URL =
   (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ||
   getRpcUrl(network)
-// Private key is a secret - keep as env var
-const VERIFIER_PRIVATE_KEY =
+// SECURITY: In production, use KMS (TEE_VERIFIER_KMS_KEY_ID). Direct keys blocked.
+const DIRECT_VERIFIER_KEY =
   typeof process !== 'undefined'
     ? (process.env.TEE_VERIFIER_PRIVATE_KEY as `0x${string}` | undefined)
     : undefined
@@ -185,22 +185,31 @@ async function getVerifierService(): Promise<AttestationVerifierService> {
       }
     }
 
-    // Option 2: Direct key (development fallback)
+    // Option 2: Direct key (development ONLY - blocked in production)
     if (!walletClient) {
-      if (isProduction && !process.env.TX_RELAY_URL) {
-        console.error(
-          '[TEE] CRITICAL: Using direct private key in production. ' +
-            'Set TEE_VERIFIER_KMS_KEY_ID for side-channel protection.',
-        )
-      }
-
-      if (!VERIFIER_PRIVATE_KEY) {
+      if (isProduction) {
+        if (DIRECT_VERIFIER_KEY) {
+          console.error(
+            '[TEE] SECURITY ERROR: TEE_VERIFIER_PRIVATE_KEY detected in production. ' +
+            'Direct private keys are BLOCKED. Use TEE_VERIFIER_KMS_KEY_ID.',
+          )
+        }
         throw new Error(
-          'TEE_VERIFIER_PRIVATE_KEY or TEE_VERIFIER_KMS_KEY_ID must be configured',
+          'SECURITY: TEE_VERIFIER_KMS_KEY_ID and TEE_VERIFIER_OWNER_ADDRESS required in production. ' +
+          'Direct private keys (TEE_VERIFIER_PRIVATE_KEY) are not allowed.',
         )
       }
 
-      const account = privateKeyToAccount(VERIFIER_PRIVATE_KEY)
+      if (!DIRECT_VERIFIER_KEY) {
+        throw new Error(
+          'TEE_VERIFIER_PRIVATE_KEY (development) or TEE_VERIFIER_KMS_KEY_ID (production) required',
+        )
+      }
+
+      console.warn(
+        '[TEE] WARNING: Using TEE_VERIFIER_PRIVATE_KEY for development. Use KMS in production.',
+      )
+      const account = privateKeyToAccount(DIRECT_VERIFIER_KEY)
       walletClient = createWalletClient({
         account,
         transport: http(RPC_URL),
@@ -582,7 +591,7 @@ export function createTEERouter() {
       .get('/health', async () => {
         const configured =
           TDX_VERIFIER_ADDRESS !== '0x0000000000000000000000000000000000000000'
-        const hasPrivateKey = !!VERIFIER_PRIVATE_KEY
+        const hasPrivateKey = !!DIRECT_VERIFIER_KEY || !!TEE_VERIFIER_KMS_KEY_ID
 
         let serviceInitialized = false
         if (configured && hasPrivateKey) {

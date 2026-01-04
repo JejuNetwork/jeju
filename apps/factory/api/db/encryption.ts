@@ -6,9 +6,12 @@ import {
   scryptSync,
 } from 'node:crypto'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-import { isProductionEnv } from '@jejunetwork/config'
+import { getEnvVar, isProductionEnv } from '@jejunetwork/config'
+import { createLogger } from '@jejunetwork/shared'
 
-// Configuration
+const log = createLogger('factory-db-encryption')
+
+// Configuration - use getEnvVar for consistent secret access
 const DB_ENCRYPTION_KEY_ENV = 'FACTORY_DB_ENCRYPTION_KEY'
 const KEY_DERIVATION_SALT_ENV = 'FACTORY_DB_KEY_SALT'
 const ALGORITHM = 'aes-256-gcm'
@@ -21,18 +24,26 @@ const ENCRYPTED_HEADER = Buffer.from('JEJU_ENC_DB_V1')
 let derivedKey: Buffer | null = null
 let keySalt: Buffer | null = null
 
+/**
+ * Get encryption key from environment.
+ * SECURITY: Fails in production if no key is configured.
+ */
 function getEncryptionKey(): Buffer {
   if (derivedKey) return derivedKey
 
-  const masterKey = process.env[DB_ENCRYPTION_KEY_ENV]
+  const masterKey = getEnvVar(DB_ENCRYPTION_KEY_ENV)
   if (!masterKey) {
     if (isProductionEnv()) {
-      throw new Error(`${DB_ENCRYPTION_KEY_ENV} must be set in production`)
+      throw new Error(
+        `${DB_ENCRYPTION_KEY_ENV} must be set in production. ` +
+        'Configure this secret via KMS or environment variable.'
+      )
     }
+    log.warn('Database encryption disabled in development mode')
     return Buffer.alloc(0)
   }
 
-  const saltHex = process.env[KEY_DERIVATION_SALT_ENV]
+  const saltHex = getEnvVar(KEY_DERIVATION_SALT_ENV)
   keySalt = saltHex ? Buffer.from(saltHex, 'hex') : randomBytes(32)
 
   derivedKey = scryptSync(Buffer.from(masterKey, 'hex'), keySalt, KEY_LENGTH)
@@ -93,7 +104,7 @@ function decryptBuffer(encrypted: Buffer, key: Buffer): Buffer {
 }
 
 export function isEncryptionEnabled(): boolean {
-  return !!process.env[DB_ENCRYPTION_KEY_ENV]
+  return !!getEnvVar(DB_ENCRYPTION_KEY_ENV)
 }
 
 export function isFileEncrypted(filePath: string): boolean {

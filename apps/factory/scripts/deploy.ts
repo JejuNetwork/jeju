@@ -16,23 +16,41 @@ import {
   getCoreAppUrl,
   getCurrentNetwork,
   getDWSUrl,
+  getEnvVar,
+  isProductionEnv,
 } from '@jejunetwork/config'
 import { privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
 
 const DWS_URL =
-  (typeof process !== 'undefined' ? process.env.DWS_URL : undefined) ||
+  getEnvVar('DWS_URL') ||
   getCoreAppUrl('DWS_API') ||
   getDWSUrl()
 const NETWORK = getCurrentNetwork()
 
+/**
+ * Get deployer private key with production validation.
+ * SECURITY: In production, this should come from KMS.
+ * For now, we require the env var and validate it exists.
+ */
+function getDeployerPrivateKey(): `0x${string}` | undefined {
+  const key = getEnvVar('DEPLOYER_PRIVATE_KEY') as `0x${string}` | undefined
+  
+  if (isProductionEnv() && !key) {
+    throw new Error(
+      'DEPLOYER_PRIVATE_KEY is required for production deployments. ' +
+      'This secret should be managed via KMS.'
+    )
+  }
+  
+  return key
+}
+
 // Get deployer wallet address (for authentication)
-const DEPLOYER_PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY as
-  | `0x${string}`
-  | undefined
+const DEPLOYER_PRIVATE_KEY = getDeployerPrivateKey()
 const deployerAddress = DEPLOYER_PRIVATE_KEY
   ? privateKeyToAccount(DEPLOYER_PRIVATE_KEY).address
-  : '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' // Default dev address
+  : '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' // Default dev address (Anvil account 0)
 
 const UploadResponseSchema = z.object({ cid: z.string() })
 const _DeployResponseSchema = z.object({ id: z.string(), status: z.string() })

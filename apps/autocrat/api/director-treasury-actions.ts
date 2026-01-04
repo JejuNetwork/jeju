@@ -17,11 +17,17 @@ import {
   getContractAddress,
   getCurrentNetwork,
 } from '@jejunetwork/config'
-import type { Address, Chain, Hash } from 'viem'
-import { createPublicClient, createWalletClient, formatEther, http } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
+import type { Address, Chain, Hash, WalletClient } from 'viem'
+import {
+  createPublicClient,
+  formatEther,
+  http,
+  type PublicClient,
+  type Transport,
+} from 'viem'
 import { z } from 'zod'
 import { jejuMainnet, jejuTestnet, localhost } from './chains'
+import { getDirectorSigner } from './secrets'
 
 function getViemChain(): Chain {
   const network = getCurrentNetwork()
@@ -194,29 +200,43 @@ const ERC20_ABI = [
 // ============ Director Treasury Actions Class ============
 
 export class DirectorTreasuryActions {
-  private publicClient
-  private walletClient
+  private publicClient: PublicClient<Transport, Chain>
+  private walletClient: WalletClient | null = null
+  private directorAccount: Address | null = null
   private treasuryAddress: Address
+  private chain: Chain
+  private rpcUrl: string
+  private initialized = false
 
   constructor() {
     const chainConfig = getChainConfig()
-    const chain = getViemChain()
+    this.chain = getViemChain()
+    this.rpcUrl = chainConfig.rpcUrl
     this.treasuryAddress = getContractAddress('treasury') as Address
 
     this.publicClient = createPublicClient({
-      chain,
-      transport: http(chainConfig.rpcUrl),
-    })
+      chain: this.chain,
+      transport: http(this.rpcUrl),
+    }) as PublicClient<Transport, Chain>
+  }
 
-    // Use Director operator key for transactions
-    const directorKey = process.env.DIRECTOR_OPERATOR_KEY
-    if (directorKey) {
-      const account = privateKeyToAccount(directorKey as `0x${string}`)
-      this.walletClient = createWalletClient({
-        account,
-        chain,
-        transport: http(chainConfig.rpcUrl),
-      })
+  /**
+   * Initialize the KMS-based director signer
+   * Must be called before any write operations
+   */
+  async initialize(): Promise<void> {
+    if (this.initialized) return
+
+    try {
+      const signer = await getDirectorSigner()
+      this.walletClient = await signer.getWalletClient(this.chain, this.rpcUrl)
+      this.directorAccount = signer.getAddress()
+      this.initialized = true
+    } catch (error) {
+      console.warn(
+        '[DirectorTreasury] KMS signer not available:',
+        (error as Error).message,
+      )
     }
   }
 
@@ -250,6 +270,8 @@ export class DirectorTreasuryActions {
 
     // Execute transfer via Treasury contract
     const hash = await this.walletClient.writeContract({
+      chain: this.chain,
+      account: this.directorAccount!,
       address: this.treasuryAddress,
       abi: TREASURY_ABI,
       functionName: 'directorSendTokens',
@@ -289,6 +311,8 @@ export class DirectorTreasuryActions {
     const intervalSeconds = BigInt(parsed.intervalDays * 24 * 60 * 60)
 
     const hash = await this.walletClient.writeContract({
+      chain: this.chain,
+      account: this.directorAccount!,
       address: this.treasuryAddress,
       abi: TREASURY_ABI,
       functionName: 'createRecurringPayment',
@@ -334,6 +358,8 @@ export class DirectorTreasuryActions {
     }
 
     const hash = await this.walletClient.writeContract({
+      chain: this.chain,
+      account: this.directorAccount!,
       address: this.treasuryAddress,
       abi: TREASURY_ABI,
       functionName: 'cancelRecurringPayment',
@@ -376,6 +402,8 @@ export class DirectorTreasuryActions {
 
     // Execute swap
     const hash = await this.walletClient.writeContract({
+      chain: this.chain,
+      account: this.directorAccount!,
       address: this.treasuryAddress,
       abi: TREASURY_ABI,
       functionName: 'swapTokens',
@@ -412,6 +440,8 @@ export class DirectorTreasuryActions {
     }
 
     const hash = await this.walletClient.writeContract({
+      chain: this.chain,
+      account: this.directorAccount!,
       address: this.treasuryAddress,
       abi: TREASURY_ABI,
       functionName: 'topUpAccount',
@@ -455,6 +485,8 @@ export class DirectorTreasuryActions {
     }
 
     const hash = await this.walletClient.writeContract({
+      chain: this.chain,
+      account: this.directorAccount!,
       address: this.treasuryAddress,
       abi: TREASURY_ABI,
       functionName: 'whitelistSwapDestination',
@@ -477,6 +509,8 @@ export class DirectorTreasuryActions {
     }
 
     const hash = await this.walletClient.writeContract({
+      chain: this.chain,
+      account: this.directorAccount!,
       address: this.treasuryAddress,
       abi: TREASURY_ABI,
       functionName: 'removeSwapDestination',

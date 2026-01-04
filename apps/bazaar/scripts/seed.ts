@@ -21,32 +21,16 @@ import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { getL2RpcUrl, getLocalhostHost } from '@jejunetwork/config'
-import { isLocalnet as isLocalRpc } from '@jejunetwork/config/ports'
 import {
   bootstrapPerps,
   bootstrapPredictionMarkets,
   savePerpsDeployment,
   savePredictionMarketDeployment,
 } from '../lib/bootstrap'
+import { getDeployerKey } from '../lib/secrets'
 
 const RPC_URL = getL2RpcUrl()
-const ANVIL_DEFAULT_KEY =
-  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
-
-function getDeployerKey(): string {
-  const envKey = process.env.PRIVATE_KEY
-  if (envKey) return envKey
-
-  if (!isLocalRpc(RPC_URL)) {
-    throw new Error(
-      'PRIVATE_KEY environment variable required for non-local deployments.',
-    )
-  }
-
-  return ANVIL_DEFAULT_KEY
-}
-
-const DEPLOYER_KEY = getDeployerKey()
+const DEPLOYER_KEY = getDeployerKey(RPC_URL)
 const CONTRACTS_DIR = join(import.meta.dirname, '../../../packages/contracts')
 const CONFIG_DIR = join(import.meta.dirname, '../../../packages/config')
 

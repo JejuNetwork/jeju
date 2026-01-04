@@ -8,11 +8,13 @@
  * - KMS-backed signing for all key operations
  * - HSM-backed encryption key derivation
  * - No direct private keys in environment
- * - Proper secrets configuration
+ * - No secrets in environment variables
+ * - Proper KMS secrets configuration
  */
 
 import { isProductionEnv } from '@jejunetwork/config'
 import { isHSMAvailable } from './hsm-kdf'
+import { validateNoEnvSecrets } from './kms-secrets'
 import { isKMSAvailable } from './kms-wallet'
 
 export interface SecurityValidationResult {
@@ -79,18 +81,43 @@ export async function validateSecurityConfiguration(): Promise<SecurityValidatio
         const directKeyVars = [
           'PRIVATE_KEY',
           'DWS_PRIVATE_KEY',
+          'FAUCET_PRIVATE_KEY',
+          'POC_SIGNER_KEY',
+          'JEJU_DEPLOY_KEY',
+          'DA_OPERATOR_PRIVATE_KEY',
           'SOLVER_PRIVATE_KEY',
           'TEE_VERIFIER_PRIVATE_KEY',
           'OPERATOR_PRIVATE_KEY',
           'WORKER_PRIVATE_KEY',
+          'ORACLE_PRIVATE_KEY',
         ]
-        const found = directKeyVars.filter((v) => process.env[v])
+        const found = directKeyVars.filter((v) => {
+          const value = process.env[v]
+          // Only flag if it's a private key (0x + 64 hex chars)
+          return value && value.startsWith('0x') && value.length === 66
+        })
         return {
           ok: found.length === 0,
           message:
             found.length === 0
               ? 'No direct private keys in environment'
               : `Direct keys found: ${found.join(', ')}`,
+        }
+      },
+      required: true,
+      severity: 'critical',
+    },
+
+    // No secrets in environment variables (production)
+    {
+      name: 'No Secrets in Environment',
+      check: async () => {
+        const result = validateNoEnvSecrets()
+        return {
+          ok: result.valid,
+          message: result.valid
+            ? 'No secrets exposed in environment variables'
+            : `Secrets in env: ${result.violations.slice(0, 3).join('; ')}${result.violations.length > 3 ? '...' : ''}`,
         }
       },
       required: true,
@@ -122,64 +149,16 @@ export async function validateSecurityConfiguration(): Promise<SecurityValidatio
       severity: 'warning',
     },
 
-    // Vault encryption secret
+    // KMS endpoint configured
     {
-      name: 'Vault Encryption Secret',
+      name: 'KMS Secrets Endpoint',
       check: async () => {
-        const hasSecret = !!process.env.VAULT_ENCRYPTION_SECRET
+        const hasEndpoint = !!(process.env.KMS_ENDPOINT ?? process.env.DWS_KMS_URL)
         return {
-          ok: hasSecret,
-          message: hasSecret
-            ? 'Vault encryption secret configured'
-            : 'VAULT_ENCRYPTION_SECRET not set',
-        }
-      },
-      required: true,
-      severity: 'critical',
-    },
-
-    // API key encryption secret
-    {
-      name: 'API Key Encryption Secret',
-      check: async () => {
-        const hasSecret = !!process.env.API_KEY_ENCRYPTION_SECRET
-        return {
-          ok: hasSecret,
-          message: hasSecret
-            ? 'API key encryption secret configured'
-            : 'API_KEY_ENCRYPTION_SECRET not set',
-        }
-      },
-      required: true,
-      severity: 'critical',
-    },
-
-    // CI encryption secret
-    {
-      name: 'CI Encryption Secret',
-      check: async () => {
-        const hasSecret = !!process.env.CI_ENCRYPTION_SECRET
-        return {
-          ok: hasSecret,
-          message: hasSecret
-            ? 'CI encryption secret configured'
-            : 'CI_ENCRYPTION_SECRET not set',
-        }
-      },
-      required: true,
-      severity: 'critical',
-    },
-
-    // Hardware ID salt
-    {
-      name: 'Hardware ID Salt',
-      check: async () => {
-        const hasSalt = !!process.env.HARDWARE_ID_SALT
-        return {
-          ok: hasSalt,
-          message: hasSalt
-            ? 'Hardware ID salt configured'
-            : 'HARDWARE_ID_SALT not set',
+          ok: hasEndpoint,
+          message: hasEndpoint
+            ? 'KMS endpoint configured for secret management'
+            : 'KMS_ENDPOINT not set - secrets must be in KMS',
         }
       },
       required: true,
@@ -242,6 +221,12 @@ export async function validateSecurityConfiguration(): Promise<SecurityValidatio
   ) {
     recommendations.push(
       'Configure KMS keys for all services to prevent side-channel key extraction',
+    )
+  }
+
+  if (!process.env.KMS_ENDPOINT && !process.env.DWS_KMS_URL) {
+    recommendations.push(
+      'Configure KMS_ENDPOINT for secure secret management - no secrets should be in environment variables',
     )
   }
 
@@ -335,19 +320,27 @@ export async function getSecurityStatus(): Promise<{
   mode: string
   kms: boolean
   hsm: boolean
+  kmsSecretsEndpoint: boolean
   directKeys: string[]
+  envSecretViolations: string[]
   configured: string[]
 }> {
   const kms = await isKMSAvailable()
   const hsm = await isHSMAvailable()
+  const kmsSecretsEndpoint = !!(process.env.KMS_ENDPOINT ?? process.env.DWS_KMS_URL)
 
   const directKeyVars = [
     'PRIVATE_KEY',
     'DWS_PRIVATE_KEY',
+    'FAUCET_PRIVATE_KEY',
+    'POC_SIGNER_KEY',
+    'JEJU_DEPLOY_KEY',
+    'DA_OPERATOR_PRIVATE_KEY',
     'SOLVER_PRIVATE_KEY',
     'TEE_VERIFIER_PRIVATE_KEY',
     'OPERATOR_PRIVATE_KEY',
     'WORKER_PRIVATE_KEY',
+    'ORACLE_PRIVATE_KEY',
   ]
 
   const kmsKeyVars = [
@@ -357,20 +350,32 @@ export async function getSecurityStatus(): Promise<{
     'TEE_VERIFIER_KMS_KEY_ID',
     'STORAGE_PROOF_KMS_KEY_ID',
     'RETRIEVAL_MARKET_KMS_KEY_ID',
+    'FAUCET_KMS_KEY_ID',
+    'POC_VERIFIER_KMS_KEY_ID',
+    'DEPLOY_HOOK_KMS_KEY_ID',
+    'DA_OPERATOR_KMS_KEY_ID',
+    'WORKERD_KMS_KEY_ID',
   ]
+
+  const envSecretsResult = validateNoEnvSecrets()
 
   return {
     mode:
-      kms && hsm
+      kms && hsm && kmsSecretsEndpoint
         ? 'secure'
-        : kms
+        : kms && kmsSecretsEndpoint
           ? 'kms-only'
           : hsm
             ? 'hsm-only'
             : 'development',
     kms,
     hsm,
-    directKeys: directKeyVars.filter((v) => process.env[v]),
+    kmsSecretsEndpoint,
+    directKeys: directKeyVars.filter((v) => {
+      const value = process.env[v]
+      return value && value.startsWith('0x') && value.length === 66
+    }),
+    envSecretViolations: envSecretsResult.violations,
     configured: kmsKeyVars.filter((v) => process.env[v]),
   }
 }

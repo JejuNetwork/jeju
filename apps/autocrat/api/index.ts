@@ -1140,18 +1140,16 @@ const port = CORE_PORTS.AUTOCRAT_API.get()
 
 async function start() {
   // Initialize config from environment variables
+  // NOTE: Secrets (API keys, private keys) are managed via KMS SecretVault
+  // See api/secrets.ts for centralized secret access
   configureAutocrat({
     rpcUrl: getRpcUrl(),
     network: getCurrentNetwork(),
     defaultDao: getEnvVar('DEFAULT_DAO'),
     directorModelId: getEnvVar('DIRECTOR_MODEL_ID'),
-    operatorKey: getEnvVar('OPERATOR_KEY'),
-    privateKey: getEnvVar('PRIVATE_KEY'),
     sqlitDatabaseId: getEnvVar('SQLIT_DATABASE_ID'),
-    autocratApiKey: getEnvVar('AUTOCRAT_API_KEY'),
-    cloudApiKey: getEnvVar('CLOUD_API_KEY'),
     teePlatform: getEnvVar('TEE_PLATFORM'),
-    teeEncryptionSecret: getEnvVar('TEE_ENCRYPTION_SECRET'),
+    teeEncryptionKeyId: getEnvVar('TEE_ENCRYPTION_KEY_ID'),
     ollamaUrl: getEnvVar('OLLAMA_URL'),
     ollamaModel: getEnvVar('OLLAMA_MODEL'),
     computeModel: getEnvVar('COMPUTE_MODEL'),
@@ -1162,6 +1160,10 @@ async function start() {
     farcasterHubUrl: getEnvVar('FARCASTER_HUB_URL'),
     nodeEnv: getEnvVar('NODE_ENV'),
   })
+
+  // Initialize secrets from KMS SecretVault
+  const { initializeSecrets } = await import('./secrets')
+  await initializeSecrets()
 
   await initLocalServices()
   await initModeration()

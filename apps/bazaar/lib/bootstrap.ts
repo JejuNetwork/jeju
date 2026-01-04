@@ -1,10 +1,7 @@
 import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { isLocalnet } from '@jejunetwork/config/ports'
-
-const ANVIL_DEFAULT_KEY =
-  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
+import { getDeployerKey } from './secrets'
 
 interface BootstrapConfig {
   rpcUrl: string
@@ -32,19 +29,6 @@ interface PerpsResult {
     symbol: string
     baseAsset: string
   }>
-}
-
-function getDeployerKey(rpcUrl: string): string {
-  const envKey = process.env.PRIVATE_KEY
-  if (envKey) return envKey
-
-  if (!isLocalnet(rpcUrl)) {
-    throw new Error(
-      'PRIVATE_KEY environment variable required for non-local deployments.',
-    )
-  }
-
-  return ANVIL_DEFAULT_KEY
 }
 
 function exec(cmd: string, options?: { cwd?: string }): string {

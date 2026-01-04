@@ -37,7 +37,7 @@ export interface AgentGoal {
 export interface AvailableAction {
   name: string
   description: string
-  category: string
+ category: string
   parameters?: ActionParameter[]
   examples?: string[]
   requiresApproval?: boolean
@@ -97,6 +97,8 @@ export const DEFAULT_AUTONOMOUS_CONFIG: Omit<
     canDelegate: true,
     canStake: true,
     canBridge: false, // Require explicit opt-in
+    a2a: true, // Enable A2A communication by default
+    compute: true, // Enable compute actions by default
   },
   maxActionsPerTick: 3,
   enabled: true,

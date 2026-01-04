@@ -308,6 +308,12 @@ function constantTimeCompare(a: string, b: string): boolean {
 async function main() {
   const port = config.port
   const host = getLocalhostHost()
+
+  // Start autonomous limit order monitoring
+  console.log('[Otto] Starting autonomous limit order monitor...')
+  const { startLimitOrderMonitor } = await import('./eliza/runtime')
+  startLimitOrderMonitor()
+
   console.log(`[Otto] http://${host}:${port}`)
   app.listen(port)
 }

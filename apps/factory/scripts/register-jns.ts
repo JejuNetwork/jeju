@@ -11,7 +11,13 @@
  *   bun run scripts/register-jns.ts --help
  */
 
-import { getContract, getCurrentNetwork, getRpcUrl } from '@jejunetwork/config'
+import {
+  getContract,
+  getCurrentNetwork,
+  getEnvVar,
+  getRpcUrl,
+  isProductionEnv,
+} from '@jejunetwork/config'
 import type { Address, Hex } from 'viem'
 import {
   createPublicClient,
@@ -50,6 +56,7 @@ Options:
 
 Environment:
   DEPLOYER_PRIVATE_KEY         Private key for registration (required)
+                               For production, this should be managed via KMS.
 
 Example:
   DEPLOYER_PRIVATE_KEY=0x... bun run scripts/register-jns.ts \\
@@ -74,9 +81,13 @@ if (!FRONTEND_CID) {
   process.exit(1)
 }
 
-const PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY as Hex | undefined
+// Get deployer private key via config helper (not raw process.env)
+const PRIVATE_KEY = getEnvVar('DEPLOYER_PRIVATE_KEY') as Hex | undefined
 if (!PRIVATE_KEY) {
-  console.error('Error: DEPLOYER_PRIVATE_KEY environment variable is required')
+  const errorMsg = isProductionEnv()
+    ? 'DEPLOYER_PRIVATE_KEY is required. For production, this secret should be managed via KMS.'
+    : 'DEPLOYER_PRIVATE_KEY environment variable is required'
+  console.error(`Error: ${errorMsg}`)
   process.exit(1)
 }
 

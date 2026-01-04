@@ -118,6 +118,11 @@ export class FutarchyClient {
 
       if (keyHex.length === 66) {
         // Development only: Allow local signing with warning
+        if (isProductionEnv()) {
+          throw new Error(
+            'SECURITY: Raw private keys are forbidden in production. Use KMS.',
+          )
+        }
         console.warn(
           '[FutarchyClient] ⚠️  Using local private key. NOT secure for production.',
         )

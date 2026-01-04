@@ -12,6 +12,7 @@
  */
 
 // Network configuration handled internally by MultiBackendManager
+import { isProductionEnv } from '@jejunetwork/config'
 import {
   ContentModerationPipeline,
   type ModerationResult,
@@ -84,6 +85,24 @@ let moderationPipeline: ContentModerationPipeline | null = null
 
 function getModerationPipeline(): ContentModerationPipeline {
   if (!moderationPipeline) {
+    const isProduction = isProductionEnv()
+
+    // SECURITY NOTE: In production, these API keys should be stored in KMS
+    // and accessed via the API marketplace key vault, not env vars.
+    // For now, log warnings about direct env var usage.
+    if (isProduction) {
+      if (process.env.OPENAI_API_KEY) {
+        console.warn(
+          '[Storage] WARNING: Using OPENAI_API_KEY from env. Consider using API marketplace vault.',
+        )
+      }
+      if (process.env.AWS_SECRET_ACCESS_KEY) {
+        console.warn(
+          '[Storage] WARNING: Using AWS credentials from env. Consider using IAM roles or KMS.',
+        )
+      }
+    }
+
     moderationPipeline = new ContentModerationPipeline({
       reputationProvider: getDWSReputationAdapter(),
       openai: process.env.OPENAI_API_KEY

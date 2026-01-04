@@ -45,9 +45,7 @@ import {
 
 const config = getFactoryConfig()
 // When running with frontend dev server, API uses port + 1 (frontend proxies to us)
-const API_PORT_OFFSET = process.env.API_PORT_OFFSET
-  ? Number(process.env.API_PORT_OFFSET)
-  : 0
+const API_PORT_OFFSET = getEnvNumber('API_PORT_OFFSET') ?? 0
 const PORT = config.port + API_PORT_OFFSET
 const isDev = config.isDev
 

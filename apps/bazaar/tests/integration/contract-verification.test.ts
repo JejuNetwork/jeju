@@ -25,12 +25,13 @@ import {
   type WalletClient,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { getDeployerKey } from '../../lib/secrets'
 
 // CONFIGURATION - from centralized config
 const RPC_URL = getRpcUrl('localnet')
 const CHAIN_ID = getChainId('localnet')
-const DEPLOYER_KEY =
-  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as `0x${string}`
+// Use secrets module for consistent key retrieval (validates localnet)
+const DEPLOYER_KEY = getDeployerKey(RPC_URL) as `0x${string}`
 const DEPLOYER_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address
 
 function isDeployed(address: string | undefined): address is Address {

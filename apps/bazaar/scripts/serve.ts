@@ -29,6 +29,7 @@ import { getSQLit, type SQLitClient } from '@jejunetwork/db'
 import type { Subprocess } from 'bun'
 import { z } from 'zod'
 import { createBazaarApp, initializeDatabase } from '../api/worker'
+import { getSqlitPrivateKey } from '../lib/secrets'
 
 const APP_DIR = resolve(import.meta.dir, '..')
 const DIST_STATIC = join(APP_DIR, 'dist/static')
@@ -427,7 +428,8 @@ async function startStandaloneFallback(): Promise<void> {
     INDEXER_URL: getIndexerGraphqlUrl(),
     SQLIT_NODES: getSQLitBlockProducerUrl(),
     SQLIT_DATABASE_ID: process.env.SQLIT_DATABASE_ID || 'bazaar-db',
-    SQLIT_PRIVATE_KEY: process.env.SQLIT_PRIVATE_KEY || '',
+    // SQLit private key retrieved through secrets module
+    SQLIT_PRIVATE_KEY: getSqlitPrivateKey() ?? '',
   })
 
   const host = getLocalhostHost()

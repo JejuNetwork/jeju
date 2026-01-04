@@ -43,6 +43,19 @@ interface DeployConfig {
   cdnEnabled: boolean
 }
 
+// Well-known Anvil test key - ONLY for localnet
+const ANVIL_DEFAULT_KEY =
+  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as const
+
+/**
+ * Get deployment configuration.
+ *
+ * SECURITY NOTES:
+ * - In localnet: Uses well-known test key by default
+ * - In testnet/mainnet: Requires DEPLOYER_PRIVATE_KEY env var
+ * - Never commit private keys to source control
+ * - Consider using hardware wallets for mainnet deployments
+ */
 function getConfig(): DeployConfig {
   const network = getCurrentNetwork()
 
@@ -61,17 +74,39 @@ function getConfig(): DeployConfig {
     },
   }
 
-  const privateKey = process.env.DEPLOYER_PRIVATE_KEY || process.env.PRIVATE_KEY
-  if (!privateKey) {
-    throw new Error(
-      'DEPLOYER_PRIVATE_KEY or PRIVATE_KEY environment variable required',
-    )
+  // Get private key based on network
+  let privateKey: `0x${string}`
+
+  if (network === 'localnet') {
+    // In localnet, use env var if provided, otherwise use Anvil default
+    const envKey = process.env.DEPLOYER_PRIVATE_KEY ?? process.env.PRIVATE_KEY
+    privateKey = (envKey ?? ANVIL_DEFAULT_KEY) as `0x${string}`
+  } else {
+    // In testnet/mainnet, REQUIRE explicit private key
+    const envKey = process.env.DEPLOYER_PRIVATE_KEY ?? process.env.PRIVATE_KEY
+    if (!envKey) {
+      throw new Error(
+        `DEPLOYER_PRIVATE_KEY required for ${network} deployment.\n` +
+          'Set via environment variable or use a hardware wallet.\n' +
+          'Never commit private keys to source control.',
+      )
+    }
+
+    // SECURITY: Warn if using a well-known test key in non-localnet
+    if (envKey === ANVIL_DEFAULT_KEY) {
+      throw new Error(
+        'CRITICAL: Detected Anvil test key in non-localnet environment.\n' +
+          'This is a well-known test key and must NOT be used in production.',
+      )
+    }
+
+    privateKey = envKey as `0x${string}`
   }
 
   return {
     network,
     ...configs[network],
-    privateKey: privateKey as `0x${string}`,
+    privateKey,
     cdnEnabled: process.env.CDN_ENABLED !== 'false',
   } as DeployConfig
 }

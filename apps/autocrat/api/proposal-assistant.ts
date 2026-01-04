@@ -749,6 +749,11 @@ Return JSON: {"title":"...","summary":"...","description":"..."}`
     let assessor: KMSAccount
     if (isPrivateKey) {
       // Development only: private key provided, derive address for KMS config
+      if (isProductionEnv()) {
+        throw new Error(
+          'SECURITY: Raw private keys are forbidden in production. Use KMS.',
+        )
+      }
       console.warn(
         '[ProposalAssistant] ⚠️  Using local private key. NOT secure for production.',
       )

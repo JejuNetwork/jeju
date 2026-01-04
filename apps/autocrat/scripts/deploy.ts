@@ -12,10 +12,16 @@
 import { existsSync } from 'node:fs'
 import { readdir, readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import { getCurrentNetwork, getDWSUrl, getL2RpcUrl } from '@jejunetwork/config'
+import {
+  getCurrentNetwork,
+  getDWSUrl,
+  getL2RpcUrl,
+  isProductionEnv,
+} from '@jejunetwork/config'
+import { createKMSSigner, type KMSSigner } from '@jejunetwork/kms'
 import { $ } from 'bun'
 import { type Address, keccak256 } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
+// privateKeyToAccount removed - using KMS signer instead
 import { z } from 'zod'
 
 const APP_DIR = resolve(import.meta.dir, '..')
@@ -39,12 +45,30 @@ interface DeployConfig {
   network: 'localnet' | 'testnet' | 'mainnet'
   dwsUrl: string
   rpcUrl: string
-  privateKey: `0x${string}`
   workerRegistryAddress: Address
   cdnEnabled: boolean
+  deployerAddress: Address
 }
 
-function getConfig(): DeployConfig {
+// Signer for deployment operations
+let deploySigner: KMSSigner | null = null
+
+async function getDeploySigner(): Promise<KMSSigner> {
+  if (deploySigner) return deploySigner
+
+  const network = getCurrentNetwork()
+  const isProduction = isProductionEnv()
+
+  deploySigner = createKMSSigner({
+    serviceId: `autocrat-deployer-${network}`,
+    allowLocalDev: !isProduction,
+  })
+
+  await deploySigner.initialize()
+  return deploySigner
+}
+
+async function getConfig(): Promise<DeployConfig> {
   const network = getCurrentNetwork()
 
   const configs: Record<DeployConfig['network'], Partial<DeployConfig>> = {
@@ -68,17 +92,14 @@ function getConfig(): DeployConfig {
     },
   }
 
-  const privateKey = process.env.DEPLOYER_PRIVATE_KEY || process.env.PRIVATE_KEY
-  if (!privateKey) {
-    throw new Error(
-      'DEPLOYER_PRIVATE_KEY or PRIVATE_KEY environment variable required',
-    )
-  }
+  // Get deployer address from KMS signer
+  const signer = await getDeploySigner()
+  const deployerAddress = signer.getAddress()
 
   return {
     network,
     ...configs[network],
-    privateKey: privateKey as `0x${string}`,
+    deployerAddress,
     cdnEnabled: process.env.CDN_ENABLED !== 'false',
   } as DeployConfig
 }
@@ -182,7 +203,7 @@ async function deployWorker(
 ): Promise<string> {
   const deployRequest = {
     name: 'autocrat-api',
-    owner: privateKeyToAccount(config.privateKey).address,
+    owner: config.deployerAddress,
     codeCid: workerBundle.cid,
     codeHash: workerBundle.hash,
     entrypoint: 'worker.js',
@@ -228,7 +249,7 @@ async function deployWorker(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-jeju-address': privateKeyToAccount(config.privateKey).address,
+      'x-jeju-address': config.deployerAddress,
     },
     body: JSON.stringify({
       name: 'autocrat-api',
@@ -340,7 +361,7 @@ async function registerApp(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-jeju-address': privateKeyToAccount(config.privateKey).address,
+      'x-jeju-address': config.deployerAddress,
     },
     body: JSON.stringify({
       name: 'autocrat',
@@ -403,7 +424,7 @@ async function seedJejuDAO(
     const treasuryEnv = process.env.JEJU_DAO_TREASURY
     if (!treasuryEnv) {
       console.warn('   JEJU_DAO_TREASURY not set, using deployer address')
-      treasury = privateKeyToAccount(config.privateKey).address
+      treasury = config.deployerAddress
     } else {
       treasury = treasuryEnv as Address
     }
@@ -413,7 +434,7 @@ async function seedJejuDAO(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-jeju-address': privateKeyToAccount(config.privateKey).address,
+      'x-jeju-address': config.deployerAddress,
     },
     body: JSON.stringify({
       name: JEJU_DAO.name,
@@ -441,7 +462,7 @@ async function seedJejuDAO(
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-jeju-address': privateKeyToAccount(config.privateKey).address,
+          'x-jeju-address': config.deployerAddress,
         },
         body: JSON.stringify({
           role: member.role,
@@ -465,8 +486,9 @@ async function seedJejuDAO(
 async function deploy(): Promise<void> {
   console.log('[Autocrat] Deploying to DWS...\n')
 
-  const config = getConfig()
+  const config = await getConfig()
   console.log(`Network: ${config.network}`)
+  console.log(`Deployer: ${config.deployerAddress} (via KMS)`)
   console.log(`DWS: ${config.dwsUrl}\n`)
 
   // Check build exists

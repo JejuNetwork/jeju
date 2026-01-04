@@ -11,6 +11,7 @@
  */
 
 import { z } from 'zod'
+import { getEtherscanKey } from './secrets'
 
 // ============================================================================
 // Types
@@ -337,7 +338,7 @@ async function verifyBlockchainClaim(claim: ExtractedClaim): Promise<{
   }
 
   const address = addressMatch[0]
-  const apiKey = process.env.ETHERSCAN_API_KEY
+  const apiKey = await getEtherscanKey()
 
   if (!apiKey) {
     // Can still verify with public RPC
@@ -348,7 +349,7 @@ async function verifyBlockchainClaim(claim: ExtractedClaim): Promise<{
         reliability: 80,
         accessedAt: Date.now(),
       },
-      confidence: 50, // Lower confidence without API
+      confidence: 50, // Lower confidence without API (key not in SecretVault)
     }
   }
 

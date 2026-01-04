@@ -691,20 +691,37 @@ export function createCDNClient(config: CDNClientConfig): CDNClient {
 
 export function createCDNClientFromEnv(): CDNClient {
   const kmsServiceId = process.env.KMS_SERVICE_ID
-  const privateKey = process.env.PRIVATE_KEY
+  const directKey = process.env.PRIVATE_KEY
+  const isProduction = isProductionEnv()
+
+  // In production, require KMS - block direct private keys
+  if (isProduction) {
+    if (directKey) {
+      console.error(
+        '[CDN SDK] SECURITY: PRIVATE_KEY detected in production. ' +
+        'Direct private keys are BLOCKED. Use KMS_SERVICE_ID.',
+      )
+    }
+    if (!kmsServiceId) {
+      throw new Error(
+        'SECURITY: KMS_SERVICE_ID required in production. ' +
+        'Direct private keys (PRIVATE_KEY) are not allowed.',
+      )
+    }
+  }
+
+  // Development: allow direct key with warning
+  let privateKey: string | undefined
+  if (!isProduction && directKey) {
+    console.warn(
+      '[CDN SDK] WARNING: Using PRIVATE_KEY for development. Use KMS in production.',
+    )
+    privateKey = directKey
+  }
 
   if (!kmsServiceId && !privateKey) {
     throw new Error(
-      'KMS_SERVICE_ID or PRIVATE_KEY environment variable required. ' +
-        'KMS_SERVICE_ID is recommended for production.',
-    )
-  }
-
-  // Warn if using private key in production
-  if (privateKey && !kmsServiceId && isProductionEnv()) {
-    console.warn(
-      '[CDN SDK] ⚠️  Using PRIVATE_KEY in production. ' +
-        'Set KMS_SERVICE_ID for secure threshold signing.',
+      'KMS_SERVICE_ID (production) or PRIVATE_KEY (development) required.',
     )
   }
 

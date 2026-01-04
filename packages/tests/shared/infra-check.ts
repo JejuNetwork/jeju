@@ -1,22 +1,23 @@
 /**
  * Shared Infrastructure Checks for Tests
  *
- * Provides consistent skip conditions for tests requiring infrastructure.
- * Tests should NEVER use mocks - they should skip if infrastructure is unavailable.
+ * FAIL-FAST DESIGN:
+ * - Tests MUST NOT skip due to missing infrastructure - they should FAIL
+ * - If INFRA_READY=true is set, infrastructure is assumed available
+ * - If running through jeju CLI, infrastructure is verified before tests
+ * - If running directly with bun test, bun-global-setup ensures infra is ready
  *
  * Usage:
- *   import { SKIP, waitForInfra, requireInfra } from '@jejunetwork/tests/infra-check'
+ *   import { requireInfra, requireContracts, checkInfrastructure } from '@jejunetwork/tests/infra-check'
  *
- *   // Skip entire describe block if no infrastructure
- *   describe.skipIf(SKIP.NO_INFRA)('My Integration Tests', () => { ... })
- *
- *   // Skip individual test if specific service missing
- *   test.skipIf(SKIP.SQLit)('should query database', async () => { ... })
- *
- *   // Or throw if infrastructure is required
+ *   // In beforeAll - throw if infrastructure missing (RECOMMENDED)
  *   beforeAll(async () => {
  *     await requireInfra()
+ *     await requireContracts()
  *   })
+ *
+ *   // Check infrastructure status (for reporting)
+ *   const status = await checkInfrastructure()
  */
 
 import { CORE_PORTS, INFRA_PORTS } from '@jejunetwork/config/ports'
@@ -171,16 +172,50 @@ export async function requireInfra(
   const missing = services.filter((s) => !status?.[s])
   if (missing.length > 0) {
     throw new Error(
-      `Required infrastructure not available: ${missing.join(', ')}. ` +
-        `Run 'jeju start' or set INFRA_READY=true if services are running.`,
+      `FATAL: Required infrastructure not available: ${missing.join(', ')}.\n\n` +
+        `Tests CANNOT run without infrastructure. Start with:\n` +
+        `  bun run jeju dev --minimal\n\n` +
+        `Or run tests through the CLI:\n` +
+        `  bun run jeju test --mode integration`,
     )
   }
 }
 
+// Re-export requireContracts from contracts-required module
+// This is the canonical source for contract verification
+import { requireContracts as _requireContracts } from './contracts-required'
+
+/**
+ * Verify contracts are deployed on-chain - REQUIRED for integration/e2e tests
+ * Throws if contracts are not deployed.
+ *
+ * This is a re-export from @jejunetwork/tests/contracts-required
+ */
+export async function requireContractsFromInfra(): Promise<void> {
+  // Check env var first (set by test orchestrator after verification)
+  if (envBool('CONTRACTS_VERIFIED') || envBool('CONTRACTS_DEPLOYED')) {
+    return
+  }
+
+  // Use the canonical requireContracts function
+  await _requireContracts()
+}
+
+/**
+ * Require chain AND contracts for integration/e2e tests
+ * This is the recommended function to use in beforeAll for chain-dependent tests
+ */
+export async function requireChainAndContracts(): Promise<void> {
+  await requireInfra(['anvil'])
+  await requireContractsFromInfra()
+}
+
 // Synchronous skip conditions for describe.skipIf
+// DEPRECATED: Prefer using requireChainAndContracts() in beforeAll
 // These check environment variables only (fast)
 const sqlitEnv = envBool('SQLIT_AVAILABLE') || envBool('INFRA_READY')
 const anvilEnv = envBool('ANVIL_AVAILABLE') || envBool('INFRA_READY')
+const contractsEnv = envBool('CONTRACTS_VERIFIED') || envBool('CONTRACTS_DEPLOYED')
 const dwsEnv = envBool('DWS_AVAILABLE')
 const ipfsEnv = envBool('IPFS_AVAILABLE')
 const dockerEnv = envBool('DOCKER_AVAILABLE')
@@ -188,18 +223,23 @@ const infraReadyEnv = envBool('INFRA_READY')
 
 /**
  * Skip conditions for tests
- * Use with describe.skipIf() or test.skipIf()
+ * DEPRECATED: Use requireChainAndContracts() in beforeAll instead
+ *
+ * Skip conditions should only be used for truly optional tests
+ * (e.g., cross-chain tests that need Solana)
  */
 export const SKIP = {
   // Service unavailable conditions
   SQLit: !sqlitEnv,
   ANVIL: !anvilEnv,
+  CONTRACTS: !contractsEnv && !infraReadyEnv,
   DWS: !dwsEnv,
   IPFS: !ipfsEnv,
   DOCKER: !dockerEnv,
 
   // Composite conditions
   NO_CHAIN: !anvilEnv,
+  NO_CHAIN_OR_CONTRACTS: !anvilEnv || (!contractsEnv && !infraReadyEnv),
   NO_INFRA: !sqlitEnv || !anvilEnv,
   NO_STORAGE: !sqlitEnv || !ipfsEnv,
   NO_DISTRIBUTED: !sqlitEnv || !ipfsEnv,

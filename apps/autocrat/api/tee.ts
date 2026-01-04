@@ -77,6 +77,7 @@ function getDStackEndpoint(): string {
 }
 
 import { config } from './config'
+import { getTEEEncryptionKeyId } from './secrets'
 
 function getTEEPlatform(): TEEPlatform {
   const envPlatform = config.teePlatform
@@ -175,16 +176,18 @@ async function kmsDecrypt(
 
 /**
  * Derive key for local development only - key is NOT cached.
- * Uses PBKDF2 with 100,000 iterations for brute-force resistance.
+ * Uses KMS key ID to derive encryption key via PBKDF2.
  */
 async function deriveKeyLocal(): Promise<Uint8Array> {
-  const secret = config.teeEncryptionSecret
   const network = getCurrentNetwork()
 
-  if (!secret) {
+  let keyId: string
+  try {
+    keyId = await getTEEEncryptionKeyId()
+  } catch {
     if (network === 'mainnet' || network === 'testnet') {
       throw new Error(
-        `TEE_ENCRYPTION_SECRET is required for ${network}. Use KMS encryption instead.`,
+        `TEE encryption key ID is required for ${network}. Configure in KMS SecretVault.`,
       )
     }
     // Ephemeral key for localnet only
@@ -193,18 +196,12 @@ async function deriveKeyLocal(): Promise<Uint8Array> {
     return fromHex(hash.slice(0, 66))
   }
 
-  if (secret.length < 32) {
-    throw new Error(
-      'TEE_ENCRYPTION_SECRET must be at least 32 characters for adequate security',
-    )
-  }
-
   const encoder = new TextEncoder()
   const salt = encoder.encode('jeju:autocrat:tee:v1')
 
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
-    encoder.encode(secret),
+    encoder.encode(keyId),
     'PBKDF2',
     false,
     ['deriveBits'],

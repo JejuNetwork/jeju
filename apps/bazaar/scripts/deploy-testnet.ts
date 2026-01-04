@@ -24,6 +24,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { type Address, createPublicClient, formatEther, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { getDeployerKey } from '../lib/secrets'
 
 // Network configurations
 const NETWORKS = {
@@ -44,9 +45,6 @@ const NETWORKS = {
 } as const
 
 type NetworkName = keyof typeof NETWORKS
-
-const ANVIL_DEFAULT_KEY =
-  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
 
 interface DeploymentResult {
   chainId: number
@@ -101,20 +99,10 @@ function parseArgs(): { network: NetworkName } {
   return { network }
 }
 
-function getDeployerKey(networkName: NetworkName): string {
-  const envKey = process.env.PRIVATE_KEY
-
-  if (envKey) return envKey
-
-  if (networkName === 'localnet') {
-    console.log('  Using default Anvil key for localnet')
-    return ANVIL_DEFAULT_KEY
-  }
-
-  throw new Error(
-    'PRIVATE_KEY environment variable required for non-local deployments.\n' +
-      'Usage: PRIVATE_KEY=0x... bun run scripts/deploy-testnet.ts',
-  )
+// Used below in main()
+function getDeployerKeyForNetwork(networkName: NetworkName): string {
+  const config = NETWORKS[networkName]
+  return getDeployerKey(config.rpcUrl)
 }
 
 const CONTRACTS_DIR = join(import.meta.dirname, '../../../packages/contracts')
@@ -736,7 +724,7 @@ async function main(): Promise<void> {
   await checkChainHealth(config.rpcUrl, config)
 
   // Get deployer
-  const privateKey = getDeployerKey(network)
+  const privateKey = getDeployerKeyForNetwork(network)
   const account = privateKeyToAccount(privateKey as `0x${string}`)
   const deployer = account.address
 

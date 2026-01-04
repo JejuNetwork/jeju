@@ -20,9 +20,7 @@ export interface GatewayConfig {
   // A2A / Monitoring
   a2aPort: number
 
-  // RPC / Oracle
-  operatorPrivateKey?: string
-  workerPrivateKey?: string
+  // RPC / Oracle (all signing uses KMS service IDs, not private keys)
   feedRegistryAddress?: string
   reportVerifierAddress?: string
   committeeManagerAddress?: string
@@ -32,10 +30,9 @@ export interface GatewayConfig {
   heartbeatIntervalMs: number
   metricsPort: number
 
-  // x402 Facilitator
+  // x402 Facilitator (signing uses KMS via service ID)
   facilitatorPort: number
   host: string
-  facilitatorPrivateKey?: string
   facilitatorAddress?: string
   usdcAddress?: string
   protocolFeeBps: number
@@ -46,22 +43,15 @@ export interface GatewayConfig {
   kmsEnabled: boolean
   kmsSecretId?: string
   facilitatorServiceAddress?: string
-  vaultEncryptionSecret?: string
 
-  // Leaderboard
+  // Leaderboard (signing uses KMS via service ID)
   leaderboardSQLitDatabaseId: string
   leaderboardDebug: boolean
-  attestationOraclePrivateKey?: string
   leaderboardDomain: string
-  githubToken?: string
   leaderboardRepositories: string
   dwsApiUrl: string
   leaderboardDataDir: string
-  openrouterApiKey?: string
   leaderboardLlmModel: string
-
-  // Faucet
-  faucetPrivateKey?: string
 
   // JNS Gateway
   gatewayUrl?: string
@@ -90,9 +80,7 @@ const { config, configure: setGatewayConfig } = createAppConfig<GatewayConfig>({
   // A2A / Monitoring
   a2aPort: getEnvNumber('A2A_PORT') ?? 9091,
 
-  // RPC / Oracle
-  operatorPrivateKey: getEnvVar('OPERATOR_PRIVATE_KEY'),
-  workerPrivateKey: getEnvVar('WORKER_PRIVATE_KEY'),
+  // RPC / Oracle (all signing uses KMS service IDs, not private keys)
   feedRegistryAddress: getEnvVar('FEED_REGISTRY_ADDRESS'),
   reportVerifierAddress: getEnvVar('REPORT_VERIFIER_ADDRESS'),
   committeeManagerAddress: getEnvVar('COMMITTEE_MANAGER_ADDRESS'),
@@ -102,11 +90,10 @@ const { config, configure: setGatewayConfig } = createAppConfig<GatewayConfig>({
   heartbeatIntervalMs: getEnvNumber('HEARTBEAT_INTERVAL_MS') ?? 300000,
   metricsPort: getEnvNumber('METRICS_PORT') ?? 9090,
 
-  // x402 Facilitator
+  // x402 Facilitator (signing uses KMS via service ID)
   facilitatorPort:
     getEnvNumber('FACILITATOR_PORT') ?? getEnvNumber('PORT') ?? 3402,
   host: getEnvVar('HOST') ?? '0.0.0.0',
-  facilitatorPrivateKey: getEnvVar('FACILITATOR_PRIVATE_KEY'),
   facilitatorAddress: getEnvVar('X402_FACILITATOR_ADDRESS'),
   usdcAddress: getEnvVar('JEJU_USDC_ADDRESS'),
   protocolFeeBps: getEnvNumber('PROTOCOL_FEE_BPS') ?? 50,
@@ -116,31 +103,22 @@ const { config, configure: setGatewayConfig } = createAppConfig<GatewayConfig>({
   facilitatorUrl:
     getEnvVar('FACILITATOR_URL') ??
     `http://${getLocalhostHost()}:${getEnvNumber('FACILITATOR_PORT') ?? getEnvNumber('PORT') ?? 3402}`,
-  kmsEnabled:
-    getEnvVar('KMS_ENABLED') === 'true' ||
-    getEnvVar('VAULT_ENCRYPTION_SECRET') !== undefined,
+  kmsEnabled: getEnvVar('KMS_ENABLED') === 'true' || isProductionEnv(),
   kmsSecretId: getEnvVar('FACILITATOR_KMS_SECRET_ID'),
   facilitatorServiceAddress: getEnvVar('FACILITATOR_SERVICE_ADDRESS'),
-  vaultEncryptionSecret: getEnvVar('VAULT_ENCRYPTION_SECRET'),
 
-  // Leaderboard
+  // Leaderboard (signing uses KMS via service ID)
   leaderboardSQLitDatabaseId:
     getEnvVar('LEADERBOARD_SQLIT_DATABASE_ID') ?? 'leaderboard',
   leaderboardDebug: !isProductionEnv(),
-  attestationOraclePrivateKey: getEnvVar('ATTESTATION_ORACLE_PRIVATE_KEY'),
   leaderboardDomain:
     getEnvVar('LEADERBOARD_DOMAIN') ?? 'leaderboard.jejunetwork.org',
-  githubToken: getEnvVar('GITHUB_TOKEN'),
   leaderboardRepositories:
     getEnvVar('LEADERBOARD_REPOSITORIES') ?? 'jejunetwork/jeju',
   dwsApiUrl: getEnvVar('DWS_API_URL') ?? `http://${getLocalhostHost()}:4030`,
   leaderboardDataDir: getEnvVar('LEADERBOARD_DATA_DIR') ?? './data/leaderboard',
-  openrouterApiKey: getEnvVar('OPENROUTER_API_KEY'),
   leaderboardLlmModel:
     getEnvVar('LEADERBOARD_LLM_MODEL') ?? 'anthropic/claude-sonnet-4-5',
-
-  // Faucet
-  faucetPrivateKey: getEnvVar('FAUCET_PRIVATE_KEY'),
 
   // JNS Gateway
   gatewayUrl: getEnvVar('GATEWAY_URL'),

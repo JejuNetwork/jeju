@@ -62,11 +62,21 @@ function getConfig(): DeployConfig {
     },
   }
 
+  // SECURITY NOTE: Deployment key is passed via environment for now.
+  // This is acceptable for deployment scripts run by operators.
+  // For production, consider using hardware wallets or KMS-based signing
+  // for deployment transactions.
   const privateKey = process.env.DEPLOYER_PRIVATE_KEY || process.env.PRIVATE_KEY
   if (!privateKey) {
     throw new Error(
-      'DEPLOYER_PRIVATE_KEY or PRIVATE_KEY environment variable required',
+      'DEPLOYER_PRIVATE_KEY or PRIVATE_KEY environment variable required. ' +
+        'This key is used only for deployment transactions.',
     )
+  }
+
+  // Validate key format
+  if (!privateKey.startsWith('0x') || privateKey.length !== 66) {
+    throw new Error('Invalid private key format. Must be 0x-prefixed 64 hex chars.')
   }
 
   return {

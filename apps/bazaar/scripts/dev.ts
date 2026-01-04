@@ -21,6 +21,7 @@ import {
 } from '@jejunetwork/config'
 
 import { createBazaarApp } from '../api/worker'
+import { getSqlitPrivateKey } from '../lib/secrets'
 
 const FRONTEND_PORT = CORE_PORTS.BAZAAR.get()
 const API_PORT = CORE_PORTS.BAZAAR_API.get()
@@ -214,7 +215,8 @@ async function startApiServer(): Promise<void> {
     INDEXER_URL: getIndexerGraphqlUrl(),
     SQLIT_NODES: getSQLitBlockProducerUrl(),
     SQLIT_DATABASE_ID: process.env.SQLIT_DATABASE_ID || 'dev-bazaar',
-    SQLIT_PRIVATE_KEY: process.env.SQLIT_PRIVATE_KEY || '',
+    // SQLit private key retrieved through secrets module
+    SQLIT_PRIVATE_KEY: getSqlitPrivateKey() ?? '',
   })
 
   app.listen(API_PORT, () =>

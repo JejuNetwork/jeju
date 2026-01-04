@@ -1,6 +1,9 @@
 /**
  * Fund agent wallets on localnet
  *
+ * SECURITY: This script uses a well-known test private key and should
+ * ONLY run in localnet. The network check below enforces this.
+ *
  * Usage:
  *   bun run scripts/fund-agents.ts
  *
@@ -9,6 +12,7 @@
  * 2. Funds each agent wallet with test ETH from the localnet faucet
  */
 
+import { getCurrentNetwork } from '@jejunetwork/config'
 import {
   type Address,
   createPublicClient,
@@ -20,7 +24,20 @@ import {
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
 
+// SECURITY: Only allow this script to run in localnet
+const network = getCurrentNetwork()
+if (network !== 'localnet') {
+  console.error(
+    `ERROR: This script is only for localnet. Current network: ${network}`,
+  )
+  console.error(
+    'This script uses a well-known test private key that must not be used in production.',
+  )
+  process.exit(1)
+}
+
 // Anvil's first dev account (funded with 10000 ETH)
+// NOTE: This is a well-known test key - ONLY safe for localnet
 const FAUCET_PRIVATE_KEY =
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as const
 

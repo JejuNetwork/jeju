@@ -25,6 +25,7 @@
     "@elysiajs/eden": "^1.4.0",
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/contracts": "workspace:*",
+    "@jejunetwork/eliza-plugin": "workspace:*",
     "@jejunetwork/db": "workspace:*",
     "@jejunetwork/kms": "workspace:*",
     "@jejunetwork/messaging": "workspace:*",

@@ -83,6 +83,12 @@ import {
 import { registerNameAction, resolveNameAction } from './actions/names'
 // Extended Actions - Nodes
 import { getNodeStatsAction, listNodesAction } from './actions/nodes'
+// Extended Actions - Security (Blue Team)
+import {
+  analyzeTransactionAction,
+  scanContractAction,
+  checkScamAddressAction,
+} from './actions/security'
 import { checkBalanceAction } from './actions/payments'
 // Extended Actions - XLP Pools
 import {
@@ -244,6 +250,11 @@ export const jejuPlugin: Plugin = {
     submitTrajectory,
     checkTrainingStatus,
     startTrainingJob,
+
+    // Security actions for Blue Team
+    analyzeTransactionAction,
+    scanContractAction,
+    checkScamAddressAction,
   ],
 }
 

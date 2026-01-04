@@ -58,6 +58,7 @@ import { createExecutorSDK } from './sdk/executor'
 import { createKMSSigner } from './sdk/kms-signer'
 import { createLogger } from './sdk/logger'
 import { createRoomSDK } from './sdk/room'
+import { getPrivateKey, getApiKey, initializeSecrets } from './sdk/secrets'
 import { createStorage } from './sdk/storage'
 
 const log = createLogger('Server')
@@ -247,11 +248,29 @@ const ALLOWED_ORIGINS = crucibleConfig.corsAllowedOrigins
   .map((origin) => origin.trim())
   .filter(Boolean)
 
-// API key for authenticated endpoints
-const API_KEY = crucibleConfig.apiKey
 // Default to requiring auth on non-localnet (testnet/mainnet)
 const NETWORK = crucibleConfig.network
 const REQUIRE_AUTH = crucibleConfig.requireAuth
+
+// API key loaded lazily from secrets module
+let cachedApiKey: string | null = null
+
+/**
+ * Get API key for authentication.
+ * Uses KMS SecretVault in production, env vars in localnet.
+ */
+async function getApiKeyValue(): Promise<string | null> {
+  if (cachedApiKey !== null) return cachedApiKey || null
+
+  try {
+    const key = await getApiKey(SERVER_ADDRESS)
+    cachedApiKey = key ?? ''
+    return key
+  } catch {
+    cachedApiKey = ''
+    return null
+  }
+}
 
 // Paths that don't require authentication
 const PUBLIC_PATHS = ['/health', '/metrics', '/.well-known']
@@ -329,13 +348,33 @@ const LOCALNET_DEFAULTS = {
   indexerGraphql: string
 }
 
-// Agent private key for on-chain actions (optional - from env or generated)
-const AGENT_PRIVATE_KEY = (process.env.PRIVATE_KEY ??
-  process.env.SQLIT_PRIVATE_KEY ??
-  // Default localnet key for development
-  (getCurrentNetwork() === 'localnet'
-    ? '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
-    : undefined)) as `0x${string}` | undefined
+// Agent private key access via secrets module
+// NOTE: This address is only used for secret access verification
+const SERVER_ADDRESS = '0x0000000000000000000000000000000000000001' as const
+
+// Lazy-loaded private key cache (only populated on first access)
+let cachedAgentPrivateKey: `0x${string}` | null = null
+
+/**
+ * Get the agent private key for on-chain operations.
+ * Uses KMS SecretVault in production, env vars in localnet.
+ *
+ * SECURITY: Private key is accessed via the secrets module which
+ * properly gates access based on network (localnet vs production).
+ */
+async function getAgentPrivateKey(): Promise<`0x${string}` | undefined> {
+  if (cachedAgentPrivateKey) return cachedAgentPrivateKey
+
+  try {
+    cachedAgentPrivateKey = await getPrivateKey(SERVER_ADDRESS)
+    return cachedAgentPrivateKey
+  } catch (err) {
+    log.error('Failed to get agent private key', {
+      error: err instanceof Error ? err.message : String(err),
+    })
+    return undefined
+  }
+}
 
 const config: CrucibleConfig = {
   rpcUrl: getRequiredEnv('RPC_URL', LOCALNET_DEFAULTS.rpcUrl),
@@ -493,10 +532,11 @@ async function seedDefaultAgents(): Promise<void> {
         continue
       }
 
+      const agentPrivateKey = await getAgentPrivateKey()
       const _runtime = await runtimeManager.createRuntime({
         agentId,
         character,
-        privateKey: AGENT_PRIVATE_KEY,
+        privateKey: agentPrivateKey,
         network: config.network,
       })
       log.info('Agent runtime seeded', { agentId, name: character.name })
@@ -641,30 +681,39 @@ app.onBeforeHandle(
 )
 
 // API Key authentication middleware (when enabled)
-app.onBeforeHandle(({ request, set }): { error: string } | undefined => {
-  const url = new URL(request.url)
-  const path = url.pathname
+app.onBeforeHandle(
+  async ({ request, set }): Promise<{ error: string } | undefined> => {
+    const url = new URL(request.url)
+    const path = url.pathname
 
-  // Skip auth for public paths
-  if (PUBLIC_PATHS.some((p) => path.startsWith(p))) {
+    // Skip auth for public paths
+    if (PUBLIC_PATHS.some((p) => path.startsWith(p))) {
+      return undefined
+    }
+
+    // Skip auth if not required
+    if (!REQUIRE_AUTH) {
+      return undefined
+    }
+
+    // Get API key from secrets (cached after first load)
+    const apiKey = await getApiKeyValue()
+    if (!apiKey) {
+      // No API key configured - skip auth
+      return undefined
+    }
+
+    const providedKey =
+      request.headers.get('x-api-key') ??
+      request.headers.get('authorization')?.replace('Bearer ', '')
+
+    if (!providedKey || !constantTimeCompare(providedKey, apiKey)) {
+      set.status = 401
+      return { error: 'Unauthorized' }
+    }
     return undefined
-  }
-
-  // Skip auth if not required
-  if (!REQUIRE_AUTH || !API_KEY) {
-    return undefined
-  }
-
-  const providedKey =
-    request.headers.get('x-api-key') ??
-    request.headers.get('authorization')?.replace('Bearer ', '')
-
-  if (!providedKey || !constantTimeCompare(providedKey, API_KEY)) {
-    set.status = 401
-    return { error: 'Unauthorized' }
-  }
-  return undefined
-})
+  },
+)
 
 // Ban check middleware
 app.onBeforeHandle(banCheckMiddleware())
@@ -747,10 +796,11 @@ app.get('/info', async ({ request }) => {
   const providedKey =
     request.headers.get('x-api-key') ??
     request.headers.get('authorization')?.replace('Bearer ', '')
+  const apiKey = await getApiKeyValue()
   const isAuthenticated = !!(
-    API_KEY &&
+    apiKey &&
     providedKey &&
-    constantTimeCompare(providedKey, API_KEY)
+    constantTimeCompare(providedKey, apiKey)
   )
 
   // Basic info for unauthenticated requests
@@ -799,10 +849,11 @@ app.post('/api/v1/chat/:characterId', async ({ params, body }) => {
   // Get or create runtime for this character
   let runtime = runtimeManager.getRuntime(characterId)
   if (!runtime) {
+    const agentPrivateKey = await getAgentPrivateKey()
     runtime = await runtimeManager.createRuntime({
       agentId: characterId,
       character,
-      privateKey: AGENT_PRIVATE_KEY,
+      privateKey: agentPrivateKey,
       network: config.network,
     })
   }
@@ -846,12 +897,13 @@ app.get('/api/v1/chat/characters', () => {
 app.post('/api/v1/chat/init', async () => {
   const results: Record<string, { success: boolean; error?: string }> = {}
 
+  const agentPrivateKey = await getAgentPrivateKey()
   for (const [id, character] of Object.entries(characters)) {
     try {
       await runtimeManager.createRuntime({
         agentId: id,
         character,
-        privateKey: AGENT_PRIVATE_KEY,
+        privateKey: agentPrivateKey,
         network: config.network,
       })
       results[id] = { success: true }
@@ -1490,15 +1542,17 @@ import { type AutonomousAgentRunner, createAgentRunner } from './autonomous'
 let autonomousRunner: AutonomousAgentRunner | null = null
 
 if (crucibleConfig.autonomousEnabled) {
-  autonomousRunner = createAgentRunner({
-    enableBuiltinCharacters: crucibleConfig.enableBuiltinCharacters,
-    defaultTickIntervalMs: crucibleConfig.defaultTickIntervalMs,
-    maxConcurrentAgents: crucibleConfig.maxConcurrentAgents,
-    privateKey: AGENT_PRIVATE_KEY,
-    network: config.network,
-  })
-  autonomousRunner
-    .start()
+  // Initialize autonomous runner with async private key loading
+  getAgentPrivateKey().then((agentPrivateKey) => {
+    autonomousRunner = createAgentRunner({
+      enableBuiltinCharacters: crucibleConfig.enableBuiltinCharacters,
+      defaultTickIntervalMs: crucibleConfig.defaultTickIntervalMs,
+      maxConcurrentAgents: crucibleConfig.maxConcurrentAgents,
+      privateKey: agentPrivateKey,
+      network: config.network,
+    })
+    autonomousRunner
+      .start()
     .then(async () => {
       log.info('Autonomous agent runner started')
 
@@ -1547,6 +1601,9 @@ if (crucibleConfig.autonomousEnabled) {
     .catch((err) => {
       log.error('Failed to start autonomous runner', { error: String(err) })
     })
+  }).catch((err) => {
+    log.error('Failed to get private key for autonomous runner', { error: String(err) })
+  })
 }
 
 // Get autonomous runner status
@@ -1611,8 +1668,9 @@ app.get('/api/v1/autonomous/activity', () => {
 // Start autonomous runner (if not already running)
 app.post('/api/v1/autonomous/start', async () => {
   if (!autonomousRunner) {
+    const agentPrivateKey = await getAgentPrivateKey()
     autonomousRunner = createAgentRunner({
-      privateKey: AGENT_PRIVATE_KEY,
+      privateKey: agentPrivateKey,
       network: config.network,
     })
   }
@@ -1731,9 +1789,10 @@ log.info('Starting server', {
 })
 
 // Initialize config from environment variables at startup
+// NOTE: Secrets (apiKey, cronSecret, privateKey) are NOT stored in config
+// They are accessed on-demand through the secrets module
 configureCrucible({
   network: getCurrentNetwork(),
-  apiKey: getEnvVar('API_KEY'),
   apiPort: getEnvNumber('API_PORT'),
   requireAuth: getEnvVar('REQUIRE_AUTH') === 'true',
   rateLimitMaxRequests: getEnvNumber('RATE_LIMIT_MAX_REQUESTS'),
@@ -1750,7 +1809,6 @@ configureCrucible({
   farcasterHubUrl: getEnvVar('FARCASTER_HUB_URL'),
   dwsUrl: getEnvVar('DWS_URL'),
   ipfsGateway: getEnvVar('IPFS_GATEWAY'),
-  cronSecret: getEnvVar('CRON_SECRET'),
   banManagerAddress: getEnvVar('MODERATION_BAN_MANAGER'),
   moderationMarketplaceAddress: getEnvVar('MODERATION_MARKETPLACE_ADDRESS'),
 })

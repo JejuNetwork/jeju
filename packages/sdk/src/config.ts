@@ -61,6 +61,7 @@ export interface ContractAddresses {
   // Staking contracts
   staking?: Address
   nodeStakingManager?: Address
+  rpcProviderRegistry?: Address
 
   // Extended module contracts
   containerRegistry?: Address
@@ -72,6 +73,57 @@ export interface ContractAddresses {
   datasetRegistry?: Address
   modelRegistry?: Address
   vpnRegistry?: Address
+
+  // VPN
+  vpn?: Address
+
+  // Agents
+  agentVault?: Address
+  roomRegistry?: Address
+
+  // OTC
+  otc?: Address
+
+  // Perps
+  perpetualMarket?: Address
+  insuranceFund?: Address
+  marginManager?: Address
+
+  // Training
+  trainingCoordinator?: Address
+  trainingRewards?: Address
+
+  // Distributor
+  airdropManager?: Address
+  tokenVesting?: Address
+  feeDistributor?: Address
+  stakingRewardDistributor?: Address
+
+  // Sequencer
+  sequencerRegistry?: Address
+  forcedInclusion?: Address
+  slashingContract?: Address
+
+  // AMM
+  xlpRouter?: Address
+  xlpV2Factory?: Address
+
+  // Oracle
+  oracleRegistry?: Address
+
+  // Messaging
+  messageNodeRegistry?: Address
+  messagingKeyRegistry?: Address
+
+  // Bridge (Hyperlane)
+  hyperlaneMailbox?: Address
+  hyperlaneISM?: Address
+  optimismPortal?: Address
+  l1StandardBridge?: Address
+  nftBridge?: Address
+
+  // CDN
+  cdnRegistry?: Address
 }
 
 /** Safe contract lookup - returns undefined if not found instead of throwing
@@ -170,7 +222,61 @@ export function getContractAddresses(network: NetworkType): ContractAddresses {
     registryHub: safeGetContract('registry', 'hub', network),
     datasetRegistry: safeGetContract('registry', 'dataset', network),
     modelRegistry: safeGetContract('registry', 'model', network),
-    vpnRegistry: safeGetContract('registry', 'vpn', network),
+    vpnRegistry: safeGetContract('vpn', 'registry', network),
+
+    // VPN
+    vpn: safeGetContract('vpn', 'registry', network),
+
+    // Agents
+    agentVault: safeGetContract('agents', 'vault', network),
+    roomRegistry: safeGetContract('agents', 'roomRegistry', network),
+
+    // OTC
+    otc: safeGetContract('otc', 'contract', network),
+
+    // Staking (additional)
+    rpcProviderRegistry: safeGetContract('staking', 'rpcProviderRegistry', network),
+
+    // Perps
+    perpetualMarket: safeGetContract('perps', 'market', network),
+    insuranceFund: safeGetContract('perps', 'insuranceFund', network),
+    marginManager: safeGetContract('perps', 'marginManager', network),
+
+    // Training
+    trainingCoordinator: safeGetContract('training', 'coordinator', network),
+    trainingRewards: safeGetContract('training', 'rewards', network),
+
+    // Distributor
+    airdropManager: safeGetContract('distributor', 'airdropManager', network),
+    tokenVesting: safeGetContract('distributor', 'tokenVesting', network),
+    feeDistributor: safeGetContract('distributor', 'feeDistributor', network),
+    stakingRewardDistributor: safeGetContract('distributor', 'stakingRewardDistributor', network),
+
+    // Sequencer
+    sequencerRegistry: safeGetContract('sequencer', 'registry', network),
+    forcedInclusion: safeGetContract('sequencer', 'forcedInclusion', network),
+    slashingContract: safeGetContract('sequencer', 'slashing', network),
+
+    // AMM
+    xlpRouter: safeGetContract('amm', 'router', network),
+    xlpV2Factory: safeGetContract('amm', 'factory', network),
+
+    // Oracle
+    oracleRegistry: safeGetContract('oracle', 'registry', network),
+
+    // Messaging
+    messageNodeRegistry: safeGetContract('messaging', 'nodeRegistry', network),
+    messagingKeyRegistry: safeGetContract('messaging', 'keyRegistry', network),
+
+    // Bridge (Hyperlane)
+    hyperlaneMailbox: safeGetContract('bridge', 'hyperlaneMailbox', network),
+    hyperlaneISM: safeGetContract('bridge', 'hyperlaneISM', network),
+    optimismPortal: safeGetContract('bridge', 'optimismPortal', network),
+    l1StandardBridge: safeGetContract('bridge', 'l1StandardBridge', network),
+    nftBridge: safeGetContract('bridge', 'nftBridge', network),
+
+    // CDN
+    cdnRegistry: safeGetContract('dws', 'cdnRegistry', network),
   }
 }
 

@@ -90,35 +90,29 @@ describe('Test Orchestrator - CLI Exists', () => {
   })
 })
 
-// CLI execution tests skipped because the CLI takes >60s to execute in this codebase
-// Use: bun run jeju test --verbose for actual CLI execution testing
-const CLI_TESTS_ENABLED = false
-
-describe.skipIf(!CLI_TESTS_ENABLED)('Test Orchestrator - Help Command', () => {
+// CLI execution tests - these verify the test command works correctly
+describe('Test Orchestrator - Help Command', () => {
   test('should exit 0 with --help and show usage', async () => {
     const result = await runCLI(['test', '--help'])
     expect(result.exitCode).toBe(0)
   })
 })
 
-describe.skipIf(!CLI_TESTS_ENABLED)('Test Orchestrator - List Command', () => {
+describe('Test Orchestrator - List Command', () => {
   test('should exit 0 with list subcommand and show apps', async () => {
     const result = await runCLI(['test', 'list'])
     expect(result.exitCode).toBe(0)
   })
 })
 
-describe.skipIf(!CLI_TESTS_ENABLED)(
-  'Test Orchestrator - Error Handling',
-  () => {
-    test('should exit 1 when invalid mode provided', async () => {
-      const result = await runCLI(['test', '--mode', 'invalid'])
-      expect(result.exitCode).toBe(1)
-    })
-  },
-)
+describe('Test Orchestrator - Error Handling', () => {
+  test('should exit 1 when invalid mode provided', async () => {
+    const result = await runCLI(['test', '--mode', 'invalid'])
+    expect(result.exitCode).toBe(1)
+  })
+})
 
-describe.skipIf(!CLI_TESTS_ENABLED)('Test Orchestrator - Skip Flags', () => {
+describe('Test Orchestrator - Skip Flags', () => {
   test('should accept --skip-lock flag with list', async () => {
     const result = await runCLI(['test', '--skip-lock', 'list'])
     expect(result.exitCode).toBe(0)
@@ -133,7 +127,7 @@ describe.skipIf(!CLI_TESTS_ENABLED)('Test Orchestrator - Skip Flags', () => {
   })
 })
 
-describe.skipIf(!CLI_TESTS_ENABLED)('Test Orchestrator - Mode Flags', () => {
+describe('Test Orchestrator - Mode Flags', () => {
   test('should accept unit mode with list', async () => {
     const result = await runCLI(['test', '--mode', 'unit', 'list'])
     expect(result.exitCode).toBe(0)
@@ -148,27 +142,24 @@ describe.skipIf(!CLI_TESTS_ENABLED)('Test Orchestrator - Mode Flags', () => {
   })
 })
 
-describe.skipIf(!CLI_TESTS_ENABLED)(
-  'Test Orchestrator - Concurrent Access Protection',
-  () => {
-    test('should handle concurrent list commands', async () => {
-      const results = await Promise.all([
-        runCLI(['test', 'list']),
-        runCLI(['test', 'list']),
-      ])
-      expect(results[0].exitCode).toBe(0)
-      expect(results[1].exitCode).toBe(0)
-    })
-    test('should allow concurrent with --force', async () => {
-      const results = await Promise.all([
-        runCLI(['test', '--force', 'list']),
-        runCLI(['test', '--force', 'list']),
-      ])
-      expect(results[0].exitCode).toBe(0)
-      expect(results[1].exitCode).toBe(0)
-    })
-  },
-)
+describe('Test Orchestrator - Concurrent Access Protection', () => {
+  test('should handle concurrent list commands', async () => {
+    const results = await Promise.all([
+      runCLI(['test', 'list']),
+      runCLI(['test', 'list']),
+    ])
+    expect(results[0].exitCode).toBe(0)
+    expect(results[1].exitCode).toBe(0)
+  })
+  test('should allow concurrent with --force', async () => {
+    const results = await Promise.all([
+      runCLI(['test', '--force', 'list']),
+      runCLI(['test', '--force', 'list']),
+    ])
+    expect(results[0].exitCode).toBe(0)
+    expect(results[1].exitCode).toBe(0)
+  })
+})
 
 describe('Test Orchestrator - App Discovery', () => {
   test('should discover apps with synpress config', () => {

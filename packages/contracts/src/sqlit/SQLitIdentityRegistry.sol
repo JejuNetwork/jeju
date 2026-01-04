@@ -219,8 +219,8 @@ contract SQLitIdentityRegistry is Ownable, ReentrancyGuard {
             _toBigEndian64(nonce.d)
         );
 
-        // Concatenate publicKey || nonce
-        bytes memory input = abi.encodePacked(publicKey, nonceBytes);
+        // Concatenate publicKey || nonce (using abi.encode to avoid collision with dynamic args)
+        bytes memory input = abi.encode(publicKey, nonceBytes);
 
         // Compute blake2b-512
         bytes memory blake2bHash = _blake2b512(input);
@@ -258,10 +258,10 @@ contract SQLitIdentityRegistry is Ownable, ReentrancyGuard {
     function checkDifficulty(bytes32 nodeId, uint8 requiredBits) public pure returns (bool meets) {
         // Count leading zero bits
         uint256 value = uint256(nodeId);
-        uint8 leadingZeros = 0;
+        uint256 leadingZeros = 0;
 
         // Check each bit from most significant
-        for (uint8 i = 0; i < 256; i++) {
+        for (uint256 i = 0; i < 256; i++) {
             if ((value >> (255 - i)) & 1 == 0) {
                 leadingZeros++;
             } else {

@@ -70,30 +70,14 @@ function recordValidation(result: ValidationResult) {
   }
 }
 
-// SETUP - Check localnet availability first
-let localnetAvailable = false
-try {
-  const response = await fetch(TEST_CONFIG.rpcUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      method: 'eth_blockNumber',
-      params: [],
-      id: 1,
-    }),
-    signal: AbortSignal.timeout(2000),
-  })
-  localnetAvailable = response.ok
-} catch {
-  localnetAvailable = false
-}
-if (!localnetAvailable) {
-  console.log('⏭️ Skipping system-validation tests - localnet not available')
-}
+// FAIL-FAST: Import contracts-required for chain/contract verification
+import { requireContracts } from '../shared/contracts-required'
 
-describe.skipIf(!localnetAvailable)('System Validation', () => {
+describe('System Validation', () => {
   beforeAll(async () => {
+    // FAIL-FAST: Require chain and contracts before any tests
+    await requireContracts()
+
     const chain = inferChainFromRpcUrl(TEST_CONFIG.rpcUrl)
     publicClient = createPublicClient({
       chain,

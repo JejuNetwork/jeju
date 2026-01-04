@@ -1,4 +1,5 @@
 import { constantTimeCompare } from '@jejunetwork/api'
+import { getCurrentNetwork } from '@jejunetwork/config'
 import {
   getStaticTrajectoryStorage,
   TrainingDbPersistence,
@@ -9,6 +10,7 @@ import { type AutonomousAgentRunner, createAgentRunner } from '../autonomous'
 import { loadBlueTeamCharacters, loadRedTeamCharacters } from '../characters'
 import { config } from '../config'
 import { createLogger } from '../sdk/logger'
+import { getCronSecret } from '../sdk/secrets'
 
 const log = createLogger('CronRoutes')
 
@@ -143,12 +145,33 @@ async function getAgentRunner(): Promise<AutonomousAgentRunner> {
 // Track whether we've warned about missing CRON_SECRET
 let warnedAboutMissingSecret = false
 
+// Cached cron secret (loaded once from secrets module)
+let cachedCronSecret: string | null | undefined = undefined
+
+// Service address for secrets access
+const SERVICE_ADDRESS = '0x0000000000000000000000000000000000000001' as const
+
+/**
+ * Get cron secret from the secrets module (cached after first load)
+ */
+async function loadCronSecret(): Promise<string | null> {
+  if (cachedCronSecret !== undefined) {
+    return cachedCronSecret
+  }
+
+  cachedCronSecret = await getCronSecret(SERVICE_ADDRESS)
+  return cachedCronSecret
+}
+
 /**
  * Cron authentication header check
+ * Uses secrets module for CRON_SECRET access
  */
-function verifyCronAuth(headers: Record<string, string | undefined>): boolean {
-  const cronSecret = config.cronSecret
-  const network = config.network
+async function verifyCronAuth(
+  headers: Record<string, string | undefined>,
+): Promise<boolean> {
+  const cronSecret = await loadCronSecret()
+  const network = getCurrentNetwork()
 
   if (!cronSecret) {
     // SECURITY: Only allow unauthenticated cron access in localnet
@@ -182,8 +205,11 @@ function verifyCronAuth(headers: Record<string, string | undefined>): boolean {
  */
 export const cronRoutes = new Elysia({ prefix: '/api/cron' })
   .onBeforeHandle(
-    ({ headers, set }): { error: string; message: string } | undefined => {
-      if (!verifyCronAuth(headers)) {
+    async ({
+      headers,
+      set,
+    }): Promise<{ error: string; message: string } | undefined> => {
+      if (!(await verifyCronAuth(headers))) {
         set.status = 401
         return { error: 'Unauthorized', message: 'Invalid cron secret' }
       }

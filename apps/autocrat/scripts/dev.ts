@@ -67,6 +67,13 @@ async function startAPIServer(): Promise<boolean> {
   console.log(`[Autocrat] Starting API server on port ${API_PORT}...`)
 
   const _host = getLocalhostHost()
+  
+  // LOCALNET ONLY: Anvil's default development key (account[0])
+  // This is the well-known Anvil/Hardhat dev key - NEVER use in production
+  // Production uses KMS-based signing via @jejunetwork/kms
+  const ANVIL_DEV_KEY =
+    '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
+
   const proc = Bun.spawn(['bun', '--watch', 'api/server.ts'], {
     cwd: APP_DIR,
     stdout: 'inherit',
@@ -77,14 +84,12 @@ async function startAPIServer(): Promise<boolean> {
       NETWORK: 'localnet',
       TEE_MODE: 'simulated',
       TEE_PLATFORM: 'local',
-      // Ensure correct RPC and keys for localnet
+      // Ensure correct RPC for localnet
       RPC_URL: process.env.RPC_URL ?? 'http://127.0.0.1:6546',
-      PRIVATE_KEY:
-        process.env.PRIVATE_KEY ??
-        '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
-      SQLIT_PRIVATE_KEY:
-        process.env.SQLIT_PRIVATE_KEY ??
-        '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
+      // LOCALNET ONLY: Use Anvil dev key for local development
+      // Production: KMS handles all signing via SecretVault
+      PRIVATE_KEY: process.env.PRIVATE_KEY ?? ANVIL_DEV_KEY,
+      SQLIT_PRIVATE_KEY: process.env.SQLIT_PRIVATE_KEY ?? ANVIL_DEV_KEY,
     },
   })
 
@@ -339,6 +344,10 @@ function getContentType(path: string): string {
 async function seedJejuDAO(): Promise<void> {
   console.log('[Autocrat] Seeding Jeju DAO...')
 
+  // LOCALNET ONLY: Anvil's default development key (account[0])
+  const ANVIL_DEV_KEY =
+    '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
+
   const proc = Bun.spawn(['bun', 'run', 'scripts/seed.ts', '--skip-wait'], {
     cwd: APP_DIR,
     stdout: 'inherit',
@@ -346,14 +355,11 @@ async function seedJejuDAO(): Promise<void> {
     env: {
       ...process.env,
       AUTOCRAT_API_URL: `http://${getLocalhostHost()}:${API_PORT}`,
-      // Ensure correct RPC and private key for localnet
+      // Ensure correct RPC for localnet
       RPC_URL: process.env.RPC_URL ?? 'http://127.0.0.1:6546',
-      PRIVATE_KEY:
-        process.env.PRIVATE_KEY ??
-        '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
-      SQLIT_PRIVATE_KEY:
-        process.env.SQLIT_PRIVATE_KEY ??
-        '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
+      // LOCALNET ONLY: Use Anvil dev key for seeding
+      PRIVATE_KEY: process.env.PRIVATE_KEY ?? ANVIL_DEV_KEY,
+      SQLIT_PRIVATE_KEY: process.env.SQLIT_PRIVATE_KEY ?? ANVIL_DEV_KEY,
     },
   })
 

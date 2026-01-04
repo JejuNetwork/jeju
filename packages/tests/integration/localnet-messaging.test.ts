@@ -325,38 +325,20 @@ function startHubServer(): void {
   console.log(`[Hub] Running on port ${HUB_PORT}`)
 }
 
-// Quick check if localnet is available before starting tests
-let localnetAvailable = false
-try {
-  const response = await fetch(L2_RPC_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      method: 'eth_blockNumber',
-      params: [],
-      id: 1,
-    }),
-    signal: AbortSignal.timeout(2000),
-  })
-  localnetAvailable = response.ok
-} catch {
-  localnetAvailable = false
-}
-if (!localnetAvailable) {
-  console.log(
-    '⏭️ Skipping Localnet Messaging Integration tests - localnet not available',
-  )
-}
+// FAIL-FAST: Import contracts-required for chain/contract verification
+import { requireContracts } from '../shared/contracts-required'
 
 // Global setup wrapped in a describe for bun:test compatibility
-describe.skipIf(!localnetAvailable)('Localnet Messaging Integration', () => {
+describe('Localnet Messaging Integration', () => {
   beforeAll(async () => {
+    // FAIL-FAST: Require chain and contracts before any tests
+    await requireContracts()
+
     console.log('\n=== Localnet Messaging Integration Tests ===\n')
     console.log(`[Config] L2 RPC: ${L2_RPC_URL}`)
     console.log(`[Config] L1 RPC: ${L1_RPC_URL}`)
 
-    // Check if localnet is running
+    // Verify chain is responding
     console.log('[Setup] Checking localnet status...')
     localnetReady = await checkLocalnetStatus()
 

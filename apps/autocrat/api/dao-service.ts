@@ -66,6 +66,9 @@ const DAORegistryABI = [
           { name: 'personality', type: 'string' },
           { name: 'traits', type: 'string[]' },
           { name: 'isHuman', type: 'bool' },
+          { name: 'humanAddress', type: 'address' },
+          { name: 'agentId', type: 'uint256' },
+          { name: 'decisionFallbackDays', type: 'uint256' },
         ],
       },
       {
@@ -147,6 +150,10 @@ const DAORegistryABI = [
               { name: 'description', type: 'string' },
               { name: 'personality', type: 'string' },
               { name: 'traits', type: 'string[]' },
+              { name: 'isHuman', type: 'bool' },
+              { name: 'humanAddress', type: 'address' },
+              { name: 'agentId', type: 'uint256' },
+              { name: 'decisionFallbackDays', type: 'uint256' },
             ],
           },
           {
@@ -170,6 +177,7 @@ const DAORegistryABI = [
               { name: 'weight', type: 'uint256' },
               { name: 'addedAt', type: 'uint256' },
               { name: 'isActive', type: 'bool' },
+              { name: 'isHuman', type: 'bool' },
             ],
           },
           { name: 'linkedPackages', type: 'bytes32[]' },
@@ -219,6 +227,10 @@ const DAORegistryABI = [
           { name: 'description', type: 'string' },
           { name: 'personality', type: 'string' },
           { name: 'traits', type: 'string[]' },
+          { name: 'isHuman', type: 'bool' },
+          { name: 'humanAddress', type: 'address' },
+          { name: 'agentId', type: 'uint256' },
+          { name: 'decisionFallbackDays', type: 'uint256' },
         ],
       },
     ],
@@ -256,6 +268,7 @@ const DAORegistryABI = [
           { name: 'weight', type: 'uint256' },
           { name: 'addedAt', type: 'uint256' },
           { name: 'isActive', type: 'bool' },
+          { name: 'isHuman', type: 'bool' },
         ],
       },
     ],
@@ -337,6 +350,10 @@ const DAORegistryABI = [
           { name: 'description', type: 'string' },
           { name: 'personality', type: 'string' },
           { name: 'traits', type: 'string[]' },
+          { name: 'isHuman', type: 'bool' },
+          { name: 'humanAddress', type: 'address' },
+          { name: 'agentId', type: 'uint256' },
+          { name: 'decisionFallbackDays', type: 'uint256' },
         ],
       },
     ],
@@ -743,6 +760,7 @@ export interface DAOServiceConfig {
   daoRegistryAddress: Address
   daoFundingAddress: Address
   privateKey?: string
+  operatorAddress?: Address // For KMS-based signing
 }
 
 interface RawDAOResult {
@@ -1034,6 +1052,11 @@ export class DAOService {
 
       // Development only: Allow local signing with warning
       if (keyHex.length === 66) {
+        if (isProductionEnv()) {
+          throw new Error(
+            'SECURITY: Raw private keys are forbidden in production. Use KMS.',
+          )
+        }
         console.warn(
           '[DAOService] ⚠️  Using local private key. NOT secure for production.',
         )
@@ -1341,6 +1364,13 @@ export class DAOService {
           personality: params.directorPersona.personality,
           traits: params.directorPersona.traits,
           isHuman: params.directorPersona.isHuman,
+          humanAddress:
+            params.directorPersona.humanAddress ??
+            '0x0000000000000000000000000000000000000000',
+          agentId: BigInt(params.directorPersona.agentId ?? 0),
+          decisionFallbackDays: BigInt(
+            params.directorPersona.decisionFallbackDays ?? 7,
+          ),
         },
         {
           minQualityScore: BigInt(params.governanceParams.minQualityScore),
@@ -1375,6 +1405,12 @@ export class DAOService {
           description: persona.description,
           personality: persona.personality,
           traits: persona.traits,
+          isHuman: persona.isHuman,
+          humanAddress:
+            persona.humanAddress ??
+            '0x0000000000000000000000000000000000000000',
+          agentId: BigInt(persona.agentId ?? 0),
+          decisionFallbackDays: BigInt(persona.decisionFallbackDays ?? 7),
         },
       ],
     })

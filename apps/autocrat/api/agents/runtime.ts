@@ -6,6 +6,7 @@ import {
   type UUID,
 } from '@elizaos/core'
 import { getCurrentNetwork, getDWSComputeUrl } from '@jejunetwork/config'
+import { jejuPlugin } from '@jejunetwork/eliza-plugin'
 import { z } from 'zod'
 import type { DirectorPersona, GovernanceParams } from '../../lib'
 import { autocratPlugin } from './autocrat-plugin'
@@ -283,10 +284,12 @@ export class AutocratAgentRuntimeManager {
 
     this.dwsAvailable = await checkDWSCompute()
     if (!this.dwsAvailable) {
-      throw new Error(
-        'DWS compute is required for Autocrat agents. ' +
-          'Ensure DWS is running: cd apps/dws && bun run dev',
+      console.warn(
+        '[Autocrat] DWS compute/inference not available. ' +
+          'Agent deliberation will fail until inference nodes are running. ' +
+          'Start with: cd apps/crucible && bun run scripts/local-inference-node.ts',
       )
+      // Don't fail initialization - agents can be created but deliberation will fail on-demand
     }
 
     // Initialize default board agents with character definitions
@@ -373,9 +376,19 @@ export class AutocratAgentRuntimeManager {
     // Template character is already typed as Character from @elizaos/core (see templates.ts)
     const character: Character = { ...template.character }
 
-    // Plugins are properly typed - autocratPlugin and directorPlugin export Plugin types
-    const plugins: Plugin[] =
-      template.role === 'Director' ? [directorPlugin] : [autocratPlugin]
+    // All agents get full network access via jejuPlugin (compute, storage, DeFi, A2A, etc.)
+    // Plus their specialized governance plugin
+    const specializedPlugin: Plugin =
+      template.role === 'Director' ? directorPlugin : autocratPlugin
+
+    // jejuPlugin provides:
+    // - CALL_AGENT, DISCOVER_AGENTS (A2A communication)
+    // - Compute (rent GPU, inference, triggers)
+    // - Storage (upload, retrieve, pin)
+    // - DeFi (swap, add liquidity)
+    // - Identity (register agent)
+    // - Cross-chain, Launchpad, Moderation, Work, Training
+    const plugins: Plugin[] = [jejuPlugin, specializedPlugin]
 
     // Create runtime - ElizaOS generates agentId from character.name via stringToUuid
     // This ensures the agentId is always a valid UUID format

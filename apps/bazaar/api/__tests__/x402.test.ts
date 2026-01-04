@@ -16,6 +16,10 @@ import {
   verifyPayment,
 } from '../x402'
 
+// Well-known Anvil account[0] key - public, safe for testing cryptographic ops
+const TEST_PRIVATE_KEY =
+  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as const
+
 describe('x402 Payment Protocol', () => {
   const mockRecipient =
     '0x1234567890123456789012345678901234567890' as `0x${string}`
@@ -44,10 +48,6 @@ describe('x402 Payment Protocol', () => {
   test('should verify valid payment with signature', async () => {
     const amount = parseEther('1.0')
 
-    // Use Anvil test account #0 private key for testing
-    const testPrivateKey =
-      '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
-
     const unsignedPayload = createPaymentPayload(
       mockToken,
       mockRecipient,
@@ -56,7 +56,7 @@ describe('x402 Payment Protocol', () => {
       'base-sepolia',
     )
 
-    const payload = await signPaymentPayload(unsignedPayload, testPrivateKey)
+    const payload = await signPaymentPayload(unsignedPayload, TEST_PRIVATE_KEY)
 
     const result = await verifyPayment(payload, amount, mockRecipient)
     expect(result.valid).toBe(true)
@@ -71,8 +71,6 @@ describe('x402 Payment Protocol', () => {
   test('should reject payment with insufficient amount', async () => {
     const required = parseEther('1.0')
     const provided = parseEther('0.5')
-    const testPrivateKey =
-      '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
 
     const unsignedPayload = createPaymentPayload(
       mockToken,
@@ -81,7 +79,7 @@ describe('x402 Payment Protocol', () => {
       '/api/test',
     )
 
-    const payload = await signPaymentPayload(unsignedPayload, testPrivateKey)
+    const payload = await signPaymentPayload(unsignedPayload, TEST_PRIVATE_KEY)
 
     const result = await verifyPayment(payload, required, mockRecipient)
     expect(result.valid).toBe(false)
@@ -92,8 +90,6 @@ describe('x402 Payment Protocol', () => {
     const wrongRecipient =
       '0x9999999999999999999999999999999999999999' as `0x${string}`
     const amount = parseEther('1.0')
-    const testPrivateKey =
-      '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
 
     const unsignedPayload = createPaymentPayload(
       mockToken,
@@ -102,7 +98,7 @@ describe('x402 Payment Protocol', () => {
       '/api/test',
     )
 
-    const payload = await signPaymentPayload(unsignedPayload, testPrivateKey)
+    const payload = await signPaymentPayload(unsignedPayload, TEST_PRIVATE_KEY)
 
     const result = await verifyPayment(payload, amount, mockRecipient)
     expect(result.valid).toBe(false)
@@ -112,8 +108,6 @@ describe('x402 Payment Protocol', () => {
   test('should reject expired payment', async () => {
     const amount = parseEther('1.0')
     const oldTimestamp = Math.floor(Date.now() / 1000) - 400 // 400 seconds ago
-    const testPrivateKey =
-      '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
 
     const unsignedPayload = {
       scheme: 'exact' as const,
@@ -126,7 +120,7 @@ describe('x402 Payment Protocol', () => {
       timestamp: oldTimestamp,
     }
 
-    const payload = await signPaymentPayload(unsignedPayload, testPrivateKey)
+    const payload = await signPaymentPayload(unsignedPayload, TEST_PRIVATE_KEY)
 
     const result = await verifyPayment(payload, amount, mockRecipient)
     expect(result.valid).toBe(false)

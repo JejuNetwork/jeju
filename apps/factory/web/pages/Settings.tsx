@@ -58,16 +58,23 @@ export function SettingsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Sidebar */}
         <div className="lg:col-span-1">
-          <nav className="card p-2 space-y-1 animate-in">
+          <nav
+            className="relative bg-gradient-to-br from-surface-800/90 to-surface-900/95 border border-surface-700/60 p-2 space-y-1 animate-in"
+            style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))' }}
+          >
+            {/* Corner accents */}
+            <div className="absolute top-0 right-0 w-[10px] h-[10px] bg-gradient-to-bl from-factory-500/50 to-transparent" />
+            <div className="absolute bottom-0 left-0 w-[10px] h-[10px] bg-gradient-to-tr from-factory-500/50 to-transparent" />
+
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
                 className={clsx(
-                  'w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all',
+                  'relative w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold uppercase tracking-wider transition-all',
                   activeTab === tab.id
-                    ? 'bg-factory-500/15 text-factory-400'
+                    ? 'bg-factory-500/10 text-factory-400 before:absolute before:left-0 before:top-[15%] before:bottom-[15%] before:w-[3px] before:bg-factory-500'
                     : 'text-surface-400 hover:text-surface-100 hover:bg-surface-800',
                 )}
               >
@@ -81,21 +88,30 @@ export function SettingsPage() {
         {/* Content */}
         <div className="lg:col-span-3 space-y-6">
           {activeTab === 'profile' && (
-            <div className="card p-6 animate-in">
-              <h3 className="font-semibold text-surface-100 mb-6">
+            <div
+              className="relative bg-gradient-to-br from-surface-800/90 to-surface-900/95 border border-surface-700/60 p-6 animate-in"
+              style={{ clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))' }}
+            >
+              <div className="absolute top-0 right-0 w-3 h-3 bg-gradient-to-bl from-factory-500/50 to-transparent" />
+              <div className="absolute bottom-0 left-0 w-3 h-3 bg-gradient-to-tr from-factory-500/50 to-transparent" />
+
+              <h3 className="font-bold text-surface-100 mb-6 uppercase tracking-wider font-display">
                 Profile Settings
               </h3>
 
               <div className="space-y-4">
                 <div className="flex items-center gap-4">
-                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-factory-500 to-accent-500 flex items-center justify-center">
+                  <div
+                    className="w-20 h-20 bg-gradient-to-br from-factory-500 to-accent-500 flex items-center justify-center"
+                    style={{ clipPath: 'polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)' }}
+                  >
                     <User className="w-10 h-10 text-white" />
                   </div>
                   <div>
                     <Button variant="secondary" size="sm">
                       Upload Photo
                     </Button>
-                    <p className="text-xs text-surface-500 mt-1">
+                    <p className="text-xs text-surface-500 mt-1 uppercase tracking-wider">
                       JPG, PNG or GIF. Max 2MB.
                     </p>
                   </div>
@@ -104,7 +120,7 @@ export function SettingsPage() {
                 <div>
                   <label
                     htmlFor="displayName"
-                    className="block text-sm font-medium text-surface-300 mb-2"
+                    className="block text-xs font-semibold text-surface-300 mb-2 uppercase tracking-wider"
                   >
                     Display Name
                   </label>
@@ -121,7 +137,7 @@ export function SettingsPage() {
                 <div>
                   <label
                     htmlFor="email"
-                    className="block text-sm font-medium text-surface-300 mb-2"
+                    className="block text-xs font-semibold text-surface-300 mb-2 uppercase tracking-wider"
                   >
                     Email
                   </label>
@@ -138,7 +154,7 @@ export function SettingsPage() {
                 <div>
                   <label
                     htmlFor="bio"
-                    className="block text-sm font-medium text-surface-300 mb-2"
+                    className="block text-xs font-semibold text-surface-300 mb-2 uppercase tracking-wider"
                   >
                     Bio
                   </label>
@@ -159,23 +175,32 @@ export function SettingsPage() {
           )}
 
           {activeTab === 'wallet' && (
-            <div className="card p-6 animate-in">
-              <h3 className="font-semibold text-surface-100 mb-6">
+            <div
+              className="relative bg-gradient-to-br from-surface-800/90 to-surface-900/95 border border-surface-700/60 p-6 animate-in"
+              style={{ clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))' }}
+            >
+              <div className="absolute top-0 right-0 w-3 h-3 bg-gradient-to-bl from-factory-500/50 to-transparent" />
+              <div className="absolute bottom-0 left-0 w-3 h-3 bg-gradient-to-tr from-factory-500/50 to-transparent" />
+
+              <h3 className="font-bold text-surface-100 mb-6 uppercase tracking-wider font-display">
                 Wallet Settings
               </h3>
 
               {isConnected ? (
                 <div className="space-y-4">
-                  <div className="p-4 bg-surface-800/50 rounded-lg flex items-center justify-between">
+                  <div className="p-4 bg-surface-800/50 border border-surface-700/50 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-factory-500 to-accent-500 flex items-center justify-center">
+                      <div
+                        className="w-10 h-10 bg-gradient-to-br from-factory-500 to-accent-500 flex items-center justify-center"
+                        style={{ clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)' }}
+                      >
                         <Wallet className="w-5 h-5 text-white" />
                       </div>
                       <div>
-                        <p className="font-medium text-surface-100">
+                        <p className="font-semibold text-surface-100 uppercase tracking-wide">
                           {formatAddress(address ?? '', 6)}
                         </p>
-                        <p className="text-sm text-surface-500">Connected</p>
+                        <p className="text-xs text-surface-500 uppercase tracking-widest">Connected</p>
                       </div>
                     </div>
                     <Button
@@ -187,8 +212,8 @@ export function SettingsPage() {
                     </Button>
                   </div>
 
-                  <div className="p-4 bg-surface-800/50 rounded-lg">
-                    <h4 className="font-medium text-surface-200 mb-2">
+                  <div className="p-4 bg-surface-800/50 border border-surface-700/50">
+                    <h4 className="font-semibold text-surface-200 mb-2 uppercase tracking-wide text-sm">
                       Connected Networks
                     </h4>
                     <div className="flex gap-2">
@@ -200,7 +225,7 @@ export function SettingsPage() {
               ) : (
                 <div className="text-center py-8">
                   <Wallet className="w-12 h-12 text-surface-600 mx-auto mb-4" />
-                  <p className="text-surface-400 mb-4">No wallet connected</p>
+                  <p className="text-surface-400 mb-4 uppercase tracking-wide">No wallet connected</p>
                   <Button variant="primary">Connect Wallet</Button>
                 </div>
               )}
@@ -208,15 +233,21 @@ export function SettingsPage() {
           )}
 
           {activeTab === 'notifications' && (
-            <div className="card p-6 animate-in">
-              <h3 className="font-semibold text-surface-100 mb-6">
+            <div
+              className="relative bg-gradient-to-br from-surface-800/90 to-surface-900/95 border border-surface-700/60 p-6 animate-in"
+              style={{ clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))' }}
+            >
+              <div className="absolute top-0 right-0 w-3 h-3 bg-gradient-to-bl from-factory-500/50 to-transparent" />
+              <div className="absolute bottom-0 left-0 w-3 h-3 bg-gradient-to-tr from-factory-500/50 to-transparent" />
+
+              <h3 className="font-bold text-surface-100 mb-6 uppercase tracking-wider font-display">
                 Notification Settings
               </h3>
 
               <div className="space-y-4">
-                <label className="flex items-center justify-between p-4 bg-surface-800/50 rounded-lg cursor-pointer">
+                <label className="flex items-center justify-between p-4 bg-surface-800/50 border border-surface-700/50 cursor-pointer">
                   <div>
-                    <p className="font-medium text-surface-200">
+                    <p className="font-semibold text-surface-200 uppercase tracking-wide text-sm">
                       Email Notifications
                     </p>
                     <p className="text-sm text-surface-500">
@@ -227,13 +258,13 @@ export function SettingsPage() {
                     type="checkbox"
                     checked={emailNotifications}
                     onChange={(e) => setEmailNotifications(e.target.checked)}
-                    className="w-5 h-5 rounded border-surface-600 bg-surface-800 text-factory-500 focus:ring-factory-500"
+                    className="w-5 h-5 border-surface-600 bg-surface-800 text-factory-500 focus:ring-factory-500"
                   />
                 </label>
 
-                <label className="flex items-center justify-between p-4 bg-surface-800/50 rounded-lg cursor-pointer">
+                <label className="flex items-center justify-between p-4 bg-surface-800/50 border border-surface-700/50 cursor-pointer">
                   <div>
-                    <p className="font-medium text-surface-200">
+                    <p className="font-semibold text-surface-200 uppercase tracking-wide text-sm">
                       Bounty Alerts
                     </p>
                     <p className="text-sm text-surface-500">
@@ -244,13 +275,13 @@ export function SettingsPage() {
                     type="checkbox"
                     checked={bountyAlerts}
                     onChange={(e) => setBountyAlerts(e.target.checked)}
-                    className="w-5 h-5 rounded border-surface-600 bg-surface-800 text-factory-500 focus:ring-factory-500"
+                    className="w-5 h-5 border-surface-600 bg-surface-800 text-factory-500 focus:ring-factory-500"
                   />
                 </label>
 
-                <label className="flex items-center justify-between p-4 bg-surface-800/50 rounded-lg cursor-pointer">
+                <label className="flex items-center justify-between p-4 bg-surface-800/50 border border-surface-700/50 cursor-pointer">
                   <div>
-                    <p className="font-medium text-surface-200">Job Alerts</p>
+                    <p className="font-semibold text-surface-200 uppercase tracking-wide text-sm">Job Alerts</p>
                     <p className="text-sm text-surface-500">
                       Get notified about new job postings
                     </p>
@@ -259,13 +290,13 @@ export function SettingsPage() {
                     type="checkbox"
                     checked={jobAlerts}
                     onChange={(e) => setJobAlerts(e.target.checked)}
-                    className="w-5 h-5 rounded border-surface-600 bg-surface-800 text-factory-500 focus:ring-factory-500"
+                    className="w-5 h-5 border-surface-600 bg-surface-800 text-factory-500 focus:ring-factory-500"
                   />
                 </label>
 
-                <label className="flex items-center justify-between p-4 bg-surface-800/50 rounded-lg cursor-pointer">
+                <label className="flex items-center justify-between p-4 bg-surface-800/50 border border-surface-700/50 cursor-pointer">
                   <div>
-                    <p className="font-medium text-surface-200">
+                    <p className="font-semibold text-surface-200 uppercase tracking-wide text-sm">
                       Message Notifications
                     </p>
                     <p className="text-sm text-surface-500">
@@ -276,7 +307,7 @@ export function SettingsPage() {
                     type="checkbox"
                     checked={messageNotifications}
                     onChange={(e) => setMessageNotifications(e.target.checked)}
-                    className="w-5 h-5 rounded border-surface-600 bg-surface-800 text-factory-500 focus:ring-factory-500"
+                    className="w-5 h-5 border-surface-600 bg-surface-800 text-factory-500 focus:ring-factory-500"
                   />
                 </label>
               </div>
@@ -284,14 +315,20 @@ export function SettingsPage() {
           )}
 
           {activeTab === 'appearance' && (
-            <div className="card p-6 animate-in">
-              <h3 className="font-semibold text-surface-100 mb-6">
+            <div
+              className="relative bg-gradient-to-br from-surface-800/90 to-surface-900/95 border border-surface-700/60 p-6 animate-in"
+              style={{ clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))' }}
+            >
+              <div className="absolute top-0 right-0 w-3 h-3 bg-gradient-to-bl from-factory-500/50 to-transparent" />
+              <div className="absolute bottom-0 left-0 w-3 h-3 bg-gradient-to-tr from-factory-500/50 to-transparent" />
+
+              <h3 className="font-bold text-surface-100 mb-6 uppercase tracking-wider font-display">
                 Appearance Settings
               </h3>
 
               <div className="space-y-4">
                 <fieldset>
-                  <legend className="block text-sm font-medium text-surface-300 mb-3">
+                  <legend className="block text-xs font-semibold text-surface-300 mb-3 uppercase tracking-wider">
                     Theme
                   </legend>
                   <div className="grid grid-cols-3 gap-3">
@@ -301,14 +338,15 @@ export function SettingsPage() {
                         type="button"
                         onClick={() => setTheme(t)}
                         className={clsx(
-                          'p-4 rounded-lg border-2 text-center capitalize transition-all',
+                          'p-4 border-2 text-center capitalize transition-all',
                           theme === t
                             ? 'border-factory-500 bg-factory-500/10'
-                            : 'border-surface-700 hover:border-surface-600',
+                            : 'border-surface-700 hover:border-surface-500',
                         )}
+                        style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))' }}
                       >
                         <Eye className="w-6 h-6 mx-auto mb-2 text-surface-400" />
-                        <span className="text-sm text-surface-200">{t}</span>
+                        <span className="text-sm text-surface-200 uppercase tracking-wider font-semibold">{t}</span>
                       </button>
                     ))}
                   </div>
@@ -318,16 +356,22 @@ export function SettingsPage() {
           )}
 
           {activeTab === 'security' && (
-            <div className="card p-6 animate-in">
-              <h3 className="font-semibold text-surface-100 mb-6">
+            <div
+              className="relative bg-gradient-to-br from-surface-800/90 to-surface-900/95 border border-surface-700/60 p-6 animate-in"
+              style={{ clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))' }}
+            >
+              <div className="absolute top-0 right-0 w-3 h-3 bg-gradient-to-bl from-factory-500/50 to-transparent" />
+              <div className="absolute bottom-0 left-0 w-3 h-3 bg-gradient-to-tr from-factory-500/50 to-transparent" />
+
+              <h3 className="font-bold text-surface-100 mb-6 uppercase tracking-wider font-display">
                 Security Settings
               </h3>
 
               <div className="space-y-4">
-                <div className="p-4 bg-surface-800/50 rounded-lg">
+                <div className="p-4 bg-surface-800/50 border border-surface-700/50">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <p className="font-medium text-surface-200">
+                      <p className="font-semibold text-surface-200 uppercase tracking-wide text-sm">
                         Two-Factor Authentication
                       </p>
                       <p className="text-sm text-surface-500">
@@ -340,10 +384,10 @@ export function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="p-4 bg-surface-800/50 rounded-lg">
+                <div className="p-4 bg-surface-800/50 border border-surface-700/50">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-surface-200">
+                      <p className="font-semibold text-surface-200 uppercase tracking-wide text-sm">
                         Active Sessions
                       </p>
                       <p className="text-sm text-surface-500">
@@ -360,8 +404,14 @@ export function SettingsPage() {
           )}
 
           {activeTab === 'api' && (
-            <div className="card p-6 animate-in">
-              <h3 className="font-semibold text-surface-100 mb-6">API Keys</h3>
+            <div
+              className="relative bg-gradient-to-br from-surface-800/90 to-surface-900/95 border border-surface-700/60 p-6 animate-in"
+              style={{ clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))' }}
+            >
+              <div className="absolute top-0 right-0 w-3 h-3 bg-gradient-to-bl from-factory-500/50 to-transparent" />
+              <div className="absolute bottom-0 left-0 w-3 h-3 bg-gradient-to-tr from-factory-500/50 to-transparent" />
+
+              <h3 className="font-bold text-surface-100 mb-6 uppercase tracking-wider font-display">API Keys</h3>
 
               <div className="space-y-4">
                 <p className="text-surface-400 text-sm">
@@ -372,8 +422,8 @@ export function SettingsPage() {
                   Generate New API Key
                 </Button>
 
-                <div className="border-t border-surface-800 pt-4 mt-4">
-                  <p className="text-surface-500 text-sm text-center py-8">
+                <div className="border-t border-surface-700/50 pt-4 mt-4">
+                  <p className="text-surface-500 text-sm text-center py-8 uppercase tracking-wider">
                     No API keys generated yet
                   </p>
                 </div>

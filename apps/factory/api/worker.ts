@@ -12,6 +12,7 @@ import {
   CORE_PORTS,
   getCoreAppUrl,
   getCurrentNetwork,
+  getEnvNumber,
   getLocalhostHost,
 } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
@@ -158,7 +159,7 @@ const isMainModule = typeof Bun !== 'undefined' && Bun.main === import.meta.path
 
 if (isMainModule) {
   const port = Number(
-    process.env.PORT ?? process.env.FACTORY_PORT ?? CORE_PORTS.FACTORY.get(),
+    getEnvNumber('PORT') ?? getEnvNumber('FACTORY_PORT') ?? CORE_PORTS.FACTORY.get(),
   )
   const host = getLocalhostHost()
 

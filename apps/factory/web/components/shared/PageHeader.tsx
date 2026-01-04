@@ -21,17 +21,20 @@ export function PageHeader({
       <div className="flex items-center gap-4">
         {Icon && (
           <div
-            className={`flex-shrink-0 w-12 h-12 rounded-xl bg-surface-800/80 border border-surface-700/50 flex items-center justify-center ${iconColor}`}
+            className={`flex-shrink-0 w-12 h-12 bg-surface-800/80 border border-surface-700/50 flex items-center justify-center ${iconColor}`}
+            style={{ clipPath: 'polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%)' }}
             aria-hidden="true"
           >
             <Icon className="w-6 h-6" />
           </div>
         )}
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-surface-50 font-display">
+          <h1 className="text-xl sm:text-2xl font-bold text-surface-50 font-display tracking-wider uppercase">
             {title}
           </h1>
-          {description && <p className="text-white/60 mt-1">{description}</p>}
+          {description && (
+            <p className="text-surface-400 mt-1 text-sm tracking-wide">{description}</p>
+          )}
         </div>
       </div>
       {action && <div className="flex-shrink-0">{action}</div>}

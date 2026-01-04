@@ -4,6 +4,11 @@
  * Multi-platform AI trading agent - workerd-compatible.
  * Handles trading commands via Discord, Telegram, WhatsApp, Farcaster, Twitter.
  *
+ * Security:
+ * - Platform credentials are encrypted via KMS and decrypted in TEE
+ * - Uses FROST MPC threshold signing for all transactions
+ * - Non-custodial: users control their own funds via session keys
+ *
  * @see https://elysiajs.com/integrations/cloudflare-worker
  */
 
@@ -30,7 +35,12 @@ export interface OttoEnv {
   BAZAAR_URL: string
   CRUCIBLE_URL: string
 
-  // Platform credentials (encrypted via KMS in production)
+  // KMS endpoint for secret decryption
+  KMS_ENDPOINT?: string
+
+  // Platform credentials are NOT passed directly in production.
+  // They are fetched from KMS and decrypted in TEE.
+  // These are only used in development mode:
   DISCORD_BOT_TOKEN?: string
   TELEGRAM_BOT_TOKEN?: string
   TWITTER_BEARER_TOKEN?: string

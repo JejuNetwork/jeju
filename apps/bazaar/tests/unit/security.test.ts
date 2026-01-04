@@ -2,64 +2,75 @@
  * Security Tests for Bazaar
  *
  * Tests security-critical functionality:
- * - Anvil key protection in deployment scripts
+ * - Anvil key protection in deployment scripts (uses lib/secrets)
  * - GraphQL where clause injection prevention
  */
 
-import { describe, expect, it } from 'bun:test'
+import { beforeEach, afterEach, describe, expect, it } from 'bun:test'
+import { getDeployerKey } from '../../lib/secrets'
 
-// Test the Anvil key protection logic
+// Well-known Anvil account[0] key - public, safe for testing
+const ANVIL_ACCOUNT_0_KEY =
+  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
+
+// Test the Anvil key protection logic (testing lib/secrets.ts)
 describe('Anvil Key Protection', () => {
-  const ANVIL_DEFAULT_KEY =
-    '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
+  const originalEnv = process.env
 
-  function isLocalRpc(rpcUrl: string): boolean {
-    return rpcUrl.includes('127.0.0.1') || rpcUrl.includes('localhost')
-  }
-
-  function getDeployerKey(envKey: string | undefined, rpcUrl: string): string {
-    if (envKey) return envKey
-
-    if (!isLocalRpc(rpcUrl)) {
-      throw new Error(
-        'PRIVATE_KEY required for non-local deployments. Anvil key only allowed for local dev.',
-      )
-    }
-    return ANVIL_DEFAULT_KEY
-  }
-
-  it('allows Anvil key for localhost RPC', () => {
-    const key = getDeployerKey(undefined, 'http://localhost:8545')
-    expect(key).toBe(ANVIL_DEFAULT_KEY)
+  beforeEach(() => {
+    // Clear PRIVATE_KEY for clean test
+    delete process.env.PRIVATE_KEY
+    process.env.NODE_ENV = 'test'
   })
 
-  it('allows Anvil key for 127.0.0.1 RPC', () => {
-    const key = getDeployerKey(undefined, 'http://127.0.0.1:6546')
-    expect(key).toBe(ANVIL_DEFAULT_KEY)
+  afterEach(() => {
+    process.env = originalEnv
+  })
+
+  it('allows Anvil key for localhost RPC on localnet', () => {
+    process.env.JEJU_NETWORK = 'localnet'
+    const key = getDeployerKey('http://localhost:8545')
+    expect(key).toBe(ANVIL_ACCOUNT_0_KEY)
+  })
+
+  it('allows Anvil key for 127.0.0.1 RPC on localnet', () => {
+    process.env.JEJU_NETWORK = 'localnet'
+    const key = getDeployerKey('http://127.0.0.1:6546')
+    expect(key).toBe(ANVIL_ACCOUNT_0_KEY)
   })
 
   it('throws for non-local RPC without env key', () => {
-    expect(() => getDeployerKey(undefined, 'https://sepolia.base.org')).toThrow(
-      'PRIVATE_KEY required',
-    )
+    process.env.JEJU_NETWORK = 'testnet'
+    expect(() => getDeployerKey('https://sepolia.base.org')).toThrow()
   })
 
   it('throws for mainnet RPC without env key', () => {
+    process.env.JEJU_NETWORK = 'mainnet'
     expect(() =>
-      getDeployerKey(undefined, 'https://mainnet.jejunetwork.org'),
-    ).toThrow('PRIVATE_KEY required')
+      getDeployerKey('https://mainnet.jejunetwork.org'),
+    ).toThrow()
   })
 
   it('allows custom key for any RPC', () => {
-    const customKey = '0x1234567890abcdef'
-    expect(getDeployerKey(customKey, 'https://mainnet.jejunetwork.org')).toBe(
-      customKey,
-    )
+    process.env.PRIVATE_KEY = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+    process.env.JEJU_NETWORK = 'mainnet'
+    const key = getDeployerKey('https://mainnet.jejunetwork.org')
+    expect(key).toBe('0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef')
   })
 
   it('prefers env key over Anvil key for local RPC', () => {
-    const customKey = '0xdeadbeef'
-    expect(getDeployerKey(customKey, 'http://localhost:8545')).toBe(customKey)
+    const customKey = '0xdeadbeef1234567890abcdef1234567890abcdef1234567890abcdef12345678'
+    process.env.PRIVATE_KEY = customKey
+    process.env.JEJU_NETWORK = 'localnet'
+    expect(getDeployerKey('http://localhost:8545')).toBe(customKey)
+  })
+
+  it('throws when production build tries to use dev key', () => {
+    process.env.NODE_ENV = 'production'
+    process.env.JEJU_NETWORK = 'localnet'
+    delete process.env.PRIVATE_KEY
+    // Should throw even on localnet when NODE_ENV=production
+    expect(() => getDeployerKey('http://localhost:8545')).toThrow()
   })
 })
 

@@ -352,6 +352,37 @@ export function loadPortsConfig(
   }
 }
 
+/**
+ * Verify a contract has code deployed on-chain.
+ * Returns true if contract code exists, false otherwise.
+ */
+async function verifyContractOnChain(
+  rpcUrl: string,
+  contractAddress: string,
+): Promise<boolean> {
+  try {
+    const response = await fetch(rpcUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_getCode',
+        params: [contractAddress, 'latest'],
+        id: 1,
+      }),
+      signal: AbortSignal.timeout(10000),
+    })
+
+    if (!response.ok) return false
+
+    const result = await response.json()
+    const code = result.result as string
+    return Boolean(code && code !== '0x' && code.length > 4)
+  } catch {
+    return false
+  }
+}
+
 export async function bootstrapContracts(
   rootDir: string,
   rpcUrl: string,
@@ -360,28 +391,27 @@ export async function bootstrapContracts(
     rootDir,
     'packages/contracts/deployments/localnet-complete.json',
   )
+  const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
   // Check if bootstrap file exists AND has valid contract addresses
   if (existsSync(bootstrapFile)) {
     const data = JSON.parse(readFileSync(bootstrapFile, 'utf-8'))
     const contracts = data?.contracts ?? {}
-    // Check if any key contracts are deployed (not zero addresses)
-    const hasValidContracts =
-      (contracts.jnsRegistry &&
-        contracts.jnsRegistry !==
-          '0x0000000000000000000000000000000000000000') ||
-      (contracts.storageManager &&
-        contracts.storageManager !==
-          '0x0000000000000000000000000000000000000000') ||
-      (contracts.identityRegistry &&
-        contracts.identityRegistry !==
-          '0x0000000000000000000000000000000000000000')
+    const jnsRegistry = contracts.jnsRegistry as string | undefined
 
-    if (hasValidContracts) {
-      logger.debug('Contracts already bootstrapped')
-      return
+    // If JNS Registry has valid address, verify it's on-chain
+    if (jnsRegistry && jnsRegistry !== ZERO_ADDRESS) {
+      const onChain = await verifyContractOnChain(rpcUrl, jnsRegistry)
+      if (onChain) {
+        logger.debug('Contracts already bootstrapped and verified on-chain')
+        return
+      }
+      logger.debug(
+        'Bootstrap file exists but JNS Registry not on-chain (chain may have been reset)',
+      )
+    } else {
+      logger.debug('Bootstrap file has placeholder addresses, will redeploy')
     }
-    logger.debug('Bootstrap file has placeholder addresses, will redeploy')
   }
 
   logger.step('Bootstrapping contracts...')
@@ -403,5 +433,31 @@ export async function bootstrapContracts(
     },
     stdio: 'pipe',
   })
-  logger.success('Contracts bootstrapped')
+
+  // Verify deployment ON-CHAIN
+  if (existsSync(bootstrapFile)) {
+    const data = JSON.parse(readFileSync(bootstrapFile, 'utf-8'))
+    const contracts = data?.contracts ?? {}
+    const jnsRegistry = contracts.jnsRegistry as string | undefined
+
+    if (jnsRegistry && jnsRegistry !== ZERO_ADDRESS) {
+      const onChain = await verifyContractOnChain(rpcUrl, jnsRegistry)
+      if (!onChain) {
+        throw new Error(
+          'Contract deployment verification failed. ' +
+            `JNS Registry at ${jnsRegistry} has no code on-chain.`,
+        )
+      }
+    } else {
+      throw new Error(
+        'Bootstrap script completed but JNS Registry address is missing or zero.',
+      )
+    }
+  } else {
+    throw new Error(
+      'Bootstrap script completed but deployment file was not created.',
+    )
+  }
+
+  logger.success('Contracts bootstrapped and verified on-chain')
 }

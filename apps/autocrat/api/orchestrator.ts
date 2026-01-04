@@ -271,14 +271,14 @@ export class AutocratOrchestrator {
       ZERO_ADDRESS
     const chainId = this.config.chainId ?? this.inferChainId(this.config.rpcUrl)
 
-    // Pass the operator address for KMS-based signing in DAOService
-    const operatorKey = process.env.OPERATOR_KEY ?? process.env.PRIVATE_KEY
+    // Pass the operator signer for KMS-based signing in DAOService
+    // The signer is already initialized via createKMSAccount in start()
     this.daoService = createDAOService({
       rpcUrl: this.config.rpcUrl,
       chainId,
       daoRegistryAddress: daoRegistryAddr,
       daoFundingAddress: daoFundingAddr,
-      privateKey: operatorKey, // DAOService will migrate to KMS internally
+      operatorAddress: this.account?.address, // DAOService uses KMS via operator address
     })
 
     // Load all active DAOs

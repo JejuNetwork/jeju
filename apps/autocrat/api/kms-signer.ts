@@ -20,7 +20,6 @@ import {
   type WalletClient,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { config as autocratConfig } from './config'
 
 // ════════════════════════════════════════════════════════════════════════════
 //                     AUTOCRAT-SPECIFIC TYPES
@@ -218,19 +217,31 @@ export async function createKMSHttpWalletClient(
 
 /**
  * Get operator configuration for KMS signing
- * Derives address from operator key if available
+ * 
+ * SECURITY: In production, returns null - operator must use KMS signer directly.
+ * In development, allows fallback to env var for local testing only.
  */
 export function getOperatorConfig(): AutocratKMSConfig | null {
-  const operatorKey = autocratConfig.operatorKey ?? autocratConfig.privateKey
+  // In production, don't provide fallback keys - must use KMS
+  if (isProductionEnv()) {
+    // Return null to force callers to use KMS signer directly
+    return null
+  }
+
+  // Development only: Check for env var fallback
+  const operatorKey = process.env.OPERATOR_KEY ?? process.env.PRIVATE_KEY
   if (!operatorKey) {
     return null
   }
 
-  // Derive address from private key
+  // Derive address from private key (development only)
   const account = privateKeyToAccount(operatorKey as Hex)
+  console.warn(
+    '[KMS] Development mode: Using env var for operator key. Use KMS in production.',
+  )
   return {
     address: account.address,
     fallbackKey: operatorKey as Hex,
-    forceProduction: isProductionEnv(),
+    forceProduction: false,
   }
 }

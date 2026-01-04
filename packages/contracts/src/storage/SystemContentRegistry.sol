@@ -249,7 +249,7 @@ contract SystemContentRegistry is ReentrancyGuard, Ownable {
         if (cidToContentId[cid] != bytes32(0)) revert ContentAlreadyExists();
         if (nameToContentId[name] != bytes32(0)) revert ContentAlreadyExists();
 
-        contentId = keccak256(abi.encodePacked(cid, name, category, block.timestamp));
+        contentId = keccak256(abi.encode(cid, name, category, block.timestamp));
 
         content[contentId] = SystemContent({
             contentId: contentId,

@@ -8,6 +8,7 @@ import {
   getDWSUrl,
   getLocalhostHost,
   getRpcUrl,
+  isProductionEnv,
   tryGetContract,
 } from '@jejunetwork/config'
 import {
@@ -922,11 +923,42 @@ export function createDefaultWorkerdRouter(backend: BackendManager) {
   const network = getNetworkType()
   const defaults = NETWORK_DEFAULTS[network]
   const chain = getChainForNetwork(network)
+  const isProduction = isProductionEnv()
 
   const rpcUrl = getRpcUrl(network) || defaults.rpcUrl
   const registryAddress = (tryGetContract('registry', 'identity', network) ||
     defaults.identityRegistry) as Address
-  const privateKey = process.env.PRIVATE_KEY as `0x${string}` | undefined
+
+  // Private key handling: In production, must use KMS, not PRIVATE_KEY
+  const kmsKeyId = process.env.WORKERD_KMS_KEY_ID
+  const directKey = process.env.PRIVATE_KEY as `0x${string}` | undefined
+
+  let privateKey: `0x${string}` | undefined
+
+  if (isProduction) {
+    if (directKey) {
+      console.error(
+        '[Workerd] SECURITY: PRIVATE_KEY env var detected in production. ' +
+        'Use WORKERD_KMS_KEY_ID for KMS-backed signing.',
+      )
+      // Don't use the direct key in production
+      privateKey = undefined
+    }
+    if (!kmsKeyId) {
+      console.warn(
+        '[Workerd] KMS not configured. Decentralized mode may be limited.',
+      )
+    }
+    // In production, privateKey is undefined - KMS signing handled differently
+  } else {
+    // Development: allow direct key with warning
+    if (directKey) {
+      console.warn(
+        '[Workerd] WARNING: Using direct PRIVATE_KEY. Use KMS in production.',
+      )
+      privateKey = directKey
+    }
+  }
 
   // Enable decentralized mode if we have a valid registry address
   const enableDecentralized =
@@ -947,6 +979,7 @@ export function createDefaultWorkerdRouter(backend: BackendManager) {
   console.log(`[Workerd] RPC URL: ${rpcUrl}`)
   console.log(`[Workerd] Identity Registry: ${registryAddress}`)
   console.log(`[Workerd] Decentralized: ${enableDecentralized}`)
+  console.log(`[Workerd] KMS: ${kmsKeyId ? 'configured' : 'not configured'}`)
 
   return createWorkerdRouter({
     backend,
@@ -970,7 +1003,8 @@ export function createDefaultWorkerdRouter(backend: BackendManager) {
           rpcUrl,
           chain,
           identityRegistryAddress: registryAddress,
-          privateKey,
+          privateKey, // Only defined in development
+          kmsKeyId, // KMS key ID for production
         }
       : undefined,
     enableDecentralized,

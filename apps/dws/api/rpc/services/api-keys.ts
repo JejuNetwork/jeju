@@ -3,6 +3,8 @@
  *
  * Uses cryptographic hashing for key validation.
  * Keys are hashed with SHA-256 before storage - plaintext keys are NEVER stored.
+ *
+ * SECURITY: In production, API_KEY_ENCRYPTION_SECRET should be in KMS.
  */
 
 import { isProductionEnv, isTestMode } from '@jejunetwork/config'
@@ -15,6 +17,7 @@ import {
 } from '@jejunetwork/shared'
 import type { ApiKeyRecord, RateTier } from '@jejunetwork/types'
 import type { Address } from 'viem'
+import { getKMSSecret } from '../../shared/kms-secrets'
 import { apiKeyState } from '../../state.js'
 import { registerApiKey, revokeApiKey } from '../middleware/rate-limiter.js'
 
@@ -22,6 +25,22 @@ export type { ApiKeyRecord }
 
 // Local cache for key -> id mapping (for fast validation without async)
 const localKeyCache = new Map<string, string>()
+
+// Cached API key encryption secret from KMS
+let cachedApiKeySecret: string | null = null
+let apiKeySecretInitialized = false
+
+/**
+ * Initialize API key encryption secret from KMS
+ */
+export async function initializeApiKeyEncryption(): Promise<void> {
+  if (apiKeySecretInitialized) return
+  const secret = await getKMSSecret('api_key_encryption')
+  if (secret) {
+    cachedApiKeySecret = secret
+  }
+  apiKeySecretInitialized = true
+}
 
 /**
  * Generate a cryptographically secure API key
@@ -46,29 +65,28 @@ function hashKey(key: string): string {
 
 /**
  * Derive encryption key for metadata encryption
- * SECURITY: API_KEY_ENCRYPTION_SECRET MUST be set in production
+ * SECURITY: API_KEY_ENCRYPTION_SECRET should be in KMS
  */
 function deriveEncryptionKey(): Uint8Array {
-  const secret = process.env.API_KEY_ENCRYPTION_SECRET
   const isProduction = isProductionEnv()
   const isTest = isTestMode() || process.env.BUN_TEST === 'true'
 
-  if (!secret) {
+  if (!cachedApiKeySecret) {
     if (isProduction) {
       throw new Error(
-        'CRITICAL: API_KEY_ENCRYPTION_SECRET must be set in production.',
+        'CRITICAL: API key encryption secret not found in KMS. Store using: jeju secrets set API_KEY_ENCRYPTION_SECRET <value>',
       )
     }
     if (!isTest) {
       // Development mode - generate ephemeral key with warning
       console.warn(
-        '[API Keys] WARNING: API_KEY_ENCRYPTION_SECRET not set - using ephemeral key.',
+        '[API Keys] WARNING: API key encryption secret not set - using ephemeral key.',
       )
     }
     // Use a deterministic dev-only key derived from a constant - NEVER use in production
     return hash256('DEV_ONLY_EPHEMERAL_KEY_DO_NOT_USE_IN_PRODUCTION')
   }
-  return hash256(secret)
+  return hash256(cachedApiKeySecret)
 }
 
 /**

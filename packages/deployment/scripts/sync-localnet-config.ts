@@ -91,6 +91,43 @@ interface DeploymentContracts {
   l1StakeManager?: string
   crossChainPaymaster?: string
   l1L2Messenger?: string
+  // VPN
+  vpnRegistry?: string
+  // Agents
+  agentVault?: string
+  roomRegistry?: string
+  // OTC
+  otc?: string
+  // Staking (additional)
+  rpcProviderRegistry?: string
+  staking?: string
+  // Perps
+  perpetualMarket?: string
+  insuranceFund?: string
+  marginManager?: string
+  // Training
+  trainingCoordinator?: string
+  trainingRewards?: string
+  // Distributor
+  airdropManager?: string
+  tokenVesting?: string
+  feeDistributor?: string
+  stakingRewardDistributor?: string
+  // Sequencer
+  sequencerRegistry?: string
+  forcedInclusion?: string
+  slashingContract?: string
+  // AMM
+  xlpRouter?: string
+  xlpV2Factory?: string
+  // Oracle (additional)
+  oracleRegistry?: string
+  // Messaging
+  messageNodeRegistry?: string
+  messagingKeyRegistry?: string
+  // Hyperlane Bridge
+  hyperlaneMailbox?: string
+  hyperlaneISM?: string
 }
 
 interface DeploymentResult {
@@ -189,6 +226,58 @@ interface ContractsConfig {
     federation: {
       registryHub?: string
       networkRegistry?: string
+    }
+    vpn: {
+      registry?: string
+    }
+    agents: {
+      vault?: string
+      roomRegistry?: string
+    }
+    otc: {
+      contract?: string
+    }
+    staking: {
+      contract?: string
+      rpcProviderRegistry?: string
+    }
+    perps: {
+      market?: string
+      insuranceFund?: string
+      marginManager?: string
+    }
+    training: {
+      coordinator?: string
+      rewards?: string
+    }
+    distributor: {
+      airdropManager?: string
+      tokenVesting?: string
+      feeDistributor?: string
+      stakingRewardDistributor?: string
+    }
+    sequencer: {
+      registry?: string
+      forcedInclusion?: string
+      slashing?: string
+    }
+    amm: {
+      router?: string
+      factory?: string
+    }
+    oracle: {
+      registry?: string
+    }
+    messaging: {
+      nodeRegistry?: string
+      keyRegistry?: string
+    }
+    bridge: {
+      hyperlaneMailbox?: string
+      hyperlaneISM?: string
+      optimismPortal?: string
+      l1StandardBridge?: string
+      nftBridge?: string
     }
     [key: string]: unknown
   }
@@ -436,6 +525,142 @@ function syncConfig(): void {
   }
   if (isValidAddress(contracts.crossChainPaymaster)) {
     config.localnet.eil.crossChainPaymaster = contracts.crossChainPaymaster
+    synced++
+  }
+
+  // VPN
+  if (!config.localnet.vpn) config.localnet.vpn = {}
+  if (isValidAddress(contracts.vpnRegistry)) {
+    config.localnet.vpn.registry = contracts.vpnRegistry
+    synced++
+  }
+
+  // Agents
+  if (!config.localnet.agents) config.localnet.agents = {}
+  if (isValidAddress(contracts.agentVault)) {
+    config.localnet.agents.vault = contracts.agentVault
+    synced++
+  }
+  if (isValidAddress(contracts.roomRegistry)) {
+    config.localnet.agents.roomRegistry = contracts.roomRegistry
+    synced++
+  }
+
+  // OTC
+  if (!config.localnet.otc) config.localnet.otc = {}
+  if (isValidAddress(contracts.otc)) {
+    config.localnet.otc.contract = contracts.otc
+    synced++
+  }
+
+  // Staking (additional)
+  if (!config.localnet.staking) config.localnet.staking = {}
+  if (isValidAddress(contracts.staking)) {
+    config.localnet.staking.contract = contracts.staking
+    synced++
+  }
+  if (isValidAddress(contracts.rpcProviderRegistry)) {
+    config.localnet.staking.rpcProviderRegistry = contracts.rpcProviderRegistry
+    synced++
+  }
+
+  // Perps
+  if (!config.localnet.perps) config.localnet.perps = {}
+  if (isValidAddress(contracts.perpetualMarket)) {
+    config.localnet.perps.market = contracts.perpetualMarket
+    synced++
+  }
+  if (isValidAddress(contracts.insuranceFund)) {
+    config.localnet.perps.insuranceFund = contracts.insuranceFund
+    synced++
+  }
+  if (isValidAddress(contracts.marginManager)) {
+    config.localnet.perps.marginManager = contracts.marginManager
+    synced++
+  }
+
+  // Training
+  if (!config.localnet.training) config.localnet.training = {}
+  if (isValidAddress(contracts.trainingCoordinator)) {
+    config.localnet.training.coordinator = contracts.trainingCoordinator
+    synced++
+  }
+  if (isValidAddress(contracts.trainingRewards)) {
+    config.localnet.training.rewards = contracts.trainingRewards
+    synced++
+  }
+
+  // Distributor
+  if (!config.localnet.distributor) config.localnet.distributor = {}
+  if (isValidAddress(contracts.airdropManager)) {
+    config.localnet.distributor.airdropManager = contracts.airdropManager
+    synced++
+  }
+  if (isValidAddress(contracts.tokenVesting)) {
+    config.localnet.distributor.tokenVesting = contracts.tokenVesting
+    synced++
+  }
+  if (isValidAddress(contracts.feeDistributor)) {
+    config.localnet.distributor.feeDistributor = contracts.feeDistributor
+    synced++
+  }
+  if (isValidAddress(contracts.stakingRewardDistributor)) {
+    config.localnet.distributor.stakingRewardDistributor = contracts.stakingRewardDistributor
+    synced++
+  }
+
+  // Sequencer
+  if (!config.localnet.sequencer) config.localnet.sequencer = {}
+  if (isValidAddress(contracts.sequencerRegistry)) {
+    config.localnet.sequencer.registry = contracts.sequencerRegistry
+    synced++
+  }
+  if (isValidAddress(contracts.forcedInclusion)) {
+    config.localnet.sequencer.forcedInclusion = contracts.forcedInclusion
+    synced++
+  }
+  if (isValidAddress(contracts.slashingContract)) {
+    config.localnet.sequencer.slashing = contracts.slashingContract
+    synced++
+  }
+
+  // AMM
+  if (!config.localnet.amm) config.localnet.amm = {}
+  if (isValidAddress(contracts.xlpRouter)) {
+    config.localnet.amm.router = contracts.xlpRouter
+    synced++
+  }
+  if (isValidAddress(contracts.xlpV2Factory)) {
+    config.localnet.amm.factory = contracts.xlpV2Factory
+    synced++
+  }
+
+  // Oracle
+  if (!config.localnet.oracle) config.localnet.oracle = {}
+  if (isValidAddress(contracts.oracleRegistry)) {
+    config.localnet.oracle.registry = contracts.oracleRegistry
+    synced++
+  }
+
+  // Messaging
+  if (!config.localnet.messaging) config.localnet.messaging = {}
+  if (isValidAddress(contracts.messageNodeRegistry)) {
+    config.localnet.messaging.nodeRegistry = contracts.messageNodeRegistry
+    synced++
+  }
+  if (isValidAddress(contracts.messagingKeyRegistry)) {
+    config.localnet.messaging.keyRegistry = contracts.messagingKeyRegistry
+    synced++
+  }
+
+  // Bridge (Hyperlane)
+  if (!config.localnet.bridge) config.localnet.bridge = {}
+  if (isValidAddress(contracts.hyperlaneMailbox)) {
+    config.localnet.bridge.hyperlaneMailbox = contracts.hyperlaneMailbox
+    synced++
+  }
+  if (isValidAddress(contracts.hyperlaneISM)) {
+    config.localnet.bridge.hyperlaneISM = contracts.hyperlaneISM
     synced++
   }
 

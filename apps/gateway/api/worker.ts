@@ -25,12 +25,14 @@ import {
 
 /**
  * Worker Environment Types
+ *
+ * SECURITY: All signing operations use KMS via service IDs.
+ * No private keys are passed through environment variables.
  */
 export interface GatewayEnv {
   // Standard workerd bindings
   NETWORK: 'localnet' | 'testnet' | 'mainnet'
   RPC_URL: string
-  FAUCET_PRIVATE_KEY?: string
 
   // KV bindings (optional)
   GATEWAY_CACHE?: KVNamespace
@@ -209,10 +211,11 @@ if (isMainModule) {
   const PORT = config.gatewayApiPort || CORE_PORTS.NODE_EXPLORER_API.get()
   const network = getCurrentNetwork()
 
+  // SECURITY: Faucet signing uses KMS via service ID 'faucet'
+  // No private keys are passed through environment
   const app = createGatewayApp({
     NETWORK: network,
     RPC_URL: process.env.RPC_URL || 'http://localhost:8545',
-    FAUCET_PRIVATE_KEY: process.env.FAUCET_PRIVATE_KEY,
   })
 
   const host = getLocalhostHost()

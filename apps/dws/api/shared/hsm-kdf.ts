@@ -1,11 +1,11 @@
 import { isProductionEnv } from '@jejunetwork/config'
 import { hash256 } from '@jejunetwork/shared'
 import { keccak256, toHex } from 'viem'
+import { getKMSSecret } from './kms-secrets'
 
 // HSM endpoint configuration
 const HSM_ENDPOINT = process.env.HSM_ENDPOINT
 const HSM_KEY_ID = process.env.HSM_KEY_ID
-const HSM_API_KEY = process.env.HSM_API_KEY
 
 export type HSMProvider = 'aws' | 'azure' | 'gcp' | 'vault' | 'local'
 
@@ -37,19 +37,33 @@ export class HSMKDF {
   private config: HSMConfig | null = null
   private localMode = true
   private initialized = false
+  private apiKeyFetched = false
 
   constructor() {
-    // Initialize from environment
+    // Initialize from environment (API key fetched lazily from KMS)
     if (HSM_ENDPOINT && HSM_KEY_ID) {
       const provider = this.detectProvider(HSM_ENDPOINT)
       this.config = {
         provider,
         endpoint: HSM_ENDPOINT,
         keyId: HSM_KEY_ID,
-        apiKey: HSM_API_KEY,
+        apiKey: undefined, // Fetched from KMS during initialize()
       }
       this.localMode = false
     }
+  }
+
+  /**
+   * Fetch API key from KMS (called during initialize)
+   */
+  private async fetchApiKey(): Promise<void> {
+    if (this.apiKeyFetched || !this.config) return
+
+    const apiKey = await getKMSSecret('hsm_api_key')
+    if (apiKey) {
+      this.config.apiKey = apiKey
+    }
+    this.apiKeyFetched = true
   }
 
   private detectProvider(endpoint: string): HSMProvider {
@@ -75,6 +89,9 @@ export class HSMKDF {
     if (this.initialized) return
 
     const isProduction = isProductionEnv()
+
+    // Fetch API key from KMS
+    await this.fetchApiKey()
 
     if (this.localMode) {
       if (isProduction) {

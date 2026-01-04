@@ -110,23 +110,40 @@ export class SolverAgent {
     const isProduction = isProductionEnv()
 
     // Determine if we should use KMS
+    // SECURITY: In production, KMS is REQUIRED. Direct private keys are blocked.
     let useKMS = false
-    if (kmsKeyId && ownerAddress) {
+    if (isProduction) {
+      if (pk) {
+        console.error(
+          '[Solver] SECURITY ERROR: SOLVER_PRIVATE_KEY detected in production. ' +
+          'Direct private keys are BLOCKED. Use SOLVER_KMS_KEY_ID.',
+        )
+      }
+      if (!kmsKeyId || !ownerAddress) {
+        throw new Error(
+          'SECURITY: SOLVER_KMS_KEY_ID and SOLVER_OWNER_ADDRESS required in production. ' +
+          'Direct private keys (SOLVER_PRIVATE_KEY) are not allowed.',
+        )
+      }
+      const kmsAvailable = await isKMSAvailable()
+      if (!kmsAvailable) {
+        throw new Error(
+          'KMS not available in production - ensure KMS service is running',
+        )
+      }
+      useKMS = true
+      console.log('[Solver] Using KMS-backed signing (production)')
+    } else if (kmsKeyId && ownerAddress) {
       const kmsAvailable = await isKMSAvailable()
       if (kmsAvailable) {
         useKMS = true
         console.log(
           '[Solver] Using KMS-backed signing (FROST threshold cryptography)',
         )
-      } else if (isProduction) {
-        throw new Error(
-          'KMS not available in production - set SOLVER_KMS_KEY_ID and ensure KMS is running',
-        )
       }
-    } else if (isProduction && pk) {
-      console.error(
-        '[Solver] CRITICAL: Using direct SOLVER_PRIVATE_KEY in production. ' +
-          'Set SOLVER_KMS_KEY_ID and SOLVER_OWNER_ADDRESS for side-channel protection.',
+    } else if (pk) {
+      console.warn(
+        '[Solver] WARNING: Using SOLVER_PRIVATE_KEY for development. Use KMS in production.',
       )
     }
 

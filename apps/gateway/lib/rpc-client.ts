@@ -1,6 +1,13 @@
-import { getRpcGatewayUrl } from '@jejunetwork/config'
+import { getRpcGatewayUrl, isProductionEnv } from '@jejunetwork/config'
+import { getSecretVault } from '@jejunetwork/kms'
 import { expectValid, type JsonValue } from '@jejunetwork/types'
-import { type Chain, createPublicClient, http, type PublicClient } from 'viem'
+import {
+  type Chain,
+  createPublicClient,
+  http,
+  type PublicClient,
+  zeroAddress,
+} from 'viem'
 import { z } from 'zod'
 import { RpcChainsResponseSchema, type RpcParamValue } from './validation'
 
@@ -183,16 +190,76 @@ export function createRpcGatewayClient(
   return createRPCClient(config).createClient(chainId)
 }
 
-export function getInternalRPCClient(): RPCClient {
+/**
+ * Get internal RPC API key from KMS vault
+ *
+ * SECURITY: Internal API keys are stored in KMS SecretVault.
+ * In development, falls back to environment variable for local testing only.
+ */
+let cachedInternalApiKey: string | null = null
+let internalApiKeyLoaded = false
+
+async function getInternalApiKeyFromKMS(): Promise<string | null> {
+  if (internalApiKeyLoaded) {
+    return cachedInternalApiKey
+  }
+
+  try {
+    const vault = getSecretVault()
+    await vault.initialize()
+    cachedInternalApiKey = await vault.getSecret(
+      'internal-rpc-api-key',
+      zeroAddress, // System accessor for internal API key
+    )
+    internalApiKeyLoaded = true
+    return cachedInternalApiKey
+  } catch {
+    // In development only, allow falling back (but log warning)
+    if (!isProductionEnv()) {
+      console.warn(
+        '[RPC] Internal API key not found in KMS vault. Internal RPC calls may fail.',
+      )
+      internalApiKeyLoaded = true
+      return null
+    }
+    throw new Error('Internal RPC API key not configured in KMS vault')
+  }
+}
+
+/**
+ * Create an RPC client with internal API key from KMS
+ *
+ * SECURITY: This function is async because it retrieves the API key from KMS.
+ * The key is cached after first retrieval.
+ */
+export async function getInternalRPCClient(): Promise<RPCClient> {
+  const apiKey = await getInternalApiKeyFromKMS()
   return createRPCClient({
-    apiKey: process.env.JEJU_INTERNAL_RPC_KEY,
-    walletAddress: process.env.JEJU_INTERNAL_WALLET,
+    apiKey: apiKey ?? undefined,
+    walletAddress: undefined,
+  })
+}
+
+/**
+ * @deprecated Use getInternalRPCClient() instead - this returns null API key
+ * Synchronous version that doesn't fetch from KMS (for backwards compat during migration)
+ */
+export function getInternalRPCClientSync(): RPCClient {
+  if (isProductionEnv()) {
+    console.warn(
+      '[RPC] getInternalRPCClientSync() called in production - use async getInternalRPCClient()',
+    )
+  }
+  return createRPCClient({
+    apiKey: cachedInternalApiKey ?? undefined,
+    walletAddress: undefined,
   })
 }
 
 export const CLOUD_RPC_CONFIG = {
   gatewayUrl: getRpcGatewayUrl(),
-  internalApiKey: process.env.JEJU_INTERNAL_RPC_KEY || '',
+  // SECURITY: API key is no longer exposed in static config
+  // Use getInternalRPCClient() to get a client with the API key
   chains: {
     jeju: 420691,
     jejuTestnet: 420690,

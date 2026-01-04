@@ -43,8 +43,9 @@ import { getTEEMode } from './tee'
  * SECURITY NOTE (TEE Side-Channel Resistance):
  * - This worker does NOT handle private keys for signing
  * - All signing is done by clients (via wallet) or KMS
- * - Database credentials are for DB auth, not blockchain
+ * - Database credentials are injected by DWS from KMS secrets
  * - Never add blockchain private keys to this interface
+ * - SQLIT credentials are fetched from SecretVault at runtime
  */
 export interface AutocratEnv {
   // Standard workerd bindings
@@ -59,10 +60,10 @@ export interface AutocratEnv {
   GATEWAY_URL: string
   INDEXER_URL: string
 
-  // Database config
+  // Database config (non-secret parts only)
   SQLIT_NODES: string
   SQLIT_DATABASE_ID: string
-  SQLIT_PRIVATE_KEY: string
+  // NOTE: SQLIT credentials are fetched from KMS SecretVault, not env vars
 
   // KV bindings (optional)
   AUTOCRAT_CACHE?: KVNamespace
@@ -420,6 +421,8 @@ if (isMainModule) {
   const PORT = CORE_PORTS.AUTOCRAT_API.get()
   const network = getCurrentNetwork()
 
+  // SQLit credentials are fetched from KMS SecretVault at runtime
+  // via the secrets.ts module, not passed as env vars
   const app = createAutocratApp({
     NETWORK: network,
     TEE_MODE: 'simulated',
@@ -430,13 +433,13 @@ if (isMainModule) {
     GATEWAY_URL: getCoreAppUrl('NODE_EXPLORER_API'),
     INDEXER_URL: getIndexerGraphqlUrl(),
     SQLIT_NODES: getSQLitBlockProducerUrl(),
-    SQLIT_DATABASE_ID: process.env.SQLIT_DATABASE_ID || '',
-    SQLIT_PRIVATE_KEY: process.env.SQLIT_PRIVATE_KEY || '',
+    SQLIT_DATABASE_ID: process.env.SQLIT_DATABASE_ID || 'autocrat',
   })
 
   const host = getLocalhostHost()
   app.listen(PORT, () => {
     console.log(`[Autocrat] Worker running at http://${host}:${PORT}`)
     console.log(`[Autocrat] TEE: ${getTEEMode()} | Network: ${network}`)
+    console.log(`[Autocrat] SQLit credentials via KMS SecretVault`)
   })
 }

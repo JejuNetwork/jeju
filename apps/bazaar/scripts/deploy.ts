@@ -20,6 +20,7 @@ import { $ } from 'bun'
 import { type Address, keccak256 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
+import { getDeployerKey } from '../lib/secrets'
 
 // Inline schemas for deploy script
 const IPFSUploadResponseSchema = z.object({
@@ -69,16 +70,15 @@ function getConfig(): DeployConfig {
     },
   }
 
-  const privateKey = process.env.DEPLOYER_PRIVATE_KEY || process.env.PRIVATE_KEY
-  if (!privateKey) {
-    throw new Error(
-      'DEPLOYER_PRIVATE_KEY or PRIVATE_KEY environment variable required',
-    )
-  }
+  const networkConfig = configs[network]
+  const rpcUrl = networkConfig.rpcUrl ?? getL1RpcUrl()
+
+  // Use secure key retrieval - will validate localnet before using dev keys
+  const privateKey = getDeployerKey(rpcUrl)
 
   return {
     network,
-    ...configs[network],
+    ...networkConfig,
     privateKey: privateKey as `0x${string}`,
     cdnEnabled: process.env.CDN_ENABLED !== 'false',
   } as DeployConfig

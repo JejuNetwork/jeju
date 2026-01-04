@@ -2,10 +2,14 @@
  * Bazaar App Configuration
  * Dynamic config injection for DWS/workerd compatibility
  *
+ * SECURITY: Secrets are retrieved through the secrets module.
+ * Never expose secrets through environment variables in client code.
+ *
  * All config is resolved from:
- * 1. Environment variables
- * 2. Network-based config from @jejunetwork/config
- * 3. On-chain registry (future: JNS-based discovery)
+ * 1. Secrets module (for sensitive data)
+ * 2. Environment variables (for non-sensitive config)
+ * 3. Network-based config from @jejunetwork/config
+ * 4. On-chain registry (future: JNS-based discovery)
  */
 
 import {
@@ -14,6 +18,7 @@ import {
   getCurrentNetwork,
   getEnvVar,
 } from '@jejunetwork/config'
+import { getSqlitPrivateKey } from '../lib/secrets'
 
 export interface BazaarConfig {
   // API
@@ -38,7 +43,8 @@ const { config, configure: setBazaarConfig } = createAppConfig<BazaarConfig>({
   mpcSignerUrl: getEnvVar('MPC_SIGNER_URL') ?? '',
   // Database ID uses network-aware naming for isolation
   sqlitDatabaseId: getEnvVar('SQLIT_DATABASE_ID') ?? `bazaar-${network}`,
-  sqlitPrivateKey: getEnvVar('SQLIT_PRIVATE_KEY'),
+  // SQLit private key retrieved through secrets module (not raw env var)
+  sqlitPrivateKey: getSqlitPrivateKey(),
 })
 
 export { config }

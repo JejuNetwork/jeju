@@ -1,4 +1,4 @@
-import { getFarcasterHubUrl } from '@jejunetwork/config'
+import { getFarcasterHubUrl, isProductionEnv } from '@jejunetwork/config'
 import { FarcasterPoster } from '@jejunetwork/messaging'
 import { createLogger } from '@jejunetwork/shared'
 import { ed25519 } from '@noble/curves/ed25519'
@@ -21,19 +21,36 @@ const log = createLogger('signer-service')
 const HUB_URL = getFarcasterHubUrl()
 
 /**
- * Derive encryption key from config or fallback
+ * Get encryption key from config.
+ * SECURITY: Fails in production if no key is configured.
+ * Development uses a derived key for convenience only.
  */
 function getEncryptionKey(): Uint8Array {
   const config = getFactoryConfig()
+  
   if (config.signerEncryptionKey) {
     return hexToBytes(config.signerEncryptionKey.replace('0x', ''))
   }
-  // Fallback: derive from environment identifier (not secure for production)
-  const seed = `factory-signer-${config.isDev ? 'development' : 'production'}`
+  
+  // Production MUST have encryption key configured
+  if (isProductionEnv()) {
+    throw new Error(
+      'SIGNER_ENCRYPTION_KEY is required in production. ' +
+      'Set this secret via KMS or environment variable.'
+    )
+  }
+  
+  // Development-only fallback with clear warning
+  log.warn(
+    'Using derived encryption key for development. ' +
+    'Set SIGNER_ENCRYPTION_KEY for proper security.'
+  )
+  
+  const seed = `factory-signer-dev-${Date.now()}-${randomBytes(8)}`
   return hkdf(
     sha256,
     new TextEncoder().encode(seed),
-    new Uint8Array(0),
+    randomBytes(32),
     new TextEncoder().encode('aes-key'),
     32,
   )

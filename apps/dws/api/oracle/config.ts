@@ -3,8 +3,12 @@
  *
  * Loads and validates configuration from environment and config files.
  * Supports localnet, testnet, and mainnet deployments.
+ *
+ * SECURITY: In production, use KMS keys (ORACLE_OPERATOR_KMS_KEY_ID, ORACLE_WORKER_KMS_KEY_ID)
+ * Direct private keys are blocked in production.
  */
 
+import { isProductionEnv } from '@jejunetwork/config'
 import {
   ConfigurationError,
   type OracleConfigFileData,
@@ -23,10 +27,16 @@ import { type Address, type Hex, isAddress } from 'viem'
 type NetworkConfig = OracleNetworkConfig
 type ConfigFileData = OracleConfigFileData
 
-const REQUIRED_ENV_VARS = [
-  'OPERATOR_PRIVATE_KEY',
-  'WORKER_PRIVATE_KEY',
-] as const
+// Required env vars depend on environment
+// Production: KMS key IDs
+// Development: Direct private keys
+const getRequiredEnvVars = (): string[] => {
+  const isProduction = isProductionEnv()
+  if (isProduction) {
+    return ['ORACLE_OPERATOR_KMS_KEY_ID', 'ORACLE_WORKER_KMS_KEY_ID']
+  }
+  return ['OPERATOR_PRIVATE_KEY', 'WORKER_PRIVATE_KEY']
+}
 
 const REQUIRED_ADDRESSES = [
   'feedRegistry',
@@ -148,11 +158,17 @@ async function createConfigAsync(
 ): Promise<OracleNodeConfig> {
   console.log(`[Config] Loading configuration for network: ${network}`)
 
+  const isProduction = isProductionEnv()
+  const requiredVars = getRequiredEnvVars()
+
   // Validate required environment variables
-  const missingVars = REQUIRED_ENV_VARS.filter((v) => !process.env[v])
+  const missingVars = requiredVars.filter((v) => !process.env[v])
   if (missingVars.length > 0) {
     throw new ConfigurationError(
-      `Missing required environment variables: ${missingVars.join(', ')}`,
+      `Missing required environment variables: ${missingVars.join(', ')}. ` +
+      (isProduction
+        ? 'In production, use ORACLE_OPERATOR_KMS_KEY_ID and ORACLE_WORKER_KMS_KEY_ID.'
+        : 'Set OPERATOR_PRIVATE_KEY and WORKER_PRIVATE_KEY for development.'),
     )
   }
 
@@ -162,14 +178,37 @@ async function createConfigAsync(
   // Load contract addresses
   const addresses = loadContractAddresses(networkConfig)
 
-  // Validate private keys (already checked existence via REQUIRED_ENV_VARS)
-  const operatorKeyRaw = process.env.OPERATOR_PRIVATE_KEY
-  const workerKeyRaw = process.env.WORKER_PRIVATE_KEY
-  if (!operatorKeyRaw || !workerKeyRaw) {
-    throw new ConfigurationError('Required private keys not configured')
+  // SECURITY: Handle keys based on environment
+  let operatorKey: Hex | undefined
+  let workerKey: Hex | undefined
+  let operatorKmsKeyId: string | undefined
+  let workerKmsKeyId: string | undefined
+
+  if (isProduction) {
+    // Production: use KMS keys, block direct keys
+    operatorKmsKeyId = process.env.ORACLE_OPERATOR_KMS_KEY_ID
+    workerKmsKeyId = process.env.ORACLE_WORKER_KMS_KEY_ID
+
+    if (process.env.OPERATOR_PRIVATE_KEY || process.env.WORKER_PRIVATE_KEY) {
+      console.error(
+        '[Config] SECURITY ERROR: Direct private keys detected in production. ' +
+        'Use ORACLE_OPERATOR_KMS_KEY_ID and ORACLE_WORKER_KMS_KEY_ID instead.',
+      )
+    }
+    console.log('[Config] Using KMS-backed signing (production)')
+  } else {
+    // Development: allow direct keys with warning
+    const operatorKeyRaw = process.env.OPERATOR_PRIVATE_KEY
+    const workerKeyRaw = process.env.WORKER_PRIVATE_KEY
+    if (!operatorKeyRaw || !workerKeyRaw) {
+      throw new ConfigurationError('Required private keys not configured')
+    }
+    operatorKey = validatePrivateKey(operatorKeyRaw, 'OPERATOR_PRIVATE_KEY')
+    workerKey = validatePrivateKey(workerKeyRaw, 'WORKER_PRIVATE_KEY')
+    console.warn(
+      '[Config] WARNING: Using direct private keys for development. Use KMS in production.',
+    )
   }
-  const operatorKey = validatePrivateKey(operatorKeyRaw, 'OPERATOR_PRIVATE_KEY')
-  const workerKey = validatePrivateKey(workerKeyRaw, 'WORKER_PRIVATE_KEY')
 
   console.log(
     `[Config] Network: ${network} (chainId: ${networkConfig.chainId})`,
@@ -182,6 +221,8 @@ async function createConfigAsync(
     chainId: networkConfig.chainId,
     operatorPrivateKey: operatorKey,
     workerPrivateKey: workerKey,
+    operatorKmsKeyId,
+    workerKmsKeyId,
     feedRegistry: addresses.feedRegistry,
     reportVerifier: addresses.reportVerifier,
     committeeManager: addresses.committeeManager,

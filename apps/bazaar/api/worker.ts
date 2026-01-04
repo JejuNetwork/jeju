@@ -21,6 +21,7 @@ import {
 import { createTable, getSQLit, type SQLitClient } from '@jejunetwork/db'
 
 import { expect as expectExists, expectValid } from '@jejunetwork/types'
+import { getSqlitPrivateKey } from '../lib/secrets'
 import { Elysia } from 'elysia'
 import {
   A2ARequestSchema,
@@ -676,12 +677,13 @@ export default {
 const isMainModule = typeof Bun !== 'undefined' && import.meta.path === Bun.main
 
 if (isMainModule) {
-  // Initialize config from environment variables
+  // Initialize config - secrets retrieved through secrets module
   configureBazaar({
     bazaarApiUrl: getEnvVar('BAZAAR_API_URL'),
     farcasterHubUrl: getEnvVar('FARCASTER_HUB_URL'),
     sqlitDatabaseId: getEnvVar('SQLIT_DATABASE_ID'),
-    sqlitPrivateKey: getEnvVar('SQLIT_PRIVATE_KEY'),
+    // SQLit private key retrieved through secrets module (not raw env var)
+    sqlitPrivateKey: getSqlitPrivateKey(),
   })
 
   const PORT = CORE_PORTS.BAZAAR_API.get()

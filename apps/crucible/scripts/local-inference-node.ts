@@ -2,11 +2,27 @@
 /**
  * Local Inference Node for Crucible Development
  *
+ * SECURITY: This is a LOCAL DEVELOPMENT TOOL only.
+ * It uses API keys directly from environment for convenience.
+ *
  * Starts a local inference server that uses GROQ API and registers with DWS.
  * This allows Crucible agents to run locally without on-chain provider registration.
  */
 
+import { getCurrentNetwork } from '@jejunetwork/config'
 import { Elysia, t } from 'elysia'
+
+// SECURITY: Only allow this script to run in localnet
+const network = getCurrentNetwork()
+if (network !== 'localnet') {
+  console.error(
+    `ERROR: This script is only for localnet development. Current network: ${network}`,
+  )
+  console.error(
+    'For production inference, use registered DWS compute providers.',
+  )
+  process.exit(1)
+}
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY
 const PORT = parseInt(process.env.INFERENCE_PORT ?? '4032', 10)

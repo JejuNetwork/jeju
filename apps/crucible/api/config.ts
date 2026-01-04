@@ -8,21 +8,27 @@ import {
   getSQLitBlockProducerUrl,
 } from '@jejunetwork/config'
 
+/**
+ * Crucible Configuration
+ *
+ * SECURITY: Secrets are NOT stored in this config.
+ * Use the secrets module (./sdk/secrets.ts) for:
+ * - PRIVATE_KEY
+ * - API_KEY
+ * - CRON_SECRET
+ * - AI provider keys (OPENAI_API_KEY, ANTHROPIC_API_KEY, etc.)
+ */
 export interface CrucibleConfig {
   // Network
   network: 'mainnet' | 'testnet' | 'localnet'
 
-  // API
-  apiKey?: string
+  // API (auth is handled via secrets module)
   apiPort: number
   requireAuth: boolean
 
   // Rate Limiting
   rateLimitMaxRequests: number
   corsAllowedOrigins: string
-
-  // Private Key
-  privateKey?: string
 
   // Contracts
   autocratTreasuryAddress?: string
@@ -46,9 +52,6 @@ export interface CrucibleConfig {
   dwsUrl?: string
   ipfsGateway?: string
 
-  // Cron
-  cronSecret?: string
-
   // Moderation
   banManagerAddress?: string
   moderationMarketplaceAddress?: string
@@ -60,7 +63,6 @@ const network = getCurrentNetwork()
 const { config, configure: setCrucibleConfig } =
   createAppConfig<CrucibleConfig>({
     network,
-    apiKey: getEnvVar('API_KEY'),
     apiPort: getEnvNumber('API_PORT') ?? 4021,
     requireAuth:
       getEnvVar('REQUIRE_AUTH') === 'true' ||
@@ -73,7 +75,6 @@ const { config, configure: setCrucibleConfig } =
         `http://${host}:4020,http://${host}:4021`
       )
     })(),
-    privateKey: getEnvVar('PRIVATE_KEY'),
     autocratTreasuryAddress: getEnvVar('AUTOCRAT_TREASURY_ADDRESS'),
     computeMarketplaceUrl: getEnvVar('COMPUTE_MARKETPLACE_URL'),
     sqlitEndpoint: getEnvVar('SQLIT_ENDPOINT') ?? getSQLitBlockProducerUrl(),
@@ -87,7 +88,6 @@ const { config, configure: setCrucibleConfig } =
       getEnvVar('FARCASTER_HUB_URL') ?? 'https://hub.pinata.cloud',
     dwsUrl: getEnvVar('DWS_URL'),
     ipfsGateway: getEnvVar('IPFS_GATEWAY'),
-    cronSecret: getEnvVar('CRON_SECRET'),
     banManagerAddress: getEnvVar('MODERATION_BAN_MANAGER'),
     moderationMarketplaceAddress: getEnvVar('MODERATION_MARKETPLACE_ADDRESS'),
   })

@@ -56,7 +56,8 @@ export function Pagination({
         type="button"
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
-        className="p-2 rounded-lg text-surface-400 hover:text-surface-100 hover:bg-surface-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="p-2 text-surface-400 hover:text-factory-400 hover:bg-surface-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors border border-surface-700 disabled:border-surface-800"
+        style={{ clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)' }}
         aria-label="Previous page"
       >
         <ChevronLeft className="w-5 h-5" />
@@ -67,9 +68,9 @@ export function Pagination({
           page === 'ellipsis' ? (
             <span
               key={`ellipsis-${idx}`}
-              className="px-3 py-2 text-surface-500"
+              className="px-3 py-2 text-surface-500 font-display"
             >
-              ...
+              ···
             </span>
           ) : (
             <button
@@ -77,11 +78,12 @@ export function Pagination({
               type="button"
               onClick={() => onPageChange(page)}
               className={clsx(
-                'min-w-[40px] px-3 py-2 rounded-lg text-sm font-medium transition-all',
+                'min-w-[40px] px-3 py-2 text-sm font-bold uppercase tracking-wider transition-all font-display',
                 currentPage === page
                   ? 'bg-factory-500 text-white shadow-glow'
-                  : 'text-surface-400 hover:text-surface-100 hover:bg-surface-800',
+                  : 'text-surface-400 hover:text-factory-400 hover:bg-surface-800 border border-surface-700 hover:border-factory-500',
               )}
+              style={{ clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)' }}
               aria-current={currentPage === page ? 'page' : undefined}
             >
               {page}
@@ -94,7 +96,8 @@ export function Pagination({
         type="button"
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
-        className="p-2 rounded-lg text-surface-400 hover:text-surface-100 hover:bg-surface-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="p-2 text-surface-400 hover:text-factory-400 hover:bg-surface-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors border border-surface-700 disabled:border-surface-800"
+        style={{ clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)' }}
         aria-label="Next page"
       >
         <ChevronRight className="w-5 h-5" />

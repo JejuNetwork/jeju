@@ -51,24 +51,18 @@ describe('Distributor Module Integration Tests', () => {
       expect(airdrop === null || typeof airdrop === 'object').toBe(true)
     })
 
-    test('getActiveAirdrops returns array', async () => {
+    test('listActiveAirdrops returns array', async () => {
       if (skipTests || !env.contractsDeployed) return
-      const airdrops = await client.distributor.getActiveAirdrops()
+      const airdrops = await client.distributor.listActiveAirdrops()
       expect(Array.isArray(airdrops)).toBe(true)
     })
 
-    test('getMyAirdrops returns array', async () => {
+    test('hasClaimed returns boolean', async () => {
       if (skipTests || !env.contractsDeployed) return
-      const airdrops = await client.distributor.getMyAirdrops()
-      expect(Array.isArray(airdrops)).toBe(true)
-    })
-
-    test('getClaimableAmount returns bigint', async () => {
-      if (skipTests || !env.contractsDeployed) return
-      const amount = await client.distributor.getClaimableAmount(
+      const claimed = await client.distributor.hasClaimed(
         `0x${'00'.repeat(32)}` as Hex,
       )
-      expect(typeof amount).toBe('bigint')
+      expect(typeof claimed).toBe('boolean')
     })
   })
 
@@ -81,9 +75,9 @@ describe('Distributor Module Integration Tests', () => {
       expect(schedule === null || typeof schedule === 'object').toBe(true)
     })
 
-    test('getMyVestingSchedules returns array', async () => {
+    test('listMyVestingSchedules returns array', async () => {
       if (skipTests || !env.contractsDeployed) return
-      const schedules = await client.distributor.getMyVestingSchedules()
+      const schedules = await client.distributor.listMyVestingSchedules()
       expect(Array.isArray(schedules)).toBe(true)
     })
 
@@ -94,19 +88,41 @@ describe('Distributor Module Integration Tests', () => {
       )
       expect(typeof amount).toBe('bigint')
     })
+
+    test('getReleasableAmount returns bigint', async () => {
+      if (skipTests || !env.contractsDeployed) return
+      const amount = await client.distributor.getReleasableAmount(
+        `0x${'00'.repeat(32)}` as Hex,
+      )
+      expect(typeof amount).toBe('bigint')
+    })
   })
 
   describe('Fee Distribution', () => {
-    test('getClaimableFees returns bigint', async () => {
+    test('getFeePool returns null or object for token', async () => {
       if (skipTests || !env.contractsDeployed) return
-      const fees = await client.distributor.getClaimableFees(zeroAddress)
-      expect(typeof fees).toBe('bigint')
+      const pool = await client.distributor.getFeePool(zeroAddress)
+      expect(pool === null || typeof pool === 'object').toBe(true)
     })
 
-    test('getTotalDistributed returns bigint', async () => {
+    test('getMyFeeShare returns bigint', async () => {
       if (skipTests || !env.contractsDeployed) return
-      const total = await client.distributor.getTotalDistributed()
-      expect(typeof total).toBe('bigint')
+      const share = await client.distributor.getMyFeeShare()
+      expect(typeof share).toBe('bigint')
+    })
+  })
+
+  describe('Staking Rewards', () => {
+    test('getStakingRewards returns bigint', async () => {
+      if (skipTests || !env.contractsDeployed) return
+      const rewards = await client.distributor.getStakingRewards()
+      expect(typeof rewards).toBe('bigint')
+    })
+
+    test('getRewardRate returns bigint', async () => {
+      if (skipTests || !env.contractsDeployed) return
+      const rate = await client.distributor.getRewardRate()
+      expect(typeof rate).toBe('bigint')
     })
   })
 })

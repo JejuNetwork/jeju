@@ -98,9 +98,12 @@ export function Navigation() {
 
   return (
     <nav
-      className="fixed left-0 top-0 bottom-0 w-64 bg-surface-950/95 backdrop-blur-lg border-r border-surface-800/50 flex flex-col z-30"
+      className="fixed left-0 top-0 bottom-0 w-64 bg-surface-950/98 backdrop-blur-md border-r border-surface-800/60 flex flex-col z-30"
       aria-label="Main navigation"
     >
+      {/* Top accent line */}
+      <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-factory-500 via-accent-500 to-transparent" />
+
       {/* Logo */}
       <div className="p-5 border-b border-surface-800/50">
         <Link
@@ -108,10 +111,13 @@ export function Navigation() {
           className="flex items-center gap-3 group"
           aria-label="Factory - Go to home"
         >
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-factory-500 to-accent-500 flex items-center justify-center shadow-glow transition-transform group-hover:scale-105">
+          <div
+            className="w-10 h-10 bg-gradient-to-br from-factory-500 to-accent-500 flex items-center justify-center shadow-glow transition-all group-hover:shadow-glow-lg"
+            style={{ clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)' }}
+          >
             <Sparkles className="w-5 h-5 text-white" aria-hidden="true" />
           </div>
-          <h1 className="font-bold text-lg text-surface-50 font-display">
+          <h1 className="font-bold text-lg text-surface-50 font-display tracking-wider uppercase">
             Factory
           </h1>
         </Link>
@@ -126,11 +132,11 @@ export function Navigation() {
           />
           <input
             type="search"
-            placeholder="Search..."
+            placeholder="SEARCH..."
             aria-label="Search Factory"
-            className="w-full pl-10 pr-12 py-2.5 bg-surface-900/80 border border-surface-800 rounded-xl text-sm text-surface-200 placeholder-surface-500 focus:outline-none focus:border-factory-500 focus:ring-2 focus:ring-factory-500/20 transition-all"
+            className="w-full pl-10 pr-12 py-2.5 bg-surface-900/80 border border-surface-700 border-l-[3px] border-l-surface-600 text-sm text-surface-200 placeholder-surface-500 placeholder:text-xs placeholder:tracking-widest focus:outline-none focus:border-factory-500 focus:border-l-factory-400 focus:shadow-[0_0_15px_rgba(6,182,212,0.15)] transition-all"
           />
-          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-surface-500 bg-surface-800 px-1.5 py-0.5 rounded">
+          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-surface-500 bg-surface-800 px-1.5 py-0.5 font-mono border border-surface-700">
             ⌘K
           </kbd>
         </div>
@@ -147,7 +153,7 @@ export function Navigation() {
                     type="button"
                     onClick={() => toggleExpanded(item.name)}
                     className={clsx(
-                      'w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all',
+                      'w-full flex items-center justify-between px-3 py-2.5 text-sm font-semibold transition-all uppercase tracking-wider',
                       'text-surface-400 hover:text-surface-100 hover:bg-surface-800/50',
                     )}
                     aria-expanded={expanded.includes(item.name)}
@@ -169,7 +175,7 @@ export function Navigation() {
                   <ul
                     id={`nav-section-${item.name}`}
                     className={clsx(
-                      'mt-1 ml-4 space-y-1 overflow-hidden transition-all duration-200',
+                      'mt-1 ml-2 space-y-0.5 overflow-hidden transition-all duration-200',
                       expanded.includes(item.name)
                         ? 'max-h-96 opacity-100'
                         : 'max-h-0 opacity-0',
@@ -180,14 +186,12 @@ export function Navigation() {
                         <Link
                           to={child.href}
                           className={clsx(
-                            'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all',
+                            'relative flex items-center gap-3 px-3 py-2 text-sm transition-all uppercase tracking-wide',
                             isActive(child.href)
-                              ? 'bg-factory-500/15 text-factory-400 font-medium border-l-2 border-factory-400 ml-[-2px]'
-                              : 'text-surface-400 hover:text-surface-100 hover:bg-surface-800/50',
+                              ? 'bg-factory-500/10 text-factory-400 font-semibold before:absolute before:left-0 before:top-[15%] before:bottom-[15%] before:w-[3px] before:bg-factory-500'
+                              : 'text-surface-400 hover:text-surface-100 hover:bg-surface-800/50 hover:before:absolute hover:before:left-0 hover:before:top-[25%] hover:before:bottom-[25%] hover:before:w-[2px] hover:before:bg-surface-500',
                           )}
-                          aria-current={
-                            isActive(child.href) ? 'page' : undefined
-                          }
+                          aria-current={isActive(child.href) ? 'page' : undefined}
                         >
                           <child.icon className="w-4 h-4" aria-hidden="true" />
                           {child.name}
@@ -200,9 +204,9 @@ export function Navigation() {
                 <Link
                   to={item.href}
                   className={clsx(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all',
+                    'relative flex items-center gap-3 px-3 py-2.5 text-sm font-semibold transition-all uppercase tracking-wider',
                     isActive(item.href)
-                      ? 'bg-factory-500/15 text-factory-400 shadow-sm'
+                      ? 'bg-factory-500/10 text-factory-400 before:absolute before:left-0 before:top-[15%] before:bottom-[15%] before:w-[3px] before:bg-factory-500'
                       : 'text-surface-400 hover:text-surface-100 hover:bg-surface-800/50',
                   )}
                   aria-current={isActive(item.href) ? 'page' : undefined}
@@ -224,9 +228,9 @@ export function Navigation() {
               <Link
                 to={item.href}
                 className={clsx(
-                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all',
+                  'relative flex items-center gap-3 px-3 py-2 text-sm font-medium transition-all uppercase tracking-wide',
                   isActive(item.href)
-                    ? 'bg-factory-500/15 text-factory-400'
+                    ? 'bg-factory-500/10 text-factory-400 before:absolute before:left-0 before:top-[20%] before:bottom-[20%] before:w-[3px] before:bg-factory-500'
                     : 'text-surface-400 hover:text-surface-100 hover:bg-surface-800/50',
                 )}
                 aria-current={isActive(item.href) ? 'page' : undefined}
@@ -242,21 +246,27 @@ export function Navigation() {
       {/* User section */}
       <div className="border-t border-surface-800/50 p-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-surface-700 to-surface-800 flex items-center justify-center ring-2 ring-surface-700">
+          <div
+            className="w-10 h-10 bg-gradient-to-br from-surface-700 to-surface-800 flex items-center justify-center border border-surface-600"
+            style={{ clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)' }}
+          >
             <User className="w-5 h-5 text-surface-400" aria-hidden="true" />
           </div>
-          <p className="flex-1 min-w-0 text-sm font-medium text-surface-100 truncate">
+          <p className="flex-1 min-w-0 text-sm font-semibold text-surface-100 truncate uppercase tracking-wide">
             Connect Wallet
           </p>
           <button
             type="button"
-            className="p-2 hover:bg-surface-800 rounded-lg transition-colors text-surface-400 hover:text-surface-200"
+            className="p-2 hover:bg-surface-800 text-surface-400 hover:text-factory-400 transition-colors"
             aria-label="Notifications"
           >
             <Bell className="w-5 h-5" />
           </button>
         </div>
       </div>
+
+      {/* Bottom accent line */}
+      <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-surface-700 to-transparent" />
     </nav>
   )
 }

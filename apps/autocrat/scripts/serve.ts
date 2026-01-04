@@ -294,25 +294,29 @@ async function registerApp(
 async function initializeSQLit(): Promise<void> {
   console.log('[Autocrat] Initializing SQLit database...')
 
-  // Check if SQLit credentials are configured
-  const squitPrivateKey = process.env.SQLIT_PRIVATE_KEY
-  const sqlitKeyId = process.env.SQLIT_KEY_ID
-
-  if (!squitPrivateKey && !sqlitKeyId) {
-    console.warn(
-      '[Autocrat] SQLit credentials not configured - database operations will use in-memory fallback',
-    )
-    console.warn(
-      '   Set SQLIT_PRIVATE_KEY or SQLIT_KEY_ID for persistent storage',
-    )
-    return
-  }
-
+  // SQLit credentials are fetched from KMS SecretVault
+  const { getSQLitPrivateKey, getSQLitKeyId } = await import('../api/secrets')
+  
   try {
+    const [sqlitPrivateKey, sqlitKeyId] = await Promise.all([
+      getSQLitPrivateKey(),
+      getSQLitKeyId(),
+    ])
+
+    if (!sqlitPrivateKey && !sqlitKeyId) {
+      console.warn(
+        '[Autocrat] SQLit credentials not found in KMS SecretVault',
+      )
+      console.warn(
+        '   Store sqlit-private-key or sqlit-key-id in SecretVault for persistent storage',
+      )
+      return
+    }
+
     const sqlit = getSQLit({
       blockProducerEndpoint: getSQLitBlockProducerUrl(),
       databaseId: process.env.SQLIT_DATABASE_ID ?? 'autocrat',
-      privateKey: squitPrivateKey as `0x${string}` | undefined,
+      privateKey: sqlitPrivateKey,
       keyId: sqlitKeyId,
     })
 

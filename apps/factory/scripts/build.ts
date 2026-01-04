@@ -13,7 +13,7 @@ import { existsSync } from 'node:fs'
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { getCurrentNetwork } from '@jejunetwork/config'
+import { getCurrentNetwork, getEnvVar } from '@jejunetwork/config'
 import { reportBundleSizes } from '@jejunetwork/shared'
 import type { BunPlugin } from 'bun'
 
@@ -194,14 +194,13 @@ async function buildFrontend(): Promise<void> {
       'process.browser': 'true',
       'import.meta.env': JSON.stringify({
         VITE_NETWORK: network,
-        VITE_WALLETCONNECT_PROJECT_ID:
-          process.env.VITE_WALLETCONNECT_PROJECT_ID || '',
+        VITE_WALLETCONNECT_PROJECT_ID: getEnvVar('VITE_WALLETCONNECT_PROJECT_ID') ?? '',
         MODE: 'production',
         DEV: false,
         PROD: true,
       }),
       'import.meta.env.VITE_WALLETCONNECT_PROJECT_ID': JSON.stringify(
-        process.env.VITE_WALLETCONNECT_PROJECT_ID || '',
+        getEnvVar('VITE_WALLETCONNECT_PROJECT_ID') ?? '',
       ),
     },
   })

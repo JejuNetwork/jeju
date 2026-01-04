@@ -1,22 +1,22 @@
-/* Factory - Developer Coordination Hub */
-/* A vibrant, accessible, production-ready design system */
+/* Factory - Angular Tech Design System */
+/* Sharp edges, slanted buttons, game-dev inspired UI */
 
-/* Import Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+/* Import Google Fonts - Tech/Gaming feel */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 /* CSS Variables */
 :root {
-  /* Primary palette */
-  --factory-50: #f0f9ff;
-  --factory-100: #e0f2fe;
-  --factory-200: #bae6fd;
-  --factory-300: #7dd3fc;
-  --factory-400: #38bdf8;
-  --factory-500: #0ea5e9;
-  --factory-600: #0284c7;
-  --factory-700: #0369a1;
+  /* Primary - Electric Cyan */
+  --factory-50: #ecfeff;
+  --factory-100: #cffafe;
+  --factory-200: #a5f3fc;
+  --factory-300: #67e8f9;
+  --factory-400: #22d3ee;
+  --factory-500: #06b6d4;
+  --factory-600: #0891b2;
+  --factory-700: #0e7490;
 
-  /* Surface/background colors */
+  /* Surface - Deep Void */
   --surface-50: #f8fafc;
   --surface-100: #f1f5f9;
   --surface-200: #e2e8f0;
@@ -27,22 +27,28 @@
   --surface-700: #334155;
   --surface-800: #1e293b;
   --surface-900: #0f172a;
-  --surface-950: #020617;
+  --surface-950: #030712;
 
-  /* Accent - purple/pink */
+  /* Accent - Hot Magenta */
   --accent-400: #e879f9;
   --accent-500: #d946ef;
   --accent-600: #c026d3;
 
-  /* Semantic colors */
+  /* Semantic */
   --success: #10b981;
   --warning: #f59e0b;
   --error: #ef4444;
   --info: #3b82f6;
 
   /* Glow effects */
-  --glow-primary: 0 0 20px rgba(14, 165, 233, 0.3);
-  --glow-accent: 0 0 20px rgba(217, 70, 239, 0.3);
+  --glow-primary: 0 0 20px rgba(6, 182, 212, 0.4), 0 0 40px rgba(6, 182, 212, 0.2);
+  --glow-accent: 0 0 20px rgba(217, 70, 239, 0.4), 0 0 40px rgba(217, 70, 239, 0.2);
+
+  /* Clip paths for angular shapes */
+  --clip-rhombus: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+  --clip-rhombus-sm: polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%);
+  --clip-rhombus-lg: polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%);
+  --clip-corner-cut: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
 }
 
 /* Base styles */
@@ -51,22 +57,28 @@ html {
 }
 
 body {
-  font-family: 'Outfit', system-ui, sans-serif;
+  font-family: 'Rajdhani', system-ui, sans-serif;
+  font-weight: 500;
   font-feature-settings: 'liga' 1, 'calt' 1;
   color: var(--surface-100);
   background: var(--surface-950);
-  background-image: 
-    radial-gradient(ellipse at top, rgba(14, 165, 233, 0.08), transparent 60%),
-    radial-gradient(ellipse at bottom right, rgba(217, 70, 239, 0.05), transparent 50%);
+  background-image:
+    radial-gradient(ellipse at top, rgba(6, 182, 212, 0.06), transparent 60%),
+    radial-gradient(ellipse at bottom right, rgba(217, 70, 239, 0.04), transparent 50%),
+    linear-gradient(rgba(6, 182, 212, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(6, 182, 212, 0.015) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
   background-attachment: fixed;
   min-height: 100vh;
+  letter-spacing: 0.02em;
 }
 
-/* Typography */
+/* Typography - Sharp and Tech */
 h1, h2, h3, h4, h5, h6 {
-  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-family: 'Orbitron', system-ui, sans-serif;
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 /* Code blocks */
@@ -76,14 +88,14 @@ pre, code {
 
 /* Selection */
 ::selection {
-  background: rgba(14, 165, 233, 0.3);
+  background: rgba(6, 182, 212, 0.4);
   color: var(--surface-50);
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar - Sharp */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -92,22 +104,21 @@ pre, code {
 
 ::-webkit-scrollbar-thumb {
   background: var(--surface-700);
-  border-radius: 4px;
+  border-left: 2px solid var(--factory-500);
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--surface-600);
 }
 
-/* Focus styles for accessibility */
+/* Focus styles - Angular */
 :focus-visible {
   outline: 2px solid var(--factory-400);
   outline-offset: 2px;
-  border-radius: 4px;
 }
 
 /* ============================================
-   BUTTON STYLES
+   BUTTON STYLES - ANGULAR/RHOMBUS
    ============================================ */
 
 .btn {
@@ -115,15 +126,17 @@ pre, code {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding: 0.625rem 1.25rem;
-  border-radius: 0.75rem;
-  font-weight: 500;
+  padding: 0.625rem 1.5rem;
+  font-family: 'Rajdhani', system-ui, sans-serif;
+  font-weight: 600;
   font-size: 0.875rem;
-  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: all 0.15s ease;
   cursor: pointer;
   border: none;
   position: relative;
-  overflow: hidden;
+  clip-path: var(--clip-rhombus);
 }
 
 .btn:disabled {
@@ -134,64 +147,105 @@ pre, code {
 .btn-primary {
   background: linear-gradient(135deg, var(--factory-500) 0%, var(--factory-600) 100%);
   color: white;
-  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.3);
+  box-shadow: 0 0 20px rgba(6, 182, 212, 0.3);
 }
 
 .btn-primary:hover:not(:disabled) {
   background: linear-gradient(135deg, var(--factory-400) 0%, var(--factory-500) 100%);
-  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.4);
-  transform: translateY(-1px);
+  box-shadow: var(--glow-primary);
+  transform: translateX(2px);
 }
 
 .btn-primary:active:not(:disabled) {
-  transform: translateY(0);
+  transform: translateX(0);
 }
 
 .btn-secondary {
   background: var(--surface-800);
   color: var(--surface-100);
-  border: 1px solid var(--surface-700);
+  border: 1px solid var(--surface-600);
+  clip-path: var(--clip-rhombus);
 }
 
 .btn-secondary:hover:not(:disabled) {
   background: var(--surface-700);
-  border-color: var(--surface-600);
+  border-color: var(--factory-500);
+  box-shadow: 0 0 10px rgba(6, 182, 212, 0.2);
 }
 
 .btn-ghost {
   background: transparent;
   color: var(--surface-300);
+  clip-path: none;
 }
 
 .btn-ghost:hover:not(:disabled) {
   background: var(--surface-800);
-  color: var(--surface-100);
+  color: var(--factory-400);
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.8) 0%, rgba(220, 38, 38, 0.9) 100%);
+  color: white;
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.3);
+}
+
+.btn-danger:hover:not(:disabled) {
+  box-shadow: 0 0 25px rgba(239, 68, 68, 0.5);
 }
 
 /* ============================================
-   CARD STYLES
+   CARD STYLES - ANGULAR/CUT CORNERS
    ============================================ */
 
 .card {
-  background: linear-gradient(145deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.8) 100%);
-  border: 1px solid rgba(51, 65, 85, 0.5);
-  border-radius: 1rem;
-  backdrop-filter: blur(8px);
-  transition: all 0.3s ease;
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.85) 0%, rgba(15, 23, 42, 0.95) 100%);
+  border: 1px solid rgba(51, 65, 85, 0.6);
+  position: relative;
+  clip-path: var(--clip-corner-cut);
+  transition: all 0.2s ease;
+}
+
+/* Corner accent decorations */
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 12px;
+  height: 12px;
+  background: linear-gradient(135deg, var(--factory-500) 0%, transparent 50%);
+  opacity: 0.6;
+}
+
+.card::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 12px;
+  height: 12px;
+  background: linear-gradient(-45deg, var(--factory-500) 0%, transparent 50%);
+  opacity: 0.6;
 }
 
 .card-hover:hover {
-  border-color: rgba(14, 165, 233, 0.3);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(14, 165, 233, 0.1);
+  border-color: rgba(6, 182, 212, 0.4);
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(6, 182, 212, 0.15);
   transform: translateY(-2px);
 }
 
+.card-hover:hover::before,
+.card-hover:hover::after {
+  opacity: 1;
+}
+
 .card-glow {
-  box-shadow: 0 0 20px rgba(14, 165, 233, 0.15);
+  box-shadow: 0 0 25px rgba(6, 182, 212, 0.15);
 }
 
 /* ============================================
-   INPUT STYLES
+   INPUT STYLES - ANGULAR
    ============================================ */
 
 .input {
@@ -199,70 +253,90 @@ pre, code {
   padding: 0.625rem 1rem;
   background: var(--surface-900);
   border: 1px solid var(--surface-700);
-  border-radius: 0.75rem;
+  border-left: 3px solid var(--surface-600);
   color: var(--surface-100);
-  font-size: 0.875rem;
-  transition: all 0.2s ease;
+  font-family: 'Rajdhani', system-ui, sans-serif;
+  font-size: 0.9rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  transition: all 0.15s ease;
 }
 
 .input::placeholder {
   color: var(--surface-500);
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
 }
 
 .input:focus {
   outline: none;
-  border-color: var(--factory-400);
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+  border-color: var(--factory-500);
+  border-left-color: var(--factory-400);
+  box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.15), 0 0 15px rgba(6, 182, 212, 0.1);
+}
+
+/* Select inputs */
+select.input {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
 }
 
 /* ============================================
-   BADGE STYLES
+   BADGE STYLES - ANGULAR
    ============================================ */
 
 .badge {
   display: inline-flex;
   align-items: center;
-  padding: 0.25rem 0.625rem;
-  border-radius: 0.5rem;
-  font-size: 0.75rem;
-  font-weight: 500;
-  transition: all 0.2s ease;
+  padding: 0.2rem 0.625rem;
+  font-family: 'Rajdhani', system-ui, sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  clip-path: var(--clip-rhombus-sm);
+  transition: all 0.15s ease;
 }
 
 .badge-success {
-  background: rgba(16, 185, 129, 0.15);
+  background: rgba(16, 185, 129, 0.2);
   color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  border: 1px solid rgba(16, 185, 129, 0.4);
 }
 
 .badge-warning {
-  background: rgba(245, 158, 11, 0.15);
+  background: rgba(245, 158, 11, 0.2);
   color: #fbbf24;
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  border: 1px solid rgba(245, 158, 11, 0.4);
 }
 
 .badge-error {
-  background: rgba(239, 68, 68, 0.15);
+  background: rgba(239, 68, 68, 0.2);
   color: #f87171;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  border: 1px solid rgba(239, 68, 68, 0.4);
 }
 
 .badge-info {
-  background: rgba(59, 130, 246, 0.15);
+  background: rgba(59, 130, 246, 0.2);
   color: #60a5fa;
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  border: 1px solid rgba(59, 130, 246, 0.4);
 }
 
 .badge-accent {
-  background: rgba(217, 70, 239, 0.15);
+  background: rgba(217, 70, 239, 0.2);
   color: #e879f9;
-  border: 1px solid rgba(217, 70, 239, 0.3);
+  border: 1px solid rgba(217, 70, 239, 0.4);
 }
 
 .badge-neutral {
   background: var(--surface-800);
   color: var(--surface-300);
-  border: 1px solid var(--surface-700);
+  border: 1px solid var(--surface-600);
 }
 
 /* ============================================
@@ -270,18 +344,18 @@ pre, code {
    ============================================ */
 
 .animate-in {
-  animation: fadeIn 0.3s ease-out forwards;
+  animation: fadeIn 0.2s ease-out forwards;
 }
 
 .animate-slide-up {
-  animation: slideUp 0.4s ease-out forwards;
+  animation: slideUp 0.3s ease-out forwards;
 }
 
-.stagger-1 { animation-delay: 0.05s; }
-.stagger-2 { animation-delay: 0.1s; }
-.stagger-3 { animation-delay: 0.15s; }
-.stagger-4 { animation-delay: 0.2s; }
-.stagger-5 { animation-delay: 0.25s; }
+.stagger-1 { animation-delay: 0.03s; }
+.stagger-2 { animation-delay: 0.06s; }
+.stagger-3 { animation-delay: 0.09s; }
+.stagger-4 { animation-delay: 0.12s; }
+.stagger-5 { animation-delay: 0.15s; }
 
 @keyframes fadeIn {
   from { opacity: 0; }
@@ -289,13 +363,13 @@ pre, code {
 }
 
 @keyframes slideUp {
-  from { 
-    opacity: 0; 
-    transform: translateY(10px); 
+  from {
+    opacity: 0;
+    transform: translateY(8px);
   }
-  to { 
-    opacity: 1; 
-    transform: translateY(0); 
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -316,6 +390,12 @@ pre, code {
   100% { background-position: -200% 0; }
 }
 
+/* Glow pulse */
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(6, 182, 212, 0.3); }
+  50% { box-shadow: 0 0 35px rgba(6, 182, 212, 0.5); }
+}
+
 /* ============================================
    SPECIAL EFFECTS
    ============================================ */
@@ -328,11 +408,12 @@ pre, code {
   background-clip: text;
 }
 
-/* Glass effect */
+/* Glass effect - Angular */
 .glass {
-  background: rgba(30, 41, 59, 0.6);
+  background: rgba(30, 41, 59, 0.7);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(51, 65, 85, 0.4);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+  clip-path: var(--clip-corner-cut);
 }
 
 /* Glow effect */
@@ -347,6 +428,46 @@ pre, code {
 /* Hover glow */
 .hover-glow:hover {
   box-shadow: var(--glow-primary);
+}
+
+/* Scan line overlay */
+.scan-lines::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.08) 2px,
+    rgba(0, 0, 0, 0.08) 4px
+  );
+  pointer-events: none;
+}
+
+/* Tech border accent */
+.tech-border {
+  position: relative;
+}
+
+.tech-border::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, var(--factory-500), transparent 50%);
+}
+
+.tech-border::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(270deg, var(--accent-500), transparent 50%);
 }
 
 /* ============================================
@@ -365,12 +486,12 @@ pre, code {
 }
 
 .page-header {
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 }
 
 @media (min-width: 768px) {
   .page-header {
-    margin-bottom: 2.5rem;
+    margin-bottom: 2rem;
   }
 }
 
@@ -378,7 +499,6 @@ pre, code {
    RESPONSIVE UTILITIES
    ============================================ */
 
-/* Hide on mobile */
 .hide-mobile {
   display: none;
 }
@@ -389,7 +509,6 @@ pre, code {
   }
 }
 
-/* Show only on mobile */
 .show-mobile {
   display: block;
 }
@@ -400,7 +519,6 @@ pre, code {
   }
 }
 
-/* Truncate text */
 .truncate-2 {
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -416,12 +534,12 @@ pre, code {
 }
 
 /* ============================================
-   STAT CARD STYLES
+   STAT CARD STYLES - ANGULAR
    ============================================ */
 
 .stat-card {
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .stat-card::before {
@@ -429,11 +547,11 @@ pre, code {
   position: absolute;
   top: 0;
   left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, var(--factory-500), var(--accent-500));
-  opacity: 0;
-  transition: opacity 0.3s ease;
+  width: 3px;
+  height: 100%;
+  background: linear-gradient(180deg, var(--factory-500), var(--accent-500));
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
 }
 
 .stat-card:hover::before {
@@ -441,11 +559,42 @@ pre, code {
 }
 
 /* ============================================
+   NAV ITEM STYLES - ANGULAR
+   ============================================ */
+
+.nav-item {
+  position: relative;
+  transition: all 0.15s ease;
+}
+
+.nav-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 60%;
+  background: var(--factory-500);
+  transition: width 0.15s ease;
+}
+
+.nav-item:hover::before,
+.nav-item.active::before {
+  width: 3px;
+}
+
+.nav-item.active {
+  background: rgba(6, 182, 212, 0.1);
+  color: var(--factory-400);
+}
+
+/* ============================================
    SCROLLBAR FOR SPECIFIC CONTAINERS
    ============================================ */
 
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
@@ -454,9 +603,34 @@ pre, code {
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: var(--surface-700);
-  border-radius: 3px;
+  border-left: 1px solid var(--factory-600);
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: var(--surface-600);
+}
+
+/* ============================================
+   ICON CONTAINER - ANGULAR
+   ============================================ */
+
+.icon-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  clip-path: polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%);
+}
+
+/* ============================================
+   DIVIDERS - ANGULAR
+   ============================================ */
+
+.divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--surface-700), transparent);
+}
+
+.divider-accent {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--factory-600), var(--accent-600), transparent);
 }

@@ -1696,48 +1696,99 @@ async function setupE2EInfra(
   process.env.TEST_WALLET_ADDRESS = TEST_WALLET
 
   // 3. Deploy contracts if needed (skip with --skip-contracts)
+  // CONTRACTS ARE REQUIRED for E2E tests - no skipping allowed
   if (!options.skipContracts) {
     const bootstrapFile = join(
       rootDir,
       'packages/contracts/deployments/localnet-complete.json',
     )
+    const bootstrapScript = join(
+      rootDir,
+      'packages/deployment/scripts/bootstrap-localnet-complete.ts',
+    )
 
-    if (existsSync(bootstrapFile)) {
-      logger.success('Contracts already deployed')
+    // Helper to verify contracts are on-chain
+    async function verifyContractsOnChain(): Promise<boolean> {
+      if (!existsSync(bootstrapFile)) return false
+
+      const data = JSON.parse(readFileSync(bootstrapFile, 'utf-8'))
+      const contracts = data?.contracts
+      const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
+
+      if (
+        !contracts ||
+        !contracts.jnsRegistry ||
+        contracts.jnsRegistry === ZERO_ADDRESS
+      ) {
+        return false
+      }
+
+      // Check contract code on-chain
+      const contractAddress = contracts.jnsRegistry as string
+      const response = await fetch(rpcUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'eth_getCode',
+          params: [contractAddress, 'latest'],
+          id: 1,
+        }),
+        signal: AbortSignal.timeout(10000),
+      })
+
+      if (!response.ok) return false
+
+      const result = await response.json()
+      const code = result.result as string
+      return Boolean(code && code !== '0x' && code.length > 4)
+    }
+
+    // Check if contracts are already deployed ON-CHAIN
+    const alreadyDeployed = await verifyContractsOnChain()
+    if (alreadyDeployed) {
+      logger.success('Contracts already deployed and verified on-chain')
     } else {
-      const bootstrapScript = join(
-        rootDir,
-        'packages/deployment/scripts/bootstrap-localnet-complete.ts',
-      )
+      // Deploy contracts
+      if (!existsSync(bootstrapScript)) {
+        throw new Error(
+          'FATAL: Bootstrap script not found. Cannot deploy contracts.\n' +
+            `Expected: ${bootstrapScript}`,
+        )
+      }
 
-      if (existsSync(bootstrapScript)) {
-        logger.info('Deploying contracts...')
-        try {
-          await execa('bun', ['run', bootstrapScript], {
-            cwd: rootDir,
-            stdio: options.verbose ? 'inherit' : 'pipe',
-            env: {
-              ...process.env,
-              JEJU_RPC_URL: rpcUrl,
-              L2_RPC_URL: rpcUrl,
-              DEPLOYER_PRIVATE_KEY: DEPLOYER_KEY,
-            },
-            timeout: 300000, // 5 minute timeout for deployments
-          })
-          logger.success('Contracts deployed')
-        } catch (error) {
-          const err = error as ExecaError
-          if (options.verbose) {
-            logger.warn(
-              `Contract deployment output: ${err.stderr || err.stdout || ''}`,
-            )
-          }
-          logger.warn(
-            'Contract deployment failed - tests may have limited functionality',
+      logger.info('Deploying contracts...')
+      try {
+        await execa('bun', ['run', bootstrapScript], {
+          cwd: rootDir,
+          stdio: options.verbose ? 'inherit' : 'pipe',
+          env: {
+            ...process.env,
+            JEJU_RPC_URL: rpcUrl,
+            L2_RPC_URL: rpcUrl,
+            DEPLOYER_PRIVATE_KEY: DEPLOYER_KEY,
+          },
+          timeout: 300000, // 5 minute timeout for deployments
+        })
+
+        // Verify deployment ON-CHAIN
+        const verified = await verifyContractsOnChain()
+        if (!verified) {
+          throw new Error(
+            'FATAL: Contracts deployed but verification failed.\n' +
+              'The deployment file exists but contract has no code on-chain.\n' +
+              'This may indicate the chain was reset. Run: bun run jeju dev',
           )
         }
-      } else {
-        logger.debug('Bootstrap script not found, skipping contract deployment')
+        logger.success('Contracts deployed and verified on-chain')
+      } catch (error) {
+        const err = error as ExecaError
+        if (err.message?.startsWith('FATAL:')) throw err
+        throw new Error(
+          'FATAL: Contract deployment failed. E2E tests require contracts.\n\n' +
+            `Error: ${err.stderr || err.stdout || err.message}\n\n` +
+            'Run: bun run jeju dev (which deploys contracts)',
+        )
       }
     }
   }

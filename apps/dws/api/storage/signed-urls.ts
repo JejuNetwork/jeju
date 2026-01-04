@@ -7,11 +7,14 @@
  * - Rate limiting and access control
  * - IP-based restrictions
  * - Custom policies for fine-grained access
+ *
+ * SECURITY: In production, SIGNED_URL_SECRET should be in KMS.
  */
 
 import { createHmac, randomBytes } from 'node:crypto'
-import { getLocalhostHost } from '@jejunetwork/config'
+import { getLocalhostHost, isProductionEnv } from '@jejunetwork/config'
 import type { Address } from 'viem'
+import { getKMSSecret } from '../shared/kms-secrets'
 
 // ============ Types ============
 
@@ -97,9 +100,46 @@ export interface SignedUrlConfig {
 
 // ============ Default Configuration ============
 
+// Cached signing secret from KMS
+let cachedSigningSecret: string | null = null
+let signingSecretInitialized = false
+
+/**
+ * Initialize the signed URL signing secret from KMS
+ */
+export async function initializeSignedUrlSecret(): Promise<void> {
+  if (signingSecretInitialized) return
+  const secret = await getKMSSecret('signed_url_secret')
+  if (secret) {
+    cachedSigningSecret = secret
+  } else {
+    const isProduction = isProductionEnv()
+    if (isProduction) {
+      throw new Error(
+        'CRITICAL: signed_url_secret not found in KMS. Store using: jeju secrets set SIGNED_URL_SECRET <value>',
+      )
+    }
+    console.warn(
+      '[SignedUrls] WARNING: SIGNED_URL_SECRET not set. Using dev-only secret.',
+    )
+    cachedSigningSecret = 'dev-secret-change-in-production'
+  }
+  signingSecretInitialized = true
+}
+
+function getSigningSecret(): string {
+  if (!cachedSigningSecret) {
+    if (isProductionEnv()) {
+      throw new Error('Signing secret not initialized. Call initializeSignedUrlSecret() first.')
+    }
+    console.warn('[SignedUrls] WARNING: Using fallback dev secret.')
+    return 'dev-secret-change-in-production'
+  }
+  return cachedSigningSecret
+}
+
 const DEFAULT_CONFIG: SignedUrlConfig = {
-  signingSecret:
-    process.env.SIGNED_URL_SECRET ?? 'dev-secret-change-in-production',
+  signingSecret: 'placeholder', // Will be replaced by getSigningSecret()
   baseUrl: process.env.DWS_BASE_URL ?? `http://${getLocalhostHost()}:3100`,
   defaultExpirySeconds: 3600, // 1 hour
   maxExpirySeconds: 86400 * 7, // 7 days
@@ -123,7 +163,12 @@ export class SignedUrlManager {
     new Map()
 
   constructor(config?: Partial<SignedUrlConfig>) {
-    this.config = { ...DEFAULT_CONFIG, ...config }
+    // Use dynamic signing secret from KMS
+    this.config = {
+      ...DEFAULT_CONFIG,
+      signingSecret: getSigningSecret(),
+      ...config,
+    }
   }
 
   // ============ URL Creation ============

@@ -59,17 +59,30 @@ function getConfig(): DeployConfig {
     },
   }
 
+  // SECURITY NOTE: This is a deployment script that runs on the developer's machine.
+  // For production deployments, prefer using KMS via 'jeju deploy' CLI command.
   const privateKey = process.env.DEPLOYER_PRIVATE_KEY || process.env.PRIVATE_KEY
-  if (!privateKey) {
+  const kmsKeyId = process.env.DEPLOYER_KMS_KEY_ID
+
+  if (!privateKey && !kmsKeyId) {
     throw new Error(
-      'DEPLOYER_PRIVATE_KEY or PRIVATE_KEY environment variable required',
+      'DEPLOYER_KMS_KEY_ID (recommended) or DEPLOYER_PRIVATE_KEY/PRIVATE_KEY required. ' +
+      'KMS is recommended for production deployments.',
+    )
+  }
+
+  if (privateKey && network === 'mainnet') {
+    console.warn(
+      '[Deploy] WARNING: Using direct DEPLOYER_PRIVATE_KEY for mainnet deployment. ' +
+      'Consider using DEPLOYER_KMS_KEY_ID for enhanced security.',
     )
   }
 
   return {
     network,
     ...configs[network],
-    privateKey: privateKey as `0x${string}`,
+    privateKey: privateKey as `0x${string}` | undefined,
+    kmsKeyId,
   } as DeployConfig
 }
 

@@ -1,8 +1,10 @@
 import { cors } from '@elysiajs/cors'
 import { isProductionEnv } from '@jejunetwork/config'
+import { getSecretVault } from '@jejunetwork/kms'
 import { constantTimeEqual } from '@jejunetwork/shared'
 import { AddressSchema, validateOrThrow } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
+import { zeroAddress } from 'viem'
 import { z } from 'zod'
 import {
   A2ARequestSchema,
@@ -101,10 +103,40 @@ function timingSafeCompare(a: string | undefined | null, b: string): boolean {
 
 /**
  * SECURITY: Validate internal service requests using HMAC signature
- * Requires SERVICE_AUTH_SECRET env var to be set in production
+ *
+ * Service auth secret is stored in KMS SecretVault with ID 'service-auth-secret'.
+ * In development, service auth can be bypassed for local testing.
  */
-const SERVICE_AUTH_SECRET = process.env.SERVICE_AUTH_SECRET
-const SERVICE_AUTH_ENABLED = isProductionEnv() || Boolean(SERVICE_AUTH_SECRET)
+const SERVICE_AUTH_ENABLED = isProductionEnv()
+
+// Cached service auth secret from KMS (lazy loaded)
+let serviceAuthSecretCache: string | null = null
+let serviceAuthSecretLoaded = false
+
+async function getServiceAuthSecret(): Promise<string | null> {
+  if (serviceAuthSecretLoaded) {
+    return serviceAuthSecretCache
+  }
+
+  try {
+    const vault = getSecretVault()
+    await vault.initialize()
+    serviceAuthSecretCache = await vault.getSecret(
+      'service-auth-secret',
+      zeroAddress, // System accessor for internal service auth
+    )
+    serviceAuthSecretLoaded = true
+    return serviceAuthSecretCache
+  } catch {
+    // In development, secret may not be provisioned yet
+    if (!isProductionEnv()) {
+      console.warn('[Leaderboard] Service auth secret not found in KMS vault')
+      serviceAuthSecretLoaded = true
+      return null
+    }
+    throw new Error('SERVICE_AUTH_SECRET not configured in KMS vault')
+  }
+}
 
 async function validateServiceAuth(
   request: Request,
@@ -115,12 +147,13 @@ async function validateServiceAuth(
     return { valid: false, error: 'Invalid service header' }
   }
 
-  // In production, require HMAC signature
+  // In production, require HMAC signature with KMS-stored secret
   if (SERVICE_AUTH_ENABLED) {
-    if (!SERVICE_AUTH_SECRET) {
+    const secret = await getServiceAuthSecret()
+    if (!secret) {
       return {
         valid: false,
-        error: 'SERVICE_AUTH_SECRET not configured',
+        error: 'Service auth secret not configured in KMS',
       }
     }
 
@@ -140,7 +173,7 @@ async function validateServiceAuth(
     // Compute expected HMAC
     const key = await crypto.subtle.importKey(
       'raw',
-      new TextEncoder().encode(SERVICE_AUTH_SECRET),
+      new TextEncoder().encode(secret),
       { name: 'HMAC', hash: 'SHA-256' },
       false,
       ['sign'],

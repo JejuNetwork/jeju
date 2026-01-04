@@ -138,10 +138,21 @@
           "name": "gateway-cache-kv"
         }
       },
-      "secrets": [
-        "PRIVATE_KEY",
-        "RPC_URL"
-      ],
+      "kms": {
+        "serviceIds": [
+          "faucet",
+          "x402-facilitator",
+          "oracle-operator",
+          "oracle-worker",
+          "leaderboard-oracle"
+        ],
+        "secrets": [
+          "service-auth-secret",
+          "internal-rpc-api-key",
+          "github-token",
+          "openrouter-api-key"
+        ]
+      },
       "routes": [
         {
           "pattern": "/api/*"

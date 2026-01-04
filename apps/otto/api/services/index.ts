@@ -36,3 +36,8 @@ export {
   type SessionKeyPermissions,
   WalletService,
 } from './wallet'
+export {
+  getSecretsService,
+  type PlatformSecrets,
+  type SecureSecretsService,
+} from './secrets'

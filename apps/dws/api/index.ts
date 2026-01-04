@@ -173,6 +173,25 @@ export {
   type WAFRule,
   WebApplicationFirewall,
 } from './security/waf'
+
+// KMS Secrets & Security Validation
+export {
+  deriveKeyFromKMSSecret,
+  getKMSSecret,
+  getSecretsStatus,
+  hasKMSSecret,
+  initializeKMSSecrets,
+  requireKMSSecret,
+  type SecretName,
+  validateNoEnvSecrets,
+} from './shared/kms-secrets'
+export {
+  enforceSecurityAtStartup,
+  getSecurityStatus,
+  type SecurityValidationResult,
+  validateSecurityConfiguration,
+} from './shared/security-validator'
+
 // Workers & Serverless
 export {
   type CronEvent,

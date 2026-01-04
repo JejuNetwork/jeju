@@ -107,17 +107,23 @@ export function MobileNav() {
   return (
     <>
       {/* Mobile Header */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-surface-950/95 backdrop-blur-lg border-b border-surface-800/50">
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-surface-950/98 backdrop-blur-md border-b border-surface-800/60">
+        {/* Top accent line */}
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-factory-500 via-accent-500 to-transparent" />
+
         <div className="flex items-center justify-between px-4 h-16">
           <Link
             to="/"
             className="flex items-center gap-2.5 group"
             aria-label="Factory - Home"
           >
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-factory-500 to-accent-500 flex items-center justify-center shadow-glow transition-transform group-active:scale-95">
+            <div
+              className="w-9 h-9 bg-gradient-to-br from-factory-500 to-accent-500 flex items-center justify-center shadow-glow transition-transform group-active:scale-95"
+              style={{ clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)' }}
+            >
               <Sparkles className="w-5 h-5 text-white" aria-hidden="true" />
             </div>
-            <span className="font-bold text-lg text-surface-50 font-display">
+            <span className="font-bold text-lg text-surface-50 font-display uppercase tracking-wider">
               Factory
             </span>
           </Link>
@@ -126,7 +132,7 @@ export function MobileNav() {
             ref={menuButtonRef}
             type="button"
             onClick={() => setIsOpen(!isOpen)}
-            className="p-2.5 -mr-2 rounded-xl text-surface-400 hover:text-surface-100 hover:bg-surface-800/50 transition-colors"
+            className="p-2.5 -mr-2 text-surface-400 hover:text-factory-400 hover:bg-surface-800/50 transition-colors"
             aria-label={isOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={isOpen}
             aria-controls="mobile-menu"
@@ -143,7 +149,7 @@ export function MobileNav() {
       {/* Mobile Menu Overlay */}
       <div
         className={clsx(
-          'lg:hidden fixed inset-0 z-40 transition-all duration-300',
+          'lg:hidden fixed inset-0 z-40 transition-all duration-200',
           isOpen
             ? 'opacity-100 pointer-events-auto'
             : 'opacity-0 pointer-events-none',
@@ -153,7 +159,7 @@ export function MobileNav() {
         {/* Backdrop */}
         <button
           type="button"
-          className="absolute inset-0 bg-surface-950/80 backdrop-blur-sm border-0 cursor-default"
+          className="absolute inset-0 bg-surface-950/85 backdrop-blur-sm border-0 cursor-default"
           onClick={() => setIsOpen(false)}
           aria-label="Close menu"
           tabIndex={isOpen ? 0 : -1}
@@ -164,11 +170,14 @@ export function MobileNav() {
           ref={menuRef}
           id="mobile-menu"
           className={clsx(
-            'absolute top-16 left-0 bottom-0 w-[280px] bg-surface-900/98 backdrop-blur-lg border-r border-surface-800/50 overflow-y-auto custom-scrollbar transition-transform duration-300 ease-out',
+            'absolute top-16 left-0 bottom-0 w-[280px] bg-surface-900/98 backdrop-blur-lg border-r border-surface-800/60 overflow-y-auto custom-scrollbar transition-transform duration-200 ease-out',
             isOpen ? 'translate-x-0' : '-translate-x-full',
           )}
           aria-label="Mobile navigation"
         >
+          {/* Side accent */}
+          <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-factory-500 via-accent-500 to-transparent" />
+
           <div className="p-4 space-y-6">
             {navSections.map((section, sectionIndex) => (
               <div
@@ -176,7 +185,7 @@ export function MobileNav() {
                 className="animate-slide-up"
                 style={{ animationDelay: `${sectionIndex * 50}ms` }}
               >
-                <h3 className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-2 px-3">
+                <h3 className="text-[10px] font-bold text-surface-500 uppercase tracking-[0.2em] mb-2 px-3">
                   {section.title}
                 </h3>
                 <ul className="space-y-1">
@@ -185,9 +194,9 @@ export function MobileNav() {
                       <Link
                         to={item.href}
                         className={clsx(
-                          'flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all active:scale-[0.98]',
+                          'relative flex items-center gap-3 px-3 py-3 text-sm font-semibold uppercase tracking-wider transition-all active:scale-[0.98]',
                           isActive(item.href)
-                            ? 'bg-factory-500/15 text-factory-400'
+                            ? 'bg-factory-500/10 text-factory-400 before:absolute before:left-0 before:top-[15%] before:bottom-[15%] before:w-[3px] before:bg-factory-500'
                             : 'text-surface-300 hover:text-surface-100 hover:bg-surface-800/50 active:bg-surface-800',
                         )}
                         aria-current={isActive(item.href) ? 'page' : undefined}
@@ -209,7 +218,7 @@ export function MobileNav() {
             >
               <Link
                 to="/settings"
-                className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-surface-300 hover:text-surface-100 hover:bg-surface-800/50 active:bg-surface-800 transition-all active:scale-[0.98]"
+                className="relative flex items-center gap-3 px-3 py-3 text-sm font-semibold text-surface-300 hover:text-surface-100 hover:bg-surface-800/50 active:bg-surface-800 transition-all active:scale-[0.98] uppercase tracking-wider"
                 tabIndex={isOpen ? 0 : -1}
               >
                 <Settings className="w-5 h-5" aria-hidden="true" />

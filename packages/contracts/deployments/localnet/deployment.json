@@ -99,9 +99,9 @@
     "triggerRegistry": "0xE6E340D132b5f46d1e472DebcD681B2aBc16e57E"
   },
   "governance": {
-    "daoRegistry": "0x998abeb3E57409262aE5b751f60747921B33613E",
-    "daoFunding": "0x70e0bA845a1A0F2DA3359C97E0285013525FFC49",
-    "feeConfig": "0x95401dc811bb5740090279Ba06cfA8fcF6113778"
+    "daoRegistry": "0x33E45b187da34826aBCEDA1039231Be46f1b05Af",
+    "daoFunding": "0x0c626FC4A447b01554518550e30600136864640B",
+    "feeConfig": "0x7Cf4be31f546c04787886358b9486ca3d62B9acf"
   },
   "_note": "Localnet deployment for local development. null values indicate not yet deployed."
 }

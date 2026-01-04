@@ -15,6 +15,7 @@
 
 import { getCurrentNetwork } from '@jejunetwork/config'
 import { z } from 'zod'
+import { getAvailableModels } from '../secrets'
 
 // ============================================================================
 // Types
@@ -168,6 +169,17 @@ const DEVELOPMENT_ROLE_MODELS: RoleModelMapping[] = [
 // Model Resolution
 // ============================================================================
 
+// Cached model availability
+let cachedModelAvailability: {
+  hasOpenAI: boolean
+  hasAnthropic: boolean
+  hasGoogle: boolean
+} | null = null
+
+/**
+ * Get role models synchronously using cached availability
+ * Call initializeModelAvailability() at startup to populate cache
+ */
 export function getRoleModels(): RoleModelMapping[] {
   const network = getCurrentNetwork()
 
@@ -175,10 +187,12 @@ export function getRoleModels(): RoleModelMapping[] {
     return PRODUCTION_ROLE_MODELS
   }
 
-  // Check if we have API keys for production models
-  const hasOpenAI = !!process.env.OPENAI_API_KEY
-  const hasAnthropic = !!process.env.ANTHROPIC_API_KEY
-  const hasGoogle = !!process.env.GOOGLE_API_KEY
+  // Use cached availability from SecretVault
+  const { hasOpenAI, hasAnthropic, hasGoogle } = cachedModelAvailability ?? {
+    hasOpenAI: false,
+    hasAnthropic: false,
+    hasGoogle: false,
+  }
 
   // If we have multiple keys, use diverse models even in dev
   if (hasOpenAI && hasAnthropic) {
@@ -443,13 +457,26 @@ export function assessModelDiversity(): DiversityReport {
 
   if (providers.size === 1 && providers.has('local')) {
     report.recommendation =
-      'All agents using local models. Add API keys for production diversity.'
+      'All agents using local models. Add API keys in SecretVault for production diversity.'
   } else if (providers.size < 3) {
     report.recommendation =
-      'Limited model diversity. Consider adding more API providers.'
+      'Limited model diversity. Consider adding more API providers to SecretVault.'
   } else {
     report.recommendation = 'Good model diversity across board agents.'
   }
 
   return report
+}
+
+/**
+ * Initialize model availability from SecretVault
+ * Call this at application startup before using getRoleModels()
+ */
+export async function initializeModelAvailability(): Promise<void> {
+  cachedModelAvailability = await getAvailableModels()
+  console.log('[ModelDiversity] Initialized model availability from SecretVault:', {
+    openai: cachedModelAvailability.hasOpenAI,
+    anthropic: cachedModelAvailability.hasAnthropic,
+    google: cachedModelAvailability.hasGoogle,
+  })
 }

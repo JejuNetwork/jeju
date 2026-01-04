@@ -3,16 +3,16 @@
  * Simplified Cloud Integration E2E Tests
  * Tests actual deployed contracts on localnet
  *
- * NOTE: These tests require contracts to be deployed first.
- * Run `forge script script/DeployCloudIntegration.s.sol --rpc-url ${getL2RpcUrl()} --broadcast`
+ * FAIL-FAST: These tests REQUIRE contracts to be deployed.
+ * If contracts are missing, tests will error immediately.
+ * Run: bun run jeju dev (deploys chain + contracts)
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { getL2RpcUrl, getRpcUrl } from '@jejunetwork/config'
+import { getRpcUrl } from '@jejunetwork/config'
 import {
-  type Address,
   createPublicClient,
   formatEther,
   formatUnits,
@@ -23,6 +23,7 @@ import {
 import { privateKeyToAccount } from 'viem/accounts'
 import { inferChainFromRpcUrl } from '../../../packages/deployment/scripts/shared/chain-utils'
 import { TEST_WALLETS } from '../shared/constants'
+import { requireContracts } from '../shared/contracts-required'
 
 // Alias for compatibility
 const TEST_ACCOUNTS = TEST_WALLETS
@@ -77,47 +78,19 @@ let ADDRESSES: Record<string, string> = {}
 let publicClient: ReturnType<typeof createPublicClient>
 let deployer: ReturnType<typeof privateKeyToAccount>
 
-let localnetAvailable = false
-let cloudContractsDeployed = false
+describe('Cloud Simple Tests', () => {
+  beforeAll(async () => {
+    // FAIL-FAST: Require chain and contracts before any tests
+    await requireContracts()
 
-// Top-level await to check localnet before tests start
-try {
-  const rpcUrl = getRpcUrl()
-  const response = await fetch(rpcUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      method: 'eth_blockNumber',
-      params: [],
-      id: 1,
-    }),
-    signal: AbortSignal.timeout(2000),
-  })
-  localnetAvailable = response.ok
-  // Requires specific cloud contract deployments
-  cloudContractsDeployed = false
-} catch {
-  localnetAvailable = false
-}
-if (!localnetAvailable) {
-  console.log('⏭️ Skipping cloud-simple tests - localnet not available')
-} else if (!cloudContractsDeployed) {
-  console.log('⏭️ Skipping cloud-simple tests - cloud contracts not deployed')
-}
+    ADDRESSES = loadDeployedAddresses()
+    const rpcUrl = getRpcUrl()
+    const chain = inferChainFromRpcUrl(rpcUrl)
+    deployer = privateKeyToAccount(TEST_ACCOUNTS.deployer.privateKey)
+    publicClient = createPublicClient({ chain, transport: http(rpcUrl) })
 
-describe.skipIf(!localnetAvailable || !cloudContractsDeployed)(
-  'Cloud Simple Tests',
-  () => {
-    beforeAll(async () => {
-      ADDRESSES = loadDeployedAddresses()
-      const rpcUrl = getRpcUrl()
-      const chain = inferChainFromRpcUrl(rpcUrl)
-      deployer = privateKeyToAccount(TEST_ACCOUNTS.deployer.privateKey)
-      publicClient = createPublicClient({ chain, transport: http(rpcUrl) })
-
-      if (Object.keys(ADDRESSES).length === 0) {
-        console.warn('⚠️ No deployment addresses found. Tests may be skipped.')
+    if (Object.keys(ADDRESSES).length === 0) {
+      throw new Error('No deployment addresses found. Run: bun run jeju dev')
       }
 
       // Check if localnet is actually running
@@ -386,5 +359,5 @@ describe.skipIf(!localnetAvailable || !cloudContractsDeployed)(
         expect(balance).toBeGreaterThanOrEqual(0n)
       })
     })
-  },
-) // Close Cloud Simple Tests describe
+  })
+}) // Close Cloud Simple Tests describe

@@ -278,10 +278,16 @@ export function createDatasetsModule(
 ): DatasetsModule {
   const services = getServicesConfig(network)
   const contracts = getContractAddresses(network)
-  if (!contracts.datasetRegistry) {
-    throw new Error(`DatasetRegistry contract not deployed on ${network}`)
+  const datasetRegistryAddressOpt = contracts.datasetRegistry
+
+  // Lazy-load contract address - throw only when method is called
+  const getDatasetRegistryAddress = () => {
+    if (!datasetRegistryAddressOpt) {
+      throw new Error(`DatasetRegistry contract not deployed on ${network}`)
+    }
+    return datasetRegistryAddressOpt
   }
-  const datasetRegistryAddress = contracts.datasetRegistry
+
   const baseUrl = `${services.factory.api}/api/datasets`
 
   async function buildAuthHeaders(): Promise<Record<string, string>> {
@@ -318,7 +324,7 @@ export function createDatasetsModule(
   return {
     async getDataset(datasetId) {
       const rawData = await wallet.publicClient.readContract({
-        address: datasetRegistryAddress,
+        address: getDatasetRegistryAddress(),
         abi: DATASET_REGISTRY_ABI,
         functionName: 'getDataset',
         args: [datasetId],
@@ -372,7 +378,7 @@ export function createDatasetsModule(
 
     async getTotalDatasets() {
       const total = (await wallet.publicClient.readContract({
-        address: datasetRegistryAddress,
+        address: getDatasetRegistryAddress(),
         abi: DATASET_REGISTRY_ABI,
         functionName: 'getTotalDatasets',
         args: [],
@@ -382,7 +388,7 @@ export function createDatasetsModule(
 
     async getVersions(datasetId) {
       const versions = (await wallet.publicClient.readContract({
-        address: datasetRegistryAddress,
+        address: getDatasetRegistryAddress(),
         abi: DATASET_REGISTRY_ABI,
         functionName: 'getVersions',
         args: [datasetId],
@@ -415,7 +421,7 @@ export function createDatasetsModule(
 
     async getLatestVersion(datasetId) {
       const rawVersion = await wallet.publicClient.readContract({
-        address: datasetRegistryAddress,
+        address: getDatasetRegistryAddress(),
         abi: DATASET_REGISTRY_ABI,
         functionName: 'getLatestVersion',
         args: [datasetId],
@@ -543,7 +549,7 @@ export function createDatasetsModule(
 
     async hasAccess(datasetId, user) {
       return wallet.publicClient.readContract({
-        address: datasetRegistryAddress,
+        address: getDatasetRegistryAddress(),
         abi: DATASET_REGISTRY_ABI,
         functionName: 'hasAccess',
         args: [datasetId, user ?? wallet.address],
@@ -552,7 +558,7 @@ export function createDatasetsModule(
 
     async grantAccess(datasetId, user) {
       const txHash = await wallet.sendTransaction({
-        to: datasetRegistryAddress,
+        to: getDatasetRegistryAddress(),
         data: encodeFunctionData({
           abi: DATASET_REGISTRY_ABI,
           functionName: 'grantAccess',
@@ -564,7 +570,7 @@ export function createDatasetsModule(
 
     async revokeAccess(datasetId, user) {
       const txHash = await wallet.sendTransaction({
-        to: datasetRegistryAddress,
+        to: getDatasetRegistryAddress(),
         data: encodeFunctionData({
           abi: DATASET_REGISTRY_ABI,
           functionName: 'revokeAccess',
@@ -576,7 +582,7 @@ export function createDatasetsModule(
 
     async requestAccess(datasetId) {
       const txHash = await wallet.sendTransaction({
-        to: datasetRegistryAddress,
+        to: getDatasetRegistryAddress(),
         data: encodeFunctionData({
           abi: DATASET_REGISTRY_ABI,
           functionName: 'requestAccess',
@@ -588,7 +594,7 @@ export function createDatasetsModule(
 
     async createDataset(params) {
       const txHash = await wallet.sendTransaction({
-        to: datasetRegistryAddress,
+        to: getDatasetRegistryAddress(),
         data: encodeFunctionData({
           abi: DATASET_REGISTRY_ABI,
           functionName: 'createDataset',
@@ -618,7 +624,7 @@ export function createDatasetsModule(
 
     async publishVersion(params) {
       const txHash = await wallet.sendTransaction({
-        to: datasetRegistryAddress,
+        to: getDatasetRegistryAddress(),
         data: encodeFunctionData({
           abi: DATASET_REGISTRY_ABI,
           functionName: 'publishVersion',
@@ -694,7 +700,7 @@ export function createDatasetsModule(
 
     async recordDownload(datasetId) {
       const txHash = await wallet.sendTransaction({
-        to: datasetRegistryAddress,
+        to: getDatasetRegistryAddress(),
         data: encodeFunctionData({
           abi: DATASET_REGISTRY_ABI,
           functionName: 'recordDownload',

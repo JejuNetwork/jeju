@@ -61,8 +61,6 @@ export class OracleNode {
     this.config = config
     this.startTime = Date.now()
 
-    // Initialize with direct key first (will be replaced by KMS if available)
-    this.account = privateKeyToAccount(config.workerPrivateKey)
     const chain = this.getChain(config.chainId)
 
     this.publicClient = createPublicClient({
@@ -70,11 +68,22 @@ export class OracleNode {
       transport: http(config.rpcUrl),
     })
 
-    this.walletClient = createWalletClient({
-      account: this.account,
-      chain,
-      transport: http(config.rpcUrl),
-    })
+    // Initialize wallet based on key type (direct or KMS)
+    if (config.workerPrivateKey) {
+      this.account = privateKeyToAccount(config.workerPrivateKey)
+      this.walletClient = createWalletClient({
+        account: this.account,
+        chain,
+        transport: http(config.rpcUrl),
+      })
+    } else if (config.workerKmsKeyId) {
+      // KMS mode - account will be set up via KMS in start()
+      throw new Error(
+        'KMS key support requires async initialization. Use OracleNode.create() instead.',
+      )
+    } else {
+      throw new Error('Oracle node requires workerPrivateKey or workerKmsKeyId')
+    }
 
     this.priceFetcher = new PriceFetcher(config.rpcUrl, config.priceSources)
 
@@ -142,6 +151,17 @@ export class OracleNode {
     }
 
     console.log('[OracleNode] Registering new operator...')
+
+    if (!this.config.operatorPrivateKey) {
+      if (this.config.operatorKmsKeyId) {
+        throw new Error(
+          'Operator registration with KMS not yet implemented. ' +
+          'Use direct key or register operator manually.',
+        )
+      }
+      throw new Error('Operator private key not configured')
+    }
+
     const operatorAccount = privateKeyToAccount(this.config.operatorPrivateKey)
     const chain = this.getChain(this.config.chainId)
     const operatorClient = createWalletClient({
@@ -426,18 +446,33 @@ export function createNodeConfig(): OracleNodeConfig {
   const isProduction = isProductionEnv()
   const network = getCurrentNetwork()
 
-  // SECURITY: Private keys MUST be set in production - no test key fallbacks
+  // SECURITY: In production, require KMS. Direct private keys are BLOCKED.
+  const operatorKmsKeyId = process.env.ORACLE_OPERATOR_KMS_KEY_ID
+  const workerKmsKeyId = process.env.ORACLE_WORKER_KMS_KEY_ID
   const operatorKey = process.env.OPERATOR_PRIVATE_KEY
   const workerKey = process.env.WORKER_PRIVATE_KEY
 
-  if (!operatorKey || !workerKey) {
-    if (isProduction) {
-      throw new Error(
-        'CRITICAL: OPERATOR_PRIVATE_KEY and WORKER_PRIVATE_KEY must be set in production',
+  if (isProduction) {
+    if (operatorKey || workerKey) {
+      console.error(
+        '[Oracle] SECURITY ERROR: Direct private keys (OPERATOR_PRIVATE_KEY, WORKER_PRIVATE_KEY) ' +
+        'detected in production. Use KMS key IDs instead.',
       )
     }
+    if (!operatorKmsKeyId || !workerKmsKeyId) {
+      throw new Error(
+        'SECURITY: ORACLE_OPERATOR_KMS_KEY_ID and ORACLE_WORKER_KMS_KEY_ID required in production. ' +
+        'Direct private keys are not allowed.',
+      )
+    }
+    console.log('[Oracle] Using KMS-backed signing (production)')
+  } else if (!operatorKey || !workerKey) {
     console.warn(
-      '[Oracle] WARNING: Using dev-only test keys. Set OPERATOR_PRIVATE_KEY and WORKER_PRIVATE_KEY for production.',
+      '[Oracle] WARNING: Using dev-only test keys. Set OPERATOR_PRIVATE_KEY and WORKER_PRIVATE_KEY for development.',
+    )
+  } else {
+    console.warn(
+      '[Oracle] WARNING: Using direct private keys for development. Use KMS in production.',
     )
   }
 
@@ -450,8 +485,10 @@ export function createNodeConfig(): OracleNodeConfig {
   return {
     rpcUrl: getRpcUrl(network),
     chainId: getChainId(network),
-    operatorPrivateKey: (operatorKey ?? DEV_OPERATOR_KEY) as Hex,
-    workerPrivateKey: (workerKey ?? DEV_WORKER_KEY) as Hex,
+    operatorPrivateKey: isProduction ? undefined : (operatorKey ?? DEV_OPERATOR_KEY) as Hex,
+    workerPrivateKey: isProduction ? undefined : (workerKey ?? DEV_WORKER_KEY) as Hex,
+    operatorKmsKeyId,
+    workerKmsKeyId,
 
     feedRegistry: ((typeof process !== 'undefined'
       ? process.env.FEED_REGISTRY_ADDRESS

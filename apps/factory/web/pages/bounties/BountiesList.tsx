@@ -150,13 +150,20 @@ export function BountiesListPage() {
         }
       />
 
-      <div className="card p-3 sm:p-4 mb-6 animate-in">
+      <div
+        className="relative bg-gradient-to-br from-surface-800/90 to-surface-900/95 border border-surface-700/60 p-3 sm:p-4 mb-6 animate-in"
+        style={{ clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))' }}
+      >
+        {/* Corner accents */}
+        <div className="absolute top-0 right-0 w-3 h-3 bg-gradient-to-bl from-factory-500/50 to-transparent" />
+        <div className="absolute bottom-0 left-0 w-3 h-3 bg-gradient-to-tr from-factory-500/50 to-transparent" />
+
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
           <SearchBar
             value={search}
             onChange={handleSearchChange}
             placeholder="Search bounties..."
-            className="flex-1 mb-0 p-0 border-0 bg-transparent shadow-none"
+            className="flex-1 mb-0 p-0 border-0 bg-transparent shadow-none [clip-path:none]"
           />
 
           <fieldset
@@ -171,11 +178,12 @@ export function BountiesListPage() {
                   handleFilterChange(status.value as BountyStatusFilter)
                 }
                 className={clsx(
-                  'px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all',
+                  'px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all',
                   filter === status.value
                     ? 'bg-factory-500 text-white shadow-glow'
-                    : 'bg-surface-800 text-surface-400 hover:text-surface-100 hover:bg-surface-700',
+                    : 'bg-surface-800 text-surface-400 hover:text-surface-100 hover:bg-surface-700 border border-surface-600 hover:border-factory-500',
                 )}
+                style={{ clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)' }}
                 aria-pressed={filter === status.value}
               >
                 {status.label}
@@ -186,7 +194,7 @@ export function BountiesListPage() {
           <select
             value={sortBy}
             onChange={handleSortChange}
-            className="input w-full sm:w-auto"
+            className="input w-full sm:w-auto uppercase text-xs tracking-wider"
             aria-label="Sort bounties by"
           >
             <option value="reward">Highest Reward</option>
@@ -221,13 +229,20 @@ export function BountiesListPage() {
               <Link
                 key={bounty.id}
                 to={`/bounties/${bounty.id}`}
-                className="card p-5 sm:p-6 card-hover block animate-slide-up"
-                style={{ animationDelay: `${index * 50}ms` }}
+                className="relative block bg-gradient-to-br from-surface-800/90 to-surface-900/95 border border-surface-700/60 p-5 sm:p-6 transition-all hover:border-factory-500/40 hover:shadow-[0_0_30px_rgba(6,182,212,0.15)] animate-slide-up group"
+                style={{
+                  animationDelay: `${index * 50}ms`,
+                  clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))',
+                }}
               >
+                {/* Corner accents */}
+                <div className="absolute top-0 right-0 w-3 h-3 bg-gradient-to-bl from-factory-500/40 to-transparent group-hover:from-factory-500/70 transition-all" />
+                <div className="absolute bottom-0 left-0 w-3 h-3 bg-gradient-to-tr from-factory-500/40 to-transparent group-hover:from-factory-500/70 transition-all" />
+
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
-                      <h3 className="font-semibold text-surface-100 truncate">
+                      <h3 className="font-bold text-surface-100 truncate uppercase tracking-wide">
                         {bounty.title}
                       </h3>
                       <span
@@ -247,15 +262,15 @@ export function BountiesListPage() {
                           </span>
                         ))}
                       </div>
-                      <span className="flex items-center gap-1.5 text-surface-500">
+                      <span className="flex items-center gap-1.5 text-surface-500 text-xs uppercase tracking-wider">
                         <Clock className="w-4 h-4" aria-hidden="true" />
                         {formatDeadline(bounty.deadline)}
                       </span>
-                      <span className="flex items-center gap-1.5 text-surface-500">
+                      <span className="flex items-center gap-1.5 text-surface-500 text-xs uppercase tracking-wider">
                         <Users className="w-4 h-4" aria-hidden="true" />
                         {bounty.applicants} applicants
                       </span>
-                      <span className="flex items-center gap-1.5 text-surface-500">
+                      <span className="flex items-center gap-1.5 text-surface-500 text-xs uppercase tracking-wider">
                         <Tag className="w-4 h-4" aria-hidden="true" />
                         {bounty.milestones} milestones
                       </span>
@@ -267,7 +282,7 @@ export function BountiesListPage() {
                         <p
                           key={`${reward.token}-${reward.amount}`}
                           className={clsx(
-                            'font-bold font-display',
+                            'font-bold font-display tracking-wide',
                             idx === 0
                               ? 'text-xl text-success-400'
                               : 'text-sm text-surface-400',
@@ -277,7 +292,7 @@ export function BountiesListPage() {
                         </p>
                       ))}
                     </div>
-                    <p className="text-surface-500 text-sm mt-1">Reward</p>
+                    <p className="text-surface-500 text-xs mt-1 uppercase tracking-widest">Reward</p>
                   </div>
                 </div>
               </Link>
