@@ -14,6 +14,7 @@
  */
 
 import {
+  type ChildProcess,
   execSync,
   type SpawnOptionsWithoutStdio,
   spawn,
@@ -759,17 +760,17 @@ export class CannonInterface {
         preimageDir,
         '--output',
         outputPath,
-      ])
+      ]) as ChildProcess
 
       let output = ''
-      proc.stdout.on('data', (data) => {
+      proc.stdout?.on('data', (data: Buffer) => {
         output += data.toString()
       })
-      proc.stderr.on('data', (data) => {
+      proc.stderr?.on('data', (data: Buffer) => {
         output += data.toString()
       })
 
-      proc.on('close', (code) => {
+      proc.on('close', (code: number | null) => {
         resolve({ success: code === 0, output })
       })
     })
@@ -1065,18 +1066,18 @@ export class CannonInterface {
       const proc = spawn(cannonPath, args, {
         cwd: this.workDir,
         env: process.env,
-      } as SpawnOptionsWithoutStdio)
+      } as SpawnOptionsWithoutStdio) as ChildProcess
 
       let stderr = ''
 
-      proc.stdout.on('data', () => {
+      proc.stdout?.on('data', () => {
         /* stdout consumed */
       })
-      proc.stderr.on('data', (data) => {
+      proc.stderr?.on('data', (data: Buffer) => {
         stderr += data.toString()
       })
 
-      proc.on('close', (code) => {
+      proc.on('close', (code: number | null) => {
         if (code !== 0) {
           console.log(`[Cannon] Execution failed: ${stderr}`)
           resolve({ success: false, finalState: null, traceFile: null })

@@ -32,7 +32,7 @@ import {
   isProductionEnv,
   tryGetContract,
 } from '@jejunetwork/config'
-import { Elysia, type Context } from 'elysia'
+import { type Context, Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
 import {
   getLocalCDNServer,
@@ -71,6 +71,10 @@ import {
   createGitHubIntegrationRouter,
 } from '../deploy'
 import { createDNSRouter } from '../dns/routes'
+import {
+  createDurableObjectsRouter,
+  startDurableObjectManager,
+} from '../durable-objects'
 import { GitRepoManager } from '../git/repo-manager'
 import {
   createHelmProviderRouter,
@@ -828,6 +832,7 @@ app.use(createExecRouter())
 // New DWS services
 app.use(createS3Router(backendManager))
 app.use(createWorkersRouter(backendManager))
+app.use(createDurableObjectsRouter()) // Durable Objects
 app.use(createDefaultWorkerdRouter(backendManager)) // V8 isolate runtime
 app.use(createKMSRouter())
 app.use(createVPNRouter())
@@ -1464,9 +1469,10 @@ if (import.meta.main) {
   }
 
   // Adapter to convert Bun's ServerWebSocket to SubscribableWebSocket
-  function toSubscribableWebSocket(
-    ws: { readonly readyState: number; send(data: string): number },
-  ): SubscribableWebSocket {
+  function toSubscribableWebSocket(ws: {
+    readonly readyState: number
+    send(data: string): number
+  }): SubscribableWebSocket {
     return {
       get readyState() {
         return ws.readyState
@@ -1516,14 +1522,33 @@ if (import.meta.main) {
     handlers: WebSocketHandlers
   }
 
+  /** WebSocket data for Durable Object connections */
+  interface DurableObjectWebSocketData {
+    type: 'durable-object'
+    namespace: string
+    doId: string
+    handlers: WebSocketHandlers
+  }
+
   /** WebSocket data attached to each connection */
-  type WebSocketData = PriceWebSocketData | EdgeWebSocketData
+  type WebSocketData =
+    | PriceWebSocketData
+    | EdgeWebSocketData
+    | DurableObjectWebSocketData
 
   server = Bun.serve<WebSocketData>({
     port: PORT,
     maxRequestBodySize: 500 * 1024 * 1024, // 500MB for large artifact uploads
     idleTimeout: 120, // 120 seconds - health checks can take time when external services are slow
-    async fetch(req: Request, server: { upgrade(req: Request, options?: { data?: WebSocketData; headers?: HeadersInit }): boolean }) {
+    async fetch(
+      req: Request,
+      server: {
+        upgrade(
+          req: Request,
+          options?: { data?: WebSocketData; headers?: HeadersInit },
+        ): boolean
+      },
+    ) {
       // Handle WebSocket upgrades for price streaming
       const url = new URL(req.url)
       if (
@@ -1543,6 +1568,23 @@ if (import.meta.main) {
       ) {
         const success = server.upgrade(req, {
           data: { type: 'edge', handlers: {} as WebSocketHandlers },
+        })
+        if (success) return undefined
+        return new Response('WebSocket upgrade failed', { status: 500 })
+      }
+
+      // Handle Durable Object WebSocket
+      // Path format: /do/:namespace/:doId/ws
+      const doWsMatch = url.pathname.match(/^\/do\/([^/]+)\/([^/]+)\/ws$/)
+      if (doWsMatch && req.headers.get('upgrade') === 'websocket') {
+        const [, namespace, doId] = doWsMatch
+        const success = server.upgrade(req, {
+          data: {
+            type: 'durable-object',
+            namespace,
+            doId,
+            handlers: {} as WebSocketHandlers,
+          },
         })
         if (success) return undefined
         return new Response('WebSocket upgrade failed', { status: 500 })
@@ -1581,7 +1623,9 @@ if (import.meta.main) {
 
       // Check if this is a deployed app (not dws itself)
       // Skip internal IPs and localhost for health checks
-      const isInternalIp = hostname.match(/^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|127\.)/)
+      const isInternalIp = hostname.match(
+        /^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|127\.)/,
+      )
       if (
         !hostname.startsWith('dws.') &&
         !isInternalIp &&
@@ -1713,7 +1757,12 @@ if (import.meta.main) {
       return app.handle(req)
     },
     websocket: {
-      open(ws: { data: WebSocketData; readyState: number; send(data: string): number; close(): void }) {
+      open(ws: {
+        data: WebSocketData
+        readyState: number
+        send(data: string): number
+        close(): void
+      }) {
         const data = ws.data
         if (data.type === 'prices') {
           // Set up price subscription service
@@ -1746,6 +1795,26 @@ if (import.meta.main) {
           data.handlers.message = callbacks.onMessage
           data.handlers.close = callbacks.onClose
           data.handlers.error = callbacks.onError
+        } else if (data.type === 'durable-object') {
+          // Set up Durable Object WebSocket
+          // Route to the DO instance for handling
+          const { namespace, doId } = data
+          console.log(`[DWS] DO WebSocket connection: ${namespace}/${doId}`)
+
+          // Messages will be forwarded to the DO instance via its acceptWebSocket handler
+          data.handlers.message = (msgStr: string) => {
+            console.log(
+              `[DWS] DO WebSocket message: ${namespace}/${doId}: ${msgStr.substring(0, 100)}`,
+            )
+            // Forward to DO instance - this is handled by the DO's own message handlers
+            // The DO uses state.acceptWebSocket() which manages its own WebSocket tracking
+          }
+          data.handlers.close = () => {
+            console.log(`[DWS] DO WebSocket closed: ${namespace}/${doId}`)
+          }
+          data.handlers.error = () => {
+            console.error(`[DWS] DO WebSocket error: ${namespace}/${doId}`)
+          }
         }
       },
       message(ws: { data: WebSocketData }, message: string | Buffer) {
@@ -1781,7 +1850,12 @@ if (import.meta.main) {
     if (dwsPrivateKey) {
       const infra = createInfrastructure(
         {
-          network: NETWORK === 'localnet' || NETWORK === 'testnet' || NETWORK === 'mainnet' ? NETWORK : 'localnet',
+          network:
+            NETWORK === 'localnet' ||
+            NETWORK === 'testnet' ||
+            NETWORK === 'mainnet'
+              ? NETWORK
+              : 'localnet',
           privateKey: dwsPrivateKey,
           selfEndpoint: baseUrl,
         },
@@ -1846,6 +1920,18 @@ if (import.meta.main) {
   initializeDWSState()
     .then(() => {
       console.log('[DWS] State initialized')
+
+      // Start Durable Objects manager
+      startDurableObjectManager()
+        .then(() => {
+          console.log('[DWS] Durable Objects manager started')
+        })
+        .catch((err) => {
+          console.warn(
+            '[DWS] Durable Objects manager init failed:',
+            err.message,
+          )
+        })
     })
     .catch((err) => {
       console.warn('[DWS] State init warning:', err.message)

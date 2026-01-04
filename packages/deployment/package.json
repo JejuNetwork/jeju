@@ -33,6 +33,7 @@
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/types": "workspace:*",
     "elysia": "^1.4.19",
+    "hono": "^4.7.12",
     "viem": "2.43.3",
     "zod": "4.2.1"
   },

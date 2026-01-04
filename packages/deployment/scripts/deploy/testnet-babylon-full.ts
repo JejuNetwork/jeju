@@ -22,6 +22,7 @@
  */
 
 import {
+  type ChildProcess,
   execSync,
   type SpawnOptionsWithoutStdio,
   spawn,
@@ -199,7 +200,7 @@ class TestnetBabylonDeployer {
     return new Promise((resolve) => {
       const [cmd, ...args] = command.split(' ')
       const options: SpawnOptionsWithoutStdio = { cwd, shell: true }
-      const proc = spawn(cmd, args, options)
+      const proc = spawn(cmd, args, options) as ChildProcess
 
       let stdout = ''
       let stderr = ''
@@ -214,7 +215,7 @@ class TestnetBabylonDeployer {
         process.stderr.write(data)
       })
 
-      proc.on('close', (code) => {
+      proc.on('close', (code: number | null) => {
         resolve({ code: code ?? 0, stdout, stderr })
       })
     })

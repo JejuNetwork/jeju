@@ -779,8 +779,11 @@ export function createAppDeployerRouter() {
         // If backendWorkerId provided, use it directly (for pre-deployed workers)
         // If backendEndpoint provided, use it directly (for external services)
         let backendWorkerId: string | null = body.backendWorkerId ?? null
-        let backendEndpoint: string | null = body.backendEndpoint
-          ?? (backendWorkerId ? `http://127.0.0.1:4030/workers/${backendWorkerId}/http` : null)
+        let backendEndpoint: string | null =
+          body.backendEndpoint ??
+          (backendWorkerId
+            ? `http://127.0.0.1:4030/workers/${backendWorkerId}/http`
+            : null)
 
         if (body.backendCid && !backendWorkerId) {
           const { createBackendManager } = await import('../storage/backends')

@@ -6,7 +6,7 @@ RUN apt-get update && apt-get install -y python3 python3-setuptools && rm -rf /v
 WORKDIR /app
 
 # Copy workspace root files
-COPY package.json bun.lockb ./
+COPY package.json bun.lock ./
 COPY patches/ ./patches/
 
 # Copy all workspace package.json files for dependency resolution
@@ -25,6 +25,7 @@ COPY packages/ui/package.json ./packages/ui/
 COPY packages/token/package.json ./packages/token/
 COPY packages/sqlit/package.json ./packages/sqlit/
 COPY packages/cache/package.json ./packages/cache/
+COPY packages/durable-objects/package.json ./packages/durable-objects/
 COPY apps/dws/package.json ./apps/dws/
 
 # Install all dependencies (not using --frozen-lockfile because we're copying a subset of the monorepo)
@@ -46,6 +47,7 @@ COPY packages/ui/ ./packages/ui/
 COPY packages/token/ ./packages/token/
 COPY packages/sqlit/ ./packages/sqlit/
 COPY packages/cache/ ./packages/cache/
+COPY packages/durable-objects/ ./packages/durable-objects/
 COPY apps/dws/ ./apps/dws/
 COPY tsconfig.json tsconfig.base.json ./
 

@@ -12,8 +12,8 @@
  */
 
 import type { Address } from 'viem'
-import { getSharedEngine, type CacheEngine } from '../cache'
-import { dwsWorkerState, type DWSWorker } from '../state'
+import { type CacheEngine, getSharedEngine } from '../cache'
+import { type DWSWorker, dwsWorkerState } from '../state'
 import type { WorkerFunction } from './types'
 
 // Pod identification
@@ -119,7 +119,7 @@ function sleep(ms: number): Promise<void> {
  * Calculate exponential backoff delay
  */
 function getRetryDelay(attempt: number): number {
-  const delay = INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt)
+  const delay = INITIAL_RETRY_DELAY_MS * 2 ** attempt
   return Math.min(delay, MAX_RETRY_DELAY_MS)
 }
 

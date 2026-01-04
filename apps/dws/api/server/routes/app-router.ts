@@ -20,12 +20,12 @@ import { getAppRegistry } from '../../../src/cdn/app-registry'
 import { getLocalCDNServer } from '../../../src/cdn/local-server'
 import { getIngressController } from '../../infrastructure'
 import { deployedAppState, isDegradedMode } from '../../state'
-import { getSharedWorkersRuntime, getSharedWorkerRegistry } from './workers'
 import {
   isConfigMapAvailable,
   loadAppsFromConfigMap,
   saveAppsToConfigMap,
 } from './configmap-persistence'
+import { getSharedWorkerRegistry, getSharedWorkersRuntime } from './workers'
 
 // App deployment registry - tracks deployed apps and their configurations
 export interface DeployedApp {
@@ -459,32 +459,37 @@ async function serveFrontendFromStorage(
   // Fallback to frontendCid as directory (legacy behavior)
   if (!fileCid && app.frontendCid) {
     // First check if frontendCid is a manifest (has .files property)
-    const storageBaseUrl = NETWORK === 'localnet'
-      ? `http://${getLocalhostHost()}:4030`
-      : `https://dws.${NETWORK === 'testnet' ? 'testnet.' : ''}jejunetwork.org`
-    
+    const storageBaseUrl =
+      NETWORK === 'localnet'
+        ? `http://${getLocalhostHost()}:4030`
+        : `https://dws.${NETWORK === 'testnet' ? 'testnet.' : ''}jejunetwork.org`
+
     try {
       const manifestUrl = `${storageBaseUrl}/storage/ipfs/${app.frontendCid}`
       const manifestResponse = await fetch(manifestUrl, {
         signal: AbortSignal.timeout(5000),
       }).catch(() => null)
-      
+
       if (manifestResponse?.ok) {
         const content = await manifestResponse.text()
         // Check if it's a manifest JSON with files property
         if (content.startsWith('{') && content.includes('"files"')) {
-          const manifest = JSON.parse(content) as { files?: Record<string, string> }
+          const manifest = JSON.parse(content) as {
+            files?: Record<string, string>
+          }
           if (manifest.files) {
             // Look up the file in the manifest
             fileCid = manifest.files[path] ?? null
-            console.log(`[AppRouter] Found ${path} in manifest: ${fileCid ? 'yes' : 'no'}`)
+            console.log(
+              `[AppRouter] Found ${path} in manifest: ${fileCid ? 'yes' : 'no'}`,
+            )
           }
         }
       }
     } catch {
       // Ignore manifest parsing errors
     }
-    
+
     // If still no CID, try using IPFS gateway with directory CID
     if (!fileCid) {
       const gateway = getIpfsGatewayUrl(NETWORK)
@@ -750,7 +755,10 @@ export async function proxyToBackend(
 
           const proxyHeaders = new Headers(request.headers)
           proxyHeaders.set('Host', targetUrlObj.host)
-          proxyHeaders.set('X-Forwarded-Host', request.headers.get('host') ?? '')
+          proxyHeaders.set(
+            'X-Forwarded-Host',
+            request.headers.get('host') ?? '',
+          )
           proxyHeaders.set('X-DWS-Routed-From', registry.getPodId())
 
           const proxyRequest = new Request(targetUrl + url.search, {
@@ -765,9 +773,7 @@ export async function proxyToBackend(
           const response = await fetch(proxyRequest, {
             signal: AbortSignal.timeout(30000),
           }).catch((err: Error) => {
-            console.error(
-              `[AppRouter] Warm pod request failed: ${err.message}`,
-            )
+            console.error(`[AppRouter] Warm pod request failed: ${err.message}`)
             return null
           })
 

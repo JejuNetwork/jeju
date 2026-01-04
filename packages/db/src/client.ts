@@ -60,17 +60,30 @@ const AddressSchema = z.custom<Address>(
   { message: 'Invalid address' },
 )
 
+// Convert array rows to object rows using columns
+function convertArrayRowsToObjects(
+  rows: unknown[],
+  columns: string[],
+): Record<string, unknown>[] {
+  if (!Array.isArray(rows) || rows.length === 0) return []
+  // Check if first row is already an object
+  if (rows[0] && typeof rows[0] === 'object' && !Array.isArray(rows[0])) {
+    return rows as Record<string, unknown>[]
+  }
+  // Convert array rows to objects using columns
+  return rows.map((row) => {
+    if (!Array.isArray(row)) return row as Record<string, unknown>
+    const obj: Record<string, unknown> = {}
+    columns.forEach((col, i) => {
+      obj[col] = row[i]
+    })
+    return obj
+  })
+}
+
 const QueryResponseSchema = z
   .object({
-    rows: z.preprocess(
-      (val) => (Array.isArray(val) ? val : []),
-      z.array(
-        z.record(
-          z.string(),
-          z.union([z.string(), z.number(), z.boolean(), z.null()]),
-        ),
-      ),
-    ),
+    rows: z.array(z.unknown()),
     rowCount: z.preprocess(
       (val) => (typeof val === 'number' ? val : 0),
       z.number().int().nonnegative(),
@@ -87,6 +100,13 @@ const QueryResponseSchema = z
     success: z.boolean().optional(),
   })
   .passthrough()
+  .transform((data) => ({
+    ...data,
+    rows: convertArrayRowsToObjects(data.rows, data.columns) as Record<
+      string,
+      string | number | boolean | null
+    >[],
+  }))
 
 // Schema for sqlit-adapter response format
 const AdapterExecResponseSchema = z.object({

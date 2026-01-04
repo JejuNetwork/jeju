@@ -9,7 +9,8 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 // Patterns that indicate embedded secrets - these should NEVER appear
-const SECRET_PATTERNS = [
+// (Defined here for documentation/future use in more comprehensive tests)
+export const SECRET_PATTERNS = [
   /PRIVATE_KEY.*=.*['"][^'"]{20,}['"]/g,
   /API_KEY.*=.*['"][^'"]{20,}['"]/g,
   /SECRET.*=.*['"][^'"]{20,}['"]/g,
@@ -19,17 +20,10 @@ const SECRET_PATTERNS = [
 ]
 
 // Safe patterns - these are allowed because they read at RUNTIME
-const SAFE_PATTERNS = [
-  /process\.env\./g,
-  /env\./g,
-  /FROM_ENVIRONMENT/g,
-]
+export const SAFE_PATTERNS = [/process\.env\./g, /env\./g, /FROM_ENVIRONMENT/g]
 
 describe('Worker Builder Security', () => {
-  const builderPath = join(
-    import.meta.dir,
-    'worker-builder.ts',
-  )
+  const builderPath = join(import.meta.dir, 'worker-builder.ts')
 
   test('should exist', () => {
     const content = readFileSync(builderPath, 'utf-8')
@@ -42,6 +36,7 @@ describe('Worker Builder Security', () => {
     // Check for hardcoded network values in templates
     // The old pattern was: NETWORK: '${getCurrentNetwork()}'
     // This is BAD because getCurrentNetwork() is called at BUILD time
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: testing for template literal pattern
     expect(content).not.toContain("NETWORK: '${getCurrentNetwork()}'")
 
     // The new pattern should be: process.env.JEJU_NETWORK
@@ -87,10 +82,7 @@ describe('Worker Builder Security', () => {
 })
 
 describe('Capnp Config Security', () => {
-  const builderPath = join(
-    import.meta.dir,
-    'worker-builder.ts',
-  )
+  const builderPath = join(import.meta.dir, 'worker-builder.ts')
 
   test('should use fromEnvironment for sensitive bindings', () => {
     const content = readFileSync(builderPath, 'utf-8')
@@ -126,10 +118,7 @@ describe('Capnp Config Security', () => {
 })
 
 describe('Wrangler Config Security', () => {
-  const builderPath = join(
-    import.meta.dir,
-    'worker-builder.ts',
-  )
+  const builderPath = join(import.meta.dir, 'worker-builder.ts')
 
   test('should use env var references in wrangler.toml', () => {
     const content = readFileSync(builderPath, 'utf-8')

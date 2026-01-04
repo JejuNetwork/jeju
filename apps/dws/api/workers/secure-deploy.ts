@@ -160,7 +160,9 @@ export async function registerWorkerSecrets(
       required: secret.required,
     })
 
-    console.log(`[SecureDeploy] Registered: ${secret.name} -> ${result.secretId}`)
+    console.log(
+      `[SecureDeploy] Registered: ${secret.name} -> ${result.secretId}`,
+    )
   }
 
   return refs
@@ -237,7 +239,10 @@ export async function deployWorkerSecurely(
     }
   }
 
-  const result = (await response.json()) as { functionId?: string; workerId?: string }
+  const result = (await response.json()) as {
+    functionId?: string
+    workerId?: string
+  }
 
   return {
     workerId: result.functionId ?? result.workerId ?? '',
@@ -332,9 +337,10 @@ const secureEnv = new Proxy(env, {
  *
  * This should be run before deployment to catch accidental secret embedding.
  */
-export function validateNoEmbeddedSecrets(
-  env: Record<string, string>,
-): { valid: boolean; violations: string[] } {
+export function validateNoEmbeddedSecrets(env: Record<string, string>): {
+  valid: boolean
+  violations: string[]
+} {
   const violations: string[] = []
 
   // Patterns that indicate embedded secrets

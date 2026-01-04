@@ -533,7 +533,8 @@ export class WorkerRuntime {
           NODE_ENV: process.env.NODE_ENV ?? 'production',
           // Pass KMS endpoint so worker can fetch secrets
           KMS_URL: process.env.KMS_URL ?? 'https://kms.testnet.jejunetwork.org',
-          KMS_ENDPOINT: process.env.KMS_URL ?? 'https://kms.testnet.jejunetwork.org',
+          KMS_ENDPOINT:
+            process.env.KMS_URL ?? 'https://kms.testnet.jejunetwork.org',
         },
         stdout: 'pipe',
         stderr: 'pipe',

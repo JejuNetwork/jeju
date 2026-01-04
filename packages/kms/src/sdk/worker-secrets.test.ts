@@ -4,18 +4,18 @@
  * Tests the KMS-backed secret management for workerd runtime.
  */
 
-import { describe, expect, test, beforeEach, mock } from 'bun:test'
-import {
-  initWorkerSecrets,
-  getSecret,
-  requireSecret,
-  getSecretEnv,
-  isSecretsInitialized,
-  resetWorkerSecrets,
-  type WorkerSecretsConfig,
-  type SecretRef,
-} from './worker-secrets'
+import { beforeEach, describe, expect, mock, test } from 'bun:test'
 import type { Address } from 'viem'
+import {
+  getSecret,
+  getSecretEnv,
+  initWorkerSecrets,
+  isSecretsInitialized,
+  requireSecret,
+  resetWorkerSecrets,
+  type SecretRef,
+  type WorkerSecretsConfig,
+} from './worker-secrets'
 
 // Mock fetch for testing
 const mockFetch = mock(() => Promise.resolve(new Response()))
@@ -38,7 +38,11 @@ describe('Worker Secrets', () => {
 
       const mockResponse = {
         secrets: [
-          { secretId: 'secret-1', value: 'postgres://localhost/db', version: 1 },
+          {
+            secretId: 'secret-1',
+            value: 'postgres://localhost/db',
+            version: 1,
+          },
           { secretId: 'secret-2', value: 'sk-test-key', version: 1 },
         ],
       }
@@ -131,7 +135,7 @@ describe('Worker Secrets', () => {
     test('should include TEE attestation header', async () => {
       let capturedHeaders: Record<string, string> = {}
 
-      globalThis.fetch = mock((url: string, options: RequestInit) => {
+      globalThis.fetch = mock((_url: string, options: RequestInit) => {
         capturedHeaders = options.headers as Record<string, string>
         return Promise.resolve(
           new Response(JSON.stringify({ secrets: [] }), {
@@ -208,7 +212,9 @@ describe('Worker Secrets', () => {
         secrets: [],
       })
 
-      expect(() => requireSecret('DATABASE_URL')).toThrow('Required secret not found')
+      expect(() => requireSecret('DATABASE_URL')).toThrow(
+        'Required secret not found',
+      )
     })
   })
 
@@ -249,7 +255,9 @@ describe('Worker Secrets', () => {
   describe('resetWorkerSecrets', () => {
     test('should clear all cached secrets', async () => {
       const mockResponse = {
-        secrets: [{ secretId: 'secret-1', value: 'sensitive-value', version: 1 }],
+        secrets: [
+          { secretId: 'secret-1', value: 'sensitive-value', version: 1 },
+        ],
       }
 
       globalThis.fetch = mock(() =>
@@ -297,9 +305,9 @@ describe('Security Validation', () => {
       // For now, we document the expectation
       for (const key of sensitiveKeys) {
         // SAFE_ENV_KEYS should NOT contain these
-        expect(
-          ['PORT', 'NODE_ENV', 'NETWORK', 'KMS_URL'].includes(key),
-        ).toBe(false)
+        expect(['PORT', 'NODE_ENV', 'NETWORK', 'KMS_URL'].includes(key)).toBe(
+          false,
+        )
       }
     })
   })

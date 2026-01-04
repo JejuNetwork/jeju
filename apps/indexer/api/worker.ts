@@ -422,28 +422,58 @@ async function executeGraphQLQuery(
                     args: [
                       { name: 'limit', type: { kind: 'SCALAR', name: 'Int' } },
                       { name: 'offset', type: { kind: 'SCALAR', name: 'Int' } },
-                      { name: 'orderBy', type: { kind: 'ENUM', name: 'BlockOrderBy' } },
-                      { name: 'where', type: { kind: 'INPUT_OBJECT', name: 'BlockWhereInput' } },
+                      {
+                        name: 'orderBy',
+                        type: { kind: 'ENUM', name: 'BlockOrderBy' },
+                      },
+                      {
+                        name: 'where',
+                        type: { kind: 'INPUT_OBJECT', name: 'BlockWhereInput' },
+                      },
                     ],
-                    type: { kind: 'LIST', ofType: { kind: 'OBJECT', name: 'Block' } },
+                    type: {
+                      kind: 'LIST',
+                      ofType: { kind: 'OBJECT', name: 'Block' },
+                    },
                   },
                   {
                     name: 'transactions',
                     args: [
                       { name: 'limit', type: { kind: 'SCALAR', name: 'Int' } },
                       { name: 'offset', type: { kind: 'SCALAR', name: 'Int' } },
-                      { name: 'orderBy', type: { kind: 'ENUM', name: 'TransactionOrderBy' } },
-                      { name: 'where', type: { kind: 'INPUT_OBJECT', name: 'TransactionWhereInput' } },
+                      {
+                        name: 'orderBy',
+                        type: { kind: 'ENUM', name: 'TransactionOrderBy' },
+                      },
+                      {
+                        name: 'where',
+                        type: {
+                          kind: 'INPUT_OBJECT',
+                          name: 'TransactionWhereInput',
+                        },
+                      },
                     ],
-                    type: { kind: 'LIST', ofType: { kind: 'OBJECT', name: 'Transaction' } },
+                    type: {
+                      kind: 'LIST',
+                      ofType: { kind: 'OBJECT', name: 'Transaction' },
+                    },
                   },
                   {
                     name: 'accounts',
                     args: [
                       { name: 'limit', type: { kind: 'SCALAR', name: 'Int' } },
-                      { name: 'where', type: { kind: 'INPUT_OBJECT', name: 'AccountWhereInput' } },
+                      {
+                        name: 'where',
+                        type: {
+                          kind: 'INPUT_OBJECT',
+                          name: 'AccountWhereInput',
+                        },
+                      },
                     ],
-                    type: { kind: 'LIST', ofType: { kind: 'OBJECT', name: 'Account' } },
+                    type: {
+                      kind: 'LIST',
+                      ofType: { kind: 'OBJECT', name: 'Account' },
+                    },
                   },
                 ],
                 interfaces: [],
@@ -452,14 +482,55 @@ async function executeGraphQLQuery(
                 kind: 'OBJECT',
                 name: 'Block',
                 fields: [
-                  { name: 'id', type: { kind: 'NON_NULL', ofType: { kind: 'SCALAR', name: 'ID' } }, args: [] },
-                  { name: 'number', type: { kind: 'NON_NULL', ofType: { kind: 'SCALAR', name: 'Int' } }, args: [] },
-                  { name: 'hash', type: { kind: 'NON_NULL', ofType: { kind: 'SCALAR', name: 'String' } }, args: [] },
-                  { name: 'parentHash', type: { kind: 'SCALAR', name: 'String' }, args: [] },
-                  { name: 'timestamp', type: { kind: 'SCALAR', name: 'DateTime' }, args: [] },
-                  { name: 'transactionCount', type: { kind: 'SCALAR', name: 'Int' }, args: [] },
-                  { name: 'gasUsed', type: { kind: 'SCALAR', name: 'BigInt' }, args: [] },
-                  { name: 'gasLimit', type: { kind: 'SCALAR', name: 'BigInt' }, args: [] },
+                  {
+                    name: 'id',
+                    type: {
+                      kind: 'NON_NULL',
+                      ofType: { kind: 'SCALAR', name: 'ID' },
+                    },
+                    args: [],
+                  },
+                  {
+                    name: 'number',
+                    type: {
+                      kind: 'NON_NULL',
+                      ofType: { kind: 'SCALAR', name: 'Int' },
+                    },
+                    args: [],
+                  },
+                  {
+                    name: 'hash',
+                    type: {
+                      kind: 'NON_NULL',
+                      ofType: { kind: 'SCALAR', name: 'String' },
+                    },
+                    args: [],
+                  },
+                  {
+                    name: 'parentHash',
+                    type: { kind: 'SCALAR', name: 'String' },
+                    args: [],
+                  },
+                  {
+                    name: 'timestamp',
+                    type: { kind: 'SCALAR', name: 'DateTime' },
+                    args: [],
+                  },
+                  {
+                    name: 'transactionCount',
+                    type: { kind: 'SCALAR', name: 'Int' },
+                    args: [],
+                  },
+                  {
+                    name: 'gasUsed',
+                    type: { kind: 'SCALAR', name: 'BigInt' },
+                    args: [],
+                  },
+                  {
+                    name: 'gasLimit',
+                    type: { kind: 'SCALAR', name: 'BigInt' },
+                    args: [],
+                  },
                 ],
                 interfaces: [],
               },
@@ -467,14 +538,52 @@ async function executeGraphQLQuery(
                 kind: 'OBJECT',
                 name: 'Transaction',
                 fields: [
-                  { name: 'id', type: { kind: 'NON_NULL', ofType: { kind: 'SCALAR', name: 'ID' } }, args: [] },
-                  { name: 'hash', type: { kind: 'NON_NULL', ofType: { kind: 'SCALAR', name: 'String' } }, args: [] },
-                  { name: 'blockNumber', type: { kind: 'SCALAR', name: 'Int' }, args: [] },
-                  { name: 'from', type: { kind: 'SCALAR', name: 'String' }, args: [] },
-                  { name: 'to', type: { kind: 'SCALAR', name: 'String' }, args: [] },
-                  { name: 'value', type: { kind: 'SCALAR', name: 'BigInt' }, args: [] },
-                  { name: 'gasUsed', type: { kind: 'SCALAR', name: 'BigInt' }, args: [] },
-                  { name: 'status', type: { kind: 'SCALAR', name: 'String' }, args: [] },
+                  {
+                    name: 'id',
+                    type: {
+                      kind: 'NON_NULL',
+                      ofType: { kind: 'SCALAR', name: 'ID' },
+                    },
+                    args: [],
+                  },
+                  {
+                    name: 'hash',
+                    type: {
+                      kind: 'NON_NULL',
+                      ofType: { kind: 'SCALAR', name: 'String' },
+                    },
+                    args: [],
+                  },
+                  {
+                    name: 'blockNumber',
+                    type: { kind: 'SCALAR', name: 'Int' },
+                    args: [],
+                  },
+                  {
+                    name: 'from',
+                    type: { kind: 'SCALAR', name: 'String' },
+                    args: [],
+                  },
+                  {
+                    name: 'to',
+                    type: { kind: 'SCALAR', name: 'String' },
+                    args: [],
+                  },
+                  {
+                    name: 'value',
+                    type: { kind: 'SCALAR', name: 'BigInt' },
+                    args: [],
+                  },
+                  {
+                    name: 'gasUsed',
+                    type: { kind: 'SCALAR', name: 'BigInt' },
+                    args: [],
+                  },
+                  {
+                    name: 'status',
+                    type: { kind: 'SCALAR', name: 'String' },
+                    args: [],
+                  },
                 ],
                 interfaces: [],
               },
@@ -482,10 +591,32 @@ async function executeGraphQLQuery(
                 kind: 'OBJECT',
                 name: 'Account',
                 fields: [
-                  { name: 'id', type: { kind: 'NON_NULL', ofType: { kind: 'SCALAR', name: 'ID' } }, args: [] },
-                  { name: 'address', type: { kind: 'NON_NULL', ofType: { kind: 'SCALAR', name: 'String' } }, args: [] },
-                  { name: 'isContract', type: { kind: 'SCALAR', name: 'Boolean' }, args: [] },
-                  { name: 'transactionCount', type: { kind: 'SCALAR', name: 'Int' }, args: [] },
+                  {
+                    name: 'id',
+                    type: {
+                      kind: 'NON_NULL',
+                      ofType: { kind: 'SCALAR', name: 'ID' },
+                    },
+                    args: [],
+                  },
+                  {
+                    name: 'address',
+                    type: {
+                      kind: 'NON_NULL',
+                      ofType: { kind: 'SCALAR', name: 'String' },
+                    },
+                    args: [],
+                  },
+                  {
+                    name: 'isContract',
+                    type: { kind: 'SCALAR', name: 'Boolean' },
+                    args: [],
+                  },
+                  {
+                    name: 'transactionCount',
+                    type: { kind: 'SCALAR', name: 'Int' },
+                    args: [],
+                  },
                 ],
                 interfaces: [],
               },
@@ -535,7 +666,10 @@ async function executeGraphQLQuery(
                 name: 'AccountWhereInput',
                 inputFields: [
                   { name: 'id_eq', type: { kind: 'SCALAR', name: 'String' } },
-                  { name: 'address_eq', type: { kind: 'SCALAR', name: 'String' } },
+                  {
+                    name: 'address_eq',
+                    type: { kind: 'SCALAR', name: 'String' },
+                  },
                 ],
               },
             ],
@@ -732,7 +866,11 @@ export function createIndexerApp(env?: Partial<IndexerEnv>) {
             [blockNumber],
           )
           if (!result.success) {
-            return { blockNumber: params.blockNumber, block: null, error: result.status }
+            return {
+              blockNumber: params.blockNumber,
+              block: null,
+              error: result.status,
+            }
           }
           const rows = resultToObjects(result)
           return { block: rows[0] ?? null }
@@ -768,7 +906,11 @@ export function createIndexerApp(env?: Partial<IndexerEnv>) {
             [params.hash],
           )
           if (!result.success) {
-            return { hash: params.hash, transaction: null, error: result.status }
+            return {
+              hash: params.hash,
+              transaction: null,
+              error: result.status,
+            }
           }
           const rows = resultToObjects(result)
           return { transaction: rows[0] ?? null }
@@ -783,7 +925,11 @@ export function createIndexerApp(env?: Partial<IndexerEnv>) {
             [address, address],
           )
           if (!result.success) {
-            return { address: params.address, account: null, error: result.status }
+            return {
+              address: params.address,
+              account: null,
+              error: result.status,
+            }
           }
           const rows = resultToObjects(result)
           return { account: rows[0] ?? null, address: params.address }
@@ -798,9 +944,16 @@ export function createIndexerApp(env?: Partial<IndexerEnv>) {
             [address, address, limit],
           )
           if (!result.success) {
-            return { address: params.address, transactions: [], error: result.status }
+            return {
+              address: params.address,
+              transactions: [],
+              error: result.status,
+            }
           }
-          return { address: params.address, transactions: resultToObjects(result) }
+          return {
+            address: params.address,
+            transactions: resultToObjects(result),
+          }
         })
 
         // Tokens (table may not exist yet - return empty)
@@ -825,7 +978,11 @@ export function createIndexerApp(env?: Partial<IndexerEnv>) {
             [address],
           )
           if (!result.success) {
-            return { address: params.address, token: null, error: result.status }
+            return {
+              address: params.address,
+              token: null,
+              error: result.status,
+            }
           }
           const rows = resultToObjects(result)
           return { token: rows[0] ?? null }
@@ -855,7 +1012,11 @@ export function createIndexerApp(env?: Partial<IndexerEnv>) {
             [contractAddress, limit],
           )
           if (!result.success) {
-            return { contractAddress: params.contractAddress, events: [], error: result.status }
+            return {
+              contractAddress: params.contractAddress,
+              events: [],
+              error: result.status,
+            }
           }
           return {
             contractAddress: params.contractAddress,
@@ -867,10 +1028,26 @@ export function createIndexerApp(env?: Partial<IndexerEnv>) {
         .get('/stats', async () => {
           const [blocksCount, txCount, accountsCount, latestBlock] =
             await Promise.all([
-              sqlitQuery(DATABASE_ID, `SELECT COUNT(*) as count FROM blocks`, []),
-              sqlitQuery(DATABASE_ID, `SELECT COUNT(*) as count FROM transactions`, []),
-              sqlitQuery(DATABASE_ID, `SELECT COUNT(*) as count FROM accounts`, []),
-              sqlitQuery(DATABASE_ID, `SELECT timestamp FROM blocks ORDER BY number DESC LIMIT 1`, []),
+              sqlitQuery(
+                DATABASE_ID,
+                `SELECT COUNT(*) as count FROM blocks`,
+                [],
+              ),
+              sqlitQuery(
+                DATABASE_ID,
+                `SELECT COUNT(*) as count FROM transactions`,
+                [],
+              ),
+              sqlitQuery(
+                DATABASE_ID,
+                `SELECT COUNT(*) as count FROM accounts`,
+                [],
+              ),
+              sqlitQuery(
+                DATABASE_ID,
+                `SELECT timestamp FROM blocks ORDER BY number DESC LIMIT 1`,
+                [],
+              ),
             ])
 
           return {
@@ -890,7 +1067,8 @@ export function createIndexerApp(env?: Partial<IndexerEnv>) {
             [oneMinuteAgo],
           )
           const txInLastMinute = resultToObjects(result)[0]?.count ?? 0
-          const currentTPS = (typeof txInLastMinute === 'number' ? txInLastMinute : 0) / 60
+          const currentTPS =
+            (typeof txInLastMinute === 'number' ? txInLastMinute : 0) / 60
 
           return {
             currentTPS: Math.round(currentTPS * 100) / 100,

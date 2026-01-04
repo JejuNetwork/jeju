@@ -257,7 +257,7 @@ describe('Agent Chat API', () => {
       }
 
       expect(response?.ok, `Chat with ${charId} should succeed`).toBe(true)
-      const data = (await response!.json()) as {
+      const data = (await response?.json()) as {
         text: string
         character: string
       }

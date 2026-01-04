@@ -1,0 +1,43 @@
+{
+  "name": "@jejunetwork/durable-objects",
+  "version": "0.1.0",
+  "description": "Durable Objects for Jeju Network DWS - Powered by SQLit",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "bun": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "src"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@jejunetwork/config": "workspace:*",
+    "@jejunetwork/db": "workspace:*",
+    "@jejunetwork/types": "workspace:*",
+    "pino": "^10.1.0",
+    "viem": "2.43.3",
+    "zod": "4.2.1"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "5.9.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elizaos/jeju.git",
+    "directory": "packages/durable-objects"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

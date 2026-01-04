@@ -12,14 +12,14 @@
   "localnet": {
     "chainId": 31337,
     "tokens": {
-      "jeju": "0xD49a0e9A4CD5979aE36840f542D2d7f02C4817Be",
-      "usdc": "0x01c1DeF3b91672704716159C9041Aeca392DdFfb",
+      "jeju": "0x0B306BF915C4d645ff596e518fAf3F9669b97016",
+      "usdc": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
       "weth": "0x4200000000000000000000000000000000000006"
     },
     "registry": {
-      "identity": "0xFD6F7A6a5c21A3f503EBaE7a473639974379c351",
-      "reputation": "0xa6e99A4ED7498b3cdDCBB61a6A607a4925Faa1B7",
-      "validation": "0x5302E909d1e93e30F05B5D6Eea766363D14F9892",
+      "identity": "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
+      "reputation": "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
+      "validation": "0x0165878A594ca255338adfa4d48449f69242Eb8F",
       "token": "0x322813Fd9A801c5507c9de605d63CEA4f2CE6c44",
       "app": "",
       "node": "",
@@ -29,15 +29,15 @@
       "staking": "0x95401dc811bb5740090279Ba06cfA8fcF6113778"
     },
     "moderation": {
-      "banManager": "0xde2Bd2ffEA002b8E84ADeA96e5976aF664115E2c",
-      "reportingSystem": "0x870526b7973b56163a6997bB7C886F5E4EA53638",
-      "reputationLabelManager": "0xefc1aB2475ACb7E60499Efb171D173be19928a05",
-      "moderationMarketplace": "0xde2Bd2ffEA002b8E84ADeA96e5976aF664115E2c",
-      "evidenceRegistry": "0xde2Bd2ffEA002b8E84ADeA96e5976aF664115E2c"
+      "banManager": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0",
+      "reportingSystem": "0x9A676e781A523b5d0C0e43731313A708CB607508",
+      "reputationLabelManager": "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82",
+      "moderationMarketplace": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0",
+      "evidenceRegistry": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0"
     },
     "bazaar": {
-      "marketplace": "0xD5724171C2b7f0AA717a324626050BD05767e2C6",
-      "simpleCollectible": "0x9385556B571ab92bf6dC9a0DbD75429Dd4d56F91",
+      "marketplace": "0xf4B146FbA71F41E0592668ffbF264F1D186b2Ca8",
+      "simpleCollectible": "0xBEc49fA140aCaA83533fB00A2BB19bDdd0290f25",
       "predictionMarket": "0x851356ae760d987e095750cceb3bc6014560891c",
       "tokenFactory": "",
       "featuredToken": "",
@@ -50,28 +50,28 @@
       "priceOracle": "0x8f86403a4de0bb5791fa46b8e795c547942fe4cf"
     },
     "security": {
-      "bountyRegistry": "0xA56F946D6398Dd7d9D4D9B337Cf9E0F68982ca5B"
+      "bountyRegistry": "0x09635F643e140090A9A8Dcd712eD6285858ceBef"
     },
     "nodeStaking": {
-      "manager": "0x70bDA08DBe07363968e9EE53d899dFE48560605B",
-      "performanceOracle": "0xaca81583840B1bf2dDF6CDe824ada250C1936B4D"
+      "manager": "0x4A679253410272dd5232B3Ff7cF5dbB88f295319",
+      "performanceOracle": "0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f"
     },
     "jns": {
-      "registry": "0xB06c856C8eaBd1d8321b687E188204C1018BC4E5",
-      "resolver": "0xaB7B4c595d3cE8C85e16DA86630f2fc223B05057",
+      "registry": "0xE6E340D132b5f46d1e472DebcD681B2aBc16e57E",
+      "resolver": "0xc3e53F4d16Ae77Db1c982e75a937B9f60FE63690",
       "registrar": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
       "reverseRegistrar": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"
     },
     "oauth3": {
-      "teeVerifier": "0x8fC8CFB7f7362E44E472c690A6e025B80E406458",
-      "identityRegistry": "0xC7143d5bA86553C06f5730c8dC9f8187a621A8D4",
-      "appRegistry": "0x359570B3a0437805D0a71457D61AD26a28cAC9A2",
-      "staking": "0xc9952Fc93Fa9bE383ccB39008c786b9f94eAc95d"
+      "teeVerifier": "0x51A1ceB83B83F1985a81C295d1fF28Afef186E02",
+      "identityRegistry": "0x36b58F5C1969B7b6591D752ea6F5486D069010AB",
+      "appRegistry": "0x8198f5d8F8CfFE8f9C413d98a0A55aEB8ab9FbB7",
+      "staking": "0x0355B7B8cb128fA5692729Ab3AAa199C1753f726"
     },
     "dws": {
-      "storageManager": "0x82EdA215Fa92B45a3a76837C65Ab862b6C7564a8",
-      "workerRegistry": "0x87006e75a5B6bE9D1bbF61AC8Cd84f05D9140589",
-      "cdnRegistry": "0x51C65cd0Cdb1A8A8b79dfc2eE965B1bA0bb8fc89",
+      "storageManager": "0x2E2Ed0Cfd3AD2f1d34481277b3204d807Ca2F8c2",
+      "workerRegistry": "0xD8a5a9b31c3C0232E196d518E89Fd8bF83AcAd43",
+      "cdnRegistry": "0xDC11f7E700A4c898AE5CAddB1082cFfa76512aDD",
       "repoRegistry": "0x0dcd1bf9a1b36ce34237eeafef220932846bcd82",
       "packageRegistry": "0xa513e6e4b8f2a923d98304ec87f64353c4d5c853",
       "managedDatabaseRegistry": "0xb7f8bc63bbcad18155201308c8f3540b07f84f5e",
@@ -83,9 +83,9 @@
       "identityRegistry": "0x5fc8d32690cc91d4c39d9d3abcbd16989f875707"
     },
     "payments": {
-      "creditManager": "0xB2b580ce436E6F77A5713D80887e14788Ef49c9A",
-      "universalPaymaster": "0xB377a2EeD7566Ac9fCb0BA673604F9BF875e2Bab",
-      "paymasterFactory": "0x986aaa537b8cc170761FDAC6aC4fc7F9d8a20A8C",
+      "creditManager": "0x68B1D87F95878fE05B998F19b66F4baba5De1aed",
+      "universalPaymaster": "0x3Aa5ebB10DC797CAC828524e59A333d0A371443c",
+      "paymasterFactory": "0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e",
       "feeConfig": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0"
     },
     "commerce": {

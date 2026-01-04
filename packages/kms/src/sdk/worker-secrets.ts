@@ -220,7 +220,9 @@ export async function initWorkerSecrets(
   // Log errors
   if (result.errors && result.errors.length > 0) {
     for (const err of result.errors) {
-      console.error(`[WorkerSecrets] Error fetching ${err.secretId}: ${err.error}`)
+      console.error(
+        `[WorkerSecrets] Error fetching ${err.secretId}: ${err.error}`,
+      )
     }
   }
 
@@ -418,10 +420,10 @@ const RegisterResponseSchema = z.object({
 export async function registerSecret(
   kmsEndpoint: string,
   params: RegisterSecretParams,
-  privateKey: Hex,
+  _privateKey: Hex,
 ): Promise<RegisterSecretResult> {
   // Sign the registration request
-  const message = `register:${params.name}:${params.owner}:${Date.now()}`
+  const _message = `register:${params.name}:${params.owner}:${Date.now()}`
 
   const response = await fetch(`${kmsEndpoint}/vault/secrets`, {
     method: 'POST',
@@ -461,15 +463,18 @@ export async function rotateSecret(
   newValue: string,
   owner: Address,
 ): Promise<void> {
-  const response = await fetch(`${kmsEndpoint}/vault/secrets/${secretId}/rotate`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-jeju-address': owner,
+  const response = await fetch(
+    `${kmsEndpoint}/vault/secrets/${secretId}/rotate`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-jeju-address': owner,
+      },
+      body: JSON.stringify({ value: newValue }),
+      signal: AbortSignal.timeout(10000),
     },
-    body: JSON.stringify({ value: newValue }),
-    signal: AbortSignal.timeout(10000),
-  })
+  )
 
   if (!response.ok) {
     const error = await response.text()

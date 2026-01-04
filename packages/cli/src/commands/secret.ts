@@ -184,13 +184,16 @@ async function deleteSecret(
 
   // Delete from vault using the namespaced name
   const secretName = `${appName}:${key}`
-  const response = await fetch(`${dwsUrl}/vault/secrets/${encodeURIComponent(secretName)}`, {
-    method: 'DELETE',
-    headers: {
-      Authorization: `Bearer ${authToken}`,
-      'x-jeju-address': address,
+  const response = await fetch(
+    `${dwsUrl}/vault/secrets/${encodeURIComponent(secretName)}`,
+    {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        'x-jeju-address': address,
+      },
     },
-  })
+  )
 
   if (!response.ok) {
     const error = await response.text()
@@ -565,7 +568,9 @@ secretCommand
     logger.success(`Pushed ${pushed} secrets to KMS from ${options.input}`)
     logger.info(`Scope: ${options.scope}`)
     logger.newline()
-    logger.info('SECURITY: Secrets stored in KMS, not embedded in worker config')
+    logger.info(
+      'SECURITY: Secrets stored in KMS, not embedded in worker config',
+    )
     logger.info('Secret IDs registered:')
     for (const id of secretIds) {
       logger.info(`  - ${id}`)

@@ -9,7 +9,6 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, relative } from 'node:path'
-import { getCurrentNetwork } from '@jejunetwork/config'
 import { bytesToHex, hash256 } from '@jejunetwork/shared'
 import { z } from 'zod'
 import type { ServerlessWorkerConfig, WorkerBuildOutput } from './types'
@@ -495,13 +494,21 @@ ${
     const bindings: string[] = []
 
     // Runtime environment variables - read from system environment
-    bindings.push(`    (name = "JEJU_NETWORK", fromEnvironment = "JEJU_NETWORK")`)
+    bindings.push(
+      `    (name = "JEJU_NETWORK", fromEnvironment = "JEJU_NETWORK")`,
+    )
     bindings.push(`    (name = "NETWORK", fromEnvironment = "JEJU_NETWORK")`)
     bindings.push(`    (name = "TEE_MODE", fromEnvironment = "TEE_MODE")`)
     bindings.push(`    (name = "TEE_REGION", fromEnvironment = "TEE_REGION")`)
-    bindings.push(`    (name = "TEE_PLATFORM", fromEnvironment = "TEE_PLATFORM")`)
-    bindings.push(`    (name = "KMS_ENDPOINT", fromEnvironment = "KMS_ENDPOINT")`)
-    bindings.push(`    (name = "OWNER_ADDRESS", fromEnvironment = "OWNER_ADDRESS")`)
+    bindings.push(
+      `    (name = "TEE_PLATFORM", fromEnvironment = "TEE_PLATFORM")`,
+    )
+    bindings.push(
+      `    (name = "KMS_ENDPOINT", fromEnvironment = "KMS_ENDPOINT")`,
+    )
+    bindings.push(
+      `    (name = "OWNER_ADDRESS", fromEnvironment = "OWNER_ADDRESS")`,
+    )
     bindings.push(`    (name = "FUNCTION_ID", fromEnvironment = "FUNCTION_ID")`)
     bindings.push(`    (name = "INSTANCE_ID", fromEnvironment = "INSTANCE_ID")`)
     bindings.push(`    (name = "RPC_URL", fromEnvironment = "RPC_URL")`)
@@ -511,7 +518,9 @@ ${
     // Workers fetch these at runtime via KMS_SECRET_IDS configuration
     if (config.secrets) {
       // Add KMS secret IDs list so worker knows which secrets to fetch
-      const secretIds = config.secrets.map((s) => `kms:${config.name}:${s}`).join(',')
+      const secretIds = config.secrets
+        .map((s) => `kms:${config.name}:${s}`)
+        .join(',')
       bindings.push(`    (name = "KMS_SECRET_IDS", text = "${secretIds}")`)
       // Add worker ID for KMS auth
       bindings.push(`    (name = "WORKER_ID", text = "${config.name}")`)

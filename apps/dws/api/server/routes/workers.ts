@@ -235,7 +235,7 @@ async function loadPersistedWorkers(
   registry: WorkerRegistryService,
 ): Promise<{ loaded: number; failed: number }> {
   let loaded = 0
-  let failed = 0
+  const failed = 0
 
   const workers = await dwsWorkerState.listActive()
   console.log(

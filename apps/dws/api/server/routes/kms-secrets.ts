@@ -67,7 +67,7 @@ const RotateSecretSchema = z.object({
  */
 async function verifyAttestation(
   attestationHeader: string | null,
-  workerId: string,
+  _workerId: string,
 ): Promise<{ valid: boolean; error?: string }> {
   if (!attestationHeader) {
     // In production, require attestation
@@ -92,7 +92,10 @@ async function verifyAttestation(
     if (attestation.platform === 'simulated') {
       const isProduction = process.env.NODE_ENV === 'production'
       if (isProduction) {
-        return { valid: false, error: 'Simulated attestation not allowed in production' }
+        return {
+          valid: false,
+          error: 'Simulated attestation not allowed in production',
+        }
       }
       return { valid: true }
     }
@@ -102,7 +105,7 @@ async function verifyAttestation(
     // For now, we trust non-simulated attestations
     // TODO: Implement actual attestation verification
     return { valid: true }
-  } catch (error) {
+  } catch (_error) {
     return { valid: false, error: 'Invalid attestation format' }
   }
 }
@@ -112,166 +115,225 @@ async function verifyAttestation(
 // ============================================================================
 
 export function createKMSSecretsRouter() {
-  return new Elysia({ name: 'kms-secrets', prefix: '/vault/secrets' })
-    /**
-     * Batch fetch secrets (for worker startup)
-     *
-     * Workers call this endpoint on startup to fetch all their secrets.
-     * Requires TEE attestation for authentication.
-     */
-    .post(
-      '/batch',
-      async ({ body, request, set }) => {
-        const owner = request.headers.get('x-jeju-address')?.toLowerCase() as
-          | Address
-          | undefined
-        const workerId = request.headers.get('x-worker-id')
-        const attestationHeader = request.headers.get('x-tee-attestation')
+  return (
+    new Elysia({ name: 'kms-secrets', prefix: '/vault/secrets' })
+      /**
+       * Batch fetch secrets (for worker startup)
+       *
+       * Workers call this endpoint on startup to fetch all their secrets.
+       * Requires TEE attestation for authentication.
+       */
+      .post(
+        '/batch',
+        async ({ body, request, set }) => {
+          const owner = request.headers.get('x-jeju-address')?.toLowerCase() as
+            | Address
+            | undefined
+          const workerId = request.headers.get('x-worker-id')
+          const attestationHeader = request.headers.get('x-tee-attestation')
 
-        if (!owner) {
-          set.status = 401
-          return { error: 'x-jeju-address header required' }
-        }
-
-        if (!workerId) {
-          set.status = 400
-          return { error: 'x-worker-id header required' }
-        }
-
-        // Verify TEE attestation
-        const attestationResult = await verifyAttestation(
-          attestationHeader,
-          workerId,
-        )
-        if (!attestationResult.valid) {
-          set.status = 403
-          return { error: attestationResult.error }
-        }
-
-        // Parse request
-        const parseResult = BatchFetchSchema.safeParse(body)
-        if (!parseResult.success) {
-          set.status = 400
-          return { error: 'Invalid request', details: parseResult.error.issues }
-        }
-
-        const { secretIds } = parseResult.data
-        const vault = getSecretVault()
-        await vault.initialize()
-
-        const secrets: Array<{
-          secretId: string
-          value: string
-          version: number
-          expiresAt?: number
-        }> = []
-        const errors: Array<{ secretId: string; error: string }> = []
-
-        // Fetch each secret
-        for (const secretId of secretIds) {
-          try {
-            const value = await vault.getSecret(secretId, owner as Address)
-            const secretMetadata = vault
-              .listSecrets(owner as Address)
-              .find((s) => s.id === secretId)
-
-            secrets.push({
-              secretId,
-              value,
-              version: secretMetadata?.version ?? 1,
-              expiresAt: secretMetadata?.expiresAt,
-            })
-          } catch (error) {
-            const message = error instanceof Error ? error.message : String(error)
-            errors.push({ secretId, error: message })
+          if (!owner) {
+            set.status = 401
+            return { error: 'x-jeju-address header required' }
           }
-        }
 
-        return { secrets, errors: errors.length > 0 ? errors : undefined }
-      },
-      {
-        body: t.Object({
-          secretIds: t.Array(t.String()),
-          workerId: t.String(),
-        }),
-      },
-    )
+          if (!workerId) {
+            set.status = 400
+            return { error: 'x-worker-id header required' }
+          }
 
-    /**
-     * Register a new secret
-     *
-     * Called by deployment tooling to register secrets before worker deployment.
-     */
-    .post(
-      '/',
-      async ({ body, request, set }) => {
-        const owner = request.headers.get('x-jeju-address')?.toLowerCase() as
-          | Address
-          | undefined
+          // Verify TEE attestation
+          const attestationResult = await verifyAttestation(
+            attestationHeader,
+            workerId,
+          )
+          if (!attestationResult.valid) {
+            set.status = 403
+            return { error: attestationResult.error }
+          }
 
-        if (!owner) {
-          set.status = 401
-          return { error: 'x-jeju-address header required' }
-        }
-
-        const parseResult = RegisterSecretSchema.safeParse(body)
-        if (!parseResult.success) {
-          set.status = 400
-          return { error: 'Invalid request', details: parseResult.error.issues }
-        }
-
-        const { name, value, tags, ttlMs, policy } = parseResult.data
-
-        const vault = getSecretVault()
-        await vault.initialize()
-
-        // Build policy if provided
-        const secretPolicy: SecretPolicy | undefined = policy
-          ? {
-              allowedAddresses: [owner as Address],
-              minStakeUSD: policy.minStakeUSD,
-              expiresAt: ttlMs ? Date.now() + ttlMs : undefined,
+          // Parse request
+          const parseResult = BatchFetchSchema.safeParse(body)
+          if (!parseResult.success) {
+            set.status = 400
+            return {
+              error: 'Invalid request',
+              details: parseResult.error.issues,
             }
-          : undefined
+          }
 
-        const secret = await vault.storeSecret(
-          name,
-          value,
-          owner as Address,
-          secretPolicy,
-          tags ?? [],
-          {},
-        )
+          const { secretIds } = parseResult.data
+          const vault = getSecretVault()
+          await vault.initialize()
 
-        return {
-          secretId: secret.id,
-          name: secret.name,
-          createdAt: secret.createdAt,
-          expiresAt: secret.expiresAt,
-        }
-      },
-      {
-        body: t.Object({
-          name: t.String(),
-          value: t.String(),
-          tags: t.Optional(t.Array(t.String())),
-          ttlMs: t.Optional(t.Number()),
-          policy: t.Optional(
-            t.Object({
-              allowedWorkerIds: t.Optional(t.Array(t.String())),
-              minStakeUSD: t.Optional(t.Number()),
-            }),
-          ),
-        }),
-      },
-    )
+          const secrets: Array<{
+            secretId: string
+            value: string
+            version: number
+            expiresAt?: number
+          }> = []
+          const errors: Array<{ secretId: string; error: string }> = []
 
-    /**
-     * Rotate a secret's value
-     */
-    .post(
-      '/:id/rotate',
-      async ({ params, body, request, set }) => {
+          // Fetch each secret
+          for (const secretId of secretIds) {
+            try {
+              const value = await vault.getSecret(secretId, owner as Address)
+              const secretMetadata = vault
+                .listSecrets(owner as Address)
+                .find((s) => s.id === secretId)
+
+              secrets.push({
+                secretId,
+                value,
+                version: secretMetadata?.version ?? 1,
+                expiresAt: secretMetadata?.expiresAt,
+              })
+            } catch (error) {
+              const message =
+                error instanceof Error ? error.message : String(error)
+              errors.push({ secretId, error: message })
+            }
+          }
+
+          return { secrets, errors: errors.length > 0 ? errors : undefined }
+        },
+        {
+          body: t.Object({
+            secretIds: t.Array(t.String()),
+            workerId: t.String(),
+          }),
+        },
+      )
+
+      /**
+       * Register a new secret
+       *
+       * Called by deployment tooling to register secrets before worker deployment.
+       */
+      .post(
+        '/',
+        async ({ body, request, set }) => {
+          const owner = request.headers.get('x-jeju-address')?.toLowerCase() as
+            | Address
+            | undefined
+
+          if (!owner) {
+            set.status = 401
+            return { error: 'x-jeju-address header required' }
+          }
+
+          const parseResult = RegisterSecretSchema.safeParse(body)
+          if (!parseResult.success) {
+            set.status = 400
+            return {
+              error: 'Invalid request',
+              details: parseResult.error.issues,
+            }
+          }
+
+          const { name, value, tags, ttlMs, policy } = parseResult.data
+
+          const vault = getSecretVault()
+          await vault.initialize()
+
+          // Build policy if provided
+          const secretPolicy: SecretPolicy | undefined = policy
+            ? {
+                allowedAddresses: [owner as Address],
+                minStakeUSD: policy.minStakeUSD,
+                expiresAt: ttlMs ? Date.now() + ttlMs : undefined,
+              }
+            : undefined
+
+          const secret = await vault.storeSecret(
+            name,
+            value,
+            owner as Address,
+            secretPolicy,
+            tags ?? [],
+            {},
+          )
+
+          return {
+            secretId: secret.id,
+            name: secret.name,
+            createdAt: secret.createdAt,
+            expiresAt: secret.expiresAt,
+          }
+        },
+        {
+          body: t.Object({
+            name: t.String(),
+            value: t.String(),
+            tags: t.Optional(t.Array(t.String())),
+            ttlMs: t.Optional(t.Number()),
+            policy: t.Optional(
+              t.Object({
+                allowedWorkerIds: t.Optional(t.Array(t.String())),
+                minStakeUSD: t.Optional(t.Number()),
+              }),
+            ),
+          }),
+        },
+      )
+
+      /**
+       * Rotate a secret's value
+       */
+      .post(
+        '/:id/rotate',
+        async ({ params, body, request, set }) => {
+          const owner = request.headers.get('x-jeju-address')?.toLowerCase() as
+            | Address
+            | undefined
+
+          if (!owner) {
+            set.status = 401
+            return { error: 'x-jeju-address header required' }
+          }
+
+          const parseResult = RotateSecretSchema.safeParse(body)
+          if (!parseResult.success) {
+            set.status = 400
+            return {
+              error: 'Invalid request',
+              details: parseResult.error.issues,
+            }
+          }
+
+          const { value } = parseResult.data
+
+          const vault = getSecretVault()
+          await vault.initialize()
+
+          try {
+            const secret = await vault.rotateSecret(
+              params.id,
+              value,
+              owner as Address,
+            )
+            return {
+              secretId: secret.id,
+              version: secret.version,
+              updatedAt: secret.updatedAt,
+            }
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : String(error)
+            set.status = 400
+            return { error: message }
+          }
+        },
+        {
+          params: t.Object({ id: t.String() }),
+          body: t.Object({ value: t.String() }),
+        },
+      )
+
+      /**
+       * Delete a secret
+       */
+      .delete('/:id', async ({ params, request, set }) => {
         const owner = request.headers.get('x-jeju-address')?.toLowerCase() as
           | Address
           | undefined
@@ -280,95 +342,49 @@ export function createKMSSecretsRouter() {
           set.status = 401
           return { error: 'x-jeju-address header required' }
         }
-
-        const parseResult = RotateSecretSchema.safeParse(body)
-        if (!parseResult.success) {
-          set.status = 400
-          return { error: 'Invalid request', details: parseResult.error.issues }
-        }
-
-        const { value } = parseResult.data
 
         const vault = getSecretVault()
         await vault.initialize()
 
         try {
-          const secret = await vault.rotateSecret(
-            params.id,
-            value,
-            owner as Address,
-          )
-          return {
-            secretId: secret.id,
-            version: secret.version,
-            updatedAt: secret.updatedAt,
-          }
+          await vault.revokeSecret(params.id, owner as Address)
+          return { success: true }
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error)
           set.status = 400
           return { error: message }
         }
-      },
-      {
-        params: t.Object({ id: t.String() }),
-        body: t.Object({ value: t.String() }),
-      },
-    )
+      })
 
-    /**
-     * Delete a secret
-     */
-    .delete('/:id', async ({ params, request, set }) => {
-      const owner = request.headers.get('x-jeju-address')?.toLowerCase() as
-        | Address
-        | undefined
+      /**
+       * List secrets (metadata only, no values)
+       */
+      .get('/', async ({ request, set }) => {
+        const owner = request.headers.get('x-jeju-address')?.toLowerCase() as
+          | Address
+          | undefined
 
-      if (!owner) {
-        set.status = 401
-        return { error: 'x-jeju-address header required' }
-      }
+        if (!owner) {
+          set.status = 401
+          return { error: 'x-jeju-address header required' }
+        }
 
-      const vault = getSecretVault()
-      await vault.initialize()
+        const vault = getSecretVault()
+        await vault.initialize()
 
-      try {
-        await vault.revokeSecret(params.id, owner as Address)
-        return { success: true }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
-        set.status = 400
-        return { error: message }
-      }
-    })
+        const secrets = vault.listSecrets(owner as Address)
 
-    /**
-     * List secrets (metadata only, no values)
-     */
-    .get('/', async ({ request, set }) => {
-      const owner = request.headers.get('x-jeju-address')?.toLowerCase() as
-        | Address
-        | undefined
-
-      if (!owner) {
-        set.status = 401
-        return { error: 'x-jeju-address header required' }
-      }
-
-      const vault = getSecretVault()
-      await vault.initialize()
-
-      const secrets = vault.listSecrets(owner as Address)
-
-      return {
-        secrets: secrets.map((s) => ({
-          id: s.id,
-          name: s.name,
-          version: s.version,
-          createdAt: s.createdAt,
-          updatedAt: s.updatedAt,
-          expiresAt: s.expiresAt,
-          tags: s.tags,
-        })),
-      }
-    })
+        return {
+          secrets: secrets.map((s) => ({
+            id: s.id,
+            name: s.name,
+            version: s.version,
+            createdAt: s.createdAt,
+            updatedAt: s.updatedAt,
+            expiresAt: s.expiresAt,
+            tags: s.tags,
+          })),
+        }
+      })
+  )
 }

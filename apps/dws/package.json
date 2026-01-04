@@ -34,6 +34,7 @@
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/contracts": "workspace:*",
     "@jejunetwork/db": "workspace:*",
+    "@jejunetwork/durable-objects": "workspace:*",
     "@jejunetwork/kms": "workspace:*",
     "@jejunetwork/sdk": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
