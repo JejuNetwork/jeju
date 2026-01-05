@@ -211,10 +211,15 @@ async function build() {
     plugins: [browserPlugin],
     define: {
       'process.env.NODE_ENV': JSON.stringify('production'),
+      'process.env': JSON.stringify({ NODE_ENV: 'production' }),
       'process.browser': 'true',
-      'globalThis.process': JSON.stringify({
+      'process.version': JSON.stringify(''),
+      'process.platform': JSON.stringify('browser'),
+      'process': JSON.stringify({
         env: { NODE_ENV: 'production' },
         browser: true,
+        version: '',
+        platform: 'browser',
       }),
     },
   })
