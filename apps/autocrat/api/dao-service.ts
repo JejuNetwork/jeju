@@ -1138,26 +1138,43 @@ export class DAOService {
     return this.parseDAO(expectRawDAO(result))
   }
 
-  async getDAOFull(daoId: string): Promise<DAOFull> {
-    expectDefined(daoId, 'DAO ID is required')
+  async getDAOFull(daoIdOrName: string): Promise<DAOFull> {
+    expectDefined(daoIdOrName, 'DAO ID or name is required')
     expect(
-      daoId.length > 0 && daoId.length <= 100,
-      `DAO ID must be 1-100 characters, got ${daoId.length}`,
+      daoIdOrName.length > 0 && daoIdOrName.length <= 100,
+      `DAO ID/name must be 1-100 characters, got ${daoIdOrName.length}`,
     )
-    const cached = this.daoCache.get(daoId)
+    const cached = this.daoCache.get(daoIdOrName)
     if (cached) {
       return cached
+    }
+
+    let daoIdHex: `0x${string}`
+
+    // If it looks like a bytes32 hex, use it directly
+    if (daoIdOrName.startsWith('0x') && daoIdOrName.length === 66) {
+      daoIdHex = daoIdOrName as `0x${string}`
+    } else {
+      // Look up by name first to get the actual daoId
+      const nameResult = await this.publicClient.readContract({
+        address: this.config.daoRegistryAddress,
+        abi: DAORegistryABI,
+        functionName: 'getDAOByName',
+        args: [daoIdOrName],
+      })
+      const dao = nameResult as { daoId: `0x${string}` }
+      daoIdHex = dao.daoId
     }
 
     const result = await this.publicClient.readContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
       functionName: 'getDAOFull',
-      args: [toHex(daoId)],
+      args: [daoIdHex],
     })
 
     const daoFull = this.parseDAOFull(expectRawDAOFull(result))
-    this.daoCache.set(daoId, daoFull)
+    this.daoCache.set(daoIdOrName, daoFull)
 
     return daoFull
   }
@@ -1210,7 +1227,7 @@ export class DAOService {
       minQualityScore: Number(result.minQualityScore),
       boardVotingPeriod: Number(result.boardVotingPeriod),
       gracePeriod: Number(result.gracePeriod),
-      minProposalStake: result.minProposalStake,
+      minProposalStake: result.minProposalStake.toString(),
       quorumBps: Number(result.quorumBps),
     }
   }
@@ -1232,7 +1249,7 @@ export class DAOService {
 
     return result.map((m) => ({
       member: m.member,
-      agentId: m.agentId,
+      agentId: m.agentId.toString(),
       role: m.role,
       weight: Number(m.weight),
       addedAt: Number(m.addedAt),
@@ -1293,18 +1310,40 @@ export class DAOService {
     return [...result]
   }
 
-  async daoExists(daoId: string): Promise<boolean> {
-    expectDefined(daoId, 'DAO ID is required')
+  async daoExists(daoIdOrName: string): Promise<boolean> {
+    expectDefined(daoIdOrName, 'DAO ID or name is required')
     expect(
-      daoId.length > 0 && daoId.length <= 100,
-      `DAO ID must be 1-100 characters, got ${daoId.length}`,
+      daoIdOrName.length > 0 && daoIdOrName.length <= 100,
+      `DAO ID/name must be 1-100 characters, got ${daoIdOrName.length}`,
     )
-    return this.publicClient.readContract({
-      address: this.config.daoRegistryAddress,
-      abi: DAORegistryABI,
-      functionName: 'daoExists',
-      args: [toHex(daoId)],
-    })
+
+    // If it looks like a bytes32 hex, check by ID directly
+    if (daoIdOrName.startsWith('0x') && daoIdOrName.length === 66) {
+      return this.publicClient.readContract({
+        address: this.config.daoRegistryAddress,
+        abi: DAORegistryABI,
+        functionName: 'daoExists',
+        args: [daoIdOrName as `0x${string}`],
+      })
+    }
+
+    // Otherwise, try to look up by name using getDAOByName
+    // If it returns a non-zero daoId, the DAO exists
+    try {
+      const result = await this.publicClient.readContract({
+        address: this.config.daoRegistryAddress,
+        abi: DAORegistryABI,
+        functionName: 'getDAOByName',
+        args: [daoIdOrName],
+      })
+      // Check if the returned daoId is non-zero
+      const dao = result as { daoId: `0x${string}` }
+      return (
+        dao.daoId !== '0x0000000000000000000000000000000000000000000000000000000000000000'
+      )
+    } catch {
+      return false
+    }
   }
 
   async getDAOCount(): Promise<number> {
@@ -2003,12 +2042,12 @@ export class DAOService {
         minQualityScore: Number(raw.params.minQualityScore),
         boardVotingPeriod: Number(raw.params.boardVotingPeriod),
         gracePeriod: Number(raw.params.gracePeriod),
-        minProposalStake: raw.params.minProposalStake,
+        minProposalStake: raw.params.minProposalStake.toString(),
         quorumBps: Number(raw.params.quorumBps),
       },
       boardMembers: raw.boardMembers.map((m) => ({
         member: m.member,
-        agentId: m.agentId,
+        agentId: m.agentId.toString(),
         role: m.role,
         weight: Number(m.weight),
         addedAt: Number(m.addedAt),
@@ -2032,8 +2071,8 @@ export class DAOService {
       additionalRecipients: [...raw.additionalRecipients],
       recipientShares: raw.recipientShares.map((s) => Number(s)),
       directorWeight: Number(raw.directorWeight),
-      communityStake: raw.communityStake,
-      totalFunded: raw.totalFunded,
+      communityStake: raw.communityStake.toString(),
+      totalFunded: raw.totalFunded.toString(),
       status: toFundingStatus(raw.status),
       createdAt: Number(raw.createdAt),
       lastFundedAt: Number(raw.lastFundedAt),

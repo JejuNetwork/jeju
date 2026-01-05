@@ -103,7 +103,7 @@ export interface DirectorPersona {
 
 export interface BoardMemberConfig {
   member: Address
-  agentId: bigint // EIP-8004 ID for AI, 0n for human
+  agentId: string // EIP-8004 ID for AI (as string for JSON), "0" for human
   role: string
   weight: number
   addedAt: number
@@ -116,9 +116,9 @@ export interface GovernanceParams {
   boardVotingPeriod: number
   autocratVotingPeriod?: number
   gracePeriod: number
-  minProposalStake: bigint
+  minProposalStake: string // In wei, as string for JSON
   minBackers?: number
-  minStakeForVeto?: bigint
+  minStakeForVeto?: string // In wei, as string for JSON
   vetoThreshold?: number
   quorumBps: number
 }
