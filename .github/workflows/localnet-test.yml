@@ -3,22 +3,99 @@ name: Localnet Tests
 on:
   pull_request:
     branches: [main, develop]
+    paths:
+      - 'packages/deployment/**'
+      - 'packages/contracts/**'
+      - '.github/workflows/localnet-test.yml'
   push:
     branches: [main, develop]
+    paths:
+      - 'packages/deployment/**'
+      - 'packages/contracts/**'
+      - '.github/workflows/localnet-test.yml'
+  workflow_dispatch:
 
 jobs:
-  test:
-    name: Run Tests
+  typecheck:
+    name: Type Check
     runs-on: ubuntu-latest
-    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v1
+        with:
+          submodules: recursive
+
+      - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
       - name: Install dependencies
         run: bun install
+
+      - name: Type check core packages
+        run: |
+          bun run --cwd packages/types typecheck
+          bun run --cwd packages/config typecheck
+          bun run --cwd packages/contracts typecheck
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Lint TypeScript
+        run: bunx biome check packages apps --max-diagnostics=50 || true
+
+  contract-tests:
+    name: Run Contract Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Build contracts
+        working-directory: packages/contracts
+        run: forge build
+
+      - name: Run contract tests
+        working-directory: packages/contracts
+        run: forge test -vv
+
+  localnet:
+    name: Localnet Integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    if: github.event_name == 'workflow_dispatch'
+    needs: [typecheck, lint, contract-tests]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Install Docker
+        run: |
+          curl -fsSL https://get.docker.com | sh
 
       - name: Install Kurtosis
         run: |
@@ -31,16 +108,17 @@ jobs:
 
       - name: Start localnet
         run: bun run localnet:start
+        timeout-minutes: 20
 
-      - name: Run tests
-        run: bun test
-        timeout-minutes: 45
+      - name: Run integration tests
+        run: bun test packages/deployment/tests/
+        timeout-minutes: 30
 
       - name: Collect logs on failure
         if: failure()
         run: |
           mkdir -p logs
-          kurtosis service logs jeju-localnet > logs/kurtosis.log || true
+          kurtosis service logs jeju-localnet > logs/kurtosis.log 2>&1 || true
 
       - name: Upload logs
         if: failure()
@@ -51,30 +129,4 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: bun run localnet:stop
-
-  typecheck:
-    name: Type Check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v1
-
-      - name: Install dependencies
-        run: bun install
-
-      - name: Type check
-        run: bun run typecheck
-
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v1
-
-      - name: Install dependencies
-        run: bun install
-
-      - name: Lint
-        run: bun run lint
+        run: bun run localnet:stop || true

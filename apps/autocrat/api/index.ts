@@ -193,7 +193,7 @@ function getConfig(): BoardConfig {
       minQualityScore: 70,
       boardVotingPeriod: 259200,
       gracePeriod: 86400,
-      minProposalStake: BigInt('10000000000000000'),
+      minProposalStake: '10000000000000000',
       quorumBps: 5000,
     },
     directorPersona: {

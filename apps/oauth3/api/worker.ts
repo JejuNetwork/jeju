@@ -189,7 +189,7 @@ const workerHandler = {
 }
 
 // Set global handler for DWS runtime compatibility
-globalThis.__WORKER_HANDLER__ = workerHandler
+;(globalThis as Record<string, unknown>).__WORKER_HANDLER__ = workerHandler
 
 export { workerHandler }
 export default workerHandler

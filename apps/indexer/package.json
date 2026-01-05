@@ -33,7 +33,6 @@
     "@subsquid/typeorm-store": "1.5.1",
     "@subsquid/util-internal": "3.2.0",
     "elysia": "^1.4.19",
-    "mime": "3",
     "pg": "8.16.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

@@ -12,7 +12,7 @@ import { $ } from 'bun'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
-const ROOT = resolve(__dirname, '..')
+const ROOT = resolve(__dirname, '../../..')
 const HELM_DIR = join(ROOT, 'packages/deployment/kubernetes/helm')
 
 interface ValidationResult {

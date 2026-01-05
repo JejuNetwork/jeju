@@ -12,7 +12,7 @@
  */
 
 import { cors } from '@elysiajs/cors'
-import { createTable, getSQLit, type SQLitClient } from '@jejunetwork/db'
+import { createTable, getSQLit, type QueryParam, type SQLitClient } from '@jejunetwork/db'
 import { Elysia } from 'elysia'
 import { recoverMessageAddress, type Address } from 'viem'
 
@@ -321,7 +321,7 @@ const app = new Elysia()
             [address.toLowerCase()],
           )
 
-          const todos = result.rows.map(rowToTodo)
+          const todos = (result.rows as Record<string, unknown>[]).map(rowToTodo)
           return { todos, count: todos.length }
         } catch (err) {
           const msg = err instanceof Error ? err.message : 'Unknown error'
@@ -428,7 +428,7 @@ const app = new Elysia()
             priority?: string
           }
           const updates: string[] = []
-          const values: unknown[] = []
+          const values: QueryParam[] = []
 
           if (input.title !== undefined) {
             updates.push('title = ?')
@@ -467,7 +467,7 @@ const app = new Elysia()
             return { error: 'Todo not found' }
           }
 
-          return { todo: rowToTodo(result.rows[0]) }
+          return { todo: rowToTodo(result.rows[0] as Record<string, unknown>) }
         } catch (err) {
           const msg = err instanceof Error ? err.message : 'Unknown error'
           if (

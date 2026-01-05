@@ -9,7 +9,7 @@
  *   bun run packages/deployment/scripts/deploy/deploy-sqlit-adapter.ts --build
  */
 
-import { execSync, spawnSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'

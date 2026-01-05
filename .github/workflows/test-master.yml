@@ -36,16 +36,15 @@ jobs:
         run: bun install
 
       - name: Validate configuration
-        run: bun run scripts/validate-config.ts
+        run: bun run packages/deployment/scripts/validate-config.ts
         # No fallback. If config is invalid, BUILD FAILS.
 
       - name: TypeScript type check
         run: |
           # Check core packages type validity
-          cd packages/types && bun run typecheck
-          cd ../config && bun run typecheck
-          cd ../cli && bun run typecheck || true
-          cd ../../scripts && tsc --noEmit --skipLibCheck --esModuleInterop --resolveJsonModule --allowSyntheticDefaultImports -p ../tsconfig.json 2>&1 | head -50 || true
+          bun run --cwd packages/types typecheck
+          bun run --cwd packages/config typecheck
+          bun run --cwd packages/cli typecheck || true
         # Typecheck core packages - turbo has lockfile issues so we run directly
 
   # Smart contracts - MUST pass
@@ -143,7 +142,7 @@ jobs:
         run: bun install
 
       - name: Validate Helm charts
-        run: bun run scripts/test-helm-charts.ts
+        run: bun run packages/tests/scripts/test-helm-charts.ts
         # ALL charts MUST validate
 
   # E2E Smoke Tests - Quick wallet connection validation

@@ -17,8 +17,16 @@ import {
   type WorkerSecretsConfig,
 } from './worker-secrets'
 
-// Mock fetch for testing
+// Mock fetch for testing - cast to satisfy bun's fetch type with preconnect
 const mockFetch = mock(() => Promise.resolve(new Response()))
+
+// Helper to create typed fetch mocks (cast to typeof fetch to satisfy bun's type)
+function createFetchMock<T>(fn: T): typeof fetch {
+  const m = fn as typeof fetch
+  // Add preconnect method required by bun's fetch type
+  ;(m as { preconnect: typeof fetch.preconnect }).preconnect = () => {}
+  return m
+}
 
 describe('Worker Secrets', () => {
   const testOwner = '0x1234567890123456789012345678901234567890' as Address
@@ -47,14 +55,14 @@ describe('Worker Secrets', () => {
         ],
       }
 
-      globalThis.fetch = mock(() =>
+      globalThis.fetch = createFetchMock(mock(() =>
         Promise.resolve(
           new Response(JSON.stringify(mockResponse), {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
           }),
         ),
-      )
+      ))
 
       const config: WorkerSecretsConfig = {
         kmsEndpoint: 'http://localhost:4020',
@@ -80,14 +88,14 @@ describe('Worker Secrets', () => {
         errors: [{ secretId: 'secret-1', error: 'Not found' }],
       }
 
-      globalThis.fetch = mock(() =>
+      globalThis.fetch = createFetchMock(mock(() =>
         Promise.resolve(
           new Response(JSON.stringify(mockResponse), {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
           }),
         ),
-      )
+      ))
 
       const config: WorkerSecretsConfig = {
         kmsEndpoint: 'http://localhost:4020',
@@ -111,14 +119,14 @@ describe('Worker Secrets', () => {
         errors: [{ secretId: 'secret-1', error: 'Not found' }],
       }
 
-      globalThis.fetch = mock(() =>
+      globalThis.fetch = createFetchMock(mock(() =>
         Promise.resolve(
           new Response(JSON.stringify(mockResponse), {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
           }),
         ),
-      )
+      ))
 
       const config: WorkerSecretsConfig = {
         kmsEndpoint: 'http://localhost:4020',
@@ -135,7 +143,7 @@ describe('Worker Secrets', () => {
     test('should include TEE attestation header', async () => {
       let capturedHeaders: Record<string, string> = {}
 
-      globalThis.fetch = mock((_url: string, options: RequestInit) => {
+      globalThis.fetch = createFetchMock(mock((_url: string, options: RequestInit) => {
         capturedHeaders = options.headers as Record<string, string>
         return Promise.resolve(
           new Response(JSON.stringify({ secrets: [] }), {
@@ -143,7 +151,7 @@ describe('Worker Secrets', () => {
             headers: { 'Content-Type': 'application/json' },
           }),
         )
-      })
+      }))
 
       const config: WorkerSecretsConfig = {
         kmsEndpoint: 'http://localhost:4020',
@@ -174,14 +182,14 @@ describe('Worker Secrets', () => {
     })
 
     test('should return undefined for non-existent secret', async () => {
-      globalThis.fetch = mock(() =>
+      globalThis.fetch = createFetchMock(mock(() =>
         Promise.resolve(
           new Response(JSON.stringify({ secrets: [] }), {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
           }),
         ),
-      )
+      ))
 
       await initWorkerSecrets({
         kmsEndpoint: 'http://localhost:4020',
@@ -196,14 +204,14 @@ describe('Worker Secrets', () => {
 
   describe('requireSecret', () => {
     test('should throw if secret not found', async () => {
-      globalThis.fetch = mock(() =>
+      globalThis.fetch = createFetchMock(mock(() =>
         Promise.resolve(
           new Response(JSON.stringify({ secrets: [] }), {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
           }),
         ),
-      )
+      ))
 
       await initWorkerSecrets({
         kmsEndpoint: 'http://localhost:4020',
@@ -227,14 +235,14 @@ describe('Worker Secrets', () => {
         ],
       }
 
-      globalThis.fetch = mock(() =>
+      globalThis.fetch = createFetchMock(mock(() =>
         Promise.resolve(
           new Response(JSON.stringify(mockResponse), {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
           }),
         ),
-      )
+      ))
 
       await initWorkerSecrets({
         kmsEndpoint: 'http://localhost:4020',
@@ -260,14 +268,14 @@ describe('Worker Secrets', () => {
         ],
       }
 
-      globalThis.fetch = mock(() =>
+      globalThis.fetch = createFetchMock(mock(() =>
         Promise.resolve(
           new Response(JSON.stringify(mockResponse), {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
           }),
         ),
-      )
+      ))
 
       await initWorkerSecrets({
         kmsEndpoint: 'http://localhost:4020',

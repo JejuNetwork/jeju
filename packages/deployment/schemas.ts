@@ -399,7 +399,7 @@ export const EILChainConfigEntrySchema = z
     rpcUrl: z.string(),
     crossChainPaymaster: z.string().optional(),
     l1StakeManager: z.string().optional(),
-    status: z.enum(['active', 'inactive', 'pending']).optional(),
+    status: z.enum(['active', 'inactive', 'pending', 'planned']).optional(),
     tokens: z.record(z.string(), z.string()).optional(),
   })
   .passthrough()

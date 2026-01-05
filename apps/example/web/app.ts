@@ -256,22 +256,26 @@ const JEJU_NETWORKS = {
 } as const
 
 // Determine target network based on environment
-function getTargetNetwork(): (typeof JEJU_NETWORKS)[keyof typeof JEJU_NETWORKS] {
+function getTargetNetwork(): AddEthereumChainParameter {
   // Check if we're on localhost
   const isLocalhost =
     window.location.hostname === 'localhost' ||
     window.location.hostname === '127.0.0.1'
 
-  if (isLocalhost) {
-    return JEJU_NETWORKS.localnet
-  }
+  const network = isLocalhost
+    ? JEJU_NETWORKS.localnet
+    : window.location.hostname.includes('testnet')
+      ? JEJU_NETWORKS.testnet
+      : JEJU_NETWORKS.mainnet
 
-  // Check URL for testnet indicators
-  if (window.location.hostname.includes('testnet')) {
-    return JEJU_NETWORKS.testnet
+  // Convert readonly arrays to mutable for AddEthereumChainParameter
+  return {
+    chainId: network.chainId,
+    chainName: network.chainName,
+    nativeCurrency: { ...network.nativeCurrency },
+    rpcUrls: [...network.rpcUrls],
+    blockExplorerUrls: [...network.blockExplorerUrls],
   }
-
-  return JEJU_NETWORKS.mainnet
 }
 
 // Save wallet address to localStorage

@@ -57,12 +57,16 @@ const TFMMCreatePoolParamsSchema = z.object({
     },
     { error: 'Weights must sum to 100%' },
   ),
+  weights: z.array(z.number().min(0).max(100)).optional(),
   strategy: z.enum([
     'momentum',
     'mean_reversion',
     'trend_following',
     'volatility_targeting',
   ]),
+  name: z.string().min(1).optional(),
+  symbol: z.string().min(1).optional(),
+  swapFeeBps: z.number().int().min(0).max(10000).optional(),
 })
 
 const TFMMUpdateStrategyParamsSchema = z.object({
@@ -73,6 +77,7 @@ const TFMMUpdateStrategyParamsSchema = z.object({
     'trend_following',
     'volatility_targeting',
   ]),
+  strategyRule: z.string().optional(),
 })
 
 const TFMMTriggerRebalanceParamsSchema = z.object({

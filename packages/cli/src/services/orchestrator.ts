@@ -1420,7 +1420,11 @@ class ServicesOrchestrator {
     const rpcUrl = this.rpcUrl
     const contracts = this.loadContractAddresses()
 
-    const jns = typeof contracts.jns === 'object' ? contracts.jns : null
+    const jnsObj = contracts.jns
+    const jns =
+      typeof jnsObj === 'object' && jnsObj !== null && !Array.isArray(jnsObj)
+        ? (jnsObj as Record<string, string>)
+        : null
     const jnsRegistrar =
       (typeof contracts.jnsRegistrar === 'string'
         ? contracts.jnsRegistrar

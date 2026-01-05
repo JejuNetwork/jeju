@@ -6,9 +6,8 @@ on:
       - main
       - develop
     paths:
-      - 'documentation/**'
+      - 'apps/documentation/**'
       - '.github/workflows/deploy-docs.yml'
-      - 'package.json'
   workflow_dispatch:
 
 permissions:
@@ -30,7 +29,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
+        uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
@@ -38,7 +37,7 @@ jobs:
         run: bun install
 
       - name: Build documentation
-        run: bun run docs:build
+        run: cd apps/documentation && bun run build
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -46,7 +45,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: documentation/.vitepress/dist
+          path: apps/documentation/dist
 
   deploy:
     environment:
@@ -59,4 +58,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-

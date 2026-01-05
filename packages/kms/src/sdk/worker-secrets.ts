@@ -330,7 +330,6 @@ export function resetWorkerSecrets(): void {
     // Attempt to zero the string (may not work due to JS string immutability)
     // But we clear the cache immediately after
     const len = cached.value.length
-    // @ts-expect-error - Intentionally mutating for security
     cached.value = '0'.repeat(len)
   }
 

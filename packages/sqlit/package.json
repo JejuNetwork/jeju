@@ -1,62 +1,69 @@
 {
   "name": "@jejunetwork/sqlit",
-  "version": "0.2.0",
+  "version": "2.0.0",
   "type": "module",
-  "description": "SQLIT for Jeju Network - Decentralized SQL database with BFT consensus",
+  "description": "SQLit - Permissionless distributed SQL database for Jeju Network",
   "keywords": [
-    "SQLIT",
-    "SQLIT",
+    "SQLit",
     "database",
     "decentralized",
     "SQL",
     "blockchain",
     "jeju",
-    "typescript"
+    "typescript",
+    "distributed",
+    "permissionless"
   ],
-  "main": "./driver/dist/index.js",
-  "module": "./driver/dist/index.js",
-  "types": "./driver/dist/index.d.ts",
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
   "exports": {
     ".": {
-      "import": "./driver/dist/index.js",
-      "types": "./driver/dist/index.d.ts"
+      "bun": "./src/index.ts",
+      "import": "./src/index.ts",
+      "types": "./src/index.ts"
     },
-    "./driver": {
-      "import": "./driver/dist/index.js",
-      "types": "./driver/dist/index.d.ts"
+    "./client": {
+      "bun": "./src/client.ts",
+      "import": "./src/client.ts",
+      "types": "./src/client.ts"
     },
-    "./drizzle": {
-      "import": "./driver/dist/drizzle.js",
-      "types": "./driver/dist/drizzle.d.ts"
+    "./server": {
+      "bun": "./src/server.ts",
+      "import": "./src/server.ts",
+      "types": "./src/server.ts"
     },
-    "./pool": {
-      "import": "./driver/dist/ConnectionPool.js",
-      "types": "./driver/dist/ConnectionPool.d.ts"
+    "./node": {
+      "bun": "./src/node.ts",
+      "import": "./src/node.ts",
+      "types": "./src/node.ts"
     },
-    "./discovery": {
-      "import": "./driver/dist/Discovery.js",
-      "types": "./driver/dist/Discovery.d.ts"
+    "./tee": {
+      "bun": "./src/tee.ts",
+      "import": "./src/tee.ts",
+      "types": "./src/tee.ts"
+    },
+    "./types": {
+      "bun": "./src/types.ts",
+      "import": "./src/types.ts",
+      "types": "./src/types.ts"
     }
   },
   "files": [
-    "driver/dist",
-    "driver/src",
-    "jeju",
-    "README.md",
-    "JEJU_INTEGRATION.md"
+    "src",
+    "README.md"
   ],
   "scripts": {
-    "build": "cd driver && bun build ./src/index.ts ./src/ConnectionPool.ts ./src/Discovery.ts ./src/Transaction.ts ./src/drizzle.ts --outdir ./dist --format esm && tsc --emitDeclarationOnly --declaration --declarationDir dist",
-    "build:go": "go build ./...",
-    "dev": "cd driver && bun build ./src/index.ts --outdir ./dist --format esm --watch",
-    "test": "cd driver && bun test",
-    "test:go": "go test ./...",
-    "clean": "rm -rf driver/dist",
-    "typecheck": "cd driver && tsc --noEmit",
-    "prepublishOnly": "bun run clean && bun run build"
+    "dev": "bun run src/server.ts",
+    "test": "bun test src/",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
   },
   "dependencies": {
-    "sql92-string": "^1.0.1"
+    "@elysiajs/cors": "^1.0.0",
+    "@jejunetwork/types": "workspace:*",
+    "elysia": "^1.0.0",
+    "viem": "^2.0.0"
   },
   "devDependencies": {
     "@types/bun": "latest",
@@ -64,7 +71,6 @@
     "typescript": "^5.0.0"
   },
   "engines": {
-    "node": ">=18",
     "bun": ">=1.0.0"
   },
   "license": "Apache-2.0",
@@ -72,10 +78,5 @@
     "type": "git",
     "url": "https://github.com/jejunetwork/jeju",
     "directory": "packages/sqlit"
-  },
-  "bugs": {
-    "url": "https://github.com/jejunetwork/jeju/issues"
-  },
-  "homepage": "https://github.com/jejunetwork/jeju/tree/main/packages/sqlit#readme"
+  }
 }
-

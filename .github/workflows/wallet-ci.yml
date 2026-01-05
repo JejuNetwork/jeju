@@ -35,7 +35,7 @@ jobs:
           bun-version: latest
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun install
 
       - name: Run typecheck
         run: bun run typecheck
@@ -52,7 +52,7 @@ jobs:
           bun-version: latest
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun install
 
       - name: Run unit tests
         run: bun run test
@@ -79,7 +79,7 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun install
         working-directory: .
 
       - name: Install Playwright browsers
@@ -120,7 +120,7 @@ jobs:
           bun-version: latest
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun install
         working-directory: .
 
       - name: Install Playwright browsers
@@ -163,7 +163,7 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun install
         working-directory: .
 
       - name: Install Playwright browsers
@@ -219,7 +219,7 @@ jobs:
           bun-version: latest
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun install
 
       - name: Build web app
         run: bun run build
@@ -250,7 +250,7 @@ jobs:
           bun-version: latest
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun install
 
       - name: Build ${{ matrix.target }} extension
         run: EXT_TARGET=${{ matrix.target }} bun run build:ext
@@ -322,7 +322,7 @@ jobs:
           workspaces: apps/wallet/src-tauri
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun install
 
       - name: Build Tauri app
         run: bun run tauri build --target ${{ matrix.target }}
@@ -387,7 +387,7 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun install
 
       - name: Build web assets
         run: bun run build
@@ -450,7 +450,7 @@ jobs:
           xcode-version: latest-stable
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun install
 
       - name: Build web assets
         run: bun run build

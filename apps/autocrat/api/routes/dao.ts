@@ -101,7 +101,7 @@ export const daoRoutes = new Elysia({ prefix: '/api/v1/dao' })
           minQualityScore: body.governance.minQualityScore,
           boardVotingPeriod: body.governance.boardVotingPeriod,
           gracePeriod: body.governance.gracePeriod,
-          minProposalStake: parseEther(body.governance.minProposalStake),
+          minProposalStake: parseEther(body.governance.minProposalStake).toString(),
           quorumBps: body.governance.quorumBps,
         },
       })
@@ -251,7 +251,7 @@ export const daoRoutes = new Elysia({ prefix: '/api/v1/dao' })
           minQualityScore: body.minQualityScore,
           boardVotingPeriod: body.boardVotingPeriod,
           gracePeriod: body.gracePeriod,
-          minProposalStake: parseEther(body.minProposalStake),
+          minProposalStake: parseEther(body.minProposalStake).toString(),
           quorumBps: body.quorumBps,
         })
         return service.getDAOFull(params.daoId)

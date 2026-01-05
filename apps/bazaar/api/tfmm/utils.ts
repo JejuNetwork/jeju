@@ -611,15 +611,16 @@ export async function createTFMMPool(params: TFMMCreatePoolParams): Promise<{
   expect(params.tokens.length >= 2, 'At least 2 tokens required')
   expect(params.tokens.length <= 8, 'Maximum 8 tokens allowed')
 
-  const weights = params.weights
+  // Use weights if provided, otherwise use initialWeights
+  const weights = params.weights ?? params.initialWeights
   expect(weights.length === params.tokens.length, 'Weights must match tokens')
 
   // Validate weights sum to 100
-  const weightSum = weights.reduce((a, b) => a + b, 0)
+  const weightSum = weights.reduce((a: number, b: number) => a + b, 0)
   expect(Math.abs(weightSum - 100) < 0.01, 'Weights must sum to 100')
 
   // Convert weights to 1e18 precision
-  const weightsWei = weights.map((w) => BigInt(Math.floor(w * 1e16)))
+  const weightsWei = weights.map((w: number) => BigInt(Math.floor(w * 1e16)))
 
   const { rpcUrl, isLocalnet } = getNetworkConfig()
 
@@ -638,6 +639,8 @@ export async function createTFMMPool(params: TFMMCreatePoolParams): Promise<{
   const tokensArg = `[${params.tokens.join(',')}]`
   const weightsArg = `[${weightsWei.join(',')}]`
   const swapFeeBps = params.swapFeeBps ?? 30
+  const poolSymbol = params.symbol ?? 'TFMM-POOL'
+  const poolName = params.name ?? poolSymbol
 
   // Get deployer address
   const deployer = execSync(`cast wallet address ${deployerKey}`, {
@@ -648,7 +651,7 @@ export async function createTFMMPool(params: TFMMCreatePoolParams): Promise<{
     --rpc-url ${rpcUrl} \
     --private-key ${deployerKey} \
     --broadcast \
-    --constructor-args "${params.name}" "${params.symbol}" ${tokensArg} ${weightsArg} ${swapFeeBps} ${deployer} ${deployer}`
+    --constructor-args "${poolName}" "${poolSymbol}" ${tokensArg} ${weightsArg} ${swapFeeBps} ${deployer} ${deployer}`
 
   const output = execSync(cmd, {
     encoding: 'utf-8',
@@ -673,8 +676,8 @@ export async function createTFMMPool(params: TFMMCreatePoolParams): Promise<{
 
   deployData.pools.push({
     address: poolAddress,
-    name: params.name,
-    symbol: params.symbol,
+    name: poolName,
+    symbol: poolSymbol,
     tokens: params.tokens,
     weights: weightsWei.map(String),
   })
@@ -688,14 +691,14 @@ export async function createTFMMPool(params: TFMMCreatePoolParams): Promise<{
     const network = isLocalnet ? 'localnet' : 'testnet'
     if (!config[network]) config[network] = {}
     if (!config[network].amm) config[network].amm = {}
-    const key = `TFMMPool_${params.symbol.replace('TFMM-', '').replace(/-/g, '_')}`
+    const key = `TFMMPool_${poolSymbol.replace('TFMM-', '').replace(/-/g, '_')}`
     config[network].amm[key] = poolAddress
     writeFileSync(configPath, JSON.stringify(config, null, 2))
   }
 
   return {
     poolAddress,
-    message: `Pool ${params.name} deployed at ${poolAddress}`,
+    message: `Pool ${poolName} deployed at ${poolAddress}`,
   }
 }
 

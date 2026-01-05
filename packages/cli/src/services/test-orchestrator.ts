@@ -511,11 +511,15 @@ export class TestOrchestrator {
     }
 
     // Check Indexer is accessible
-    const indexerHealthy = await this.checkHttpHealth(services.indexer.api)
-    if (!indexerHealthy) {
-      logger.warn(`Indexer not accessible: ${services.indexer.api} (some tests may fail)`)
+    if (services.indexer.api) {
+      const indexerHealthy = await this.checkHttpHealth(services.indexer.api)
+      if (!indexerHealthy) {
+        logger.warn(`Indexer not accessible: ${services.indexer.api} (some tests may fail)`)
+      } else {
+        logger.success(`Indexer accessible: ${services.indexer.api}`)
+      }
     } else {
-      logger.success(`Indexer accessible: ${services.indexer.api}`)
+      logger.warn('Indexer API URL not configured (some tests may fail)')
     }
 
     logger.success(`Remote services verified for ${network}`)

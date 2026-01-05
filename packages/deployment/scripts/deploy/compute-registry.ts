@@ -134,7 +134,14 @@ async function main() {
   // Send deployment transaction
   const hash = await walletClient.sendTransaction({
     data: deployData,
-    chain: { id: TESTNET_CHAIN_ID, name: 'Jeju Testnet' },
+    chain: {
+      id: TESTNET_CHAIN_ID,
+      name: 'Jeju Testnet',
+      nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+      rpcUrls: {
+        default: { http: [TESTNET_RPC] },
+      },
+    },
   })
 
   console.log(`Transaction hash: ${hash}`)

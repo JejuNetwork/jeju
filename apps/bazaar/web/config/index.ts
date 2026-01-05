@@ -1,4 +1,8 @@
-import { getApiKey, getContractsConfig, getOAuth3Url } from '@jejunetwork/config'
+import {
+  getApiKey,
+  getContractsConfig,
+  getOAuth3Url,
+} from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address } from 'viem'
 
@@ -12,7 +16,8 @@ export {
   OIF_AGGREGATOR_URL,
   RPC_URL,
 } from './network'
-import { NETWORK } from './network'
+
+import { NETWORK, RPC_URL } from './network'
 
 // OAuth3 URL
 export const OAUTH3_AGENT_URL = getOAuth3Url(NETWORK)

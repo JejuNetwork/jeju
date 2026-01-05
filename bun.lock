@@ -24,7 +24,6 @@
         "html-to-image": "^1.11.13",
         "jszip": "3.10.1",
         "merkletreejs": "^0.6.0",
-        "mime": "^3.0.0",
         "node-datachannel": "^0.31.0",
         "obscenity": "^0.4.5",
         "pino": "^10.1.0",
@@ -402,7 +401,6 @@
         "@subsquid/typeorm-store": "1.5.1",
         "@subsquid/util-internal": "3.2.0",
         "elysia": "^1.4.19",
-        "mime": "3",
         "pg": "8.16.0",
         "react": "^19.1.0",
         "react-dom": "^19.1.0",
@@ -1107,9 +1105,12 @@
     },
     "packages/sqlit": {
       "name": "@jejunetwork/sqlit",
-      "version": "0.2.0",
+      "version": "2.0.0",
       "dependencies": {
-        "sql92-string": "^1.0.1",
+        "@elysiajs/cors": "^1.0.0",
+        "@jejunetwork/types": "workspace:*",
+        "elysia": "^1.0.0",
+        "viem": "^2.0.0",
       },
       "devDependencies": {
         "@types/bun": "latest",
@@ -1517,7 +1518,6 @@
     "ip": "file:./patches/ip-safe",
     "js-yaml": ">=4.0.0",
     "jsondiffpatch": ">=0.7.2",
-    "mime": "^3.0.0",
     "mime-types": "2.1.35",
     "morgan": ">=1.10.0",
     "nanoid": ">=5.0.9",
@@ -7481,8 +7481,6 @@
 
     "sql-highlight": ["sql-highlight@6.1.0", "", {}, "sha512-ed7OK4e9ywpE7pgRMkMQmZDPKSVdm0oX5IEtZiKnFucSF0zu6c80GZBe38UqHuVhTWJ9xsKgSMjCG2bml86KvA=="],
 
-    "sql92-string": ["sql92-string@1.0.1", "", {}, "sha512-nj1amXF3zV5ECLCSUEQqe+E5xyoeDvDJJPUnDIwLP0TQ4Czp0TjN5U0LluSDcwAUzMyCYCVvq77u8fN+P+rsCA=="],
-
     "sqlite-vec": ["sqlite-vec@0.1.6", "", { "optionalDependencies": { "sqlite-vec-darwin-arm64": "0.1.6", "sqlite-vec-darwin-x64": "0.1.6", "sqlite-vec-linux-arm64": "0.1.6", "sqlite-vec-linux-x64": "0.1.6", "sqlite-vec-windows-x64": "0.1.6" } }, "sha512-hQZU700TU2vWPXZYDULODjKXeMio6rKX7UpPN7Tq9qjPW671IEgURGrcC5LDBMl0q9rBvAuzmcmJmImMqVibYQ=="],
 
     "sqlite-vec-darwin-arm64": ["sqlite-vec-darwin-arm64@0.1.6", "", { "os": "darwin", "cpu": "arm64" }, "sha512-5duw/xhM3xE6BCQd//eAkyHgBp9FIwK6veldRhPG96dT6Zpjov3bG02RuE7JAQj0SVJYRW8bJwZ4LxqW0+Q7Dw=="],
@@ -9842,6 +9840,8 @@
     "secp256k1/node-addon-api": ["node-addon-api@5.1.0", "", {}, "sha512-eh0GgfEkpnoWDq+VY8OyvYhFEzBk6jIYbRKdIlyTiAXIVJ8PyBaKb0rp7oDtoddbdoHWhq8wwr+XZ81F1rpNdA=="],
 
     "send/encodeurl": ["encodeurl@1.0.2", "", {}, "sha512-TPJXq8JqFaVYm2CWmPvnP2Iyo4ZSM7/QKcSmuMLDObfpH5fi7RUGmd/rTDf+rut/saiDiQEeVTNgAmJEdAOx0w=="],
+
+    "send/mime": ["mime@1.6.0", "", { "bin": { "mime": "cli.js" } }, "sha512-x0Vn8spI+wuJ1O6S7gnbaQg8Pxh4NNHb7KSINmEWKiPE4RKOplvijn+NkmYmmRgP68mc70j2EbeTFRsrswaQeg=="],
 
     "send/statuses": ["statuses@2.0.1", "", {}, "sha512-RwNA9Z/7PrK06rYLIzFMlaF+l73iwpzsqRIFgbMLbTcLD6cOao82TaWefPXQvB2fOC4AjuYSEndS7N/mTCbkdQ=="],
 

@@ -22,9 +22,8 @@
  *   DEPLOYER_ADDRESS - Address derived from private key
  */
 
-import { createWalletClient, http, type Address, type Hex } from 'viem'
+import { type Address, type Hex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { jeju } from '@jejunetwork/chains'
 import { getRpcUrl, getDWSUrl, getCurrentNetwork } from '@jejunetwork/config'
 
 // ============================================================================

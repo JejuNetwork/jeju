@@ -305,7 +305,7 @@ function handleAuthorize(): void {
 /**
  * Show authorization UI with provider buttons
  */
-function showAuthorizationUI(redirectUri: string, state: string | null): void {
+function showAuthorizationUI(redirectUri: string, _state: string | null): void {
   const main = document.querySelector('main')
   if (!main) return
 

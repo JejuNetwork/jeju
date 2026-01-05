@@ -402,7 +402,7 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
         }
 
         if (action === 'oracles') {
-          return { oracles: getOracleStatus() }
+          return { oracles: await getOracleStatus([]) }
         }
 
         const [pools, stats] = await Promise.all([
