@@ -57,7 +57,7 @@ export const cliEntrypoint = async () => {
   const flags: CliFlags = program.opts()
 
   if (flags.headless) {
-    process.env.HEADLESS = true
+    process.env.HEADLESS = 'true'
   }
 
   if (flags.debug) {

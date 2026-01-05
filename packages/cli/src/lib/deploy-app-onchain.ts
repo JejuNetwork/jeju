@@ -561,7 +561,32 @@ function collectFiles(
   return files
 }
 
+function checkIPFSAvailable(apiUrl: string): void {
+  // Quick check to verify IPFS is responding with JSON
+  const proc = spawnSync(
+    'curl',
+    ['-s', '-m', '5', `${apiUrl}/api/v0/id`],
+    { encoding: 'utf-8' },
+  )
+
+  if (proc.error || proc.status !== 0) {
+    throw new Error(
+      `IPFS is not available at ${apiUrl}. Ensure IPFS is running (docker compose up -d ipfs).`,
+    )
+  }
+
+  const stdout = proc.stdout?.trim()
+  if (!stdout || !stdout.startsWith('{')) {
+    throw new Error(
+      `IPFS at ${apiUrl} returned invalid response. Expected JSON but got: ${stdout?.slice(0, 200)}`,
+    )
+  }
+}
+
 function uploadToIPFS(targetPath: string, apiUrl: string): string {
+  // Verify IPFS is available before attempting upload
+  checkIPFSAvailable(apiUrl)
+
   // Use native fs to check if path is directory (prevents command injection)
   const stat = statSync(targetPath)
 
@@ -597,7 +622,14 @@ function uploadToIPFS(targetPath: string, apiUrl: string): string {
     const lines = proc.stdout.trim().split('\n')
     const lastLine = lines[lines.length - 1]
 
-    const parsed = JSON.parse(lastLine)
+    // Check if response looks like JSON before parsing
+    if (!lastLine || !lastLine.startsWith('{')) {
+      throw new Error(
+        `IPFS upload failed: invalid response from ${apiUrl}. Is IPFS running? Response: ${proc.stdout.slice(0, 200)}`,
+      )
+    }
+
+    const parsed = JSON.parse(lastLine) as { Hash?: string }
     if (!parsed.Hash) {
       throw new Error(`Failed to upload directory to IPFS: ${targetPath}`)
     }
@@ -627,7 +659,14 @@ function uploadToIPFS(targetPath: string, apiUrl: string): string {
     throw new Error(`IPFS upload failed: ${proc.stderr}`)
   }
 
-  const parsed = JSON.parse(proc.stdout)
+  // Check if response looks like JSON before parsing
+  if (!proc.stdout || !proc.stdout.trim().startsWith('{')) {
+    throw new Error(
+      `IPFS upload failed: invalid response from ${apiUrl}. Is IPFS running? Response: ${proc.stdout?.slice(0, 200)}`,
+    )
+  }
+
+  const parsed = JSON.parse(proc.stdout) as { Hash?: string }
   if (!parsed.Hash) {
     throw new Error(`Failed to upload to IPFS: ${targetPath}`)
   }

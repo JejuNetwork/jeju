@@ -50,13 +50,22 @@ interface FindOptions {
 // Status table for tracking processor progress
 const STATUS_TABLE = '_squid_processor_status'
 
+// Hot transaction info from subsquid
+interface HotTxInfo {
+  baseHead: HashAndHeight
+  finalizedHead: HashAndHeight
+  newBlocks: HashAndHeight[]
+}
+
 /**
  * SQLit Database adapter for Subsquid processor
+ * Supports both finalized and hot block processing
  */
 export class SQLitDatabase {
   private client: SQLitClient
   private databaseId: string
-  readonly supportsHotBlocks = false
+  private hotBlocks: HashAndHeight[] = []
+  readonly supportsHotBlocks = true
 
   constructor(options: { databaseId: string }) {
     this.client = getSQLit()
@@ -104,10 +113,60 @@ export class SQLitDatabase {
       // Update processor status
       await this.updateStatus(info.nextHead.height, info.nextHead.hash)
 
+      // Clear hot blocks when we finalize
+      this.hotBlocks = []
+
       console.log(`[SQLitDatabase] Processed to block ${info.nextHead.height}`)
     } catch (error) {
       console.error('[SQLitDatabase] Transaction failed:', error)
       throw error
+    }
+  }
+
+  /**
+   * Process hot (unfinalized) blocks
+   * Called for each new block that hasn't been finalized yet
+   */
+  async transactHot(
+    info: HotTxInfo,
+    cb: (store: SQLitStoreInterface, ref: HashAndHeight) => Promise<void>,
+  ): Promise<void> {
+    // Remove any hot blocks that were rolled back
+    const baseIndex = this.hotBlocks.findIndex(
+      (b) => b.hash === info.baseHead.hash,
+    )
+    if (baseIndex >= 0) {
+      this.hotBlocks = this.hotBlocks.slice(0, baseIndex + 1)
+    } else if (info.baseHead.height >= 0) {
+      // Base is a finalized block, clear all hot blocks
+      this.hotBlocks = []
+    }
+
+    // Process each new block
+    for (const block of info.newBlocks) {
+      const store = new SQLitStore(this.client, this.databaseId)
+      try {
+        await cb(store, block)
+        await store.flush()
+        this.hotBlocks.push(block)
+      } catch (error) {
+        console.error(`[SQLitDatabase] Hot block ${block.height} failed:`, error)
+        throw error
+      }
+    }
+
+    // If we have finalized blocks, update status and clear hot blocks up to that point
+    if (info.finalizedHead.height >= 0) {
+      const finalizedIndex = this.hotBlocks.findIndex(
+        (b) => b.height === info.finalizedHead.height,
+      )
+      if (finalizedIndex >= 0) {
+        await this.updateStatus(
+          info.finalizedHead.height,
+          info.finalizedHead.hash,
+        )
+        this.hotBlocks = this.hotBlocks.slice(finalizedIndex + 1)
+      }
     }
   }
 
@@ -232,7 +291,7 @@ export class SQLitDatabase {
   }
 
   /**
-   * Get current processor state
+   * Get current processor state including hot blocks
    */
   private async getState(): Promise<DatabaseState> {
     try {
@@ -247,7 +306,7 @@ export class SQLitDatabase {
         return {
           height,
           hash,
-          top: [{ height, hash }],
+          top: this.hotBlocks,
         }
       }
     } catch {

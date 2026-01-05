@@ -334,6 +334,247 @@ const app = new Elysia()
       mode: 'sqlite-compat',
     }
   })
+  // ============ V2 API (for sqlit v2 client compatibility) ============
+  .post(
+    '/v2/execute',
+    ({ body }) => {
+      try {
+        const req = body as {
+          databaseId: string
+          sql: string
+          params?: (string | number | boolean | null)[]
+        }
+        const db = getOrCreateDatabase(req.databaseId)
+        const sql = req.sql.trim()
+        const params = req.params ?? []
+        const start = performance.now()
+
+        // Determine if this is a read or write query
+        const isRead = /^(SELECT|PRAGMA|EXPLAIN)/i.test(sql)
+        const hasReturning = /RETURNING/i.test(sql)
+
+        if (isRead || hasReturning) {
+          const stmt = db.prepare(sql)
+          const rows = stmt.all(...params) as Record<string, unknown>[]
+          const columns = rows.length > 0 ? Object.keys(rows[0]) : []
+
+          if (hasReturning && !isRead) {
+            blockHeight++
+          }
+
+          return {
+            success: true,
+            rows,
+            rowCount: rows.length,
+            columns,
+            rowsAffected: 0,
+            lastInsertId: '0',
+            walPosition: String(blockHeight),
+            executionTime: Math.round(performance.now() - start),
+          }
+        } else {
+          const stmt = db.prepare(sql)
+          const result = stmt.run(...params)
+          blockHeight++
+
+          return {
+            success: true,
+            rows: [],
+            rowCount: 0,
+            columns: [],
+            rowsAffected: result.changes,
+            lastInsertId: String(result.lastInsertRowid),
+            walPosition: String(blockHeight),
+            executionTime: Math.round(performance.now() - start),
+          }
+        }
+      } catch (err) {
+        return {
+          success: false,
+          error: err instanceof Error ? err.message : String(err),
+          rows: [],
+          rowCount: 0,
+          columns: [],
+          rowsAffected: 0,
+          lastInsertId: '0',
+          walPosition: String(blockHeight),
+        }
+      }
+    },
+    {
+      body: t.Object({
+        databaseId: t.String(),
+        sql: t.String(),
+        params: t.Optional(
+          t.Array(t.Union([t.String(), t.Number(), t.Boolean(), t.Null()])),
+        ),
+        queryType: t.Optional(t.String()),
+        timeoutMs: t.Optional(t.Number()),
+        sessionId: t.Optional(t.String()),
+        requiredWalPosition: t.Optional(t.String()),
+        signature: t.Optional(t.String()),
+        timestamp: t.Optional(t.Number()),
+      }),
+    },
+  )
+  .post(
+    '/v2/batch',
+    ({ body }) => {
+      try {
+        const req = body as {
+          databaseId: string
+          queries: Array<{
+            sql: string
+            params?: (string | number | boolean | null)[]
+          }>
+          transactional: boolean
+        }
+        const db = getOrCreateDatabase(req.databaseId)
+        const results: Array<{
+          success: boolean
+          rows: Record<string, unknown>[]
+          rowCount: number
+          columns: string[]
+          rowsAffected: number
+          lastInsertId: string
+          walPosition: string
+        }> = []
+
+        // Use transaction if requested
+        if (req.transactional) {
+          db.exec('BEGIN')
+        }
+
+        try {
+          for (const query of req.queries) {
+            const sql = query.sql.trim()
+            const params = query.params ?? []
+            const isRead = /^(SELECT|PRAGMA|EXPLAIN)/i.test(sql)
+
+            if (isRead) {
+              const stmt = db.prepare(sql)
+              const rows = stmt.all(...params) as Record<string, unknown>[]
+              const columns = rows.length > 0 ? Object.keys(rows[0]) : []
+              results.push({
+                success: true,
+                rows,
+                rowCount: rows.length,
+                columns,
+                rowsAffected: 0,
+                lastInsertId: '0',
+                walPosition: String(blockHeight),
+              })
+            } else {
+              const stmt = db.prepare(sql)
+              const result = stmt.run(...params)
+              blockHeight++
+              results.push({
+                success: true,
+                rows: [],
+                rowCount: 0,
+                columns: [],
+                rowsAffected: result.changes,
+                lastInsertId: String(result.lastInsertRowid),
+                walPosition: String(blockHeight),
+              })
+            }
+          }
+
+          if (req.transactional) {
+            db.exec('COMMIT')
+          }
+        } catch (err) {
+          if (req.transactional) {
+            db.exec('ROLLBACK')
+          }
+          throw err
+        }
+
+        return {
+          success: true,
+          results,
+          walPosition: String(blockHeight),
+        }
+      } catch (err) {
+        return {
+          success: false,
+          error: err instanceof Error ? err.message : String(err),
+          results: [],
+          walPosition: String(blockHeight),
+        }
+      }
+    },
+    {
+      body: t.Object({
+        databaseId: t.String(),
+        queries: t.Array(
+          t.Object({
+            sql: t.String(),
+            params: t.Optional(
+              t.Array(t.Union([t.String(), t.Number(), t.Boolean(), t.Null()])),
+            ),
+          }),
+        ),
+        transactional: t.Boolean(),
+      }),
+    },
+  )
+  .get('/v2/databases', () => ({
+    success: true,
+    databases: Array.from(databases.keys()).map((id) => ({
+      databaseId: id,
+      status: 'active',
+      sizeBytes: '0',
+      rowCount: '0',
+      walPosition: String(blockHeight),
+    })),
+  }))
+  .get('/v2/databases/:id', ({ params }) => {
+    const db = databases.get(params.id)
+    if (!db) {
+      return { success: false, error: 'Database not found' }
+    }
+    return {
+      success: true,
+      database: {
+        databaseId: params.id,
+        status: 'active',
+        sizeBytes: '0',
+        rowCount: '0',
+        walPosition: String(blockHeight),
+      },
+    }
+  })
+  .post(
+    '/v2/databases',
+    ({ body }) => {
+      const req = body as { name: string; schema?: string }
+      const id = req.name || crypto.randomUUID()
+      const db = getOrCreateDatabase(id)
+
+      // Execute schema if provided
+      if (req.schema) {
+        try {
+          db.exec(req.schema)
+        } catch (err) {
+          return {
+            success: false,
+            error: err instanceof Error ? err.message : String(err),
+          }
+        }
+      }
+
+      return { success: true, databaseId: id }
+    },
+    {
+      body: t.Object({
+        name: t.String(),
+        encryptionMode: t.Optional(t.String()),
+        replication: t.Optional(t.Any()),
+        schema: t.Optional(t.String()),
+      }),
+    },
+  )
 
 // Start server
 app.listen(PORT, () => {
