@@ -1,8 +1,10 @@
-import { CORE_PORTS } from '@jejunetwork/config/ports'
+/**
+ * Example App Playwright Configuration
+ */
+import { getTestConfig } from '@jejunetwork/config/test-config'
 import { defineConfig, devices } from '@playwright/test'
 
-const DEV_MODE = process.env.DEV_MODE === '1'
-const PORT = DEV_MODE ? 4501 : CORE_PORTS.EXAMPLE.get()
+const config = getTestConfig('example')
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -10,11 +12,12 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: 'html',
+  // Console-only reporters - no HTML reports
+  reporter: [['list'], ['line']],
   timeout: 120000,
 
   use: {
-    baseURL: `http://localhost:${PORT}`,
+    baseURL: config.baseURL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -26,14 +29,13 @@ export default defineConfig({
     },
   ],
 
-  // Use 'bun run start' for production-like testing against DWS infrastructure
-  // Set SKIP_WEBSERVER=1 if app is already running
-  // Set DEV_MODE=1 to test against dev server
-  webServer: process.env.SKIP_WEBSERVER
+  // Use 'bun run start' for production-like testing
+  // When testing against remote (testnet/mainnet), no webserver is started
+  webServer: config.skipWebServer
     ? undefined
     : {
-        command: DEV_MODE ? 'bun run dev' : 'bun run start',
-        url: `http://localhost:${PORT}`,
+        command: 'bun run start',
+        url: config.baseURL,
         reuseExistingServer: true,
         timeout: 180000,
       },

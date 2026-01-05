@@ -302,7 +302,7 @@ async function deploy(): Promise<void> {
   const workerFormData = new FormData()
   workerFormData.append('file', new Blob([workerContent]), 'worker.js')
   
-  const workerUploadResponse = await fetch(`${DWS_URL}/upload`, {
+  const workerUploadResponse = await fetch(`${DWS_URL}/storage/upload`, {
     method: 'POST',
     body: workerFormData,
   })

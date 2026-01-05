@@ -1,10 +1,10 @@
 /**
  * Autocrat Playwright Configuration
  */
-import { CORE_PORTS } from '@jejunetwork/config/ports'
+import { getTestConfig } from '@jejunetwork/config/test-config'
 import { defineConfig, devices } from '@playwright/test'
 
-const PORT = CORE_PORTS.AUTOCRAT_WEB.get()
+const config = getTestConfig('autocrat')
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -17,7 +17,7 @@ export default defineConfig({
   timeout: 120000,
 
   use: {
-    baseURL: `http://localhost:${PORT}`,
+    baseURL: config.baseURL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -30,12 +30,12 @@ export default defineConfig({
   ],
 
   // Use 'bun run start' for production-like testing against DWS infrastructure
-  // Set SKIP_WEBSERVER=1 if app is already running
-  webServer: process.env.SKIP_WEBSERVER
+  // When testing against remote (testnet/mainnet), no webserver is started
+  webServer: config.skipWebServer
     ? undefined
     : {
         command: 'bun run start',
-        url: `http://localhost:${PORT}`,
+        url: config.baseURL,
         reuseExistingServer: true,
         timeout: 180000,
       },

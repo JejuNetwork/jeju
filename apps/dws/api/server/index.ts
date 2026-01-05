@@ -143,6 +143,7 @@ import { createStakingRouter } from './routes/staking'
 import { createStorageRouter } from './routes/storage'
 import { createVPNRouter } from './routes/vpn'
 import { createDefaultWorkerdRouter } from './routes/workerd'
+import { releasesRoutes } from './routes/releases'
 import { createWorkersRouter } from './routes/workers'
 
 // Config injection for workerd compatibility
@@ -859,6 +860,7 @@ app.use(createFaucetRouter()) // Testnet-only faucet
 app.use(createStakingRouter()) // Node staking and earnings
 app.use(createPricesRouter())
 app.use(createModerationRouter())
+app.use(releasesRoutes)
 app.use(createEmailRouter())
 
 // Funding and package registry proxy

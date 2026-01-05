@@ -1,10 +1,10 @@
 /**
  * Crucible Playwright Configuration
  */
+import { getTestConfig } from '@jejunetwork/config/test-config'
 import { defineConfig, devices } from '@playwright/test'
 
-// Frontend port 4020, API port 4021
-const FRONTEND_PORT = 4020
+const config = getTestConfig('crucible')
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -18,7 +18,7 @@ export default defineConfig({
   timeout: 120000,
 
   use: {
-    baseURL: `http://localhost:${FRONTEND_PORT}`,
+    baseURL: config.baseURL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -31,12 +31,12 @@ export default defineConfig({
   ],
 
   // Use 'bun run start' for production-like testing against DWS infrastructure
-  // Set SKIP_WEBSERVER=1 if app is already running
-  webServer: process.env.SKIP_WEBSERVER
+  // When testing against remote (testnet/mainnet), no webserver is started
+  webServer: config.skipWebServer
     ? undefined
     : {
         command: 'bun run start',
-        url: `http://localhost:${FRONTEND_PORT}`,
+        url: config.baseURL,
         reuseExistingServer: true,
         timeout: 180000,
       },

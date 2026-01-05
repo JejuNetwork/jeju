@@ -213,7 +213,7 @@ async function fetchPoolsFromIndexer(): Promise<TFMMPool[]> {
 async function fetchPoolsFromApi(): Promise<TFMMPool[]> {
   // Fallback to Bazaar API for pools (works without indexer)
   const response = await fetch('/api/tfmm')
-  
+
   if (!response.ok) {
     console.warn('[useTFMMPools] API fetch failed:', response.status)
     return []

@@ -1,10 +1,10 @@
 /**
  * Monitoring Playwright Configuration
  */
+import { getTestConfig } from '@jejunetwork/config/test-config'
 import { defineConfig, devices } from '@playwright/test'
 
-// Monitoring defaults to 5173 (standard Vite port) or PORT env var
-const PORT = Number(process.env.PORT) || 5173
+const config = getTestConfig('monitoring')
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -12,11 +12,12 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: 'html',
+  // Console-only reporters - no HTML reports
+  reporter: [['list'], ['line']],
   timeout: 120000,
 
   use: {
-    baseURL: `http://localhost:${PORT}`,
+    baseURL: config.baseURL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -28,13 +29,13 @@ export default defineConfig({
     },
   ],
 
-  // Use 'bun run start' for production-like testing against DWS infrastructure
-  // Set SKIP_WEBSERVER=1 if app is already running
-  webServer: process.env.SKIP_WEBSERVER
+  // Use 'bun run start' for production-like testing
+  // When testing against remote (testnet/mainnet), no webserver is started
+  webServer: config.skipWebServer
     ? undefined
     : {
         command: 'bun run start',
-        url: `http://localhost:${PORT}`,
+        url: config.baseURL,
         reuseExistingServer: true,
         timeout: 180000,
       },

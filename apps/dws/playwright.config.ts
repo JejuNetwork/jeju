@@ -1,6 +1,7 @@
+import { getTestConfig } from '@jejunetwork/config/test-config'
 import { defineConfig, devices } from '@playwright/test'
 
-const FRONTEND_PORT = 4031
+const config = getTestConfig('dws')
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -13,15 +14,17 @@ export default defineConfig({
   timeout: 120000,
 
   use: {
-    baseURL: `http://localhost:${FRONTEND_PORT}`,
+    baseURL: config.baseURL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
 
-  // Pass API keys to test environment
+  // Pass API keys and network config to test environment
   env: {
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ?? '',
     OPENAI_API_KEY: process.env.OPENAI_API_KEY ?? '',
+    JEJU_NETWORK: config.network,
+    API_URL: config.apiURL,
   },
 
   projects: [
@@ -32,12 +35,12 @@ export default defineConfig({
   ],
 
   // Use 'bun run dev' to start both frontend (4031) and API (4030)
-  // Set SKIP_WEBSERVER=1 if app is already running
-  webServer: process.env.SKIP_WEBSERVER
+  // When testing against remote (testnet/mainnet), no webserver is started
+  webServer: config.skipWebServer
     ? undefined
     : {
         command: 'bun run dev',
-        url: `http://localhost:4031`,
+        url: config.baseURL,
         reuseExistingServer: true,
         timeout: 180000,
       },

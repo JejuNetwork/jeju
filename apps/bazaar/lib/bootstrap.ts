@@ -620,15 +620,18 @@ export async function bootstrapTFMMPools(
     // Cast requires array format: "[a,b]" with proper escaping
     const amountsArray = `"[${poolConfig.initialLiquidity.join(',')}]"`
     const addLiquidityCmd = `cast send ${poolAddress} "addLiquidity(uint256[],uint256)" ${amountsArray} 0 --rpc-url ${config.rpcUrl} --private-key ${config.privateKey}`
-    
+
     let liquidityAdded = false
     try {
-      execSync(addLiquidityCmd, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] })
+      execSync(addLiquidityCmd, {
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+      })
       liquidityAdded = true
       console.log('  Liquidity added.')
-    } catch (err) {
+    } catch {
       // Pool is still valid even if liquidity add fails - owner can add later
-      console.log(`  Warning: Liquidity add failed. Pool created without initial liquidity.`)
+      console.log('  Warning: Liquidity add failed. Pool created without initial liquidity.')
     }
 
     pools.push({

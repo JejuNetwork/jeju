@@ -13,7 +13,7 @@
 import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { type Address, createPublicClient, formatEther, http } from 'viem'
+import { createPublicClient, formatEther, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 
 const RPC_URL = 'https://testnet-rpc.jejunetwork.org'
@@ -81,7 +81,9 @@ function deployContract(
   const contractAddress = result.contractAddress
 
   if (!contractAddress) {
-    throw new Error(`Deployment failed for ${name}. Tx: ${result.transactionHash}`)
+    throw new Error(
+      `Deployment failed for ${name}. Tx: ${result.transactionHash}`,
+    )
   }
 
   console.log(`    ${name}: ${contractAddress}`)
@@ -225,8 +227,10 @@ async function deployTFMMPools(
     try {
       exec(addLiquidityCmd)
       console.log('    Liquidity added.')
-    } catch (error) {
-      console.log('    Warning: Liquidity add failed, pool created without initial liquidity')
+    } catch (_error) {
+      console.log(
+        '    Warning: Liquidity add failed, pool created without initial liquidity',
+      )
     }
 
     pools.push({
@@ -320,7 +324,7 @@ async function main(): Promise<void> {
   }
 
   // Summary
-  console.log('\n' + '='.repeat(50))
+  console.log(`\n${'='.repeat(50)}`)
   console.log('TFMM TESTNET DEPLOYMENT COMPLETE')
   console.log('='.repeat(50))
   console.log('\nTokens:')

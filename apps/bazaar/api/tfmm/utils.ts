@@ -11,7 +11,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { getIndexerGraphqlUrl, getL2RpcUrl } from '@jejunetwork/config'
 import { AddressSchema, expect } from '@jejunetwork/types'
-import { createPublicClient, http, type Address } from 'viem'
+import { type Address, createPublicClient, http } from 'viem'
 import { jeju, jejuLocalnet } from '../../config/chains'
 import type {
   TFMMCreatePoolParams,
@@ -252,9 +252,13 @@ async function fetchPoolsFromConfig(): Promise<TFMMPool[]> {
     '../../../../packages/contracts',
   )
   const rpcUrl = getL2RpcUrl()
-  const isLocalnet = rpcUrl.includes('localhost') || rpcUrl.includes('127.0.0.1')
+  const isLocalnet =
+    rpcUrl.includes('localhost') || rpcUrl.includes('127.0.0.1')
   const networkName = isLocalnet ? 'localnet' : 'testnet'
-  const tfmmDeployPath = join(contractsDir, `deployments/tfmm-${networkName}.json`)
+  const tfmmDeployPath = join(
+    contractsDir,
+    `deployments/tfmm-${networkName}.json`,
+  )
 
   if (!existsSync(tfmmDeployPath)) {
     return []
@@ -319,12 +323,8 @@ async function fetchPoolsFromConfig(): Promise<TFMMPool[]> {
       symbol: deployedPool.symbol,
       strategy: 'none',
       tokens: [...state.tokens],
-      weights: state.currentWeights.map(
-        (w) => Number(w) / 1e16,
-      ),
-      targetWeights: state.targetWeights.map(
-        (w) => Number(w) / 1e16,
-      ),
+      weights: state.currentWeights.map((w) => Number(w) / 1e16),
+      targetWeights: state.targetWeights.map((w) => Number(w) / 1e16),
       tvl: tvlFormatted,
       tvlUSD: tvlFormatted,
       apy: '0%',
@@ -340,13 +340,16 @@ async function fetchPoolsFromConfig(): Promise<TFMMPool[]> {
 /**
  * Get a specific pool by address
  */
-export async function getTFMMPool(poolAddress: string): Promise<TFMMPool | null> {
+export async function getTFMMPool(
+  poolAddress: string,
+): Promise<TFMMPool | null> {
   AddressSchema.parse(poolAddress)
 
   const allPools = await getAllTFMMPools()
   return (
-    allPools.find((p) => p.address.toLowerCase() === poolAddress.toLowerCase()) ??
-    null
+    allPools.find(
+      (p) => p.address.toLowerCase() === poolAddress.toLowerCase(),
+    ) ?? null
   )
 }
 

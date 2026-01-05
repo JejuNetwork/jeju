@@ -848,6 +848,90 @@ const server = http.createServer((req, res) => {
     return;
   }
   
+  // Direct wallet auth endpoint - used by OAuth3 SDK
+  if (url.pathname === '/auth/wallet' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      try {
+        const data = JSON.parse(body);
+        const { address, signature, message, appId = 'jeju-default' } = data;
+        
+        // Validate address format
+        if (!address || !address.startsWith('0x') || address.length !== 42) {
+          res.setHeader('Content-Type', 'application/json');
+          res.writeHead(400);
+          res.end(JSON.stringify({ error: 'invalid_address' }));
+          return;
+        }
+        
+        // Validate signature format
+        if (!signature || !signature.startsWith('0x') || signature.length < 130) {
+          res.setHeader('Content-Type', 'application/json');
+          res.writeHead(400);
+          res.end(JSON.stringify({ error: 'invalid_signature' }));
+          return;
+        }
+        
+        // Validate message contains sign-in request (SIWE-style)
+        const validDomains = ['oauth3.testnet.jejunetwork.org', 'oauth3.jejunetwork.org', 'crucible', 'localhost', 'wants you to sign in'];
+        const hasValidDomain = validDomains.some(d => message && message.includes(d));
+        if (!hasValidDomain) {
+          res.setHeader('Content-Type', 'application/json');
+          res.writeHead(400);
+          res.end(JSON.stringify({ error: 'invalid_message', message: 'Message must be a valid sign-in request' }));
+          return;
+        }
+        
+        // In production, verify signature with eth_ecrecover
+        // For testnet, we accept any valid-looking signature
+        
+        // Create session
+        const sessionId = '0x' + crypto.randomBytes(16).toString('hex');
+        const userId = 'wallet:' + address.toLowerCase();
+        const expiresAt = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+        
+        sessions.set(sessionId, {
+          sessionId,
+          userId,
+          provider: 'wallet',
+          address: address.toLowerCase(),
+          createdAt: Date.now(),
+          expiresAt,
+          metadata: { appId }
+        });
+        
+        console.log('[OAuth3] Direct wallet auth session created:', sessionId.substring(0, 10) + '...', address.substring(0, 6) + '...');
+        
+        // Return session in OAuth3Session format expected by the SDK
+        res.setHeader('Content-Type', 'application/json');
+        res.writeHead(200);
+        res.end(JSON.stringify({
+          sessionId,
+          identityId: sessionId,
+          smartAccount: address,
+          expiresAt,
+          capabilities: ['SIGN_MESSAGE', 'SIGN_TRANSACTION'],
+          signingPublicKey: '0x', // Simulated for testnet
+          attestation: {
+            quote: '0x',
+            measurement: '0x',
+            reportData: '0x',
+            timestamp: Date.now(),
+            platform: 'simulated',
+            verified: false
+          }
+        }));
+      } catch (err) {
+        console.error('[OAuth3] Direct wallet auth error:', err);
+        res.setHeader('Content-Type', 'application/json');
+        res.writeHead(500);
+        res.end(JSON.stringify({ error: 'server_error' }));
+      }
+    });
+    return;
+  }
+  
   // Social OAuth providers - redirect with "not configured" message for testnet
   if (url.pathname.startsWith('/oauth/social/') || url.pathname.startsWith('/farcaster/')) {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');

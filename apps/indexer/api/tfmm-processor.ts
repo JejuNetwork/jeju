@@ -10,6 +10,7 @@
 
 import type { Store } from '@subsquid/typeorm-store'
 import type { Hex } from 'viem'
+import { config } from './config'
 import {
   TFMMLiquidityEvent,
   TFMMLiquidityEventType,
@@ -18,7 +19,6 @@ import {
   TFMMSwap,
   TFMMWeightUpdate,
 } from './model'
-import { config } from './config'
 import type { ProcessorContext } from './processor'
 import {
   type BlockHeader,
@@ -113,9 +113,23 @@ export async function processTFMMEvents(
       if (topic0 === SWAP_TOPIC) {
         processSwap(log, header, timestamp, pool, swaps, accountFactory)
       } else if (topic0 === LIQUIDITY_ADDED_TOPIC) {
-        processLiquidityAdded(log, header, timestamp, pool, liquidityEvents, accountFactory)
+        processLiquidityAdded(
+          log,
+          header,
+          timestamp,
+          pool,
+          liquidityEvents,
+          accountFactory,
+        )
       } else if (topic0 === LIQUIDITY_REMOVED_TOPIC) {
-        processLiquidityRemoved(log, header, timestamp, pool, liquidityEvents, accountFactory)
+        processLiquidityRemoved(
+          log,
+          header,
+          timestamp,
+          pool,
+          liquidityEvents,
+          accountFactory,
+        )
       } else if (topic0 === WEIGHTS_UPDATED_TOPIC) {
         processWeightsUpdated(log, header, timestamp, pool, weightUpdates)
       }
@@ -177,7 +191,11 @@ function processSwap(
   const txHash = log.transactionHash
   const swapId = `${txHash}-${log.logIndex}`
 
-  const sender = accountFactory.getOrCreate(senderAddr, header.height, timestamp)
+  const sender = accountFactory.getOrCreate(
+    senderAddr,
+    header.height,
+    timestamp,
+  )
 
   const swap = new TFMMSwap({
     id: swapId,
