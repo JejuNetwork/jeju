@@ -13,7 +13,7 @@ import {
   getIpfsApiUrl,
   getSQLitUrl,
 } from '@jejunetwork/config'
-import { SQLitClient } from '@jejunetwork/sqlit/v2/client'
+import { SQLitClient } from '@jejunetwork/sqlit/client'
 import { getInfrastructurePersistence } from '../../api/infrastructure/persistence'
 import { getSourceUploader } from '../../api/infrastructure/source-uploader'
 import { getVaultService } from '../../api/infrastructure/vault-service'

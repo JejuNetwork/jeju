@@ -12,7 +12,7 @@
  */
 
 import { randomBytes } from 'node:crypto'
-import { SQLitClient } from '@jejunetwork/sqlit/v2/client'
+import { SQLitClient } from '@jejunetwork/sqlit/client'
 import {
   getMetadataService,
   type MetadataService,

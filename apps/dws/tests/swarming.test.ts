@@ -11,7 +11,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'bun:test'
 import { existsSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
-import { createSQLitServer } from '../../../packages/sqlit/v2/server'
+import { createSQLitServer } from '@jejunetwork/sqlit/server'
 import { resetMetadataService } from '../api/database/metadata-service'
 import {
   type SwarmingConfig,
