@@ -14,11 +14,7 @@ import { useState } from 'react'
 import { useAccount } from 'wagmi'
 import { SkeletonStatCard, SkeletonTable } from '../components/Skeleton'
 import { useToast } from '../context/AppContext'
-import {
-  useDeposit,
-  useTransactionHistory,
-  useUserAccount,
-} from '../hooks'
+import { useDeposit, useTransactionHistory, useUserAccount } from '../hooks'
 
 export default function BillingPage() {
   const { isConnected, address } = useAccount()
@@ -34,10 +30,12 @@ export default function BillingPage() {
 
   const handleDeposit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const result = await deposit.mutateAsync(depositAmount).catch((error: Error) => {
-      showError('Deposit failed', error.message)
-      return null
-    })
+    const result = await deposit
+      .mutateAsync(depositAmount)
+      .catch((error: Error) => {
+        showError('Deposit failed', error.message)
+        return null
+      })
     if (result) {
       showSuccess(
         'Deposit successful',

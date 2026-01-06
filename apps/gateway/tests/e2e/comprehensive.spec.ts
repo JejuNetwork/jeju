@@ -15,7 +15,9 @@ import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
 
 // Check if running against testnet/mainnet where UI may differ
-const isRemote = process.env.JEJU_NETWORK === 'testnet' || process.env.JEJU_NETWORK === 'mainnet'
+const isRemote =
+  process.env.JEJU_NETWORK === 'testnet' ||
+  process.env.JEJU_NETWORK === 'mainnet'
 
 let verifyImage:
   | ((
@@ -247,7 +249,7 @@ async function runAIVerification(
 test.describe('Gateway - Main Page Load', () => {
   // Skip on remote - UI structure may differ
   test.skip(isRemote, 'Skipping main page load tests on remote network')
-  
+
   test('Dashboard loads with Gateway branding', async ({ page }) => {
     const { errors, hasKnownBug } = setupErrorCapture(page)
 
@@ -284,7 +286,7 @@ test.describe('Gateway - Main Page Load', () => {
 test.describe('Gateway - Header Components', () => {
   // Skip on remote - UI structure may differ
   test.skip(isRemote, 'Skipping header tests on remote network')
-  
+
   test('header has Gateway branding', async ({ page }) => {
     await page.goto('/')
     await page.waitForTimeout(500)
@@ -320,7 +322,7 @@ test.describe('Gateway - Header Components', () => {
 test.describe('Gateway - Route Navigation', () => {
   // Skip on remote - navigation structure may differ
   test.skip(isRemote, 'Skipping navigation tests on remote network')
-  
+
   test('navigation sidebar is visible', async ({ page }) => {
     await page.goto('/')
     await page.waitForTimeout(1000)
@@ -373,7 +375,7 @@ test.describe('Gateway - Route Navigation', () => {
 test.describe('Gateway - Registry Page', () => {
   // Skip on remote - form structure may differ
   test.skip(isRemote, 'Skipping registry page tests on remote network')
-  
+
   test('Registry page has registration form', async ({ page }) => {
     await page.goto('/registry')
     await page.waitForTimeout(1000)
@@ -526,7 +528,7 @@ test.describe('Gateway - Nodes Page', () => {
 test.describe('Gateway - Settings Page', () => {
   // Skip on remote - settings page may differ
   test.skip(isRemote, 'Skipping settings page tests on remote network')
-  
+
   test('Settings page loads with theme toggle', async ({ page }) => {
     await page.goto('/settings')
     await page.waitForTimeout(1000)
@@ -544,7 +546,7 @@ test.describe('Gateway - Settings Page', () => {
 test.describe('Gateway - Mobile Responsiveness', () => {
   // Skip on remote - mobile UI may differ
   test.skip(isRemote, 'Skipping mobile tests on remote network')
-  
+
   test('renders on mobile viewport', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 })
     await page.goto('/')

@@ -459,13 +459,30 @@ function LogsTab() {
     <div className="card overflow-hidden animate-in">
       <div className="px-4 py-3 bg-surface-800/50 border-b border-surface-800/50 flex items-center justify-between">
         <h4 className="font-medium text-surface-200">Agent Logs</h4>
-        <span className="text-xs text-surface-500 uppercase tracking-wider">Last 24h</span>
+        <span className="text-xs text-surface-500 uppercase tracking-wider">
+          Last 24h
+        </span>
       </div>
       <div className="p-4 font-mono text-sm bg-surface-950/50">
         <div className="space-y-1 text-surface-400">
-          <p><span className="text-surface-600">[{new Date().toISOString()}]</span> Agent initialized</p>
-          <p><span className="text-surface-600">[{new Date().toISOString()}]</span> Connected to network</p>
-          <p><span className="text-surface-600">[{new Date().toISOString()}]</span> Awaiting tasks...</p>
+          <p>
+            <span className="text-surface-600">
+              [{new Date().toISOString()}]
+            </span>{' '}
+            Agent initialized
+          </p>
+          <p>
+            <span className="text-surface-600">
+              [{new Date().toISOString()}]
+            </span>{' '}
+            Connected to network
+          </p>
+          <p>
+            <span className="text-surface-600">
+              [{new Date().toISOString()}]
+            </span>{' '}
+            Awaiting tasks...
+          </p>
         </div>
       </div>
     </div>

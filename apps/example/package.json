@@ -10,15 +10,9 @@
     "build": "bun run scripts/build.ts",
     "start": "bun run scripts/serve.ts",
     "deploy": "bun run scripts/deploy.ts",
-    "deploy:skip-verify": "bun run scripts/deploy.ts --skip-verify",
-    "verify": "bun run scripts/verify-deployment.ts",
-    "verify:local": "bun run scripts/verify-deployment.ts --url http://localhost:4500",
-    "verify:testnet": "bun run scripts/verify-deployment.ts --url https://example.testnet.jejunetwork.org",
-    "verify:mainnet": "bun run scripts/verify-deployment.ts --url https://example.jejunetwork.org",
     "test": "bun test tests/",
     "test:e2e": "bunx playwright test --config=playwright.config.ts",
     "test:synpress": "bunx synpress --config=synpress.config.ts",
-    "test:api": "bun test tests/integration/api.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

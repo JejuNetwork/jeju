@@ -110,7 +110,6 @@ async function build() {
       '@opentelemetry/*',
       'bun:sqlite',
       'node:*',
-      'crypto',
       'typeorm',
       '@jejunetwork/db',
       '@jejunetwork/dws',

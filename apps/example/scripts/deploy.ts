@@ -382,7 +382,7 @@ async function deploy(): Promise<void> {
   const frontendResult = await uploadDirectory(
     config.dwsUrl,
     join(APP_DIR, 'dist'),
-    ['api', 'worker', 'workerd'], // Exclude API and worker directories
+    ['api'], // Exclude API directory
   )
   console.log(
     `[Deploy] Frontend: ${frontendResult.files.size} files, ${(frontendResult.totalSize / 1024).toFixed(1)} KB`,

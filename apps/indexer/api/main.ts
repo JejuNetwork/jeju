@@ -37,7 +37,6 @@ import {
 import { processCrossServiceEvents } from './cross-service-processor'
 import { processDEXEvents } from './dex-processor'
 import { processEILEvents } from './eil-processor'
-import { processTFMMEvents, registerTFMMPool } from './tfmm-processor'
 import { processMarketEvents } from './market-processor'
 import { processModerationEvent } from './moderation-processor'
 import { processNodeStakingEvents } from './node-staking-processor'
@@ -47,6 +46,7 @@ import { type ProcessorContext, processor } from './processor'
 import { processRegistryEvents } from './registry-game-processor'
 import { SQLitDatabase } from './sqlit-database'
 import { processStorageEvents } from './storage-processor'
+import { processTFMMEvents } from './tfmm-processor'
 
 const SQLIT_DATABASE_ID = config.sqlitDatabaseId || 'indexer-testnet'
 
@@ -156,7 +156,14 @@ processor.run(db, async (ctx: ProcessorContext<Store>) => {
         transferCount: 0,
         lastUpdated: timestamp,
       })
+      // Store block number for last_updated_block column
+      ;(balance as unknown as { blockNumber?: number }).blockNumber =
+        block.number
       tokenBalances.set(id, balance)
+    } else {
+      // Update block number when balance is updated
+      ;(balance as unknown as { blockNumber?: number }).blockNumber =
+        block.number
     }
     return balance
   }

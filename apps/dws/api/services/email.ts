@@ -20,17 +20,17 @@
 import type { Address } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import { z } from 'zod'
+import type { HardwareSpec } from '../containers/provisioner'
 import {
   getStatefulProvisioner,
-  type StatefulServiceConfig,
   type StatefulService,
+  type StatefulServiceConfig,
 } from '../containers/stateful-provisioner'
 import {
-  registerTypedService,
   deregisterService,
+  registerTypedService,
   type ServiceEndpoint,
 } from './discovery'
-import type { HardwareSpec } from '../containers/provisioner'
 
 // ============================================================================
 // Types
@@ -237,7 +237,8 @@ export async function deployEmail(
   }
 
   if (validatedConfig.moderation.aiModelEndpoint) {
-    ;(commonEnv as Record<string, string>)['AI_MODEL_ENDPOINT'] = validatedConfig.moderation.aiModelEndpoint
+    ;(commonEnv as Record<string, string>).AI_MODEL_ENDPOINT =
+      validatedConfig.moderation.aiModelEndpoint
   }
 
   // Deploy Relay service
@@ -250,9 +251,15 @@ export async function deployEmail(
     env: {
       ...commonEnv,
       RELAY_PORT: String(RELAY_PORT),
-      RATE_LIMITS_FREE: JSON.stringify(validatedConfig.relay.rateLimits.free ?? DEFAULT_RATE_LIMITS.free),
-      RATE_LIMITS_STAKED: JSON.stringify(validatedConfig.relay.rateLimits.staked ?? DEFAULT_RATE_LIMITS.staked),
-      RATE_LIMITS_PREMIUM: JSON.stringify(validatedConfig.relay.rateLimits.premium ?? DEFAULT_RATE_LIMITS.premium),
+      RATE_LIMITS_FREE: JSON.stringify(
+        validatedConfig.relay.rateLimits.free ?? DEFAULT_RATE_LIMITS.free,
+      ),
+      RATE_LIMITS_STAKED: JSON.stringify(
+        validatedConfig.relay.rateLimits.staked ?? DEFAULT_RATE_LIMITS.staked,
+      ),
+      RATE_LIMITS_PREMIUM: JSON.stringify(
+        validatedConfig.relay.rateLimits.premium ?? DEFAULT_RATE_LIMITS.premium,
+      ),
     },
     ports: [{ name: 'relay', containerPort: RELAY_PORT, protocol: 'tcp' }],
     hardware,
@@ -434,7 +441,9 @@ export async function deployEmail(
 
   emailServices.set(serviceId, emailService)
 
-  console.log(`[EmailService] Deployed ${validatedConfig.name} for @${validatedConfig.emailDomain}`)
+  console.log(
+    `[EmailService] Deployed ${validatedConfig.name} for @${validatedConfig.emailDomain}`,
+  )
 
   return emailService
 }
@@ -535,7 +544,8 @@ export function getTestnetEmailConfig(): EmailConfig {
     dws: {
       endpoint: 'https://dws.testnet.jejunetwork.org',
       rpcUrl: 'https://testnet.jejunetwork.org',
-      emailRegistryAddress: '0x0000000000000000000000000000000000000000' as Address,
+      emailRegistryAddress:
+        '0x0000000000000000000000000000000000000000' as Address,
     },
   }
 }

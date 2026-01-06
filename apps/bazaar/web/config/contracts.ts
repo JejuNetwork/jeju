@@ -1,10 +1,10 @@
+import { getContractsConfig } from '@jejunetwork/config'
 import {
   type ChainId,
   getUniswapV4,
   isValidAddress,
   ZERO_ADDRESS,
 } from '@jejunetwork/contracts'
-import { getContractsConfig } from '@jejunetwork/config'
 import type { Address } from 'viem'
 import { CHAIN_ID, NETWORK } from './network'
 

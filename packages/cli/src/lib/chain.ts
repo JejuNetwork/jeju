@@ -245,7 +245,9 @@ export async function startLocalnet(
     sqlitPort: staticSqlitPort,
     l1Rpc: `http://${localhost}:${staticL1Port}`,
     l2Rpc: `http://${localhost}:${staticL2Port}`,
-    sqlitApi: staticSqlitPort ? `http://${localhost}:${staticSqlitPort}` : undefined,
+    sqlitApi: staticSqlitPort
+      ? `http://${localhost}:${staticSqlitPort}`
+      : undefined,
     chainId: 31337,
     timestamp: new Date().toISOString(),
   }

@@ -56,238 +56,248 @@ export function createAuthInitRouter(_config: AuthConfig) {
     (typeof process !== 'undefined' ? process.env.BASE_URL : undefined) ??
     (network === 'localnet' ? `http://${host}:4200` : getOAuth3Url(network))
 
-  return new Elysia({ name: 'auth-init', prefix: '/auth' })
-    .post(
-      '/init',
-      async ({ body, set }) => {
-        const { provider, redirectUri, appId = 'jeju-default', state } = body
+  return (
+    new Elysia({ name: 'auth-init', prefix: '/auth' })
+      .post(
+        '/init',
+        async ({ body, set }) => {
+          const { provider, redirectUri, appId = 'jeju-default', state } = body
 
-        // Find or use default client
-        let client = await clientState.get(appId)
-        if (!client) {
-          // Try default client
-          client = await clientState.get('jeju-default')
-        }
-
-        // For development, create a permissive client if none exists
-        if (!client) {
-          // Auto-register the client for dev (in production this should fail)
-          const isDev = !isProductionEnv()
-          if (isDev) {
-            console.log(
-              `[OAuth3] Auto-registering development client: ${appId}`,
-            )
-            await clientState.save({
-              clientId: appId,
-              clientSecretHash: {
-                hash: '',
-                salt: '',
-                algorithm: 'pbkdf2',
-                version: 1,
-              },
-              name: appId,
-              redirectUris: [
-                `http://localhost:*`,
-                `http://${getLocalhostHost()}:*`,
-                'https://*.jejunetwork.org/*',
-              ],
-              allowedProviders: ['wallet', 'farcaster', 'github', 'google'],
-              owner:
-                '0x0000000000000000000000000000000000000000' as `0x${string}`,
-              active: true,
-              createdAt: Date.now(),
-            })
-            client = await clientState.get(appId)
+          // Find or use default client
+          let client = await clientState.get(appId)
+          if (!client) {
+            // Try default client
+            client = await clientState.get('jeju-default')
           }
-        }
 
-        if (!client || !client.active) {
-          set.status = 400
-          return {
-            error: 'invalid_client',
-            message: 'Unknown or inactive client',
+          // For development, create a permissive client if none exists
+          if (!client) {
+            // Auto-register the client for dev (in production this should fail)
+            const isDev = !isProductionEnv()
+            if (isDev) {
+              console.log(
+                `[OAuth3] Auto-registering development client: ${appId}`,
+              )
+              await clientState.save({
+                clientId: appId,
+                clientSecretHash: {
+                  hash: '',
+                  salt: '',
+                  algorithm: 'pbkdf2',
+                  version: 1,
+                },
+                name: appId,
+                redirectUris: [
+                  `http://localhost:*`,
+                  `http://${getLocalhostHost()}:*`,
+                  'https://*.jejunetwork.org/*',
+                ],
+                allowedProviders: ['wallet', 'farcaster', 'github', 'google'],
+                owner:
+                  '0x0000000000000000000000000000000000000000' as `0x${string}`,
+                active: true,
+                createdAt: Date.now(),
+              })
+              client = await clientState.get(appId)
+            }
           }
-        }
 
-        // Validate redirect URI (relaxed for development)
-        const isDev = !isProductionEnv()
-        if (!isDev && !validateRedirectUri(redirectUri, client.redirectUris)) {
-          set.status = 400
-          return {
-            error: 'invalid_redirect_uri',
-            message: 'Redirect URI not allowed',
-          }
-        }
-
-        const authState = state ?? crypto.randomUUID()
-        const encodedRedirectUri = encodeURIComponent(redirectUri)
-
-        // Build the appropriate auth URL based on provider
-        let authUrl: string
-
-        switch (provider.toLowerCase()) {
-          case 'wallet':
-            authUrl = `${baseUrl}/wallet/challenge?client_id=${appId}&redirect_uri=${encodedRedirectUri}&state=${authState}`
-            break
-
-          case 'farcaster':
-            authUrl = `${baseUrl}/farcaster/init?client_id=${appId}&redirect_uri=${encodedRedirectUri}&state=${authState}`
-            break
-
-          case 'github':
-          case 'google':
-          case 'twitter':
-          case 'discord':
-            authUrl = `${baseUrl}/oauth/social/${provider.toLowerCase()}?client_id=${appId}&redirect_uri=${encodedRedirectUri}&state=${authState}`
-            break
-
-          case 'email':
-            // Email provider - for now redirect to authorize page
-            authUrl = `${baseUrl}/oauth/authorize?client_id=${appId}&redirect_uri=${encodedRedirectUri}&state=${authState}&provider=email`
-            break
-
-          default:
+          if (!client || !client.active) {
             set.status = 400
             return {
-              error: 'unsupported_provider',
-              message: `Provider "${provider}" is not supported. Use: wallet, farcaster, github, google, twitter, discord`,
+              error: 'invalid_client',
+              message: 'Unknown or inactive client',
             }
-        }
+          }
 
+          // Validate redirect URI (relaxed for development)
+          const isDev = !isProductionEnv()
+          if (
+            !isDev &&
+            !validateRedirectUri(redirectUri, client.redirectUris)
+          ) {
+            set.status = 400
+            return {
+              error: 'invalid_redirect_uri',
+              message: 'Redirect URI not allowed',
+            }
+          }
+
+          const authState = state ?? crypto.randomUUID()
+          const encodedRedirectUri = encodeURIComponent(redirectUri)
+
+          // Build the appropriate auth URL based on provider
+          let authUrl: string
+
+          switch (provider.toLowerCase()) {
+            case 'wallet':
+              authUrl = `${baseUrl}/wallet/challenge?client_id=${appId}&redirect_uri=${encodedRedirectUri}&state=${authState}`
+              break
+
+            case 'farcaster':
+              authUrl = `${baseUrl}/farcaster/init?client_id=${appId}&redirect_uri=${encodedRedirectUri}&state=${authState}`
+              break
+
+            case 'github':
+            case 'google':
+            case 'twitter':
+            case 'discord':
+              authUrl = `${baseUrl}/oauth/social/${provider.toLowerCase()}?client_id=${appId}&redirect_uri=${encodedRedirectUri}&state=${authState}`
+              break
+
+            case 'email':
+              // Email provider - for now redirect to authorize page
+              authUrl = `${baseUrl}/oauth/authorize?client_id=${appId}&redirect_uri=${encodedRedirectUri}&state=${authState}&provider=email`
+              break
+
+            default:
+              set.status = 400
+              return {
+                error: 'unsupported_provider',
+                message: `Provider "${provider}" is not supported. Use: wallet, farcaster, github, google, twitter, discord`,
+              }
+          }
+
+          return {
+            authUrl,
+            state: authState,
+            provider: provider.toLowerCase(),
+          }
+        },
+        { body: InitBodySchema },
+      )
+
+      .get('/providers', () => {
+        // Return available providers and their status
         return {
-          authUrl,
-          state: authState,
-          provider: provider.toLowerCase(),
+          providers: [
+            { id: 'wallet', name: 'Wallet', enabled: true, icon: '🔐' },
+            { id: 'farcaster', name: 'Farcaster', enabled: true, icon: '🟣' },
+            {
+              id: 'github',
+              name: 'GitHub',
+              enabled: Boolean(process.env.GITHUB_CLIENT_ID),
+              icon: '🐙',
+            },
+            {
+              id: 'google',
+              name: 'Google',
+              enabled: Boolean(process.env.GOOGLE_CLIENT_ID),
+              icon: '🔵',
+            },
+            {
+              id: 'twitter',
+              name: 'Twitter',
+              enabled: Boolean(process.env.TWITTER_CLIENT_ID),
+              icon: '🐦',
+            },
+            {
+              id: 'discord',
+              name: 'Discord',
+              enabled: Boolean(process.env.DISCORD_CLIENT_ID),
+              icon: '💬',
+            },
+          ],
         }
-      },
-      { body: InitBodySchema },
-    )
+      })
 
-    .get('/providers', () => {
-      // Return available providers and their status
-      return {
-        providers: [
-          { id: 'wallet', name: 'Wallet', enabled: true, icon: '🔐' },
-          { id: 'farcaster', name: 'Farcaster', enabled: true, icon: '🟣' },
-          {
-            id: 'github',
-            name: 'GitHub',
-            enabled: Boolean(process.env.GITHUB_CLIENT_ID),
-            icon: '🐙',
-          },
-          {
-            id: 'google',
-            name: 'Google',
-            enabled: Boolean(process.env.GOOGLE_CLIENT_ID),
-            icon: '🔵',
-          },
-          {
-            id: 'twitter',
-            name: 'Twitter',
-            enabled: Boolean(process.env.TWITTER_CLIENT_ID),
-            icon: '🐦',
-          },
-          {
-            id: 'discord',
-            name: 'Discord',
-            enabled: Boolean(process.env.DISCORD_CLIENT_ID),
-            icon: '💬',
-          },
-        ],
-      }
-    })
+      // Direct wallet authentication endpoint for SDK usage
+      // This is a single-request auth flow used by the OAuth3 client SDK
+      .post(
+        '/wallet',
+        async ({ body, set }) => {
+          if (!isAddress(body.address)) {
+            set.status = 400
+            return { error: 'invalid_address' }
+          }
+          if (!isHex(body.signature)) {
+            set.status = 400
+            return { error: 'invalid_signature_format' }
+          }
 
-    // Direct wallet authentication endpoint for SDK usage
-    // This is a single-request auth flow used by the OAuth3 client SDK
-    .post(
-      '/wallet',
-      async ({ body, set }) => {
-        if (!isAddress(body.address)) {
-          set.status = 400
-          return { error: 'invalid_address' }
-        }
-        if (!isHex(body.signature)) {
-          set.status = 400
-          return { error: 'invalid_signature_format' }
-        }
+          const address: Address = body.address
+          const signature: Hex = body.signature
+          const appId = body.appId ?? 'jeju-default'
 
-        const address: Address = body.address
-        const signature: Hex = body.signature
-        const appId = body.appId ?? 'jeju-default'
+          // Verify the message is a valid sign-in message
+          // Accept any SIWE-style message from known domains
+          const validDomains = [
+            'auth.jejunetwork.org',
+            'oauth3.jejunetwork.org',
+            'crucible.testnet.jejunetwork.org',
+            'crucible.jejunetwork.org',
+            'localhost',
+            getLocalhostHost(),
+          ]
+          const messageHasDomain = validDomains.some(
+            (d) =>
+              body.message.includes(d) ||
+              body.message.includes('wants you to sign in'),
+          )
+          if (!messageHasDomain) {
+            set.status = 400
+            return {
+              error: 'invalid_message',
+              message: 'Message must be a valid sign-in request',
+            }
+          }
 
-        // Verify the message is a valid sign-in message
-        // Accept any SIWE-style message from known domains
-        const validDomains = [
-          'auth.jejunetwork.org',
-          'oauth3.jejunetwork.org',
-          'crucible.testnet.jejunetwork.org',
-          'crucible.jejunetwork.org',
-          'localhost',
-          getLocalhostHost(),
-        ]
-        const messageHasDomain = validDomains.some(
-          (d) => body.message.includes(d) || body.message.includes('wants you to sign in'),
-        )
-        if (!messageHasDomain) {
-          set.status = 400
-          return { error: 'invalid_message', message: 'Message must be a valid sign-in request' }
-        }
+          // Verify signature
+          const valid = await verifyMessage({
+            address,
+            message: body.message,
+            signature,
+          })
 
-        // Verify signature
-        const valid = await verifyMessage({
-          address,
-          message: body.message,
-          signature,
-        })
+          if (!valid) {
+            set.status = 401
+            return { error: 'invalid_signature' }
+          }
 
-        if (!valid) {
-          set.status = 401
-          return { error: 'invalid_signature' }
-        }
+          // Create session
+          const sessionId = `0x${crypto.randomUUID().replace(/-/g, '')}` as Hex
+          const userId = `wallet:${address.toLowerCase()}`
 
-        // Create session
-        const sessionId = `0x${crypto.randomUUID().replace(/-/g, '')}` as Hex
-        const userId = `wallet:${address.toLowerCase()}`
+          const ephemeralKey = await getEphemeralKey(sessionId)
 
-        const ephemeralKey = await getEphemeralKey(sessionId)
+          const expiresAt = Date.now() + 24 * 60 * 60 * 1000 // 24 hours
 
-        const expiresAt = Date.now() + 24 * 60 * 60 * 1000 // 24 hours
+          await sessionState.save({
+            sessionId,
+            userId,
+            provider: 'wallet',
+            address,
+            createdAt: Date.now(),
+            expiresAt,
+            metadata: { appId },
+            ephemeralKeyId: ephemeralKey.keyId,
+          })
 
-        await sessionState.save({
-          sessionId,
-          userId,
-          provider: 'wallet',
-          address,
-          createdAt: Date.now(),
-          expiresAt,
-          metadata: { appId },
-          ephemeralKeyId: ephemeralKey.keyId,
-        })
+          console.log('[OAuth3] Direct wallet auth session created:', {
+            sessionId: `${sessionId.substring(0, 10)}...`,
+            address: `${address.substring(0, 6)}...${address.slice(-4)}`,
+            appId,
+          })
 
-        console.log('[OAuth3] Direct wallet auth session created:', {
-          sessionId: `${sessionId.substring(0, 10)}...`,
-          address: `${address.substring(0, 6)}...${address.slice(-4)}`,
-          appId,
-        })
-
-        // Return session in OAuth3Session format expected by the SDK
-        return {
-          sessionId,
-          identityId: sessionId, // Use session as identity for wallet auth
-          smartAccount: address,
-          expiresAt,
-          capabilities: ['sign_message', 'sign_transaction'],
-          signingPublicKey: ephemeralKey.publicKey,
-          attestation: {
-            quote: '0x' as Hex,
-            measurement: '0x' as Hex,
-            reportData: '0x' as Hex,
-            timestamp: Date.now(),
-            platform: 'simulated',
-            verified: false,
-          },
-        }
-      },
-      { body: WalletAuthBodySchema },
-    )
+          // Return session in OAuth3Session format expected by the SDK
+          return {
+            sessionId,
+            identityId: sessionId, // Use session as identity for wallet auth
+            smartAccount: address,
+            expiresAt,
+            capabilities: ['sign_message', 'sign_transaction'],
+            signingPublicKey: ephemeralKey.publicKey,
+            attestation: {
+              quote: '0x' as Hex,
+              measurement: '0x' as Hex,
+              reportData: '0x' as Hex,
+              timestamp: Date.now(),
+              platform: 'simulated',
+              verified: false,
+            },
+          }
+        },
+        { body: WalletAuthBodySchema },
+      )
+  )
 }

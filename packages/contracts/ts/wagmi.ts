@@ -7,22 +7,40 @@
  * @module @jejunetwork/contracts/wagmi
  */
 
-import type { Abi, Address } from 'viem'
+import type {
+  Abi,
+  Address,
+  ContractFunctionArgs,
+  ContractFunctionName,
+} from 'viem'
 
 /**
  * Parameters for typed write contract operations.
+ * Note: args uses readonly unknown[] for wagmi compatibility, but when used
+ * with a specific ABI and functionName, TypeScript will infer the correct types.
  */
-export interface TypedWriteContractParams<TAbi extends Abi> {
+export interface TypedWriteContractParams<
+  TAbi extends Abi,
+  TFunctionName extends ContractFunctionName<
+    TAbi,
+    'nonpayable' | 'payable'
+  > = ContractFunctionName<TAbi, 'nonpayable' | 'payable'>,
+  TArgs extends ContractFunctionArgs<
+    TAbi,
+    'nonpayable' | 'payable',
+    TFunctionName
+  > = ContractFunctionArgs<TAbi, 'nonpayable' | 'payable', TFunctionName>,
+> {
   address: Address
   abi: TAbi
-  functionName: string
-  args?: readonly unknown[]
+  functionName: TFunctionName
+  args?: TArgs
   value?: bigint
 }
 
 /**
  * WriteContract function signature that accepts our typed params.
- * Uses a generic function signature to work with wagmi's writeContract.
+ * Uses readonly unknown[] for args to match wagmi's interface requirements.
  */
 export type WriteContractFn = (params: {
   address: Address
@@ -61,13 +79,39 @@ export type WriteContractAsyncFn = (params: {
  */
 export function createTypedWriteContract(
   writeContract: WriteContractFn,
-): <TAbi extends Abi>(params: TypedWriteContractParams<TAbi>) => void {
-  return <TAbi extends Abi>(params: TypedWriteContractParams<TAbi>) => {
+): <
+  TAbi extends Abi,
+  TFunctionName extends ContractFunctionName<
+    TAbi,
+    'nonpayable' | 'payable'
+  > = ContractFunctionName<TAbi, 'nonpayable' | 'payable'>,
+  TArgs extends ContractFunctionArgs<
+    TAbi,
+    'nonpayable' | 'payable',
+    TFunctionName
+  > = ContractFunctionArgs<TAbi, 'nonpayable' | 'payable', TFunctionName>,
+>(
+  params: TypedWriteContractParams<TAbi, TFunctionName, TArgs>,
+) => void {
+  return <
+    TAbi extends Abi,
+    TFunctionName extends ContractFunctionName<
+      TAbi,
+      'nonpayable' | 'payable'
+    > = ContractFunctionName<TAbi, 'nonpayable' | 'payable'>,
+    TArgs extends ContractFunctionArgs<
+      TAbi,
+      'nonpayable' | 'payable',
+      TFunctionName
+    > = ContractFunctionArgs<TAbi, 'nonpayable' | 'payable', TFunctionName>,
+  >(
+    params: TypedWriteContractParams<TAbi, TFunctionName, TArgs>,
+  ) => {
     writeContract({
       address: params.address,
       abi: params.abi,
       functionName: params.functionName,
-      args: params.args,
+      args: params.args as readonly unknown[] | undefined,
       value: params.value,
     })
   }
@@ -78,15 +122,39 @@ export function createTypedWriteContract(
  */
 export function createTypedWriteContractAsync(
   writeContractAsync: WriteContractAsyncFn,
-): <TAbi extends Abi>(
-  params: TypedWriteContractParams<TAbi>,
+): <
+  TAbi extends Abi,
+  TFunctionName extends ContractFunctionName<
+    TAbi,
+    'nonpayable' | 'payable'
+  > = ContractFunctionName<TAbi, 'nonpayable' | 'payable'>,
+  TArgs extends ContractFunctionArgs<
+    TAbi,
+    'nonpayable' | 'payable',
+    TFunctionName
+  > = ContractFunctionArgs<TAbi, 'nonpayable' | 'payable', TFunctionName>,
+>(
+  params: TypedWriteContractParams<TAbi, TFunctionName, TArgs>,
 ) => Promise<`0x${string}`> {
-  return <TAbi extends Abi>(params: TypedWriteContractParams<TAbi>) => {
+  return <
+    TAbi extends Abi,
+    TFunctionName extends ContractFunctionName<
+      TAbi,
+      'nonpayable' | 'payable'
+    > = ContractFunctionName<TAbi, 'nonpayable' | 'payable'>,
+    TArgs extends ContractFunctionArgs<
+      TAbi,
+      'nonpayable' | 'payable',
+      TFunctionName
+    > = ContractFunctionArgs<TAbi, 'nonpayable' | 'payable', TFunctionName>,
+  >(
+    params: TypedWriteContractParams<TAbi, TFunctionName, TArgs>,
+  ) => {
     return writeContractAsync({
       address: params.address,
       abi: params.abi,
       functionName: params.functionName,
-      args: params.args,
+      args: params.args as readonly unknown[] | undefined,
       value: params.value,
     })
   }
@@ -95,15 +163,26 @@ export function createTypedWriteContractAsync(
 /**
  * Helper function for typed write contract operations.
  */
-export function typedWriteContract<TAbi extends Abi>(
+export function typedWriteContract<
+  TAbi extends Abi,
+  TFunctionName extends ContractFunctionName<
+    TAbi,
+    'nonpayable' | 'payable'
+  > = ContractFunctionName<TAbi, 'nonpayable' | 'payable'>,
+  TArgs extends ContractFunctionArgs<
+    TAbi,
+    'nonpayable' | 'payable',
+    TFunctionName
+  > = ContractFunctionArgs<TAbi, 'nonpayable' | 'payable', TFunctionName>,
+>(
   writeContract: WriteContractFn,
-  params: TypedWriteContractParams<TAbi>,
+  params: TypedWriteContractParams<TAbi, TFunctionName, TArgs>,
 ): void {
   writeContract({
     address: params.address,
     abi: params.abi,
     functionName: params.functionName,
-    args: params.args,
+    args: params.args as readonly unknown[] | undefined,
     value: params.value,
   })
 }
@@ -111,15 +190,26 @@ export function typedWriteContract<TAbi extends Abi>(
 /**
  * Helper function for typed async write contract operations.
  */
-export function typedWriteContractAsync<TAbi extends Abi>(
+export function typedWriteContractAsync<
+  TAbi extends Abi,
+  TFunctionName extends ContractFunctionName<
+    TAbi,
+    'nonpayable' | 'payable'
+  > = ContractFunctionName<TAbi, 'nonpayable' | 'payable'>,
+  TArgs extends ContractFunctionArgs<
+    TAbi,
+    'nonpayable' | 'payable',
+    TFunctionName
+  > = ContractFunctionArgs<TAbi, 'nonpayable' | 'payable', TFunctionName>,
+>(
   writeContractAsync: WriteContractAsyncFn,
-  params: TypedWriteContractParams<TAbi>,
+  params: TypedWriteContractParams<TAbi, TFunctionName, TArgs>,
 ): Promise<`0x${string}`> {
   return writeContractAsync({
     address: params.address,
     abi: params.abi,
     functionName: params.functionName,
-    args: params.args,
+    args: params.args as readonly unknown[] | undefined,
     value: params.value,
   })
 }

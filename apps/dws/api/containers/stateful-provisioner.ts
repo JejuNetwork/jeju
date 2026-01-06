@@ -18,8 +18,8 @@
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import { z } from 'zod'
+import type { HardwareSpec, TEEPlatform } from './provisioner'
 import * as scheduler from './scheduler'
-import { type HardwareSpec, type TEEPlatform } from './provisioner'
 import type { ComputeNode } from './types'
 
 // ============================================================================
@@ -98,7 +98,11 @@ export interface StatefulServiceConfig {
 }
 
 export const StatefulServiceConfigSchema = z.object({
-  name: z.string().min(1).max(63).regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$/),
+  name: z
+    .string()
+    .min(1)
+    .max(63)
+    .regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$/),
   namespace: z.string().default('default'),
   replicas: z.number().min(1).max(100),
   image: z.string().min(1),
@@ -168,7 +172,13 @@ export const StatefulServiceConfigSchema = z.object({
       threshold: z.number().min(1),
       totalParties: z.number().min(2),
       teeRequired: z.boolean(),
-      teePlatform: z.enum(['intel-sgx', 'intel-tdx', 'amd-sev', 'nvidia-cc', 'none']),
+      teePlatform: z.enum([
+        'intel-sgx',
+        'intel-tdx',
+        'amd-sev',
+        'nvidia-cc',
+        'none',
+      ]),
       keyRotationIntervalMs: z.number().default(86400000),
     })
     .optional(),
@@ -200,7 +210,13 @@ export interface StatefulReplica {
   nodeId: string
   nodeAddress: Address
   instanceId: string
-  status: 'pending' | 'provisioning' | 'running' | 'ready' | 'failed' | 'terminating'
+  status:
+    | 'pending'
+    | 'provisioning'
+    | 'running'
+    | 'ready'
+    | 'failed'
+    | 'terminating'
   role: ReplicaRole
   endpoint: string
   internalDns: string
@@ -223,7 +239,13 @@ export interface StatefulService {
   id: string
   owner: Address
   config: StatefulServiceConfig
-  status: 'creating' | 'running' | 'updating' | 'scaling' | 'failed' | 'terminated'
+  status:
+    | 'creating'
+    | 'running'
+    | 'updating'
+    | 'scaling'
+    | 'failed'
+    | 'terminated'
   replicas: StatefulReplica[]
   currentLeader: number | null
   createdAt: number
@@ -253,7 +275,10 @@ const servicesByName = new Map<string, string>() // name -> serviceId
 // ============================================================================
 
 export class StatefulProvisioner {
-  private healthCheckIntervals = new Map<string, ReturnType<typeof setInterval>>()
+  private healthCheckIntervals = new Map<
+    string,
+    ReturnType<typeof setInterval>
+  >()
   private backupIntervals = new Map<string, ReturnType<typeof setInterval>>()
 
   /**
@@ -315,7 +340,10 @@ export class StatefulProvisioner {
     }
 
     // Initialize consensus if configured
-    if (validatedConfig.consensus && validatedConfig.consensus.protocol !== 'none') {
+    if (
+      validatedConfig.consensus &&
+      validatedConfig.consensus.protocol !== 'none'
+    ) {
       await this.initializeConsensus(service)
     }
 
@@ -338,7 +366,11 @@ export class StatefulProvisioner {
   /**
    * Scale service to new replica count
    */
-  async scale(serviceId: string, owner: Address, replicas: number): Promise<void> {
+  async scale(
+    serviceId: string,
+    owner: Address,
+    replicas: number,
+  ): Promise<void> {
     const service = statefulServices.get(serviceId)
     if (!service) {
       throw new Error(`Service not found: ${serviceId}`)
@@ -360,11 +392,17 @@ export class StatefulProvisioner {
       await this.provisionReplicasInOrder(service, replicas - currentReplicas)
     } else {
       // Scale down - remove replicas in reverse order
-      await this.terminateReplicasInReverseOrder(service, currentReplicas - replicas)
+      await this.terminateReplicasInReverseOrder(
+        service,
+        currentReplicas - replicas,
+      )
     }
 
     // Re-balance if consensus enabled
-    if (service.config.consensus && service.config.consensus.protocol !== 'none') {
+    if (
+      service.config.consensus &&
+      service.config.consensus.protocol !== 'none'
+    ) {
       await this.rebalanceConsensus(service)
     }
 
@@ -408,7 +446,9 @@ export class StatefulProvisioner {
     }
 
     // Check quorum
-    const quorum = service.config.consensus?.minQuorum ?? Math.floor(service.replicas.length / 2) + 1
+    const quorum =
+      service.config.consensus?.minQuorum ??
+      Math.floor(service.replicas.length / 2) + 1
     if (healthyReplicas.length < quorum) {
       throw new Error(
         `Not enough healthy replicas for quorum: ${healthyReplicas.length} < ${quorum}`,
@@ -422,7 +462,8 @@ export class StatefulProvisioner {
 
     // Update roles
     for (const replica of service.replicas) {
-      replica.role = replica.ordinal === newLeader.ordinal ? 'leader' : 'follower'
+      replica.role =
+        replica.ordinal === newLeader.ordinal ? 'leader' : 'follower'
     }
 
     service.currentLeader = newLeader.ordinal
@@ -510,7 +551,9 @@ export class StatefulProvisioner {
       throw new Error('Not authorized to terminate this service')
     }
 
-    console.log(`[StatefulProvisioner] Terminating service ${service.config.name}`)
+    console.log(
+      `[StatefulProvisioner] Terminating service ${service.config.name}`,
+    )
 
     // Stop health checks and backups
     const healthInterval = this.healthCheckIntervals.get(serviceId)
@@ -642,29 +685,35 @@ export class StatefulProvisioner {
 
     // Add MPC config if enabled
     if (config.mpc?.enabled) {
-      env['MPC_ENABLED'] = 'true'
-      env['MPC_THRESHOLD'] = String(config.mpc.threshold)
-      env['MPC_TOTAL_PARTIES'] = String(config.mpc.totalParties)
-      env['MPC_PARTY_ID'] = String(ordinal)
-      env['MPC_CLUSTER_ID'] = service.mpcClusterId ?? ''
+      env.MPC_ENABLED = 'true'
+      env.MPC_THRESHOLD = String(config.mpc.threshold)
+      env.MPC_TOTAL_PARTIES = String(config.mpc.totalParties)
+      env.MPC_PARTY_ID = String(ordinal)
+      env.MPC_CLUSTER_ID = service.mpcClusterId ?? ''
     }
 
     // Add consensus config if enabled
     if (config.consensus && config.consensus.protocol !== 'none') {
-      env['CONSENSUS_PROTOCOL'] = config.consensus.protocol
-      env['CONSENSUS_MIN_QUORUM'] = String(config.consensus.minQuorum)
-      env['CONSENSUS_ELECTION_TIMEOUT_MS'] = String(config.consensus.electionTimeoutMs)
-      env['CONSENSUS_HEARTBEAT_INTERVAL_MS'] = String(config.consensus.heartbeatIntervalMs)
+      env.CONSENSUS_PROTOCOL = config.consensus.protocol
+      env.CONSENSUS_MIN_QUORUM = String(config.consensus.minQuorum)
+      env.CONSENSUS_ELECTION_TIMEOUT_MS = String(
+        config.consensus.electionTimeoutMs,
+      )
+      env.CONSENSUS_HEARTBEAT_INTERVAL_MS = String(
+        config.consensus.heartbeatIntervalMs,
+      )
 
       // Build peer list
       const peers: string[] = []
       for (let j = 0; j < config.replicas; j++) {
         if (j !== ordinal) {
           const peerName = this.generatePodName(config.name, j)
-          peers.push(`${peerName}.${config.name}.${config.namespace}.internal.jeju`)
+          peers.push(
+            `${peerName}.${config.name}.${config.namespace}.internal.jeju`,
+          )
         }
       }
-      env['CONSENSUS_PEERS'] = peers.join(',')
+      env.CONSENSUS_PEERS = peers.join(',')
     }
 
     // Deploy container to node
@@ -795,9 +844,7 @@ export class StatefulProvisioner {
       HostConfig: {
         Memory: config.hardware.memoryMb * 1024 * 1024,
         NanoCpus: config.hardware.cpuCores * 1e9,
-        Binds: volumeMounts.map(
-          (m) => `${m.hostPath}:${m.containerPath}`,
-        ),
+        Binds: volumeMounts.map((m) => `${m.hostPath}:${m.containerPath}`),
         PortBindings: {} as Record<string, Array<{ HostPort: string }>>,
       },
       ExposedPorts: {} as Record<string, Record<string, never>>,
@@ -828,7 +875,10 @@ export class StatefulProvisioner {
       throw new Error(`Failed to deploy to node: ${await response.text()}`)
     }
 
-    const result = (await response.json()) as { endpoint: string; ports: Record<string, number> }
+    const result = (await response.json()) as {
+      endpoint: string
+      ports: Record<string, number>
+    }
     return result.endpoint
   }
 
@@ -866,13 +916,18 @@ export class StatefulProvisioner {
       await this.sleep(readinessCheck.periodSeconds * 1000)
     }
 
-    throw new Error(`Replica ${replica.podName} did not become ready within ${timeoutMs}ms`)
+    throw new Error(
+      `Replica ${replica.podName} did not become ready within ${timeoutMs}ms`,
+    )
   }
 
   /**
    * Check endpoint health
    */
-  private async checkEndpointHealth(url: string, timeoutMs: number): Promise<boolean> {
+  private async checkEndpointHealth(
+    url: string,
+    timeoutMs: number,
+  ): Promise<boolean> {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
@@ -882,7 +937,7 @@ export class StatefulProvisioner {
 
     clearTimeout(timeoutId)
 
-    return response !== null && response.ok
+    return response?.ok
   }
 
   /**
@@ -941,7 +996,9 @@ export class StatefulProvisioner {
     const failedReplica = service.replicas[ordinal]
     if (!failedReplica) return
 
-    console.log(`[StatefulProvisioner] Recovering replica ${failedReplica.podName}`)
+    console.log(
+      `[StatefulProvisioner] Recovering replica ${failedReplica.podName}`,
+    )
 
     // Terminate old instance
     await this.terminateReplica(service, failedReplica)
@@ -988,7 +1045,9 @@ export class StatefulProvisioner {
     ) as Hex
 
     // Wait for all replicas to be ready
-    const readyCount = service.replicas.filter((r) => r.status === 'ready').length
+    const readyCount = service.replicas.filter(
+      (r) => r.status === 'ready',
+    ).length
     if (readyCount < mpcConfig.totalParties) {
       throw new Error(
         `Not enough ready replicas for MPC: ${readyCount} < ${mpcConfig.totalParties}`,
@@ -1017,7 +1076,9 @@ export class StatefulProvisioner {
       })
 
       if (!response.ok) {
-        throw new Error(`DKG init failed on ${replica.podName}: ${await response.text()}`)
+        throw new Error(
+          `DKG init failed on ${replica.podName}: ${await response.text()}`,
+        )
       }
 
       const result = (await response.json()) as { publicKey: Hex }
@@ -1025,17 +1086,22 @@ export class StatefulProvisioner {
     }
 
     // Wait for DKG completion and get threshold public key
-    const leaderResponse = await fetch(`${parties[0].endpoint}/mpc/dkg/finalize`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clusterId: service.mpcClusterId }),
-    })
+    const leaderResponse = await fetch(
+      `${parties[0].endpoint}/mpc/dkg/finalize`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clusterId: service.mpcClusterId }),
+      },
+    )
 
     if (!leaderResponse.ok) {
       throw new Error(`DKG finalize failed: ${await leaderResponse.text()}`)
     }
 
-    const dkgResult = (await leaderResponse.json()) as { thresholdPublicKey: Hex }
+    const dkgResult = (await leaderResponse.json()) as {
+      thresholdPublicKey: Hex
+    }
     service.mpcThresholdPublicKey = dkgResult.thresholdPublicKey
 
     console.log(
@@ -1081,7 +1147,10 @@ export class StatefulProvisioner {
    * Rebalance consensus after scaling
    */
   private async rebalanceConsensus(service: StatefulService): Promise<void> {
-    if (!service.config.consensus || service.config.consensus.protocol === 'none') {
+    if (
+      !service.config.consensus ||
+      service.config.consensus.protocol === 'none'
+    ) {
       return
     }
 

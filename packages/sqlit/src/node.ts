@@ -39,18 +39,6 @@ const devChain: Chain = {
 }
 
 import {
-  type DatabaseInstance,
-  type DatabaseNode,
-  DatabaseNodeRole,
-  DatabaseNodeStatus,
-  DEFAULT_REPLICATION_CONFIG,
-  HEARTBEAT_INTERVAL_MS,
-  type QueryResult,
-  type ReplicationConfig,
-  SQLIT_REGISTRY_ABI,
-  type WALEntry,
-} from './types'
-import {
   getTEEConfigFromEnv,
   type NodeTEECapabilities,
   SQLitNodeTEE,
@@ -80,7 +68,20 @@ import type {
   WALSyncRequest,
   WALSyncResponse,
 } from './types'
-import { SQLitError, SQLitErrorCode } from './types'
+import {
+  type DatabaseInstance,
+  type DatabaseNode,
+  DatabaseNodeRole,
+  DatabaseNodeStatus,
+  DEFAULT_REPLICATION_CONFIG,
+  HEARTBEAT_INTERVAL_MS,
+  type QueryResult,
+  type ReplicationConfig,
+  SQLIT_REGISTRY_ABI,
+  SQLitError,
+  SQLitErrorCode,
+  type WALEntry,
+} from './types'
 
 const DEFAULT_SERVICE_CONFIG: SQLitServiceConfig = {
   stakeAmount: BigInt('1000000000000000000'), // 1 token

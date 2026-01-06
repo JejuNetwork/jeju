@@ -2,7 +2,7 @@
 /**
  * Wallet Production Build Script
  *
- * Builds the web lander and miniapp for deployment.
+ * Builds the web lander for deployment.
  * The full app is built separately via Tauri/Capacitor.
  */
 
@@ -63,7 +63,7 @@ async function buildCSS(contentGlobs: string[]): Promise<string> {
 }
 
 async function build() {
-  console.log('[Wallet] Building web lander and miniapp for production...')
+  console.log('[Wallet] Building web lander for production...')
   const startTime = Date.now()
 
   // Clean dist
@@ -71,7 +71,6 @@ async function build() {
     await rm(DIST_DIR, { recursive: true })
   }
   await mkdir(DIST_DIR, { recursive: true })
-  await mkdir(MINIAPP_DIR, { recursive: true })
 
   // Build CSS for lander (tree-shaken to only lander classes)
   console.log('[Wallet] Building lander CSS...')

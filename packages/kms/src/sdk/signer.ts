@@ -312,15 +312,19 @@ export class KMSSigner {
    */
   private async signLocal(messageHash: Hash): Promise<SignResult> {
     // Generate the same deterministic key as getLocalDevKey
-    const seed = keccak256(toHex(`jeju-dev-${this.serviceId}-${this.network}`)) as Hex
+    const seed = keccak256(
+      toHex(`jeju-dev-${this.serviceId}-${this.network}`),
+    ) as Hex
     const account = privateKeyToAccount(seed)
 
     // Sign the message hash
-    const signature = await account.signMessage({ message: { raw: messageHash as Hex } })
+    const signature = await account.signMessage({
+      message: { raw: messageHash as Hex },
+    })
 
     // Parse signature components (r, s, v)
-    const r = ('0x' + signature.slice(2, 66)) as Hex
-    const s = ('0x' + signature.slice(66, 130)) as Hex
+    const r = `0x${signature.slice(2, 66)}` as Hex
+    const s = `0x${signature.slice(66, 130)}` as Hex
     const v = parseInt(signature.slice(130, 132), 16)
 
     return {
@@ -395,7 +399,9 @@ export class KMSSigner {
     transaction: TransactionSerializable,
   ): Promise<TransactionSignResult> {
     // Generate the same deterministic key as getLocalDevKey
-    const seed = keccak256(toHex(`jeju-dev-${this.serviceId}-${this.network}`)) as Hex
+    const seed = keccak256(
+      toHex(`jeju-dev-${this.serviceId}-${this.network}`),
+    ) as Hex
     const account = privateKeyToAccount(seed)
 
     // Sign the transaction

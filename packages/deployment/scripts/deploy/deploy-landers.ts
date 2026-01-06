@@ -126,11 +126,12 @@ async function main() {
   console.log('╔════════════════════════════════════════════════════════════╗')
   console.log('║                  Deployment Complete                        ║')
   console.log('╠════════════════════════════════════════════════════════════╣')
-  const domainSuffix = options.network === 'mainnet' 
-    ? 'jejunetwork.org' 
-    : options.network === 'testnet' 
-      ? 'testnet.jejunetwork.org' 
-      : 'local.jejunetwork.org'
+  const domainSuffix =
+    options.network === 'mainnet'
+      ? 'jejunetwork.org'
+      : options.network === 'testnet'
+        ? 'testnet.jejunetwork.org'
+        : 'local.jejunetwork.org'
   for (const appName of appsToProcess) {
     const appConfig = APP_CONFIGS[appName]
     console.log(
@@ -261,7 +262,9 @@ async function deployApp(
         console.log(`[${appName}] App registered with DWS`)
       } else {
         const errorText = await response.text()
-        console.warn(`[${appName}] App registration returned ${response.status}: ${errorText}`)
+        console.warn(
+          `[${appName}] App registration returned ${response.status}: ${errorText}`,
+        )
       }
     } catch (e) {
       console.warn(`[${appName}] App registration failed: ${e}`)
@@ -271,11 +274,12 @@ async function deployApp(
   // Configure CDN (legacy, kept for backward compatibility)
   console.log(`[${appName}] Configuring CDN...`)
   if (!options.dryRun) {
-    const networkSuffix = options.network === 'mainnet' 
-      ? 'jejunetwork.org' 
-      : options.network === 'testnet' 
-        ? 'testnet.jejunetwork.org' 
-        : 'local.jejunetwork.org'
+    const networkSuffix =
+      options.network === 'mainnet'
+        ? 'jejunetwork.org'
+        : options.network === 'testnet'
+          ? 'testnet.jejunetwork.org'
+          : 'local.jejunetwork.org'
     const cdnConfig = {
       name: appName,
       domain: `${appName}.${networkSuffix}`,
@@ -353,13 +357,17 @@ async function uploadDirectory(
     }
 
     const content = readFileSync(filePath)
-    
+
     // Retry logic for transient failures
     let lastError: Error | null = null
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const formData = new FormData()
-        formData.append('file', new Blob([content]), `${prefix}/${relativePath}`)
+        formData.append(
+          'file',
+          new Blob([content]),
+          `${prefix}/${relativePath}`,
+        )
         formData.append('name', `${prefix}/${relativePath}`)
 
         const response = await fetch(`${dwsUrl}/storage/upload`, {
@@ -369,7 +377,9 @@ async function uploadDirectory(
 
         if (!response.ok) {
           const errorText = await response.text()
-          throw new Error(`Upload failed for ${relativePath}: ${response.status} - ${errorText}`)
+          throw new Error(
+            `Upload failed for ${relativePath}: ${response.status} - ${errorText}`,
+          )
         }
 
         const rawJson = await response.json()
@@ -384,11 +394,11 @@ async function uploadDirectory(
         lastError = e instanceof Error ? e : new Error(String(e))
         if (attempt < 2) {
           console.log(`   Retry ${attempt + 1}/3 for ${relativePath}...`)
-          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)))
+          await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)))
         }
       }
     }
-    
+
     throw lastError
   }
 

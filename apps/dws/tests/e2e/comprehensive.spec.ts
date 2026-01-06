@@ -342,7 +342,8 @@ const DWS_ROUTES: Array<{
     path: '/provider/nodes',
     name: 'My Nodes',
     expectedContent: 'Node',
-    description: 'List of registered nodes with status, earnings, and management options.',
+    description:
+      'List of registered nodes with status, earnings, and management options.',
   },
   {
     path: '/provider/earnings',
@@ -529,32 +530,39 @@ async function runAIVerification(
 // Page load test for each route
 test.describe('DWS Frontend - All Pages', () => {
   // Check if running against testnet/mainnet where routes may not be configured
-  const isRemote = process.env.JEJU_NETWORK === 'testnet' || process.env.JEJU_NETWORK === 'mainnet'
-  
+  const isRemote =
+    process.env.JEJU_NETWORK === 'testnet' ||
+    process.env.JEJU_NETWORK === 'mainnet'
+
   for (const route of DWS_ROUTES) {
     test(`${route.name} (${route.path})`, async ({ page }) => {
       const { errors, hasKnownBug } = setupErrorCapture(page)
 
       // Navigate to the page
-      const response = await page.goto(route.path, {
+      const _response = await page.goto(route.path, {
         waitUntil: 'domcontentloaded',
         timeout: 30000,
       })
 
       // Wait for page to stabilize
       await page.waitForTimeout(500)
-      
+
       // Check if we got a JSON response instead of HTML (testnet SPA routing issue)
       const pageText = await page.textContent('body')
-      const isJsonResponse = pageText?.trim().startsWith('{') || pageText?.trim().startsWith('[')
+      const isJsonResponse =
+        pageText?.trim().startsWith('{') || pageText?.trim().startsWith('[')
       if (isJsonResponse) {
         if (isRemote) {
-          console.log(`   ⚠️ Page ${route.path} returns JSON API response on remote network (SPA routing not configured)`)
+          console.log(
+            `   ⚠️ Page ${route.path} returns JSON API response on remote network (SPA routing not configured)`,
+          )
           // Skip this test on remote networks with SPA routing issues
           test.skip()
           return
         }
-        throw new Error(`Page ${route.path} returns JSON API response instead of HTML`)
+        throw new Error(
+          `Page ${route.path} returns JSON API response instead of HTML`,
+        )
       }
 
       // FAIL-FAST: Check for errors IMMEDIATELY after page load
@@ -592,19 +600,26 @@ test.describe('DWS Frontend - All Pages', () => {
 
       // Check for expected content or valid page state
       const hasExpectedContent = pageText?.includes(route.expectedContent)
-      
+
       // On testnet/mainnet, pages may show wallet connect prompts or different UI
       // Accept these as valid states
-      const hasWalletConnect = pageText?.toLowerCase().includes('connect') || 
-                               pageText?.toLowerCase().includes('wallet')
-      const hasLoginPrompt = pageText?.toLowerCase().includes('sign in') ||
-                             pageText?.toLowerCase().includes('login')
-      const hasNavigation = pageText?.toLowerCase().includes('dws') ||
-                            pageText?.toLowerCase().includes('compute') ||
-                            pageText?.toLowerCase().includes('storage')
-      
+      const hasWalletConnect =
+        pageText?.toLowerCase().includes('connect') ||
+        pageText?.toLowerCase().includes('wallet')
+      const hasLoginPrompt =
+        pageText?.toLowerCase().includes('sign in') ||
+        pageText?.toLowerCase().includes('login')
+      const hasNavigation =
+        pageText?.toLowerCase().includes('dws') ||
+        pageText?.toLowerCase().includes('compute') ||
+        pageText?.toLowerCase().includes('storage')
+
       // Page is valid if it has expected content OR shows auth/navigation UI
-      const isValidPage = hasExpectedContent || hasWalletConnect || hasLoginPrompt || hasNavigation
+      const isValidPage =
+        hasExpectedContent ||
+        hasWalletConnect ||
+        hasLoginPrompt ||
+        hasNavigation
 
       if (!isValidPage) {
         const screenshotPath = join(
@@ -616,9 +631,11 @@ test.describe('DWS Frontend - All Pages', () => {
           `Page ${route.path} does not contain expected content "${route.expectedContent}" or valid UI elements`,
         )
       }
-      
+
       if (!hasExpectedContent && (hasWalletConnect || hasLoginPrompt)) {
-        console.log(`   ℹ️ Page ${route.path} shows auth UI (expected on testnet/mainnet)`)
+        console.log(
+          `   ℹ️ Page ${route.path} shows auth UI (expected on testnet/mainnet)`,
+        )
       }
 
       // Take screenshot for visual verification
@@ -750,7 +767,9 @@ test.describe('DWS API Health', () => {
         .catch(() => null)
 
       if (!response) {
-        console.log(`⚠️ API endpoint ${endpoint.path} not reachable at ${apiBaseUrl}`)
+        console.log(
+          `⚠️ API endpoint ${endpoint.path} not reachable at ${apiBaseUrl}`,
+        )
         return
       }
 

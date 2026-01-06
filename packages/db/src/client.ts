@@ -22,8 +22,8 @@ import {
   isSQLitDebug,
 } from '@jejunetwork/config'
 import {
-  SQLitClient as SQLitCoreClient,
   type SQLitClientConfig,
+  SQLitClient as SQLitCoreClient,
 } from '@jejunetwork/sqlit/client'
 import pino from 'pino'
 import type { Hex } from 'viem'
@@ -326,7 +326,10 @@ export class SQLitClient {
   /**
    * Get circuit breaker state (not applicable for HTTP client)
    */
-  getCircuitState(): { state: 'open' | 'closed' | 'half-open'; failures: number } {
+  getCircuitState(): {
+    state: 'open' | 'closed' | 'half-open'
+    failures: number
+  } {
     return { state: 'closed', failures: 0 }
   }
 
@@ -396,7 +399,8 @@ let sqlitClient: SQLitClient | null = null
  */
 export function getSQLit(config?: Partial<SQLitClientConfig>): SQLitClient {
   if (!sqlitClient) {
-    const endpoint = config?.endpoint ?? getSQLitUrl() ?? 'http://localhost:8546'
+    const endpoint =
+      config?.endpoint ?? getSQLitUrl() ?? 'http://localhost:8546'
     const databaseId = config?.databaseId ?? getSQLitDatabaseId() ?? 'default'
     const timeout =
       config?.timeoutMs ?? parseTimeout(getSQLitTimeout(), DEFAULT_TIMEOUT)

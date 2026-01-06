@@ -19,18 +19,18 @@
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import { z } from 'zod'
+import type { HardwareSpec } from '../containers/provisioner'
 import {
   getStatefulProvisioner,
-  type StatefulServiceConfig,
   type StatefulService,
+  type StatefulServiceConfig,
   type VolumeConfig,
 } from '../containers/stateful-provisioner'
 import {
-  registerTypedService,
   deregisterService,
+  registerTypedService,
   type ServiceEndpoint,
 } from './discovery'
-import type { HardwareSpec } from '../containers/provisioner'
 
 // ============================================================================
 // Types
@@ -76,10 +76,12 @@ export const HubbleConfigSchema = z.object({
     rpcUrl: z.string().url().default('https://mainnet.optimism.io'),
   }),
   network: z.object({
-    bootstrapPeers: z.array(z.string()).default([
-      '/dns/nemes.farcaster.xyz/tcp/2282',
-      '/dns/hoyt.farcaster.xyz/tcp/2282',
-    ]),
+    bootstrapPeers: z
+      .array(z.string())
+      .default([
+        '/dns/nemes.farcaster.xyz/tcp/2282',
+        '/dns/hoyt.farcaster.xyz/tcp/2282',
+      ]),
     grpcPort: z.number().default(2283),
     gossipPort: z.number().default(2282),
     httpPort: z.number().default(2281),
@@ -239,9 +241,21 @@ export async function deployHubble(
     tag: HUBBLE_TAG,
     env,
     ports: [
-      { name: 'grpc', containerPort: validatedConfig.network.grpcPort, protocol: 'tcp' },
-      { name: 'gossip', containerPort: validatedConfig.network.gossipPort, protocol: 'tcp' },
-      { name: 'http', containerPort: validatedConfig.network.httpPort, protocol: 'tcp' },
+      {
+        name: 'grpc',
+        containerPort: validatedConfig.network.grpcPort,
+        protocol: 'tcp',
+      },
+      {
+        name: 'gossip',
+        containerPort: validatedConfig.network.gossipPort,
+        protocol: 'tcp',
+      },
+      {
+        name: 'http',
+        containerPort: validatedConfig.network.httpPort,
+        protocol: 'tcp',
+      },
     ],
     hardware,
     volumes,
@@ -273,7 +287,10 @@ export async function deployHubble(
 
   // Create stateful service
   const statefulProvisioner = getStatefulProvisioner()
-  const statefulService = await statefulProvisioner.create(owner, statefulConfig)
+  const statefulService = await statefulProvisioner.create(
+    owner,
+    statefulConfig,
+  )
 
   // Generate service ID
   const serviceId = `hubble-${keccak256(toBytes(`${validatedConfig.name}-${owner}-${Date.now()}`)).slice(2, 18)}`
@@ -352,9 +369,12 @@ async function discoverHubbleIdentity(service: HubbleService): Promise<void> {
 
   const infoUrl = `${replica.endpoint}/v1/info`
   const response = await fetch(infoUrl).catch(() => null)
-  
+
   if (response?.ok) {
-    const info = (await response.json()) as { peerId: string; publicKey: string }
+    const info = (await response.json()) as {
+      peerId: string
+      publicKey: string
+    }
     service.identity.peerId = info.peerId
     service.identity.publicKey = info.publicKey as Hex
     service.status = 'ready'
@@ -443,7 +463,9 @@ export async function terminateHubble(
 /**
  * Get hubble stats
  */
-export async function getHubbleStats(serviceId: string): Promise<HubbleService['stats']> {
+export async function getHubbleStats(
+  serviceId: string,
+): Promise<HubbleService['stats']> {
   const service = hubbleServices.get(serviceId)
   if (!service) {
     throw new Error(`Hubble service not found: ${serviceId}`)

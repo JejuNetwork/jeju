@@ -173,7 +173,8 @@ function evaluateRequirements(hardware: HardwareInfo): HardwareRequirement[] {
   requirements.push({
     name: 'Memory',
     minimum: '4 GB (8+ GB recommended)',
-    detected: hardware.memoryGb > 0 ? `${hardware.memoryGb} GB` : 'Not available',
+    detected:
+      hardware.memoryGb > 0 ? `${hardware.memoryGb} GB` : 'Not available',
     status: memoryStatus,
     icon: <HardDrive size={18} />,
   })
@@ -185,7 +186,11 @@ function evaluateRequirements(hardware: HardwareInfo): HardwareRequirement[] {
     gpuName.includes('apple') ||
     gpuName.includes('amd') ||
     gpuName.includes('radeon')
-  const gpuStatus = hasGoodGpu ? 'pass' : hardware.gpuRenderer ? 'warning' : 'unknown'
+  const gpuStatus = hasGoodGpu
+    ? 'pass'
+    : hardware.gpuRenderer
+      ? 'warning'
+      : 'unknown'
   requirements.push({
     name: 'GPU',
     minimum: 'NVIDIA/AMD/Apple (for GPU compute)',
@@ -361,12 +366,22 @@ export default function HardwareDetection() {
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 500 }}>{req.name}</div>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  <div
+                    style={{
+                      fontSize: '0.85rem',
+                      color: 'var(--text-secondary)',
+                    }}
+                  >
                     {req.minimum}
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontWeight: 500, color: STATUS_COLORS[req.status] }}>
+                  <div
+                    style={{
+                      fontWeight: 500,
+                      color: STATUS_COLORS[req.status],
+                    }}
+                  >
                     {req.detected}
                   </div>
                 </div>

@@ -531,7 +531,8 @@ const MACHINE_TYPES: MachineType[] = [
   {
     id: 'nitro-db-large',
     name: 'Nitro DB Large',
-    description: '4 CPU, 32GB RAM, AWS Nitro Enclave - PostgreSQL Database (Memory Optimized)',
+    description:
+      '4 CPU, 32GB RAM, AWS Nitro Enclave - PostgreSQL Database (Memory Optimized)',
     hardware: {
       cpuCores: 4,
       cpuArchitecture: 'amd64',
@@ -551,7 +552,8 @@ const MACHINE_TYPES: MachineType[] = [
   {
     id: 'nitro-db-xlarge',
     name: 'Nitro DB XLarge',
-    description: '8 CPU, 64GB RAM, AWS Nitro Enclave - PostgreSQL Database (High Performance)',
+    description:
+      '8 CPU, 64GB RAM, AWS Nitro Enclave - PostgreSQL Database (High Performance)',
     hardware: {
       cpuCores: 8,
       cpuArchitecture: 'amd64',

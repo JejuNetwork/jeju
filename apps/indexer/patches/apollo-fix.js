@@ -101,3 +101,42 @@ if (fixedCount > 0) {
 } else {
   console.log('✓ Send/mime symlinks OK');
 }
+
+// --- Part 3: Patch Express to support mime v2+ (getType instead of lookup, charsets fix) ---
+const expressResponsePath = join(rootDir, 'node_modules', 'express', 'lib', 'response.js');
+if (existsSync(expressResponsePath)) {
+  let expressResponse = readFileSync(expressResponsePath, 'utf-8');
+  let patched = false;
+
+  // Patch 1: mime.lookup() -> (mime.lookup || mime.getType)()
+  if (!expressResponse.includes('// PATCHED for mime v2+ compatibility') && expressResponse.includes('mime.lookup(type)')) {
+    expressResponse = expressResponse.replace(
+      /mime\.lookup\(type\)/g,
+      '(mime.lookup || mime.getType)(type) // PATCHED for mime v2+ compatibility'
+    );
+    patched = true;
+  }
+
+  // Patch 2: mime.charsets.lookup() -> handle missing charsets
+  if (expressResponse.includes('mime.charsets.lookup(') && !expressResponse.includes('// PATCHED for mime v2+ compatibility - charsets')) {
+    expressResponse = expressResponse.replace(
+      /var charset = mime\.charsets\.lookup\(([^)]+)\);/g,
+      `// PATCHED for mime v2+ compatibility - charsets.lookup doesn't exist
+        var charset = (mime.charsets && mime.charsets.lookup) 
+          ? mime.charsets.lookup($1)
+          : null;`
+    );
+    patched = true;
+  }
+
+  if (patched) {
+    writeFileSync(expressResponsePath, expressResponse);
+    console.log('✓ Patched Express response.js for mime v2+ compatibility');
+  } else if (expressResponse.includes('// PATCHED for mime v2+ compatibility')) {
+    console.log('✓ Express response.js already patched');
+  } else {
+    console.log('⚠️  Express response.js patterns not found - may need manual patch');
+  }
+} else {
+  console.log('⚠️  Could not find express/lib/response.js to patch');
+}

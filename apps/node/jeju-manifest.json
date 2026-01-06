@@ -107,8 +107,5 @@
       "timeout": 300000,
       "requiresChain": true
     }
-  },
-  "architecture": {
-    "frontend": { "outputDir": "dist/lander" }
   }
 }

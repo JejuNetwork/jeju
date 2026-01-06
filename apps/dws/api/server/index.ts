@@ -32,7 +32,7 @@ import {
   isProductionEnv,
   tryGetContract,
 } from '@jejunetwork/config'
-import { type Context, Elysia } from 'elysia'
+import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
 import {
   getLocalCDNServer,
@@ -94,7 +94,6 @@ import { createObservabilityRoutes } from '../observability/routes'
 import { PkgRegistryManager } from '../pkg/registry-manager'
 import { createSecurityRoutes } from '../security/routes'
 import { createServicesRouter, discoverExistingServices } from '../services'
-import { createDWSServicesRouter } from './routes/dws-services'
 import { initializeDWSState } from '../state'
 import { createBackendManager } from '../storage/backends'
 import type { ServiceHealth } from '../types'
@@ -103,7 +102,6 @@ import { createA2ARouter } from './routes/a2a'
 import { createAPIMarketplaceRouter } from './routes/api-marketplace'
 import {
   createAppRouter,
-  DEFAULT_API_PATHS,
   getDeployedApp,
   initializeAppRouter,
   proxyToBackend,
@@ -113,6 +111,7 @@ import { createCIRouter } from './routes/ci'
 import { createComputeRouter } from './routes/compute'
 import { createContainerRouter } from './routes/containers'
 import { createDARouter, shutdownDA } from './routes/da'
+import { createDWSServicesRouter } from './routes/dws-services'
 import { createEdgeRouter, handleEdgeWebSocket } from './routes/edge'
 import { createExecRouter } from './routes/exec'
 import { createFaucetRouter } from './routes/faucet'
@@ -136,6 +135,7 @@ import {
   SubscriptionMessageSchema,
 } from './routes/prices'
 import { createPyPkgRouter } from './routes/pypkg'
+import { releasesRoutes } from './routes/releases'
 import { createRPCRouter } from './routes/rpc'
 import { createS3Router } from './routes/s3'
 import { createScrapingRouter } from './routes/scraping'
@@ -144,7 +144,6 @@ import { createStakingRouter } from './routes/staking'
 import { createStorageRouter } from './routes/storage'
 import { createVPNRouter } from './routes/vpn'
 import { createDefaultWorkerdRouter } from './routes/workerd'
-import { releasesRoutes } from './routes/releases'
 import { createWorkersRouter } from './routes/workers'
 
 // Config injection for workerd compatibility
@@ -260,7 +259,7 @@ function rateLimiter() {
     async ({
       request,
       set,
-    }: Context): Promise<
+    }): Promise<
       { error: string; message: string; retryAfter: number } | undefined
     > => {
       const url = new URL(request.url)
@@ -369,22 +368,11 @@ const app = new Elysia()
         'X-Request-ID',
         'X-Babylon-Api-Key',
         'X-Jeju-Address',
-        'X-Jeju-Nonce',
-        'X-Jeju-Signature',
-        'X-Jeju-Timestamp',
+        'x-jeju-address',
         'X-IPFS-Gateway',
         'X-JNS-Name',
-        'X-Address',
-        'X-Signature',
-        'X-Timestamp',
       ],
-      exposeHeaders: [
-        'X-Request-ID',
-        'X-Rate-Limit-Remaining',
-        'X-DWS-Node',
-        'X-DWS-Backend',
-        'X-DWS-Cache',
-      ],
+      exposeHeaders: ['X-Request-ID', 'X-Rate-Limit-Remaining', 'X-DWS-Node'],
       maxAge: 86400,
     }),
   )
@@ -725,7 +713,7 @@ app
   })
 
   // Serve frontend at root
-  .get('/', async ({ set }: Context) => {
+  .get('/', async ({ set }) => {
     const decentralizedResponse =
       await decentralized.frontend.serveAsset('index.html')
     if (decentralizedResponse) return decentralizedResponse
@@ -976,7 +964,7 @@ app.use(createServiceMeshRouter(getServiceMesh()))
 app.use(createKubernetesBridgeRouter())
 
 // Serve static assets (JS, CSS, images) from /web/*
-app.get('/web/*', async ({ request, set }: Context) => {
+app.get('/web/*', async ({ request, set }) => {
   const url = new URL(request.url)
   const assetPath = url.pathname.replace('/web/', '')
 
@@ -1017,7 +1005,7 @@ app.get('/web/*', async ({ request, set }: Context) => {
 })
 
 // Serve frontend - from IPFS when configured, fallback to local
-app.get('/app', async ({ set }: Context) => {
+app.get('/app', async ({ set }) => {
   const decentralizedResponse =
     await decentralized.frontend.serveAsset('index.html')
   if (decentralizedResponse) return decentralizedResponse
@@ -1040,7 +1028,7 @@ app.get('/app', async ({ set }: Context) => {
   }
 })
 
-app.get('/app/ci', async ({ set }: Context) => {
+app.get('/app/ci', async ({ set }) => {
   const decentralizedResponse =
     await decentralized.frontend.serveAsset('ci.html')
   if (decentralizedResponse) return decentralizedResponse
@@ -1060,7 +1048,7 @@ app.get('/app/ci', async ({ set }: Context) => {
   return { error: 'CI frontend not available' }
 })
 
-app.get('/app/da', async ({ set }: Context) => {
+app.get('/app/da', async ({ set }) => {
   const decentralizedResponse =
     await decentralized.frontend.serveAsset('da.html')
   if (decentralizedResponse) return decentralizedResponse
@@ -1080,7 +1068,7 @@ app.get('/app/da', async ({ set }: Context) => {
   return { error: 'DA dashboard not available' }
 })
 
-app.get('/app/*', async ({ request, set }: Context) => {
+app.get('/app/*', async ({ request, set }) => {
   const url = new URL(request.url)
   const path = url.pathname.replace('/app', '')
 
@@ -1103,7 +1091,7 @@ app.get('/app/*', async ({ request, set }: Context) => {
 })
 
 // Internal P2P endpoints
-app.get('/_internal/ratelimit/:clientKey', ({ params }: Context) => {
+app.get('/_internal/ratelimit/:clientKey', ({ params }) => {
   const count = distributedRateLimiter?.getLocalCount(params.clientKey) ?? 0
   return { count }
 })
@@ -1230,7 +1218,7 @@ app.get('/stats', () => {
 // SPA catch-all route for frontend routes like /security/oauth3
 // This must come after all API routes but before 404 fallback
 // Only serves index.html for paths that look like frontend routes (not API endpoints)
-app.get('/*', async ({ path, set }: Context) => {
+app.get('/*', async ({ path, set }) => {
   // Skip API-like paths that should return 404 if not handled
   // Include both with and without trailing slash for exact matches
   const apiPrefixes = [
@@ -1493,12 +1481,7 @@ if (import.meta.main) {
   const appsDir =
     serverConfig.appsDir ??
     (typeof process !== 'undefined' ? process.env.JEJU_APPS_DIR : undefined) ??
-    join(
-      typeof import.meta !== 'undefined' && 'dir' in import.meta
-        ? import.meta.dir
-        : process.cwd(),
-      '../../../../apps',
-    ) // Default to monorepo apps directory
+    join(import.meta.dir, '../../../../apps') // Default to monorepo apps directory
   if (
     (!isProduction || serverConfig.devnet || isLocalnet(NETWORK)) &&
     existsSync(appsDir)
@@ -1521,28 +1504,29 @@ if (import.meta.main) {
       })
   }
 
-  // Adapter to convert Bun's ServerWebSocket to SubscribableWebSocket
-  function toSubscribableWebSocket(ws: {
+  // Adapter types for Bun's ServerWebSocket
+  interface BunServerWebSocket {
     readonly readyState: number
     send(data: string): number
-  }): SubscribableWebSocket {
+    close(): void
+  }
+
+  // Adapter to convert Bun's ServerWebSocket to SubscribableWebSocket
+  function toSubscribableWebSocket(
+    ws: BunServerWebSocket,
+  ): SubscribableWebSocket {
     return {
       get readyState() {
         return ws.readyState
       },
       send(data: string) {
         ws.send(data)
-        return
       },
     }
   }
 
   // Adapter to convert Bun's ServerWebSocket to EdgeWebSocket (includes close)
-  function toEdgeWebSocket(ws: {
-    readonly readyState: number
-    send(data: string): number
-    close(): void
-  }) {
+  function toEdgeWebSocket(ws: BunServerWebSocket) {
     return {
       get readyState() {
         return ws.readyState
@@ -1589,7 +1573,7 @@ if (import.meta.main) {
     | EdgeWebSocketData
     | DurableObjectWebSocketData
 
-  server = Bun.serve<WebSocketData>({
+  server = Bun.serve({
     port: PORT,
     maxRequestBodySize: 500 * 1024 * 1024, // 500MB for large artifact uploads
     idleTimeout: 120, // 120 seconds - health checks can take time when external services are slow
@@ -1855,16 +1839,16 @@ if (import.meta.main) {
           }
         }
       },
-      message(ws: { data: WebSocketData }, message: string | Buffer) {
-        const data = ws.data
+      message(ws, message) {
+        const data = ws.data as WebSocketData
         const msgStr =
           typeof message === 'string'
             ? message
             : new TextDecoder().decode(message)
         data.handlers.message?.(msgStr)
       },
-      close(ws: { data: WebSocketData }) {
-        const data = ws.data
+      close(ws) {
+        const data = ws.data as WebSocketData
         data.handlers.close?.()
       },
     },

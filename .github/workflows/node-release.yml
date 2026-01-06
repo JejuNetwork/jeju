@@ -7,445 +7,186 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to release (e.g., 1.0.0)'
+        description: 'Version to release (e.g., 0.1.0)'
         required: true
         type: string
 
-concurrency:
-  group: node-release
-  cancel-in-progress: false
-
 env:
-  APP_NAME: node
-  WORKING_DIRECTORY: apps/node
+  APP_NAME: jeju-node
 
 jobs:
-  prepare:
-    name: Prepare Release
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-    steps:
-      - name: Parse version
-        id: version
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ inputs.version }}"
-          else
-            VERSION="${GITHUB_REF#refs/tags/node-v}"
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
   test:
     name: Test
     runs-on: ubuntu-latest
-    needs: prepare
     steps:
       - uses: actions/checkout@v4
-
+      
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-
+      
       - name: Install dependencies
         run: bun install
-
-      - name: Type check
-        run: cd ${{ env.WORKING_DIRECTORY }} && bun run typecheck
-
+      
       - name: Run tests
-        run: cd ${{ env.WORKING_DIRECTORY }} && bun test api/ lib/ web/ --timeout 30000
+        run: cd apps/node && bun test src
 
-  build-lander:
-    name: Build Lander
+  build-linux:
+    name: Build Linux
+    needs: test
     runs-on: ubuntu-latest
-    needs: [prepare, test]
     steps:
       - uses: actions/checkout@v4
-
+      
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-
+      
       - name: Install dependencies
         run: bun install
-
-      - name: Build
-        working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: bun run build
-
-      - name: Upload lander artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: node-lander-${{ needs.prepare.outputs.version }}
-          path: ${{ env.WORKING_DIRECTORY }}/dist/lander/
-
-  build-cli:
-    name: Build CLI
-    runs-on: ubuntu-latest
-    needs: [prepare, test]
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Install dependencies
-        run: bun install
-
-      - name: Build CLI
-        working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: bun run build
-
-      - name: Upload CLI artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: node-cli-${{ needs.prepare.outputs.version }}
-          path: ${{ env.WORKING_DIRECTORY }}/dist/cli/
-
-  build-desktop-linux:
-    name: Build Desktop (Linux)
-    runs-on: ubuntu-latest
-    needs: [prepare, test]
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Install system dependencies
+      
+      - name: Install Tauri dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev patchelf
-
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-
+      
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install dependencies
-        run: bun install
-
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli
-
-      - name: Update Tauri version
-        working-directory: ${{ env.WORKING_DIRECTORY }}/app/src-tauri
-        run: |
-          sed -i "s/\"version\": \".*\"/\"version\": \"${{ needs.prepare.outputs.version }}\"/" tauri.conf.json
-
+        uses: dtolnay/rust-action@stable
+      
       - name: Build Tauri app
-        working-directory: ${{ env.WORKING_DIRECTORY }}
+        working-directory: apps/node
+        run: |
+          bun install
+          bun run build:tauri
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: cargo tauri build
-
+      
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: node-linux-${{ needs.prepare.outputs.version }}
+          name: linux-artifacts
           path: |
-            ${{ env.WORKING_DIRECTORY }}/app/src-tauri/target/release/bundle/deb/*.deb
-            ${{ env.WORKING_DIRECTORY }}/app/src-tauri/target/release/bundle/appimage/*.AppImage
-            ${{ env.WORKING_DIRECTORY }}/app/src-tauri/target/release/bundle/rpm/*.rpm
+            apps/node/src-tauri/target/release/bundle/deb/*.deb
+            apps/node/src-tauri/target/release/bundle/appimage/*.AppImage
+            apps/node/src-tauri/target/release/bundle/rpm/*.rpm
 
-  build-desktop-macos:
-    name: Build Desktop (macOS)
+  build-macos:
+    name: Build macOS
+    needs: test
     runs-on: macos-latest
-    needs: [prepare, test]
     steps:
       - uses: actions/checkout@v4
-
+      
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-
+      
+      - name: Install dependencies
+        run: bun install
+      
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-
+      
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-apple-darwin,x86_64-apple-darwin
-
-      - name: Install dependencies
-        run: bun install
-
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli
-
-      - name: Update Tauri version
-        working-directory: ${{ env.WORKING_DIRECTORY }}/app/src-tauri
+        uses: dtolnay/rust-action@stable
+      
+      - name: Build Tauri app
+        working-directory: apps/node
         run: |
-          sed -i '' "s/\"version\": \".*\"/\"version\": \"${{ needs.prepare.outputs.version }}\"/" tauri.conf.json
-
-      - name: Build Tauri app (Universal)
-        working-directory: ${{ env.WORKING_DIRECTORY }}
+          bun install
+          bun run build:tauri
         env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: cargo tauri build --target universal-apple-darwin
-
+      
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: node-macos-${{ needs.prepare.outputs.version }}
+          name: macos-artifacts
           path: |
-            ${{ env.WORKING_DIRECTORY }}/app/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+            apps/node/src-tauri/target/release/bundle/dmg/*.dmg
+            apps/node/src-tauri/target/release/bundle/macos/*.app
 
-  build-desktop-windows:
-    name: Build Desktop (Windows)
+  build-windows:
+    name: Build Windows
+    needs: test
     runs-on: windows-latest
-    needs: [prepare, test]
     steps:
       - uses: actions/checkout@v4
-
+      
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-
+      
+      - name: Install dependencies
+        run: bun install
+      
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-
+      
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install dependencies
-        run: bun install
-
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli
-
-      - name: Update Tauri version
-        working-directory: ${{ env.WORKING_DIRECTORY }}/app/src-tauri
-        shell: pwsh
-        run: |
-          $content = Get-Content tauri.conf.json -Raw
-          $content = $content -replace '"version": ".*?"', '"version": "${{ needs.prepare.outputs.version }}"'
-          Set-Content tauri.conf.json $content
-
+        uses: dtolnay/rust-action@stable
+      
       - name: Build Tauri app
-        working-directory: ${{ env.WORKING_DIRECTORY }}
+        working-directory: apps/node
+        run: |
+          bun install
+          bun run build:tauri
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: cargo tauri build
-
+      
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: node-windows-${{ needs.prepare.outputs.version }}
+          name: windows-artifacts
           path: |
-            ${{ env.WORKING_DIRECTORY }}/app/src-tauri/target/release/bundle/msi/*.msi
-            ${{ env.WORKING_DIRECTORY }}/app/src-tauri/target/release/bundle/nsis/*.exe
+            apps/node/src-tauri/target/release/bundle/msi/*.msi
+            apps/node/src-tauri/target/release/bundle/nsis/*.exe
 
-  publish-dws:
-    name: Publish to DWS
+  release:
+    name: Create Release
+    needs: [build-linux, build-macos, build-windows]
     runs-on: ubuntu-latest
-    needs:
-      - prepare
-      - build-lander
-      - build-desktop-linux
-      - build-desktop-macos
-      - build-desktop-windows
-    environment: ${{ github.ref_name == 'main' && 'mainnet' || 'testnet' }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Install dependencies
-        run: bun install
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          pattern: node-*-${{ needs.prepare.outputs.version }}
-
-      - name: Prepare release directory
-        run: |
-          mkdir -p release/${{ needs.prepare.outputs.version }}
-          
-          # Copy desktop artifacts
-          find artifacts -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.msi" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" \) -exec cp {} release/${{ needs.prepare.outputs.version }}/ \;
-          
-          # Copy lander
-          mkdir -p release/${{ needs.prepare.outputs.version }}/lander
-          cp -r artifacts/node-lander-${{ needs.prepare.outputs.version }}/* release/${{ needs.prepare.outputs.version }}/lander/
-
-      - name: Calculate checksums
-        working-directory: release/${{ needs.prepare.outputs.version }}
-        run: |
-          for file in *.dmg *.exe *.msi *.AppImage *.deb *.rpm 2>/dev/null; do
-            if [ -f "$file" ]; then
-              sha256sum "$file" | cut -d' ' -f1 > "$file.sha256"
-            fi
-          done
-
-      - name: Publish to DWS
-        env:
-          DWS_URL: ${{ vars.DWS_URL || 'https://dws.jejunetwork.org' }}
-          DEPLOYER_PRIVATE_KEY: ${{ secrets.DEPLOYER_PRIVATE_KEY }}
-        run: |
-          cd release/${{ needs.prepare.outputs.version }}
-          
-          ARTIFACTS='[]'
-          
-          # Upload desktop artifacts
-          for file in *.dmg *.exe *.msi *.AppImage *.deb *.rpm 2>/dev/null; do
-            if [ -f "$file" ]; then
-              echo "Uploading $file..."
-              RESPONSE=$(curl -s -X POST "$DWS_URL/storage/upload" \
-                -F "file=@$file" \
-                -F "name=$file")
-              CID=$(echo "$RESPONSE" | jq -r '.cid')
-              SIZE=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file")
-              SHA256=$(cat "$file.sha256" 2>/dev/null || echo "")
-              
-              # Detect platform and arch from filename
-              PLATFORM=""
-              ARCH=""
-              if [[ "$file" == *".dmg" ]]; then
-                PLATFORM="macos"
-                ARCH="universal"
-              elif [[ "$file" == *"x64"* ]] || [[ "$file" == *"x86_64"* ]] || [[ "$file" == *"amd64"* ]]; then
-                ARCH="x64"
-                if [[ "$file" == *".exe" ]] || [[ "$file" == *".msi" ]]; then
-                  PLATFORM="windows"
-                else
-                  PLATFORM="linux"
-                fi
-              elif [[ "$file" == *"arm64"* ]] || [[ "$file" == *"aarch64"* ]]; then
-                ARCH="arm64"
-                if [[ "$file" == *".AppImage" ]] || [[ "$file" == *".deb" ]] || [[ "$file" == *".rpm" ]]; then
-                  PLATFORM="linux"
-                fi
-              else
-                # Default platform detection
-                if [[ "$file" == *".exe" ]] || [[ "$file" == *".msi" ]]; then
-                  PLATFORM="windows"
-                  ARCH="x64"
-                elif [[ "$file" == *".AppImage" ]] || [[ "$file" == *".deb" ]] || [[ "$file" == *".rpm" ]]; then
-                  PLATFORM="linux"
-                  ARCH="x64"
-                fi
-              fi
-              
-              ARTIFACTS=$(echo "$ARTIFACTS" | jq --arg p "$PLATFORM" --arg a "$ARCH" --arg f "$file" --arg c "$CID" --arg s "$SIZE" --arg h "$SHA256" \
-                '. += [{"platform": $p, "arch": $a, "filename": $f, "cid": $c, "size": ($s | tonumber), "sha256": $h}]')
-              
-              echo "  CID: $CID"
-            fi
-          done
-          
-          # Create release manifest
-          cat > manifest.json << EOF
-          {
-            "app": "node",
-            "version": "${{ needs.prepare.outputs.version }}",
-            "releasedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-            "channel": "stable",
-            "artifacts": $(echo "$ARTIFACTS" | jq -c '.'),
-            "releaseNotes": "Jeju Node v${{ needs.prepare.outputs.version }} - Run infrastructure and earn rewards."
-          }
-          EOF
-          
-          # Upload manifest
-          echo "Uploading manifest..."
-          curl -s -X POST "$DWS_URL/storage/upload" \
-            -F "file=@manifest.json" \
-            -F "name=node-${{ needs.prepare.outputs.version }}-manifest.json"
-          
-          # Update latest pointer
-          echo "Updating release index..."
-          curl -s -X PUT "$DWS_URL/storage/releases/node/latest.json" \
-            -H "Content-Type: application/json" \
-            -d @manifest.json
-          
-          echo ""
-          echo "Release published to DWS."
-
-      - name: Deploy lander to CDN
-        env:
-          DWS_URL: ${{ vars.DWS_URL || 'https://dws.jejunetwork.org' }}
-        run: |
-          cd release/${{ needs.prepare.outputs.version }}/lander
-          
-          # Upload lander files
-          echo "Deploying lander to CDN..."
-          for file in *; do
-            if [ -f "$file" ]; then
-              curl -s -X POST "$DWS_URL/storage/upload" \
-                -F "file=@$file" \
-                -F "name=node-lander/$file"
-            fi
-          done
-          
-          # Configure CDN routing
-          curl -s -X POST "$DWS_URL/cdn/configure" \
-            -H "Content-Type: application/json" \
-            -d '{
-              "name": "node",
-              "domain": "node.jejunetwork.org",
-              "jnsName": "node.jeju",
-              "spa": {
-                "enabled": true,
-                "fallback": "/index.html"
-              },
-              "routes": [
-                { "path": "/api/releases/*", "backend": "dws-releases" },
-                { "path": "/storage/*", "backend": "dws-storage" }
-              ]
-            }'
-          
-          echo "Lander deployed."
-
-  create-github-release:
-    name: Create GitHub Release
-    runs-on: ubuntu-latest
-    needs:
-      - prepare
-      - build-desktop-linux
-      - build-desktop-macos
-      - build-desktop-windows
-      - publish-dws
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+      
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-          pattern: node-*-${{ needs.prepare.outputs.version }}
-
-      - name: Organize release files
+      
+      - name: Get version
+        id: version
         run: |
-          mkdir release-files
-          find artifacts -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.msi" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" \) -exec cp {} release-files/ \;
-
-      - name: Create release
-        uses: softprops/action-gh-release@v2
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/node-v}" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
         with:
-          tag_name: node-v${{ needs.prepare.outputs.version }}
-          name: Jeju Node v${{ needs.prepare.outputs.version }}
+          tag_name: node-v${{ steps.version.outputs.version }}
+          name: Jeju Node v${{ steps.version.outputs.version }}
           draft: false
-          prerelease: ${{ contains(needs.prepare.outputs.version, 'alpha') || contains(needs.prepare.outputs.version, 'beta') }}
-          files: release-files/*
+          prerelease: ${{ contains(steps.version.outputs.version, 'alpha') || contains(steps.version.outputs.version, 'beta') }}
+          files: |
+            artifacts/linux-artifacts/**/*
+            artifacts/macos-artifacts/**/*
+            artifacts/windows-artifacts/**/*
           body: |
-            ## Jeju Node v${{ needs.prepare.outputs.version }}
+            ## Jeju Node v${{ steps.version.outputs.version }}
             
             Run infrastructure and earn rewards on the Jeju Network.
             
@@ -453,24 +194,23 @@ jobs:
             
             | Platform | Download |
             |----------|----------|
-            | **macOS** (Universal) | `.dmg` disk image |
             | **Windows** | `.msi` or `.exe` installer |
+            | **macOS** | `.dmg` disk image |
             | **Linux** | `.AppImage`, `.deb`, or `.rpm` |
             
             ### Quick Start
             
             1. Download and install for your platform
-            2. Run the app and follow the setup wizard
-            3. Start earning rewards
+            2. Run `jeju-node setup` to configure
+            3. Run `jeju-node start` to begin earning
             
-            ### CLI Installation
+            ### CLI Usage
             
             ```bash
-            # Via bun
-            bun add -g @jejunetwork/node
-            
-            # Via npm
+            # Install via npm/bun
             npm install -g @jejunetwork/node
+            # or
+            bun add -g @jejunetwork/node
             
             # Configure
             jeju-node setup
@@ -478,39 +218,37 @@ jobs:
             # Start
             jeju-node start
             ```
-            
-            ### Features
-            
-            - Run VPN exit nodes
-            - Provide storage via IPFS
-            - Run DWS workers
-            - Earn JEJU tokens for contributions
-            
-            ---
-            
-            Website: https://node.jejunetwork.org
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   docker:
     name: Build Docker Image
+    needs: test
     runs-on: ubuntu-latest
-    needs: [prepare, test]
     permissions:
       packages: write
     steps:
       - uses: actions/checkout@v4
-
+      
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
+      
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
+      
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/node-v}" >> $GITHUB_OUTPUT
+          fi
+      
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
@@ -518,7 +256,8 @@ jobs:
           file: apps/node/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/jeju-node:${{ needs.prepare.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/jeju-node:${{ steps.version.outputs.version }}
             ghcr.io/${{ github.repository_owner }}/jeju-node:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+

@@ -14,11 +14,7 @@ import {
 import { Link, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAccount } from 'wagmi'
-import {
-  Button,
-  EmptyState,
-  LoadingState,
-} from '../../components/shared'
+import { Button, EmptyState, LoadingState } from '../../components/shared'
 import { useBounty } from '../../hooks/useBounties'
 import { formatAddress, formatDeadline } from '../../lib/format'
 
@@ -48,7 +44,9 @@ export function BountyDetailPage() {
       toast.error('Please connect your wallet to apply')
       return
     }
-    toast.success('Application submitted. The bounty creator will review your profile.')
+    toast.success(
+      'Application submitted. The bounty creator will review your profile.',
+    )
   }
 
   if (isLoading) {

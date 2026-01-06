@@ -205,8 +205,8 @@ export default function BrokerSDKPage() {
               }}
             >
               Connect your cloud accounts or data center to the DWS marketplace.
-              List compute resources you don't own, provision on-demand, and earn
-              a commission on every rental.
+              List compute resources you don't own, provision on-demand, and
+              earn a commission on every rental.
             </p>
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
               <a
@@ -249,7 +249,9 @@ export default function BrokerSDKPage() {
             >
               SDK v2.0
             </div>
-            <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+            <div
+              style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}
+            >
               TypeScript / Node.js
             </div>
           </div>
@@ -577,9 +579,7 @@ export default function BrokerSDKPage() {
           Join the compute marketplace and start earning commissions on cloud
           resources today.
         </p>
-        <div
-          style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}
-        >
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
           <a
             href="https://github.com/jejunetwork/broker-sdk"
             target="_blank"
@@ -614,7 +614,8 @@ function Step({
           width: '48px',
           height: '48px',
           borderRadius: '50%',
-          background: 'linear-gradient(135deg, rgb(139, 92, 246), rgb(168, 85, 247))',
+          background:
+            'linear-gradient(135deg, rgb(139, 92, 246), rgb(168, 85, 247))',
           color: 'white',
           display: 'flex',
           alignItems: 'center',
@@ -655,9 +656,7 @@ function RevenueCard({
     <div
       style={{
         padding: '1.5rem',
-        background: highlight
-          ? 'rgba(34, 197, 94, 0.1)'
-          : 'var(--bg-tertiary)',
+        background: highlight ? 'rgba(34, 197, 94, 0.1)' : 'var(--bg-tertiary)',
         borderRadius: 'var(--radius-md)',
         border: highlight ? '1px solid var(--success)' : undefined,
         textAlign: 'center',

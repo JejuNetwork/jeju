@@ -19,19 +19,19 @@
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import { z } from 'zod'
+import type { HardwareSpec } from '../containers/provisioner'
 import {
-  getStatefulProvisioner,
-  type StatefulServiceConfig,
-  type StatefulService,
-  type VolumeConfig,
   type ConsensusConfig,
+  getStatefulProvisioner,
+  type StatefulService,
+  type StatefulServiceConfig,
+  type VolumeConfig,
 } from '../containers/stateful-provisioner'
 import {
-  registerTypedService,
   deregisterService,
+  registerTypedService,
   type ServiceEndpoint,
 } from './discovery'
-import type { HardwareSpec } from '../containers/provisioner'
 
 // ============================================================================
 // Types
@@ -91,7 +91,9 @@ export const DAConfigSchema = z.object({
   retention: z.object({
     daysToKeep: z.number().min(1).default(30),
     archiveEnabled: z.boolean().default(true),
-    archiveBackend: z.enum(['ipfs', 's3', 'arweave', 'filecoin']).default('ipfs'),
+    archiveBackend: z
+      .enum(['ipfs', 's3', 'arweave', 'filecoin'])
+      .default('ipfs'),
   }),
   challenge: z.object({
     enabled: z.boolean().default(true),
@@ -254,7 +256,11 @@ export async function deployDA(
     env,
     ports: [
       { name: 'da', containerPort: DA_PORT, protocol: 'tcp' },
-      { name: 'metrics', containerPort: validatedConfig.metrics.port, protocol: 'tcp' },
+      {
+        name: 'metrics',
+        containerPort: validatedConfig.metrics.port,
+        protocol: 'tcp',
+      },
     ],
     hardware,
     volumes,
@@ -286,7 +292,10 @@ export async function deployDA(
 
   // Create stateful service
   const statefulProvisioner = getStatefulProvisioner()
-  const statefulService = await statefulProvisioner.create(owner, statefulConfig)
+  const statefulService = await statefulProvisioner.create(
+    owner,
+    statefulConfig,
+  )
 
   // Generate service ID
   const serviceId = `da-${keccak256(toBytes(`${validatedConfig.name}-${owner}-${Date.now()}`)).slice(2, 18)}`

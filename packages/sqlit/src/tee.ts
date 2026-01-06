@@ -16,8 +16,8 @@ import {
   createHash,
   randomBytes,
 } from 'node:crypto'
-import type { TEEAttestation, TEEPlatform } from './types'
 import type { Hex } from 'viem'
+import type { TEEAttestation, TEEPlatform } from './types'
 
 // ============ Configuration ============
 

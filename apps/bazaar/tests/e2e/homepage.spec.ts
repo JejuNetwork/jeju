@@ -10,7 +10,9 @@ import {
 } from '@jejunetwork/tests/playwright-only'
 import { expect, type Page, test } from '@playwright/test'
 
-const isRemote = process.env.JEJU_NETWORK === 'testnet' || process.env.JEJU_NETWORK === 'mainnet'
+const isRemote =
+  process.env.JEJU_NETWORK === 'testnet' ||
+  process.env.JEJU_NETWORK === 'mainnet'
 
 const DESKTOP_VIEWPORT = { width: 1280, height: 800 }
 const MOBILE_VIEWPORT = { width: 375, height: 812 }

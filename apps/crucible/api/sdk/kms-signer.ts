@@ -226,7 +226,8 @@ export class KMSSigner {
       // If KMS fails and we have a fallback key in dev mode, use local wallet
       if (this.config.allowDevMode && this.config.fallbackPrivateKey) {
         log.warn('KMS unavailable, using local wallet fallback for localnet', {
-          error: kmsError instanceof Error ? kmsError.message : String(kmsError),
+          error:
+            kmsError instanceof Error ? kmsError.message : String(kmsError),
         })
         this.initializeFallbackWallet(this.config.fallbackPrivateKey)
       } else {

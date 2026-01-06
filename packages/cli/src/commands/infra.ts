@@ -571,8 +571,9 @@ infraCommand
 // DWS Services Commands
 // ============================================================================
 
-const dwsServicesCommand = new Command('dws-services')
-  .description('Deploy and manage DWS-native services (OAuth3, DA, Email, Hubble, Workers)')
+const dwsServicesCommand = new Command('dws-services').description(
+  'Deploy and manage DWS-native services (OAuth3, DA, Email, Hubble, Workers)',
+)
 
 dwsServicesCommand
   .command('bootstrap')
@@ -611,84 +612,95 @@ dwsServicesCommand
 dwsServicesCommand
   .command('deploy')
   .description('Deploy a specific DWS service')
-  .argument('<service>', 'Service to deploy (oauth3, da, email, hubble, x402, rpc-gateway, sqlit-adapter)')
+  .argument(
+    '<service>',
+    'Service to deploy (oauth3, da, email, hubble, x402, rpc-gateway, sqlit-adapter)',
+  )
   .option('--replicas <n>', 'Number of replicas', '2')
   .option('--name <name>', 'Service name')
-  .action(async (service: string, options: { replicas: string; name?: string }) => {
-    const { getDWSUrl, getCurrentNetwork } = await import('@jejunetwork/config')
-    const network = getCurrentNetwork()
-    const dwsUrl = getDWSUrl(network)
+  .action(
+    async (service: string, options: { replicas: string; name?: string }) => {
+      const { getDWSUrl, getCurrentNetwork } = await import(
+        '@jejunetwork/config'
+      )
+      const network = getCurrentNetwork()
+      const dwsUrl = getDWSUrl(network)
 
-    if (!dwsUrl) {
-      logger.error('DWS URL not configured for this network')
-      return
-    }
+      if (!dwsUrl) {
+        logger.error('DWS URL not configured for this network')
+        return
+      }
 
-    const deployerAddress = process.env.DEPLOYER_ADDRESS
-    if (!deployerAddress) {
-      logger.error('DEPLOYER_ADDRESS environment variable required')
-      return
-    }
+      const deployerAddress = process.env.DEPLOYER_ADDRESS
+      if (!deployerAddress) {
+        logger.error('DEPLOYER_ADDRESS environment variable required')
+        return
+      }
 
-    const serviceName = options.name ?? `jeju-${service}`
-    const replicas = parseInt(options.replicas, 10)
+      const serviceName = options.name ?? `jeju-${service}`
+      const replicas = parseInt(options.replicas, 10)
 
-    logger.info(`Deploying ${service} via DWS...`)
-    logger.info(`  Name: ${serviceName}`)
-    logger.info(`  Replicas: ${replicas}`)
-    logger.info(`  DWS URL: ${dwsUrl}`)
+      logger.info(`Deploying ${service} via DWS...`)
+      logger.info(`  Name: ${serviceName}`)
+      logger.info(`  Replicas: ${replicas}`)
+      logger.info(`  DWS URL: ${dwsUrl}`)
 
-    const serviceTypeMap: Record<string, string> = {
-      'oauth3': 'oauth3',
-      'da': 'da',
-      'email': 'email',
-      'hubble': 'hubble',
-      'x402': 'workers',
-      'x402-facilitator': 'workers',
-      'rpc-gateway': 'workers',
-      'sqlit-adapter': 'workers',
-    }
+      const serviceTypeMap: Record<string, string> = {
+        oauth3: 'oauth3',
+        da: 'da',
+        email: 'email',
+        hubble: 'hubble',
+        x402: 'workers',
+        'x402-facilitator': 'workers',
+        'rpc-gateway': 'workers',
+        'sqlit-adapter': 'workers',
+      }
 
-    const endpoint = serviceTypeMap[service]
-    if (!endpoint) {
-      logger.error(`Unknown service: ${service}`)
-      logger.info('Valid services: oauth3, da, email, hubble, x402, rpc-gateway, sqlit-adapter')
-      return
-    }
+      const endpoint = serviceTypeMap[service]
+      if (!endpoint) {
+        logger.error(`Unknown service: ${service}`)
+        logger.info(
+          'Valid services: oauth3, da, email, hubble, x402, rpc-gateway, sqlit-adapter',
+        )
+        return
+      }
 
-    const body: Record<string, unknown> = {
-      name: serviceName,
-      replicas,
-    }
+      const body: Record<string, unknown> = {
+        name: serviceName,
+        replicas,
+      }
 
-    // Add type for workers
-    if (endpoint === 'workers') {
-      body.type = service === 'x402' ? 'x402-facilitator' : service
-    }
+      // Add type for workers
+      if (endpoint === 'workers') {
+        body.type = service === 'x402' ? 'x402-facilitator' : service
+      }
 
-    const response = await fetch(`${dwsUrl}/dws-services/${endpoint}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-jeju-address': deployerAddress,
-      },
-      body: JSON.stringify(body),
-    })
+      const response = await fetch(`${dwsUrl}/dws-services/${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-jeju-address': deployerAddress,
+        },
+        body: JSON.stringify(body),
+      })
 
-    if (!response.ok) {
-      const error = await response.text()
-      logger.error(`Failed to deploy ${service}: ${error}`)
-      return
-    }
+      if (!response.ok) {
+        const error = await response.text()
+        logger.error(`Failed to deploy ${service}: ${error}`)
+        return
+      }
 
-    const result = await response.json() as { service: { id: string; status: string; endpoints: string[] } }
-    logger.success(`${service} deployed successfully`)
-    logger.info(`  ID: ${result.service.id}`)
-    logger.info(`  Status: ${result.service.status}`)
-    if (result.service.endpoints?.length > 0) {
-      logger.info(`  Endpoints: ${result.service.endpoints.join(', ')}`)
-    }
-  })
+      const result = (await response.json()) as {
+        service: { id: string; status: string; endpoints: string[] }
+      }
+      logger.success(`${service} deployed successfully`)
+      logger.info(`  ID: ${result.service.id}`)
+      logger.info(`  Status: ${result.service.status}`)
+      if (result.service.endpoints?.length > 0) {
+        logger.info(`  Endpoints: ${result.service.endpoints.join(', ')}`)
+      }
+    },
+  )
 
 dwsServicesCommand
   .command('list')
@@ -717,7 +729,9 @@ dwsServicesCommand
 
       if (!response.ok) continue
 
-      const result = await response.json() as { services: Array<{ id: string; name: string; status: string }> }
+      const result = (await response.json()) as {
+        services: Array<{ id: string; name: string; status: string }>
+      }
       if (result.services?.length > 0) {
         logger.info(`${endpoint.toUpperCase()}:`)
         for (const svc of result.services) {

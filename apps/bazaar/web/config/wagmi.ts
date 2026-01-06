@@ -130,7 +130,11 @@ const activeChain =
 
 export const wagmiConfig = createConfig({
   chains: [activeChain],
-  connectors: [injected()],
+  connectors: [
+    injected({
+      shimDisconnect: true, // Enable shim disconnect to prevent caching issues
+    }),
+  ],
   transports: {
     [activeChain.id]: http(RUNTIME_RPC_URL, {
       batch: true,
@@ -139,6 +143,9 @@ export const wagmiConfig = createConfig({
     }),
   },
   ssr: true,
+  // Disable auto-connect to prevent connecting to wrong account
+  // Users must explicitly connect with the account they want to use
+  // This prevents issues where wagmi caches a different account than MetaMask's current selection
 })
 
 // Export for OAuth3 provider

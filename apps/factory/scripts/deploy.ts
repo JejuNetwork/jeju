@@ -265,7 +265,7 @@ async function deploy(): Promise<DeployResult> {
   // This uses the deployFromCid function which sets handler: 'fetch' correctly
   const backendEndpoint = `${DWS_URL}/workers/${workerCid}/http`
 
-  // Always register the app with the DWS app router
+  // Register the app with the DWS app router using CID as backendWorkerId
   console.log('\nRegistering app with DWS...')
   const appRegistrationResponse = await fetch(`${DWS_URL}/apps/deployed`, {
     method: 'POST',
@@ -278,7 +278,7 @@ async function deploy(): Promise<DeployResult> {
       jnsName: 'factory.jeju',
       frontendCid: frontendCid,
       staticFiles: Object.keys(staticFiles).length > 0 ? staticFiles : null,
-      backendWorkerId: deployResult?.functionId ?? null,
+      backendWorkerId: workerCid, // Use CID directly - DWS will deploy on first request
       backendEndpoint: backendEndpoint,
       apiPaths: ['/api', '/health', '/a2a', '/mcp', '/swagger'],
       spa: true,
@@ -287,54 +287,25 @@ async function deploy(): Promise<DeployResult> {
   })
 
   if (!appRegistrationResponse.ok) {
-    console.log(
-      `  App registration failed: ${await appRegistrationResponse.text()}`,
+    throw new Error(
+      `App registration failed: ${await appRegistrationResponse.text()}`,
     )
-    deployResult = deployResult ?? {
-      functionId: 'registration-failed',
-      codeCid: workerCid,
-      status: 'failed',
-    }
-  } else {
-    const regJson: unknown = await appRegistrationResponse.json()
-    console.log(`  App registered: ${JSON.stringify(regJson)}`)
-    deployResult = deployResult ?? {
-      functionId: 'app-registered',
-      codeCid: workerCid,
-      status: 'deployed',
-    }
   }
 
-  // Ensure deployResult is defined for the final result
-  const finalResult = deployResult ?? {
-    functionId: 'not-deployed',
-    codeCid: workerCid,
-    status: 'frontend-only',
-  }
+  const regJson: unknown = await appRegistrationResponse.json()
+  console.log(`  App registered: ${JSON.stringify(regJson)}`)
 
   const result: DeployResult = {
     frontend: { cid: frontendCid, url: `${DWS_URL}/ipfs/${frontendCid}` },
     backend: {
-      workerId: finalResult.functionId,
-      url:
-        finalResult.functionId !== 'not-deployed'
-          ? `${DWS_URL}/workers/${finalResult.functionId}`
-          : 'Backend not deployed - API requests will fail',
+      workerId: workerCid,
+      url: backendEndpoint,
     },
   }
 
   console.log('\nDeployment complete.')
   console.log(`  Frontend: ${result.frontend.url}`)
   console.log(`  Backend: ${result.backend.url}`)
-  if (finalResult.status === 'frontend-only') {
-    console.log('\n  WARNING: Backend worker was not deployed.')
-    console.log(
-      '  The Factory API will not be available until the backend is deployed.',
-    )
-    console.log(
-      '  To fix this, ensure DWS workers support Bun runtime or deploy as a container.',
-    )
-  }
 
   return result
 }

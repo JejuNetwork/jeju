@@ -4,7 +4,6 @@ import {
   getEnvNumber,
   getEnvVar,
   getLocalhostHost,
-  getServicesConfig,
   getSQLitBlockProducerUrl,
 } from '@jejunetwork/config'
 

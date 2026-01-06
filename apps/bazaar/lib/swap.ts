@@ -14,17 +14,8 @@ import type {
   SwapValidationResult,
 } from '../schemas/swap'
 
-// Only include ETH (native token) as it's the only guaranteed available token
-// Other tokens are loaded dynamically from config based on network
-export const SWAP_TOKENS: SwapToken[] = [
-  {
-    symbol: 'ETH',
-    name: 'Ethereum',
-    icon: '⟠',
-    address: '0x0000000000000000000000000000000000000000',
-    decimals: 18,
-  },
-]
+// Re-export from API (single source of truth)
+export { SWAP_TOKENS } from '../api/swap'
 
 export const DEFAULT_FEE_BPS = 30n
 export const BASE_NETWORK_FEE = parseEther('0.001')

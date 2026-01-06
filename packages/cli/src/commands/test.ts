@@ -188,7 +188,9 @@ export const testCommand = new Command('test')
     logger.header(`JEJU TEST - ${mode.toUpperCase()}`)
     if (isRemoteNetwork) {
       logger.info(`Target network: ${network} (remote)`)
-      logger.info('Skipping local infrastructure - testing against deployed services')
+      logger.info(
+        'Skipping local infrastructure - testing against deployed services',
+      )
     }
 
     // Validate mode

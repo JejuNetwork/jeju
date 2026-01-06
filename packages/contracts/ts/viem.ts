@@ -26,11 +26,10 @@ import type {
   Chain,
   ContractFunctionArgs,
   ContractFunctionName,
-  GetContractReturnType,
   Hex,
+  PublicClient,
   ReadContractReturnType,
   Transport,
-  PublicClient as ViemPublicClient,
   WalletClient as ViemWalletClient,
   WriteContractParameters,
 } from 'viem'
@@ -63,11 +62,11 @@ import {
  * Works with viem 2.43+ EIP-7702 types without requiring authorizationList.
  */
 export async function readContract<
-  const TAbi extends Abi | readonly unknown[],
+  const TAbi extends Abi,
   TFunctionName extends ContractFunctionName<TAbi, 'pure' | 'view'>,
   TArgs extends ContractFunctionArgs<TAbi, 'pure' | 'view', TFunctionName>,
 >(
-  client: { readContract: (...args: never[]) => Promise<unknown> },
+  client: PublicClient,
   params: {
     address: Address
     abi: TAbi
@@ -77,16 +76,14 @@ export async function readContract<
     blockTag?: 'latest' | 'earliest' | 'pending' | 'safe' | 'finalized'
   },
 ): Promise<ReadContractReturnType<TAbi, TFunctionName, TArgs>> {
-  return (
-    client.readContract as (params: Record<string, unknown>) => Promise<unknown>
-  )({
+  return client.readContract({
     address: params.address,
     abi: params.abi,
-    functionName: params.functionName as string,
-    args: params.args as readonly unknown[] | undefined,
+    functionName: params.functionName,
+    args: params.args,
     blockNumber: params.blockNumber,
     blockTag: params.blockTag,
-  }) as Promise<ReadContractReturnType<TAbi, TFunctionName, TArgs>>
+  }) as ReadContractReturnType<TAbi, TFunctionName, TArgs>
 }
 
 /**
@@ -103,7 +100,7 @@ export async function readContract<
  * ```
  */
 export async function writeContract<
-  const TAbi extends Abi | readonly unknown[],
+  const TAbi extends Abi,
   TFunctionName extends ContractFunctionName<TAbi, 'nonpayable' | 'payable'>,
   TArgs extends ContractFunctionArgs<
     TAbi,
@@ -129,15 +126,20 @@ export async function writeContract<
     account?: TAccount
   },
 ): Promise<Hex> {
-  return client.writeContract(
-    params as WriteContractParameters<
-      TAbi,
-      TFunctionName,
-      TArgs,
-      TChain,
-      TAccount
-    >,
-  )
+  return client.writeContract({
+    address: params.address,
+    abi: params.abi,
+    functionName: params.functionName,
+    args: params.args,
+    value: params.value,
+    gas: params.gas,
+    gasPrice: params.gasPrice,
+    maxFeePerGas: params.maxFeePerGas,
+    maxPriorityFeePerGas: params.maxPriorityFeePerGas,
+    nonce: params.nonce,
+    chain: params.chain,
+    account: params.account,
+  } as WriteContractParameters<TAbi, TFunctionName, TArgs, TChain, TAccount>)
 }
 
 /**
@@ -153,16 +155,16 @@ export async function writeContract<
  * const balance = await token.read.balanceOf([userAddress])
  * ```
  */
-export function getContract<
-  const TAbi extends Abi | readonly unknown[],
->(params: {
+export function getContract<const TAbi extends Abi>(params: {
   address: Address
   abi: TAbi
-  client: unknown
-}): GetContractReturnType<TAbi> {
-  return viemGetContract(
-    params as Parameters<typeof viemGetContract>[0],
-  ) as GetContractReturnType<TAbi>
+  client: PublicClient | ViemWalletClient
+}): ReturnType<typeof viemGetContract> {
+  return viemGetContract({
+    address: params.address,
+    abi: params.abi,
+    client: params.client,
+  })
 }
 
 /**
@@ -192,7 +194,7 @@ export interface PublicClientConfig {
  */
 export function createTypedPublicClient(
   config: PublicClientConfig,
-): ViemPublicClient {
+): ReturnType<typeof createPublicClient> {
   return createPublicClient({
     chain: {
       id: config.chainId,
@@ -229,7 +231,7 @@ export interface WalletClientConfig extends PublicClientConfig {
  */
 export function createTypedWalletClient(
   config: WalletClientConfig,
-): ViemWalletClient {
+): ReturnType<typeof createWalletClient> {
   return createWalletClient({
     account: config.account,
     chain: {

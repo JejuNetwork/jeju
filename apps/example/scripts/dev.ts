@@ -1,15 +1,16 @@
 #!/usr/bin/env bun
+
 /**
  * Example App Development Server
  *
  * Starts both API and frontend with hot reload.
  */
 
-import type { BunPlugin, Subprocess } from 'bun'
 import { watch } from 'node:fs'
 import { mkdir, readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { getLocalhostHost } from '@jejunetwork/config'
+import type { BunPlugin, Subprocess } from 'bun'
 
 const APP_DIR = resolve(import.meta.dir, '..')
 

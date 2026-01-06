@@ -13,19 +13,19 @@
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import { z } from 'zod'
+import type { HardwareSpec, TEEPlatform } from '../containers/provisioner'
 import {
   getStatefulProvisioner,
-  type StatefulServiceConfig,
-  type StatefulService,
   type MPCConfig,
+  type StatefulService,
+  type StatefulServiceConfig,
   type VolumeConfig,
 } from '../containers/stateful-provisioner'
 import {
-  registerTypedService,
   deregisterService,
+  registerTypedService,
   type ServiceEndpoint,
 } from './discovery'
-import type { HardwareSpec, TEEPlatform } from '../containers/provisioner'
 
 // ============================================================================
 // Types
@@ -79,7 +79,9 @@ export const OAuth3ConfigSchema = z.object({
     .object({
       cpuCores: z.number().optional(),
       memoryMb: z.number().optional(),
-      teePlatform: z.enum(['intel-sgx', 'intel-tdx', 'amd-sev', 'nvidia-cc', 'none']).optional(),
+      teePlatform: z
+        .enum(['intel-sgx', 'intel-tdx', 'amd-sev', 'nvidia-cc', 'none'])
+        .optional(),
     })
     .optional(),
   volumeSizeGb: z.number().default(10),
@@ -263,7 +265,10 @@ export async function deployOAuth3(
 
   // Create stateful service
   const statefulProvisioner = getStatefulProvisioner()
-  const statefulService = await statefulProvisioner.create(owner, statefulConfig)
+  const statefulService = await statefulProvisioner.create(
+    owner,
+    statefulConfig,
+  )
 
   // Generate service ID
   const serviceId = `oauth3-${keccak256(toBytes(`${validatedConfig.name}-${owner}-${Date.now()}`)).slice(2, 18)}`
@@ -314,7 +319,9 @@ export async function deployOAuth3(
 
   oauth3Services.set(serviceId, oauth3Service)
 
-  console.log(`[OAuth3Service] Deployed ${validatedConfig.name} with MPC cluster ${statefulService.mpcClusterId?.slice(0, 18)}...`)
+  console.log(
+    `[OAuth3Service] Deployed ${validatedConfig.name} with MPC cluster ${statefulService.mpcClusterId?.slice(0, 18)}...`,
+  )
 
   return oauth3Service
 }
@@ -516,7 +523,7 @@ export async function rotateOAuth3MPCKeys(
   }
 
   const result = (await response.json()) as { newPublicKey: Hex }
-  
+
   // Update service state
   service.thresholdPublicKey = result.newPublicKey
   service.statefulService.mpcThresholdPublicKey = result.newPublicKey

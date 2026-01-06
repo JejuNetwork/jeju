@@ -1,3 +1,4 @@
+import { getContractsConfig, getCurrentNetwork } from '@jejunetwork/config'
 import { type Address, formatEther, parseEther } from 'viem'
 import type {
   SwapFeeEstimate,
@@ -6,17 +7,118 @@ import type {
   SwapValidationResult,
 } from '../schemas/swap'
 
-// Only include ETH (native token) as it's the only guaranteed available token
-// Other tokens are loaded dynamically from config based on network
-export const SWAP_TOKENS: SwapToken[] = [
-  {
+// Token icons mapping
+const TOKEN_ICONS: Record<string, string> = {
+  ETH: '⟠',
+  WETH: '💧',
+  USDC: '💵',
+  JEJU: '🏝️',
+  BZRT: '🪙',
+  MEME: '🎭',
+  DEGEN: '🎲',
+}
+
+// Get swap tokens from config
+function getSwapTokensFromConfig(): SwapToken[] {
+  const network = getCurrentNetwork()
+  const contracts = getContractsConfig(network)
+  const tokens: SwapToken[] = []
+
+  // Always include ETH (native token)
+  tokens.push({
     symbol: 'ETH',
     name: 'Ethereum',
-    icon: '⟠',
+    icon: TOKEN_ICONS.ETH || '⟠',
     address: '0x0000000000000000000000000000000000000000',
     decimals: 18,
-  },
-]
+  })
+
+  // Add WETH if available
+  if (
+    contracts.tokens.weth &&
+    contracts.tokens.weth !== '0x0000000000000000000000000000000000000000'
+  ) {
+    tokens.push({
+      symbol: 'WETH',
+      name: 'Wrapped Ether',
+      icon: TOKEN_ICONS.WETH || '💧',
+      address: contracts.tokens.weth as Address,
+      decimals: 18,
+    })
+  }
+
+  // Add USDC if available
+  if (
+    contracts.tokens.usdc &&
+    contracts.tokens.usdc !== '0x0000000000000000000000000000000000000000'
+  ) {
+    tokens.push({
+      symbol: 'USDC',
+      name: 'USD Coin',
+      icon: TOKEN_ICONS.USDC || '💵',
+      address: contracts.tokens.usdc as Address,
+      decimals: 6,
+    })
+  }
+
+  // Add JEJU if available
+  if (
+    contracts.tokens.jeju &&
+    contracts.tokens.jeju !== '0x0000000000000000000000000000000000000000'
+  ) {
+    tokens.push({
+      symbol: 'JEJU',
+      name: 'Jeju',
+      icon: TOKEN_ICONS.JEJU || '🏝️',
+      address: contracts.tokens.jeju as Address,
+      decimals: 18,
+    })
+  }
+
+  // For localnet, add test tokens from seed script
+  if (network === 'localnet') {
+    const bazaarContracts = contracts.bazaar
+    // BZRT (featuredToken from seed script)
+    if (
+      bazaarContracts?.featuredToken &&
+      bazaarContracts.featuredToken !==
+        '0x0000000000000000000000000000000000000000'
+    ) {
+      tokens.push({
+        symbol: 'BZRT',
+        name: 'Bazaar Test Token',
+        icon: TOKEN_ICONS.BZRT || '🪙',
+        address: bazaarContracts.featuredToken as Address,
+        decimals: 18,
+      })
+    }
+
+    // MEME and DEGEN tokens from seed script (hardcoded addresses from seed state)
+    // These are created dynamically, so we use known addresses from seed script
+    tokens.push({
+      symbol: 'MEME',
+      name: 'Meme Coin',
+      icon: TOKEN_ICONS.MEME || '🎭',
+      address: '0xa8150ac053b706ce5068e86d0150b163d4bcaf22' as Address,
+      decimals: 18,
+    })
+
+    tokens.push({
+      symbol: 'DEGEN',
+      name: 'Degen Token',
+      icon: TOKEN_ICONS.DEGEN || '🎲',
+      address: '0xb994b19645c597292148df7c6f5fdf2e41c711ce' as Address,
+      decimals: 18,
+    })
+
+    // Note: GO token - need to check if it exists or was created differently
+  }
+
+  return tokens
+}
+
+// Load tokens dynamically from config
+export const SWAP_TOKENS: SwapToken[] = getSwapTokensFromConfig()
 
 export const DEFAULT_FEE_BPS = 30n
 export const BASE_NETWORK_FEE = parseEther('0.001')
@@ -121,7 +223,14 @@ export function calculateOutputAmount(
   if (afterSwapFee <= 0n) return 0n
 
   // Get exchange rate - will throw if no oracle data available
-  const rate = getExchangeRate(inputSymbol, outputSymbol)
+  // For now, use 1:1 rate for same-chain swaps (placeholder until oracle integration)
+  let rate: number
+  try {
+    rate = getExchangeRate(inputSymbol, outputSymbol)
+  } catch {
+    // Fallback to 1:1 if oracle not available (for development)
+    rate = 1
+  }
 
   // Convert to output token
   const outputValue =

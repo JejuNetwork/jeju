@@ -416,9 +416,15 @@ function loadDWSContracts(network: NetworkType): DWSContracts {
       jnsResolver: c.JNSResolver ?? c.jnsResolver,
       jnsRegistrar: c.JNSRegistrar ?? c.jnsRegistrar,
       jnsReverseRegistrar: c.JNSReverseRegistrar ?? c.jnsReverseRegistrar,
-      identityRegistry: c.IdentityRegistry ?? c.identityRegistry ?? data.deployer,
-      nodeRegistry: c.NodeRegistry ?? c.nodeRegistry ?? c.CDNRegistry ?? c.cdnRegistry,
-      keepaliveRegistry: c.KeepaliveRegistry ?? c.keepaliveRegistry ?? c.WorkerRegistry ?? c.workerRegistry,
+      identityRegistry:
+        c.IdentityRegistry ?? c.identityRegistry ?? data.deployer,
+      nodeRegistry:
+        c.NodeRegistry ?? c.nodeRegistry ?? c.CDNRegistry ?? c.cdnRegistry,
+      keepaliveRegistry:
+        c.KeepaliveRegistry ??
+        c.keepaliveRegistry ??
+        c.WorkerRegistry ??
+        c.workerRegistry,
     }
   }
 
@@ -673,7 +679,10 @@ function uploadToIPFS(path: string, apiUrl: string): string {
     if (isDir) {
       // Create a tar of the directory and upload
       const tarCmd = `cd "${path}" && tar -cf - . | curl -s -X POST -F "file=@-;filename=upload.tar" "${dwsStorageUrl}/storage/upload" | jq -r '.cid // .hash // .Hash'`
-      result = execSync(tarCmd, { encoding: 'utf-8', shell: '/bin/bash' }).trim()
+      result = execSync(tarCmd, {
+        encoding: 'utf-8',
+        shell: '/bin/bash',
+      }).trim()
     } else {
       const dwsCmd = `curl -s -X POST -F "file=@${path}" "${dwsStorageUrl}/storage/upload" | jq -r '.cid // .hash // .Hash'`
       result = execSync(dwsCmd, { encoding: 'utf-8' }).trim()

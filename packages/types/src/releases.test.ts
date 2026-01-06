@@ -11,18 +11,18 @@
 import { describe, expect, test } from 'bun:test'
 import {
   type DetectedPlatform,
-  type ReleaseArtifact,
-  ReleaseArtifactSchema,
-  type ReleaseArch,
-  ReleaseArchSchema,
-  ReleaseManifestSchema,
-  type ReleasePlatform,
-  ReleasePlatformSchema,
   formatFileSize,
   getArchLabel,
   getPlatformIcon,
   getPlatformLabel,
   getRecommendedDownloads,
+  type ReleaseArch,
+  ReleaseArchSchema,
+  type ReleaseArtifact,
+  ReleaseArtifactSchema,
+  ReleaseManifestSchema,
+  type ReleasePlatform,
+  ReleasePlatformSchema,
 } from './releases'
 
 describe('ReleasePlatformSchema', () => {
@@ -46,7 +46,16 @@ describe('ReleasePlatformSchema', () => {
   })
 
   test('rejects invalid platforms', () => {
-    const invalidPlatforms = ['', 'MacOS', 'WINDOWS', 'ubuntu', 'debian', 'freebsd', 'win32', 'darwin']
+    const invalidPlatforms = [
+      '',
+      'MacOS',
+      'WINDOWS',
+      'ubuntu',
+      'debian',
+      'freebsd',
+      'win32',
+      'darwin',
+    ]
 
     for (const platform of invalidPlatforms) {
       const result = ReleasePlatformSchema.safeParse(platform)
@@ -66,7 +75,15 @@ describe('ReleaseArchSchema', () => {
   })
 
   test('rejects invalid architectures', () => {
-    const invalidArches = ['', 'x86', 'i386', 'amd64', 'aarch64', 'ARM64', 'X64']
+    const invalidArches = [
+      '',
+      'x86',
+      'i386',
+      'amd64',
+      'aarch64',
+      'ARM64',
+      'X64',
+    ]
 
     for (const arch of invalidArches) {
       const result = ReleaseArchSchema.safeParse(arch)
@@ -163,8 +180,8 @@ describe('ReleaseManifestSchema', () => {
       releaseNotes: 'This release includes important updates.',
       minAppVersion: '0.9.0',
       signatures: {
-        'key1': 'sig1',
-        'key2': 'sig2',
+        key1: 'sig1',
+        key2: 'sig2',
       },
     }
     const result = ReleaseManifestSchema.safeParse(fullManifest)
@@ -175,7 +192,10 @@ describe('ReleaseManifestSchema', () => {
     const channels = ['stable', 'beta', 'nightly']
 
     for (const channel of channels) {
-      const result = ReleaseManifestSchema.safeParse({ ...validManifest, channel })
+      const result = ReleaseManifestSchema.safeParse({
+        ...validManifest,
+        channel,
+      })
       expect(result.success).toBe(true)
     }
   })
@@ -406,7 +426,7 @@ describe('getRecommendedDownloads', () => {
     )
 
     expect(recommendedMac).toBeDefined()
-    expect(recommendedMac!.arch).toBe('x64')
+    expect(recommendedMac?.arch).toBe('x64')
   })
 
   test('recommends Chrome extension for Chrome users', () => {
@@ -437,7 +457,7 @@ describe('getRecommendedDownloads', () => {
     )
 
     expect(recommendedWin).toBeDefined()
-    expect(recommendedWin!.platform).toBe('windows')
+    expect(recommendedWin?.platform).toBe('windows')
   })
 
   test('recommends Linux artifact for Linux users', () => {

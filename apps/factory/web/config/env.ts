@@ -42,13 +42,13 @@ export function getFactoryApiUrl(): string {
     return `http://${getLocalhostHost()}:4009`
   }
 
-  const { hostname, port, origin } = window.location
+  const { hostname, port } = window.location
 
   // Local development - frontend dev server proxies to API on port 4009
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     // If we're on port 4009, we're running the combined server
     if (port === '4009') {
-      return origin
+      return ''
     }
     // Otherwise, frontend is on different port (e.g., 5173), point to API port
     return `http://${getLocalhostHost()}:4009`
@@ -56,7 +56,7 @@ export function getFactoryApiUrl(): string {
 
   // Production/testnet/local dev with custom domain - use same origin
   // DWS app router proxies /api/* to the backend worker
-  return origin
+  return ''
 }
 
 // Export the resolved API URL

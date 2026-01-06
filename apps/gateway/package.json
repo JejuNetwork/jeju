@@ -17,7 +17,6 @@
   "dependencies": {
     "@elysiajs/cors": "^1.4.0",
     "@jejunetwork/auth": "workspace:*",
-    "@jejunetwork/cache": "workspace:*",
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/messaging": "workspace:*",
     "@jejunetwork/contracts": "workspace:*",

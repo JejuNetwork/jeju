@@ -237,7 +237,6 @@ async function buildFrontend(): Promise<void> {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Factory | Jeju Developer Hub</title>
   <meta name="description" content="Bounties, jobs, git, packages, containers, models - developer coordination powered by Jeju">
-  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -254,13 +253,8 @@ async function buildFrontend(): Promise<void> {
 
   await Bun.write(`${CLIENT_DIR}/index.html`, html)
 
-  // Copy public files to client root for proper serving
   if (existsSync('./public')) {
-    const { readdir } = await import('node:fs/promises')
-    const files = await readdir('./public')
-    for (const file of files) {
-      await cp(`./public/${file}`, `${CLIENT_DIR}/${file}`, { recursive: true })
-    }
+    await cp('./public', `${CLIENT_DIR}/public`, { recursive: true })
   }
 
   console.log(`  Frontend: ${CLIENT_DIR}/`)

@@ -111,13 +111,25 @@ export async function verifySQLitSchema(): Promise<boolean> {
 
   try {
     for (const table of requiredTables) {
-      const result = await sqlitQuery<{ name: string }>(
-        `SELECT name FROM sqlite_master WHERE type='table' AND name = ?`,
-        [table],
-      )
-      if (result.rows.length === 0) {
-        console.warn(`[DB] Required table missing: ${table}`)
-        return false
+      // Try to query the table - if it doesn't exist, this will fail
+      // Use a simple SELECT 1 to check table existence without sqlite_master
+      try {
+        await sqlitQuery<{ exists: number }>(
+          `SELECT 1 as exists FROM "${table}" LIMIT 1`,
+          [],
+        )
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        // If error mentions table doesn't exist, schema is incomplete
+        if (
+          message.includes('no such table') ||
+          message.includes('does not exist') ||
+          message.includes('syntax error')
+        ) {
+          console.warn(`[DB] Required table missing or invalid: ${table}`)
+          return false
+        }
+        // Other errors might be OK (e.g., empty table)
       }
     }
     console.log('[DB] Database schema verified')

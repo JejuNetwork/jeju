@@ -6,8 +6,9 @@
  * Missing files are handled gracefully - they return empty objects which Zod schemas accept.
  */
 
-import { existsSync, readFileSync } from 'fs'
-import { dirname, join } from 'path'
+import { existsSync, readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import type { Address } from 'viem'
 import {
   type BazaarMarketplaceDeployment,
@@ -31,18 +32,39 @@ import {
 import type { ChainId, NetworkName } from './types'
 import { CHAIN_IDS, isValidAddress } from './types'
 
-const DEPLOYMENTS_DIR = join(dirname(import.meta.path), '../deployments')
+const DEPLOYMENTS_DIR = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '../deployments',
+)
+
+/**
+ * Union type of all possible deployment data structures.
+ * Used for type-safe JSON parsing before Zod validation.
+ */
+type DeploymentData =
+  | UniswapV4Deployment
+  | BazaarMarketplaceDeployment
+  | SimpleCollectibleDeployment
+  | ERC20FactoryDeployment
+  | IdentitySystemDeployment
+  | PaymasterSystemDeployment
+  | XLPDeployment
+  | LaunchpadDeployment
+  | Record<string, never>
 
 /**
  * Safely load a deployment JSON file. Returns empty object if file doesn't exist.
+ * The return type uses DeploymentData union for better type safety, but JSON.parse
+ * returns unknown, so we validate with Zod schemas immediately after parsing.
  */
-function loadDeployment(filename: string): Record<string, unknown> {
+function loadDeployment(filename: string): DeploymentData {
   const filepath = join(DEPLOYMENTS_DIR, filename)
   if (!existsSync(filepath)) {
     return {}
   }
   try {
-    return JSON.parse(readFileSync(filepath, 'utf-8'))
+    const parsed = JSON.parse(readFileSync(filepath, 'utf-8'))
+    return parsed as DeploymentData
   } catch {
     return {}
   }
@@ -55,19 +77,25 @@ function toAddress(address: string | undefined): Address | undefined {
 /**
  * Check if a deployment object has actual content (not just an empty {})
  */
-function isDeployed(deployment: Record<string, unknown> | undefined): boolean {
+function isDeployed(deployment: DeploymentData | undefined): boolean {
   return !!deployment && Object.keys(deployment).length > 0
 }
 
 // Load deployment files (missing files return empty objects)
 const uniswapV4_1337_raw = loadDeployment('uniswap-v4-31337.json')
 const uniswapV4_420691_raw = loadDeployment('uniswap-v4-420691.json')
-const bazaarMarketplace1337_raw = loadDeployment('bazaar-marketplace-31337.json')
-const simpleCollectible1337_raw = loadDeployment('simple-collectible-31337.json')
+const bazaarMarketplace1337_raw = loadDeployment(
+  'bazaar-marketplace-31337.json',
+)
+const simpleCollectible1337_raw = loadDeployment(
+  'simple-collectible-31337.json',
+)
 const erc20Factory1337_raw = loadDeployment('erc20-factory-31337.json')
 const identitySystem1337_raw = loadDeployment('identity-system-31337.json')
 const localnetAddresses_raw = loadDeployment('localnet-addresses.json')
-const paymasterSystemLocalnet_raw = loadDeployment('paymaster-system-localnet.json')
+const paymasterSystemLocalnet_raw = loadDeployment(
+  'paymaster-system-localnet.json',
+)
 const predictionMarket1337_raw = loadDeployment('prediction-market-31337.json')
 const xlpAmmLocalnet_raw = loadDeployment('xlp-amm-localnet.json')
 const launchpadLocalnet_raw = loadDeployment('launchpad-localnet.json')

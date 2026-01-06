@@ -1,0 +1,1 @@
+cd /home/secure-dev/Dev/dfinity/partners/shaw/jeju/apps/bazaar && bun run dev 2>&1 | head -20

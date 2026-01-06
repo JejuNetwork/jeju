@@ -13,7 +13,10 @@ test.describe('Frontend Page Load', () => {
     await expect(page.getByText('Jeju Tasks')).toBeVisible()
   })
 
-  test('shows connect wallet screen when not connected', async ({ page, baseURL }) => {
+  test('shows connect wallet screen when not connected', async ({
+    page,
+    baseURL,
+  }) => {
     await page.goto(baseURL ?? '/')
     await page.waitForLoadState('domcontentloaded')
 
@@ -41,7 +44,10 @@ test.describe('Frontend Page Load', () => {
     await expect(page.locator('h1')).toBeVisible()
   })
 
-  test('shows error message when no wallet installed', async ({ page, baseURL }) => {
+  test('shows error message when no wallet installed', async ({
+    page,
+    baseURL,
+  }) => {
     await page.goto(baseURL ?? '/')
     await page.waitForLoadState('domcontentloaded')
 
@@ -104,7 +110,10 @@ test.describe('API Health Check', () => {
     expect(typeof data.enabled).toBe('boolean')
   })
 
-  test('REST API rejects unauthenticated requests', async ({ request, baseURL }) => {
+  test('REST API rejects unauthenticated requests', async ({
+    request,
+    baseURL,
+  }) => {
     const response = await request.get(`${baseURL}/api/v1/todos`)
     expect([400, 401]).toContain(response.status())
   })

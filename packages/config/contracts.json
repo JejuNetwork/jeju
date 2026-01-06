@@ -231,7 +231,7 @@
       "validation": ""
     },
     "moderation": {
-      "banManager": "0x0000000000000000000000000000000000000000",
+      "banManager": "",
       "moderationMarketplace": "",
       "reportingSystem": "0x0000000000000000000000000000000000000000",
       "reputationLabelManager": "0x0000000000000000000000000000000000000000",

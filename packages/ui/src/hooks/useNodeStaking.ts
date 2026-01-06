@@ -291,14 +291,11 @@ export function useNodeStaking(
 
   // For pending rewards, we need a separate read per nodeId
   // This is a simple version - caller passes nodeId
-  const getPendingRewards = useCallback(
-    (_nodeId: Hex): bigint | undefined => {
-      // This would need to be a separate useReadContract per node
-      // For now, return undefined - the caller should use useReadContract directly
-      return undefined
-    },
-    [],
-  )
+  const getPendingRewards = useCallback((_nodeId: Hex): bigint | undefined => {
+    // This would need to be a separate useReadContract per node
+    // For now, return undefined - the caller should use useReadContract directly
+    return undefined
+  }, [])
 
   const refetch = useCallback(() => {
     refetchMinStake()

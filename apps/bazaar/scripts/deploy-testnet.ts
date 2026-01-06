@@ -738,7 +738,8 @@ async function deployTFMMPools(
     let poolAddress: string
     try {
       // Build constructor args
-      const constructorTypes = 'string,string,address[],uint256[],uint256,address'
+      const constructorTypes =
+        'string,string,address[],uint256[],uint256,address'
       const constructorValues = `"${poolConfig.name}" "${poolConfig.symbol}" ${tokensArray} ${weightsArray} ${poolConfig.swapFeeBps} ${deployer}`
 
       // Get bytecode

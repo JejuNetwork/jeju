@@ -1,5 +1,5 @@
-import { ArrowRight, Sparkles } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { ArrowRight, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 interface EmptyStateProps {
@@ -23,7 +23,10 @@ export function EmptyState({
     <>
       <Sparkles className="w-4 h-4" aria-hidden="true" />
       <span>{actionLabel}</span>
-      <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
+      <ArrowRight
+        className="w-4 h-4 transition-transform group-hover:translate-x-1"
+        aria-hidden="true"
+      />
     </>
   )
 
@@ -65,7 +68,10 @@ export function EmptyState({
           }}
         >
           <div className="absolute inset-0 bg-gradient-to-br from-factory-500/10 to-transparent" />
-          <Icon className="relative w-9 h-9 text-factory-400/80" aria-hidden="true" />
+          <Icon
+            className="relative w-9 h-9 text-factory-400/80"
+            aria-hidden="true"
+          />
         </div>
         <div
           className="absolute -bottom-1 left-1 w-20 h-20 bg-factory-500/20 blur-sm -z-10"
@@ -90,7 +96,8 @@ export function EmptyState({
             to={actionHref}
             className="group relative inline-flex items-center gap-2.5 px-6 py-3 font-semibold text-sm uppercase tracking-wider transition-all duration-200"
             style={{
-              clipPath: 'polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)',
+              clipPath:
+                'polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)',
             }}
           >
             <div className="absolute inset-0 bg-gradient-to-r from-factory-500 via-factory-400 to-factory-500 opacity-90 group-hover:opacity-100 transition-opacity" />
@@ -107,7 +114,8 @@ export function EmptyState({
             onClick={onAction}
             className="group relative inline-flex items-center gap-2.5 px-6 py-3 font-semibold text-sm uppercase tracking-wider transition-all duration-200"
             style={{
-              clipPath: 'polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)',
+              clipPath:
+                'polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)',
             }}
           >
             <div className="absolute inset-0 bg-gradient-to-r from-factory-500 via-factory-400 to-factory-500 opacity-90 group-hover:opacity-100 transition-opacity" />

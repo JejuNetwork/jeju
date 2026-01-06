@@ -158,7 +158,9 @@ function getEthereumProvider(): EthereumProvider | undefined {
     }
 
     // Priority 3: MetaMask (but not Phantom pretending to be MetaMask)
-    const metaMask = ethereum.providers.find((p) => p.isMetaMask && !p.isPhantom)
+    const metaMask = ethereum.providers.find(
+      (p) => p.isMetaMask && !p.isPhantom,
+    )
     if (metaMask) {
       console.log('[Wallet] Using MetaMask')
       return metaMask
@@ -486,7 +488,8 @@ async function fetchTodos(): Promise<void> {
 
     setState({ todos: response.todos, loading: false })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to load tasks'
+    const message =
+      error instanceof Error ? error.message : 'Failed to load tasks'
     console.error('Failed to fetch todos:', error)
     setState({ loading: false, error: message })
   }
@@ -508,7 +511,8 @@ async function createTodo(
 
     await fetchTodos()
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to create task'
+    const message =
+      error instanceof Error ? error.message : 'Failed to create task'
     console.error('Failed to create todo:', error)
     setState({ error: message })
     throw error
@@ -525,7 +529,8 @@ async function toggleTodo(id: string, completed: boolean): Promise<void> {
     await client.updateTodo(id, { completed })
     await fetchTodos()
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to update task'
+    const message =
+      error instanceof Error ? error.message : 'Failed to update task'
     console.error('Failed to toggle todo:', error)
     setState({ error: message })
   }
@@ -541,7 +546,8 @@ async function deleteTodo(id: string): Promise<void> {
     await client.deleteTodo(id)
     await fetchTodos()
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to delete task'
+    const message =
+      error instanceof Error ? error.message : 'Failed to delete task'
     console.error('Failed to delete todo:', error)
     setState({ error: message })
   }
@@ -557,7 +563,8 @@ async function encryptTodo(id: string): Promise<void> {
     await client.encryptTodo(id)
     await fetchTodos()
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to encrypt task'
+    const message =
+      error instanceof Error ? error.message : 'Failed to encrypt task'
     console.error('Failed to encrypt todo:', error)
     setState({ error: message })
   }

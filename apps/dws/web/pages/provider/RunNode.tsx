@@ -1,10 +1,10 @@
 import {
   type DetectedPlatform,
-  type ReleaseArtifact,
-  type ReleaseManifest,
   detectPlatform as detectPlatformUtil,
   formatFileSize,
   getArchLabel,
+  type ReleaseArtifact,
+  type ReleaseManifest,
 } from '@jejunetwork/types'
 import {
   AlertTriangle,
@@ -154,11 +154,46 @@ const FALLBACK_RELEASE: ReleaseManifest = {
   releasedAt: new Date().toISOString(),
   channel: 'stable',
   artifacts: [
-    { platform: 'macos', arch: 'arm64', filename: 'JejuNode-1.0.0-arm64.dmg', cid: 'QmNodeMacArm1', size: 89128960, sha256: 'abc123' },
-    { platform: 'macos', arch: 'x64', filename: 'JejuNode-1.0.0-x64.dmg', cid: 'QmNodeMacX64', size: 96468992, sha256: 'def456' },
-    { platform: 'windows', arch: 'x64', filename: 'JejuNode-1.0.0-x64.msi', cid: 'QmNodeWinX64', size: 81788928, sha256: 'ghi789' },
-    { platform: 'linux', arch: 'x64', filename: 'JejuNode-1.0.0-x64.AppImage', cid: 'QmNodeLinuxX64', size: 99614720, sha256: 'jkl012' },
-    { platform: 'linux', arch: 'arm64', filename: 'JejuNode-1.0.0-arm64.AppImage', cid: 'QmNodeLinuxArm', size: 92274688, sha256: 'mno345' },
+    {
+      platform: 'macos',
+      arch: 'arm64',
+      filename: 'JejuNode-1.0.0-arm64.dmg',
+      cid: 'QmNodeMacArm1',
+      size: 89128960,
+      sha256: 'abc123',
+    },
+    {
+      platform: 'macos',
+      arch: 'x64',
+      filename: 'JejuNode-1.0.0-x64.dmg',
+      cid: 'QmNodeMacX64',
+      size: 96468992,
+      sha256: 'def456',
+    },
+    {
+      platform: 'windows',
+      arch: 'x64',
+      filename: 'JejuNode-1.0.0-x64.msi',
+      cid: 'QmNodeWinX64',
+      size: 81788928,
+      sha256: 'ghi789',
+    },
+    {
+      platform: 'linux',
+      arch: 'x64',
+      filename: 'JejuNode-1.0.0-x64.AppImage',
+      cid: 'QmNodeLinuxX64',
+      size: 99614720,
+      sha256: 'jkl012',
+    },
+    {
+      platform: 'linux',
+      arch: 'arm64',
+      filename: 'JejuNode-1.0.0-arm64.AppImage',
+      cid: 'QmNodeLinuxArm',
+      size: 92274688,
+      sha256: 'mno345',
+    },
   ],
 }
 
@@ -168,7 +203,7 @@ export default function RunNodePage() {
   const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [releaseError, setReleaseError] = useState<string | null>(null)
-  
+
   // Fetch real network stats from the staking contract
   const { data: networkStats, isLoading: statsLoading } = useNetworkStats()
 
@@ -182,16 +217,23 @@ export default function RunNodePage() {
         if (!res.ok) throw new Error('Failed to fetch releases')
         return res.json()
       })
-      .then((data: ReleaseManifest & { _source?: 'storage' | 'development'; _storageError?: string }) => {
-        setRelease(data)
-        // Check if we're using development placeholders
-        if (data._source === 'development') {
-          setReleaseError('Development mode: Downloads not available yet')
-        } else if (data._storageError) {
-          setReleaseError(`Storage warning: ${data._storageError}`)
-        }
-        setLoading(false)
-      })
+      .then(
+        (
+          data: ReleaseManifest & {
+            _source?: 'storage' | 'development'
+            _storageError?: string
+          },
+        ) => {
+          setRelease(data)
+          // Check if we're using development placeholders
+          if (data._source === 'development') {
+            setReleaseError('Development mode: Downloads not available yet')
+          } else if (data._storageError) {
+            setReleaseError(`Storage warning: ${data._storageError}`)
+          }
+          setLoading(false)
+        },
+      )
       .catch((err: Error) => {
         // Log error for debugging but don't expose to console in production
         if (import.meta.env.DEV) {
@@ -214,9 +256,7 @@ export default function RunNodePage() {
     )
   }
 
-  const getArtifactsForPlatform = (
-    platform: string,
-  ): ReleaseArtifact[] => {
+  const getArtifactsForPlatform = (platform: string): ReleaseArtifact[] => {
     if (!release) return []
     return release.artifacts.filter((a) => a.platform === platform)
   }
@@ -296,9 +336,16 @@ export default function RunNodePage() {
             </p>
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
               {loading ? (
-                <div className="skeleton" style={{ width: '200px', height: '48px' }} />
+                <div
+                  className="skeleton"
+                  style={{ width: '200px', height: '48px' }}
+                />
               ) : releaseError ? (
-                <a href="#cli-install" className="btn btn-primary" style={{ padding: '0.875rem 1.5rem' }}>
+                <a
+                  href="#cli-install"
+                  className="btn btn-primary"
+                  style={{ padding: '0.875rem 1.5rem' }}
+                >
                   <Terminal size={20} /> CLI Install (Dev)
                 </a>
               ) : recommendedArtifact && detected ? (
@@ -308,7 +355,14 @@ export default function RunNodePage() {
                   style={{ padding: '0.875rem 1.5rem', fontSize: '1rem' }}
                 >
                   <Download size={20} />
-                  Download for {detected.os === 'macos' ? 'macOS' : detected.os === 'windows' ? 'Windows' : detected.os === 'linux' ? 'Linux' : 'your platform'}
+                  Download for{' '}
+                  {detected.os === 'macos'
+                    ? 'macOS'
+                    : detected.os === 'windows'
+                      ? 'Windows'
+                      : detected.os === 'linux'
+                        ? 'Linux'
+                        : 'your platform'}
                 </a>
               ) : (
                 <a href="#downloads" className="btn btn-primary">
@@ -345,7 +399,10 @@ export default function RunNodePage() {
               }}
             >
               {statsLoading ? (
-                <div className="skeleton" style={{ width: '80px', height: '40px' }} />
+                <div
+                  className="skeleton"
+                  style={{ width: '80px', height: '40px' }}
+                />
               ) : networkStats ? (
                 `$${formatUSD(networkStats.baseRewardPerMonthUSD)}`
               ) : (
@@ -369,7 +426,10 @@ export default function RunNodePage() {
             <div className="stat-label">Active Nodes</div>
             <div className="stat-value">
               {statsLoading ? (
-                <div className="skeleton" style={{ width: '60px', height: '24px' }} />
+                <div
+                  className="skeleton"
+                  style={{ width: '60px', height: '24px' }}
+                />
               ) : networkStats ? (
                 networkStats.totalNodesActive.toLocaleString()
               ) : (
@@ -387,7 +447,10 @@ export default function RunNodePage() {
             <div className="stat-label">Total Staked</div>
             <div className="stat-value">
               {statsLoading ? (
-                <div className="skeleton" style={{ width: '80px', height: '24px' }} />
+                <div
+                  className="skeleton"
+                  style={{ width: '80px', height: '24px' }}
+                />
               ) : networkStats ? (
                 `$${formatUSD(networkStats.totalStakedUSD)}`
               ) : (
@@ -405,7 +468,10 @@ export default function RunNodePage() {
             <div className="stat-label">Min. Stake</div>
             <div className="stat-value">
               {statsLoading ? (
-                <div className="skeleton" style={{ width: '60px', height: '24px' }} />
+                <div
+                  className="skeleton"
+                  style={{ width: '60px', height: '24px' }}
+                />
               ) : networkStats ? (
                 `$${formatUSD(networkStats.minStakeUSD)}`
               ) : (
@@ -423,7 +489,10 @@ export default function RunNodePage() {
             <div className="stat-label">Rewards Paid</div>
             <div className="stat-value">
               {statsLoading ? (
-                <div className="skeleton" style={{ width: '80px', height: '24px' }} />
+                <div
+                  className="skeleton"
+                  style={{ width: '80px', height: '24px' }}
+                />
               ) : networkStats ? (
                 `$${formatUSD(networkStats.totalRewardsClaimedUSD)}`
               ) : (
@@ -640,7 +709,13 @@ export default function RunNodePage() {
         </div>
 
         {loading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              padding: '2rem',
+            }}
+          >
             <div className="spinner" />
           </div>
         ) : releaseError ? (
@@ -648,7 +723,8 @@ export default function RunNodePage() {
             <AlertTriangle size={48} style={{ color: 'var(--warning)' }} />
             <h4>Downloads Not Available</h4>
             <p style={{ marginBottom: '1rem' }}>
-              Node software is still in development. Use the CLI installation below for dev builds.
+              Node software is still in development. Use the CLI installation
+              below for dev builds.
             </p>
             <a href="#cli-install" className="btn btn-secondary">
               <Terminal size={18} /> CLI Installation
@@ -663,7 +739,7 @@ export default function RunNodePage() {
                   artifact.platform === detected.os &&
                   artifact.arch === detected.arch
                 const isPlaceholder = artifact.cid.includes('PLACEHOLDER')
-                
+
                 if (isPlaceholder) {
                   return (
                     <div
@@ -676,10 +752,18 @@ export default function RunNodePage() {
                         cursor: 'not-allowed',
                       }}
                     >
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <span
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.75rem',
+                        }}
+                      >
                         <Download size={18} />
                         <span>
-                          {artifact.arch ? getArchLabel(artifact.arch) : 'Download'}
+                          {artifact.arch
+                            ? getArchLabel(artifact.arch)
+                            : 'Download'}
                           <span
                             style={{
                               marginLeft: '0.5rem',
@@ -693,7 +777,7 @@ export default function RunNodePage() {
                     </div>
                   )
                 }
-                
+
                 return (
                   <a
                     key={artifact.cid}
@@ -704,10 +788,18 @@ export default function RunNodePage() {
                       padding: '1rem 1.25rem',
                     }}
                   >
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <span
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.75rem',
+                      }}
+                    >
                       <Download size={18} />
                       <span>
-                        {artifact.arch ? getArchLabel(artifact.arch) : 'Download'}
+                        {artifact.arch
+                          ? getArchLabel(artifact.arch)
+                          : 'Download'}
                         {isRecommended && (
                           <span
                             style={{
@@ -800,8 +892,9 @@ export default function RunNodePage() {
           </h3>
         </div>
         <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-          Node operators must stake JEJU tokens as collateral. This ensures quality
-          service and enables earnings. Stakes are fully refundable when you deregister.
+          Node operators must stake JEJU tokens as collateral. This ensures
+          quality service and enables earnings. Stakes are fully refundable when
+          you deregister.
         </p>
 
         <div
@@ -833,7 +926,13 @@ export default function RunNodePage() {
             <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
               Minimum Stake
             </div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+            <div
+              style={{
+                fontSize: '0.8rem',
+                color: 'var(--text-muted)',
+                marginTop: '0.25rem',
+              }}
+            >
               CDN Edge only
             </div>
           </div>
@@ -858,7 +957,13 @@ export default function RunNodePage() {
             <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
               Recommended Stake
             </div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+            <div
+              style={{
+                fontSize: '0.8rem',
+                color: 'var(--text-muted)',
+                marginTop: '0.25rem',
+              }}
+            >
               All services
             </div>
           </div>
@@ -883,7 +988,13 @@ export default function RunNodePage() {
             <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
               Est. APY
             </div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+            <div
+              style={{
+                fontSize: '0.8rem',
+                color: 'var(--text-muted)',
+                marginTop: '0.25rem',
+              }}
+            >
               Based on uptime
             </div>
           </div>
@@ -899,11 +1010,15 @@ export default function RunNodePage() {
             gap: '0.75rem',
           }}
         >
-          <Shield size={18} style={{ color: 'var(--info)', marginTop: '2px', flexShrink: 0 }} />
+          <Shield
+            size={18}
+            style={{ color: 'var(--info)', marginTop: '2px', flexShrink: 0 }}
+          />
           <div style={{ fontSize: '0.9rem' }}>
-            <strong>Slashing Protection:</strong> Your stake is protected. Slashing only
-            occurs for provable malicious behavior (double-signing, serving invalid data).
-            Hardware failures and downtime do not result in stake loss, only reduced earnings.
+            <strong>Slashing Protection:</strong> Your stake is protected.
+            Slashing only occurs for provable malicious behavior
+            (double-signing, serving invalid data). Hardware failures and
+            downtime do not result in stake loss, only reduced earnings.
           </div>
         </div>
       </div>
@@ -954,7 +1069,9 @@ export default function RunNodePage() {
                 >
                   {step.icon} {step.title}
                 </h4>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                <p
+                  style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}
+                >
                   {step.description}
                 </p>
               </div>

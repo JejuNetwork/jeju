@@ -11,15 +11,22 @@
  * Infrastructure is automatically started before tests run.
  */
 
-import { describe, test, expect, beforeAll, afterAll, setDefaultTimeout } from 'bun:test'
+import {
+  afterAll,
+  beforeAll,
+  describe,
+  expect,
+  setDefaultTimeout,
+  test,
+} from 'bun:test'
 
 // Set default timeout to 2 minutes for infrastructure startup
 setDefaultTimeout(120000)
+
 import type { Address } from 'viem'
 import {
   setupTestInfrastructure,
   teardownTestInfrastructure,
-  getDWSUrl,
 } from './test-setup'
 
 // Test configuration
@@ -64,7 +71,10 @@ describe('DWS Services API', () => {
     test('GET /dws-services/health returns healthy status', async () => {
       const response = await dwsRequest('/dws-services/health')
       expect(response.status).toBe(200)
-      const body = (await response.json()) as { status: string; service: string }
+      const body = (await response.json()) as {
+        status: string
+        service: string
+      }
       expect(body.status).toBe('healthy')
       expect(body.service).toBe('dws-services')
     })
@@ -195,7 +205,9 @@ describe('DWS Services API', () => {
         deployedServiceId = body.service.id
       } else {
         expect([500, 503]).toContain(response.status)
-        console.log('[Test] DA provisioning failed (infra may not be available)')
+        console.log(
+          '[Test] DA provisioning failed (infra may not be available)',
+        )
       }
     })
 
@@ -205,9 +217,12 @@ describe('DWS Services API', () => {
         return
       }
 
-      const response = await dwsRequest(`/dws-services/da/${deployedServiceId}`, {
-        method: 'DELETE',
-      })
+      const response = await dwsRequest(
+        `/dws-services/da/${deployedServiceId}`,
+        {
+          method: 'DELETE',
+        },
+      )
       expect(response.status).toBe(200)
     })
   })
@@ -325,13 +340,13 @@ describe('DWS Services API', () => {
       if (response.status === 201) {
         const body = (await response.json()) as { service: { id: string } }
         expect(body.service).toBeDefined()
-        workerIds['x402'] = body.service.id
+        workerIds.x402 = body.service.id
       } else {
         expect([500, 503]).toContain(response.status)
         console.log(
           '[Test] x402 provisioning failed (infra may not be available)',
         )
-        workerIds['x402'] = null
+        workerIds.x402 = null
       }
     })
 
@@ -383,7 +398,7 @@ describe('DWS Services API', () => {
     })
 
     test('DELETE /dws-services/workers/:id terminates workers', async () => {
-      for (const [type, id] of Object.entries(workerIds)) {
+      for (const [_type, id] of Object.entries(workerIds)) {
         if (!id) continue
 
         const response = await dwsRequest(`/dws-services/workers/${id}`, {

@@ -8,8 +8,8 @@
  * Cleans up after tests complete.
  */
 
-import { type Subprocess } from 'bun'
 import { join } from 'node:path'
+import type { Subprocess } from 'bun'
 
 // Test infrastructure configuration
 const SQLIT_PORT = 18546
@@ -46,7 +46,9 @@ async function waitForHealth(
     } catch {
       // Service not ready yet
     }
-    await new Promise((resolve) => setTimeout(resolve, HEALTH_CHECK_INTERVAL_MS))
+    await new Promise((resolve) =>
+      setTimeout(resolve, HEALTH_CHECK_INTERVAL_MS),
+    )
   }
 
   return false
@@ -78,7 +80,9 @@ async function startSQLit(): Promise<Subprocess> {
   })
 
   // Wait for SQLit to be healthy
-  const healthy = await waitForHealth(`http://127.0.0.1:${SQLIT_PORT}/v1/status`)
+  const healthy = await waitForHealth(
+    `http://127.0.0.1:${SQLIT_PORT}/v1/status`,
+  )
   if (!healthy) {
     proc.kill()
     throw new Error('SQLit adapter failed to start within timeout')

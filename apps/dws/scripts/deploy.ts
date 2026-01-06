@@ -203,7 +203,7 @@ async function registerApp(
     displayName: 'Decentralized Web Services',
     staticCid: indexCid,
     apiCid,
-    apiPaths: ['/api', '/health'],
+    apiPaths: ['/api/', '/health'],
     spa: true,
     staticFiles: Object.fromEntries(staticFiles),
     deployer: account.address,

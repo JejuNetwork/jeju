@@ -2,11 +2,10 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "jsx": "react-jsx",
-    "types": ["bun"],
+    "types": ["node", "bun"],
     "outDir": "./dist",
     "rootDir": "./src",
-    "noEmit": false,
-    "skipLibCheck": true
+    "noEmit": false
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "src/**/*.test.ts", "src/service-worker/**/*"]

@@ -480,7 +480,9 @@ export class AgentSDK {
     // Build query based on filter
     const limit = filter.limit ?? 50
     const offset = filter.offset ?? 0
-    const ownerFilter = filter.owner ? `, where: { owner: { id_eq: "${filter.owner.toLowerCase()}" } }` : ''
+    const ownerFilter = filter.owner
+      ? `, where: { owner: { id_eq: "${filter.owner.toLowerCase()}" } }`
+      : ''
 
     const query = `
       query SearchAgents {
@@ -509,7 +511,9 @@ export class AgentSDK {
     // Handle GraphQL errors
     if (rawResult.errors) {
       this.log.error('GraphQL error', { errors: rawResult.errors })
-      throw new Error(`GraphQL error: ${rawResult.errors[0]?.message ?? 'Unknown error'}`)
+      throw new Error(
+        `GraphQL error: ${rawResult.errors[0]?.message ?? 'Unknown error'}`,
+      )
     }
 
     const agents = rawResult.data?.registeredAgents ?? []
@@ -517,31 +521,33 @@ export class AgentSDK {
     this.log.debug('Search complete', { total })
 
     // Convert indexed agents to AgentDefinition format
-    const items: AgentDefinition[] = agents.map((a: {
-      id: string
-      agentId: string
-      owner: { id: string }
-      tokenURI: string
-      registeredAt: string
-      isBanned: boolean
-      isSlashed: boolean
-    }) => {
-      const { characterCid, stateCid } = this.parseTokenUriSafe(a.tokenURI)
-      return {
-        id: a.id,
-        name: `Agent #${a.agentId}`,
-        agentId: BigInt(a.agentId),
-        owner: a.owner.id as `0x${string}`,
-        botType: 'ai_agent' as const,
-        characterCid,
-        stateCid,
-        vaultAddress: ZERO_ADDRESS,
-        active: !a.isBanned && !a.isSlashed,
-        registeredAt: Number(a.registeredAt),
-        lastExecutedAt: 0,
-        executionCount: 0,
-      }
-    })
+    const items: AgentDefinition[] = agents.map(
+      (a: {
+        id: string
+        agentId: string
+        owner: { id: string }
+        tokenURI: string
+        registeredAt: string
+        isBanned: boolean
+        isSlashed: boolean
+      }) => {
+        const { characterCid, stateCid } = this.parseTokenUriSafe(a.tokenURI)
+        return {
+          id: a.id,
+          name: `Agent #${a.agentId}`,
+          agentId: BigInt(a.agentId),
+          owner: a.owner.id as `0x${string}`,
+          botType: 'ai_agent' as const,
+          characterCid,
+          stateCid,
+          vaultAddress: ZERO_ADDRESS,
+          active: !a.isBanned && !a.isSlashed,
+          registeredAt: Number(a.registeredAt),
+          lastExecutedAt: 0,
+          executionCount: 0,
+        }
+      },
+    )
 
     return { items, total, hasMore: agents.length === limit }
   }

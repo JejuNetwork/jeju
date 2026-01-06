@@ -10,12 +10,12 @@
  * - Copies public assets
  */
 
-import type { BunPlugin } from 'bun'
 import { existsSync } from 'node:fs'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { reportBundleSizes } from '@jejunetwork/shared'
+import type { BunPlugin } from 'bun'
 
 const APP_DIR = resolve(import.meta.dir, '..')
 const outdir = resolve(APP_DIR, 'dist')
@@ -25,7 +25,7 @@ const reactPath = require.resolve('react')
 const reactDomPath = require.resolve('react-dom')
 
 // Plugin to resolve workspace packages for browser builds
-const browserPlugin: BunPlugin = {
+const _browserPlugin: BunPlugin = {
   name: 'browser-resolve',
   setup(build) {
     // Resolve React properly
@@ -73,7 +73,7 @@ const browserPlugin: BunPlugin = {
 }
 
 // Node.js built-ins that need to be external for browser builds
-const BROWSER_EXTERNALS = [
+const _BROWSER_EXTERNALS = [
   'bun:sqlite',
   'child_process',
   'http2',
@@ -228,52 +228,16 @@ async function build() {
   const mainEntry = frontendResult.outputs.find((o) => o.kind === 'entry-point')
   const mainFileName = mainEntry ? mainEntry.path.split('/').pop() : 'app.js'
 
-  // Generate production HTML (no Tailwind CDN)
-  const productionHtml = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Decentralized task manager">
-  <meta name="theme-color" content="#7c3aed">
-  <title>Jeju Tasks</title>
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/web/styles.css">
-  <script>
-    // Dark mode detection
-    (function() {
-      try {
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        if (prefersDark) document.documentElement.classList.add('dark');
-      } catch (e) {}
-    })();
-  </script>
-</head>
-<body class="bg-pattern min-h-screen font-sans text-gray-900 dark:text-white antialiased">
-  <a href="#main-content" class="skip-link">Skip to main content</a>
-  <div id="app" role="application" aria-label="Jeju Tasks"></div>
-  <script type="module" src="/web/${mainFileName}"></script>
-</body>
-</html>`
+  const indexHtml = await readFile(resolve(APP_DIR, 'web/index.html'), 'utf-8')
+  const updatedHtml = indexHtml.replace('./app.ts', `/web/${mainFileName}`)
 
-  await writeFile(join(outdir, 'index.html'), productionHtml)
-
-  // Copy public assets (favicon, etc.)
-  const publicDir = resolve(APP_DIR, 'public')
-  if (existsSync(publicDir)) {
-    console.log('[Example] Copying public assets...')
-    const publicFiles = await Bun.file(resolve(publicDir, 'favicon.svg')).text()
-    await writeFile(join(outdir, 'favicon.svg'), publicFiles)
-  }
+  await writeFile(join(outdir, 'index.html'), updatedHtml)
 
   const duration = Date.now() - startTime
   console.log('')
   console.log(`[Example] Build complete in ${duration}ms`)
   console.log('[Example] Output:')
-  console.log('  dist/api/index.js     - API server')
+  console.log('  dist/api/index.js    - API server')
   console.log(`  dist/web/${mainFileName} - Frontend bundle`)
   console.log('  dist/web/styles.css   - Compiled CSS')
   console.log('  dist/index.html       - Entry HTML')

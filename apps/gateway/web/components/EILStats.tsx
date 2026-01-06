@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { type LucideProps, Zap } from 'lucide-react'
 import type { ComponentType } from 'react'
-import { getIndexerUrl } from '../../lib/config'
+import { INDEXER_URL } from '../../lib/config'
 
 const ZapIcon = Zap as ComponentType<LucideProps>
 
@@ -64,7 +64,7 @@ async function fetchEILStats(): Promise<{
     }
   `
 
-  const response = await fetch(getIndexerUrl(), {
+  const response = await fetch(INDEXER_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query }),

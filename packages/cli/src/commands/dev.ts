@@ -417,7 +417,17 @@ function setupSignalHandlers(): void {
 
     for (const service of runningServices) {
       if (service.process) {
-        service.process.kill('SIGTERM')
+        try {
+          service.process.kill('SIGTERM')
+          // Force kill after 2 seconds if still running
+          setTimeout(() => {
+            if (service.process && !service.process.killed) {
+              service.process.kill('SIGKILL')
+            }
+          }, 2000)
+        } catch (_error) {
+          // Process already dead, ignore
+        }
       }
     }
 

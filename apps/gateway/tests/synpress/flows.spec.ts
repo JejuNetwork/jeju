@@ -5,10 +5,9 @@
  * These are the critical happy path tests - if these pass, core system works.
  */
 
+import { getCoreAppUrl } from '@jejunetwork/config'
 import { testWithSynpress } from '@synthetixio/synpress'
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright'
-
-import { getCoreAppUrl } from '@jejunetwork/config'
 import { basicSetup } from '../../synpress.config'
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup))

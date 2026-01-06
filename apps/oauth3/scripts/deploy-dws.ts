@@ -28,7 +28,7 @@ const STATIC_DIR = `${DIST_DIR}/web`
 const WORKER_DIR = `${DIST_DIR}/api`
 
 const network = process.env.NETWORK ?? getCurrentNetwork()
-const host = getLocalhostHost()
+const _host = getLocalhostHost()
 
 // Determine DWS URL based on network
 function getDwsUrl(): string {
@@ -299,7 +299,7 @@ async function deploy(): Promise<void> {
   // Upload worker code to IPFS
   const workerFormData = new FormData()
   workerFormData.append('file', new Blob([workerContent]), 'worker.js')
-  
+
   const workerUploadResponse = await fetch(`${DWS_URL}/storage/upload`, {
     method: 'POST',
     body: workerFormData,
@@ -312,7 +312,8 @@ async function deploy(): Promise<void> {
   }
 
   const workerUploadJson: unknown = await workerUploadResponse.json()
-  const workerUploadParsed = IPFSUploadResponseSchema.safeParse(workerUploadJson)
+  const workerUploadParsed =
+    IPFSUploadResponseSchema.safeParse(workerUploadJson)
   if (!workerUploadParsed.success) {
     throw new Error(
       `Invalid worker upload response: ${workerUploadParsed.error.message}`,
@@ -329,15 +330,16 @@ async function deploy(): Promise<void> {
   console.log('\n[4/4] Registering app...')
   await registerApp(staticAssets, workerId)
 
-  console.log('\n' + '='.repeat(50))
+  console.log(`\n${'='.repeat(50)}`)
   console.log('Deployment complete.')
   console.log('')
   console.log('OAuth3 is now running on DWS decentralized infrastructure:')
-  const frontendUrl = network === 'mainnet' 
-    ? 'https://oauth3.jejunetwork.org'
-    : network === 'testnet'
-    ? 'https://oauth3.testnet.jejunetwork.org'
-    : `http://localhost:4201`
+  const frontendUrl =
+    network === 'mainnet'
+      ? 'https://oauth3.jejunetwork.org'
+      : network === 'testnet'
+        ? 'https://oauth3.testnet.jejunetwork.org'
+        : `http://localhost:4201`
   console.log(`  Frontend: ${frontendUrl}`)
   console.log(`  Worker: ${DWS_URL}/workers/${workerCid}/http`)
   console.log('')

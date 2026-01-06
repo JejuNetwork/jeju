@@ -2171,17 +2171,6 @@ export const dwsWorkerState = {
     return row ? rowToWorker(row) : null
   },
 
-  async getByCid(codeCid: string): Promise<DWSWorker | null> {
-    const client = await getSQLitClient()
-    const result = await client.query<DWSWorkerRow>(
-      'SELECT * FROM dws_workers WHERE code_cid = ? ORDER BY updated_at DESC LIMIT 1',
-      [codeCid],
-      SQLIT_DATABASE_ID,
-    )
-    const row = result.rows[0]
-    return row ? rowToWorker(row) : null
-  },
-
   async listAll(): Promise<DWSWorker[]> {
     const client = await getSQLitClient()
     const result = await client.query<DWSWorkerRow>(

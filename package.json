@@ -54,6 +54,10 @@
     "tmp": ">=0.2.3",
     "undici": ">=6.21.0",
     "esbuild": ">=0.25.0",
+    "mime": "^2.0.0",
+    "express>mime": "^2.0.0",
+    "@subsquid/openreader>mime": "^2.0.0",
+    "@subsquid/graphql-server>mime": "^2.0.0",
     "morgan": ">=1.10.0",
     "uglify-js": ">=3.19.0",
     "@hapi/hoek": "9.3.0",
@@ -70,12 +74,16 @@
     "tough-cookie": ">=4.1.3",
     "whatwg-url": "7.1.0",
     "hardhat": "2.22.18",
-    "@types/chai": "5.2.3"
+    "@types/chai": "5.2.3",
+    "graphql": "^15.8.0",
+    "@subsquid/graphql-server>graphql": "^15.8.0",
+    "@subsquid/apollo-server-core>graphql": "^15.8.0"
   },
   "scripts": {
+    "preinstall": "test -f scripts/setup-tools.sh && bash scripts/setup-tools.sh || true",
     "clean": "find apps packages vendor -type d -name node_modules -prune -exec rm -rf {} + && rm -rf node_modules .turbo && bun install",
     "postinstall": "cd packages/contracts && forge install --no-git && cd ../.. && bun run build:packages && bun run packages/deployment/scripts/setup-apps.ts && bun run link:cli",
-    "build:packages": "bun run --cwd packages/types build && bun run --cwd packages/contracts build",
+    "build:packages": "bun run --cwd packages/types build && bun run --cwd packages/contracts build && bun run --cwd packages/cache build && bun run --cwd packages/db build && bun run --cwd packages/shared build && bun run --cwd packages/api build",
     "link:cli": "bun run --cwd packages/cli build && mkdir -p ~/.bun/bin && ln -sf $PWD/packages/cli/bin/jeju.js ~/.bun/bin/jeju",
     "jeju": "bun packages/cli/src/index.ts",
     "start": "bun run jeju start",
@@ -90,7 +98,7 @@
     "localnet": "cd packages/deployment && bun run localnet:start",
     "localnet:stop": "cd packages/deployment && bun run localnet:stop",
     "deploy": "bun run jeju -- deploy",
-    "deploy:all": "bun run jeju -- start",
+    "deploy:all": "bun run scripts/deploy-all.ts",
     "deploy:testnet": "bun run jeju -- deploy testnet-full",
     "deploy:mainnet": "bun run jeju -- deploy mainnet",
     "ci": "biome check packages apps && bun run typecheck && bun run test"

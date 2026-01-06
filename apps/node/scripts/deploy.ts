@@ -157,6 +157,49 @@ function getContentType(path: string): string {
   return 'application/octet-stream'
 }
 
+async function registerApp(
+  config: DeployConfig,
+  name: string,
+  displayName: string,
+  staticAssets: Map<string, UploadResult>,
+): Promise<void> {
+  const indexCid = staticAssets.get('index.html')?.cid
+  if (!indexCid) {
+    console.warn(`   No index.html found for ${name}, skipping registration`)
+    return
+  }
+
+  const staticFiles: Record<string, string> = {}
+  for (const [path, result] of staticAssets) {
+    staticFiles[path] = result.cid
+  }
+
+  const appConfig = {
+    name,
+    displayName,
+    jnsName: `${name}.jeju`,
+    frontendCid: indexCid,
+    staticFiles,
+    backendWorkerId: null,
+    backendEndpoint: null,
+    apiPaths: ['/api/', '/health'],
+    spa: true,
+    enabled: true,
+  }
+
+  const response = await fetch(`${config.dwsUrl}/apps/deployed`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(appConfig),
+  })
+
+  if (!response.ok) {
+    console.warn(`   App registration warning: ${await response.text()}`)
+  } else {
+    console.log(`   ${name} registered with DWS gateway`)
+  }
+}
+
 async function setupCDN(
   config: DeployConfig,
   staticAssets: Map<string, UploadResult>,
@@ -235,14 +278,23 @@ async function deploy(): Promise<void> {
   console.log('Configuring CDN...')
   await setupCDN(config, allAssets)
 
+  // Register app with DWS gateway (use lander for main domain)
+  console.log('\nRegistering apps with DWS...')
+  await registerApp(config, 'node', 'Network Node', landerAssets)
+
   const appIndexCid = staticAssets.get('index.html')?.cid
   const landerIndexCid = landerAssets.get('index.html')?.cid
+  const domain = config.network === 'mainnet' ? '' : 'testnet.'
   console.log('')
   console.log('╔════════════════════════════════════════════════════════════╗')
   console.log('║                  Deployment Complete                        ║')
   console.log('╠════════════════════════════════════════════════════════════╣')
-  console.log(`║  Lander:   https://node.jejunetwork.org                     ║`)
-  console.log(`║  App:      https://app.node.jejunetwork.org                 ║`)
+  console.log(
+    `║  Lander:   https://node.${domain}jejunetwork.org             ║`,
+  )
+  console.log(
+    `║  App:      https://app.node.${domain}jejunetwork.org         ║`,
+  )
   console.log(
     `║  Lander:   ipfs://${landerIndexCid?.slice(0, 20)}...                  ║`,
   )

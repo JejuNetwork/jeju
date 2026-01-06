@@ -10,8 +10,7 @@
 import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { getL2RpcUrl, getIndexerGraphqlUrl } from '@jejunetwork/config'
-import { getDeployerKey } from '../../lib/secrets'
+import { getIndexerGraphqlUrl, getL2RpcUrl } from '@jejunetwork/config'
 import { AddressSchema, expect } from '@jejunetwork/types'
 import {
   type Address,
@@ -20,6 +19,7 @@ import {
   http,
 } from 'viem'
 import { jeju, jejuLocalnet } from '../../config/chains'
+import { getDeployerKey } from '../../lib/secrets'
 import type {
   TFMMCreatePoolParams,
   TFMMTriggerRebalanceParams,
@@ -292,7 +292,8 @@ function getNetworkConfig(): {
   weightUpdateRunner: string | null
 } {
   const rpcUrl = getL2RpcUrl()
-  const isLocalnet = rpcUrl.includes('localhost') || rpcUrl.includes('127.0.0.1')
+  const isLocalnet =
+    rpcUrl.includes('localhost') || rpcUrl.includes('127.0.0.1')
 
   // Load contracts.json
   const configPath = join(
@@ -301,7 +302,12 @@ function getNetworkConfig(): {
   )
 
   if (!existsSync(configPath)) {
-    return { rpcUrl, isLocalnet, oracleRegistry: null, weightUpdateRunner: null }
+    return {
+      rpcUrl,
+      isLocalnet,
+      oracleRegistry: null,
+      weightUpdateRunner: null,
+    }
   }
 
   const config = JSON.parse(readFileSync(configPath, 'utf-8'))
@@ -390,10 +396,16 @@ async function fetchPoolsFromIndexer(): Promise<TFMMPool[]> {
 }
 
 async function fetchPoolsFromConfig(): Promise<TFMMPool[]> {
-  const contractsDir = join(import.meta.dirname, '../../../../packages/contracts')
+  const contractsDir = join(
+    import.meta.dirname,
+    '../../../../packages/contracts',
+  )
   const { rpcUrl, isLocalnet } = getNetworkConfig()
   const networkName = isLocalnet ? 'localnet' : 'testnet'
-  const tfmmDeployPath = join(contractsDir, `deployments/tfmm-${networkName}.json`)
+  const tfmmDeployPath = join(
+    contractsDir,
+    `deployments/tfmm-${networkName}.json`,
+  )
 
   if (!existsSync(tfmmDeployPath)) {
     return []
@@ -458,7 +470,8 @@ async function fetchPoolsFromConfig(): Promise<TFMMPool[]> {
       name: deployedPool.name,
       symbol: deployedPool.symbol,
       strategy:
-        strategyRule && strategyRule !== '0x0000000000000000000000000000000000000000'
+        strategyRule &&
+        strategyRule !== '0x0000000000000000000000000000000000000000'
           ? (strategyRule as string)
           : 'none',
       tokens: [...state.tokens],
@@ -479,12 +492,15 @@ async function fetchPoolsFromConfig(): Promise<TFMMPool[]> {
 /**
  * Get a specific pool by address
  */
-export async function getTFMMPool(poolAddress: string): Promise<TFMMPool | null> {
+export async function getTFMMPool(
+  poolAddress: string,
+): Promise<TFMMPool | null> {
   AddressSchema.parse(poolAddress)
   const allPools = await getAllTFMMPools()
   return (
-    allPools.find((p) => p.address.toLowerCase() === poolAddress.toLowerCase()) ??
-    null
+    allPools.find(
+      (p) => p.address.toLowerCase() === poolAddress.toLowerCase(),
+    ) ?? null
   )
 }
 
@@ -579,7 +595,8 @@ export async function getOracleStatus(
     // OracleType enum: 0=CHAINLINK, 1=PYTH, 2=TWAP, 3=CUSTOM
     const typeNum = oracleType !== null ? Number(oracleType) : -1
     const sources = ['chainlink', 'pyth', 'twap', 'custom']
-    const currentSource = typeNum >= 0 && typeNum < 4 ? sources[typeNum] : 'none'
+    const currentSource =
+      typeNum >= 0 && typeNum < 4 ? sources[typeNum] : 'none'
 
     result[token] = {
       pythAvailable,
@@ -633,7 +650,10 @@ export async function createTFMMPool(params: TFMMCreatePoolParams): Promise<{
     }
   }
 
-  const contractsDir = join(import.meta.dirname, '../../../../packages/contracts')
+  const contractsDir = join(
+    import.meta.dirname,
+    '../../../../packages/contracts',
+  )
 
   // Build forge create command
   const tokensArg = `[${params.tokens.join(',')}]`
@@ -706,7 +726,9 @@ export async function createTFMMPool(params: TFMMCreatePoolParams): Promise<{
  * Update pool strategy
  * Returns transaction data for wallet to sign
  */
-export async function updatePoolStrategy(params: TFMMUpdateStrategyParams): Promise<{
+export async function updatePoolStrategy(
+  params: TFMMUpdateStrategyParams,
+): Promise<{
   txData: string
   to: Address
   message: string
@@ -760,7 +782,8 @@ export async function triggerPoolRebalance(
     return {
       txData,
       to: params.poolAddress as Address,
-      message: 'WeightUpdateRunner not deployed. Use manual updateWeights call.',
+      message:
+        'WeightUpdateRunner not deployed. Use manual updateWeights call.',
     }
   }
 
@@ -900,7 +923,7 @@ export async function calculatePoolAPY(poolAddress: string): Promise<string> {
 
   // Calculate APY: (feeRevenue24h * 365 / tvl) * 100
   const feeRevenue24h = Number(totalFees) / 1e18
-  const apy = (feeRevenue24h * 365 / tvl) * 100
+  const apy = ((feeRevenue24h * 365) / tvl) * 100
 
   return `${apy.toFixed(2)}%`
 }

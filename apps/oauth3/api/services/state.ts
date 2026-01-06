@@ -66,7 +66,9 @@ function getCache(): CacheClient {
 
 // On DWS workers, use memory fallback since SQLit requires complex auth setup
 // TODO: Implement simple HTTP-based SQLit client like Cloud uses
-const isDWSWorker = typeof (globalThis as Record<string, unknown>).__WORKER_HANDLER__ !== 'undefined'
+const isDWSWorker =
+  typeof (globalThis as Record<string, unknown>).__WORKER_HANDLER__ !==
+  'undefined'
 let useMemoryFallback = process.env.USE_MEMORY_STATE === 'true' || isDWSWorker
 
 async function ensureTablesExist(): Promise<void> {

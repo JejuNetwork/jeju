@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { formatDistanceToNow } from 'date-fns'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { formatUnits, type Address } from 'viem'
+import { type Address, formatUnits } from 'viem'
 import { useAccount } from 'wagmi'
 import {
   fetchMarketStats,
@@ -84,9 +84,7 @@ function TokenRow({
           <span className="font-semibold text-primary truncate">
             {token.symbol}
           </span>
-          {token.verified && (
-            <span className="text-blue-400 text-xs">✓</span>
-          )}
+          {token.verified && <span className="text-blue-400 text-xs">✓</span>}
         </div>
         <span className="text-xs text-tertiary truncate block">
           {token.name}
@@ -116,15 +114,12 @@ function MarketCard({ market }: { market: PredictionMarket }) {
   const yesPercent = Math.round(market.yesPrice * 100)
 
   return (
-    <Link
-      to={`/markets/${market.id}`}
-      className="group block"
-    >
+    <Link to={`/markets/${market.id}`} className="group block">
       <div className="card-static p-4 hover:border-[var(--color-primary)] hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-0.5 transition-all duration-200">
         <p className="text-sm font-medium text-primary line-clamp-2 mb-3 min-h-[2.5rem]">
           {market.question}
         </p>
-        
+
         {/* Compact probability bar */}
         <div className="flex items-center gap-2 mb-2">
           <div className="flex-1 h-2 rounded-full overflow-hidden bg-surface-secondary">
@@ -139,7 +134,9 @@ function MarketCard({ market }: { market: PredictionMarket }) {
         </div>
 
         <div className="flex items-center justify-between text-xs text-tertiary">
-          <span>Vol: {formatVolume(Number(formatUnits(market.totalVolume, 18)))}</span>
+          <span>
+            Vol: {formatVolume(Number(formatUnits(market.totalVolume, 18)))}
+          </span>
           <span className={market.resolved ? 'text-tertiary' : 'text-success'}>
             {market.resolved ? 'Ended' : '● Live'}
           </span>
@@ -215,13 +212,17 @@ function QuickSwapWidget() {
             onChange={(e) => setAmount(e.target.value)}
             className="flex-1 bg-transparent text-lg font-mono text-primary focus:outline-none"
           />
-          <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface hover:bg-surface-elevated transition-colors">
+          <button
+            type="button"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface hover:bg-surface-elevated transition-colors"
+          >
             <span className="text-lg">Ξ</span>
             <span className="font-semibold text-sm">ETH</span>
           </button>
         </div>
 
         <button
+          type="button"
           onClick={handleSwap}
           className="btn-primary w-full"
         >
@@ -287,27 +288,42 @@ function ActivityFeed({ activities }: { activities: Activity[] }) {
 function StatsBar({
   stats,
 }: {
-  stats: {
-    totalVolumeUSD24h: number
-    totalSwaps24h: number
-    totalTokens: number
-    totalPools: number
-  } | undefined
+  stats:
+    | {
+        totalVolumeUSD24h: number
+        totalSwaps24h: number
+        totalTokens: number
+        totalPools: number
+      }
+    | undefined
 }) {
   const statItems = [
-    { label: '24h Volume', value: stats ? formatVolume(stats.totalVolumeUSD24h) : '—', icon: '📊' },
-    { label: '24h Trades', value: stats?.totalSwaps24h?.toLocaleString() ?? '—', icon: '⚡' },
-    { label: 'Tokens', value: stats?.totalTokens?.toLocaleString() ?? '—', icon: '🪙' },
-    { label: 'Pools', value: stats?.totalPools?.toLocaleString() ?? '—', icon: '💧' },
+    {
+      label: '24h Volume',
+      value: stats ? formatVolume(stats.totalVolumeUSD24h) : '—',
+      icon: '📊',
+    },
+    {
+      label: '24h Trades',
+      value: stats?.totalSwaps24h?.toLocaleString() ?? '—',
+      icon: '⚡',
+    },
+    {
+      label: 'Tokens',
+      value: stats?.totalTokens?.toLocaleString() ?? '—',
+      icon: '🪙',
+    },
+    {
+      label: 'Pools',
+      value: stats?.totalPools?.toLocaleString() ?? '—',
+      icon: '💧',
+    },
   ]
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
       {statItems.map((stat) => (
-        <div
-          key={stat.label}
-          className="card-static p-4 text-center"
-        >
+        <div key={stat.label} className="card-static p-4 text-center">
           <span className="text-2xl mb-1 block">{stat.icon}</span>
           <div className="text-xl md:text-2xl font-bold text-primary">
             {stat.value}
@@ -338,6 +354,7 @@ function TokenTabs({
       {tabs.map((tab) => (
         <button
           key={tab.id}
+          type="button"
           onClick={() => onTabChange(tab.id)}
           className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
             activeTab === tab.id
@@ -354,7 +371,9 @@ function TokenTabs({
 
 export default function HomePage() {
   const { isConnected } = useAccount()
-  const [tokenTab, setTokenTab] = useState<'trending' | 'gainers' | 'losers'>('trending')
+  const [tokenTab, setTokenTab] = useState<'trending' | 'gainers' | 'losers'>(
+    'trending',
+  )
 
   // Fetch market stats
   const { data: stats } = useQuery({
@@ -405,10 +424,18 @@ export default function HomePage() {
   })
 
   // Get active token list based on tab
-  const activeTokens = tokenTab === 'trending' ? trendingTokens :
-                       tokenTab === 'gainers' ? gainers : losers
-  const isLoadingTokens = tokenTab === 'trending' ? loadingTrending :
-                          tokenTab === 'gainers' ? loadingGainers : loadingLosers
+  const activeTokens =
+    tokenTab === 'trending'
+      ? trendingTokens
+      : tokenTab === 'gainers'
+        ? gainers
+        : losers
+  const isLoadingTokens =
+    tokenTab === 'trending'
+      ? loadingTrending
+      : tokenTab === 'gainers'
+        ? loadingGainers
+        : loadingLosers
 
   // Mock activity for now - would be real websocket data
   const mockActivities: Activity[] = []
@@ -464,7 +491,10 @@ export default function HomePage() {
           <div className="card-static p-4 md:p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-primary">Tokens</h2>
-              <Link to="/coins" className="text-sm text-secondary hover:text-primary transition-colors">
+              <Link
+                to="/coins"
+                className="text-sm text-secondary hover:text-primary transition-colors"
+              >
                 View All →
               </Link>
             </div>
@@ -479,7 +509,11 @@ export default function HomePage() {
               ) : activeTokens && activeTokens.length > 0 ? (
                 <div className="divide-y divide-[var(--border)]">
                   {activeTokens.slice(0, 8).map((token, idx) => (
-                    <TokenRow key={token.address} token={token} rank={idx + 1} />
+                    <TokenRow
+                      key={token.address}
+                      token={token}
+                      rank={idx + 1}
+                    />
                   ))}
                 </div>
               ) : (
@@ -496,9 +530,14 @@ export default function HomePage() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <span className="text-xl">🔮</span>
-                <h2 className="text-lg font-semibold text-primary">Predictions</h2>
+                <h2 className="text-lg font-semibold text-primary">
+                  Predictions
+                </h2>
               </div>
-              <Link to="/markets" className="text-sm text-secondary hover:text-primary transition-colors">
+              <Link
+                to="/markets"
+                className="text-sm text-secondary hover:text-primary transition-colors"
+              >
                 View All →
               </Link>
             </div>
@@ -535,9 +574,14 @@ export default function HomePage() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <span className="text-xl">🚀</span>
-                <h2 className="text-lg font-semibold text-primary">New Launches</h2>
+                <h2 className="text-lg font-semibold text-primary">
+                  New Launches
+                </h2>
               </div>
-              <Link to="/coins?filter=new" className="text-sm text-secondary hover:text-primary transition-colors">
+              <Link
+                to="/coins?filter=new"
+                className="text-sm text-secondary hover:text-primary transition-colors"
+              >
                 All →
               </Link>
             </div>
@@ -556,7 +600,10 @@ export default function HomePage() {
               <div className="text-center py-8 text-tertiary">
                 <span className="text-2xl mb-2 block">🌱</span>
                 <p className="text-sm mb-3">No recent launches</p>
-                <Link to="/coins/launch" className="text-sm text-[var(--color-primary)] hover:underline">
+                <Link
+                  to="/coins/launch"
+                  className="text-sm text-[var(--color-primary)] hover:underline"
+                >
                   Be the first →
                 </Link>
               </div>
@@ -582,29 +629,45 @@ export default function HomePage() {
                 to="/coins/launch"
                 className="flex flex-col items-center gap-2 p-4 rounded-xl bg-surface-secondary hover:bg-surface-elevated transition-colors text-center group"
               >
-                <span className="text-2xl group-hover:scale-110 transition-transform">🚀</span>
-                <span className="text-sm font-medium text-primary">Launch Token</span>
+                <span className="text-2xl group-hover:scale-110 transition-transform">
+                  🚀
+                </span>
+                <span className="text-sm font-medium text-primary">
+                  Launch Token
+                </span>
               </Link>
               <Link
                 to="/markets/create"
                 className="flex flex-col items-center gap-2 p-4 rounded-xl bg-surface-secondary hover:bg-surface-elevated transition-colors text-center group"
               >
-                <span className="text-2xl group-hover:scale-110 transition-transform">🔮</span>
-                <span className="text-sm font-medium text-primary">Create Market</span>
+                <span className="text-2xl group-hover:scale-110 transition-transform">
+                  🔮
+                </span>
+                <span className="text-sm font-medium text-primary">
+                  Create Market
+                </span>
               </Link>
               <Link
                 to="/items/mint"
                 className="flex flex-col items-center gap-2 p-4 rounded-xl bg-surface-secondary hover:bg-surface-elevated transition-colors text-center group"
               >
-                <span className="text-2xl group-hover:scale-110 transition-transform">🖼️</span>
-                <span className="text-sm font-medium text-primary">Mint NFT</span>
+                <span className="text-2xl group-hover:scale-110 transition-transform">
+                  🖼️
+                </span>
+                <span className="text-sm font-medium text-primary">
+                  Mint NFT
+                </span>
               </Link>
               <Link
                 to="/portfolio"
                 className="flex flex-col items-center gap-2 p-4 rounded-xl bg-surface-secondary hover:bg-surface-elevated transition-colors text-center group"
               >
-                <span className="text-2xl group-hover:scale-110 transition-transform">💼</span>
-                <span className="text-sm font-medium text-primary">Portfolio</span>
+                <span className="text-2xl group-hover:scale-110 transition-transform">
+                  💼
+                </span>
+                <span className="text-sm font-medium text-primary">
+                  Portfolio
+                </span>
               </Link>
             </div>
           </div>
@@ -614,8 +677,12 @@ export default function HomePage() {
       {/* Bottom CTA */}
       <section className="text-center py-8">
         <div className="inline-block p-6 md:p-8 rounded-2xl bg-gradient-to-br from-[var(--color-primary)]/10 via-[var(--color-purple)]/10 to-[var(--color-accent)]/10 border border-[var(--border)]">
-          <h2 className="text-2xl font-bold text-primary mb-2">Ready to trade?</h2>
-          <p className="text-secondary mb-4">Join the decentralized marketplace</p>
+          <h2 className="text-2xl font-bold text-primary mb-2">
+            Ready to trade?
+          </h2>
+          <p className="text-secondary mb-4">
+            Join the decentralized marketplace
+          </p>
           <div className="flex flex-wrap gap-3 justify-center">
             <Link to="/swap" className="btn-primary">
               Swap Tokens

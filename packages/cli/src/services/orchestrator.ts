@@ -20,7 +20,7 @@ import {
   PriceDataResponseSchema,
   validate,
 } from '../schemas'
-import { DEFAULT_PORTS } from '../types'
+import { DEFAULT_PORTS, WELL_KNOWN_KEYS } from '../types'
 import { createInferenceServer, type LocalInferenceServer } from './inference'
 
 // Contract address values can be:
@@ -194,6 +194,7 @@ async function isPortInUse(port: number): Promise<boolean> {
 
 class ServicesOrchestrator {
   private services: Map<string, RunningService> = new Map()
+  private indexerProcesses: Subprocess[] = [] // Track all indexer child processes
   private rootDir: string
   private rpcUrl: string
 
@@ -622,8 +623,8 @@ class ServicesOrchestrator {
       logger.warn('Failed to apply migrations, continuing anyway...')
     }
 
-    // Start full indexer stack (processor, graphql, frontend, api)
-    const proc = spawn(['bun', 'run', 'dev:full'], {
+    // Start GraphQL server separately so it stays up even if processor crashes
+    const graphqlProc = spawn(['bun', 'run', 'dev:graphql'], {
       cwd: indexerPath,
       stdout: 'inherit',
       stderr: 'inherit',
@@ -635,25 +636,71 @@ class ServicesOrchestrator {
         DB_USER: 'postgres',
         DB_PASS: 'postgres',
         GQL_PORT: String(SERVICE_PORTS.indexer),
-        REST_PORT: '4352',
-        PORT: '4355',
+      },
+    })
+
+    // Start API server separately
+    const apiProc = spawn(['bun', 'run', 'dev:api'], {
+      cwd: indexerPath,
+      stdout: 'inherit',
+      stderr: 'inherit',
+      env: {
+        ...process.env,
+        DB_HOST: 'localhost',
+        DB_PORT: '23798',
+        DB_NAME: 'indexer',
+        DB_USER: 'postgres',
+        DB_PASS: 'postgres',
+        SQLIT_DATABASE_ID: 'indexer-sync',
+        SQLIT_PRIVATE_KEY: WELL_KNOWN_KEYS.dev[0].privateKey,
+      },
+    })
+
+    // Start processor separately (can crash without killing GraphQL/API)
+    const processorProc = spawn(['bun', 'run', 'dev:processor'], {
+      cwd: indexerPath,
+      stdout: 'inherit',
+      stderr: 'inherit',
+      env: {
+        ...process.env,
+        DB_HOST: 'localhost',
+        DB_PORT: '23798',
+        DB_NAME: 'indexer',
+        DB_USER: 'postgres',
+        DB_PASS: 'postgres',
         RPC_ETH_HTTP: this.rpcUrl,
         START_BLOCK: '0',
         CHAIN_ID: '31337',
         JEJU_NETWORK: 'localnet',
         NODE_ENV: 'development',
-        // Enable SQLit sync for decentralized reads
         SQLIT_SYNC_ENABLED: this.services.has('sqlit') ? 'true' : 'false',
         SQLIT_DATABASE_ID: 'indexer-sync',
         SQLIT_SYNC_INTERVAL: '30000',
+        SQLIT_PRIVATE_KEY: WELL_KNOWN_KEYS.dev[0].privateKey,
       },
     })
+
+    // Track all three processes so they can be killed on shutdown
+    this.indexerProcesses = [graphqlProc, apiProc, processorProc]
+
+    // Monitor processor exit but don't let crashes affect GraphQL
+    processorProc.exited
+      .then((code) => {
+        if (code !== 0) {
+          logger.warn(
+            `Indexer processor exited with code ${code} - GraphQL server continues running`,
+          )
+        }
+      })
+      .catch(() => {
+        // Ignore errors in monitoring
+      })
 
     this.services.set('indexer', {
       name: 'Indexer (On-Chain)',
       type: 'process',
       port: SERVICE_PORTS.indexer,
-      process: proc,
+      process: graphqlProc, // Track GraphQL as the main process
       url: `http://${getLocalhostHost()}:${SERVICE_PORTS.indexer}`,
       healthCheck: '/graphql',
     })
@@ -904,6 +951,8 @@ class ServicesOrchestrator {
           SQLIT_SYNC_ENABLED: 'false', // Don't sync, just read
           SQLIT_READ_ENABLED: sqlitAvailable ? 'true' : 'false',
           SQLIT_DATABASE_ID: 'indexer-sync',
+          // SQLit requires a private key for local development
+          SQLIT_PRIVATE_KEY: WELL_KNOWN_KEYS.dev[0].privateKey,
         },
       })
 
@@ -1695,6 +1744,8 @@ class ServicesOrchestrator {
         TEE_PROVIDER: 'local',
         DWS_PRIVATE_KEY:
           '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
+        // SQLit requires a private key for local development
+        SQLIT_PRIVATE_KEY: WELL_KNOWN_KEYS.dev[0].privateKey,
       },
     })
 
@@ -2078,10 +2129,35 @@ class ServicesOrchestrator {
   async stopAll(): Promise<void> {
     logger.step('Stopping services...')
 
+    // Kill all indexer child processes first
+    for (const proc of this.indexerProcesses) {
+      try {
+        if (proc && !proc.killed) {
+          proc.kill('SIGTERM')
+          // Force kill after 2 seconds if still running
+          setTimeout(() => {
+            if (proc && !proc.killed) {
+              proc.kill('SIGKILL')
+            }
+          }, 2000)
+        }
+      } catch (error) {
+        logger.warn(`Failed to stop indexer process: ${error}`)
+      }
+    }
+    this.indexerProcesses = []
+
+    // Stop all tracked services
     for (const [name, service] of this.services) {
       try {
         if (service.type === 'process' && service.process) {
-          service.process.kill()
+          service.process.kill('SIGTERM')
+          // Force kill after 2 seconds if still running
+          setTimeout(() => {
+            if (service.process && !service.process.killed) {
+              service.process.kill('SIGKILL')
+            }
+          }, 2000)
         }
         if (
           (service.type === 'server' || service.type === 'mock') &&
