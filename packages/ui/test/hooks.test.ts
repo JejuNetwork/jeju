@@ -325,3 +325,229 @@ describe('Hook parameter validation', () => {
     expect(isValidSlippage(10001)).toBe(false)
   })
 })
+
+// ═══════════════════════════════════════════════════════════════════════════
+// New Hook Interface Tests
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface UsePaymasterResult {
+  paymasters: Array<{
+    address: `0x${string}`
+    token: `0x${string}`
+    tokenSymbol: string
+    tokenDecimals: number
+    exchangeRate: bigint
+    isActive: boolean
+  }>
+  selectedPaymaster: unknown | null
+  isGasless: boolean
+  isLoading: boolean
+  error: string | null
+  options: unknown[]
+  bestOption: unknown | null
+  currentCostEstimate: { cost: bigint; costFormatted: string } | null
+  approvalNeeded: boolean
+  isEnabled: boolean
+  selectPaymaster: (address: `0x${string}` | null) => void
+  setIsGasless: (enabled: boolean) => void
+  reset: () => void
+}
+
+interface UseBundlerResult {
+  sendUserOp: (op: unknown) => Promise<`0x${string}`>
+  hash: `0x${string}` | null
+  isLoading: boolean
+  error: string | null
+  isAvailable: boolean
+  reset: () => void
+}
+
+interface UseSwapQuotesResult {
+  crossChainQuotes: unknown[]
+  swapQuote: unknown | null
+  bestCrossChainQuote: unknown | null
+  isLoading: boolean
+  error: Error | null
+  isCrossChain: boolean
+  refetch: () => void
+}
+
+describe('usePaymaster hook interface', () => {
+  it('validates complete result structure', () => {
+    const result: UsePaymasterResult = {
+      paymasters: [
+        {
+          address: '0x1234567890123456789012345678901234567890',
+          token: '0xaabbccddee112233445566778899aabbccddee11',
+          tokenSymbol: 'USDC',
+          tokenDecimals: 6,
+          exchangeRate: 1000000000000000000n,
+          isActive: true,
+        },
+      ],
+      selectedPaymaster: null,
+      isGasless: false,
+      isLoading: false,
+      error: null,
+      options: [],
+      bestOption: null,
+      currentCostEstimate: null,
+      approvalNeeded: false,
+      isEnabled: true,
+      selectPaymaster: () => {},
+      setIsGasless: () => {},
+      reset: () => {},
+    }
+
+    expect(result.paymasters).toHaveLength(1)
+    expect(result.paymasters[0].tokenSymbol).toBe('USDC')
+    expect(result.isEnabled).toBe(true)
+    expect(typeof result.selectPaymaster).toBe('function')
+    expect(typeof result.reset).toBe('function')
+  })
+
+  it('validates gasless mode', () => {
+    const result: UsePaymasterResult = {
+      paymasters: [],
+      selectedPaymaster: { address: '0x123' },
+      isGasless: true,
+      isLoading: false,
+      error: null,
+      options: [],
+      bestOption: null,
+      currentCostEstimate: { cost: 1000000n, costFormatted: '~1.00 USDC' },
+      approvalNeeded: false,
+      isEnabled: true,
+      selectPaymaster: () => {},
+      setIsGasless: () => {},
+      reset: () => {},
+    }
+
+    expect(result.isGasless).toBe(true)
+    expect(result.selectedPaymaster).not.toBeNull()
+    expect(result.currentCostEstimate?.costFormatted).toBe('~1.00 USDC')
+  })
+})
+
+describe('useBundler hook interface', () => {
+  it('validates complete result structure', () => {
+    const result: UseBundlerResult = {
+      sendUserOp: async () => '0x' as `0x${string}`,
+      hash: null,
+      isLoading: false,
+      error: null,
+      isAvailable: true,
+      reset: () => {},
+    }
+
+    expect(result.isAvailable).toBe(true)
+    expect(result.hash).toBeNull()
+    expect(typeof result.sendUserOp).toBe('function')
+    expect(typeof result.reset).toBe('function')
+  })
+
+  it('validates successful transaction state', () => {
+    const result: UseBundlerResult = {
+      sendUserOp: async () =>
+        '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
+      hash: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
+      isLoading: false,
+      error: null,
+      isAvailable: true,
+      reset: () => {},
+    }
+
+    expect(result.hash).not.toBeNull()
+    expect(result.hash?.startsWith('0x')).toBe(true)
+    expect(result.isLoading).toBe(false)
+  })
+
+  it('validates error state', () => {
+    const result: UseBundlerResult = {
+      sendUserOp: async () => {
+        throw new Error('Bundler rejected')
+      },
+      hash: null,
+      isLoading: false,
+      error: 'Bundler rejected UserOperation',
+      isAvailable: true,
+      reset: () => {},
+    }
+
+    expect(result.error).not.toBeNull()
+    expect(result.hash).toBeNull()
+  })
+})
+
+describe('useSwapQuotes hook interface', () => {
+  it('validates same-chain quote result', () => {
+    const result: UseSwapQuotesResult = {
+      crossChainQuotes: [],
+      swapQuote: {
+        amountIn: 1000000000000000000n,
+        amountOut: 1850000000n,
+        priceImpact: 0.5,
+      },
+      bestCrossChainQuote: null,
+      isLoading: false,
+      error: null,
+      isCrossChain: false,
+      refetch: () => {},
+    }
+
+    expect(result.isCrossChain).toBe(false)
+    expect(result.swapQuote).not.toBeNull()
+    expect(result.crossChainQuotes).toHaveLength(0)
+    expect(typeof result.refetch).toBe('function')
+  })
+
+  it('validates cross-chain quotes result', () => {
+    const result: UseSwapQuotesResult = {
+      crossChainQuotes: [
+        {
+          quoteId: 'q1',
+          sourceChain: 'jeju',
+          destinationChain: 'base',
+          amountOut: 1800000000n,
+          route: 'oif',
+        },
+        {
+          quoteId: 'q2',
+          sourceChain: 'jeju',
+          destinationChain: 'base',
+          amountOut: 1790000000n,
+          route: 'eil',
+        },
+      ],
+      swapQuote: null,
+      bestCrossChainQuote: {
+        quoteId: 'q1',
+        amountOut: 1800000000n,
+      },
+      isLoading: false,
+      error: null,
+      isCrossChain: true,
+      refetch: () => {},
+    }
+
+    expect(result.isCrossChain).toBe(true)
+    expect(result.crossChainQuotes).toHaveLength(2)
+    expect(result.bestCrossChainQuote).not.toBeNull()
+    expect(result.swapQuote).toBeNull()
+  })
+
+  it('validates loading state', () => {
+    const result: UseSwapQuotesResult = {
+      crossChainQuotes: [],
+      swapQuote: null,
+      bestCrossChainQuote: null,
+      isLoading: true,
+      error: null,
+      isCrossChain: false,
+      refetch: () => {},
+    }
+
+    expect(result.isLoading).toBe(true)
+    expect(result.swapQuote).toBeNull()
+  })
+})
