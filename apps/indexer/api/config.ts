@@ -2,6 +2,7 @@ import {
   createAppConfig,
   getEnvNumber,
   getEnvVar,
+  getIpfsGatewayUrl,
   isProductionEnv,
 } from '@jejunetwork/config'
 
@@ -45,6 +46,9 @@ export interface IndexerConfig {
   // Staking
   stakingAddress?: string
   ethUsdPrice: number
+
+  // IPFS
+  ipfsGateway: string
 }
 
 const { config, configure: setIndexerConfig } = createAppConfig<IndexerConfig>({
@@ -87,6 +91,9 @@ const { config, configure: setIndexerConfig } = createAppConfig<IndexerConfig>({
   // Staking
   stakingAddress: getEnvVar('INDEXER_STAKING_ADDRESS'),
   ethUsdPrice: getEnvNumber('ETH_USD_PRICE') ?? 2000,
+
+  // IPFS - use gateway URL from config, fallback to localhost for local dev
+  ipfsGateway: getEnvVar('IPFS_GATEWAY') ?? getIpfsGatewayUrl() ?? 'http://127.0.0.1:4030/cdn',
 })
 
 export { config }

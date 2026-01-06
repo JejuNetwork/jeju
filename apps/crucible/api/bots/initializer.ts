@@ -480,6 +480,13 @@ export class BotInitializer {
     }
     log.info('Using KMS-backed signing for trading bots')
 
+    // Check if any agents already exist (indicates prior initialization)
+    const existingAgent = await this.config.agentSdk.getAgent(1n)
+    if (existingAgent) {
+      log.info('Agents already exist on chain, skipping bot initialization')
+      return this.bots
+    }
+
     const network = this.config.crucibleConfig.network
     const botConfigs = getDefaultBotsForNetwork(network)
 
