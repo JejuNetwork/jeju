@@ -10,6 +10,8 @@ import { devRelCharacter } from './devrel'
 import { liaisonCharacter } from './liaison'
 import { projectManagerCharacter } from './project-manager'
 import { redTeamCharacter } from './red-team'
+import { securityAnalystCharacter } from './security-analyst'
+import { testAgentCharacter } from './test-agent'
 import {
   contractsExpertCharacter,
   fuzzTesterCharacter,
@@ -33,6 +35,8 @@ export const characters: Record<string, AgentCharacter> = {
   moderator: moderatorCharacter,
   'network-guardian': networkGuardianCharacter,
   'contracts-auditor': contractsAuditorCharacter,
+  'security-analyst': securityAnalystCharacter,
+  'test-agent': testAgentCharacter,
 }
 
 export const RED_TEAM_CHARACTERS = [
@@ -77,4 +81,6 @@ export { devRelCharacter } from './devrel'
 export { liaisonCharacter } from './liaison'
 export { projectManagerCharacter } from './project-manager'
 export { redTeamCharacter } from './red-team'
+export { securityAnalystCharacter } from './security-analyst'
 export { socialMediaManagerCharacter } from './social-media-manager'
+export { testAgentCharacter } from './test-agent'
