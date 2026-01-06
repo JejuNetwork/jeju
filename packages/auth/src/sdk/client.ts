@@ -14,6 +14,27 @@ import { HexSchema } from '@jejunetwork/types'
 import { type Address, type Hex, toHex } from 'viem'
 import { z } from 'zod'
 
+/**
+ * Generate a UUID v4 with fallback for non-secure contexts (HTTP)
+ * crypto.randomUUID() requires HTTPS, so we use crypto.getRandomValues() as fallback
+ */
+function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    try {
+      return crypto.randomUUID()
+    } catch {
+      // Fall through to manual generation
+    }
+  }
+  // Fallback using crypto.getRandomValues()
+  const bytes = new Uint8Array(16)
+  crypto.getRandomValues(bytes)
+  bytes[6] = (bytes[6] & 0x0f) | 0x40 // Version 4
+  bytes[8] = (bytes[8] & 0x3f) | 0x80 // Variant 1
+  const hex = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('')
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+}
+
 // OAuth callback data schema
 const OAuthCallbackSchema = z.object({
   code: z.string().optional(),
@@ -385,7 +406,7 @@ export class OAuth3Client {
       throw new Error('No accounts returned from wallet')
     }
     const address = accounts[0]
-    const nonce = crypto.randomUUID()
+    const nonce = generateUUID()
 
     const message = this.createSignInMessage(address, nonce)
 
@@ -424,7 +445,7 @@ export class OAuth3Client {
   }
 
   private async loginWithFarcaster(): Promise<OAuth3Session> {
-    const nonce = crypto.randomUUID()
+    const nonce = generateUUID()
     const domain = new URL(this.config.redirectUri).hostname
 
     const message = generateFarcasterSignInMessage({

@@ -59,6 +59,23 @@ async function createApp() {
     `http://${host}:4200`,
     `http://${host}:4020`, // Crucible frontend
     `http://${host}:4040`, // Autocrat frontend
+    // Local development proxy (Caddy on port 8080 or 80)
+    'http://crucible.local.jejunetwork.org:8080',
+    'http://crucible.local.jejunetwork.org',
+    'http://autocrat.local.jejunetwork.org:8080',
+    'http://autocrat.local.jejunetwork.org',
+    'http://bazaar.local.jejunetwork.org:8080',
+    'http://bazaar.local.jejunetwork.org',
+    'http://wallet.local.jejunetwork.org:8080',
+    'http://wallet.local.jejunetwork.org',
+    'http://factory.local.jejunetwork.org:8080',
+    'http://factory.local.jejunetwork.org',
+    'http://gateway.local.jejunetwork.org:8080',
+    'http://gateway.local.jejunetwork.org',
+    'http://dws.local.jejunetwork.org:8080',
+    'http://dws.local.jejunetwork.org',
+    'http://otto.local.jejunetwork.org:8080',
+    'http://otto.local.jejunetwork.org',
     // Eliza cloud
     'https://cloud.elizaos.com',
     'https://eliza.cloud',

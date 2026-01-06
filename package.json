@@ -9,6 +9,7 @@
     "vendor/*"
   ],
   "overrides": {
+    "graphql": "15.8.0",
     "bigint-buffer": "file:./patches/bigint-buffer-safe",
     "ip": "file:./patches/ip-safe",
     "@synthetixio/synpress-cache": "file:./patches/synpress-cache-zod4",
@@ -73,7 +74,7 @@
   },
   "scripts": {
     "clean": "find apps packages vendor -type d -name node_modules -prune -exec rm -rf {} + && rm -rf node_modules .turbo && bun install",
-    "postinstall": "bun run build:packages && bun run packages/deployment/scripts/setup-apps.ts && bun run link:cli",
+    "postinstall": "cd packages/contracts && forge install --no-git && cd ../.. && bun run build:packages && bun run packages/deployment/scripts/setup-apps.ts && bun run link:cli",
     "build:packages": "bun run --cwd packages/types build && bun run --cwd packages/contracts build",
     "link:cli": "bun run --cwd packages/cli build && mkdir -p ~/.bun/bin && ln -sf $PWD/packages/cli/bin/jeju.js ~/.bun/bin/jeju",
     "jeju": "bun packages/cli/src/index.ts",
@@ -159,6 +160,7 @@
     "ws": "^8.18.3"
   },
   "resolutions": {
+    "graphql": "15.8.0",
     "elysia": "1.4.21",
     "@elysiajs/cors": "1.3.1",
     "@noble/curves": "1.9.7",

@@ -123,10 +123,12 @@ export default function CreateAgentPage() {
     }
 
     try {
+      const agentName = customName || selectedCharacter.name
       await registerAgent.mutateAsync({
+        name: agentName,
         character: {
           id: selectedCharacter.id,
-          name: customName || selectedCharacter.name,
+          name: agentName,
           description: customDescription || selectedCharacter.description,
           system: selectedCharacter.system,
           bio: selectedCharacter.bio,

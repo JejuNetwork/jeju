@@ -166,7 +166,8 @@ function detectNetworkFromHostname(): NetworkType | null {
     hostname === 'localhost' ||
     hostname === '127.0.0.1' ||
     hostname.startsWith('192.168.') ||
-    hostname.startsWith('10.')
+    hostname.startsWith('10.') ||
+    hostname.endsWith('.local.jejunetwork.org')
   ) {
     return 'localnet'
   }

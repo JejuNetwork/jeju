@@ -136,15 +136,18 @@ const app = new Elysia()
   .use(cors())
   // Health check endpoints
   .get('/health', () => ({
+    success: true,
     status: 'healthy',
     mode: 'sqlite-compat',
     port: PORT,
   }))
   .get('/v1/health', () => ({
+    success: true,
     status: 'healthy',
     mode: 'sqlite-compat',
   }))
   .get('/api/v1/health', () => ({
+    success: true,
     status: 'healthy',
     mode: 'sqlite-compat',
   }))
