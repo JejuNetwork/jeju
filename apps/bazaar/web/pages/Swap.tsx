@@ -216,7 +216,7 @@ export default function SwapPage() {
       resetCrossChain()
       refetchEthBalance()
     }
-  }, [isSuccess, txHash, resetSwap, resetCrossChain, refetchEthBalance])
+  }, [isSuccess, txHash, resetSwap, refetchEthBalance])
 
   const currentBalance =
     inputToken.address === ZERO_ADDRESS
