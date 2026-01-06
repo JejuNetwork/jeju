@@ -238,12 +238,11 @@ async function buildApp(appDir: string, manifest: AppManifest): Promise<void> {
   )
 
   if (!isAllowed) {
-    // For custom commands, use spawnSync with shell: false to prevent injection
-    // and only allow specific patterns
-    const safeBuildPattern = /^(bun|npm|pnpm|yarn)\s+run\s+[a-zA-Z0-9_-]+$/
-    if (!safeBuildPattern.test(buildCmd)) {
+    // Basic check: must start with known package manager + run
+    const startsWithRunner = /^(bun|npm|pnpm|yarn)\s+run\s+/.test(buildCmd)
+    if (!startsWithRunner) {
       throw new Error(
-        `Unsafe build command: ${buildCmd}. Use 'bun run build' or similar standard commands.`,
+        `Unsafe build command: ${buildCmd}. Must start with 'bun run', 'npm run', etc.`,
       )
     }
   }

@@ -32,6 +32,18 @@ import {
 } from '../services/orchestrator'
 import { type AppManifest, DOMAIN_CONFIG, WELL_KNOWN_KEYS } from '../types'
 
+async function pollForHealth(url: string, timeoutMs: number): Promise<boolean> {
+  const start = Date.now()
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(500) })
+      if (res.ok) return true
+    } catch {}
+    await new Promise((r) => setTimeout(r, 200))
+  }
+  return false
+}
+
 interface RunningService {
   name: string
   port?: number
@@ -230,9 +242,13 @@ async function deployAppsOnchain(
       process: dwsProc,
     })
 
-    // Wait for DWS to start
-    await new Promise((r) => setTimeout(r, 5000))
-    logger.success('DWS server running on port 4030')
+    // Wait for DWS to be ready
+    const dwsReady = await pollForHealth('http://127.0.0.1:4030/health', 10000)
+    if (dwsReady) {
+      logger.success('DWS server running on port 4030')
+    } else {
+      logger.warn('DWS server may not be fully ready')
+    }
   }
 
   // Start OAuth3 authentication gateway (required for auth flows)
