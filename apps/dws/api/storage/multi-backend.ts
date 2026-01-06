@@ -846,7 +846,7 @@ export class MultiBackendManager {
   /**
    * Get aggregated node stats
    */
-  getNodeStats(): Partial<NodeStorageStats> {
+  getNodeStats(): { totalPins: number; totalSizeBytes: number; totalSizeGB: number } & Partial<NodeStorageStats> {
     const webtorrentStats = this.webtorrentBackend?.getNodeStats() ?? {}
 
     let totalSize = 0
@@ -854,9 +854,16 @@ export class MultiBackendManager {
       totalSize += metadata.size
     }
 
+    const totalPins = this.contentRegistry.size
+    const totalSizeBytes = totalSize
+    const totalSizeGB = totalSize / (1024 * 1024 * 1024)
+
     return {
       ...webtorrentStats,
-      usedCapacityGB: totalSize / (1024 * 1024 * 1024),
+      totalPins,
+      totalSizeBytes,
+      totalSizeGB,
+      usedCapacityGB: totalSizeGB,
     }
   }
 
