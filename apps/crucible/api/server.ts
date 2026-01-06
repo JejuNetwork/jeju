@@ -6,6 +6,7 @@ import {
 } from '@jejunetwork/api'
 import type { ContractCategoryName } from '@jejunetwork/config'
 import {
+  getContract,
   getCurrentNetwork,
   getEnvNumber,
   getEnvVar,
@@ -124,7 +125,7 @@ const activityStore = {
 function getContractSafe(
   category: ContractCategoryName,
   name: string,
-  _network: 'localnet' | 'testnet' | 'mainnet',
+  network: 'localnet' | 'testnet' | 'mainnet',
 ): `0x${string}` | undefined {
   // Check env var first
   const envKey = `${category.toUpperCase()}_${name.replace(/([A-Z])/g, '_$1').toUpperCase()}`
@@ -132,7 +133,12 @@ function getContractSafe(
   if (envVal && /^0x[a-fA-F0-9]{40}$/.test(envVal)) {
     return envVal as `0x${string}`
   }
-  return undefined
+  // Fall back to contracts.json via getContract
+  try {
+    return getContract(category, name, network)
+  } catch {
+    return undefined
+  }
 }
 
 /**
@@ -441,19 +447,38 @@ const kmsSigner = createKMSSigner(config.rpcUrl, chain.id, {
   totalParties: NETWORK === 'mainnet' ? 5 : 3,
 })
 
-// Initialize KMS signer asynchronously
-kmsSigner
-  .initialize()
-  .then(() => {
-    log.info('KMS signer initialized', {
-      address: kmsSigner.getAddress(),
-      keyId: kmsSigner.getKeyId(),
+// Initialize KMS signer asynchronously with fallback support for localnet
+;(async () => {
+  // On localnet, load the fallback private key before initializing
+  // This enables signing even when KMS service is unavailable
+  if (config.network === 'localnet') {
+    try {
+      const fallbackKey = await getAgentPrivateKey()
+      if (fallbackKey) {
+        kmsSigner.setFallbackPrivateKey(fallbackKey)
+        log.info('Fallback private key loaded for localnet')
+      }
+    } catch (err) {
+      log.warn('Could not load fallback private key', {
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
+  }
+
+  // Now initialize the KMS signer
+  kmsSigner
+    .initialize()
+    .then(() => {
+      log.info('KMS signer initialized', {
+        address: kmsSigner.getAddress(),
+        keyId: kmsSigner.getKeyId(),
+      })
     })
-  })
-  .catch((err) => {
-    log.error('Failed to initialize KMS signer', { error: String(err) })
-    // Don't throw - server can still serve read-only endpoints
-  })
+    .catch((err) => {
+      log.error('Failed to initialize KMS signer', { error: String(err) })
+      // Don't throw - server can still serve read-only endpoints
+    })
+})()
 
 const storage = createStorage({
   apiUrl: config.services.storageApi,

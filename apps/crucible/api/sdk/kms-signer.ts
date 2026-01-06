@@ -31,12 +31,15 @@ import {
 import type { Address, Hex, TransactionRequest } from 'viem'
 import {
   createPublicClient,
+  createWalletClient,
   encodeFunctionData,
   http,
   keccak256,
   serializeTransaction,
   toHex,
 } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { foundry } from 'viem/chains'
 import { z } from 'zod'
 import { createLogger } from './logger'
 
@@ -65,6 +68,8 @@ export interface KMSSignerConfig {
   chainId: number
   /** HSM configuration for key share storage */
   hsm?: HSMConfig
+  /** Fallback private key for localnet when KMS is unavailable */
+  fallbackPrivateKey?: Hex
 }
 
 export interface SignResult {
@@ -118,6 +123,9 @@ const AttestationResponseSchema = z.object({
  * - Key generation distributes shares across MPC parties
  * - Signing requires threshold collaboration
  * - Each party proves TEE attestation
+ *
+ * In localnet development mode, can fall back to a local wallet
+ * if KMS service is unavailable.
  */
 export class KMSSigner {
   private config: KMSSignerConfig
@@ -125,6 +133,10 @@ export class KMSSigner {
   private publicKey: Hex | null = null
   private address: Address | null = null
   private initialized = false
+  /** Fallback mode uses local wallet instead of KMS */
+  private fallbackMode = false
+  /** Local wallet account for fallback mode */
+  private fallbackAccount: ReturnType<typeof privateKeyToAccount> | null = null
 
   constructor(config: KMSSignerConfig) {
     this.config = config
@@ -147,7 +159,8 @@ export class KMSSigner {
   }
 
   /**
-   * Initialize the signer by generating or retrieving an MPC key
+   * Initialize the signer by generating or retrieving an MPC key.
+   * In localnet with allowDevMode, falls back to local wallet if KMS unavailable.
    */
   async initialize(): Promise<void> {
     if (this.initialized) return
@@ -157,54 +170,102 @@ export class KMSSigner {
       threshold: this.config.threshold,
       totalParties: this.config.totalParties,
       hsmProvider: this.config.hsm?.provider ?? 'none',
+      hasFallbackKey: !!this.config.fallbackPrivateKey,
     })
 
-    // First verify TEE attestation of the KMS service
-    await this.verifyKMSAttestation()
+    // Try KMS initialization first
+    try {
+      // First verify TEE attestation of the KMS service
+      await this.verifyKMSAttestation()
 
-    // Verify HSM availability if configured
-    if (this.config.hsm && this.config.hsm.provider !== 'software') {
-      await this.verifyHSMAvailability()
-    }
+      // Verify HSM availability if configured
+      if (this.config.hsm && this.config.hsm.provider !== 'software') {
+        await this.verifyHSMAvailability()
+      }
 
-    // Request key generation (or retrieval if exists)
-    const response = await fetch(`${this.config.endpoint}/kms/keys`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+      // Request key generation (or retrieval if exists)
+      const response = await fetch(`${this.config.endpoint}/kms/keys`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          threshold: this.config.threshold,
+          totalParties: this.config.totalParties,
+          networkId: this.config.networkId,
+          keyType: 'secp256k1',
+          // Include HSM config for key share storage
+          hsm: this.config.hsm
+            ? {
+                provider: this.config.hsm.provider,
+                keyWrapAlgorithm: this.config.hsm.keyWrapAlgorithm,
+              }
+            : undefined,
+        }),
+        signal: AbortSignal.timeout(this.config.timeout),
+      })
+
+      if (!response.ok) {
+        const error = await response.text()
+        throw new Error(`KMS key generation failed: ${error}`)
+      }
+
+      const json = await response.json()
+      const result = KeyGenResponseSchema.parse(json)
+
+      this.keyId = result.keyId
+      this.publicKey = result.publicKey as Hex
+      this.address = result.address as Address
+      this.initialized = true
+      this.fallbackMode = false
+
+      log.info('KMS signer initialized', {
+        keyId: this.keyId,
+        address: this.address,
         threshold: this.config.threshold,
-        totalParties: this.config.totalParties,
-        networkId: this.config.networkId,
-        keyType: 'secp256k1',
-        // Include HSM config for key share storage
-        hsm: this.config.hsm
-          ? {
-              provider: this.config.hsm.provider,
-              keyWrapAlgorithm: this.config.hsm.keyWrapAlgorithm,
-            }
-          : undefined,
-      }),
-      signal: AbortSignal.timeout(this.config.timeout),
-    })
+      })
+    } catch (kmsError) {
+      // If KMS fails and we have a fallback key in dev mode, use local wallet
+      if (this.config.allowDevMode && this.config.fallbackPrivateKey) {
+        log.warn('KMS unavailable, using local wallet fallback for localnet', {
+          error: kmsError instanceof Error ? kmsError.message : String(kmsError),
+        })
+        this.initializeFallbackWallet(this.config.fallbackPrivateKey)
+      } else {
+        throw kmsError
+      }
+    }
+  }
 
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(`KMS key generation failed: ${error}`)
+  /**
+   * Initialize with a fallback private key for local development.
+   * Only allowed in dev mode (localnet).
+   */
+  private initializeFallbackWallet(privateKey: Hex): void {
+    if (!this.config.allowDevMode) {
+      throw new Error('Fallback wallet only allowed in development mode')
     }
 
-    const json = await response.json()
-    const result = KeyGenResponseSchema.parse(json)
-
-    this.keyId = result.keyId
-    this.publicKey = result.publicKey as Hex
-    this.address = result.address as Address
+    this.fallbackAccount = privateKeyToAccount(privateKey)
+    this.address = this.fallbackAccount.address
+    this.keyId = 'local-fallback'
+    this.publicKey = '0x' as Hex // Not used in fallback mode
     this.initialized = true
+    this.fallbackMode = true
 
-    log.info('KMS signer initialized', {
-      keyId: this.keyId,
+    log.info('KMS signer initialized in fallback mode (local wallet)', {
       address: this.address,
-      threshold: this.config.threshold,
+      mode: 'fallback',
     })
+  }
+
+  /**
+   * Set the fallback private key for local development.
+   * Can be called before initialize() to enable fallback mode.
+   */
+  setFallbackPrivateKey(privateKey: Hex): void {
+    if (!this.config.allowDevMode) {
+      throw new Error('Fallback wallet only allowed in development mode')
+    }
+    this.config.fallbackPrivateKey = privateKey
   }
 
   /**
@@ -372,11 +433,16 @@ export class KMSSigner {
   }
 
   /**
-   * Sign and send a transaction via KMS
+   * Sign and send a transaction via KMS or fallback wallet
    */
   async signTransaction(tx: TransactionRequest): Promise<Hex> {
     if (!this.initialized || !this.keyId || !this.address) {
       throw new Error('KMS signer not initialized')
+    }
+
+    // Use fallback wallet if in fallback mode
+    if (this.fallbackMode && this.fallbackAccount) {
+      return this.signTransactionFallback(tx)
     }
 
     // Get nonce and gas estimation
@@ -434,6 +500,39 @@ export class KMSSigner {
       hash,
       mode: signResult.mode,
       participants: signResult.participants,
+    })
+
+    return hash
+  }
+
+  /**
+   * Sign and send a transaction using the fallback local wallet.
+   * Only available in dev mode (localnet).
+   */
+  private async signTransactionFallback(tx: TransactionRequest): Promise<Hex> {
+    if (!this.fallbackAccount) {
+      throw new Error('Fallback wallet not initialized')
+    }
+
+    const walletClient = createWalletClient({
+      account: this.fallbackAccount,
+      chain: foundry, // Chain ID 31337 - matches Jeju localnet
+      transport: http(this.config.rpcUrl),
+    })
+
+    const hash = await walletClient.sendTransaction({
+      to: tx.to ?? undefined,
+      data: tx.data ?? '0x',
+      value: tx.value ?? 0n,
+      gas: tx.gas,
+      gasPrice: tx.gasPrice,
+      nonce: tx.nonce,
+    })
+
+    log.info('Transaction sent via fallback wallet', {
+      hash,
+      mode: 'fallback',
+      address: this.fallbackAccount.address,
     })
 
     return hash
