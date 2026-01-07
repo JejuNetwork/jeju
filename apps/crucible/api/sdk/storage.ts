@@ -256,7 +256,8 @@ export class CrucibleStorage {
     expect(cid, 'CID is required')
     expectTrue(cid.length > 0, 'CID cannot be empty')
     this.log.debug('Pinning CID', { cid })
-    const r = await fetch(`${this.config.apiUrl}/api/v1/pin`, {
+    // TODO: DWS storage does not have a pin endpoint yet - need to add /storage/pin route
+    const r = await fetch(`${this.config.apiUrl}/storage/pin`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ cid }),
@@ -276,7 +277,7 @@ export class CrucibleStorage {
     formData.append('file', blob, filename)
     formData.append('tier', 'popular')
 
-    const r = await fetch(`${this.config.apiUrl}/upload`, {
+    const r = await fetch(`${this.config.apiUrl}/storage/upload`, {
       method: 'POST',
       body: formData,
       signal: createTimeoutSignal(UPLOAD_TIMEOUT_MS),

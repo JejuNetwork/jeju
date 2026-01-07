@@ -580,14 +580,14 @@ export class AutonomousAgentRunner {
       )) {
         const actionResult = await this.executeAction(
           agent,
-          action.name,
+          action.type,
           action.params,
           trajectoryId,
         )
-        actionsExecuted.push(action.name)
+        actionsExecuted.push(action.type)
         // Reward for successful actions
         if (actionResult.success) {
-          tickReward += this.calculateActionReward(action.name)
+          tickReward += this.calculateActionReward(action.type)
         }
       }
     }
