@@ -51,7 +51,7 @@
     "seed": "bun run scripts/seed-agents.ts",
     "seed:testnet": "bun run scripts/seed-agents.ts --network testnet",
     "seed:mainnet": "bun run scripts/seed-agents.ts --network mainnet",
-    "test": "bun test tests/",
+    "test": "bun test tests/unit/",
     "test:e2e": "bunx playwright test tests/e2e/ --config playwright.config.ts",
     "test:synpress": "bunx playwright test tests/synpress/ --config synpress.config.ts",
     "typecheck": "tsc --noEmit"

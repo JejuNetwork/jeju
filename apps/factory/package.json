@@ -53,7 +53,7 @@
     "dev": "concurrently \"bun run scripts/dev.ts\" \"API_PORT_OFFSET=1 bun --watch api/server.ts\"",
     "build": "bun run scripts/build.ts",
     "start": "bun run scripts/serve.ts",
-    "test": "bun test tests/",
+    "test": "bun test tests/unit/",
     "test:e2e": "bunx playwright test tests/e2e/",
     "test:synpress": "bunx playwright test --config synpress.config.ts tests/synpress/",
     "deploy": "bun run scripts/deploy.ts",

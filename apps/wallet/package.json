@@ -8,7 +8,7 @@
     "build": "bun run scripts/build.ts",
     "start": "bun run scripts/serve.ts",
     "deploy": "bun run scripts/deploy.ts",
-    "test": "bun test src/",
+    "test": "bun test api/services/ web/platform/",
     "test:e2e": "playwright test --project=live",
     "test:synpress": "playwright test --project=metamask",
     "typecheck": "tsc --noEmit",
