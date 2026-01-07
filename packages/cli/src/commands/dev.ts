@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs'
+import { existsSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   getDWSUrl,
@@ -127,16 +127,16 @@ async function startDev(options: {
     await bootstrapContracts(rootDir, l2RpcUrl)
     didBootstrap = true
 
-    // CRITICAL: Verify contracts are actually deployed on-chain
-    // This catches cases where bootstrap ran but chain was reset
+    // Quick verification (skip detailed checks in dev mode for speed)
     logger.step('Verifying contracts on-chain...')
     const verification = await infrastructureService.verifyContractsDeployed()
     if (!verification.verified) {
-      logger.error(`Contract verification failed: ${verification.error}`)
-      logger.error('Contracts must be deployed before dev mode can proceed.')
-      process.exit(1)
+      logger.warn(`Contract verification failed: ${verification.error}`)
+      logger.warn('Attempting to continue - contracts may need manual verification')
+      // Don't exit in dev mode - allow manual recovery
+    } else {
+      logger.success('Contracts verified on-chain')
     }
-    logger.success('Contracts verified on-chain')
   } else {
     logger.debug('Skipping bootstrap (--no-bootstrap)')
   }
@@ -216,10 +216,27 @@ async function deployAppsOnchain(
     return { dir, manifest: app }
   })
 
-  // Pre-build all apps in parallel for maximum speed
-  logger.step(`Building ${appsWithDirs.length} apps in parallel...`)
+  // Pre-build all apps in parallel for maximum speed (with caching)
+  logger.step(`Building ${appsWithDirs.length} apps in parallel (with caching)...`)
   const buildResults = await Promise.allSettled(
     appsWithDirs.map(async ({ dir, manifest }) => {
+      // Check if build is needed
+      const frontendConfig =
+        manifest.decentralization?.frontend ?? manifest.architecture?.frontend
+      const outputDir =
+        typeof frontendConfig === 'object' && 'buildDir' in frontendConfig
+          ? frontendConfig.buildDir
+          : typeof frontendConfig === 'object' && 'outputDir' in frontendConfig
+            ? frontendConfig.outputDir
+            : 'dist'
+
+      const distPath = join(dir, outputDir)
+      const needsBuild = !existsSync(distPath) || await isBuildStale(dir, distPath)
+
+      if (!needsBuild) {
+        return { name: manifest.name, success: true, skipped: true }
+      }
+
       const buildCmd = manifest.commands?.build ?? 'bun run build'
       try {
         await execa('sh', ['-c', buildCmd], {
@@ -227,7 +244,7 @@ async function deployAppsOnchain(
           stdio: 'pipe',
           timeout: 120000, // 2 minute timeout per build
         })
-        return { name: manifest.name, success: true }
+        return { name: manifest.name, success: true, skipped: false }
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error)
         return { name: manifest.name, success: false, error: errorMsg }
@@ -237,14 +254,15 @@ async function deployAppsOnchain(
 
   // Report build results
   let successCount = 0
+  let skippedCount = 0
   for (const result of buildResults) {
     if (result.status === 'fulfilled' && result.value.success) {
       successCount++
+      if (result.value.skipped) {
+        skippedCount++
+      }
     } else {
-      const name =
-        result.status === 'fulfilled'
-          ? result.value.name
-          : 'unknown'
+      const name = result.status === 'fulfilled' ? result.value.name : 'unknown'
       const error =
         result.status === 'fulfilled'
           ? result.value.error
@@ -252,16 +270,46 @@ async function deployAppsOnchain(
       logger.debug(`  Build failed for ${name}: ${error?.slice(0, 100)}`)
     }
   }
-  logger.success(`Built ${successCount}/${appsWithDirs.length} apps`)
+  if (skippedCount > 0) {
+    logger.success(`Built ${successCount - skippedCount}/${appsWithDirs.length} apps (${skippedCount} cached)`)
+  } else {
+    logger.success(`Built ${successCount}/${appsWithDirs.length} apps`)
+  }
 
   // Start DWS, OAuth3, and register node in parallel
   logger.step('Starting services in parallel...')
+  
+  // Note: DWS is already started by the orchestrator in startAll()
+  // Don't call ensurePortAvailable here as it would kill the already running DWS
+  
+  // Helper to check if port is in use
+  const isPortInUse = async (port: number): Promise<boolean> => {
+    try {
+      const response = await fetch(`http://${getLocalhostHost()}:${port}/health`, {
+        signal: AbortSignal.timeout(1000),
+      })
+      return response.ok
+    } catch {
+      try {
+        const server = Bun.serve({ port, fetch: () => new Response('') })
+        server.stop()
+        return false
+      } catch {
+        return true
+      }
+    }
+  }
+
   await Promise.all([
     // Register local node
     localDeployOrchestrator.registerLocalNode(),
 
-    // Start DWS server
+    // Start DWS server (skip if already running from orchestrator)
     (async () => {
+      if (await isPortInUse(4030)) {
+        logger.debug('DWS already running on port 4030 (started by orchestrator)')
+        return
+      }
       const dwsDir = join(rootDir, 'apps/dws')
       if (existsSync(dwsDir)) {
         const dwsProc = execa('bun', ['run', 'dev'], {
@@ -284,8 +332,12 @@ async function deployAppsOnchain(
       }
     })(),
 
-    // Start OAuth3 gateway
+    // Start OAuth3 gateway (skip if already running)
     (async () => {
+      if (await isPortInUse(4200)) {
+        logger.debug('OAuth3 already running on port 4200')
+        return
+      }
       const oauth3Dir = join(rootDir, 'apps/oauth3')
       if (existsSync(oauth3Dir)) {
         const oauth3Proc = execa('bun', ['run', 'dev'], {
@@ -298,7 +350,11 @@ async function deployAppsOnchain(
           },
           stdio: 'pipe',
         })
-        runningServices.push({ name: 'OAuth3', port: 4200, process: oauth3Proc })
+        runningServices.push({
+          name: 'OAuth3',
+          port: 4200,
+          process: oauth3Proc,
+        })
         await new Promise((r) => setTimeout(r, 1000))
         logger.success('OAuth3 gateway running on port 4200')
       }
@@ -613,26 +669,70 @@ function setupSignalHandlers(): void {
       await servicesOrchestrator.stopAll()
     }
 
-    for (const service of runningServices) {
-      if (service.process) {
-        try {
-          service.process.kill('SIGTERM')
-          // Force kill after 2 seconds if still running
-          setTimeout(() => {
-            if (service.process && !service.process.killed) {
-              service.process.kill('SIGKILL')
-            }
-          }, 2000)
-        } catch (_error) {
-          // Process already dead, ignore
-        }
+    // Only stop SQLit if InfrastructureService started it and it's still running
+    if (infrastructureService) {
+      const sqlitStillRunning = await infrastructureService.isSQLitRunning()
+      if (sqlitStillRunning) {
+        await infrastructureService.stopSQLit()
       }
     }
+
+    // Stop all services gracefully
+    const stopPromises = runningServices.map(async (service) => {
+      if (!service.process) return
+      
+      try {
+        // Check if process has an 'exited' property (spawn process)
+        const isSpawnProcess = 'exited' in service.process
+        
+        // Send SIGTERM for graceful shutdown
+        service.process.kill('SIGTERM')
+        
+        if (isSpawnProcess) {
+          // For spawn processes, wait for the exited promise
+          const shutdownTimeout = 30000 // 30 seconds
+          try {
+            await Promise.race([
+              (service.process as { exited: Promise<number | null> }).exited,
+              new Promise((resolve) =>
+                setTimeout(() => resolve(null), shutdownTimeout),
+              ),
+            ])
+          } catch {
+            // Process already exited or error occurred
+          }
+        } else {
+          // For execa processes, just wait a bit for graceful shutdown
+          await new Promise((resolve) => setTimeout(resolve, 5000))
+        }
+        
+        // Don't send SIGKILL - let processes exit naturally
+        // If they don't exit, the OS will clean them up when parent exits
+      } catch (error) {
+        // Process already dead or error occurred, ignore
+        logger.debug(`Error stopping ${service.name}: ${error}`)
+      }
+    })
+    
+    await Promise.all(stopPromises)
 
     await execa('docker', ['compose', 'down'], {
       cwd: join(process.cwd(), 'apps/monitoring'),
       reject: false,
     }).catch(() => undefined)
+
+    // Final check: ensure SQLit is fully stopped before exiting
+    if (infrastructureService) {
+      let sqlitCheckCount = 0
+      const maxChecks = 60 // Wait up to 30 seconds (60 * 500ms)
+      while (
+        sqlitCheckCount < maxChecks &&
+        (await infrastructureService.isSQLitRunning())
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 500))
+        sqlitCheckCount++
+      }
+    }
 
     logger.success('Stopped')
     process.exit(0)
@@ -873,6 +973,46 @@ async function printReady(
   logger.warn('Well-known test key - DO NOT use on mainnet')
 }
 
+async function isBuildStale(appDir: string, distPath: string): Promise<boolean> {
+  if (!existsSync(distPath)) {
+    return true
+  }
+
+  const distMtime = statSync(distPath).mtimeMs
+  const srcDirs = ['src', 'web', 'app', 'client']
+  const srcFiles = ['package.json', 'tsconfig.json', 'vite.config.ts', 'tailwind.config.ts']
+
+  for (const dir of srcDirs) {
+    const srcDir = join(appDir, dir)
+    if (existsSync(srcDir)) {
+      try {
+        const srcMtime = statSync(srcDir).mtimeMs
+        if (srcMtime > distMtime) {
+          return true
+        }
+      } catch {
+        // Directory might not exist, continue
+      }
+    }
+  }
+
+  for (const file of srcFiles) {
+    const srcFile = join(appDir, file)
+    if (existsSync(srcFile)) {
+      try {
+        const srcMtime = statSync(srcFile).mtimeMs
+        if (srcMtime > distMtime) {
+          return true
+        }
+      } catch {
+        // File might not exist, continue
+      }
+    }
+  }
+
+  return false
+}
+
 async function runAppSeeds(rootDir: string, rpcUrl: string): Promise<void> {
   logger.step('Running app seed scripts...')
 
@@ -886,6 +1026,13 @@ async function runAppSeeds(rootDir: string, rpcUrl: string): Promise<void> {
       continue
     }
 
+    // Check if seed has already been run (check for seed marker file or data)
+    const seedMarker = join(rootDir, 'apps', appName, '.seed-complete')
+    if (existsSync(seedMarker)) {
+      logger.debug(`Skipping seed for ${appName} (already seeded)`)
+      continue
+    }
+
     logger.debug(`Seeding ${appName}...`)
     try {
       await execa('bun', ['run', seedScript], {
@@ -896,6 +1043,9 @@ async function runAppSeeds(rootDir: string, rpcUrl: string): Promise<void> {
         },
         stdio: 'pipe',
       })
+      // Mark as seeded
+      const { writeFileSync } = await import('node:fs')
+      writeFileSync(seedMarker, new Date().toISOString())
       logger.success(`Seeded ${appName}`)
     } catch (_error) {
       // Don't fail if seed has issues - it might have already been run

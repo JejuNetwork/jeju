@@ -665,6 +665,47 @@ if (import.meta.main) {
   const operatorPrivateKey = (process.env.OPERATOR_PRIVATE_KEY ??
     '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80') as `0x${string}`
 
+  let server: Awaited<ReturnType<typeof createSQLitServer>> | null = null
+  let isShuttingDown = false
+
+  const shutdown = async (signal: string) => {
+    if (isShuttingDown) return
+    isShuttingDown = true
+    console.log(`[SQLit v2] Received ${signal}, shutting down gracefully...`)
+    if (server) {
+      await server.stop()
+    }
+    // Use setTimeout to ensure all async operations complete
+    setTimeout(() => {
+      process.exit(0)
+    }, 100)
+  }
+
+  // Ensure signal handlers wait for async shutdown
+  process.on('SIGTERM', () => {
+    shutdown('SIGTERM').catch((error) => {
+      console.error('[SQLit v2] Error during shutdown:', error)
+      process.exit(1)
+    })
+  })
+  process.on('SIGINT', () => {
+    shutdown('SIGINT').catch((error) => {
+      console.error('[SQLit v2] Error during shutdown:', error)
+      process.exit(1)
+    })
+  })
+
+  // Handle unhandled errors to prevent crashes
+  process.on('unhandledRejection', (reason) => {
+    console.error('[SQLit v2] Unhandled rejection:', reason)
+    // Don't exit - log and continue
+  })
+
+  process.on('uncaughtException', (error) => {
+    console.error('[SQLit v2] Uncaught exception:', error)
+    // Don't exit - log and continue (server should keep running)
+  })
+
   createSQLitServer({
     port,
     host,
@@ -683,8 +724,12 @@ if (import.meta.main) {
       heartbeatIntervalMs: 30000,
       maxDatabasesPerNode: 100,
     },
-  }).catch((error) => {
-    console.error('[SQLit v2] Failed to start server:', error)
-    process.exit(1)
   })
+    .then((s) => {
+      server = s
+    })
+    .catch((error) => {
+      console.error('[SQLit v2] Failed to start server:', error)
+      process.exit(1)
+    })
 }

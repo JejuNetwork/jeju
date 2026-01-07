@@ -238,33 +238,49 @@ class LocalInferenceServer {
         validatedBody.model,
         validatedBody.provider,
       )
-      const endpoint = this.getProviderEndpoint(provider)
 
-      if (!endpoint) {
-        logger.warn(`Unknown provider: ${provider}`)
-        return this.localFallback(validatedBody, provider)
+      // Try the resolved provider first, then fallback to cloud providers
+      const providersToTry = [provider]
+
+      // If resolved to DWS, add cloud fallback providers
+      if (provider === 'dws') {
+        const cloudFallbacks = ['groq', 'anthropic', 'openai', 'openrouter']
+        for (const fallback of cloudFallbacks) {
+          if (this.getApiKey(fallback)) {
+            providersToTry.push(fallback)
+          }
+        }
       }
 
-      const apiKey = provider === 'dws' ? 'dws' : this.getApiKey(provider)
-      if (!apiKey) {
-        logger.warn(`No API key for provider: ${provider}`)
-        return this.localFallback(validatedBody, provider)
+      for (const tryProvider of providersToTry) {
+        const endpoint = this.getProviderEndpoint(tryProvider)
+        if (!endpoint) continue
+
+        const apiKey =
+          tryProvider === 'dws' ? 'dws' : this.getApiKey(tryProvider)
+        if (!apiKey && tryProvider !== 'dws') continue
+
+        const providerConfig: InferenceProvider = {
+          name: tryProvider,
+          type: endpoint.type,
+          apiKey: apiKey ?? '',
+          baseUrl: endpoint.baseUrl,
+        }
+
+        const requestWithModel = { ...validatedBody, model }
+
+        const response = await this.tryProvider(
+          providerConfig,
+          requestWithModel,
+        )
+        if (response) {
+          return response
+        }
       }
 
-      const providerConfig: InferenceProvider = {
-        name: provider,
-        type: endpoint.type,
-        apiKey,
-        baseUrl: endpoint.baseUrl,
-      }
-
-      const requestWithModel = { ...validatedBody, model }
-
-      const response = await this.proxyToProvider(
-        providerConfig,
-        requestWithModel,
-      )
-      return response
+      // All providers failed
+      logger.warn(`All providers failed for model: ${model}`)
+      return this.localFallback(validatedBody, provider)
     })
 
     this.app.post('/v1/providers', ({ body, set }) => {
@@ -330,32 +346,41 @@ class LocalInferenceServer {
     })
   }
 
-  private async proxyToProvider(
+  /**
+   * Try a provider and return null if it fails
+   * Used for fallback chain - allows trying multiple providers
+   */
+  private async tryProvider(
     provider: InferenceProvider,
     request: ChatRequest,
-  ): Promise<object> {
+  ): Promise<object | null> {
     const { url, headers, body } = this.buildProviderRequest(provider, request)
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-    })
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(30000),
+      })
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      logger.error(
-        `Provider ${provider.name} error: ${response.status} - ${errorText}`,
-      )
-      return this.localFallback(
-        request,
-        provider.name,
-        `${response.status}: ${errorText.slice(0, 200)}`,
-      )
+      if (!response.ok) {
+        const errorText = await response.text()
+        logger.warn(
+          `Provider ${provider.name} failed: ${response.status} - ${errorText.slice(0, 100)}`,
+        )
+        return null
+      }
+
+      const rawData: unknown = await response.json()
+      const result = this.normalizeResponse(provider, rawData, request.model)
+      logger.info(`Provider ${provider.name} succeeded`)
+      return result
+    } catch (error) {
+      const err = error as Error
+      logger.warn(`Provider ${provider.name} error: ${err.message}`)
+      return null
     }
-
-    const rawData: unknown = await response.json()
-    return this.normalizeResponse(provider, rawData, request.model)
   }
 
   private buildProviderRequest(

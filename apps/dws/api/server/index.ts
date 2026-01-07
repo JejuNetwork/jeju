@@ -1642,7 +1642,6 @@ if (import.meta.main) {
 
       // App routing - check if request is for a deployed app
       const hostname = req.headers.get('host') ?? url.hostname
-      console.log(`[Bun.serve] Request: ${hostname}${url.pathname}`)
 
       // Check if this is a deployed app (not dws itself)
       // Skip internal IPs and localhost for health checks
@@ -1657,7 +1656,6 @@ if (import.meta.main) {
         const appName = hostname.split('.')[0]
         const deployedApp = getDeployedApp(appName)
         if (deployedApp?.enabled) {
-          console.log(`[Bun.serve] Routing to deployed app: ${appName}`)
           // Route to backend for API paths - use DEFAULT_API_PATHS if not configured
           const apiPaths = deployedApp.apiPaths ?? DEFAULT_API_PATHS
           const isApiRequest = apiPaths.some((pattern) => {
@@ -1681,13 +1679,9 @@ if (import.meta.main) {
             isApiRequest &&
             (deployedApp.backendEndpoint || deployedApp.backendWorkerId)
           ) {
-            console.log(`[Bun.serve] Proxying API to backend: ${url.pathname}`)
             return proxyToBackend(req, deployedApp, url.pathname)
           }
           // Serve frontend from IPFS/storage if configured
-          console.log(
-            `[Bun.serve] App ${appName}: frontendCid=${deployedApp.frontendCid}, staticFiles=${deployedApp.staticFiles ? Object.keys(deployedApp.staticFiles).length : 0}`,
-          )
           if (deployedApp.frontendCid || deployedApp.staticFiles) {
             const gateway = getIpfsGatewayUrl(NETWORK)
             let assetPath = url.pathname === '/' ? '/index.html' : url.pathname
@@ -1695,7 +1689,6 @@ if (import.meta.main) {
             if (deployedApp.spa && !assetPath.match(/\.\w+$/)) {
               assetPath = '/index.html'
             }
-            console.log(`[Bun.serve] Looking for assetPath: ${assetPath}`)
 
             // Check staticFiles map first for individual file CIDs
             if (deployedApp.staticFiles) {
@@ -1703,23 +1696,16 @@ if (import.meta.main) {
                 ? assetPath
                 : `/${assetPath}`
               const filePathWithoutSlash = assetPath.replace(/^\//, '')
-              console.log(
-                `[Bun.serve] Checking staticFiles for: ${filePathWithSlash} or ${filePathWithoutSlash}`,
-              )
               // Try both with and without leading slash since deploy scripts vary
               const fileCid =
                 deployedApp.staticFiles[filePathWithSlash] ??
                 deployedApp.staticFiles[filePathWithoutSlash]
-              console.log(`[Bun.serve] Found CID: ${fileCid}`)
               if (fileCid) {
                 // Fetch from DWS storage
                 const storageUrl =
                   NETWORK === 'localnet'
                     ? `http://127.0.0.1:4030/storage/download/${fileCid}`
                     : `https://dws.${NETWORK === 'testnet' ? 'testnet.' : ''}jejunetwork.org/storage/download/${fileCid}`
-                console.log(
-                  `[Bun.serve] Serving from staticFiles: ${storageUrl}`,
-                )
                 const resp = await fetch(storageUrl).catch(() => null)
                 if (resp?.ok) {
                   const contentType = getMimeType(filePathWithoutSlash)
@@ -1737,7 +1723,6 @@ if (import.meta.main) {
             // Fallback: try directory-style CID if frontendCid is set
             if (deployedApp.frontendCid) {
               const ipfsUrl = `${gateway}/ipfs/${deployedApp.frontendCid}${assetPath}`
-              console.log(`[Bun.serve] Serving from IPFS: ${ipfsUrl}`)
               const resp = await fetch(ipfsUrl).catch(() => null)
               if (resp?.ok) {
                 return resp
@@ -1746,7 +1731,6 @@ if (import.meta.main) {
               // the CID itself might be the index.html file
               if (assetPath === '/index.html') {
                 const directUrl = `${gateway}/ipfs/${deployedApp.frontendCid}`
-                console.log(`[Bun.serve] Fallback to direct CID: ${directUrl}`)
                 return fetch(directUrl)
               }
             }
@@ -1756,15 +1740,9 @@ if (import.meta.main) {
           }
           // No frontend CID or staticFiles - proxy all requests to backend
           if (deployedApp.backendEndpoint || deployedApp.backendWorkerId) {
-            console.log(
-              `[Bun.serve] No frontend configured, proxying all to backend: ${url.pathname}`,
-            )
             return proxyToBackend(req, deployedApp, url.pathname)
           }
           // App is registered but has no frontend or backend - return 503
-          console.log(
-            `[Bun.serve] App ${appName} has no frontend or backend configured`,
-          )
           return new Response(
             JSON.stringify({
               error: 'Service unavailable',
@@ -1777,7 +1755,6 @@ if (import.meta.main) {
           )
         }
         // App not found in registry - return 404 instead of falling through to DWS
-        console.log(`[Bun.serve] App not found or disabled: ${appName}`)
         return new Response(
           JSON.stringify({
             error: 'Not Found',

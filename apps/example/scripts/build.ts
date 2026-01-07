@@ -197,6 +197,31 @@ async function build() {
 
   // Build frontend
   console.log('[Example] Building frontend...')
+
+  // Browser plugin for shimming server-only packages
+  const emptyStub = resolve(APP_DIR, 'web/stubs/empty.ts')
+  const browserPlugin: BunPlugin = {
+    name: 'browser-shim',
+    setup(build) {
+      // Shim pino and other server-only modules
+      build.onResolve({ filter: /^pino(-pretty)?$/ }, () => ({
+        path: emptyStub,
+      }))
+      build.onResolve({ filter: /^@jejunetwork\/contracts/ }, () => ({
+        path: emptyStub,
+      }))
+      build.onResolve({ filter: /^@jejunetwork\/db/ }, () => ({
+        path: emptyStub,
+      }))
+      build.onResolve({ filter: /^@jejunetwork\/kms/ }, () => ({
+        path: emptyStub,
+      }))
+      build.onResolve({ filter: /^ioredis/ }, () => ({
+        path: emptyStub,
+      }))
+    },
+  }
+
   const frontendResult = await Bun.build({
     entrypoints: [resolve(APP_DIR, 'web/app.ts')],
     outdir: join(outdir, 'web'),
@@ -207,7 +232,18 @@ async function build() {
     packages: 'bundle',
     naming: 'app.[hash].[ext]',
     drop: ['debugger'],
-    external: ['bun:sqlite', 'node:*', 'elysia', '@elysiajs/*'],
+    external: [
+      'bun:sqlite',
+      'node:*',
+      'elysia',
+      '@elysiajs/*',
+      'module',
+      'worker_threads',
+      'fs',
+      'path',
+      'crypto',
+    ],
+    plugins: [browserPlugin],
     define: {
       'process.env.NODE_ENV': JSON.stringify('production'),
       'process.browser': 'true',

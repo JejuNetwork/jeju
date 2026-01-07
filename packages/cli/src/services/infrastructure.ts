@@ -14,6 +14,7 @@ import {
   INFRA_PORTS,
 } from '@jejunetwork/config'
 import { execa, type ResultPromise } from 'execa'
+import { spawn, type Subprocess } from 'bun'
 import { logger } from '../lib/logger'
 import { DEFAULT_PORTS } from '../types'
 
@@ -69,7 +70,7 @@ const L2_PORT = DEFAULT_PORTS.l2Rpc // 6546
 const L1_CHAIN_ID = 1337
 const L2_CHAIN_ID = 31337
 
-let sqlitProcess: ResultPromise | null = null
+let sqlitProcess: Subprocess | null = null
 let bundlerProcess: ResultPromise | null = null
 let messageRelayProcess: ResultPromise | null = null
 
@@ -143,14 +144,25 @@ export class InfrastructureService {
       return false
     }
 
-    sqlitProcess = execa('bun', ['run', serverPath], {
+    sqlitProcess = spawn(['bun', 'run', serverPath], {
       cwd: this.rootDir,
       env: {
         ...process.env,
         PORT: String(SQLIT_PORT),
         SQLIT_PORT: String(SQLIT_PORT),
       },
-      stdio: 'pipe',
+      stdout: 'inherit',
+      stderr: 'inherit',
+    })
+
+    // Monitor process exit to detect crashes
+    sqlitProcess.exited.then((code) => {
+      if (code !== 0 && code !== null) {
+        logger.warn(`SQLit process exited with code ${code}`)
+      }
+      sqlitProcess = null
+    }).catch(() => {
+      // Ignore errors in exit monitoring
     })
 
     // Wait for server to start
@@ -165,6 +177,11 @@ export class InfrastructureService {
         logger.info('  Mode: SQLit-compatible (local development)')
         return true
       }
+      // Check if process died while waiting
+      if (sqlitProcess && sqlitProcess.killed) {
+        logger.error('SQLit process died during startup')
+        return false
+      }
     }
 
     logger.error('SQLit server failed to start within 5 seconds')
@@ -173,8 +190,26 @@ export class InfrastructureService {
 
   async stopSQLit(): Promise<void> {
     // Stop SQLit server process if running
-    if (sqlitProcess) {
-      sqlitProcess.kill('SIGTERM')
+    if (sqlitProcess && !sqlitProcess.killed) {
+      const proc = sqlitProcess
+      proc.kill('SIGTERM')
+      
+      // Wait for process to actually exit (with timeout)
+      const shutdownTimeout = 30000 // 30 seconds
+      try {
+        await Promise.race([
+          proc.exited,
+          new Promise((resolve) =>
+            setTimeout(() => resolve(null), shutdownTimeout),
+          ),
+        ])
+        
+        // Don't send SIGKILL - let process exit naturally
+        // If it doesn't exit, the OS will clean it up when parent exits
+      } catch (error) {
+        logger.warn(`Error waiting for SQLit shutdown: ${error}`)
+        // Don't send SIGKILL - let process exit naturally
+      }
       sqlitProcess = null
     }
 

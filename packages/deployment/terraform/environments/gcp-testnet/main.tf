@@ -495,13 +495,19 @@ output "next_steps" {
        gcloud container clusters get-credentials ${module.gke.cluster_name} \
          --region ${var.region} --project ${var.project_id}
     
-    3. Deploy applications:
-       cd packages/deployment && NETWORK=testnet CLOUD=gcp bun run scripts/helmfile.ts sync
+    3. Deploy DWS infrastructure services:
+       jeju infra deploy sqlit --network testnet
+       jeju infra deploy hubble --network testnet
+       jeju infra deploy messaging --network testnet
+       jeju infra deploy email --network testnet
     
-    4. Deploy contracts:
+    4. Deploy applications via DWS:
+       NETWORK=testnet bun run packages/deployment/scripts/deploy/dws-bootstrap.ts
+    
+    5. Deploy contracts:
        bun run scripts/deploy/oif-multichain.ts --all
     
-    5. Cloud SQL Proxy (for local access):
+    6. Cloud SQL Proxy (for local access):
        cloud-sql-proxy ${module.cloudsql.connection_name}
     ═══════════════════════════════════════════════════════════════════
   EOT

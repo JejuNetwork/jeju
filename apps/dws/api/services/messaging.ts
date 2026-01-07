@@ -501,3 +501,35 @@ export function getTestnetMessagingConfig(): MessagingConfig {
     },
   }
 }
+
+/**
+ * Get default localnet messaging config (for local development)
+ */
+export function getLocalnetMessagingConfig(): MessagingConfig {
+  return {
+    name: 'jeju-messaging',
+    namespace: 'default',
+    relay: {
+      replicas: 1,
+      port: 3200,
+      wsPort: 3201,
+    },
+    kms: {
+      enabled: true,
+      replicas: 1,
+      port: 3300,
+    },
+    farcaster: {
+      hubUrl: 'localhost:2283',
+      syncEnabled: false,
+    },
+    sqlit: {
+      endpoint: 'http://localhost:8546',
+    },
+    contracts: {
+      rpcUrl: 'http://localhost:6546',
+      keyRegistryAddress: '0x0000000000000000000000000000000000000000',
+      nodeRegistryAddress: '0x0000000000000000000000000000000000000000',
+    },
+  }
+}

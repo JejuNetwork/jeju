@@ -648,3 +648,37 @@ export function getTestnetSQLitConfig(): SQLitConfig {
     },
   }
 }
+
+/**
+ * Get default localnet SQLit config (for local development)
+ */
+export function getLocalnetSQLitConfig(): SQLitConfig {
+  return {
+    name: 'jeju-sqlit',
+    namespace: 'default',
+    nodes: {
+      blockProducers: 1,
+      followers: 0,
+    },
+    ports: {
+      client: 4001,
+      http: 8546,
+      gossip: 4002,
+      raft: 4003,
+    },
+    storage: {
+      sizeMb: 10240, // 10GB for local dev
+      tier: 'ssd',
+    },
+    contracts: {
+      rpcUrl: 'http://localhost:6546',
+      nodeRegistryAddress:
+        '0x0000000000000000000000000000000000000000' as Address,
+    },
+    backup: {
+      enabled: false,
+      intervalSeconds: 3600,
+      ipfsPin: false,
+    },
+  }
+}

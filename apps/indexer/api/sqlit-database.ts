@@ -118,8 +118,6 @@ export class SQLitDatabase {
 
       // Clear hot blocks when we finalize
       this.hotBlocks = []
-
-      console.log(`[SQLitDatabase] Processed to block ${info.nextHead.height}`)
     } catch (error) {
       console.error('[SQLitDatabase] Transaction failed:', error)
       throw error
@@ -1299,7 +1297,6 @@ class SQLitStore implements SQLitStoreInterface {
 
     try {
       await this.client.exec(sql, values, this.databaseId)
-      console.log(`[SQLitStore] Saved ${entities.length} ${tableName} records`)
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error)
       // Log and continue for column mismatches - don't fail the whole transaction

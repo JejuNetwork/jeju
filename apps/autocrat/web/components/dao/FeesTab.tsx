@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { AUTOCRAT_API_URL } from '../../config/env'
 
 interface FeeStats {
@@ -40,11 +40,7 @@ export function FeesTab({ daoId }: { daoId: string }) {
   const [error, setError] = useState<string | null>(null)
   const [showRegister, setShowRegister] = useState(false)
 
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
-
-  async function fetchData() {
+  const fetchData = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
@@ -67,7 +63,11 @@ export function FeesTab({ daoId }: { daoId: string }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [daoId])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
 
   if (loading) {
     return (

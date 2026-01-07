@@ -30,7 +30,7 @@ variable "availability_zones" {
 
 # Network module
 module "network" {
-  source = "../../modules/network"
+  source = "../../modules/aws/network"
 
   environment        = "localnet"
   vpc_cidr           = "10.0.0.0/16"
@@ -39,7 +39,7 @@ module "network" {
 
 # EKS module
 module "eks" {
-  source = "../../modules/eks"
+  source = "../../modules/aws/eks"
 
   environment        = "localnet"
   cluster_version    = "1.29"
@@ -73,7 +73,7 @@ module "eks" {
 
 # RDS module
 module "rds" {
-  source = "../../modules/rds"
+  source = "../../modules/aws/rds"
 
   environment             = "localnet"
   vpc_id                  = module.network.vpc_id
@@ -87,14 +87,14 @@ module "rds" {
 
 # KMS module
 module "kms" {
-  source = "../../modules/kms"
+  source = "../../modules/aws/kms"
 
   environment = "localnet"
 }
 
 # Vault module
 module "vault" {
-  source = "../../modules/vault"
+  source = "../../modules/aws/vault"
 
   environment       = "localnet"
   namespace         = "infra"

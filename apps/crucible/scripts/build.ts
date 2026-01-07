@@ -30,6 +30,9 @@ const browserPlugin: BunPlugin = {
     build.onResolve({ filter: /^@jejunetwork\/messaging/ }, () => ({
       path: serverOnlyStub,
     }))
+    build.onResolve({ filter: /^@jejunetwork\/contracts/ }, () => ({
+      path: serverOnlyStub,
+    }))
     build.onResolve({ filter: /^ioredis/ }, () => ({ path: serverOnlyStub }))
     build.onResolve({ filter: /^elysia/ }, () => ({ path: serverOnlyStub }))
     build.onResolve({ filter: /^@elysiajs\// }, () => ({
@@ -39,6 +42,9 @@ const browserPlugin: BunPlugin = {
     // Stub auth providers that use server-side modules
     const authProvidersStub = resolve('./web/stubs/auth-providers.ts')
     build.onResolve({ filter: /providers\/farcaster/ }, () => ({
+      path: authProvidersStub,
+    }))
+    build.onResolve({ filter: /farcaster-utils/ }, () => ({
       path: authProvidersStub,
     }))
     build.onResolve({ filter: /providers\/email/ }, () => ({

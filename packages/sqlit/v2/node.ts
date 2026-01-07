@@ -1360,7 +1360,7 @@ WHERE embedding MATCH ?
       const dbPath = join(this.config.dataDir, file)
 
       try {
-        const db = new Database(dbPath, { create: false })
+        const db = new Database(dbPath)
         db.exec('PRAGMA journal_mode=WAL')
         db.exec('PRAGMA synchronous=NORMAL')
 

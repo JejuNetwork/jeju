@@ -118,7 +118,7 @@ locals {
 # Module: Route53 (DNS Hosted Zone) - CREATED FIRST
 # ============================================================
 module "route53" {
-  source = "../../modules/route53"
+  source = "../../modules/aws/route53"
 
   environment = local.environment
   domain_name = var.domain_name
@@ -131,7 +131,7 @@ module "route53" {
 # Set wait_for_validation=false on first deploy, true after NS update
 # ============================================================
 module "acm" {
-  source = "../../modules/acm"
+  source = "../../modules/aws/acm"
 
   environment = local.environment
   domain_name = var.domain_name
@@ -183,7 +183,7 @@ module "acm" {
 # Module: Networking (VPC, Subnets, NAT)
 # ============================================================
 module "network" {
-  source = "../../modules/network"
+  source = "../../modules/aws/network"
 
   environment        = local.environment
   vpc_cidr           = "10.1.0.0/16"
@@ -195,7 +195,7 @@ module "network" {
 # Module: EKS Cluster
 # ============================================================
 module "eks" {
-  source = "../../modules/eks"
+  source = "../../modules/aws/eks"
 
   environment        = local.environment
   cluster_version    = "1.29" # EKS requires incremental updates (1.28 -> 1.29 -> 1.30 -> 1.31)
@@ -258,7 +258,7 @@ module "eks" {
 # Target: Migrate to fully decentralized OCI registry at registry.jeju
 # ============================================================
 module "ecr" {
-  source = "../../modules/ecr"
+  source = "../../modules/aws/ecr"
 
   environment = local.environment
   tags        = local.common_tags
@@ -268,7 +268,7 @@ module "ecr" {
 # Module: KMS (Encryption Keys)
 # ============================================================
 module "kms" {
-  source = "../../modules/kms"
+  source = "../../modules/aws/kms"
 
   environment = local.environment
   tags        = local.common_tags
@@ -278,7 +278,7 @@ module "kms" {
 # Module: WAF (Web Application Firewall)
 # ============================================================
 module "waf" {
-  source = "../../modules/waf"
+  source = "../../modules/aws/waf"
 
   environment = local.environment
   enabled     = true
@@ -291,7 +291,7 @@ module "waf" {
 # enable_https=false until ACM certificate is validated
 # ============================================================
 module "alb" {
-  source = "../../modules/alb"
+  source = "../../modules/aws/alb"
 
   environment         = local.environment
   vpc_id              = module.network.vpc_id
@@ -323,7 +323,7 @@ module "alb" {
 # ============================================================
 module "cdn" {
   count  = var.enable_cdn ? 1 : 0
-  source = "../../modules/cdn"
+  source = "../../modules/aws/cdn"
 
   environment         = local.environment
   domain_name         = var.domain_name
@@ -1020,7 +1020,7 @@ output "testnet_urls" {
 # Required for EVM <-> Solana arbitrage, LP management, and OIF
 # ============================================================
 module "solana" {
-  source = "../../modules/solana"
+  source = "../../modules/aws/solana"
   count  = var.enable_solana ? 1 : 0
 
   environment    = local.environment

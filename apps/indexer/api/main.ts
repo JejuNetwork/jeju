@@ -710,16 +710,7 @@ processor.run(db, async (ctx: ProcessorContext<Store>) => {
     }
   }
 
-  const startBlock = ctx.blocks[0].header.height
-  const endBlock = ctx.blocks[ctx.blocks.length - 1].header.height
-  ctx.log.info(
-    `Processed blocks ${startBlock}-${endBlock}: ` +
-      `${blocks.length} blocks, ${transactions.length} txs, ${logs.length} logs, ` +
-      `${tokenTransfers.length} transfers, ${tokenApprovals.length} token approvals, ` +
-      `${nftApprovals.length} NFT approvals, ${decodedEvents.length} decoded events, ` +
-      `${contracts.size} contracts, ${accounts.size} accounts, ${traces.length} traces, ` +
-      `${tokenBalances.size} balances`,
-  )
+  // Suppress verbose block processing logs - only log errors
 
   await ctx.store.upsert([...accounts.values()])
   await ctx.store.insert(blocks)

@@ -13,7 +13,6 @@ import type {
   HookBanCheckConfig as BanCheckConfig,
   BanStatus,
 } from '@jejunetwork/shared'
-import { readContract } from '@jejunetwork/shared'
 import { BanType } from '@jejunetwork/types'
 import { useCallback, useEffect, useState } from 'react'
 import { type Address, createPublicClient, http } from 'viem'
@@ -129,19 +128,19 @@ export function useBanStatus(
 
     // Check address-based ban
     const [isAddressBanned, isOnNotice, addressBan] = await Promise.all([
-      readContract(client, {
+      client.readContract({
         address: mergedConfig.banManagerAddress,
         abi: BAN_MANAGER_ABI,
         functionName: 'isAddressBanned',
         args: [userAddress],
       }).catch((): boolean => false),
-      readContract(client, {
+      client.readContract({
         address: mergedConfig.banManagerAddress,
         abi: BAN_MANAGER_ABI,
         functionName: 'isOnNotice',
         args: [userAddress],
       }).catch((): boolean => false),
-      readContract(client, {
+      client.readContract({
         address: mergedConfig.banManagerAddress,
         abi: BAN_MANAGER_ABI,
         functionName: 'getAddressBan',
@@ -171,7 +170,7 @@ export function useBanStatus(
 
     // Check ModerationMarketplace ban
     if (mergedConfig.moderationMarketplaceAddress) {
-      const marketplaceBanned = await readContract(client, {
+      const marketplaceBanned = await client.readContract({
         address: mergedConfig.moderationMarketplaceAddress,
         abi: MODERATION_MARKETPLACE_ABI,
         functionName: 'isBanned',

@@ -208,11 +208,15 @@ export class SQLitNode {
     }
     this.walSyncTimers.clear()
 
-    // Close all databases
-    for (const [dbId, dbState] of Array.from(this.state.databases.entries())) {
-      console.log(`[SQLit v2] Closing database ${dbId}`)
-      dbState.db.close()
-    }
+    // Close all databases in parallel for faster shutdown
+    const closePromises = Array.from(this.state.databases.entries()).map(
+      ([dbId, dbState]) => {
+        console.log(`[SQLit v2] Closing database ${dbId}`)
+        // Wrap in promise to allow parallel execution
+        return Promise.resolve().then(() => dbState.db.close())
+      },
+    )
+    await Promise.all(closePromises)
     this.state.databases.clear()
 
     // Close peer connections
@@ -1431,7 +1435,7 @@ WHERE embedding MATCH ?
       const dbPath = join(this.config.dataDir, file)
 
       try {
-        const db = new Database(dbPath, { create: false })
+        const db = new Database(dbPath)
         db.exec('PRAGMA journal_mode=WAL')
         db.exec('PRAGMA synchronous=NORMAL')
 

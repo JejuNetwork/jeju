@@ -61,6 +61,7 @@ import {
 } from '../../services/hubble'
 import {
   deployMessaging,
+  getLocalnetMessagingConfig,
   getMessagingService,
   getMessagingStats,
   getTestnetMessagingConfig,
@@ -82,6 +83,7 @@ import {
 } from '../../services/oauth3'
 import {
   deploySQLit,
+  getLocalnetSQLitConfig,
   getSQLitClusterStatus,
   getSQLitService,
   getSQLitStats,
@@ -273,6 +275,21 @@ export function createDWSServicesRouter() {
             rpcGateway: getTestnetRPCGatewayConfig(),
             sqlitAdapter: getTestnetSQLitAdapterConfig(),
           },
+        }
+      })
+
+      .get('/localnet-configs', () => {
+        // Return example configs for localnet (for local development)
+        return {
+          oauth3: {
+            name: 'oauth3',
+            namespace: 'default',
+            replicas: 1,
+            mpcThreshold: 2,
+            mpcParties: 3,
+          },
+          messaging: getLocalnetMessagingConfig(),
+          sqlit: getLocalnetSQLitConfig(),
         }
       })
 
