@@ -427,6 +427,14 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
         const account = privateKeyToAccount(deployerKey as `0x${string}`)
         const chain = getChain('localnet')
 
+        // Define localnet chain for viem clients
+        const localnet = {
+          id: 31337,
+          name: 'Anvil',
+          nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+          rpcUrls: { default: { http: [getL2RpcUrl()] } },
+        } as const
+
         const publicClient = createPublicClient({
           chain,
           transport: http(getL2RpcUrl()),

@@ -97,6 +97,31 @@ export {
   useTokenRegistry,
 } from './hooks/useTokenRegistryContract'
 export { type AsyncState, requireClient, useAsyncState } from './hooks/utils'
+// Bundler and Paymaster for Account Abstraction
+export {
+  getEntryPointAddress,
+  type PartialUserOperation,
+  type UseBundlerResult,
+  type UserOperation,
+  useBundler,
+} from './hooks/useBundler'
+export {
+  formatEthGasCost,
+  type PaymasterCostEstimate,
+  type PaymasterInfo,
+  type UsePaymasterResult,
+  usePaymaster,
+} from './hooks/usePaymaster'
+// Swap quotes aggregation
+export {
+  type CrossChainQuote,
+  type SupportedChain,
+  type SwapQuote,
+  type SwapQuoteParams,
+  type TransferParams,
+  type UseSwapQuotesResult,
+  useSwapQuotes,
+} from './hooks/useSwapQuotes'
 // Miniapp SDK for Telegram and Farcaster
 export {
   applyMiniappTheme,

@@ -7,7 +7,7 @@
  */
 
 import { type Address, formatEther, parseEther } from 'viem'
-// Import from API (single source of truth)
+// Import from API (single source of truth) and re-export
 import { SWAP_TOKENS } from '../api/swap'
 import type {
   SwapFeeEstimate,
