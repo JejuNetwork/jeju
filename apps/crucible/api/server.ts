@@ -1062,6 +1062,7 @@ app.post('/api/v1/agents', async ({ body }) => {
     topics: [],
     adjectives: [],
     style: { all: [], chat: [], post: [] },
+    capabilities: parsedBody.capabilities,
   }
   log.info('Registering agent', { name: character.name })
 

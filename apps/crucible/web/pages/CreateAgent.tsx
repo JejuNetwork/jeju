@@ -140,6 +140,7 @@ export default function CreateAgentPage() {
         initialFunding: initialFunding
           ? (Number(initialFunding) * 1e18).toString()
           : undefined,
+        capabilities,
       })
 
       toast.success('Agent deployed successfully')

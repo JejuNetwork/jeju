@@ -18,74 +18,11 @@ import {
   type RegistryStake,
   TagUpdate,
 } from '../src/model'
-import { config } from './config'
 import type { ProcessorContext } from './processor'
 import { createAccountFactory } from './utils/entities'
 import { decodeEventArgs } from './utils/hex'
+import { fetchAgentMetadata } from './utils/ipfs-metadata'
 import { relationId } from './utils/relation-id'
-
-// Schema for agent character metadata from IPFS
-const AgentCharacterSchema = z.object({
-  name: z.string(),
-  description: z.string().optional(),
-  topics: z.array(z.string()).optional(),
-}).passthrough() // Allow additional fields
-
-type AgentCharacter = z.infer<typeof AgentCharacterSchema>
-
-/**
- * Parse tokenURI to extract character CID
- * Format: ipfs://QmXxx...#state=QmYyy...
- */
-function parseTokenUriForCid(tokenUri: string): string | null {
-  if (!tokenUri || !tokenUri.startsWith('ipfs://')) return null
-  const [base] = tokenUri.split('#')
-  const cid = base?.replace('ipfs://', '')
-  return cid && cid.length > 0 ? cid : null
-}
-
-/**
- * Fetch agent character metadata from IPFS with timeout
- * Returns null on any failure (timeout, network error, invalid data)
- */
-async function fetchAgentMetadata(
-  tokenUri: string,
-  agentId: string,
-): Promise<AgentCharacter | null> {
-  const cid = parseTokenUriForCid(tokenUri)
-  if (!cid) return null
-
-  try {
-    // Use AbortController for timeout (5 seconds to avoid blocking indexer)
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 5000)
-
-    const url = `${config.ipfsGateway}/ipfs/${cid}`
-    const response = await fetch(url, { signal: controller.signal })
-    clearTimeout(timeoutId)
-
-    if (!response.ok) {
-      console.warn(`[Indexer] Failed to fetch metadata for agent ${agentId}: HTTP ${response.status}`)
-      return null
-    }
-
-    const data = await response.json()
-    const result = AgentCharacterSchema.safeParse(data)
-
-    if (!result.success) {
-      console.warn(`[Indexer] Invalid metadata for agent ${agentId}: ${result.error.message}`)
-      return null
-    }
-
-    return result.data
-  } catch (error) {
-    // Silently handle errors (timeout, network issues, etc.) - don't block indexing
-    if (error instanceof Error && error.name === 'AbortError') {
-      console.warn(`[Indexer] Timeout fetching metadata for agent ${agentId}`)
-    }
-    return null
-  }
-}
 
 const stringArraySchema = z.array(z.string())
 
@@ -523,6 +460,17 @@ export async function processRegistryEvents(
 
         agent.tokenURI = args.newTokenURI
         agent.lastActivityAt = blockTimestamp
+
+        // Re-fetch metadata from IPFS when URI is updated
+        const metadata = await fetchAgentMetadata(args.newTokenURI, agent.id)
+        if (metadata) {
+          agent.name = metadata.name
+          agent.description = metadata.description ?? null
+          agent.tags = metadata.topics ?? []
+          console.log(`[Indexer] Updated metadata for agent ${agent.id}: name="${metadata.name}"`)
+        } else {
+          console.warn(`[Indexer] Failed to fetch IPFS metadata for agent ${agent.id}, keeping tokenURI update only`)
+        }
       } else if (topic0 === METADATA_SET) {
         const args = decodeEventArgs<MetadataSetArgs>(
           identityRegistryInterface,

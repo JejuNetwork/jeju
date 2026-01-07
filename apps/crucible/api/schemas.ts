@@ -63,6 +63,17 @@ export const RegisterAgentRequestSchema = z.object({
     })
     .optional(),
   initialFunding: z.string().optional(),
+  capabilities: z
+    .object({
+      canTrade: z.boolean().optional(),
+      canChat: z.boolean().optional(),
+      canPropose: z.boolean().optional(),
+      canVote: z.boolean().optional(),
+      canStake: z.boolean().optional(),
+      a2a: z.boolean().optional(),
+      compute: z.boolean().optional(),
+    })
+    .optional(),
 })
 
 export const AgentStartRequestSchema = z.object({
@@ -232,6 +243,17 @@ export const AgentCharacterSchema = z.object({
     .optional(),
   mcpServers: z.array(z.string()).optional(),
   a2aCapabilities: z.array(z.string()).optional(),
+  capabilities: z
+    .object({
+      canTrade: z.boolean().optional(),
+      canChat: z.boolean().optional(),
+      canPropose: z.boolean().optional(),
+      canVote: z.boolean().optional(),
+      canStake: z.boolean().optional(),
+      a2a: z.boolean().optional(),
+      compute: z.boolean().optional(),
+    })
+    .optional(),
 })
 
 export const StorageUploadResponseSchema = z.object({
