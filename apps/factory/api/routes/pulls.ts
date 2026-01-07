@@ -194,7 +194,8 @@ export const pullsRoutes = new Elysia({ prefix: '/api/pulls' })
       // Check if user has permission to merge
       // Must be PR author OR repo owner (repo format: owner/reponame)
       const repoOwner = row.repo.split('/')[0]?.toLowerCase()
-      const isAuthor = row.author.toLowerCase() === authResult.address.toLowerCase()
+      const isAuthor =
+        row.author.toLowerCase() === authResult.address.toLowerCase()
       const isRepoOwner = repoOwner === authResult.address.toLowerCase()
 
       if (!isAuthor && !isRepoOwner) {

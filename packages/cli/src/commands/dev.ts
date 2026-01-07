@@ -132,7 +132,9 @@ async function startDev(options: {
     const verification = await infrastructureService.verifyContractsDeployed()
     if (!verification.verified) {
       logger.warn(`Contract verification failed: ${verification.error}`)
-      logger.warn('Attempting to continue - contracts may need manual verification')
+      logger.warn(
+        'Attempting to continue - contracts may need manual verification',
+      )
       // Don't exit in dev mode - allow manual recovery
     } else {
       logger.success('Contracts verified on-chain')
@@ -217,7 +219,9 @@ async function deployAppsOnchain(
   })
 
   // Pre-build all apps in parallel for maximum speed (with caching)
-  logger.step(`Building ${appsWithDirs.length} apps in parallel (with caching)...`)
+  logger.step(
+    `Building ${appsWithDirs.length} apps in parallel (with caching)...`,
+  )
   const buildResults = await Promise.allSettled(
     appsWithDirs.map(async ({ dir, manifest }) => {
       // Check if build is needed
@@ -230,8 +234,9 @@ async function deployAppsOnchain(
             ? frontendConfig.outputDir
             : 'dist'
 
-      const distPath = join(dir, outputDir)
-      const needsBuild = !existsSync(distPath) || await isBuildStale(dir, distPath)
+      const distPath = join(dir, outputDir ?? 'dist')
+      const needsBuild =
+        !existsSync(distPath) || (await isBuildStale(dir, distPath))
 
       if (!needsBuild) {
         return { name: manifest.name, success: true, skipped: true }
@@ -271,23 +276,28 @@ async function deployAppsOnchain(
     }
   }
   if (skippedCount > 0) {
-    logger.success(`Built ${successCount - skippedCount}/${appsWithDirs.length} apps (${skippedCount} cached)`)
+    logger.success(
+      `Built ${successCount - skippedCount}/${appsWithDirs.length} apps (${skippedCount} cached)`,
+    )
   } else {
     logger.success(`Built ${successCount}/${appsWithDirs.length} apps`)
   }
 
   // Start DWS, OAuth3, and register node in parallel
   logger.step('Starting services in parallel...')
-  
+
   // Note: DWS is already started by the orchestrator in startAll()
   // Don't call ensurePortAvailable here as it would kill the already running DWS
-  
+
   // Helper to check if port is in use
   const isPortInUse = async (port: number): Promise<boolean> => {
     try {
-      const response = await fetch(`http://${getLocalhostHost()}:${port}/health`, {
-        signal: AbortSignal.timeout(1000),
-      })
+      const response = await fetch(
+        `http://${getLocalhostHost()}:${port}/health`,
+        {
+          signal: AbortSignal.timeout(1000),
+        },
+      )
       return response.ok
     } catch {
       try {
@@ -307,7 +317,9 @@ async function deployAppsOnchain(
     // Start DWS server (skip if already running from orchestrator)
     (async () => {
       if (await isPortInUse(4030)) {
-        logger.debug('DWS already running on port 4030 (started by orchestrator)')
+        logger.debug(
+          'DWS already running on port 4030 (started by orchestrator)',
+        )
         return
       }
       const dwsDir = join(rootDir, 'apps/dws')
@@ -680,20 +692,20 @@ function setupSignalHandlers(): void {
     // Stop all services gracefully
     const stopPromises = runningServices.map(async (service) => {
       if (!service.process) return
-      
+
       try {
         // Check if process has an 'exited' property (spawn process)
         const isSpawnProcess = 'exited' in service.process
-        
+
         // Send SIGTERM for graceful shutdown
         service.process.kill('SIGTERM')
-        
-        if (isSpawnProcess) {
+
+        if (isSpawnProcess && 'exited' in service.process) {
           // For spawn processes, wait for the exited promise
           const shutdownTimeout = 30000 // 30 seconds
           try {
             await Promise.race([
-              (service.process as { exited: Promise<number | null> }).exited,
+              service.process.exited,
               new Promise((resolve) =>
                 setTimeout(() => resolve(null), shutdownTimeout),
               ),
@@ -705,7 +717,7 @@ function setupSignalHandlers(): void {
           // For execa processes, just wait a bit for graceful shutdown
           await new Promise((resolve) => setTimeout(resolve, 5000))
         }
-        
+
         // Don't send SIGKILL - let processes exit naturally
         // If they don't exit, the OS will clean them up when parent exits
       } catch (error) {
@@ -713,7 +725,7 @@ function setupSignalHandlers(): void {
         logger.debug(`Error stopping ${service.name}: ${error}`)
       }
     })
-    
+
     await Promise.all(stopPromises)
 
     await execa('docker', ['compose', 'down'], {
@@ -973,14 +985,22 @@ async function printReady(
   logger.warn('Well-known test key - DO NOT use on mainnet')
 }
 
-async function isBuildStale(appDir: string, distPath: string): Promise<boolean> {
+async function isBuildStale(
+  appDir: string,
+  distPath: string,
+): Promise<boolean> {
   if (!existsSync(distPath)) {
     return true
   }
 
   const distMtime = statSync(distPath).mtimeMs
   const srcDirs = ['src', 'web', 'app', 'client']
-  const srcFiles = ['package.json', 'tsconfig.json', 'vite.config.ts', 'tailwind.config.ts']
+  const srcFiles = [
+    'package.json',
+    'tsconfig.json',
+    'vite.config.ts',
+    'tailwind.config.ts',
+  ]
 
   for (const dir of srcDirs) {
     const srcDir = join(appDir, dir)

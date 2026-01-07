@@ -166,40 +166,44 @@ async function acquireDistributedLock(key: string): Promise<boolean> {
   if (!(await checkHealth())) {
     return true // Fall back to local-only locking if cache unavailable
   }
-  
+
   const lockKey = `lock:${key}`
   // Try to set the lock with NX semantics (only if not exists)
   // Use a short TTL (10 seconds) to prevent deadlocks
   const response = await fetch(`${CACHE_URL}/cache/setnx`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ 
-      key: lockKey, 
-      value: 'locked', 
-      ttl: 10, 
-      namespace: CACHE_NS 
+    body: JSON.stringify({
+      key: lockKey,
+      value: 'locked',
+      ttl: 10,
+      namespace: CACHE_NS,
     }),
     signal: AbortSignal.timeout(2000),
   }).catch(() => null)
-  
+
   if (!response?.ok) {
     // If we can't acquire distributed lock, use local lock only
     // This is conservative - may allow duplicate work but prevents rejecting valid requests
-    console.warn('[NonceManager] Distributed lock unavailable, using local only')
+    console.warn(
+      '[NonceManager] Distributed lock unavailable, using local only',
+    )
     return true
   }
-  
-  const data = await response.json().catch(() => ({ acquired: false })) as { acquired?: boolean }
+
+  const data = (await response.json().catch(() => ({ acquired: false }))) as {
+    acquired?: boolean
+  }
   return data.acquired ?? false
 }
 
 async function releaseDistributedLock(key: string): Promise<void> {
   if (!(await checkHealth())) return
-  
+
   const lockKey = `lock:${key}`
   await fetch(
     `${CACHE_URL}/cache/delete?namespace=${CACHE_NS}&key=${encodeURIComponent(lockKey)}`,
-    { method: 'DELETE', signal: AbortSignal.timeout(2000) }
+    { method: 'DELETE', signal: AbortSignal.timeout(2000) },
   ).catch(() => {})
 }
 
@@ -226,7 +230,10 @@ export async function reserveNonce(
     // SECURITY: Try to acquire distributed lock for cross-instance protection
     const hasDistributedLock = await acquireDistributedLock(key)
     if (!hasDistributedLock) {
-      return { reserved: false, error: 'Nonce reservation in progress on another server' }
+      return {
+        reserved: false,
+        error: 'Nonce reservation in progress on another server',
+      }
     }
 
     try {

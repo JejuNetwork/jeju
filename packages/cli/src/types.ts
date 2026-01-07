@@ -132,6 +132,33 @@ export interface AppManifest {
     frontend?: boolean | { outputDir?: string }
     backend?: boolean | { outputDir?: string }
   }
+  /** Decentralization configuration */
+  decentralization?: {
+    frontend?: {
+      buildDir?: string
+      jnsName?: string
+      ipfs?: boolean
+      arweave?: boolean
+      spa?: boolean
+      fallbackOrigins?: string[]
+    }
+    cdn?: {
+      enabled?: boolean
+      regions?: string[]
+      cacheRules?: Array<{
+        pattern: string
+        ttl: number
+        staleWhileRevalidate?: number
+        immutable?: boolean
+      }>
+      apiCaching?: {
+        enabled?: boolean
+        defaultTtl?: number
+        varyHeaders?: string[]
+      }
+      serviceWorker?: boolean
+    }
+  }
   /** Populated by discoverApps with actual directory name */
   _folderName?: string
   /** DAO governance configuration */

@@ -13,8 +13,8 @@ import {
   getSQLitBlockProducerUrl,
   INFRA_PORTS,
 } from '@jejunetwork/config'
+import { type Subprocess, spawn } from 'bun'
 import { execa, type ResultPromise } from 'execa'
-import { spawn, type Subprocess } from 'bun'
 import { logger } from '../lib/logger'
 import { DEFAULT_PORTS } from '../types'
 
@@ -156,14 +156,16 @@ export class InfrastructureService {
     })
 
     // Monitor process exit to detect crashes
-    sqlitProcess.exited.then((code) => {
-      if (code !== 0 && code !== null) {
-        logger.warn(`SQLit process exited with code ${code}`)
-      }
-      sqlitProcess = null
-    }).catch(() => {
-      // Ignore errors in exit monitoring
-    })
+    sqlitProcess.exited
+      .then((code) => {
+        if (code !== 0 && code !== null) {
+          logger.warn(`SQLit process exited with code ${code}`)
+        }
+        sqlitProcess = null
+      })
+      .catch(() => {
+        // Ignore errors in exit monitoring
+      })
 
     // Wait for server to start
     for (let i = 0; i < 20; i++) {
@@ -178,7 +180,7 @@ export class InfrastructureService {
         return true
       }
       // Check if process died while waiting
-      if (sqlitProcess && sqlitProcess.killed) {
+      if (sqlitProcess?.killed) {
         logger.error('SQLit process died during startup')
         return false
       }
@@ -193,7 +195,7 @@ export class InfrastructureService {
     if (sqlitProcess && !sqlitProcess.killed) {
       const proc = sqlitProcess
       proc.kill('SIGTERM')
-      
+
       // Wait for process to actually exit (with timeout)
       const shutdownTimeout = 30000 // 30 seconds
       try {
@@ -203,7 +205,7 @@ export class InfrastructureService {
             setTimeout(() => resolve(null), shutdownTimeout),
           ),
         ])
-        
+
         // Don't send SIGKILL - let process exit naturally
         // If it doesn't exit, the OS will clean it up when parent exits
       } catch (error) {

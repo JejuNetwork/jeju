@@ -127,6 +127,7 @@ import {
 } from './routes/load-balancer'
 import { createMCPRouter } from './routes/mcp'
 import { createModerationRouter } from './routes/moderation'
+import { createNitroDatabaseRouter } from './routes/nitro-database'
 import { createOAuth3Router } from './routes/oauth3'
 import { createOCIRegistryRouter } from './routes/oci-registry'
 import { createPkgRouter } from './routes/pkg'
@@ -148,7 +149,6 @@ import { createStorageRouter } from './routes/storage'
 import { createVPNRouter } from './routes/vpn'
 import { createDefaultWorkerdRouter } from './routes/workerd'
 import { createWorkersRouter } from './routes/workers'
-import { createNitroDatabaseRouter } from './routes/nitro-database'
 
 // Config injection for workerd compatibility
 export interface DWSServerConfig {

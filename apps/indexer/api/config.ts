@@ -55,7 +55,7 @@ export interface IndexerConfig {
 function getDwsUrl(): string {
   const explicit = getEnvVar('DWS_URL')
   if (explicit) return explicit
-  
+
   const network = getCurrentNetwork()
   switch (network) {
     case 'localnet':
@@ -91,10 +91,10 @@ const { config, configure: setIndexerConfig } = createAppConfig<IndexerConfig>({
   startBlock: getEnvNumber('START_BLOCK') ?? 0,
 
   // Server
-  port: getEnvNumber('PORT') ?? 4000,
-  restPort: getEnvNumber('REST_PORT') ?? 4004,
-  mcpPort: getEnvNumber('MCP_PORT') ?? 4002,
-  a2aPort: getEnvNumber('A2A_PORT') ?? 4003,
+  port: getEnvNumber('PORT') ?? 4350,
+  restPort: getEnvNumber('REST_PORT') ?? 4352,
+  mcpPort: getEnvNumber('MCP_PORT') ?? 4353,
+  a2aPort: getEnvNumber('A2A_PORT') ?? 4351,
   isProduction: isProductionEnv(),
 
   // Security

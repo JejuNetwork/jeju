@@ -68,7 +68,9 @@ export function isDevModeEnabled(): boolean {
   // SECURITY: Never allow dev mode in production environment
   if (process.env.NODE_ENV === 'production') {
     if (process.env.DEV_MODE === 'true' || process.env.JEJU_DEV === 'true') {
-      console.warn('[SECURITY] Dev mode explicitly disabled in production environment')
+      console.warn(
+        '[SECURITY] Dev mode explicitly disabled in production environment',
+      )
     }
     return false
   }
@@ -96,7 +98,9 @@ function isAllowedProxyTarget(url: string): boolean {
     }
     // SECURITY: Only allow http for local dev
     if (parsed.protocol !== 'http:') {
-      console.warn(`[SECURITY] Blocked proxy with non-http protocol: ${parsed.protocol}`)
+      console.warn(
+        `[SECURITY] Blocked proxy with non-http protocol: ${parsed.protocol}`,
+      )
       return false
     }
     return true
@@ -213,17 +217,20 @@ export async function proxyToDevServer(
 ): Promise<Response> {
   // SECURITY: Double-check dev mode is enabled
   if (!isDevModeEnabled()) {
-    return new Response(
-      JSON.stringify({ error: 'Dev proxy not enabled' }),
-      { status: 403, headers: { 'Content-Type': 'application/json' } }
-    )
+    return new Response(JSON.stringify({ error: 'Dev proxy not enabled' }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json' },
+    })
   }
 
   // SECURITY: Validate proxy target is localhost only
   if (!isAllowedProxyTarget(proxyUrl)) {
     return new Response(
-      JSON.stringify({ error: 'Invalid proxy target', hint: 'Only localhost allowed' }),
-      { status: 403, headers: { 'Content-Type': 'application/json' } }
+      JSON.stringify({
+        error: 'Invalid proxy target',
+        hint: 'Only localhost allowed',
+      }),
+      { status: 403, headers: { 'Content-Type': 'application/json' } },
     )
   }
 

@@ -157,8 +157,8 @@
     "rpcGateway": "https://testnet-rpc.jejunetwork.org",
     "bazaar": "https://bazaar.testnet.jejunetwork.org",
     "storage": {
-      "api": "https://storage.testnet.jejunetwork.org",
-      "ipfsGateway": "https://cloudflare-ipfs.com"
+      "api": "https://dws.testnet.jejunetwork.org/storage",
+      "ipfsGateway": "https://dws.testnet.jejunetwork.org/storage/ipfs"
     },
     "compute": {
       "marketplace": "https://compute.testnet.jejunetwork.org",
@@ -235,8 +235,8 @@
       "psyche": "https://psyche.testnet.jejunetwork.org"
     },
     "ipfs": {
-      "api": "https://ipfs-api.testnet.jejunetwork.org",
-      "gateway": "https://ipfs.testnet.jejunetwork.org"
+      "api": "https://dws.testnet.jejunetwork.org/storage/api/v0",
+      "gateway": "https://dws.testnet.jejunetwork.org/storage/ipfs"
     },
     "agents": {
       "api": "https://agents.testnet.jejunetwork.org",
@@ -288,8 +288,8 @@
     "rpcGateway": "https://rpc-gateway.jejunetwork.org",
     "bazaar": "https://bazaar.jejunetwork.org",
     "storage": {
-      "api": "https://storage.jejunetwork.org",
-      "ipfsGateway": "https://ipfs.jejunetwork.org"
+      "api": "https://dws.jejunetwork.org/storage",
+      "ipfsGateway": "https://dws.jejunetwork.org/storage/ipfs"
     },
     "compute": {
       "marketplace": "https://compute.jejunetwork.org",
@@ -366,8 +366,8 @@
       "psyche": "https://psyche.jejunetwork.org"
     },
     "ipfs": {
-      "api": "https://ipfs-api.jejunetwork.org",
-      "gateway": "https://ipfs.jejunetwork.org"
+      "api": "https://dws.jejunetwork.org/storage/api/v0",
+      "gateway": "https://dws.jejunetwork.org/storage/ipfs"
     },
     "agents": {
       "api": "https://agents.jejunetwork.org",

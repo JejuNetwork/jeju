@@ -38,9 +38,7 @@ function validateRedirectUri(
   // Check if there's an explicit localhost pattern
   const hasLocalhostPattern = allowedPatterns.some(
     (p) =>
-      p.includes('localhost') ||
-      p.includes('127.0.0.1') ||
-      p.includes('[::1]'),
+      p.includes('localhost') || p.includes('127.0.0.1') || p.includes('[::1]'),
   )
 
   // If no localhost pattern but URI is localhost, block it
@@ -333,7 +331,7 @@ export function createWalletRouter(_config: AuthConfig) {
   return new Elysia({ name: 'wallet', prefix: '/wallet' })
     .get(
       '/challenge',
-      async ({ query, set, request }) => {
+      async ({ query, set }) => {
         const { client_id: clientId, redirect_uri: redirectUri, state } = query
 
         // SECURITY: Rate limiting per client to prevent DoS
@@ -351,7 +349,8 @@ export function createWalletRouter(_config: AuthConfig) {
           set.status = 503
           return {
             error: 'service_unavailable',
-            error_description: 'Service temporarily unavailable. Try again later.',
+            error_description:
+              'Service temporarily unavailable. Try again later.',
           }
         }
 

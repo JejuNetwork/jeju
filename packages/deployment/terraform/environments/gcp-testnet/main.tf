@@ -324,6 +324,9 @@ resource "google_dns_record_set" "dws" {
   depends_on = [module.cloud_dns, module.gke]
 }
 
+# NOTE: storage.testnet.jejunetwork.org routes to DWS which serves storage at /storage/*
+# The canonical storage API is: https://dws.testnet.jejunetwork.org/storage/api/v0
+# This record is kept for backwards compatibility only
 resource "google_dns_record_set" "storage" {
   count = var.create_dns_zone ? 1 : 0
 

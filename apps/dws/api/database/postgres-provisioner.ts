@@ -10,7 +10,11 @@
  * Billing is handled via x402 micropayments or staking.
  */
 
-import { getCurrentNetwork, getLocalhostHost, type NetworkType } from '@jejunetwork/config'
+import {
+  getCurrentNetwork,
+  getLocalhostHost,
+  type NetworkType,
+} from '@jejunetwork/config'
 import { getSQLit, type SQLitClient } from '@jejunetwork/db'
 import type { Address, Hex } from 'viem'
 import { verifyMessage } from 'viem'
@@ -184,7 +188,9 @@ async function provisionViaDocker(
 
   if (existingId) {
     // Start existing container
-    console.log(`[PostgresProvisioner] Starting existing container: ${containerName}`)
+    console.log(
+      `[PostgresProvisioner] Starting existing container: ${containerName}`,
+    )
     await Bun.spawn(['docker', 'start', containerName], {
       stdout: 'inherit',
       stderr: 'inherit',
@@ -192,16 +198,24 @@ async function provisionViaDocker(
   } else {
     // Create new container from local OCI registry
     const args = [
-      'docker', 'run', '-d',
-      '--name', containerName,
-      '-e', `POSTGRES_PASSWORD=${password}`,
-      '-e', `POSTGRES_USER=${username}`,
-      '-e', `POSTGRES_DB=${database}`,
-      '-p', `${port}:5432`,
+      'docker',
+      'run',
+      '-d',
+      '--name',
+      containerName,
+      '-e',
+      `POSTGRES_PASSWORD=${password}`,
+      '-e',
+      `POSTGRES_USER=${username}`,
+      '-e',
+      `POSTGRES_DB=${database}`,
+      '-p',
+      `${port}:5432`,
       `--shm-size=${Math.max(256, Math.floor(resources.memoryMb / 4))}m`,
-      '--restart', 'unless-stopped',
+      '--restart',
+      'unless-stopped',
       // Use local OCI registry if available, fallback to docker hub
-      process.env.LOCAL_OCI_REGISTRY 
+      process.env.LOCAL_OCI_REGISTRY
         ? `${process.env.LOCAL_OCI_REGISTRY}/postgres:16`
         : 'postgres:16',
     ]
@@ -274,8 +288,10 @@ async function provisionViaAWS(
 
   // For testnet, we use AWS RDS through our provisioner node
   // This is abstracted - the operator running the provisioner handles AWS credentials
-  const awsEndpoint = process.env.AWS_PROVISIONER_ENDPOINT ?? 'https://provisioner.testnet.jejunetwork.org'
-  
+  const awsEndpoint =
+    process.env.AWS_PROVISIONER_ENDPOINT ??
+    'https://provisioner.testnet.jejunetwork.org'
+
   const response = await fetch(`${awsEndpoint}/rds/provision`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -284,7 +300,8 @@ async function provisionViaAWS(
       name,
       owner,
       resources: {
-        instanceClass: resources.memoryMb >= 2048 ? 'db.t3.small' : 'db.t3.micro',
+        instanceClass:
+          resources.memoryMb >= 2048 ? 'db.t3.small' : 'db.t3.micro',
         allocatedStorage: Math.ceil(resources.storageMb / 1024),
         maxConnections: resources.maxConnections,
       },
@@ -298,10 +315,12 @@ async function provisionViaAWS(
     throw new Error(`AWS provisioning failed: ${error}`)
   }
 
-  const awsResult = z.object({
-    endpoint: z.string(),
-    port: z.number(),
-  }).parse(await response.json())
+  const awsResult = z
+    .object({
+      endpoint: z.string(),
+      port: z.number(),
+    })
+    .parse(await response.json())
 
   const connectionString = `postgresql://${username}:${password}@${awsResult.endpoint}:${awsResult.port}/${database}?sslmode=require`
 
@@ -348,12 +367,14 @@ async function provisionViaOperator(
   owner: Address,
   resources: PostgresResources,
 ): Promise<ProvisionResponse> {
-  console.log(`[PostgresProvisioner] Provisioning via operator network: ${name}`)
+  console.log(
+    `[PostgresProvisioner] Provisioning via operator network: ${name}`,
+  )
 
   // On mainnet, find an operator that has capacity
   // Operators stake tokens and compete to provide database services
   const operatorEndpoint = await findAvailableOperator(resources)
-  
+
   if (!operatorEndpoint) {
     throw new Error('No operators available with required capacity')
   }
@@ -380,10 +401,12 @@ async function provisionViaOperator(
     throw new Error(`Operator provisioning failed: ${error}`)
   }
 
-  const operatorResult = z.object({
-    host: z.string(),
-    port: z.number(),
-  }).parse(await response.json())
+  const operatorResult = z
+    .object({
+      host: z.string(),
+      port: z.number(),
+    })
+    .parse(await response.json())
 
   const connectionString = `postgresql://${username}:${password}@${operatorResult.host}:${operatorResult.port}/${database}?sslmode=require`
 
@@ -424,14 +447,16 @@ async function provisionViaOperator(
 
 // Main provisioning function
 
-export async function provisionPostgres(request: ProvisionRequest): Promise<ProvisionResponse> {
+export async function provisionPostgres(
+  request: ProvisionRequest,
+): Promise<ProvisionResponse> {
   // Verify signature
   const message = JSON.stringify({
     name: request.name,
     owner: request.owner,
     timestamp: request.timestamp,
   })
-  
+
   const isValid = await verifyMessage({
     address: request.owner,
     message,
@@ -451,22 +476,46 @@ export async function provisionPostgres(request: ProvisionRequest): Promise<Prov
   const resources = { ...DEFAULT_RESOURCES, ...request.resources }
   const network = getCurrentNetwork()
 
-  console.log(`[PostgresProvisioner] Provisioning for ${request.name} on ${network}`)
+  console.log(
+    `[PostgresProvisioner] Provisioning for ${request.name} on ${network}`,
+  )
 
   // Route to appropriate provisioner based on network
   switch (network) {
     case 'localnet':
-      return provisionViaDocker(instanceId, request.name, request.owner, resources)
+      return provisionViaDocker(
+        instanceId,
+        request.name,
+        request.owner,
+        resources,
+      )
     case 'testnet':
       // Try AWS first, fallback to Docker
       try {
-        return await provisionViaAWS(instanceId, request.name, request.owner, resources)
+        return await provisionViaAWS(
+          instanceId,
+          request.name,
+          request.owner,
+          resources,
+        )
       } catch (error) {
-        console.warn(`[PostgresProvisioner] AWS failed, falling back to Docker: ${error}`)
-        return provisionViaDocker(instanceId, request.name, request.owner, resources)
+        console.warn(
+          `[PostgresProvisioner] AWS failed, falling back to Docker: ${error}`,
+        )
+        return provisionViaDocker(
+          instanceId,
+          request.name,
+          request.owner,
+          resources,
+        )
       }
     case 'mainnet':
-      return provisionViaOperator(instanceId, request.name, request.owner, resources)
+      return provisionViaOperator(
+        instanceId,
+        request.name,
+        request.owner,
+        resources,
+      )
     default:
       throw new Error(`Unknown network: ${network}`)
   }
@@ -474,10 +523,16 @@ export async function provisionPostgres(request: ProvisionRequest): Promise<Prov
 
 // Get existing instance by name and owner
 
-export async function getInstance(name: string, owner: Address): Promise<PostgresInstance | null> {
+export async function getInstance(
+  name: string,
+  owner: Address,
+): Promise<PostgresInstance | null> {
   // Check memory cache first
   for (const instance of instances.values()) {
-    if (instance.name === name && instance.owner.toLowerCase() === owner.toLowerCase()) {
+    if (
+      instance.name === name &&
+      instance.owner.toLowerCase() === owner.toLowerCase()
+    ) {
       return instance
     }
   }
@@ -569,7 +624,9 @@ export async function terminatePostgres(
       stderr: 'ignore',
     }).exited
   } else if (instance.provisionerType === 'aws') {
-    const awsEndpoint = process.env.AWS_PROVISIONER_ENDPOINT ?? 'https://provisioner.testnet.jejunetwork.org'
+    const awsEndpoint =
+      process.env.AWS_PROVISIONER_ENDPOINT ??
+      'https://provisioner.testnet.jejunetwork.org'
     await fetch(`${awsEndpoint}/rds/terminate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -584,7 +641,9 @@ export async function terminatePostgres(
 
 // Health check
 
-export async function checkHealth(instanceId: string): Promise<'healthy' | 'unhealthy'> {
+export async function checkHealth(
+  instanceId: string,
+): Promise<'healthy' | 'unhealthy'> {
   const instance = instances.get(instanceId)
   if (!instance) {
     return 'unhealthy'
@@ -631,9 +690,7 @@ async function findAvailablePort(start: number, end: number): Promise<number> {
       })
       server.stop()
       return port
-    } catch {
-      continue
-    }
+    } catch {}
   }
   throw new Error('No available ports')
 }
@@ -647,9 +704,15 @@ async function waitForPostgres(
 ): Promise<void> {
   const host = getLocalhostHost()
   const startTime = Date.now()
-  
+
   while (Date.now() - startTime < timeoutMs) {
-    const isReady = await checkPostgresConnection(host, port, username, password, database)
+    const isReady = await checkPostgresConnection(
+      host,
+      port,
+      username,
+      password,
+      database,
+    )
     if (isReady) {
       return
     }
@@ -670,8 +733,22 @@ async function checkPostgresConnection(
     // Use pg_isready via docker exec for docker containers, or TCP check for remote
     if (host === '127.0.0.1' || host === 'localhost') {
       const result = await Bun.spawn(
-        ['docker', 'run', '--rm', '--network=host', 'postgres:16', 
-         'pg_isready', '-h', host, '-p', String(port), '-U', username, '-d', database],
+        [
+          'docker',
+          'run',
+          '--rm',
+          '--network=host',
+          'postgres:16',
+          'pg_isready',
+          '-h',
+          host,
+          '-p',
+          String(port),
+          '-U',
+          username,
+          '-d',
+          database,
+        ],
         { stdout: 'ignore', stderr: 'ignore' },
       )
       return (await result.exited) === 0
@@ -701,12 +778,12 @@ async function checkPostgresConnection(
   }
 }
 
-async function findAvailableOperator(_resources: PostgresResources): Promise<string | null> {
+async function findAvailableOperator(
+  _resources: PostgresResources,
+): Promise<string | null> {
   // Query on-chain operator registry for available database operators
   // This would use the SQLitRegistry contract to find staked operators
   // For now, return null to indicate no operators available
   // TODO: Implement operator discovery from on-chain registry
   return null
 }
-
-

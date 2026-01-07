@@ -10,7 +10,6 @@
  * - Simulated TEE (development only, via jeju dev)
  */
 
-import { isProductionEnv } from '@jejunetwork/config'
 import {
   aesGcmDecrypt,
   aesGcmEncrypt,
@@ -18,8 +17,8 @@ import {
   getKMS,
   type KMSService,
 } from '@jejunetwork/kms'
+import { keccak256, toBytes, toHex, verifyMessage } from 'viem'
 import type { Address, Hex } from 'viem'
-import { toHex } from 'viem'
 
 interface OAuth3KMSConfig {
   jwtSigningKeyId: string
@@ -72,6 +71,19 @@ export interface JWTPayload {
   aud?: string
 }
 
+function base64urlEncode(data: string): string {
+  return Buffer.from(data)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '')
+}
+
+function base64urlDecode(data: string): string {
+  const padding = '='.repeat((4 - (data.length % 4)) % 4)
+  return Buffer.from(data.replace(/-/g, '+').replace(/_/g, '/') + padding, 'base64').toString()
+}
+
 /**
  * Generate a secure JWT token signed by KMS.
  */
@@ -84,23 +96,35 @@ export async function generateSecureToken(
     scopes?: string[]
   },
 ): Promise<string> {
-  const kms = getKMSInstance()
   const config = getConfig()
+  const kms = getKMSInstance()
+  await kms.initialize()
 
-  const signedToken = await kms.issueToken(
-    {
-      sub: userId,
-      iss: options?.issuer ?? 'jeju:oauth3',
-      aud: options?.audience ?? 'gateway',
-      scopes: options?.scopes,
-    },
-    {
-      keyId: config.jwtSigningKeyId,
-      expiresInSeconds: options?.expiresInSeconds ?? 3600,
-    },
-  )
+  const now = Math.floor(Date.now() / 1000)
+  const jti = crypto.randomUUID()
+  const expiresInSeconds = options?.expiresInSeconds ?? 3600
+  const expiration = now + expiresInSeconds
 
-  return signedToken.token
+  const claims = {
+    sub: userId,
+    iss: options?.issuer ?? 'jeju:oauth3',
+    aud: options?.audience ?? 'gateway',
+    scopes: options?.scopes,
+    iat: now,
+    jti,
+    exp: expiration,
+  }
+
+  const header = { alg: 'MPC-ECDSA-secp256k1', typ: 'JWT' }
+  const headerB64 = base64urlEncode(JSON.stringify(header))
+  const payloadB64 = base64urlEncode(JSON.stringify(claims))
+  const signingInput = `${headerB64}.${payloadB64}`
+  const messageHash = keccak256(toBytes(signingInput))
+
+  const signed = await kms.sign({ message: messageHash, keyId: config.jwtSigningKeyId })
+  const signatureB64 = base64urlEncode(signed.signature)
+
+  return `${headerB64}.${payloadB64}.${signatureB64}`
 }
 
 /**
@@ -108,19 +132,46 @@ export async function generateSecureToken(
  * Returns the user ID (sub claim) if valid, null otherwise.
  */
 export async function verifySecureToken(token: string): Promise<string | null> {
-  const kms = getKMSInstance()
   const config = getConfig()
 
-  const result = await kms.verifyToken(token, {
-    issuer: 'jeju:oauth3',
-    expectedSigner: config.jwtSignerAddress,
-  })
-
-  if (!result.valid || !result.claims?.sub) {
+  const parts = token.split('.')
+  if (parts.length !== 3) {
     return null
   }
 
-  return result.claims.sub
+  const [headerB64, payloadB64, signatureB64] = parts
+
+  let claims: { sub?: string; iss?: string; exp?: number }
+  try {
+    JSON.parse(base64urlDecode(headerB64)) // Validate header format
+    claims = JSON.parse(base64urlDecode(payloadB64))
+  } catch {
+    return null
+  }
+
+  if (claims.iss !== 'jeju:oauth3') {
+    return null
+  }
+
+  if (claims.exp && claims.exp < Math.floor(Date.now() / 1000)) {
+    return null
+  }
+
+  const signingInput = `${headerB64}.${payloadB64}`
+  const messageHash = keccak256(toBytes(signingInput))
+  const signature = base64urlDecode(signatureB64) as Hex
+
+  const isValid = await verifyMessage({
+    address: config.jwtSignerAddress,
+    message: { raw: toBytes(messageHash) },
+    signature,
+  })
+
+  if (!isValid || !claims.sub) {
+    return null
+  }
+
+  return claims.sub
 }
 
 // ============ Secret Sealing ============
@@ -145,18 +196,20 @@ export async function sealSecret(
 
   // Derive encryption key from binding
   const key = await deriveKeyFromSecretAsync(binding, 'oauth3-seal')
-  const iv = crypto.getRandomValues(new Uint8Array(12))
 
   const encrypted = await aesGcmEncrypt(
     new TextEncoder().encode(secret),
     key,
-    iv,
   )
 
+  // Extract tag from ciphertext (last 16 bytes)
+  const tag = encrypted.ciphertext.slice(-16)
+  const ciphertextOnly = encrypted.ciphertext.slice(0, -16)
+
   return {
-    ciphertext: toHex(new Uint8Array(encrypted.ciphertext)),
-    iv: toHex(iv),
-    tag: toHex(encrypted.tag),
+    ciphertext: toHex(ciphertextOnly),
+    iv: toHex(encrypted.iv),
+    tag: toHex(tag),
     sealedAt: Date.now(),
   }
 }
@@ -176,7 +229,11 @@ export async function unsealSecret(
   const tag = hexToBytes(sealed.tag)
 
   const key = await deriveKeyFromSecretAsync(binding, 'oauth3-seal')
-  const decrypted = await aesGcmDecrypt(ciphertext, key, iv, tag)
+  // Combine ciphertext and tag for AES-GCM decryption
+  const ciphertextWithTag = new Uint8Array(ciphertext.length + tag.length)
+  ciphertextWithTag.set(ciphertext)
+  ciphertextWithTag.set(tag, ciphertext.length)
+  const decrypted = await aesGcmDecrypt(ciphertextWithTag, iv, key)
 
   return new TextDecoder().decode(decrypted)
 }
@@ -280,19 +337,21 @@ export async function encryptCodeVerifier(
   state: string,
 ): Promise<string> {
   const key = await deriveKeyFromSecretAsync(state, 'oauth3-pkce')
-  const iv = crypto.getRandomValues(new Uint8Array(12))
 
   const encrypted = await aesGcmEncrypt(
     new TextEncoder().encode(codeVerifier),
     key,
-    iv,
   )
 
+  // Extract tag from ciphertext (last 16 bytes)
+  const tag = encrypted.ciphertext.slice(-16)
+  const ciphertextOnly = encrypted.ciphertext.slice(0, -16)
+
   // Combine iv + ciphertext + tag for storage
-  const combined = new Uint8Array(12 + encrypted.ciphertext.byteLength + 16)
-  combined.set(iv)
-  combined.set(new Uint8Array(encrypted.ciphertext), 12)
-  combined.set(encrypted.tag, 12 + encrypted.ciphertext.byteLength)
+  const combined = new Uint8Array(12 + ciphertextOnly.byteLength + 16)
+  combined.set(encrypted.iv)
+  combined.set(ciphertextOnly, 12)
+  combined.set(tag, 12 + ciphertextOnly.byteLength)
 
   return toHex(combined)
 }
@@ -311,7 +370,11 @@ export async function decryptCodeVerifier(
   const ciphertext = combined.slice(12, -16)
 
   const key = await deriveKeyFromSecretAsync(state, 'oauth3-pkce')
-  const decrypted = await aesGcmDecrypt(ciphertext, key, iv, tag)
+  // Combine ciphertext and tag for AES-GCM decryption
+  const ciphertextWithTag = new Uint8Array(ciphertext.length + tag.length)
+  ciphertextWithTag.set(ciphertext)
+  ciphertextWithTag.set(tag, ciphertext.length)
+  const decrypted = await aesGcmDecrypt(ciphertextWithTag, iv, key)
 
   return new TextDecoder().decode(decrypted)
 }
@@ -411,7 +474,9 @@ const KEY_EXPIRY = 60 * 60 * 1000
  * Get or create an ephemeral key for a session.
  * Keys are rotated every 15 minutes and expire after 1 hour.
  */
-export async function getEphemeralKey(sessionId: string): Promise<EphemeralKey> {
+export async function getEphemeralKey(
+  sessionId: string,
+): Promise<EphemeralKey> {
   const existing = ephemeralKeys.get(sessionId)
   const now = Date.now()
 

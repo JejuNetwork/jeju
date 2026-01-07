@@ -463,7 +463,11 @@ export const safeRoutes = new Elysia({ prefix: '/api/v1/safe' })
             functionName: isEth ? 'withdrawETH' : 'withdrawToken',
             args: isEth
               ? [withdrawRequest.amount.toString(), withdrawRequest.recipient]
-              : [withdrawRequest.token, withdrawRequest.amount.toString(), withdrawRequest.recipient],
+              : [
+                  withdrawRequest.token,
+                  withdrawRequest.amount.toString(),
+                  withdrawRequest.recipient,
+                ],
           },
           message: 'Use this data to propose a Safe transaction',
         },

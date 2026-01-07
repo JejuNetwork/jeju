@@ -7,9 +7,8 @@
  * - Unique per session
  */
 
-import { isProductionEnv } from '@jejunetwork/config'
 import { Elysia, t } from 'elysia'
-import type { AuthConfig, AuthProvider, AuthSession } from '../../lib/types'
+import type { AuthConfig, AuthSession } from '../../lib/types'
 import { getEphemeralKey, invalidateEphemeralKey } from '../services/kms'
 import { refreshTokenState, sessionState } from '../services/state'
 

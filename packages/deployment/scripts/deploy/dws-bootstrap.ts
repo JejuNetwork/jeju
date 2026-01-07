@@ -285,14 +285,20 @@ Environment:
   }
   const ipfsApiUrl = process.env.IPFS_API_URL || defaultIpfsApi[network]
 
-  console.log(`\n🚀 Deploying ${apps.length} apps (parallelized builds/uploads, sequential on-chain)...\n`)
+  console.log(
+    `\n🚀 Deploying ${apps.length} apps (parallelized builds/uploads, sequential on-chain)...\n`,
+  )
 
   // Phase 1: Build and upload to IPFS in parallel (no blockchain interaction)
   console.log('📦 Phase 1: Building and uploading to IPFS (parallel)...')
   const buildAndUploadPromises = apps.map(async (app) => {
     console.log(`   📦 Building: ${app.name}`)
     try {
-      const buildResult = await buildAndUploadApp(app.dir, app.manifest, ipfsApiUrl)
+      const buildResult = await buildAndUploadApp(
+        app.dir,
+        app.manifest,
+        ipfsApiUrl,
+      )
       console.log(`   ✅ ${app.name} built and uploaded`)
       return { app, ...buildResult }
     } catch (error) {
@@ -302,7 +308,7 @@ Environment:
   })
 
   const buildResults = await Promise.allSettled(buildAndUploadPromises)
-  
+
   // Process build results
   const readyToDeploy: Array<{
     app: { name: string; dir: string; manifest: AppManifest }
@@ -310,14 +316,16 @@ Environment:
     workerCid?: string
     workerRoutes?: string[]
   }> = []
-  
+
   for (let i = 0; i < buildResults.length; i++) {
     const result = buildResults[i]
     if (result.status === 'fulfilled') {
       readyToDeploy.push(result.value)
     } else {
       console.error(`❌ Failed to build/upload ${apps[i].name}:`, result.reason)
-      throw new Error(`Build/upload failed for ${apps[i].name}: ${result.reason}`)
+      throw new Error(
+        `Build/upload failed for ${apps[i].name}: ${result.reason}`,
+      )
     }
   }
 
@@ -601,7 +609,12 @@ function needsBuild(appDir: string, manifest: AppManifest): boolean {
   // Check if any source file is newer than dist
   const distMtime = statSync(distPath).mtimeMs
   const srcDirs = ['src', 'web', 'app', 'client']
-  const srcFiles = ['package.json', 'tsconfig.json', 'vite.config.ts', 'tailwind.config.ts']
+  const srcFiles = [
+    'package.json',
+    'tsconfig.json',
+    'vite.config.ts',
+    'tailwind.config.ts',
+  ]
 
   for (const dir of srcDirs) {
     const srcDir = join(appDir, dir)
@@ -796,7 +809,9 @@ function uploadToIPFS(path: string, apiUrl: string): string {
     try {
       const currentStats = statSync(path)
       if (currentStats.mtimeMs === cached.mtime) {
-        console.log(`   ⏭️  Using cached IPFS CID: ${cached.cid.slice(0, 20)}...`)
+        console.log(
+          `   ⏭️  Using cached IPFS CID: ${cached.cid.slice(0, 20)}...`,
+        )
         return cached.cid
       }
     } catch {

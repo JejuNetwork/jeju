@@ -170,9 +170,15 @@ class LocalInferenceServer {
 
     if (model.includes('/') && !model.startsWith('accounts/')) {
       const [providerPrefix, ...rest] = model.split('/')
-      // Resolve alias - e.g., qwen/qwen3-32b -> provider: groq, model: qwen3-32b
-      const provider = PROVIDER_ALIASES[providerPrefix] ?? providerPrefix
-      return { provider, model: rest.join('/') }
+      // Check if this is a vendor prefix that maps to a hosting provider
+      // e.g., qwen/qwen3-32b -> provider: groq, model: qwen/qwen3-32b (keep full name)
+      // vs groq/llama-3.3-70b -> provider: groq, model: llama-3.3-70b (strip prefix)
+      if (PROVIDER_ALIASES[providerPrefix]) {
+        // Vendor model - route to hosting provider but keep full model name
+        return { provider: PROVIDER_ALIASES[providerPrefix], model }
+      }
+      // Direct provider prefix - strip it
+      return { provider: providerPrefix, model: rest.join('/') }
     }
 
     for (const { pattern, provider } of MODEL_PATTERNS) {

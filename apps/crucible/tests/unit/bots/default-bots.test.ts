@@ -66,7 +66,9 @@ describe('Default Bots Configuration', () => {
     })
 
     test('should have unique chain IDs', () => {
-      const chainIds = Object.values(DEFAULT_CHAINS).map((c) => c.chainId)
+      const chainIds = Object.values(DEFAULT_CHAINS).map(
+        (c) => c.chainId,
+      )
       const uniqueIds = new Set(chainIds)
       expect(chainIds.length).toBe(uniqueIds.size)
     })
@@ -260,8 +262,8 @@ describe('Default Bots Configuration', () => {
       const options = createTradingBotOptions(
         config,
         1n,
-        `0x${'1'.repeat(64)}`,
         'mainnet',
+        `0x${'1'.repeat(40)}` as `0x${string}`,
       )
       expect(options).toBeDefined()
     })
@@ -271,8 +273,8 @@ describe('Default Bots Configuration', () => {
       const options = createTradingBotOptions(
         config,
         1n,
-        `0x${'1'.repeat(64)}`,
         'mainnet',
+        `0x${'1'.repeat(40)}` as `0x${string}`,
       )
       expect(options).toBeDefined()
     })
@@ -282,8 +284,8 @@ describe('Default Bots Configuration', () => {
       const options = createTradingBotOptions(
         config,
         1n,
-        `0x${'1'.repeat(64)}`,
         'mainnet',
+        `0x${'1'.repeat(40)}` as `0x${string}`,
       )
 
       expect(options.strategies).toEqual(config.strategies)

@@ -235,11 +235,16 @@ env:
   # Native SQLit RPC connection
   - name: SQLIT_CLUSTER_URL
     value: "sqlit.dws.svc.cluster.local:4661"
-  # IPFS connection for storage and OCI registry
+  # IPFS connection for storage and OCI registry (internal cluster access)
   - name: IPFS_API_URL
     value: "http://ipfs.dws.svc.cluster.local:5001"
   - name: IPFS_GATEWAY_URL
     value: "http://ipfs.dws.svc.cluster.local:8080"
+  # External storage URLs (used by clients)
+  - name: DWS_STORAGE_API_URL
+    value: "https://dws.testnet.jejunetwork.org/storage/api/v0"
+  - name: DWS_STORAGE_GATEWAY_URL
+    value: "https://dws.testnet.jejunetwork.org/storage/ipfs"
 
 # Secrets - use Kubernetes secrets, NOT environment variables
 secretEnv:

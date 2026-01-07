@@ -4,7 +4,7 @@ import {
   REPORT_VERIFIER_ABI,
 } from '@jejunetwork/shared'
 import type { NodeMetrics, OracleNodeConfig } from '@jejunetwork/types'
-import { createPublicClient, http, defineChain } from 'viem'
+import { createPublicClient, defineChain, http } from 'viem'
 import { base, baseSepolia, foundry } from 'viem/chains'
 
 interface PrometheusMetric {

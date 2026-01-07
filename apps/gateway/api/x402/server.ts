@@ -63,11 +63,13 @@ const app = new Elysia()
     set.headers['X-XSS-Protection'] = '1; mode=block'
     set.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
     // SECURITY: CSP to prevent XSS and injection attacks
-    set.headers['Content-Security-Policy'] = "default-src 'none'; frame-ancestors 'none'"
+    set.headers['Content-Security-Policy'] =
+      "default-src 'none'; frame-ancestors 'none'"
     // SECURITY: Prevent MIME sniffing
     set.headers['X-Download-Options'] = 'noopen'
     // SECURITY: Permissions policy to restrict browser features
-    set.headers['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
+    set.headers['Permissions-Policy'] =
+      'geolocation=(), microphone=(), camera=()'
   })
   // Mount routes
   .use(healthRoutes)

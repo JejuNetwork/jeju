@@ -26,10 +26,18 @@ export const orchestratorRoutes = new Elysia({ prefix: '/api/v1/orchestrator' })
       // Validate API key
       const apiKey = getApiKey(request)
       if (!validateApiKey(apiKey)) {
-        auditLog('orchestrator_start_unauthorized', 'anonymous', request, false, {
-          reason: 'invalid_api_key',
-        })
-        throw new Error('Unauthorized: Valid API key required to start orchestrator')
+        auditLog(
+          'orchestrator_start_unauthorized',
+          'anonymous',
+          request,
+          false,
+          {
+            reason: 'invalid_api_key',
+          },
+        )
+        throw new Error(
+          'Unauthorized: Valid API key required to start orchestrator',
+        )
       }
 
       const current = getOrchestrator()
@@ -55,7 +63,10 @@ export const orchestratorRoutes = new Elysia({ prefix: '/api/v1/orchestrator' })
       return { status: 'started', ...newOrchestrator.getStatus() }
     },
     {
-      detail: { tags: ['orchestrator'], summary: 'Start orchestrator (requires API key)' },
+      detail: {
+        tags: ['orchestrator'],
+        summary: 'Start orchestrator (requires API key)',
+      },
     },
   )
   .post(
@@ -64,10 +75,18 @@ export const orchestratorRoutes = new Elysia({ prefix: '/api/v1/orchestrator' })
       // Validate API key
       const apiKey = getApiKey(request)
       if (!validateApiKey(apiKey)) {
-        auditLog('orchestrator_stop_unauthorized', 'anonymous', request, false, {
-          reason: 'invalid_api_key',
-        })
-        throw new Error('Unauthorized: Valid API key required to stop orchestrator')
+        auditLog(
+          'orchestrator_stop_unauthorized',
+          'anonymous',
+          request,
+          false,
+          {
+            reason: 'invalid_api_key',
+          },
+        )
+        throw new Error(
+          'Unauthorized: Valid API key required to stop orchestrator',
+        )
       }
 
       const orchestrator = getOrchestrator()
@@ -81,7 +100,10 @@ export const orchestratorRoutes = new Elysia({ prefix: '/api/v1/orchestrator' })
       return { status: 'stopped' }
     },
     {
-      detail: { tags: ['orchestrator'], summary: 'Stop orchestrator (requires API key)' },
+      detail: {
+        tags: ['orchestrator'],
+        summary: 'Stop orchestrator (requires API key)',
+      },
     },
   )
   // Status is read-only and safe without auth
@@ -127,10 +149,16 @@ export const orchestratorRoutes = new Elysia({ prefix: '/api/v1/orchestrator' })
       // Validate API key
       const apiKey = getApiKey(request)
       if (!validateApiKey(apiKey)) {
-        auditLog('orchestrator_refresh_unauthorized', 'anonymous', request, false, {
-          daoId: params.daoId,
-          reason: 'invalid_api_key',
-        })
+        auditLog(
+          'orchestrator_refresh_unauthorized',
+          'anonymous',
+          request,
+          false,
+          {
+            daoId: params.daoId,
+            reason: 'invalid_api_key',
+          },
+        )
         throw new Error('Unauthorized: Valid API key required to refresh DAO')
       }
 
@@ -159,11 +187,19 @@ export const orchestratorRoutes = new Elysia({ prefix: '/api/v1/orchestrator' })
       // Validate API key
       const apiKey = getApiKey(request)
       if (!validateApiKey(apiKey)) {
-        auditLog('orchestrator_active_unauthorized', 'anonymous', request, false, {
-          daoId: params.daoId,
-          reason: 'invalid_api_key',
-        })
-        throw new Error('Unauthorized: Valid API key required to set DAO active status')
+        auditLog(
+          'orchestrator_active_unauthorized',
+          'anonymous',
+          request,
+          false,
+          {
+            daoId: params.daoId,
+            reason: 'invalid_api_key',
+          },
+        )
+        throw new Error(
+          'Unauthorized: Valid API key required to set DAO active status',
+        )
       }
 
       const orchestrator = getOrchestrator()
@@ -180,6 +216,9 @@ export const orchestratorRoutes = new Elysia({ prefix: '/api/v1/orchestrator' })
     {
       params: t.Object({ daoId: t.String() }),
       body: t.Object({ active: t.Boolean() }),
-      detail: { tags: ['orchestrator'], summary: 'Set DAO active status (requires API key)' },
+      detail: {
+        tags: ['orchestrator'],
+        summary: 'Set DAO active status (requires API key)',
+      },
     },
   )

@@ -40,17 +40,20 @@ function getNonceCache(): CacheClient {
 async function checkAndMarkSignature(signature: string): Promise<boolean> {
   const cache = getNonceCache()
   // Use signature hash as the key to prevent extremely long keys
-  const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(signature))
+  const hashBuffer = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(signature),
+  )
   const hashArray = new Uint8Array(hashBuffer)
   const signatureHash = Buffer.from(hashArray).toString('hex').slice(0, 32)
   const key = `nonce:${signatureHash}`
-  
+
   // Try to set the key only if it doesn't exist
   const existing = await cache.get(key)
   if (existing) {
     return false // Signature was already used - replay attack!
   }
-  
+
   // Mark the signature as used
   await cache.set(key, Date.now().toString(), NONCE_TTL_SECONDS)
   return true // Signature is new

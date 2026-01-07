@@ -244,7 +244,95 @@ async function buildPackages(): Promise<boolean> {
   return true
 }
 
-async function publishPackages(dryRun = false): Promise<void> {
+// Publish in dependency order
+const PUBLISH_ORDER = [
+  'types',
+  'config',
+  'contracts',
+  'cache',
+  'db',
+  'shared',
+  'api',
+  'agents',
+  'a2a',
+  'auth',
+  'bots',
+  'bridge',
+  'durable-objects',
+  'eliza-plugin',
+  'kms',
+  'mcp',
+  'messaging',
+  'sdk',
+  'solana',
+  'sqlit',
+  'token',
+  'training',
+  'ui',
+  'deployment',
+  'cli',
+]
+
+async function publishToNpm(dryRun = false): Promise<void> {
+  console.log('')
+  console.log('╔════════════════════════════════════════════════════════════╗')
+  console.log('║               PUBLISHING PACKAGES TO NPM                   ║')
+  console.log('╚════════════════════════════════════════════════════════════╝')
+  console.log('')
+
+  if (dryRun) {
+    console.log('DRY RUN - packages will not be published')
+    console.log('')
+  }
+
+  // Check npm login
+  const whoami = await $`npm whoami`.quiet().nothrow()
+  if (whoami.exitCode !== 0) {
+    console.log('  ⚠️  Not logged into npm. Run: npm login')
+    console.log('  Skipping npm publish.')
+    return
+  }
+  console.log(`  Logged in as: ${whoami.stdout.toString().trim()}`)
+  console.log('')
+
+  for (const pkg of PUBLISH_ORDER) {
+    if (SKIP_PACKAGES.includes(pkg)) continue
+
+    const pkgDir = join(PACKAGES_DIR, pkg)
+    if (!existsSync(pkgDir)) continue
+
+    const pkgJson = loadPackageJson(pkgDir)
+    
+    // Check if already published
+    const checkResult = await $`npm view ${pkgJson.name}@${pkgJson.version} version`.quiet().nothrow()
+    if (checkResult.exitCode === 0) {
+      console.log(`  ○ ${pkgJson.name}@${pkgJson.version} already on npm`)
+      continue
+    }
+
+    console.log(`  Publishing ${pkgJson.name}@${pkgJson.version} to npm...`)
+
+    if (dryRun) {
+      console.log(`    [DRY RUN] Would publish ${pkgJson.name}@${pkgJson.version}`)
+      continue
+    }
+
+    const result = await $`npm publish --access public`.cwd(pkgDir).quiet().nothrow()
+    
+    if (result.exitCode !== 0) {
+      const stderr = result.stderr.toString()
+      if (stderr.includes('already exists')) {
+        console.log(`  ○ ${pkgJson.name}@${pkgJson.version} already exists`)
+      } else {
+        console.log(`  ⚠️  Failed: ${stderr.slice(0, 150)}`)
+      }
+    } else {
+      console.log(`  ✓ ${pkgJson.name}@${pkgJson.version} published to npm`)
+    }
+  }
+}
+
+async function publishToJejuPkg(dryRun = false): Promise<void> {
   console.log('')
   console.log('╔════════════════════════════════════════════════════════════╗')
   console.log('║             PUBLISHING PACKAGES TO JEJUPKG                 ║')
@@ -256,37 +344,16 @@ async function publishPackages(dryRun = false): Promise<void> {
     console.log('')
   }
 
-  // Publish in dependency order
-  const publishOrder = [
-    'types',
-    'config',
-    'contracts',
-    'cache',
-    'db',
-    'shared',
-    'api',
-    'agents',
-    'a2a',
-    'auth',
-    'bots',
-    'bridge',
-    'durable-objects',
-    'eliza-plugin',
-    'kms',
-    'mcp',
-    'messaging',
-    'sdk',
-    'solana',
-    'sqlit',
-    'tests',
-    'token',
-    'training',
-    'ui',
-    'deployment',
-    'cli',
-  ]
+  // Check JejuPkg health
+  const health = await fetch('http://127.0.0.1:4030/pkg/health').catch(() => null)
+  if (!health || !health.ok) {
+    console.log('  ⚠️  JejuPkg not available. Skipping.')
+    return
+  }
+  console.log('  JejuPkg registry: online')
+  console.log('')
 
-  for (const pkg of publishOrder) {
+  for (const pkg of PUBLISH_ORDER) {
     if (SKIP_PACKAGES.includes(pkg)) continue
 
     const pkgDir = join(PACKAGES_DIR, pkg)
@@ -303,7 +370,7 @@ async function publishPackages(dryRun = false): Promise<void> {
     const result = await $`bun run jeju pkg publish ${pkgDir}`.cwd(ROOT_DIR).quiet().nothrow()
     
     if (result.exitCode !== 0) {
-      console.log(`  ⚠️  Failed to publish ${pkgJson.name}: ${result.stderr.toString().slice(0, 200)}`)
+      console.log(`  ⚠️  Failed to publish ${pkgJson.name}`)
     } else {
       console.log(`  ✓ ${pkgJson.name}@${pkgJson.version} published`)
     }
@@ -371,7 +438,8 @@ async function main() {
 
   // Step 3: Publish packages
   if (!skipPublish) {
-    await publishPackages(dryRun)
+    await publishToNpm(dryRun)
+    await publishToJejuPkg(dryRun)
   }
 
   printSummary(results)

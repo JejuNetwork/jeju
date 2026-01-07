@@ -180,7 +180,10 @@ const BLOCKED_ARG_PATTERNS = [
   /\|\|/, // OR operator
 ]
 
-function isCommandAllowed(command: string[]): { allowed: boolean; reason?: string } {
+function isCommandAllowed(command: string[]): {
+  allowed: boolean
+  reason?: string
+} {
   if (command.length === 0) {
     return { allowed: false, reason: 'Empty command' }
   }
@@ -189,12 +192,15 @@ function isCommandAllowed(command: string[]): { allowed: boolean; reason?: strin
   const executableName = executable.split('/').pop() ?? executable
 
   // Check if executable is in allowlist
-  const isAllowed = ALLOWED_COMMAND_PATTERNS.some((pattern) =>
-    pattern.test(executable) || pattern.test(executableName)
+  const isAllowed = ALLOWED_COMMAND_PATTERNS.some(
+    (pattern) => pattern.test(executable) || pattern.test(executableName),
   )
 
   if (!isAllowed) {
-    return { allowed: false, reason: `Command '${executableName}' not in allowlist` }
+    return {
+      allowed: false,
+      reason: `Command '${executableName}' not in allowlist`,
+    }
   }
 
   // For non-shell commands, check arguments for injection patterns
@@ -203,7 +209,10 @@ function isCommandAllowed(command: string[]): { allowed: boolean; reason?: strin
       const arg = command[i]
       for (const pattern of BLOCKED_ARG_PATTERNS) {
         if (pattern.test(arg)) {
-          return { allowed: false, reason: `Blocked pattern in argument: ${arg.slice(0, 20)}...` }
+          return {
+            allowed: false,
+            reason: `Blocked pattern in argument: ${arg.slice(0, 20)}...`,
+          }
         }
       }
     }
@@ -219,17 +228,20 @@ function isCommandAllowed(command: string[]): { allowed: boolean; reason?: strin
  * 2. Check Bun's server info for actual connection source when available
  * 3. Verify the URL doesn't expose the exec endpoint externally
  */
-function verifyLocalhostOnly(request: Request): { allowed: boolean; reason?: string } {
+function verifyLocalhostOnly(request: Request): {
+  allowed: boolean
+  reason?: string
+} {
   // Layer 1: Reject if proxy headers present - these indicate external origin
   const proxyHeaders = [
     'x-forwarded-for',
-    'x-real-ip', 
+    'x-real-ip',
     'x-forwarded-host',
     'x-forwarded-proto',
     'forwarded',
     'via',
   ]
-  
+
   for (const header of proxyHeaders) {
     if (request.headers.get(header)) {
       return { allowed: false, reason: `Proxy header detected: ${header}` }
@@ -239,10 +251,12 @@ function verifyLocalhostOnly(request: Request): { allowed: boolean; reason?: str
   // Layer 2: Parse the URL to verify host
   const url = new URL(request.url)
   const hostname = url.hostname.toLowerCase()
-  
+
   const localhostPatterns = ['localhost', '127.0.0.1', '::1', '[::1]']
-  const isLocalhost = localhostPatterns.some(pattern => hostname === pattern || hostname.startsWith(`${pattern}:`))
-  
+  const isLocalhost = localhostPatterns.some(
+    (pattern) => hostname === pattern || hostname.startsWith(`${pattern}:`),
+  )
+
   if (!isLocalhost) {
     return { allowed: false, reason: `Non-localhost hostname: ${hostname}` }
   }
@@ -329,7 +343,7 @@ export function createExecRouter() {
         }
 
         const pid = parseInt(params.pid, 10)
-        
+
         // SECURITY: Validate PID is a reasonable number
         if (Number.isNaN(pid) || pid <= 0 || pid > 4194304) {
           set.status = 400
@@ -345,7 +359,10 @@ export function createExecRouter() {
 
         // SECURITY: Only allow killing processes we started, not arbitrary PIDs
         // Removed the fallback to process.kill() for security
-        return { success: false, error: `Process ${pid} not tracked by exec service` }
+        return {
+          success: false,
+          error: `Process ${pid} not tracked by exec service`,
+        }
       },
       {
         params: t.Object({

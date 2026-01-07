@@ -208,9 +208,10 @@ export async function validateSecurityConfiguration(): Promise<SecurityValidatio
         const hasSQLit = !!process.env.SQLIT_URL
         return {
           ok: hasRedis || hasSQLit,
-          message: hasRedis || hasSQLit
-            ? 'Distributed cache configured for session/state management'
-            : 'No distributed cache (REDIS_URL/CACHE_URL/SQLIT_URL) - state will be lost on restart',
+          message:
+            hasRedis || hasSQLit
+              ? 'Distributed cache configured for session/state management'
+              : 'No distributed cache (REDIS_URL/CACHE_URL/SQLIT_URL) - state will be lost on restart',
         }
       },
       required: true,

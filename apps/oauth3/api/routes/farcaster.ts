@@ -34,9 +34,7 @@ function validateRedirectUri(
   // SECURITY: Block localhost in production patterns (but allow explicit localhost patterns)
   const hasLocalhostPattern = allowedPatterns.some(
     (p) =>
-      p.includes('localhost') ||
-      p.includes('127.0.0.1') ||
-      p.includes('[::1]'),
+      p.includes('localhost') || p.includes('127.0.0.1') || p.includes('[::1]'),
   )
 
   if (
@@ -293,7 +291,8 @@ export function createFarcasterRouter(_config: AuthConfig) {
           set.status = 503
           return {
             error: 'service_unavailable',
-            error_description: 'Service temporarily unavailable. Try again later.',
+            error_description:
+              'Service temporarily unavailable. Try again later.',
           }
         }
 

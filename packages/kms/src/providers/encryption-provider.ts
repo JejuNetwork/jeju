@@ -92,10 +92,6 @@ export class EncryptionProvider implements KMSProvider {
   private sessions = new Map<string, Session>()
   private initPromise: Promise<void> | null = null
 
-  constructor(_config?: { debug?: boolean }) {
-    // Debug logging can be enabled via _config.debug if needed
-  }
-
   /**
    * Initialize master key using async derivation (PBKDF2)
    *
@@ -579,8 +575,7 @@ export function getEncryptionProvider(
   config?: Partial<EncryptionConfig>,
 ): EncryptionProvider {
   if (!encryptionProvider) {
-    const debug = config?.debug ?? getEnvBoolean('KMS_DEBUG', false)
-    encryptionProvider = new EncryptionProvider({ debug })
+    encryptionProvider = new EncryptionProvider()
   }
   return encryptionProvider
 }

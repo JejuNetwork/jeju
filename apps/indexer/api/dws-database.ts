@@ -10,8 +10,7 @@
  */
 
 import { getCurrentNetwork } from '@jejunetwork/config'
-import { signMessage } from 'viem/accounts'
-import { privateKeyToAccount } from 'viem/accounts'
+import { privateKeyToAccount, signMessage } from 'viem/accounts'
 import { z } from 'zod'
 import { config } from './config'
 
@@ -39,16 +38,18 @@ const ProvisionResponseSchema = z.object({
 })
 
 const InstanceResponseSchema = z.object({
-  instance: z.object({
-    instanceId: z.string(),
-    name: z.string(),
-    host: z.string(),
-    port: z.number(),
-    database: z.string(),
-    username: z.string(),
-    connectionString: z.string(),
-    status: z.string(),
-  }).nullable(),
+  instance: z
+    .object({
+      instanceId: z.string(),
+      name: z.string(),
+      host: z.string(),
+      port: z.number(),
+      database: z.string(),
+      username: z.string(),
+      connectionString: z.string(),
+      status: z.string(),
+    })
+    .nullable(),
   error: z.string().optional(),
 })
 
@@ -73,7 +74,9 @@ export async function getDatabaseCredentials(): Promise<DatabaseCredentials> {
 
   const privateKey = process.env.DEPLOYER_PRIVATE_KEY ?? process.env.PRIVATE_KEY
   if (!privateKey) {
-    throw new Error('DEPLOYER_PRIVATE_KEY or PRIVATE_KEY required for DWS database provisioning')
+    throw new Error(
+      'DEPLOYER_PRIVATE_KEY or PRIVATE_KEY required for DWS database provisioning',
+    )
   }
 
   const account = privateKeyToAccount(privateKey as `0x${string}`)
@@ -95,16 +98,22 @@ export async function getDatabaseCredentials(): Promise<DatabaseCredentials> {
   if (existingResponse.ok) {
     const existingData = await existingResponse.json()
     const parsed = InstanceResponseSchema.safeParse(existingData)
-    
-    if (parsed.success && parsed.data.instance && parsed.data.instance.status === 'running') {
-      console.log(`[DWSDatabase] Found existing instance: ${parsed.data.instance.instanceId}`)
-      
+
+    if (
+      parsed.success &&
+      parsed.data.instance &&
+      parsed.data.instance.status === 'running'
+    ) {
+      console.log(
+        `[DWSDatabase] Found existing instance: ${parsed.data.instance.instanceId}`,
+      )
+
       // We need to get credentials for existing instance
       // For now, return the connection string parsed
       const connStr = parsed.data.instance.connectionString
       const url = new URL(connStr.replace('postgresql://', 'http://'))
-      const [user, pass] = (url.username + ':' + url.password).split(':')
-      
+      const [user, pass] = `${url.username}:${url.password}`.split(':')
+
       cachedCredentials = {
         host: parsed.data.instance.host,
         port: parsed.data.instance.port,
@@ -157,10 +166,16 @@ export async function getDatabaseCredentials(): Promise<DatabaseCredentials> {
     throw new Error(`Failed to provision database: ${error}`)
   }
 
-  const provisionData = ProvisionResponseSchema.parse(await provisionResponse.json())
+  const provisionData = ProvisionResponseSchema.parse(
+    await provisionResponse.json(),
+  )
 
-  console.log(`[DWSDatabase] Database provisioned: ${provisionData.instance.instanceId}`)
-  console.log(`[DWSDatabase] Host: ${provisionData.credentials.host}:${provisionData.credentials.port}`)
+  console.log(
+    `[DWSDatabase] Database provisioned: ${provisionData.instance.instanceId}`,
+  )
+  console.log(
+    `[DWSDatabase] Host: ${provisionData.credentials.host}:${provisionData.credentials.port}`,
+  )
 
   cachedCredentials = {
     host: provisionData.credentials.host,
@@ -179,7 +194,7 @@ export async function getDatabaseCredentials(): Promise<DatabaseCredentials> {
  */
 export async function configureDWSDatabase(): Promise<void> {
   const creds = await getDatabaseCredentials()
-  
+
   // Import and update config
   const { configureIndexer } = await import('./config')
   configureIndexer({
@@ -190,13 +205,17 @@ export async function configureDWSDatabase(): Promise<void> {
     dbPass: creds.password,
   })
 
-  console.log(`[DWSDatabase] Config updated with DWS database: ${creds.host}:${creds.port}/${creds.database}`)
+  console.log(
+    `[DWSDatabase] Config updated with DWS database: ${creds.host}:${creds.port}/${creds.database}`,
+  )
 }
 
 /**
  * Check database health via DWS
  */
-export async function checkDatabaseHealth(instanceId: string): Promise<boolean> {
+export async function checkDatabaseHealth(
+  instanceId: string,
+): Promise<boolean> {
   const response = await fetch(
     `${config.dwsUrl}/database/postgres/${instanceId}/health`,
   )
@@ -208,4 +227,3 @@ export async function checkDatabaseHealth(instanceId: string): Promise<boolean> 
   const data = z.object({ status: z.string() }).parse(await response.json())
   return data.status === 'healthy'
 }
-

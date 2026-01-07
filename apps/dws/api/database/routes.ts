@@ -16,9 +16,9 @@ import {
 import {
   checkHealth,
   getInstance,
+  type ProvisionRequest,
   provisionPostgres,
   terminatePostgres,
-  type ProvisionRequest,
 } from './postgres-provisioner'
 
 export function createDatabaseRoutes(backend: BackendManager) {
@@ -278,9 +278,15 @@ export function createDatabaseRoutes(backend: BackendManager) {
             resources: t.Optional(
               t.Object({
                 cpuCores: t.Optional(t.Number({ minimum: 1, maximum: 16 })),
-                memoryMb: t.Optional(t.Number({ minimum: 256, maximum: 65536 })),
-                storageMb: t.Optional(t.Number({ minimum: 1024, maximum: 1048576 })),
-                maxConnections: t.Optional(t.Number({ minimum: 10, maximum: 1000 })),
+                memoryMb: t.Optional(
+                  t.Number({ minimum: 256, maximum: 65536 }),
+                ),
+                storageMb: t.Optional(
+                  t.Number({ minimum: 1024, maximum: 1048576 }),
+                ),
+                maxConnections: t.Optional(
+                  t.Number({ minimum: 10, maximum: 1000 }),
+                ),
                 poolSize: t.Optional(t.Number({ minimum: 5, maximum: 100 })),
               }),
             ),

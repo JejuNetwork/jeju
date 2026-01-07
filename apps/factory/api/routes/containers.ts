@@ -5,8 +5,8 @@ import {
   type ContainerRow,
   createContainer as dbCreateContainer,
   createContainerInstance as dbCreateInstance,
-  getContainerInstance,
   listContainers as dbListContainers,
+  getContainerInstance,
   listContainerInstances,
   updateContainerInstanceStatus,
 } from '../db/client'

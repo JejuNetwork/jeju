@@ -29,7 +29,7 @@ import {
   TFMMPostRequestSchema,
 } from '../schemas/api'
 import { handleA2ARequest, handleAgentCard } from './a2a-server'
-import { checkTradeAllowed, type BanCheckResult } from './banCheck'
+import { type BanCheckResult, checkTradeAllowed } from './banCheck'
 import { config, configureBazaar } from './config'
 import { createIntelRouter } from './intel'
 import { handleMCPInfo, handleMCPRequest } from './mcp-server'
@@ -139,7 +139,10 @@ function validateGraphQLQuery(
   }
 
   if (maxDepth > MAX_QUERY_DEPTH) {
-    return { valid: false, error: `Query depth ${maxDepth} exceeds limit ${MAX_QUERY_DEPTH}` }
+    return {
+      valid: false,
+      error: `Query depth ${maxDepth} exceeds limit ${MAX_QUERY_DEPTH}`,
+    }
   }
 
   return { valid: true }
@@ -449,9 +452,7 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
 
       // Return the error from the indexer (sanitize internal URLs)
       const errorText = await response.text().catch(() => '')
-      console.error(
-        `[Bazaar] Indexer error: ${response.status} - ${errorText}`,
-      )
+      console.error(`[Bazaar] Indexer error: ${response.status} - ${errorText}`)
 
       return new Response(
         JSON.stringify({
@@ -815,10 +816,10 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
         }
 
         // This should never be reached
-        return new Response(
-          JSON.stringify({ error: 'Unknown action' }),
-          { status: 400, headers: { 'Content-Type': 'application/json' } },
-        )
+        return new Response(JSON.stringify({ error: 'Unknown action' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        })
       }),
   )
 

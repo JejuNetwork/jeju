@@ -128,24 +128,30 @@ export function useBanStatus(
 
     // Check address-based ban
     const [isAddressBanned, isOnNotice, addressBan] = await Promise.all([
-      client.readContract({
-        address: mergedConfig.banManagerAddress,
-        abi: BAN_MANAGER_ABI,
-        functionName: 'isAddressBanned',
-        args: [userAddress],
-      }).catch((): boolean => false),
-      client.readContract({
-        address: mergedConfig.banManagerAddress,
-        abi: BAN_MANAGER_ABI,
-        functionName: 'isOnNotice',
-        args: [userAddress],
-      }).catch((): boolean => false),
-      client.readContract({
-        address: mergedConfig.banManagerAddress,
-        abi: BAN_MANAGER_ABI,
-        functionName: 'getAddressBan',
-        args: [userAddress],
-      }).catch((): null => null),
+      client
+        .readContract({
+          address: mergedConfig.banManagerAddress,
+          abi: BAN_MANAGER_ABI,
+          functionName: 'isAddressBanned',
+          args: [userAddress],
+        })
+        .catch((): boolean => false),
+      client
+        .readContract({
+          address: mergedConfig.banManagerAddress,
+          abi: BAN_MANAGER_ABI,
+          functionName: 'isOnNotice',
+          args: [userAddress],
+        })
+        .catch((): boolean => false),
+      client
+        .readContract({
+          address: mergedConfig.banManagerAddress,
+          abi: BAN_MANAGER_ABI,
+          functionName: 'getAddressBan',
+          args: [userAddress],
+        })
+        .catch((): null => null),
     ])
 
     if (isAddressBanned || isOnNotice) {
@@ -170,12 +176,14 @@ export function useBanStatus(
 
     // Check ModerationMarketplace ban
     if (mergedConfig.moderationMarketplaceAddress) {
-      const marketplaceBanned = await client.readContract({
-        address: mergedConfig.moderationMarketplaceAddress,
-        abi: MODERATION_MARKETPLACE_ABI,
-        functionName: 'isBanned',
-        args: [userAddress],
-      }).catch((): boolean => false)
+      const marketplaceBanned = await client
+        .readContract({
+          address: mergedConfig.moderationMarketplaceAddress,
+          abi: MODERATION_MARKETPLACE_ABI,
+          functionName: 'isBanned',
+          args: [userAddress],
+        })
+        .catch((): boolean => false)
 
       if (marketplaceBanned) {
         setStatus({

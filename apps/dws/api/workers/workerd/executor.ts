@@ -235,7 +235,10 @@ export class WorkerdExecutor implements IWorkerdExecutor {
     const configDelimiter = `__CONFIG_${crypto.randomUUID().replace(/-/g, '')}_EOF__`
 
     // SECURITY: Validate that the delimiters don't exist in code/config (defense in depth)
-    if (code.includes(codeDelimiter) || configContent.includes(configDelimiter)) {
+    if (
+      code.includes(codeDelimiter) ||
+      configContent.includes(configDelimiter)
+    ) {
       this.releasePort(port)
       throw new Error('Security: heredoc delimiter collision detected')
     }

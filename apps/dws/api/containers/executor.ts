@@ -171,14 +171,16 @@ function validateImageRef(imageRef: string): void {
   // SECURITY: Check for dangerous characters
   const dangerousPatterns = [
     /[`$;|<>&]/, // Shell metacharacters
-    /\.\./,      // Path traversal
+    /\.\./, // Path traversal
     /\\x[0-9a-f]{2}/i, // Hex escapes
     /[\x00-\x1f]/, // Control characters
   ]
 
   for (const pattern of dangerousPatterns) {
     if (pattern.test(imageRef)) {
-      throw new Error(`Invalid characters in image reference: ${imageRef.slice(0, 50)}`)
+      throw new Error(
+        `Invalid characters in image reference: ${imageRef.slice(0, 50)}`,
+      )
     }
   }
 }

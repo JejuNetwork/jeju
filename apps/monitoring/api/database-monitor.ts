@@ -5,10 +5,7 @@
  * metrics to Prometheus for alerting and dashboards.
  */
 
-import {
-  getCurrentNetwork,
-  getLocalhostHost,
-} from '@jejunetwork/config'
+import { getCurrentNetwork, getLocalhostHost } from '@jejunetwork/config'
 import { z } from 'zod'
 
 // Types
@@ -43,13 +40,13 @@ let monitorInterval: ReturnType<typeof setInterval> | null = null
 
 function getConfig(): MonitorConfig {
   const network = getCurrentNetwork()
-  const dwsUrl = process.env.DWS_URL ?? (
-    network === 'localnet' 
+  const dwsUrl =
+    process.env.DWS_URL ??
+    (network === 'localnet'
       ? `http://${getLocalhostHost()}:4030`
       : network === 'testnet'
         ? 'https://dws.testnet.jejunetwork.org'
-        : 'https://dws.jejunetwork.org'
-  )
+        : 'https://dws.jejunetwork.org')
 
   return {
     dwsUrl,
@@ -59,9 +56,12 @@ function getConfig(): MonitorConfig {
 
 // Monitor functions
 
-async function checkPostgresHealth(config: MonitorConfig, instanceId: string): Promise<DatabaseMetrics | null> {
+async function checkPostgresHealth(
+  config: MonitorConfig,
+  instanceId: string,
+): Promise<DatabaseMetrics | null> {
   const startTime = Date.now()
-  
+
   const healthResponse = await fetch(
     `${config.dwsUrl}/database/postgres/${instanceId}/health`,
     { signal: AbortSignal.timeout(10000) },
@@ -86,7 +86,9 @@ async function checkPostgresHealth(config: MonitorConfig, instanceId: string): P
   }
 }
 
-async function discoverPostgresInstances(config: MonitorConfig): Promise<string[]> {
+async function discoverPostgresInstances(
+  config: MonitorConfig,
+): Promise<string[]> {
   // In production, this would query the DWS registry for all postgres instances
   // For now, we look for known instances
   const knownInstances = [
@@ -96,18 +98,15 @@ async function discoverPostgresInstances(config: MonitorConfig): Promise<string[
   ]
 
   const instances: string[] = []
-  
+
   for (const name of knownInstances) {
-    const response = await fetch(
-      `${config.dwsUrl}/database/postgres/${name}`,
-      { 
-        signal: AbortSignal.timeout(5000),
-        headers: {
-          // Use a system address for monitoring
-          'x-wallet-address': '0x0000000000000000000000000000000000000000',
-        },
+    const response = await fetch(`${config.dwsUrl}/database/postgres/${name}`, {
+      signal: AbortSignal.timeout(5000),
+      headers: {
+        // Use a system address for monitoring
+        'x-wallet-address': '0x0000000000000000000000000000000000000000',
       },
-    ).catch(() => null)
+    }).catch(() => null)
 
     if (response?.ok) {
       const data = await response.json().catch(() => null)
@@ -122,17 +121,19 @@ async function discoverPostgresInstances(config: MonitorConfig): Promise<string[
 
 async function collectDatabaseMetrics(): Promise<void> {
   const config = getConfig()
-  
+
   console.log('[DatabaseMonitor] Collecting database metrics...')
 
   // Discover postgres instances
   const pgInstances = await discoverPostgresInstances(config)
-  
+
   for (const instanceId of pgInstances) {
     const metric = await checkPostgresHealth(config, instanceId)
     if (metric) {
       metrics.set(instanceId, metric)
-      console.log(`[DatabaseMonitor] ${instanceId}: ${metric.status} (${metric.responseTimeMs}ms)`)
+      console.log(
+        `[DatabaseMonitor] ${instanceId}: ${metric.status} (${metric.responseTimeMs}ms)`,
+      )
     }
   }
 }
@@ -153,7 +154,9 @@ export function getPrometheusMetrics(): string {
   }
 
   lines.push('')
-  lines.push('# HELP dws_database_response_time_ms Database response time in milliseconds')
+  lines.push(
+    '# HELP dws_database_response_time_ms Database response time in milliseconds',
+  )
   lines.push('# TYPE dws_database_response_time_ms gauge')
 
   for (const [_instanceId, metric] of metrics) {
@@ -163,7 +166,9 @@ export function getPrometheusMetrics(): string {
   }
 
   lines.push('')
-  lines.push('# HELP dws_database_last_check_timestamp Unix timestamp of last health check')
+  lines.push(
+    '# HELP dws_database_last_check_timestamp Unix timestamp of last health check',
+  )
   lines.push('# TYPE dws_database_last_check_timestamp gauge')
 
   for (const [_instanceId, metric] of metrics) {
@@ -195,7 +200,9 @@ export function startDatabaseMonitor(): void {
   }
 
   const config = getConfig()
-  console.log(`[DatabaseMonitor] Starting with ${config.checkIntervalMs}ms interval`)
+  console.log(
+    `[DatabaseMonitor] Starting with ${config.checkIntervalMs}ms interval`,
+  )
 
   // Initial collection
   collectDatabaseMetrics().catch((error) => {
@@ -222,4 +229,3 @@ export function stopDatabaseMonitor(): void {
 if (import.meta.main) {
   startDatabaseMonitor()
 }
-

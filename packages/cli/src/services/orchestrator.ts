@@ -2184,13 +2184,13 @@ class ServicesOrchestrator {
     // Kill all indexer child processes first
     const indexerStopPromises = this.indexerProcesses.map(async (proc) => {
       if (!proc || proc.killed) return
-      
+
       try {
         proc.kill('SIGTERM')
-        
+
         // Wait for process to exit (with timeout)
         const shutdownTimeout = 30000 // 30 seconds
-        
+
         // Check if process has 'exited' property (spawn process)
         if ('exited' in proc) {
           try {
@@ -2207,7 +2207,7 @@ class ServicesOrchestrator {
           // For other process types, just wait a bit
           await new Promise((resolve) => setTimeout(resolve, 5000))
         }
-        
+
         // Don't send SIGKILL - let processes exit naturally
         // If they don't exit, the OS will clean them up when parent exits
       } catch (error) {
@@ -2224,10 +2224,10 @@ class ServicesOrchestrator {
           if (service.type === 'process' && service.process) {
             const proc = service.process
             proc.kill('SIGTERM')
-            
+
             // Wait for process to exit (with timeout)
             const shutdownTimeout = 30000 // 30 seconds
-            
+
             // Check if process has 'exited' property (spawn process)
             if ('exited' in proc) {
               try {
@@ -2244,7 +2244,7 @@ class ServicesOrchestrator {
               // For other process types, just wait a bit
               await new Promise((resolve) => setTimeout(resolve, 5000))
             }
-            
+
             // Don't send SIGKILL - let processes exit naturally
             // If they don't exit, the OS will clean them up when parent exits
           }

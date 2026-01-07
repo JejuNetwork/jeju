@@ -283,10 +283,10 @@ export async function killPort(port: number): Promise<void> {
         await execa('kill', ['-TERM', pid], { reject: false, timeout: 2000 })
       }
     }
-    
+
     // Wait a bit for graceful shutdown
     await new Promise((resolve) => setTimeout(resolve, 2000))
-    
+
     // Don't force kill - let processes exit naturally
     // If ports are still in use, they'll be cleaned up when processes exit
   }

@@ -419,21 +419,6 @@ resource "aws_route53_record" "dws" {
   depends_on = [module.route53, module.alb]
 }
 
-resource "aws_route53_record" "storage" {
-  count   = var.enable_dns_records ? 1 : 0
-  zone_id = module.route53.zone_id
-  name    = "storage.testnet"
-  type    = "A"
-
-  alias {
-    name                   = module.alb.alb_dns_name
-    zone_id                = module.alb.alb_zone_id
-    evaluate_target_health = true
-  }
-
-  depends_on = [module.route53, module.alb]
-}
-
 resource "aws_route53_record" "git" {
   count   = var.enable_dns_records ? 1 : 0
   zone_id = module.route53.zone_id

@@ -67,6 +67,10 @@ export interface JejuStorageConfig {
   replicationFactor: number
 }
 
+// DWS exposes an IPFS-compatible API at /storage/api/v0/*
+// All storage operations use this path prefix
+const STORAGE_API_PREFIX = '/storage/api/v0'
+
 export interface JejuUploadOptions {
   file: Buffer
   filename: string
@@ -147,22 +151,32 @@ export class JejuStorageClient {
       new Blob([new Uint8Array(options.file)], { type: options.contentType }),
       filePath,
     )
-    formData.append('provider', provider)
-    formData.append('replication', this.config.replicationFactor.toString())
-    if (options.metadata)
-      formData.append('metadata', JSON.stringify(options.metadata))
 
-    const response = await fetch(`${this.config.endpoint}/api/v1/upload`, {
-      method: 'POST',
-      headers: this.getHeaders(),
-      body: formData,
-    })
+    // Use IPFS-compatible API at /storage/api/v0/add
+    const response = await fetch(
+      `${this.config.endpoint}${STORAGE_API_PREFIX}/add?pin=true`,
+      {
+        method: 'POST',
+        headers: this.getUploadHeaders(),
+        body: formData,
+      },
+    )
     if (!response.ok)
       throw new Error(
         `Upload failed: ${response.status} - ${await response.text()}`,
       )
-    const data: unknown = await response.json()
-    return JejuUploadResultSchema.parse(data)
+    
+    // IPFS API returns { Hash, Size, Name }
+    const data = (await response.json()) as { Hash: string; Size: string; Name: string }
+    const cid = data.Hash
+    const size = parseInt(data.Size, 10)
+
+    return {
+      cid,
+      url: this.getUrl(cid),
+      provider,
+      size,
+    }
   }
 
   /**
@@ -232,9 +246,11 @@ export class JejuStorageClient {
   }
 
   async download(cid: string): Promise<Buffer> {
-    const response = await fetch(`${this.config.endpoint}/api/v1/get/${cid}`, {
-      headers: this.getHeaders(),
-    })
+    // Use IPFS-compatible API at /storage/api/v0/cat
+    const response = await fetch(
+      `${this.config.endpoint}${STORAGE_API_PREFIX}/cat?arg=${cid}`,
+      { headers: this.getHeaders() },
+    )
     if (!response.ok) throw new Error(`Download failed: ${response.status}`)
     return Buffer.from(await response.arrayBuffer())
   }
@@ -256,13 +272,19 @@ export class JejuStorageClient {
   }
 
   async listFiles(folder: string) {
+    // Use IPFS-compatible API at /storage/api/v0/files/ls
     const response = await fetch(
-      `${this.config.endpoint}/api/v1/list?folder=${encodeURIComponent(folder)}`,
+      `${this.config.endpoint}${STORAGE_API_PREFIX}/files/ls?arg=/${encodeURIComponent(folder)}`,
       { headers: this.getHeaders() },
     )
     if (!response.ok) throw new Error(`List failed: ${response.status}`)
-    const data: unknown = await response.json()
-    return ListFilesResponseSchema.parse(data).files
+    const data = (await response.json()) as { Entries?: Array<{ Name: string; Hash: string; Size: number }> }
+    return (data.Entries ?? []).map((entry) => ({
+      cid: entry.Hash,
+      filename: entry.Name,
+      folder,
+      size: entry.Size,
+    }))
   }
 
   async uploadText(
@@ -294,31 +316,33 @@ export class JejuStorageClient {
   }
 
   getUrl(cid: string): string {
-    return `${this.config.endpoint}/ipfs/${cid}`
+    return `${this.config.endpoint}/storage/ipfs/${cid}`
   }
 
   async pin(cid: string): Promise<void> {
-    const response = await fetch(`${this.config.endpoint}/api/v1/pin`, {
-      method: 'POST',
-      headers: this.getHeaders(),
-      body: JSON.stringify({ cid }),
-    })
+    // Use IPFS-compatible API at /storage/api/v0/pin/add
+    const response = await fetch(
+      `${this.config.endpoint}${STORAGE_API_PREFIX}/pin/add?arg=${cid}`,
+      { method: 'POST', headers: this.getHeaders() },
+    )
     if (!response.ok) throw new Error(`Pin failed: ${response.status}`)
   }
 
   async unpin(cid: string): Promise<void> {
-    const response = await fetch(`${this.config.endpoint}/api/v1/pin/${cid}`, {
-      method: 'DELETE',
-      headers: this.getHeaders(),
-    })
+    // Use IPFS-compatible API at /storage/api/v0/pin/rm
+    const response = await fetch(
+      `${this.config.endpoint}${STORAGE_API_PREFIX}/pin/rm?arg=${cid}`,
+      { method: 'POST', headers: this.getHeaders() },
+    )
     if (!response.ok) throw new Error(`Unpin failed: ${response.status}`)
   }
 
   async exists(cid: string): Promise<boolean> {
-    const response = await fetch(`${this.config.endpoint}/api/v1/stat/${cid}`, {
-      method: 'HEAD',
-      headers: this.getHeaders(),
-    }).catch(() => null)
+    // Use IPFS-compatible API at /storage/api/v0/object/stat
+    const response = await fetch(
+      `${this.config.endpoint}${STORAGE_API_PREFIX}/object/stat?arg=${cid}`,
+      { method: 'POST', headers: this.getHeaders() },
+    ).catch(() => null)
     return response?.ok ?? false
   }
 
@@ -329,18 +353,28 @@ export class JejuStorageClient {
   async initializeBucket(): Promise<void> {}
 
   async listPins(): Promise<string[]> {
-    const response = await fetch(`${this.config.endpoint}/api/v1/pins`, {
-      headers: this.getHeaders(),
-    })
+    // Use IPFS-compatible API at /storage/api/v0/pin/ls
+    const response = await fetch(
+      `${this.config.endpoint}${STORAGE_API_PREFIX}/pin/ls?type=recursive`,
+      { headers: this.getHeaders() },
+    )
     if (!response.ok) throw new Error(`List pins failed: ${response.status}`)
-    const data: unknown = await response.json()
-    return ListPinsResponseSchema.parse(data).pins
+    const data = (await response.json()) as { Keys?: Record<string, unknown> }
+    return Object.keys(data.Keys ?? {})
   }
 
   private getHeaders(): Record<string, string> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     }
+    if (this.config.apiKey)
+      headers.Authorization = `Bearer ${this.config.apiKey}`
+    return headers
+  }
+
+  private getUploadHeaders(): Record<string, string> {
+    // Don't set Content-Type for FormData - browser sets it with boundary
+    const headers: Record<string, string> = {}
     if (this.config.apiKey)
       headers.Authorization = `Bearer ${this.config.apiKey}`
     return headers

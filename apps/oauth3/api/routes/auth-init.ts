@@ -57,9 +57,7 @@ function validateRedirectUri(
   // SECURITY: Block localhost in production patterns (but allow explicit localhost patterns)
   const hasLocalhostPattern = allowedPatterns.some(
     (p) =>
-      p.includes('localhost') ||
-      p.includes('127.0.0.1') ||
-      p.includes('[::1]'),
+      p.includes('localhost') || p.includes('127.0.0.1') || p.includes('[::1]'),
   )
 
   if (

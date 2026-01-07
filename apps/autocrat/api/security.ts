@@ -50,7 +50,7 @@ const TRUSTED_PROXY_HEADER = 'x-jeju-proxy-signature'
 
 /**
  * Get client IP from request headers with security validation
- * 
+ *
  * SECURITY: x-forwarded-for can be spoofed by clients!
  * We use a multi-layered approach:
  * 1. Check for trusted proxy signature (DWS compute sets this)
@@ -59,11 +59,12 @@ const TRUSTED_PROXY_HEADER = 'x-jeju-proxy-signature'
  */
 function getClientIP(headers: Headers, _request?: Request): string {
   const network = getCurrentNetwork()
-  
+
   // Check for trusted proxy signature from DWS compute layer
   const proxySignature = headers.get(TRUSTED_PROXY_HEADER)
-  const hasTrustedProxy = proxySignature && validateProxySignature(proxySignature)
-  
+  const hasTrustedProxy =
+    proxySignature && validateProxySignature(proxySignature)
+
   if (hasTrustedProxy) {
     // Trusted proxy - we can trust x-forwarded-for
     const forwarded = headers.get('x-forwarded-for')?.split(',')[0]?.trim()
@@ -71,26 +72,26 @@ function getClientIP(headers: Headers, _request?: Request): string {
       return forwarded
     }
   }
-  
+
   // In production without trusted proxy, use x-real-ip from Cloudflare/etc
   if (network === 'mainnet' || network === 'testnet') {
     const cfIP = headers.get('cf-connecting-ip') // Cloudflare
     if (cfIP && isValidIP(cfIP)) return cfIP
-    
+
     const realIP = headers.get('x-real-ip')
     if (realIP && isValidIP(realIP)) return realIP
   }
-  
+
   // Fall back to x-forwarded-for but mark as potentially untrusted
   // Combine with User-Agent hash for fingerprinting
   const forwarded = headers.get('x-forwarded-for')?.split(',')[0]?.trim()
   const userAgent = headers.get('user-agent') ?? ''
   const fingerprint = hashFingerprint(userAgent)
-  
+
   if (forwarded && isValidIP(forwarded)) {
     return `${forwarded}:${fingerprint}`
   }
-  
+
   return `unknown:${fingerprint}`
 }
 
@@ -102,19 +103,19 @@ function validateProxySignature(signature: string): boolean {
   // Proxy signature format: timestamp:hmac
   const parts = signature.split(':')
   if (parts.length !== 2) return false
-  
+
   const [timestamp, _hmac] = parts
   const ts = parseInt(timestamp, 10)
-  
+
   // Check timestamp is within 5 minutes
   if (Number.isNaN(ts) || Math.abs(Date.now() - ts) > 5 * 60 * 1000) {
     return false
   }
-  
+
   // In production, verify HMAC against shared secret
   // For now, we just validate timestamp freshness
   // TODO: Implement full HMAC verification with DWS_PROXY_SECRET
-  return config.dwsProxySecret ? true : false
+  return !!config.dwsProxySecret
 }
 
 /**
@@ -138,7 +139,7 @@ function hashFingerprint(userAgent: string): string {
   const str = userAgent.toLowerCase()
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i)
-    hash = ((hash << 5) - hash) + char
+    hash = (hash << 5) - hash + char
     hash = hash & hash // Convert to 32-bit integer
   }
   return Math.abs(hash).toString(36).slice(0, 8)

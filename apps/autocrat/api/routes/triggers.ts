@@ -1,6 +1,6 @@
 import { Elysia, t } from 'elysia'
 import { getComputeTriggerClient } from '../compute-trigger'
-import { validateApiKey, auditLog } from '../security'
+import { auditLog, validateApiKey } from '../security'
 import { runOrchestratorCycle } from '../shared-state'
 
 // Helper to extract API key from headers
@@ -56,10 +56,18 @@ export const triggersRoutes = new Elysia({ prefix: '/api/v1/triggers' })
       // Validate API key before allowing execution
       const apiKey = getApiKey(request)
       if (!validateApiKey(apiKey)) {
-        auditLog('orchestrator_execute_unauthorized', 'anonymous', request, false, {
-          reason: 'invalid_api_key',
-        })
-        throw new Error('Unauthorized: Valid API key required to execute orchestrator')
+        auditLog(
+          'orchestrator_execute_unauthorized',
+          'anonymous',
+          request,
+          false,
+          {
+            reason: 'invalid_api_key',
+          },
+        )
+        throw new Error(
+          'Unauthorized: Valid API key required to execute orchestrator',
+        )
       }
 
       auditLog('orchestrator_execute', 'operator', request, true, {
@@ -84,10 +92,18 @@ export const triggersRoutes = new Elysia({ prefix: '/api/v1/triggers' })
       // Validate API key - DWS compute must include this in webhook calls
       const apiKey = getApiKey(request)
       if (!validateApiKey(apiKey)) {
-        auditLog('orchestrator_webhook_unauthorized', 'anonymous', request, false, {
-          reason: 'invalid_api_key',
-        })
-        throw new Error('Unauthorized: Valid API key required for orchestrator webhook')
+        auditLog(
+          'orchestrator_webhook_unauthorized',
+          'anonymous',
+          request,
+          false,
+          {
+            reason: 'invalid_api_key',
+          },
+        )
+        throw new Error(
+          'Unauthorized: Valid API key required for orchestrator webhook',
+        )
       }
 
       auditLog('orchestrator_webhook', 'compute', request, true, {
@@ -98,6 +114,9 @@ export const triggersRoutes = new Elysia({ prefix: '/api/v1/triggers' })
       return { success: true, executionId: `exec-${Date.now()}`, ...result }
     },
     {
-      detail: { tags: ['triggers'], summary: 'Orchestrator trigger webhook (requires API key)' },
+      detail: {
+        tags: ['triggers'],
+        summary: 'Orchestrator trigger webhook (requires API key)',
+      },
     },
   )

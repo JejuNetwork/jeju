@@ -37,8 +37,10 @@ function sanitizePath(path: string): string {
   // Normalize path and prevent traversal
   const normalized = clean.replace(/\\/g, '/').replace(/\/+/g, '/')
   // Remove any attempts at directory traversal
-  const segments = normalized.split('/').filter(seg => seg !== '..' && seg !== '.')
-  return '/' + segments.join('/')
+  const segments = normalized
+    .split('/')
+    .filter((seg) => seg !== '..' && seg !== '.')
+  return `/${segments.join('/')}`
 }
 
 /**
