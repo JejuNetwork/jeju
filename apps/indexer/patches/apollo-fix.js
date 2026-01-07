@@ -103,7 +103,13 @@ if (fixedCount > 0) {
 }
 
 // --- Part 3: Patch Express to support mime v2+ (getType instead of lookup, charsets fix) ---
-const expressResponsePath = join(rootDir, 'node_modules', 'express', 'lib', 'response.js');
+// Check both global and .bun cache paths
+const expressResponsePaths = [
+  join(rootDir, 'node_modules', 'express', 'lib', 'response.js'),
+  join(bunDir, 'express@4.21.2', 'node_modules', 'express', 'lib', 'response.js'),
+];
+
+for (const expressResponsePath of expressResponsePaths) {
 if (existsSync(expressResponsePath)) {
   let expressResponse = readFileSync(expressResponsePath, 'utf-8');
   let patched = false;
@@ -137,6 +143,5 @@ if (existsSync(expressResponsePath)) {
   } else {
     console.log('⚠️  Express response.js patterns not found - may need manual patch');
   }
-} else {
-  console.log('⚠️  Could not find express/lib/response.js to patch');
+}
 }

@@ -12,53 +12,48 @@ on:
         default: 'main'
 
 env:
-  # JejuGit is now part of DWS at /git endpoint
   JEJUGIT_URL: ${{ secrets.JEJUGIT_URL }}
 
 jobs:
   mirror-to-jejugit:
     runs-on: ubuntu-latest
-    # Only run if JEJUGIT_URL is configured
-    if: ${{ secrets.JEJUGIT_URL != '' }}
     steps:
+      - name: Check configuration
+        id: check
+        run: |
+          if [ -z "${{ secrets.JEJUGIT_URL }}" ]; then
+            echo "JejuGit URL not configured, skipping mirror."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Checkout
+        if: steps.check.outputs.skip != 'true'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
 
       - name: Configure JejuGit remote
+        if: steps.check.outputs.skip != 'true'
         run: |
-          # Add JejuGit as a remote
           git remote add jejugit ${{ env.JEJUGIT_URL }}/jeju/jeju.git || git remote set-url jejugit ${{ env.JEJUGIT_URL }}/jeju/jeju.git
-          
-          # Configure authentication
           git config --global credential.helper store
           echo "https://${{ secrets.JEJUGIT_TOKEN }}:x-oauth-basic@${JEJUGIT_URL#https://}" > ~/.git-credentials
 
       - name: Push to JejuGit
+        if: steps.check.outputs.skip != 'true'
         run: |
           BRANCH="${{ github.event.inputs.branch || github.ref_name }}"
           echo "Mirroring branch: $BRANCH"
-          
-          # Push the branch
           git push jejugit "$BRANCH:$BRANCH" --force
-          
-          # Push tags
           git push jejugit --tags --force || true
 
       - name: Update JejuGit repository metadata
-        if: success()
+        if: steps.check.outputs.skip != 'true' && success()
         run: |
-          # Call JejuGit API to update repository metadata
           curl -X POST "${{ env.JEJUGIT_URL }}/api/v1/repos/jeju/jeju/sync" \
             -H "Authorization: Bearer ${{ secrets.JEJUGIT_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d '{"source": "github", "sourceUrl": "${{ github.server_url }}/${{ github.repository }}"}'
-
-  skip-mirror:
-    runs-on: ubuntu-latest
-    if: ${{ secrets.JEJUGIT_URL == '' }}
-    steps:
-      - name: Skip - JejuGit not configured
-        run: echo "JejuGit URL not configured, skipping mirror. Set JEJUGIT_URL and JEJUGIT_TOKEN secrets to enable."

@@ -47,8 +47,10 @@
     "start": "bun run scripts/serve.ts",
     "deploy": "bun run scripts/deploy.ts",
     "test": "bun test tests/",
+    "test:unit": "bun test tests/unit/",
     "test:e2e": "bunx playwright test tests/e2e/",
     "test:synpress": "bunx playwright test tests/synpress/",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "bunx biome check src/ api/ --max-diagnostics=50"
   }
 }
