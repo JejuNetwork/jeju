@@ -158,9 +158,11 @@ async function createApp() {
           headers: { 'Content-Type': 'text/html; charset=utf-8' },
         })
       }
-      return new Response('OAuth3 Authentication Gateway', {
-        headers: { 'Content-Type': 'text/plain' },
-      })
+      // Fallback: minimal HTML response
+      return new Response(
+        '<!DOCTYPE html><html><head><title>OAuth3</title></head><body><h1>OAuth3 Authentication Gateway</h1></body></html>',
+        { headers: { 'Content-Type': 'text/html; charset=utf-8' } },
+      )
     })
     .get('/app.js', async () => {
       // Try source first for dev

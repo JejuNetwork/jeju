@@ -229,22 +229,38 @@ export class WorkerdExecutor implements IWorkerdExecutor {
       `[WorkerdExecutor] Deploying worker ${worker.id} to port ${port} (bundled)`,
     )
 
+    // SECURITY: Generate unique heredoc delimiters to prevent injection
+    // Using UUIDs ensures the delimiter cannot exist in user-provided code
+    const codeDelimiter = `__WORKER_CODE_${crypto.randomUUID().replace(/-/g, '')}_EOF__`
+    const configDelimiter = `__CONFIG_${crypto.randomUUID().replace(/-/g, '')}_EOF__`
+
+    // SECURITY: Validate that the delimiters don't exist in code/config (defense in depth)
+    if (code.includes(codeDelimiter) || configContent.includes(configDelimiter)) {
+      this.releasePort(port)
+      throw new Error('Security: heredoc delimiter collision detected')
+    }
+
+    // SECURITY: Sanitize paths to prevent path traversal
+    const sanitizedCodeDir = codeDir.replace(/\.\./g, '')
+    const sanitizedMainFile = mainFile.replace(/\.\./g, '').replace(/\//g, '_')
+    const sanitizedConfigPath = configPath.replace(/\.\./g, '')
+
     // Create a shell script that does everything atomically
     const deployScript = `
 set -e
 # Create directory
-mkdir -p "${codeDir}"
+mkdir -p "${sanitizedCodeDir}"
 # Write worker code
-cat > "${codeDir}/${mainFile}" << 'WORKER_CODE_EOF'
+cat > "${sanitizedCodeDir}/${sanitizedMainFile}" << '${codeDelimiter}'
 ${code}
-WORKER_CODE_EOF
+${codeDelimiter}
 # Write config
-cat > "${configPath}" << 'CONFIG_EOF'
+cat > "${sanitizedConfigPath}" << '${configDelimiter}'
 ${configContent}
-CONFIG_EOF
+${configDelimiter}
 # Start workerd in background and echo PID
-cd "${codeDir}"
-nohup ${this.workerdPath} serve "${configPath}" --verbose > /tmp/workerd-${worker.id}.log 2>&1 &
+cd "${sanitizedCodeDir}"
+nohup ${this.workerdPath} serve "${sanitizedConfigPath}" --verbose > /tmp/workerd-${worker.id}.log 2>&1 &
 echo $!
 `
 

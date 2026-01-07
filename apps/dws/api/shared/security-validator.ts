@@ -182,6 +182,40 @@ export async function validateSecurityConfiguration(): Promise<SecurityValidatio
       required: true,
       severity: 'critical',
     },
+
+    // SSH Gateway vault key
+    {
+      name: 'SSH Gateway Vault Key',
+      check: async () => {
+        const key = process.env.DWS_VAULT_KEY
+        const hasKey = !!key && key.length >= 32
+        return {
+          ok: hasKey,
+          message: hasKey
+            ? 'SSH vault key properly configured'
+            : 'DWS_VAULT_KEY not set or too short (requires 32+ chars)',
+        }
+      },
+      required: true,
+      severity: 'critical',
+    },
+
+    // Distributed cache for state
+    {
+      name: 'Distributed Cache Configured',
+      check: async () => {
+        const hasRedis = !!process.env.REDIS_URL || !!process.env.CACHE_URL
+        const hasSQLit = !!process.env.SQLIT_URL
+        return {
+          ok: hasRedis || hasSQLit,
+          message: hasRedis || hasSQLit
+            ? 'Distributed cache configured for session/state management'
+            : 'No distributed cache (REDIS_URL/CACHE_URL/SQLIT_URL) - state will be lost on restart',
+        }
+      },
+      required: true,
+      severity: 'critical',
+    },
   ]
 
   // Run all checks

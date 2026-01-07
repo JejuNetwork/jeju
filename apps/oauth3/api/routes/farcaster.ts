@@ -8,16 +8,50 @@ import { authCodeState, clientState, sessionState } from '../services/state'
 import { createHtmlPage, escapeJsString } from '../shared/html-templates'
 
 /**
- * Validate redirect URI against client's registered patterns.
+ * SECURITY: Validate redirect URI against client's registered patterns.
+ * Prevents open redirect attacks by:
+ * 1. Only allowing http/https schemes
+ * 2. Strict pattern matching with proper escaping
+ * 3. Not allowing data:, javascript:, or other dangerous schemes
  */
 function validateRedirectUri(
   redirectUri: string,
   allowedPatterns: string[],
 ): boolean {
+  // Parse the redirect URI to validate its structure
+  let parsed: URL
+  try {
+    parsed = new URL(redirectUri)
+  } catch {
+    return false // Invalid URL format
+  }
+
+  // SECURITY: Only allow http/https schemes
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    return false
+  }
+
+  // SECURITY: Block localhost in production patterns (but allow explicit localhost patterns)
+  const hasLocalhostPattern = allowedPatterns.some(
+    (p) =>
+      p.includes('localhost') ||
+      p.includes('127.0.0.1') ||
+      p.includes('[::1]'),
+  )
+
+  if (
+    !hasLocalhostPattern &&
+    (parsed.hostname === 'localhost' ||
+      parsed.hostname === '127.0.0.1' ||
+      parsed.hostname === '[::1]')
+  ) {
+    return false
+  }
+
   for (const pattern of allowedPatterns) {
     const regexPattern = pattern
       .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-      .replace(/\*/g, '.*')
+      .replace(/\*/g, '[^/]*')
     const regex = new RegExp(`^${regexPattern}$`)
     if (regex.test(redirectUri)) {
       return true
@@ -53,12 +87,40 @@ const farcasterChallenges = new Map<
   }
 >()
 
-// Clean up expired challenges periodically
+// SECURITY: Rate limiting to prevent DoS attacks
+const rateLimitBuckets = new Map<string, { count: number; resetAt: number }>()
+const RATE_LIMIT_MAX = 10 // Max challenges per window
+const RATE_LIMIT_WINDOW = 60 * 1000 // 1 minute window
+const MAX_CHALLENGES = 10000 // Max total challenges to prevent memory exhaustion
+
+function checkRateLimit(key: string): boolean {
+  const now = Date.now()
+  const bucket = rateLimitBuckets.get(key)
+
+  if (!bucket || bucket.resetAt < now) {
+    rateLimitBuckets.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW })
+    return true
+  }
+
+  if (bucket.count >= RATE_LIMIT_MAX) {
+    return false
+  }
+
+  bucket.count++
+  return true
+}
+
+// Clean up expired challenges and rate limit buckets periodically
 setInterval(() => {
   const now = Date.now()
   for (const [key, challenge] of farcasterChallenges) {
     if (challenge.expiresAt < now) {
       farcasterChallenges.delete(key)
+    }
+  }
+  for (const [key, bucket] of rateLimitBuckets) {
+    if (bucket.resetAt < now) {
+      rateLimitBuckets.delete(key)
     }
   }
 }, 60 * 1000)
@@ -216,6 +278,25 @@ export function createFarcasterRouter(_config: AuthConfig) {
       async ({ query, set }) => {
         const { client_id: clientId, redirect_uri: redirectUri, state } = query
 
+        // SECURITY: Rate limiting per client to prevent DoS
+        const rateLimitKey = `farcaster:${clientId}`
+        if (!checkRateLimit(rateLimitKey)) {
+          set.status = 429
+          return {
+            error: 'rate_limited',
+            error_description: 'Too many challenge requests. Try again later.',
+          }
+        }
+
+        // SECURITY: Prevent memory exhaustion
+        if (farcasterChallenges.size >= MAX_CHALLENGES) {
+          set.status = 503
+          return {
+            error: 'service_unavailable',
+            error_description: 'Service temporarily unavailable. Try again later.',
+          }
+        }
+
         // Validate client exists and redirect URI is allowed
         const client = await clientState.get(clientId)
         if (!client || !client.active) {
@@ -360,8 +441,9 @@ export function createFarcasterRouter(_config: AuthConfig) {
 }
 
 /**
- * Validate the Farcaster SIWE message contains expected values.
+ * SECURITY: Validate the Farcaster SIWE message contains expected values.
  * This prevents attackers from using signed messages with wrong domain/nonce/fid.
+ * Uses strict line-by-line parsing to prevent injection attacks.
  */
 function validateFarcasterMessage(
   message: string,
@@ -370,33 +452,40 @@ function validateFarcasterMessage(
   expectedNonce: string,
   expectedFid: number,
 ): { valid: boolean; error?: string } {
-  // Check domain
-  if (
-    !message.startsWith(
-      `${expectedDomain} wants you to sign in with your Ethereum account:`,
-    )
-  ) {
+  // SECURITY: Parse message into structured lines to prevent injection
+  const lines = message.split('\n')
+
+  // Check domain line exactly
+  const expectedDomainLine = `${expectedDomain} wants you to sign in with your Ethereum account:`
+  if (lines[0] !== expectedDomainLine) {
     return { valid: false, error: 'invalid_domain' }
   }
 
-  // Check address is in message
-  if (!message.includes(expectedAddress)) {
+  // SECURITY: Check address is on its own line (line 1 after domain)
+  // Normalize address comparison (case-insensitive)
+  const addressLine = lines[1]?.trim()
+  if (addressLine?.toLowerCase() !== expectedAddress.toLowerCase()) {
     return { valid: false, error: 'invalid_address' }
   }
 
-  // Check nonce
-  if (!message.includes(`Nonce: ${expectedNonce}`)) {
+  // SECURITY: Check nonce exactly on its own line using strict regex
+  const nonceLineRegex = new RegExp(`^Nonce: ${expectedNonce}$`)
+  const hasValidNonce = lines.some((line) => nonceLineRegex.test(line.trim()))
+  if (!hasValidNonce) {
     return { valid: false, error: 'invalid_nonce' }
   }
 
-  // Check FID resource
-  if (!message.includes(`farcaster://fid/${expectedFid}`)) {
+  // SECURITY: Check FID resource exactly
+  const fidLineRegex = new RegExp(`^- farcaster://fid/${expectedFid}$`)
+  const hasValidFid = lines.some((line) => fidLineRegex.test(line.trim()))
+  if (!hasValidFid) {
     return { valid: false, error: 'invalid_fid' }
   }
 
-  // Check issued at is recent (within 10 minutes)
+  // SECURITY: Check issued at is recent (within 10 minutes)
+  // Use strict regex to match the entire line
   const issuedAtMatch = message.match(
-    /Issued At: (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z?)/,
+    /^Issued At: (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z?)$/m,
   )
   if (!issuedAtMatch) {
     return { valid: false, error: 'missing_issued_at' }
@@ -408,6 +497,18 @@ function validateFarcasterMessage(
     Math.abs(Date.now() - issuedAt) > 10 * 60 * 1000
   ) {
     return { valid: false, error: 'message_too_old' }
+  }
+
+  // SECURITY: Verify Chain ID is Optimism (10) for Farcaster
+  const chainIdMatch = message.match(/^Chain ID: (\d+)$/m)
+  if (!chainIdMatch || chainIdMatch[1] !== '10') {
+    return { valid: false, error: 'invalid_chain_id' }
+  }
+
+  // SECURITY: Verify URI matches expected domain
+  const uriMatch = message.match(/^URI: https?:\/\/([^/\s]+)/m)
+  if (!uriMatch || uriMatch[1] !== expectedDomain) {
+    return { valid: false, error: 'invalid_uri' }
   }
 
   return { valid: true }

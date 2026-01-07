@@ -154,7 +154,73 @@ interface ResolvedImage {
   pullRequired: boolean
 }
 
+/**
+ * SECURITY: Validate image reference format
+ * Prevents path traversal, command injection, and other attacks via image names
+ */
+const IMAGE_REF_PATTERN = /^[a-z0-9]([a-z0-9._-]*[a-z0-9])?$/i
+const TAG_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/
+const DIGEST_PATTERN = /^sha256:[a-f0-9]{64}$/
+
+function validateImageRef(imageRef: string): void {
+  // SECURITY: Maximum length to prevent DoS
+  if (imageRef.length > 256) {
+    throw new Error('Image reference too long (max 256 characters)')
+  }
+
+  // SECURITY: Check for dangerous characters
+  const dangerousPatterns = [
+    /[`$;|<>&]/, // Shell metacharacters
+    /\.\./,      // Path traversal
+    /\\x[0-9a-f]{2}/i, // Hex escapes
+    /[\x00-\x1f]/, // Control characters
+  ]
+
+  for (const pattern of dangerousPatterns) {
+    if (pattern.test(imageRef)) {
+      throw new Error(`Invalid characters in image reference: ${imageRef.slice(0, 50)}`)
+    }
+  }
+}
+
+function validateNamespace(namespace: string): void {
+  if (!IMAGE_REF_PATTERN.test(namespace)) {
+    throw new Error(`Invalid namespace format: ${namespace.slice(0, 50)}`)
+  }
+  if (namespace.length > 64) {
+    throw new Error('Namespace too long (max 64 characters)')
+  }
+}
+
+function validateImageName(name: string): void {
+  // Image name can have slashes for nested repos, but each segment must be valid
+  const segments = name.split('/')
+  for (const segment of segments) {
+    if (!IMAGE_REF_PATTERN.test(segment)) {
+      throw new Error(`Invalid image name segment: ${segment.slice(0, 50)}`)
+    }
+  }
+  if (name.length > 128) {
+    throw new Error('Image name too long (max 128 characters)')
+  }
+}
+
+function validateTag(tag: string): void {
+  if (tag.startsWith('sha256:')) {
+    if (!DIGEST_PATTERN.test(tag)) {
+      throw new Error('Invalid digest format')
+    }
+  } else {
+    if (!TAG_PATTERN.test(tag)) {
+      throw new Error(`Invalid tag format: ${tag.slice(0, 50)}`)
+    }
+  }
+}
+
 async function resolveImage(imageRef: string): Promise<ResolvedImage> {
+  // SECURITY: Validate the raw image reference first
+  validateImageRef(imageRef)
+
   // Parse image reference: namespace/name:tag or @sha256:digest
   const [namespaceAndName, tagOrDigest] = imageRef.includes('@')
     ? [imageRef.split('@')[0], imageRef.split('@')[1]]
@@ -168,6 +234,11 @@ async function resolveImage(imageRef: string): Promise<ResolvedImage> {
         namespaceAndName.split('/').slice(1).join('/'),
       ]
     : ['library', namespaceAndName]
+
+  // SECURITY: Validate parsed components
+  validateNamespace(namespace)
+  validateImageName(name)
+  validateTag(tagOrDigest)
 
   // Check cache first
   const isDigest = tagOrDigest.startsWith('sha256:')

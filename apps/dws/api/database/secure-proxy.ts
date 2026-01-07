@@ -4,11 +4,13 @@
  * All SQLit queries must go through this proxy which:
  * 1. Verifies request signatures
  * 2. Checks database ownership/ACL
- * 3. Forwards authenticated requests to SQLit
- * 4. Logs access for audit
+ * 3. Prevents replay attacks via nonce tracking
+ * 4. Forwards authenticated requests to SQLit
+ * 5. Logs access for audit
  */
 
 import { getSQLit } from '@jejunetwork/db'
+import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { verifyMessage } from 'viem'
@@ -18,6 +20,41 @@ import { verifySignedRequest } from './provisioning'
 // Constants
 
 const SIGNATURE_MAX_AGE_MS = 5 * 60 * 1000 // 5 minutes
+const NONCE_TTL_SECONDS = Math.ceil(SIGNATURE_MAX_AGE_MS / 1000) + 60 // Extra buffer
+
+// SECURITY: Nonce tracking to prevent replay attacks
+// Using distributed cache so it works across multiple DWS instances
+let nonceCache: CacheClient | null = null
+
+function getNonceCache(): CacheClient {
+  if (!nonceCache) {
+    nonceCache = getCacheClient('sqlit-replay-nonces')
+  }
+  return nonceCache
+}
+
+/**
+ * SECURITY: Check if a signature has been used before (replay attack prevention)
+ * Returns true if the signature is NEW (not seen before), false if it's a replay
+ */
+async function checkAndMarkSignature(signature: string): Promise<boolean> {
+  const cache = getNonceCache()
+  // Use signature hash as the key to prevent extremely long keys
+  const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(signature))
+  const hashArray = new Uint8Array(hashBuffer)
+  const signatureHash = Buffer.from(hashArray).toString('hex').slice(0, 32)
+  const key = `nonce:${signatureHash}`
+  
+  // Try to set the key only if it doesn't exist
+  const existing = await cache.get(key)
+  if (existing) {
+    return false // Signature was already used - replay attack!
+  }
+  
+  // Mark the signature as used
+  await cache.set(key, Date.now().toString(), NONCE_TTL_SECONDS)
+  return true // Signature is new
+}
 
 // Schemas
 
@@ -153,6 +190,12 @@ export function createSecureSQLitRouter() {
         const { database, type, sql, params, timestamp, signature, signer } =
           parsed.data
 
+        // Check timestamp FIRST (fast rejection of obviously expired requests)
+        if (Math.abs(Date.now() - timestamp) > SIGNATURE_MAX_AGE_MS) {
+          set.status = 401
+          return { error: 'Request expired' }
+        }
+
         // Verify signature
         const payload = { database, type, sql, params, timestamp }
         const message = JSON.stringify(payload)
@@ -167,10 +210,12 @@ export function createSecureSQLitRouter() {
           return { error: 'Invalid signature' }
         }
 
-        // Check timestamp
-        if (Math.abs(Date.now() - timestamp) > SIGNATURE_MAX_AGE_MS) {
+        // SECURITY: Check for replay attack AFTER signature verification
+        // This ensures the signature is valid before storing it
+        const isNewSignature = await checkAndMarkSignature(signature)
+        if (!isNewSignature) {
           set.status = 401
-          return { error: 'Request expired' }
+          return { error: 'Replay attack detected: signature already used' }
         }
 
         // Verify access

@@ -91,10 +91,9 @@ export class EncryptionProvider implements KMSProvider {
   private keyVersions = new Map<string, KeyVersionRecord[]>()
   private sessions = new Map<string, Session>()
   private initPromise: Promise<void> | null = null
-  private debug: boolean
 
-  constructor(config?: { debug?: boolean }) {
-    this.debug = config?.debug ?? false
+  constructor(_config?: { debug?: boolean }) {
+    // Debug logging can be enabled via _config.debug if needed
   }
 
   /**

@@ -519,6 +519,13 @@ export const oauthStateStore = {
   ): Promise<void> {
     const client = await getSQLitClient()
 
+    // SECURITY: Encrypt PKCE code verifier before storing
+    let encryptedVerifier: string | null = null
+    if (data.codeVerifier) {
+      const { encryptCodeVerifier } = await import('./kms')
+      encryptedVerifier = await encryptCodeVerifier(data.codeVerifier, state)
+    }
+
     await client.exec(
       `INSERT INTO oauth_states (state, nonce, provider, client_id, redirect_uri, code_verifier, created_at, expires_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -528,7 +535,7 @@ export const oauthStateStore = {
         data.provider,
         data.clientId,
         data.redirectUri,
-        data.codeVerifier ?? null,
+        encryptedVerifier,
         Date.now(),
         data.expiresAt,
       ],
@@ -554,12 +561,20 @@ export const oauthStateStore = {
     if (!result.rows[0]) return null
 
     const row = result.rows[0]
+
+    // SECURITY: Decrypt PKCE code verifier
+    let codeVerifier: string | undefined
+    if (row.code_verifier) {
+      const { decryptCodeVerifier } = await import('./kms')
+      codeVerifier = await decryptCodeVerifier(row.code_verifier, state)
+    }
+
     return {
       nonce: row.nonce,
       provider: row.provider,
       clientId: row.client_id,
       redirectUri: row.redirect_uri,
-      codeVerifier: row.code_verifier ?? undefined,
+      codeVerifier,
     }
   },
 
@@ -585,18 +600,38 @@ export async function initializeState(): Promise<void> {
     version: 1,
   }
 
+  // SECURITY: Default clients have restricted redirect URIs
+  // Production should use explicit redirect URIs per client registration
+  const isDevMode = !isProductionEnv()
+
   // Ensure default client exists
   const defaultClient = await clientState.get('jeju-default')
   if (!defaultClient) {
+    // SECURITY: In production, only allow HTTPS to known Jeju domains
+    // In dev, also allow localhost for testing
+    const defaultRedirectUris = isDevMode
+      ? [
+          'https://auth.jejunetwork.org/callback',
+          'https://app.jejunetwork.org/callback',
+          'https://gateway.jejunetwork.org/callback',
+          `http://localhost:3000/callback`,
+          `http://localhost:3001/callback`,
+          `http://localhost:4200/callback`,
+          `http://${getLocalhostHost()}:3000/callback`,
+          `http://${getLocalhostHost()}:3001/callback`,
+          `http://${getLocalhostHost()}:4200/callback`,
+        ]
+      : [
+          'https://auth.jejunetwork.org/callback',
+          'https://app.jejunetwork.org/callback',
+          'https://gateway.jejunetwork.org/callback',
+        ]
+
     await clientState.save({
       clientId: 'jeju-default',
       clientSecretHash: publicClientSecretHash,
       name: 'Jeju Network Apps',
-      redirectUris: [
-        'https://*.jejunetwork.org/*',
-        `http://localhost:*/*`,
-        `http://${getLocalhostHost()}:*/*`,
-      ],
+      redirectUris: defaultRedirectUris,
       allowedProviders: [
         'wallet',
         'farcaster',
@@ -615,17 +650,28 @@ export async function initializeState(): Promise<void> {
   // Ensure eliza-cloud client exists (for Eliza Cloud app)
   const elizaCloudClient = await clientState.get('eliza-cloud')
   if (!elizaCloudClient) {
+    // SECURITY: Explicit redirect URIs, no wildcards
+    const elizaRedirectUris = isDevMode
+      ? [
+          'https://cloud.elizaos.com/callback',
+          'https://cloud.elizaos.com/auth/callback',
+          'https://eliza.cloud/callback',
+          'https://eliza.cloud/auth/callback',
+          `http://${getLocalhostHost()}:3000/callback`,
+          `http://${getLocalhostHost()}:3001/callback`,
+        ]
+      : [
+          'https://cloud.elizaos.com/callback',
+          'https://cloud.elizaos.com/auth/callback',
+          'https://eliza.cloud/callback',
+          'https://eliza.cloud/auth/callback',
+        ]
+
     await clientState.save({
       clientId: 'eliza-cloud',
       clientSecretHash: publicClientSecretHash,
       name: 'Eliza Cloud',
-      redirectUris: [
-        'https://cloud.elizaos.com/*',
-        'https://eliza.cloud/*',
-        'https://*.elizaos.ai/*',
-        `http://${getLocalhostHost()}:3000/*`,
-        `http://${getLocalhostHost()}:3001/*`,
-      ],
+      redirectUris: elizaRedirectUris,
       allowedProviders: [
         'wallet',
         'farcaster',

@@ -662,6 +662,18 @@ const app = new Elysia()
   })
   // GraphQL proxy with CORS - forwards to Subsquid GraphQL server
   .post('/graphql', async (ctx: Context) => {
+    // Validate request body structure
+    const body = ctx.body as Record<string, unknown> | undefined
+    if (
+      !body ||
+      typeof body !== 'object' ||
+      typeof body.query !== 'string' ||
+      body.query.length > 10000 // Limit query size
+    ) {
+      ctx.set.status = 400
+      return { errors: [{ message: 'Invalid GraphQL request' }] }
+    }
+
     const graphqlPort = process.env.GQL_PORT ?? '4350'
     const graphqlUrl = `http://localhost:${graphqlPort}/graphql`
 
@@ -671,7 +683,11 @@ const app = new Elysia()
         'Content-Type': 'application/json',
         Accept: 'application/json',
       },
-      body: JSON.stringify(ctx.body),
+      body: JSON.stringify({
+        query: body.query,
+        variables: body.variables,
+        operationName: body.operationName,
+      }),
     }).catch((err: Error) => {
       console.error('[REST] GraphQL proxy error:', err.message)
       return null
@@ -682,19 +698,42 @@ const app = new Elysia()
       return { errors: [{ message: 'GraphQL server unavailable' }] }
     }
 
-    const data = await response.json()
-    return data
+    // Validate response structure before returning
+    let data: Record<string, unknown>
+    try {
+      data = (await response.json()) as Record<string, unknown>
+    } catch {
+      ctx.set.status = 502
+      return { errors: [{ message: 'Invalid response from GraphQL server' }] }
+    }
+
+    // Only return expected GraphQL response fields
+    return {
+      data: data.data ?? null,
+      errors: Array.isArray(data.errors) ? data.errors : undefined,
+    }
   })
   .onError(({ error, set }) => {
     if (error instanceof Error) {
-      console.error('[REST] Unhandled error:', error.message, error.stack)
+      // Only log stack traces in non-production for security
+      if (config.isProduction) {
+        console.error('[REST] Error:', error.name, error.message)
+      } else {
+        console.error('[REST] Error:', error.message, error.stack)
+      }
 
       if (
         error.name === 'ValidationError' ||
         error.message.includes('Validation error')
       ) {
         set.status = 400
-        return { error: 'Validation error', message: error.message }
+        // Don't expose internal validation details in production
+        return {
+          error: 'Validation error',
+          message: config.isProduction
+            ? 'Invalid request parameters'
+            : error.message,
+        }
       }
 
       if (error instanceof NotFoundError || error.name === 'NotFoundError') {
@@ -707,7 +746,7 @@ const app = new Elysia()
         return { error: error.message }
       }
     } else {
-      console.error('[REST] Unhandled non-error:', error)
+      console.error('[REST] Unhandled error type')
     }
 
     set.status = 500

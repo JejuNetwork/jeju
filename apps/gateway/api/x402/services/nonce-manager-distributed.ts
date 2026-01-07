@@ -151,9 +151,57 @@ export async function markNonceFailed(
 /**
  * SECURITY: Local lock to prevent race conditions during reservation
  * This ensures the check-then-act pattern is atomic within a single instance
+ *
+ * NOTE: This provides single-instance protection. For multi-instance deployments,
+ * the distributed cache provides additional protection via optimistic locking.
  */
 const reservationLocks = new Set<string>()
 const LOCK_TIMEOUT_MS = 5000
+
+/**
+ * SECURITY: Attempt to acquire a distributed lock using the cache service
+ * Uses SET NX (set if not exists) pattern with TTL for automatic expiry
+ */
+async function acquireDistributedLock(key: string): Promise<boolean> {
+  if (!(await checkHealth())) {
+    return true // Fall back to local-only locking if cache unavailable
+  }
+  
+  const lockKey = `lock:${key}`
+  // Try to set the lock with NX semantics (only if not exists)
+  // Use a short TTL (10 seconds) to prevent deadlocks
+  const response = await fetch(`${CACHE_URL}/cache/setnx`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ 
+      key: lockKey, 
+      value: 'locked', 
+      ttl: 10, 
+      namespace: CACHE_NS 
+    }),
+    signal: AbortSignal.timeout(2000),
+  }).catch(() => null)
+  
+  if (!response?.ok) {
+    // If we can't acquire distributed lock, use local lock only
+    // This is conservative - may allow duplicate work but prevents rejecting valid requests
+    console.warn('[NonceManager] Distributed lock unavailable, using local only')
+    return true
+  }
+  
+  const data = await response.json().catch(() => ({ acquired: false })) as { acquired?: boolean }
+  return data.acquired ?? false
+}
+
+async function releaseDistributedLock(key: string): Promise<void> {
+  if (!(await checkHealth())) return
+  
+  const lockKey = `lock:${key}`
+  await fetch(
+    `${CACHE_URL}/cache/delete?namespace=${CACHE_NS}&key=${encodeURIComponent(lockKey)}`,
+    { method: 'DELETE', signal: AbortSignal.timeout(2000) }
+  ).catch(() => {})
+}
 
 export async function reserveNonce(
   client: PublicClient,
@@ -162,7 +210,7 @@ export async function reserveNonce(
 ): Promise<{ reserved: boolean; error?: string }> {
   const key = nonceKey(payer, nonce)
 
-  // SECURITY: Acquire local lock to prevent race conditions
+  // SECURITY: Acquire local lock first to prevent race conditions within instance
   if (reservationLocks.has(key)) {
     return { reserved: false, error: 'Nonce reservation in progress' }
   }
@@ -175,18 +223,28 @@ export async function reserveNonce(
   }, LOCK_TIMEOUT_MS)
 
   try {
-    if (await isNonceUsedLocally(payer, nonce)) {
-      return { reserved: false, error: 'Nonce already used or pending' }
+    // SECURITY: Try to acquire distributed lock for cross-instance protection
+    const hasDistributedLock = await acquireDistributedLock(key)
+    if (!hasDistributedLock) {
+      return { reserved: false, error: 'Nonce reservation in progress on another server' }
     }
-    if (await isNonceUsedOnChain(client, payer, nonce)) {
-      await markNonceUsed(payer, nonce)
-      return { reserved: false, error: 'Nonce already used on-chain' }
+
+    try {
+      if (await isNonceUsedLocally(payer, nonce)) {
+        return { reserved: false, error: 'Nonce already used or pending' }
+      }
+      if (await isNonceUsedOnChain(client, payer, nonce)) {
+        await markNonceUsed(payer, nonce)
+        return { reserved: false, error: 'Nonce already used on-chain' }
+      }
+      if ((await checkHealth()) && (await cacheGet(key))) {
+        return { reserved: false, error: 'Nonce already reserved' }
+      }
+      await markNoncePending(payer, nonce)
+      return { reserved: true }
+    } finally {
+      await releaseDistributedLock(key)
     }
-    if ((await checkHealth()) && (await cacheGet(key))) {
-      return { reserved: false, error: 'Nonce already reserved' }
-    }
-    await markNoncePending(payer, nonce)
-    return { reserved: true }
   } finally {
     clearTimeout(lockTimeout)
     reservationLocks.delete(key)

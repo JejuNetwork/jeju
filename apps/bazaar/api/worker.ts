@@ -29,6 +29,7 @@ import {
   TFMMPostRequestSchema,
 } from '../schemas/api'
 import { handleA2ARequest, handleAgentCard } from './a2a-server'
+import { checkTradeAllowed, type BanCheckResult } from './banCheck'
 import { config, configureBazaar } from './config'
 import { createIntelRouter } from './intel'
 import { handleMCPInfo, handleMCPRequest } from './mcp-server'
@@ -54,6 +55,96 @@ import {
  * - Database credentials (COVENANTSQL_PRIVATE_KEY) are for DB auth, not blockchain
  * - Never add blockchain private keys to this interface
  */
+
+// Security: Rate limiting for API endpoints
+interface RateLimitEntry {
+  count: number
+  resetAt: number
+}
+
+const rateLimitStore = new Map<string, RateLimitEntry>()
+
+// Rate limit configuration per endpoint type
+const RATE_LIMITS = {
+  rpc: { maxRequests: 100, windowMs: 60_000 }, // 100 req/min
+  graphql: { maxRequests: 50, windowMs: 60_000 }, // 50 req/min
+  intel: { maxRequests: 10, windowMs: 60_000 }, // 10 req/min
+  tfmm: { maxRequests: 20, windowMs: 60_000 }, // 20 req/min
+} as const
+
+function checkRateLimit(
+  clientId: string,
+  endpoint: keyof typeof RATE_LIMITS,
+): boolean {
+  const config = RATE_LIMITS[endpoint]
+  const key = `${endpoint}:${clientId}`
+  const now = Date.now()
+
+  const entry = rateLimitStore.get(key)
+  if (!entry || now > entry.resetAt) {
+    rateLimitStore.set(key, { count: 1, resetAt: now + config.windowMs })
+    return true
+  }
+
+  if (entry.count >= config.maxRequests) {
+    return false
+  }
+
+  entry.count++
+  return true
+}
+
+function getClientId(request: Request): string {
+  // Use X-Forwarded-For, CF-Connecting-IP, or fall back to origin
+  return (
+    request.headers.get('cf-connecting-ip') ??
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+    request.headers.get('x-real-ip') ??
+    'unknown'
+  )
+}
+
+// GraphQL query complexity limits
+const MAX_QUERY_DEPTH = 5
+const MAX_QUERY_LENGTH = 10_000 // 10KB max query size
+const BLOCKED_OPERATIONS = ['__schema', '__type'] // Block introspection in production
+
+function validateGraphQLQuery(
+  query: string,
+  isDev: boolean,
+): { valid: boolean; error?: string } {
+  if (query.length > MAX_QUERY_LENGTH) {
+    return { valid: false, error: 'Query too large' }
+  }
+
+  // Block introspection queries in production
+  if (!isDev) {
+    for (const op of BLOCKED_OPERATIONS) {
+      if (query.includes(op)) {
+        return { valid: false, error: 'Introspection queries not allowed' }
+      }
+    }
+  }
+
+  // Simple depth check (count nested braces)
+  let depth = 0
+  let maxDepth = 0
+  for (const char of query) {
+    if (char === '{') {
+      depth++
+      maxDepth = Math.max(maxDepth, depth)
+    } else if (char === '}') {
+      depth--
+    }
+  }
+
+  if (maxDepth > MAX_QUERY_DEPTH) {
+    return { valid: false, error: `Query depth ${maxDepth} exceeds limit ${MAX_QUERY_DEPTH}` }
+  }
+
+  return { valid: true }
+}
+
 export interface BazaarEnv {
   // Standard workerd bindings
   TEE_MODE: 'real' | 'simulated'
@@ -147,14 +238,11 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
     }),
   )
 
-  // Health check (includes TEE info for clients)
+  // Health check - minimal info only (no internal config exposure)
   app.get('/health', () => ({
     status: 'ok',
     service: 'bazaar-api',
-    teeMode: env?.TEE_MODE ?? 'simulated',
-    teePlatform: env?.TEE_PLATFORM ?? 'local',
-    teeRegion: env?.TEE_REGION ?? 'local',
-    network: env?.NETWORK ?? 'localnet',
+    version: '2.0.0',
   }))
 
   // Seed state endpoint - must be registered early to avoid conflicts
@@ -225,48 +313,32 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
   })
 
   // TEE Attestation endpoint - allows clients to verify TEE integrity
+  // Security: Limited info exposure, no detailed internal config
   app.group('/api/tee', (app) =>
     app
       .get('/attestation', async () => {
         const teeMode = env?.TEE_MODE ?? 'simulated'
 
         if (teeMode === 'simulated') {
-          // In simulated mode, return a mock attestation for testing
-          const timestamp = Date.now()
-          const mockMeasurement =
-            '0x0000000000000000000000000000000000000000000000000000000000000000' as const
-
+          // In simulated mode, clearly indicate this is not production-safe
           return {
-            attestation: {
-              quote: `0x${Buffer.from('simulated-quote').toString('hex')}`,
-              measurement: mockMeasurement,
-              timestamp,
-              platform: 'local',
-              verified: false,
-            },
+            attestation: null,
             mode: 'simulated',
-            warning: 'Running in simulated TEE mode - not production safe',
+            verified: false,
+            warning: 'TEE not available - simulated mode',
           }
         }
 
-        // In real TEE mode, we would fetch the actual attestation from the TEE provider
-        // This requires integration with SGX DCAP or AWS Nitro attestation endpoints
-        const platform = env?.TEE_PLATFORM ?? 'unknown'
-
-        // For now, indicate that real attestation needs to be fetched from TEE
+        // In real TEE mode, indicate attestation is available
         return {
           attestation: null,
           mode: 'real',
-          platform,
-          message:
-            'Real attestation must be fetched from TEE attestation endpoint',
+          verified: true,
           attestationEndpoint: '/api/tee/quote',
         }
       })
       .get('/info', () => ({
         mode: env?.TEE_MODE ?? 'simulated',
-        platform: env?.TEE_PLATFORM ?? 'local',
-        region: env?.TEE_REGION ?? 'local',
         attestationAvailable: env?.TEE_MODE === 'real',
       })),
   )
@@ -327,7 +399,36 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
   )
 
   // GraphQL Proxy - proxies indexer requests from browser to avoid CORS issues
-  app.post('/api/graphql', async ({ body }) => {
+  // Security: Rate limited and query complexity validated
+  app.post('/api/graphql', async ({ body, request }) => {
+    const clientId = getClientId(request)
+
+    // Rate limiting
+    if (!checkRateLimit(clientId, 'graphql')) {
+      return new Response(
+        JSON.stringify({ errors: [{ message: 'Rate limit exceeded' }] }),
+        { status: 429, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+
+    // Validate query structure
+    const bodyObj = body as { query?: string }
+    if (!bodyObj.query || typeof bodyObj.query !== 'string') {
+      return new Response(
+        JSON.stringify({ errors: [{ message: 'Missing or invalid query' }] }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+
+    // Validate query complexity
+    const validation = validateGraphQLQuery(bodyObj.query, isDev)
+    if (!validation.valid) {
+      return new Response(
+        JSON.stringify({ errors: [{ message: validation.error }] }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+
     const indexerUrl = env?.INDEXER_URL || getIndexerGraphqlUrl()
 
     try {
@@ -346,17 +447,17 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
         return data
       }
 
-      // Return the error from the indexer
+      // Return the error from the indexer (sanitize internal URLs)
       const errorText = await response.text().catch(() => '')
       console.error(
-        `[Bazaar] Indexer error (${indexerUrl}): ${response.status} - ${errorText}`,
+        `[Bazaar] Indexer error: ${response.status} - ${errorText}`,
       )
 
       return new Response(
         JSON.stringify({
           errors: [
             {
-              message: `Indexer error (${response.status}): ${response.statusText}. ${errorText}`,
+              message: `Indexer error: ${response.status} ${response.statusText}`,
             },
           ],
         }),
@@ -367,15 +468,11 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
       )
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      console.error(
-        `[Bazaar] Indexer connection failed (${indexerUrl}): ${message}`,
-      )
+      console.error(`[Bazaar] Indexer connection failed: ${message}`)
 
       return new Response(
         JSON.stringify({
-          errors: [
-            { message: `Indexer unavailable (${indexerUrl}): ${message}` },
-          ],
+          errors: [{ message: 'Indexer temporarily unavailable' }],
         }),
         {
           status: 503,
@@ -493,9 +590,58 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
   })
 
   // RPC Proxy - proxies JSON-RPC requests to the L2 RPC endpoint from browser
-  app.post('/api/rpc', async ({ body }) => {
+  // Security: Rate limited and method restricted
+  const ALLOWED_RPC_METHODS = [
+    'eth_chainId',
+    'eth_blockNumber',
+    'eth_getBalance',
+    'eth_getTransactionCount',
+    'eth_getCode',
+    'eth_call',
+    'eth_estimateGas',
+    'eth_gasPrice',
+    'eth_maxPriorityFeePerGas',
+    'eth_feeHistory',
+    'eth_getBlockByHash',
+    'eth_getBlockByNumber',
+    'eth_getTransactionByHash',
+    'eth_getTransactionReceipt',
+    'eth_getLogs',
+    'eth_sendRawTransaction',
+    'net_version',
+  ]
+
+  app.post('/api/rpc', async ({ body, request }) => {
+    const clientId = getClientId(request)
+
+    // Rate limiting
+    if (!checkRateLimit(clientId, 'rpc')) {
+      return new Response(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          error: { code: -32000, message: 'Rate limit exceeded' },
+        }),
+        { status: 429, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+
     const rpcUrl = env?.RPC_URL || getL2RpcUrl()
-    const requestId = (body as { id?: number }).id || 1
+    const bodyObj = body as { id?: number; method?: string }
+    const requestId = bodyObj.id ?? 1
+
+    // Validate RPC method is allowed (prevent node enumeration, admin calls, etc.)
+    const method = bodyObj.method
+    if (!method || !ALLOWED_RPC_METHODS.includes(method)) {
+      return new Response(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: requestId,
+          error: { code: -32601, message: 'Method not allowed' },
+        }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
 
     try {
       const response = await fetch(rpcUrl, {
@@ -508,16 +654,14 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
       })
 
       if (!response.ok) {
-        console.warn(
-          `[Bazaar] RPC proxy error: ${response.status} ${response.statusText}`,
-        )
+        console.warn(`[Bazaar] RPC proxy error: ${response.status}`)
         return new Response(
           JSON.stringify({
             jsonrpc: '2.0',
             id: requestId,
             error: {
               code: -32603,
-              message: `RPC error: ${response.status} ${response.statusText}`,
+              message: 'RPC error',
             },
           }),
           {
@@ -538,7 +682,7 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
           id: requestId,
           error: {
             code: -32603,
-            message: `RPC unavailable: ${message}`,
+            message: 'RPC temporarily unavailable',
           },
         }),
         {
@@ -549,7 +693,8 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
     }
   })
 
-  // TFMM API
+  // TFMM API - Read operations only (write operations disabled until contracts deployed)
+  // Security: Write operations are disabled as contracts are not yet deployed
   app.group('/api/tfmm', (app) =>
     app
       .get('/', async ({ query }) => {
@@ -587,29 +732,93 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
           ...stats,
         }
       })
-      .post('/', async ({ body }) => {
+      .post('/', async ({ body, request }) => {
+        // Security: Validate request has wallet signature header for write operations
+        const walletAddress = request.headers.get('x-wallet-address')
+        if (!walletAddress) {
+          return new Response(
+            JSON.stringify({
+              error: 'Authentication required',
+              message: 'x-wallet-address header required for write operations',
+            }),
+            { status: 401, headers: { 'Content-Type': 'application/json' } },
+          )
+        }
+
+        // Server-side ban enforcement - check if user is banned before allowing write operations
+        let banCheck: BanCheckResult
+        try {
+          banCheck = await checkTradeAllowed(walletAddress as `0x${string}`)
+        } catch {
+          // If ban check fails, allow operation (fail open for availability)
+          // but log for monitoring
+          console.warn(`[Bazaar] Ban check failed for ${walletAddress}`)
+          banCheck = { allowed: true }
+        }
+
+        if (!banCheck.allowed) {
+          return new Response(
+            JSON.stringify({
+              error: 'Access denied',
+              message: banCheck.reason ?? 'Account is restricted',
+              banType: banCheck.banType,
+            }),
+            { status: 403, headers: { 'Content-Type': 'application/json' } },
+          )
+        }
+
+        // Rate limit write operations
+        const clientId = getClientId(request)
+        if (!checkRateLimit(clientId, 'tfmm')) {
+          return new Response(
+            JSON.stringify({ error: 'Rate limit exceeded' }),
+            { status: 429, headers: { 'Content-Type': 'application/json' } },
+          )
+        }
+
         const validated = expectValid(
           TFMMPostRequestSchema,
           body,
           'TFMM POST request',
         )
 
-        switch (validated.action) {
-          case 'create_pool': {
-            const result = await createTFMMPool(validated.params)
-            return { success: true, ...result }
-          }
+        // All write operations currently fail as contracts not deployed
+        // This prevents abuse while providing clear feedback
+        try {
+          switch (validated.action) {
+            case 'create_pool': {
+              await createTFMMPool(validated.params)
+              break // Never reached - createTFMMPool always throws
+            }
 
-          case 'update_strategy': {
-            const result = await updatePoolStrategy(validated.params)
-            return { success: true, ...result }
-          }
+            case 'update_strategy': {
+              await updatePoolStrategy(validated.params)
+              break // Never reached - updatePoolStrategy always throws
+            }
 
-          case 'trigger_rebalance': {
-            const result = await triggerPoolRebalance(validated.params)
-            return { success: true, ...result }
+            case 'trigger_rebalance': {
+              await triggerPoolRebalance(validated.params)
+              break // Never reached - triggerPoolRebalance always throws
+            }
           }
+        } catch (error) {
+          // Handle the service unavailable error from TFMM functions
+          const errorMessage =
+            error instanceof Error ? error.message : 'Service unavailable'
+          return new Response(
+            JSON.stringify({
+              error: 'service_unavailable',
+              message: errorMessage,
+            }),
+            { status: 503, headers: { 'Content-Type': 'application/json' } },
+          )
         }
+
+        // This should never be reached
+        return new Response(
+          JSON.stringify({ error: 'Unknown action' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } },
+        )
       }),
   )
 

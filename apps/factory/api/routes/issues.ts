@@ -171,6 +171,22 @@ export const issuesRoutes = new Elysia({ prefix: '/api/issues' })
         }
       }
 
+      // Check if user has permission to update
+      // Must be issue author OR repo owner (repo format: owner/reponame)
+      const repoOwner = row.repo.split('/')[0]?.toLowerCase()
+      const isAuthor = row.author.toLowerCase() === authResult.address.toLowerCase()
+      const isRepoOwner = repoOwner === authResult.address.toLowerCase()
+
+      if (!isAuthor && !isRepoOwner) {
+        set.status = 403
+        return {
+          error: {
+            code: 'FORBIDDEN',
+            message: 'Only the issue author or repository owner can update',
+          },
+        }
+      }
+
       // Validate and update the issue in the database
       const validated = expectValid(UpdateIssueBodySchema, body, 'request body')
       const updated = updateIssue(params.issueId, validated)

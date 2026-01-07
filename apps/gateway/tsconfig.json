@@ -6,10 +6,18 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./api/*", "./web/*"],
+      "@jejunetwork/cache": ["../../packages/cache/src/index.ts"],
+      "@jejunetwork/config": ["../../packages/config/src/index.ts"],
+      "@jejunetwork/contracts": ["../../packages/contracts/ts/index.ts"],
+      "@jejunetwork/contracts/*": ["../../packages/contracts/ts/*"],
+      "@jejunetwork/db": ["../../packages/db/src/index.ts"],
+      "@jejunetwork/kms": ["../../packages/kms/src/index.ts"],
+      "@jejunetwork/messaging": ["../../packages/messaging/src/index.ts"],
       "@jejunetwork/shared": ["../../packages/shared/src/index.ts"],
       "@jejunetwork/shared/*": ["../../packages/shared/src/*"],
-      "@jejunetwork/contracts": ["../../packages/contracts/ts/index.ts"],
-      "@jejunetwork/contracts/*": ["../../packages/contracts/ts/*"]
+      "@jejunetwork/types": ["../../packages/types/src/index.ts"],
+      "@jejunetwork/ui": ["../../packages/ui/src/index.ts"],
+      "@jejunetwork/ui/*": ["../../packages/ui/src/*"]
     },
     "types": ["bun", "react", "react-dom"]
   },

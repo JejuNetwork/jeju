@@ -11,16 +11,55 @@ import {
 } from '../shared/html-templates'
 
 /**
- * Validate redirect URI against client's registered patterns.
+ * SECURITY: Validate redirect URI against client's registered patterns.
+ * Prevents open redirect attacks by:
+ * 1. Only allowing http/https schemes
+ * 2. Strict pattern matching with proper escaping
+ * 3. Not allowing data:, javascript:, or other dangerous schemes
  */
 function validateRedirectUri(
   redirectUri: string,
   allowedPatterns: string[],
 ): boolean {
+  // Parse the redirect URI to validate its structure
+  let parsed: URL
+  try {
+    parsed = new URL(redirectUri)
+  } catch {
+    return false // Invalid URL format
+  }
+
+  // SECURITY: Only allow http/https schemes
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    return false
+  }
+
+  // SECURITY: Block localhost in production patterns (but allow explicit localhost patterns)
+  // Check if there's an explicit localhost pattern
+  const hasLocalhostPattern = allowedPatterns.some(
+    (p) =>
+      p.includes('localhost') ||
+      p.includes('127.0.0.1') ||
+      p.includes('[::1]'),
+  )
+
+  // If no localhost pattern but URI is localhost, block it
+  if (
+    !hasLocalhostPattern &&
+    (parsed.hostname === 'localhost' ||
+      parsed.hostname === '127.0.0.1' ||
+      parsed.hostname === '[::1]')
+  ) {
+    return false
+  }
+
   for (const pattern of allowedPatterns) {
+    // Parse the pattern to extract scheme and host requirements
     const regexPattern = pattern
+      // Escape all regex special characters except *
       .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-      .replace(/\*/g, '.*')
+      // Replace * with a non-greedy match that doesn't cross boundaries
+      .replace(/\*/g, '[^/]*')
     const regex = new RegExp(`^${regexPattern}$`)
     if (regex.test(redirectUri)) {
       return true
@@ -47,12 +86,41 @@ const challenges = new Map<
   WalletAuthChallenge & { clientId: string; redirectUri: string; state: string }
 >()
 
-// Clean up expired challenges periodically
+// SECURITY: Rate limiting to prevent DoS attacks
+// Tracks challenge creation per IP/client
+const rateLimitBuckets = new Map<string, { count: number; resetAt: number }>()
+const RATE_LIMIT_MAX = 10 // Max challenges per window
+const RATE_LIMIT_WINDOW = 60 * 1000 // 1 minute window
+const MAX_CHALLENGES = 10000 // Max total challenges to prevent memory exhaustion
+
+function checkRateLimit(key: string): boolean {
+  const now = Date.now()
+  const bucket = rateLimitBuckets.get(key)
+
+  if (!bucket || bucket.resetAt < now) {
+    rateLimitBuckets.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW })
+    return true
+  }
+
+  if (bucket.count >= RATE_LIMIT_MAX) {
+    return false
+  }
+
+  bucket.count++
+  return true
+}
+
+// Clean up expired challenges and rate limit buckets periodically
 setInterval(() => {
   const now = Date.now()
   for (const [key, challenge] of challenges) {
     if (challenge.expiresAt < now) {
       challenges.delete(key)
+    }
+  }
+  for (const [key, bucket] of rateLimitBuckets) {
+    if (bucket.resetAt < now) {
+      rateLimitBuckets.delete(key)
     }
   }
 }, 60 * 1000) // Every minute
@@ -265,8 +333,27 @@ export function createWalletRouter(_config: AuthConfig) {
   return new Elysia({ name: 'wallet', prefix: '/wallet' })
     .get(
       '/challenge',
-      async ({ query, set }) => {
+      async ({ query, set, request }) => {
         const { client_id: clientId, redirect_uri: redirectUri, state } = query
+
+        // SECURITY: Rate limiting per client to prevent DoS
+        const rateLimitKey = `wallet:${clientId}`
+        if (!checkRateLimit(rateLimitKey)) {
+          set.status = 429
+          return {
+            error: 'rate_limited',
+            error_description: 'Too many challenge requests. Try again later.',
+          }
+        }
+
+        // SECURITY: Prevent memory exhaustion
+        if (challenges.size >= MAX_CHALLENGES) {
+          set.status = 503
+          return {
+            error: 'service_unavailable',
+            error_description: 'Service temporarily unavailable. Try again later.',
+          }
+        }
 
         // Validate client exists and redirect URI is allowed
         const client = await clientState.get(clientId)
@@ -314,11 +401,10 @@ No transaction will be sent. No gas fees.`
         }
 
         challenges.set(challengeId, challenge)
-        console.log('[OAuth3/Wallet] Challenge created:', {
-          challengeId,
+        // SECURITY: Only log non-sensitive metadata
+        console.log('[OAuth3/Wallet] Challenge created', {
           clientId,
-          redirectUri: redirectUri.substring(0, 50),
-          mapSize: challenges.size,
+          challengeCount: challenges.size,
         })
 
         const html = generateWalletConnectPage(challengeId, message)
@@ -375,12 +461,8 @@ No transaction will be sent. No gas fees.`
         const code = crypto.randomUUID()
         const userId = `wallet:${address.toLowerCase()}`
 
-        console.log('[OAuth3] Wallet verified, creating auth code:', {
-          code: `${code.substring(0, 8)}...`,
-          userId,
-          clientId: challenge.clientId,
-          redirectUri: challenge.redirectUri,
-        })
+        // SECURITY: Only log non-sensitive metadata
+        console.log('[OAuth3] Wallet verified, creating auth code')
 
         await authCodeState.save(code, {
           clientId: challenge.clientId,
@@ -389,8 +471,6 @@ No transaction will be sent. No gas fees.`
           scope: ['openid', 'profile'],
           expiresAt: Date.now() + 5 * 60 * 1000,
         })
-
-        console.log('[OAuth3] Auth code saved successfully')
 
         // Create session with ephemeral key
         const sessionId = crypto.randomUUID()
@@ -426,11 +506,7 @@ No transaction will be sent. No gas fees.`
     )
 
     .get('/status/:challengeId', async ({ params, set }) => {
-      console.log('[OAuth3/Wallet] Status check:', {
-        challengeId: params.challengeId,
-        mapSize: challenges.size,
-        keys: Array.from(challenges.keys()).slice(0, 3),
-      })
+      // SECURITY: Don't log challenge IDs or enumerate challenges
       const challenge = challenges.get(params.challengeId)
       if (!challenge) {
         set.status = 404
@@ -438,7 +514,6 @@ No transaction will be sent. No gas fees.`
       }
 
       return {
-        challengeId: challenge.challengeId,
         expiresAt: challenge.expiresAt,
         expired: challenge.expiresAt < Date.now(),
       }

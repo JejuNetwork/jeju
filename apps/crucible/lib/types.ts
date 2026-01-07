@@ -348,7 +348,7 @@ export interface SearchResult<T> {
 
 export interface CrucibleConfig {
   rpcUrl: string
-  privateKey?: `0x${string}`
+  // NOTE: privateKey removed for security - use KMS signer instead
   kmsKeyId?: string
   contracts: {
     agentVault: Address

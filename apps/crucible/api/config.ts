@@ -16,6 +16,8 @@ import {
  * - API_KEY
  * - CRON_SECRET
  * - AI provider keys (OPENAI_API_KEY, ANTHROPIC_API_KEY, etc.)
+ *
+ * NOTE: privateKey removed for security - use KMS signer via @jejunetwork/kms instead
  */
 export interface CrucibleConfig {
   // Network

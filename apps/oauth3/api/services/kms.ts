@@ -1,124 +1,67 @@
+/**
+ * OAuth3 KMS Service - Secure key management for authentication
+ *
+ * SECURITY: NO FALLBACK MODE. This service requires a running KMS service.
+ * In development, run `jeju dev` which starts KMS in simulated TEE mode.
+ *
+ * All signing and encryption operations go through the proper KMS infrastructure:
+ * - FROST MPC threshold signing (production)
+ * - TEE hardware isolation (production)
+ * - Simulated TEE (development only, via jeju dev)
+ */
+
+import { isProductionEnv } from '@jejunetwork/config'
+import {
+  aesGcmDecrypt,
+  aesGcmEncrypt,
+  deriveKeyFromSecretAsync,
+  getKMS,
+  type KMSService,
+} from '@jejunetwork/kms'
 import type { Address, Hex } from 'viem'
-import { keccak256, toBytes, toHex } from 'viem'
-
-interface KMS {
-  initialize(): Promise<void>
-  encrypt(request: EncryptRequest): Promise<EncryptedPayload>
-  decrypt(request: DecryptRequest): Promise<string>
-}
-
-interface TokenClaims {
-  sub: string
-  iss: string
-  aud: string
-  exp?: number
-  scopes?: string[]
-}
-
-interface SignedToken {
-  token: string
-  header: string
-  payload: string
-  signature: Hex
-}
-
-interface TokenVerifyResult {
-  valid: boolean
-  claims?: TokenClaims
-}
-
-interface EncryptRequest {
-  data: string
-  policy: AccessControlPolicy
-}
-
-interface DecryptRequest {
-  payload: EncryptedPayload
-}
-
-interface EncryptedPayload {
-  ciphertext: string
-  keyId: string
-  encryptedAt: number
-  dataHash: Hex
-  accessControlHash: Hex
-  policy: AccessControlPolicy
-  providerType: string
-}
-
-interface AccessControlPolicy {
-  conditions: Array<{
-    type: string
-    chain: string
-    comparator: string
-    value: number
-  }>
-  operator: 'and' | 'or'
-}
-
-interface KMSModule {
-  getKMS: () => KMS
-  issueToken: (
-    claims: Omit<TokenClaims, 'iat' | 'jti'>,
-    options?: { keyId?: string; expiresInSeconds?: number },
-  ) => Promise<SignedToken>
-  verifyToken: (
-    token: string,
-    options?: { issuer?: string; expectedSigner?: Address },
-  ) => Promise<TokenVerifyResult>
-  aesGcmEncrypt: (
-    data: Uint8Array,
-    key: Uint8Array,
-    iv: Uint8Array,
-  ) => Promise<{ ciphertext: ArrayBuffer; tag: Uint8Array }>
-  aesGcmDecrypt: (
-    ciphertext: Uint8Array,
-    key: Uint8Array,
-    iv: Uint8Array,
-    tag: Uint8Array,
-  ) => Promise<Uint8Array>
-  deriveKeyFromSecret: (secret: string, context: string) => Promise<Uint8Array>
-}
-
-function getKmsModule(): KMSModule | null {
-  return null
-}
+import { toHex } from 'viem'
 
 interface OAuth3KMSConfig {
   jwtSigningKeyId: string
   jwtSignerAddress: Address
   serviceAgentId: string
   chainId: string
-  devMode?: boolean
 }
 
-let kmsInstance: KMS | null = null
+let kmsInstance: KMSService | null = null
 let kmsConfig: OAuth3KMSConfig | null = null
 
+/**
+ * Initialize KMS for OAuth3 service.
+ * REQUIRES KMS to be running - no fallback mode.
+ */
 export async function initializeKMS(config: OAuth3KMSConfig): Promise<void> {
   kmsConfig = config
 
-  if (config.devMode) {
-    console.log('[KMS] Dev mode')
-    return
-  }
+  // Get KMS instance - will throw if not available
+  kmsInstance = getKMS()
+  await kmsInstance.initialize()
 
-  const kms = getKmsModule()
-  if (kms) {
-    kmsInstance = kms.getKMS()
-    await kmsInstance.initialize()
-    console.log('[KMS] Initialized')
-  } else {
-    kmsConfig.devMode = true
-  }
+  console.log('[OAuth3/KMS] Initialized with service:', config.serviceAgentId)
 }
 
-function getKMSInstance(): KMS {
+function getKMSInstance(): KMSService {
   if (!kmsInstance) {
-    throw new Error('KMS not initialized')
+    throw new Error(
+      'KMS not initialized. Ensure KMS service is running (use `jeju dev`).',
+    )
   }
   return kmsInstance
 }
+
+function getConfig(): OAuth3KMSConfig {
+  if (!kmsConfig) {
+    throw new Error('KMS not configured')
+  }
+  return kmsConfig
+}
+
+// ============ JWT Token Operations ============
 
 export interface JWTPayload {
   sub: string
@@ -129,6 +72,9 @@ export interface JWTPayload {
   aud?: string
 }
 
+/**
+ * Generate a secure JWT token signed by KMS.
+ */
 export async function generateSecureToken(
   userId: string,
   options?: {
@@ -138,56 +84,36 @@ export async function generateSecureToken(
     scopes?: string[]
   },
 ): Promise<string> {
-  if (!kmsConfig) {
-    throw new Error('KMS not configured')
-  }
+  const kms = getKMSInstance()
+  const config = getConfig()
 
-  // In dev mode, use local JWT (NOT SECURE)
-  if (kmsConfig.devMode) {
-    return generateDevToken(userId, options)
-  }
-
-  const kms = getKmsModule()
-  if (!kms) {
-    return generateDevToken(userId, options)
-  }
-
-  const claims: Omit<TokenClaims, 'iat' | 'jti'> = {
-    sub: userId,
-    iss: options?.issuer ?? 'jeju:oauth3',
-    aud: options?.audience ?? 'gateway',
-    scopes: options?.scopes,
-  }
-
-  if (options?.expiresInSeconds) {
-    claims.exp = Math.floor(Date.now() / 1000) + options.expiresInSeconds
-  }
-
-  const signedToken = await kms.issueToken(claims, {
-    keyId: kmsConfig.jwtSigningKeyId,
-    expiresInSeconds: options?.expiresInSeconds ?? 3600,
-  })
+  const signedToken = await kms.issueToken(
+    {
+      sub: userId,
+      iss: options?.issuer ?? 'jeju:oauth3',
+      aud: options?.audience ?? 'gateway',
+      scopes: options?.scopes,
+    },
+    {
+      keyId: config.jwtSigningKeyId,
+      expiresInSeconds: options?.expiresInSeconds ?? 3600,
+    },
+  )
 
   return signedToken.token
 }
 
+/**
+ * Verify a JWT token signed by KMS.
+ * Returns the user ID (sub claim) if valid, null otherwise.
+ */
 export async function verifySecureToken(token: string): Promise<string | null> {
-  if (!kmsConfig) {
-    throw new Error('KMS not configured')
-  }
-
-  if (kmsConfig.devMode) {
-    return verifyDevToken(token)
-  }
-
-  const kms = getKmsModule()
-  if (!kms) {
-    return verifyDevToken(token)
-  }
+  const kms = getKMSInstance()
+  const config = getConfig()
 
   const result = await kms.verifyToken(token, {
     issuer: 'jeju:oauth3',
-    expectedSigner: kmsConfig.jwtSignerAddress,
+    expectedSigner: config.jwtSignerAddress,
   })
 
   if (!result.valid || !result.claims?.sub) {
@@ -197,6 +123,8 @@ export async function verifySecureToken(token: string): Promise<string | null> {
   return result.claims.sub
 }
 
+// ============ Secret Sealing ============
+
 interface SealedSecret {
   ciphertext: string
   iv: string
@@ -204,37 +132,22 @@ interface SealedSecret {
   sealedAt: number
 }
 
+/**
+ * Seal a secret using KMS-derived key.
+ * Secrets are bound to the service agent ID for access control.
+ */
 export async function sealSecret(
   secret: string,
   attestationBinding?: string,
 ): Promise<SealedSecret> {
-  if (!kmsConfig) {
-    throw new Error('KMS not configured')
-  }
+  const config = getConfig()
+  const binding = attestationBinding ?? config.serviceAgentId
 
-  const binding = attestationBinding ?? kmsConfig.serviceAgentId
-
-  const kms = getKmsModule()
-  if (kms) {
-    const key = await kms.deriveKeyFromSecret(binding, 'oauth3-seal')
-    const iv = crypto.getRandomValues(new Uint8Array(12))
-    const encrypted = await kms.aesGcmEncrypt(
-      new TextEncoder().encode(secret),
-      key,
-      iv,
-    )
-
-    return {
-      ciphertext: toHex(new Uint8Array(encrypted.ciphertext)),
-      iv: toHex(iv),
-      tag: toHex(encrypted.tag),
-      sealedAt: Date.now(),
-    }
-  }
-
-  const key = await deriveKeyFallback(binding)
+  // Derive encryption key from binding
+  const key = await deriveKeyFromSecretAsync(binding, 'oauth3-seal')
   const iv = crypto.getRandomValues(new Uint8Array(12))
-  const encrypted = await encryptAesGcmFallback(
+
+  const encrypted = await aesGcmEncrypt(
     new TextEncoder().encode(secret),
     key,
     iv,
@@ -248,30 +161,27 @@ export async function sealSecret(
   }
 }
 
+/**
+ * Unseal a secret using KMS-derived key.
+ */
 export async function unsealSecret(
   sealed: SealedSecret,
   attestationBinding?: string,
 ): Promise<string> {
-  if (!kmsConfig) {
-    throw new Error('KMS not configured')
-  }
+  const config = getConfig()
+  const binding = attestationBinding ?? config.serviceAgentId
 
-  const binding = attestationBinding ?? kmsConfig.serviceAgentId
   const iv = hexToBytes(sealed.iv)
   const ciphertext = hexToBytes(sealed.ciphertext)
   const tag = hexToBytes(sealed.tag)
 
-  const kms = getKmsModule()
-  if (kms) {
-    const key = await kms.deriveKeyFromSecret(binding, 'oauth3-seal')
-    const decrypted = await kms.aesGcmDecrypt(ciphertext, key, iv, tag)
-    return new TextDecoder().decode(decrypted)
-  }
+  const key = await deriveKeyFromSecretAsync(binding, 'oauth3-seal')
+  const decrypted = await aesGcmDecrypt(ciphertext, key, iv, tag)
 
-  const key = await deriveKeyFallback(binding)
-  const decrypted = await decryptAesGcmFallback(ciphertext, key, iv, tag)
   return new TextDecoder().decode(decrypted)
 }
+
+// ============ Client Secret Hashing ============
 
 export interface HashedClientSecret {
   hash: string
@@ -280,6 +190,10 @@ export interface HashedClientSecret {
   version: number
 }
 
+/**
+ * Hash a client secret using PBKDF2.
+ * The plaintext secret is returned only once at registration.
+ */
 export async function hashClientSecret(
   secret: string,
 ): Promise<HashedClientSecret> {
@@ -312,6 +226,9 @@ export async function hashClientSecret(
   }
 }
 
+/**
+ * Verify a client secret against stored hash using constant-time comparison.
+ */
 export async function verifyClientSecretHash(
   secret: string,
   hashed: HashedClientSecret,
@@ -339,6 +256,7 @@ export async function verifyClientSecretHash(
 
   const computedHash = toHex(new Uint8Array(hashBuffer))
 
+  // Constant-time comparison to prevent timing attacks
   if (computedHash.length !== hashed.hash.length) {
     return false
   }
@@ -351,6 +269,55 @@ export async function verifyClientSecretHash(
   return result === 0
 }
 
+// ============ PKCE Code Verifier Encryption ============
+
+/**
+ * Encrypt a PKCE code verifier before storing in database.
+ * Uses a short-lived encryption key derived from the state parameter.
+ */
+export async function encryptCodeVerifier(
+  codeVerifier: string,
+  state: string,
+): Promise<string> {
+  const key = await deriveKeyFromSecretAsync(state, 'oauth3-pkce')
+  const iv = crypto.getRandomValues(new Uint8Array(12))
+
+  const encrypted = await aesGcmEncrypt(
+    new TextEncoder().encode(codeVerifier),
+    key,
+    iv,
+  )
+
+  // Combine iv + ciphertext + tag for storage
+  const combined = new Uint8Array(12 + encrypted.ciphertext.byteLength + 16)
+  combined.set(iv)
+  combined.set(new Uint8Array(encrypted.ciphertext), 12)
+  combined.set(encrypted.tag, 12 + encrypted.ciphertext.byteLength)
+
+  return toHex(combined)
+}
+
+/**
+ * Decrypt a PKCE code verifier using the state parameter.
+ */
+export async function decryptCodeVerifier(
+  encryptedVerifier: string,
+  state: string,
+): Promise<string> {
+  const combined = hexToBytes(encryptedVerifier)
+
+  const iv = combined.slice(0, 12)
+  const tag = combined.slice(-16)
+  const ciphertext = combined.slice(12, -16)
+
+  const key = await deriveKeyFromSecretAsync(state, 'oauth3-pkce')
+  const decrypted = await aesGcmDecrypt(ciphertext, key, iv, tag)
+
+  return new TextDecoder().decode(decrypted)
+}
+
+// ============ Session Data Encryption ============
+
 export interface EncryptedSessionData {
   ciphertext: string
   iv: string
@@ -358,36 +325,30 @@ export interface EncryptedSessionData {
   encryptedAt: number
 }
 
+/**
+ * Encrypt session PII data using KMS.
+ */
 export async function encryptSessionData(
   data: Record<string, string | number | undefined>,
 ): Promise<EncryptedSessionData> {
-  if (!kmsConfig) {
-    throw new Error('KMS not configured')
-  }
+  const kms = getKMSInstance()
+  const config = getConfig()
 
   const plaintext = JSON.stringify(data)
 
-  if (kmsConfig.devMode) {
-    return encryptWithDevKey(plaintext)
-  }
-
-  const kms = getKMSInstance()
-
-  const policy: AccessControlPolicy = {
-    conditions: [
-      {
-        type: 'timestamp',
-        chain: kmsConfig.chainId,
-        comparator: '>=',
-        value: 0,
-      },
-    ],
-    operator: 'and',
-  }
-
   const encrypted = await kms.encrypt({
     data: plaintext,
-    policy,
+    policy: {
+      conditions: [
+        {
+          type: 'timestamp',
+          chain: config.chainId,
+          comparator: '>=',
+          value: 0,
+        },
+      ],
+      operator: 'and',
+    },
   })
 
   return {
@@ -398,42 +359,41 @@ export async function encryptSessionData(
   }
 }
 
+/**
+ * Decrypt session PII data using KMS.
+ */
 export async function decryptSessionData(
   encrypted: EncryptedSessionData,
 ): Promise<Record<string, string | number | undefined>> {
-  if (!kmsConfig) {
-    throw new Error('KMS not configured')
-  }
-
-  if (kmsConfig.devMode) {
-    return decryptWithDevKey(encrypted)
-  }
-
   const kms = getKMSInstance()
+  const config = getConfig()
 
-  const payload: EncryptedPayload = {
-    ciphertext: encrypted.ciphertext,
-    dataHash: '0x' as Hex,
-    accessControlHash: '0x' as Hex,
-    policy: {
-      conditions: [
-        {
-          type: 'timestamp',
-          chain: kmsConfig.chainId,
-          comparator: '>=',
-          value: 0,
-        },
-      ],
-      operator: 'and',
+  const decrypted = await kms.decrypt({
+    payload: {
+      ciphertext: encrypted.ciphertext,
+      dataHash: '0x' as Hex,
+      accessControlHash: '0x' as Hex,
+      policy: {
+        conditions: [
+          {
+            type: 'timestamp',
+            chain: config.chainId,
+            comparator: '>=',
+            value: 0,
+          },
+        ],
+        operator: 'and',
+      },
+      providerType: 'encryption',
+      encryptedAt: encrypted.encryptedAt,
+      keyId: encrypted.keyId,
     },
-    providerType: 'encryption',
-    encryptedAt: encrypted.encryptedAt,
-    keyId: encrypted.keyId,
-  }
+  })
 
-  const decrypted = await kms.decrypt({ payload })
   return JSON.parse(decrypted) as Record<string, string | number | undefined>
 }
+
+// ============ Ephemeral Keys ============
 
 export interface EphemeralKey {
   keyId: string
@@ -447,9 +407,11 @@ const ephemeralKeys = new Map<string, EphemeralKey>()
 const KEY_ROTATION_INTERVAL = 15 * 60 * 1000
 const KEY_EXPIRY = 60 * 60 * 1000
 
-export async function getEphemeralKey(
-  sessionId: string,
-): Promise<EphemeralKey> {
+/**
+ * Get or create an ephemeral key for a session.
+ * Keys are rotated every 15 minutes and expire after 1 hour.
+ */
+export async function getEphemeralKey(sessionId: string): Promise<EphemeralKey> {
   const existing = ephemeralKeys.get(sessionId)
   const now = Date.now()
 
@@ -474,6 +436,9 @@ export async function getEphemeralKey(
   return newKey
 }
 
+/**
+ * Invalidate an ephemeral key (e.g., on logout).
+ */
 export function invalidateEphemeralKey(sessionId: string): void {
   ephemeralKeys.delete(sessionId)
 }
@@ -487,106 +452,7 @@ function cleanupExpiredKeys(): void {
   }
 }
 
-const DEV_SECRET = 'dev-mode-not-for-production-use'
-
-function generateDevToken(
-  userId: string,
-  options?: { expiresInSeconds?: number },
-): string {
-  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT', dev: true }))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '')
-
-  const payload = btoa(
-    JSON.stringify({
-      sub: userId,
-      iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + (options?.expiresInSeconds ?? 3600),
-      jti: crypto.randomUUID(),
-      dev: true,
-    }),
-  )
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '')
-
-  const sig = keccak256(toBytes(`${header}.${payload}.${DEV_SECRET}`))
-    .slice(2, 66)
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-
-  return `${header}.${payload}.${sig}`
-}
-
-function verifyDevToken(token: string): string | null {
-  const parts = token.split('.')
-  if (parts.length !== 3) return null
-
-  try {
-    const payload = JSON.parse(
-      atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')),
-    ) as { sub: string; exp: number; dev?: boolean }
-
-    if (!payload.dev) return null
-    if (payload.exp < Math.floor(Date.now() / 1000)) return null
-
-    const expectedSig = keccak256(
-      toBytes(`${parts[0]}.${parts[1]}.${DEV_SECRET}`),
-    )
-      .slice(2, 66)
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-
-    if (parts[2] !== expectedSig) return null
-
-    return payload.sub
-  } catch {
-    return null
-  }
-}
-
-async function encryptWithDevKey(
-  plaintext: string,
-): Promise<EncryptedSessionData> {
-  const key = await deriveKeyFallback(DEV_SECRET)
-  const iv = crypto.getRandomValues(new Uint8Array(12))
-  const encrypted = await encryptAesGcmFallback(
-    new TextEncoder().encode(plaintext),
-    key,
-    iv,
-  )
-
-  const combined = new Uint8Array(
-    new Uint8Array(encrypted.ciphertext).length + encrypted.tag.length,
-  )
-  combined.set(new Uint8Array(encrypted.ciphertext))
-  combined.set(encrypted.tag, new Uint8Array(encrypted.ciphertext).length)
-
-  return {
-    ciphertext: toHex(combined),
-    iv: toHex(iv),
-    keyId: 'dev-key',
-    encryptedAt: Date.now(),
-  }
-}
-
-async function decryptWithDevKey(
-  encrypted: EncryptedSessionData,
-): Promise<Record<string, string | number | undefined>> {
-  const key = await deriveKeyFallback(DEV_SECRET)
-  const iv = hexToBytes(encrypted.iv)
-  const combined = hexToBytes(encrypted.ciphertext)
-
-  const tag = combined.slice(-16)
-  const ciphertext = combined.slice(0, -16)
-
-  const decrypted = await decryptAesGcmFallback(ciphertext, key, iv, tag)
-  return JSON.parse(new TextDecoder().decode(decrypted)) as Record<
-    string,
-    string | number | undefined
-  >
-}
+// ============ Utilities ============
 
 function hexToBytes(hex: string): Uint8Array {
   const cleanHex = hex.startsWith('0x') ? hex.slice(2) : hex
@@ -595,94 +461,6 @@ function hexToBytes(hex: string): Uint8Array {
     bytes[i] = parseInt(cleanHex.slice(i * 2, i * 2 + 2), 16)
   }
   return bytes
-}
-
-async function deriveKeyFallback(secret: string): Promise<Uint8Array> {
-  const encoder = new TextEncoder()
-  const secretBytes = encoder.encode(secret)
-  const saltBytes = encoder.encode('oauth3-fallback-salt')
-
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw',
-    secretBytes,
-    'PBKDF2',
-    false,
-    ['deriveBits'],
-  )
-
-  const keyBuffer = await crypto.subtle.deriveBits(
-    {
-      name: 'PBKDF2',
-      salt: saltBytes,
-      iterations: 10000,
-      hash: 'SHA-256',
-    },
-    keyMaterial,
-    256,
-  )
-
-  return new Uint8Array(keyBuffer)
-}
-
-async function encryptAesGcmFallback(
-  data: Uint8Array,
-  key: Uint8Array,
-  iv: Uint8Array,
-): Promise<{ ciphertext: ArrayBuffer; tag: Uint8Array }> {
-  const cryptoKey = await crypto.subtle.importKey(
-    'raw',
-    key.buffer as ArrayBuffer,
-    { name: 'AES-GCM' },
-    false,
-    ['encrypt'],
-  )
-
-  const encrypted = await crypto.subtle.encrypt(
-    {
-      name: 'AES-GCM',
-      iv: iv.buffer as ArrayBuffer,
-      tagLength: 128,
-    },
-    cryptoKey,
-    data.buffer as ArrayBuffer,
-  )
-
-  const encryptedArray = new Uint8Array(encrypted)
-  const ciphertext = encryptedArray.slice(0, -16)
-  const tag = encryptedArray.slice(-16)
-
-  return { ciphertext: ciphertext.buffer as ArrayBuffer, tag }
-}
-
-async function decryptAesGcmFallback(
-  ciphertext: Uint8Array,
-  key: Uint8Array,
-  iv: Uint8Array,
-  tag: Uint8Array,
-): Promise<Uint8Array> {
-  const cryptoKey = await crypto.subtle.importKey(
-    'raw',
-    key.buffer as ArrayBuffer,
-    { name: 'AES-GCM' },
-    false,
-    ['decrypt'],
-  )
-
-  const combined = new Uint8Array(ciphertext.length + tag.length)
-  combined.set(ciphertext)
-  combined.set(tag, ciphertext.length)
-
-  const decrypted = await crypto.subtle.decrypt(
-    {
-      name: 'AES-GCM',
-      iv: iv.buffer as ArrayBuffer,
-      tagLength: 128,
-    },
-    cryptoKey,
-    combined.buffer as ArrayBuffer,
-  )
-
-  return new Uint8Array(decrypted)
 }
 
 export type { OAuth3KMSConfig }

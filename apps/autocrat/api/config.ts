@@ -45,6 +45,7 @@ export interface AutocratConfig {
   privateKey?: string // Private key for signing (localnet only)
   cloudApiKey?: string // Cloud API key for external services
   autocratApiKey?: string // Internal API key for autocrat service
+  dwsProxySecret?: string // Secret for DWS proxy authentication
 
   // Environment
   isProduction: boolean
@@ -83,6 +84,7 @@ const { config, configure: setAutocratConfig } =
     privateKey: getEnvVar('PRIVATE_KEY'),
     cloudApiKey: getEnvVar('CLOUD_API_KEY'),
     autocratApiKey: getEnvVar('AUTOCRAT_API_KEY'),
+    dwsProxySecret: getEnvVar('DWS_PROXY_SECRET'),
     isProduction: isProductionEnv(),
     nodeEnv: getEnvVar('NODE_ENV') ?? 'development',
   })

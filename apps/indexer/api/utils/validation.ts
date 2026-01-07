@@ -15,7 +15,7 @@ import { z } from 'zod'
 
 export const paginationSchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
-  offset: z.coerce.number().int().min(0).default(0),
+  offset: z.coerce.number().int().min(0).max(10000).default(0),
 })
 
 export const blockNumberSchema = z.number().int().positive()
@@ -44,20 +44,34 @@ export const serviceCategorySchema = z.enum([
   'all',
 ])
 
+// Maximum lengths for string inputs to prevent DoS attacks
+const MAX_SEARCH_QUERY_LENGTH = 200
+const MAX_TAG_LENGTH = 50
+const MAX_TAGS_COUNT = 20
+
 // REST API search params (query string format)
 export const restSearchParamsSchema = z.object({
-  q: z.string().optional(),
+  q: z.string().max(MAX_SEARCH_QUERY_LENGTH).optional(),
   type: endpointTypeSchema.optional(),
   tags: z
     .string()
+    .max(MAX_TAG_LENGTH * MAX_TAGS_COUNT) // Allow for comma-separated list
     .optional()
-    .transform((val) => (val ? val.split(',').filter(Boolean) : undefined)),
+    .transform((val) =>
+      val
+        ? val
+            .split(',')
+            .filter(Boolean)
+            .slice(0, MAX_TAGS_COUNT)
+            .map((t) => t.slice(0, MAX_TAG_LENGTH))
+        : undefined,
+    ),
   category: serviceCategorySchema.optional(),
-  minTier: z.coerce.number().int().min(0).optional(),
+  minTier: z.coerce.number().int().min(0).max(10).optional(),
   verified: z.coerce.boolean().optional(),
   active: z.coerce.boolean().optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
-  offset: z.coerce.number().int().min(0).optional(),
+  offset: z.coerce.number().int().min(0).max(10000).optional(),
 })
 
 // Internal search params (normalized format)
@@ -231,23 +245,28 @@ export const oracleDisputesQuerySchema = paginationSchema.extend({
 })
 
 // A2A message part data can contain JSON-serializable values from external protocols
+const MAX_MESSAGE_ID_LENGTH = 100
+const MAX_MESSAGE_PARTS = 10
+const MAX_PART_TEXT_LENGTH = 10000
 
 export const a2aRequestSchema = z.object({
   jsonrpc: z.literal('2.0'),
   method: z.literal('message/send'),
   params: z.object({
     message: z.object({
-      messageId: z.string().min(1),
-      parts: z.array(
-        z.object({
-          kind: z.string(),
-          text: z.string().optional(),
-          data: z.record(z.string(), JsonValueSchema).optional(),
-        }),
-      ),
+      messageId: z.string().min(1).max(MAX_MESSAGE_ID_LENGTH),
+      parts: z
+        .array(
+          z.object({
+            kind: z.string().max(50),
+            text: z.string().max(MAX_PART_TEXT_LENGTH).optional(),
+            data: z.record(z.string(), JsonValueSchema).optional(),
+          }),
+        )
+        .max(MAX_MESSAGE_PARTS),
     }),
   }),
-  id: z.union([z.number(), z.string()]),
+  id: z.union([z.number(), z.string().max(100)]),
 })
 
 export type A2ARequest = z.infer<typeof a2aRequestSchema>
@@ -325,8 +344,10 @@ export const getProposalsSkillSchema = z.object({
 })
 
 // MCP tool-specific argument schemas
+const MAX_GRAPHQL_QUERY_LENGTH = 10000
+
 export const queryGraphqlArgsSchema = z.object({
-  query: z.string().min(1),
+  query: z.string().min(1).max(MAX_GRAPHQL_QUERY_LENGTH),
   variables: z.record(z.string(), JsonValueSchema).optional(),
 })
 

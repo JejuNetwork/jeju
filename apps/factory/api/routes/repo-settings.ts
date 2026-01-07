@@ -144,6 +144,20 @@ export const repoSettingsRoutes = new Elysia({
         params,
         'params',
       )
+
+      // Verify the authenticated user is the repo owner
+      if (
+        validatedParams.owner.toLowerCase() !== authResult.address.toLowerCase()
+      ) {
+        set.status = 403
+        return {
+          error: {
+            code: 'FORBIDDEN',
+            message: 'Only the repository owner can modify settings',
+          },
+        }
+      }
+
       const validatedBody = expectValid(
         UpdateRepoSettingsBodySchema,
         body,
@@ -188,6 +202,20 @@ export const repoSettingsRoutes = new Elysia({
         params,
         'params',
       )
+
+      // Verify the authenticated user is the repo owner
+      if (
+        validatedParams.owner.toLowerCase() !== authResult.address.toLowerCase()
+      ) {
+        set.status = 403
+        return {
+          error: {
+            code: 'FORBIDDEN',
+            message: 'Only the repository owner can manage collaborators',
+          },
+        }
+      }
+
       const validated = expectValid(
         AddCollaboratorBodySchema,
         body,
@@ -237,6 +265,19 @@ export const repoSettingsRoutes = new Elysia({
         'params',
       )
 
+      // Verify the authenticated user is the repo owner
+      if (
+        validatedParams.owner.toLowerCase() !== authResult.address.toLowerCase()
+      ) {
+        set.status = 403
+        return {
+          error: {
+            code: 'FORBIDDEN',
+            message: 'Only the repository owner can manage collaborators',
+          },
+        }
+      }
+
       const success = removeRepoCollaborator(
         validatedParams.owner,
         validatedParams.repo,
@@ -273,6 +314,20 @@ export const repoSettingsRoutes = new Elysia({
         params,
         'params',
       )
+
+      // Verify the authenticated user is the repo owner
+      if (
+        validatedParams.owner.toLowerCase() !== authResult.address.toLowerCase()
+      ) {
+        set.status = 403
+        return {
+          error: {
+            code: 'FORBIDDEN',
+            message: 'Only the repository owner can manage webhooks',
+          },
+        }
+      }
+
       const validated = expectValid(AddWebhookBodySchema, body, 'request body')
 
       const row = addRepoWebhook(validatedParams.owner, validatedParams.repo, {
@@ -306,6 +361,18 @@ export const repoSettingsRoutes = new Elysia({
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
 
+      // Verify the authenticated user is the repo owner
+      // The webhook is under /api/git/:owner/:repo/settings/webhooks/:webhookId
+      if (params.owner.toLowerCase() !== authResult.address.toLowerCase()) {
+        set.status = 403
+        return {
+          error: {
+            code: 'FORBIDDEN',
+            message: 'Only the repository owner can delete webhooks',
+          },
+        }
+      }
+
       const success = removeRepoWebhook(params.webhookId)
       if (!success) {
         set.status = 404
@@ -332,6 +399,18 @@ export const repoSettingsRoutes = new Elysia({
       }
 
       const validated = expectValid(RepoSettingsParamsSchema, params, 'params')
+
+      // Verify the authenticated user is the repo owner
+      if (validated.owner.toLowerCase() !== authResult.address.toLowerCase()) {
+        set.status = 403
+        return {
+          error: {
+            code: 'FORBIDDEN',
+            message: 'Only the repository owner can transfer it',
+          },
+        }
+      }
+
       expectValid(TransferRepoBodySchema, body, 'request body')
 
       // Repository transfer must be performed via DWS API
@@ -358,6 +437,17 @@ export const repoSettingsRoutes = new Elysia({
       }
 
       const validated = expectValid(RepoSettingsParamsSchema, params, 'params')
+
+      // Verify the authenticated user is the repo owner
+      if (validated.owner.toLowerCase() !== authResult.address.toLowerCase()) {
+        set.status = 403
+        return {
+          error: {
+            code: 'FORBIDDEN',
+            message: 'Only the repository owner can delete it',
+          },
+        }
+      }
 
       // Repository deletion must be performed via DWS API
       // Delete local settings as well

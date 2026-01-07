@@ -190,6 +190,23 @@ export const pullsRoutes = new Elysia({ prefix: '/api/pulls' })
           error: { code: 'NOT_FOUND', message: `PR ${params.prId} not found` },
         }
       }
+
+      // Check if user has permission to merge
+      // Must be PR author OR repo owner (repo format: owner/reponame)
+      const repoOwner = row.repo.split('/')[0]?.toLowerCase()
+      const isAuthor = row.author.toLowerCase() === authResult.address.toLowerCase()
+      const isRepoOwner = repoOwner === authResult.address.toLowerCase()
+
+      if (!isAuthor && !isRepoOwner) {
+        set.status = 403
+        return {
+          error: {
+            code: 'FORBIDDEN',
+            message: 'Only the PR author or repository owner can merge',
+          },
+        }
+      }
+
       const validated = expectValid(PullMergeBodySchema, body, 'request body')
 
       // Update PR status to merged in the database

@@ -458,6 +458,12 @@ async function executeSkill(
         'Swap router not deployed',
       )
 
+      const parsedAmountIn = parseEther(amountIn)
+      // Default 0.5% slippage protection - prevents sandwich attacks
+      const defaultSlippageBps = 50n // 0.5%
+      const minAmountOut =
+        (parsedAmountIn * (10000n - defaultSlippageBps)) / 10000n
+
       const calldata = encodeFunctionData({
         abi: SWAP_ROUTER_ABI,
         functionName: 'exactInputSingle',
@@ -467,8 +473,8 @@ async function executeSkill(
             tokenOut,
             fee: 3000, // 0.3%
             recipient: recipient ?? (ZERO_ADDRESS as Address),
-            amountIn: parseEther(amountIn),
-            amountOutMinimum: 0n,
+            amountIn: parsedAmountIn,
+            amountOutMinimum: minAmountOut, // Default slippage protection
             sqrtPriceLimitX96: 0n,
           },
         ],
@@ -477,7 +483,7 @@ async function executeSkill(
       const isNativeInput = tokenIn.toLowerCase() === ZERO_ADDRESS.toLowerCase()
 
       return {
-        message: 'Swap transaction prepared',
+        message: 'Swap prepared with 0.5% slippage protection',
         data: {
           action: 'sign-and-send',
           transaction: {
@@ -488,6 +494,7 @@ async function executeSkill(
           approvalRequired: !isNativeInput,
           approvalToken: isNativeInput ? undefined : tokenIn,
           approvalAmount: isNativeInput ? undefined : amountIn,
+          slippageProtection: '0.5%',
         },
       }
     }

@@ -31,16 +31,50 @@ const WalletAuthBodySchema = t.Object({
 })
 
 /**
- * Validate redirect URI against client's registered patterns
+ * SECURITY: Validate redirect URI against client's registered patterns.
+ * Prevents open redirect attacks by:
+ * 1. Only allowing http/https schemes
+ * 2. Strict pattern matching with proper escaping
+ * 3. Not allowing data:, javascript:, or other dangerous schemes
  */
 function validateRedirectUri(
   redirectUri: string,
   allowedPatterns: string[],
 ): boolean {
+  // Parse the redirect URI to validate its structure
+  let parsed: URL
+  try {
+    parsed = new URL(redirectUri)
+  } catch {
+    return false // Invalid URL format
+  }
+
+  // SECURITY: Only allow http/https schemes
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    return false
+  }
+
+  // SECURITY: Block localhost in production patterns (but allow explicit localhost patterns)
+  const hasLocalhostPattern = allowedPatterns.some(
+    (p) =>
+      p.includes('localhost') ||
+      p.includes('127.0.0.1') ||
+      p.includes('[::1]'),
+  )
+
+  if (
+    !hasLocalhostPattern &&
+    (parsed.hostname === 'localhost' ||
+      parsed.hostname === '127.0.0.1' ||
+      parsed.hostname === '[::1]')
+  ) {
+    return false
+  }
+
   for (const pattern of allowedPatterns) {
     const regexPattern = pattern
       .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-      .replace(/\*/g, '.*')
+      .replace(/\*/g, '[^/]*')
     const regex = new RegExp(`^${regexPattern}$`)
     if (regex.test(redirectUri)) {
       return true

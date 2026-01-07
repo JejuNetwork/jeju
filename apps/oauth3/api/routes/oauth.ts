@@ -291,12 +291,7 @@ export function createOAuthRouter(config: AuthConfig) {
 
             const authCode = await authCodeState.get(body.code)
             if (!authCode) {
-              console.log(
-                '[OAuth3] Token exchange failed: auth code not found',
-                {
-                  code: `${body.code?.substring(0, 8)}...`,
-                },
-              )
+              console.log('[OAuth3] Token exchange failed: auth code not found')
               set.status = 400
               return {
                 error: 'invalid_grant',
@@ -304,14 +299,10 @@ export function createOAuthRouter(config: AuthConfig) {
               }
             }
 
-            console.log('[OAuth3] Token exchange: found auth code', {
-              code: `${body.code?.substring(0, 8)}...`,
-              storedClientId: authCode.clientId,
-              storedRedirectUri: authCode.redirectUri,
-              requestClientId: body.client_id,
-              requestRedirectUri: body.redirect_uri,
-              userId: authCode.userId,
-              expiresAt: new Date(authCode.expiresAt).toISOString(),
+            // SECURITY: Only log non-sensitive metadata for debugging
+            console.log('[OAuth3] Token exchange: auth code verified', {
+              clientId: body.client_id,
+              hasUser: Boolean(authCode.userId),
             })
 
             if (authCode.clientId !== body.client_id) {

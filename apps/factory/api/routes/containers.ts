@@ -5,6 +5,7 @@ import {
   type ContainerRow,
   createContainer as dbCreateContainer,
   createContainerInstance as dbCreateInstance,
+  getContainerInstance,
   listContainers as dbListContainers,
   listContainerInstances,
   updateContainerInstanceStatus,
@@ -189,11 +190,9 @@ export const containersRoutes = new Elysia({ prefix: '/api/containers' })
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
 
-      const success = updateContainerInstanceStatus(
-        params.instanceId,
-        'stopped',
-      )
-      if (!success) {
+      // Verify ownership before stopping
+      const instance = getContainerInstance(params.instanceId)
+      if (!instance) {
         set.status = 404
         return {
           error: {
@@ -202,6 +201,18 @@ export const containersRoutes = new Elysia({ prefix: '/api/containers' })
           },
         }
       }
+
+      if (instance.owner.toLowerCase() !== authResult.address.toLowerCase()) {
+        set.status = 403
+        return {
+          error: {
+            code: 'FORBIDDEN',
+            message: 'You do not own this container instance',
+          },
+        }
+      }
+
+      updateContainerInstanceStatus(params.instanceId, 'stopped')
 
       return { success: true, instanceId: params.instanceId, status: 'stopped' }
     },
@@ -214,6 +225,28 @@ export const containersRoutes = new Elysia({ prefix: '/api/containers' })
       if (!authResult.success) {
         set.status = 401
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
+      }
+
+      // Verify ownership before deleting
+      const instance = getContainerInstance(params.instanceId)
+      if (!instance) {
+        set.status = 404
+        return {
+          error: {
+            code: 'NOT_FOUND',
+            message: `Instance ${params.instanceId} not found`,
+          },
+        }
+      }
+
+      if (instance.owner.toLowerCase() !== authResult.address.toLowerCase()) {
+        set.status = 403
+        return {
+          error: {
+            code: 'FORBIDDEN',
+            message: 'You do not own this container instance',
+          },
+        }
       }
 
       // Mark as stopped/deleted (we don't hard delete)
