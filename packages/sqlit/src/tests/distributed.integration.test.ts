@@ -13,11 +13,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'bun:test'
 import { existsSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
+import { DatabaseNodeStatus } from '../types'
 import { SQLitClient } from '../client'
 import { SQLitNode } from '../node'
 import { createSQLitServer } from '../server'
 import type { SQLitNodeConfig } from '../types'
-import { DatabaseNodeStatus } from '../types'
 
 // Test configuration
 const BASE_PORT = 18600
