@@ -111,6 +111,7 @@ import { createCDNRouter } from './routes/cdn'
 import { createCIRouter } from './routes/ci'
 import { createComputeRouter } from './routes/compute'
 import { createContainerRouter } from './routes/containers'
+import { createCronRouter } from './routes/cron'
 import { createDARouter, shutdownDA } from './routes/da'
 import { createDWSServicesRouter } from './routes/dws-services'
 import { createEdgeRouter, handleEdgeWebSocket } from './routes/edge'
@@ -841,6 +842,7 @@ app.use(createExecRouter())
 // New DWS services
 app.use(createS3Router(backendManager))
 app.use(createWorkersRouter(backendManager))
+app.use(createCronRouter()) // Worker cron management
 app.use(createDurableObjectsRouter()) // Durable Objects
 app.use(createDefaultWorkerdRouter(backendManager)) // V8 isolate runtime
 app.use(createKMSRouter())
@@ -1329,6 +1331,15 @@ function shutdown(signal: string) {
   console.log('[DWS] Indexer proxy stopped')
   stopKeepaliveService()
   console.log('[DWS] Keepalive service stopped')
+  // Stop cron executor
+  import('../workers/cron-executor')
+    .then(({ stopCronExecutor }) => {
+      stopCronExecutor()
+      console.log('[DWS] Cron executor stopped')
+    })
+    .catch(() => {
+      // Ignore import errors during shutdown
+    })
   if (p2pCoordinator) {
     p2pCoordinator.stop()
     console.log('[DWS] P2P coordinator stopped')
@@ -1938,7 +1949,7 @@ if (import.meta.main) {
 
   // Initialize DWS state (determines memory-only vs SQLit mode)
   initializeDWSState()
-    .then(() => {
+    .then(async () => {
       console.log('[DWS] State initialized')
 
       // Start Durable Objects manager
@@ -1952,6 +1963,26 @@ if (import.meta.main) {
             err.message,
           )
         })
+
+      // Start Cron Executor after state is initialized
+      const { startCronExecutor } = await import('../workers/cron-executor')
+      try {
+        const cronExecutor = startCronExecutor({
+          workerBaseUrl: `http://localhost:${PORT}`,
+          tickIntervalMs: 30000, // Check every 30 seconds
+          maxConcurrent: 10,
+          lockTtlSeconds: 300, // 5 minute lock TTL
+        })
+        const stats = await cronExecutor.getStats()
+        console.log(
+          `[DWS] Cron executor started (${stats.cronStats.enabled} enabled crons)`,
+        )
+      } catch (err) {
+        console.warn(
+          '[DWS] Cron executor init failed:',
+          err instanceof Error ? err.message : String(err),
+        )
+      }
     })
     .catch((err) => {
       console.warn('[DWS] State init warning:', err.message)

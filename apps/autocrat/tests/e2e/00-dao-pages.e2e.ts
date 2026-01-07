@@ -41,7 +41,9 @@ test.describe('DAOList Page (Home)', () => {
 
   test('shows Create DAO button in hero', async ({ page }) => {
     await page.goto(BASE_URL)
-    await expect(page.getByRole('link', { name: /Create DAO/ }).first()).toBeVisible()
+    await expect(
+      page.getByRole('link', { name: /Create DAO/ }).first(),
+    ).toBeVisible()
   })
 
   test('displays search input', async ({ page }) => {
@@ -131,7 +133,9 @@ test.describe('Header Navigation', () => {
   test('header has Organizations nav link', async ({ page }) => {
     await page.goto(BASE_URL)
 
-    const orgsLink = page.locator('header').getByRole('link', { name: /Organizations|DAOs/ })
+    const orgsLink = page
+      .locator('header')
+      .getByRole('link', { name: /Organizations|DAOs/ })
     await expect(orgsLink).toBeVisible()
   })
 
@@ -218,9 +222,11 @@ test.describe('CreateDAO Wizard', () => {
 
     // Wait for step transition and check for Director step content
     await page.waitForTimeout(500)
-    const directorHeading = page.getByRole('heading', { name: /Director|Agent|Configure/i })
+    const directorHeading = page.getByRole('heading', {
+      name: /Director|Agent|Configure/i,
+    })
     const agentLabel = page.getByLabel(/Agent|Name|Model/i)
-    
+
     // Either heading or some agent-related field should be visible
     const headingVisible = await directorHeading.isVisible().catch(() => false)
     const labelVisible = await agentLabel.isVisible().catch(() => false)
@@ -236,7 +242,11 @@ test.describe('CreateDAO Wizard', () => {
     await page.waitForTimeout(500)
 
     // Should see model options (flexible text matching)
-    const hasModelOptions = await page.getByText(/Claude|GPT|Model|Opus|Sonnet/i).first().isVisible().catch(() => false)
+    const hasModelOptions = await page
+      .getByText(/Claude|GPT|Model|Opus|Sonnet/i)
+      .first()
+      .isVisible()
+      .catch(() => false)
     expect(hasModelOptions).toBeTruthy()
   })
 
@@ -249,7 +259,11 @@ test.describe('CreateDAO Wizard', () => {
     await page.waitForTimeout(500)
 
     // Check for decision style options (flexible)
-    const hasStyles = await page.getByText(/Aggressive|Balanced|Conservative|Style/i).first().isVisible().catch(() => false)
+    const hasStyles = await page
+      .getByText(/Aggressive|Balanced|Conservative|Style/i)
+      .first()
+      .isVisible()
+      .catch(() => false)
     expect(hasStyles).toBeTruthy()
   })
 

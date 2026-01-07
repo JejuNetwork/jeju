@@ -155,6 +155,16 @@ export interface WorkerMetrics {
   timestamp: number
 }
 
+/** Cron schedule definition for worker deployment */
+export interface CronScheduleInput {
+  name: string
+  schedule: string
+  endpoint: string
+  timezone?: string
+  timeoutMs?: number
+  retries?: number
+}
+
 export interface DeployParams {
   name: string
   runtime?: WorkerRuntime
@@ -163,6 +173,7 @@ export interface DeployParams {
   memory?: number
   timeout?: number
   env?: Record<string, string>
+  crons?: CronScheduleInput[]
 }
 
 export interface InvokeParams {

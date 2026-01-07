@@ -1291,25 +1291,25 @@ export const SCHEMA_DDL = [
   `CREATE TABLE IF NOT EXISTS oif_stats (
     id TEXT PRIMARY KEY,
     date TEXT,
-    total_intents INTEGER NOT NULL,
-    open_intents INTEGER NOT NULL,
-    pending_intents INTEGER NOT NULL,
-    filled_intents INTEGER NOT NULL,
-    expired_intents INTEGER NOT NULL,
-    total_volume INTEGER NOT NULL,
-    total_volume_usd INTEGER NOT NULL,
-    total_fees INTEGER NOT NULL,
-    total_fees_usd INTEGER NOT NULL,
-    total_solvers INTEGER NOT NULL,
-    active_solvers INTEGER NOT NULL,
-    total_solver_stake INTEGER NOT NULL,
-    total_routes INTEGER NOT NULL,
-    active_routes INTEGER NOT NULL,
-    average_fill_time_seconds INTEGER NOT NULL,
-    success_rate INTEGER NOT NULL,
-    last24h_intents INTEGER NOT NULL,
-    last24h_volume INTEGER NOT NULL,
-    last24h_fees INTEGER NOT NULL,
+    total_intents TEXT NOT NULL DEFAULT '0',
+    open_intents INTEGER NOT NULL DEFAULT 0,
+    pending_intents INTEGER NOT NULL DEFAULT 0,
+    filled_intents INTEGER NOT NULL DEFAULT 0,
+    expired_intents INTEGER NOT NULL DEFAULT 0,
+    total_volume TEXT NOT NULL DEFAULT '0',
+    total_volume_usd TEXT NOT NULL DEFAULT '0',
+    total_fees TEXT NOT NULL DEFAULT '0',
+    total_fees_usd TEXT NOT NULL DEFAULT '0',
+    total_solvers INTEGER NOT NULL DEFAULT 0,
+    active_solvers INTEGER NOT NULL DEFAULT 0,
+    total_solver_stake TEXT NOT NULL DEFAULT '0',
+    total_routes INTEGER NOT NULL DEFAULT 0,
+    active_routes INTEGER NOT NULL DEFAULT 0,
+    average_fill_time_seconds INTEGER NOT NULL DEFAULT 0,
+    success_rate INTEGER NOT NULL DEFAULT 0,
+    last24h_intents INTEGER NOT NULL DEFAULT 0,
+    last24h_volume TEXT NOT NULL DEFAULT '0',
+    last24h_fees TEXT NOT NULL DEFAULT '0',
     last_updated TEXT NOT NULL
   )`,
 
@@ -2153,9 +2153,12 @@ export const SCHEMA_DDL = [
     id TEXT PRIMARY KEY,
     account_id TEXT,
     token_id TEXT,
-    balance INTEGER NOT NULL,
-    transfer_count INTEGER NOT NULL,
-    last_updated TEXT NOT NULL
+    balance TEXT NOT NULL,
+    transfer_count INTEGER,
+    last_updated TEXT,
+    token_address TEXT,
+    token_standard TEXT,
+    last_updated_block INTEGER
   )`,
 
   `CREATE TABLE IF NOT EXISTS token_candle (
@@ -2207,17 +2210,19 @@ export const SCHEMA_DDL = [
 
   `CREATE TABLE IF NOT EXISTS token_transfer (
     id TEXT PRIMARY KEY,
-    log_index INTEGER NOT NULL,
+    log_index INTEGER,
     token_standard TEXT NOT NULL,
     from_id TEXT,
     to_id TEXT,
     operator_id TEXT,
     token_id TEXT,
-    value INTEGER,
+    value TEXT,
     nft_token_id TEXT,
     block_id TEXT,
     transaction_id TEXT,
-    timestamp TEXT NOT NULL
+    timestamp TEXT NOT NULL,
+    block_number INTEGER,
+    token_address TEXT
   )`,
 
   `CREATE TABLE IF NOT EXISTS "trace" (
@@ -2330,21 +2335,10 @@ export const SCHEMA_DDL = [
     tx_hash TEXT NOT NULL
   )`,
 
-  `CREATE TABLE IF NOT EXISTS token_transfer (
-    id TEXT PRIMARY KEY,
-    transaction_id TEXT,
-    block_number INTEGER NOT NULL,
-    timestamp TEXT NOT NULL,
-    token_address TEXT NOT NULL,
-    from_id TEXT,
-    to_id TEXT,
-    value TEXT NOT NULL,
-    token_id TEXT,
-    token_standard TEXT NOT NULL
-  )`,
-
-  // Token Balance table
-  `CREATE TABLE IF NOT EXISTS token_balance (
+  // Token Balance table (duplicate removed - using earlier definition)
+  // Note: token_transfer and token_balance are already defined earlier in the array
+  // with all required columns including log_index and transfer_count
+  `CREATE TABLE IF NOT EXISTS token_balance_placeholder (
     id TEXT PRIMARY KEY,
     account_id TEXT NOT NULL,
     token_address TEXT NOT NULL,
@@ -2367,31 +2361,8 @@ export const SCHEMA_DDL = [
     transfer_count INTEGER NOT NULL DEFAULT 0
   )`,
 
-  // Token Approval Event table
-  `CREATE TABLE IF NOT EXISTS token_approval_event (
-    id TEXT PRIMARY KEY,
-    transaction_id TEXT,
-    block_number INTEGER NOT NULL,
-    timestamp TEXT NOT NULL,
-    token_address TEXT NOT NULL,
-    owner_id TEXT NOT NULL,
-    spender_id TEXT NOT NULL,
-    value TEXT NOT NULL
-  )`,
-
-  // NFT Approval Event table
-  `CREATE TABLE IF NOT EXISTS nft_approval_event (
-    id TEXT PRIMARY KEY,
-    transaction_id TEXT,
-    block_number INTEGER NOT NULL,
-    timestamp TEXT NOT NULL,
-    token_address TEXT NOT NULL,
-    owner_id TEXT NOT NULL,
-    approved_id TEXT,
-    operator_id TEXT,
-    token_id TEXT,
-    approved INTEGER
-  )`,
+  // Token Approval Event table - DUPLICATE REMOVED (using earlier definition at line 2141)
+  // NFT Approval Event table - DUPLICATE REMOVED (using earlier definition at line 1062)
 
   // Registered Agent table
   `CREATE TABLE IF NOT EXISTS registered_agent (
@@ -2791,40 +2762,8 @@ export const SCHEMA_DDL = [
     voucher_id TEXT
   )`,
 
-  // EIL Stats table
-  `CREATE TABLE IF NOT EXISTS eil_stats (
-    id TEXT PRIMARY KEY,
-    date TEXT,
-    total_volume_usd TEXT NOT NULL DEFAULT '0',
-    total_transactions TEXT NOT NULL DEFAULT '0',
-    total_xl_ps INTEGER NOT NULL DEFAULT 0,
-    active_xl_ps INTEGER NOT NULL DEFAULT 0,
-    total_staked_eth TEXT NOT NULL DEFAULT '0',
-    average_fee_percent INTEGER NOT NULL DEFAULT 0,
-    average_time_seconds INTEGER NOT NULL DEFAULT 0,
-    success_rate INTEGER NOT NULL DEFAULT 0,
-    last24h_volume TEXT NOT NULL DEFAULT '0',
-    last24h_transactions TEXT NOT NULL DEFAULT '0'
-  )`,
-
-  // Compute Stats table
-  `CREATE TABLE IF NOT EXISTS compute_stats (
-    id TEXT PRIMARY KEY,
-    date TEXT,
-    total_providers INTEGER NOT NULL DEFAULT 0,
-    active_providers INTEGER NOT NULL DEFAULT 0,
-    total_resources INTEGER NOT NULL DEFAULT 0,
-    available_resources INTEGER NOT NULL DEFAULT 0,
-    total_rentals INTEGER NOT NULL DEFAULT 0,
-    active_rentals INTEGER NOT NULL DEFAULT 0,
-    completed_rentals INTEGER NOT NULL DEFAULT 0,
-    total_inference_requests INTEGER NOT NULL DEFAULT 0,
-    total_staked TEXT NOT NULL DEFAULT '0',
-    total_earnings TEXT NOT NULL DEFAULT '0',
-    last24h_rentals INTEGER NOT NULL DEFAULT 0,
-    last24h_inference INTEGER NOT NULL DEFAULT 0,
-    last_updated TEXT NOT NULL
-  )`,
+  // EIL Stats table - DUPLICATE REMOVED (using earlier definition at line 517)
+  // Compute Stats table - DUPLICATE REMOVED (using earlier definition at line 241)
 
   // Storage Market Stats table
   `CREATE TABLE IF NOT EXISTS storage_market_stats (
@@ -3020,24 +2959,7 @@ export const SCHEMA_DDL = [
     solver_id TEXT
   )`,
 
-  // OIF Stats table
-  `CREATE TABLE IF NOT EXISTS oif_stats (
-    id TEXT PRIMARY KEY,
-    date TEXT,
-    total_volume_usd TEXT NOT NULL DEFAULT '0',
-    total_intents INTEGER NOT NULL DEFAULT 0,
-    successful_intents INTEGER NOT NULL DEFAULT 0,
-    failed_intents INTEGER NOT NULL DEFAULT 0,
-    total_solvers INTEGER NOT NULL DEFAULT 0,
-    active_solvers INTEGER NOT NULL DEFAULT 0,
-    total_liquidity_usd TEXT NOT NULL DEFAULT '0',
-    average_fee_percent INTEGER NOT NULL DEFAULT 0,
-    average_fill_time_seconds INTEGER NOT NULL DEFAULT 0,
-    success_rate INTEGER NOT NULL DEFAULT 0,
-    last24h_volume TEXT NOT NULL DEFAULT '0',
-    last24h_intents INTEGER NOT NULL DEFAULT 0,
-    last_updated TEXT NOT NULL
-  )`,
+  // OIF Stats table - DUPLICATE REMOVED (using earlier definition at line 1291)
 
   // OIF Chain Stats table
   `CREATE TABLE IF NOT EXISTS oif_chain_stats (

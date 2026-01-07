@@ -19,6 +19,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
+  type Chain,
   createPublicClient,
   createWalletClient,
   encodeDeployData,
@@ -30,6 +31,19 @@ import { privateKeyToAccount } from 'viem/accounts'
 
 const TESTNET_RPC = 'https://testnet-rpc.jejunetwork.org'
 const TESTNET_CHAIN_ID = 420690
+
+const jejuTestnet: Chain = {
+  id: TESTNET_CHAIN_ID,
+  name: 'Jeju Testnet',
+  nativeCurrency: {
+    name: 'Ether',
+    symbol: 'ETH',
+    decimals: 18,
+  },
+  rpcUrls: {
+    default: { http: [TESTNET_RPC] },
+  },
+}
 const CONTRACTS_DIR = join(import.meta.dir, '../../../../packages/contracts')
 const DEPLOYMENTS_DIR = join(CONTRACTS_DIR, 'deployments')
 
@@ -84,11 +98,13 @@ async function main() {
   const account = privateKeyToAccount(privateKey)
 
   const publicClient = createPublicClient({
+    chain: jejuTestnet,
     transport: http(TESTNET_RPC),
   })
 
   const walletClient = createWalletClient({
     account,
+    chain: jejuTestnet,
     transport: http(TESTNET_RPC),
   })
 
@@ -132,6 +148,7 @@ async function main() {
   })
 
   const wethHash = await walletClient.sendTransaction({
+    chain: jejuTestnet,
     data: wethData,
   })
 
@@ -158,6 +175,7 @@ async function main() {
   })
 
   const poolManagerHash = await walletClient.sendTransaction({
+    chain: jejuTestnet,
     data: poolManagerData,
   })
 

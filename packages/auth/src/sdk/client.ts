@@ -393,12 +393,96 @@ export class OAuth3Client {
     return session
   }
 
-  private async loginWithWallet(): Promise<OAuth3Session> {
-    if (typeof window === 'undefined' || !window.ethereum) {
-      throw new Error('No Ethereum provider found')
+  /**
+   * Get the best EVM provider, preferring native EVM wallets over Phantom.
+   * Phantom injects window.ethereum for EVM compatibility but is primarily a Solana wallet.
+   */
+  private getEVMProvider(): EIP1193Provider {
+    if (typeof window === 'undefined') {
+      throw new Error('No Ethereum provider found - not in browser')
     }
 
-    const accounts = (await window.ethereum.request({
+    // Check for provider array (EIP-5749 multi-injected provider)
+    const providers = (
+      window as {
+        ethereum?: EIP1193Provider & { providers?: EIP1193Provider[] }
+      }
+    ).ethereum?.providers
+
+    if (providers && providers.length > 0) {
+      // Prefer EVM-native wallets in order of preference
+      const evmWallet = providers.find((p) => {
+        const provider = p as EIP1193Provider & {
+          isMetaMask?: boolean
+          isCoinbaseWallet?: boolean
+          isRabby?: boolean
+          isRainbow?: boolean
+          isBraveWallet?: boolean
+          isPhantom?: boolean
+        }
+        // Prefer any EVM-native wallet over Phantom
+        return (
+          (provider.isMetaMask && !provider.isPhantom) ||
+          provider.isCoinbaseWallet ||
+          provider.isRabby ||
+          provider.isRainbow ||
+          provider.isBraveWallet
+        )
+      })
+
+      if (evmWallet) {
+        return evmWallet
+      }
+
+      // Fall back to first provider that's not Phantom
+      const nonPhantom = providers.find((p) => {
+        const provider = p as EIP1193Provider & { isPhantom?: boolean }
+        return !provider.isPhantom
+      })
+
+      if (nonPhantom) {
+        return nonPhantom
+      }
+
+      // Last resort: use first available provider
+      const first = providers[0]
+      if (first) {
+        return first
+      }
+    }
+
+    // Single provider - check if it's a real EVM wallet
+    const ethereum = window.ethereum as
+      | (EIP1193Provider & {
+          isMetaMask?: boolean
+          isCoinbaseWallet?: boolean
+          isRabby?: boolean
+          isRainbow?: boolean
+          isBraveWallet?: boolean
+          isPhantom?: boolean
+        })
+      | undefined
+
+    if (!ethereum) {
+      throw new Error(
+        'No Ethereum provider found. Please install MetaMask or another EVM wallet.',
+      )
+    }
+
+    // Warn if only Phantom is available (not ideal for EVM dApps)
+    if (ethereum.isPhantom && !ethereum.isMetaMask) {
+      console.warn(
+        '[OAuth3] Only Phantom detected. For best EVM experience, consider installing MetaMask or Coinbase Wallet.',
+      )
+    }
+
+    return ethereum
+  }
+
+  private async loginWithWallet(): Promise<OAuth3Session> {
+    const provider = this.getEVMProvider()
+
+    const accounts = (await provider.request({
       method: 'eth_requestAccounts',
     })) as Address[]
 
@@ -410,7 +494,7 @@ export class OAuth3Client {
 
     const message = this.createSignInMessage(address, nonce)
 
-    const signature = (await window.ethereum.request({
+    const signature = (await provider.request({
       method: 'personal_sign',
       params: [message, address],
     })) as Hex

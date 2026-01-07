@@ -14,9 +14,9 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'bun:test'
 import { existsSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
-import { DatabaseNodeRole, DatabaseNodeStatus } from '../types'
 import { SQLitNode } from '../node'
 import type { SQLitNodeConfig } from '../types'
+import { DatabaseNodeRole, DatabaseNodeStatus } from '../types'
 
 const TEST_DATA_DIR = join(import.meta.dir, '.test-data')
 const TEST_PRIVATE_KEY =

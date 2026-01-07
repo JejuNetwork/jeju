@@ -1,8 +1,8 @@
 {
-  "priceOracle": "0xD5bFeBDce5c91413E41cc7B24C8402c59A344f7c",
-  "marginManager": "0x77AD263Cd578045105FBFC88A477CAd808d39Cf6",
-  "insuranceFund": "0x38628490c3043E5D0bbB26d5a0a62fC77342e9d5",
-  "perpetualMarket": "0x05bB67cB592C1753425192bF8f34b95ca8649f09",
+  "priceOracle": "0x525C7063E7C20997BaaE9bDa922159152D0e8417",
+  "marginManager": "0x38a024C0b412B9d1db8BC398140D00F5Af3093D4",
+  "insuranceFund": "0xB82008565FdC7e44609fA118A4a681E92581e680",
+  "perpetualMarket": "0x2a810409872AfC346F9B5b26571Fd6eC42EA4849",
   "markets": [],
-  "deployedAt": "2026-01-05T09:21:02.898Z"
+  "deployedAt": "2026-01-07T03:45:34.235Z"
 }
