@@ -136,6 +136,13 @@ export interface AppManifest {
   _folderName?: string
   /** DAO governance configuration */
   dao?: DAOConfig
+  /** Default environment variables for the app */
+  defaultEnv?: Record<string, string>
+  /** DWS deployment configuration */
+  dws?: {
+    frontend?: { outputDir?: string }
+    backend?: { outputDir?: string }
+  }
 }
 
 // ============ DAO Configuration Types ============

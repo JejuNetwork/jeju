@@ -30,7 +30,12 @@ import {
   createOrchestrator,
   type ServicesOrchestrator,
 } from '../services/orchestrator'
-import { type AppManifest, DEFAULT_PORTS, DOMAIN_CONFIG, WELL_KNOWN_KEYS } from '../types'
+import {
+  type AppManifest,
+  DEFAULT_PORTS,
+  DOMAIN_CONFIG,
+  WELL_KNOWN_KEYS,
+} from '../types'
 
 interface RunningService {
   name: string
@@ -440,7 +445,9 @@ function startLocalCronScheduler(
 
   // Collect cron jobs from all apps
   for (const { manifest } of apps) {
-    const dws = manifest.dws as { cron?: Array<{ name: string; schedule: string; endpoint: string }> } | undefined
+    const dws = manifest.dws as
+      | { cron?: Array<{ name: string; schedule: string; endpoint: string }> }
+      | undefined
     if (!dws?.cron) continue
 
     const port = manifest.ports?.api ?? manifest.ports?.main ?? 5009
@@ -463,7 +470,9 @@ function startLocalCronScheduler(
 
   logger.debug(`Registered ${cronJobs.length} cron jobs:`)
   for (const job of cronJobs) {
-    logger.debug(`  ${job.appName}: ${job.name} (${job.schedule}) -> ${job.endpoint}`)
+    logger.debug(
+      `  ${job.appName}: ${job.name} (${job.schedule}) -> ${job.endpoint}`,
+    )
   }
 
   // Simple interval-based scheduler (runs every minute)
@@ -484,7 +493,9 @@ function startLocalCronScheduler(
             logger.debug(`Cron ${job.name} triggered successfully`)
           }
         } catch (error) {
-          logger.warn(`Cron ${job.name} failed: ${error instanceof Error ? error.message : String(error)}`)
+          logger.warn(
+            `Cron ${job.name} failed: ${error instanceof Error ? error.message : String(error)}`,
+          )
         }
       }
     }
@@ -498,7 +509,11 @@ function startLocalCronScheduler(
  * Simple cron schedule matcher
  * Supports: star/n (every n), star (every), and specific values
  */
-function shouldRunCron(schedule: string, minute: number, hour: number): boolean {
+function shouldRunCron(
+  schedule: string,
+  minute: number,
+  hour: number,
+): boolean {
   const parts = schedule.trim().split(/\s+/)
   if (parts.length < 2) return false
 
@@ -524,7 +539,7 @@ function matchCronPart(part: string, value: number): boolean {
 
   // Specific value
   const specific = parseInt(part, 10)
-  if (!isNaN(specific)) {
+  if (!Number.isNaN(specific)) {
     return value === specific
   }
 

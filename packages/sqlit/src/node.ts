@@ -339,12 +339,38 @@ export class SQLitNode {
    * Execute a query
    */
   async execute(request: ExecuteRequest): Promise<ExecuteResponse> {
-    const dbState = this.state.databases.get(request.databaseId)
+    // First try exact ID match, then try name lookup
+    let dbState = this.state.databases.get(request.databaseId)
     if (!dbState) {
-      throw new SQLitError(
-        `Database ${request.databaseId} not found`,
-        SQLitErrorCode.DATABASE_NOT_FOUND,
-      )
+      dbState = this.getDatabaseByName(request.databaseId)
+    }
+
+    if (!dbState) {
+      // Auto-provision database in development mode
+      const isDev = process.env.NODE_ENV !== 'production'
+      if (isDev) {
+        console.log(
+          `[SQLit v2] Auto-provisioning database: ${request.databaseId}`,
+        )
+        const created = await this.createDatabase({
+          name: request.databaseId,
+          encryptionMode: 'none',
+          replication: {},
+        })
+        // Get by the new database ID that was returned
+        dbState = this.state.databases.get(created.databaseId)
+        if (!dbState) {
+          throw new SQLitError(
+            `Database ${request.databaseId} could not be auto-provisioned`,
+            SQLitErrorCode.DATABASE_NOT_FOUND,
+          )
+        }
+      } else {
+        throw new SQLitError(
+          `Database ${request.databaseId} not found`,
+          SQLitErrorCode.DATABASE_NOT_FOUND,
+        )
+      }
     }
 
     const isReadOnly = this.isReadOnlyQuery(request.sql)
@@ -396,12 +422,32 @@ export class SQLitNode {
   async batchExecute(
     request: BatchExecuteRequest,
   ): Promise<BatchExecuteResponse> {
-    const dbState = this.state.databases.get(request.databaseId)
+    let dbState = this.state.databases.get(request.databaseId)
     if (!dbState) {
-      throw new SQLitError(
-        `Database ${request.databaseId} not found`,
-        SQLitErrorCode.DATABASE_NOT_FOUND,
-      )
+      // Auto-provision database in development mode
+      const isDev = process.env.NODE_ENV !== 'production'
+      if (isDev) {
+        console.log(
+          `[SQLit v2] Auto-provisioning database: ${request.databaseId}`,
+        )
+        await this.createDatabase({
+          name: request.databaseId,
+          encryptionMode: 'none',
+          replication: {},
+        })
+        dbState = this.state.databases.get(request.databaseId)
+        if (!dbState) {
+          throw new SQLitError(
+            `Database ${request.databaseId} could not be auto-provisioned`,
+            SQLitErrorCode.DATABASE_NOT_FOUND,
+          )
+        }
+      } else {
+        throw new SQLitError(
+          `Database ${request.databaseId} not found`,
+          SQLitErrorCode.DATABASE_NOT_FOUND,
+        )
+      }
     }
 
     const startTime = Date.now()
@@ -446,11 +492,23 @@ export class SQLitNode {
   }
 
   /**
-   * Get database info
+   * Get database info by ID
    */
   getDatabase(databaseId: string): DatabaseInstance | null {
     const dbState = this.state.databases.get(databaseId)
     return dbState?.instance ?? null
+  }
+
+  /**
+   * Get database state by name (for auto-provisioning lookup)
+   */
+  private getDatabaseByName(name: string): DatabaseState | undefined {
+    for (const dbState of this.state.databases.values()) {
+      if (dbState.instance.name === name) {
+        return dbState
+      }
+    }
+    return undefined
   }
 
   /**

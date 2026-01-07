@@ -711,7 +711,7 @@ export function createOCIRegistryRouter() {
             )
           }
 
-          if (repo && repo.tags && repo.tags.length > 0) {
+          if (repo?.tags && repo.tags.length > 0) {
             return {
               name: `${namespace}/${name}`,
               tags: [...repo.tags],

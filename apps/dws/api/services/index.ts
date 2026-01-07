@@ -320,7 +320,9 @@ function resetDiscovery(): void {
 // In localnet, uses localhost:3500 as the registry
 const DWS_REGISTRY =
   process.env.DWS_REGISTRY_URL ||
-  (isLocalnet() ? `${getLocalhostHost()}:${CORE_PORTS.DWS_API.get()}` : 'registry.jeju')
+  (isLocalnet()
+    ? `${getLocalhostHost()}:${CORE_PORTS.DWS_API.get()}`
+    : 'registry.jeju')
 
 // Use DWS registry for standard images - proxies and caches from Docker Hub
 const SERVICE_IMAGES: Record<ServiceType, string> = {

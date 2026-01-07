@@ -23,7 +23,12 @@ import {
   createLocalDeployOrchestrator,
   type LocalDeployOrchestrator,
 } from '../services/local-deploy-orchestrator'
-import { type AppManifest, DEFAULT_PORTS, DOMAIN_CONFIG, WELL_KNOWN_KEYS } from '../types'
+import {
+  type AppManifest,
+  DEFAULT_PORTS,
+  DOMAIN_CONFIG,
+  WELL_KNOWN_KEYS,
+} from '../types'
 
 interface RunningService {
   name: string

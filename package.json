@@ -75,7 +75,6 @@
     "whatwg-url": "7.1.0",
     "hardhat": "2.22.18",
     "@types/chai": "5.2.3",
-    "graphql": "^15.8.0",
     "@subsquid/graphql-server>graphql": "^15.8.0",
     "@subsquid/apollo-server-core>graphql": "^15.8.0"
   },
