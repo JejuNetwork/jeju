@@ -38,7 +38,7 @@ test.describe('Crucible - Full Coverage', () => {
 
   test('should have proper meta tags', async ({ page }) => {
     // Meta viewport may be in head which renders before JS
-    const viewport = await page
+    const _viewport = await page
       .locator('meta[name="viewport"]')
       .getAttribute('content', { timeout: 5000 })
       .catch(() => null)

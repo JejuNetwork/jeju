@@ -303,7 +303,7 @@ test.describe('Crucible - Agents Page Components', () => {
     // Find the All and Active filter buttons
     const allBtn = page.getByRole('button', { name: /^All$/i }).first()
     const activeBtn = page.getByRole('button', { name: /Active/i }).first()
-    
+
     const hasAll = await allBtn.isVisible().catch(() => false)
     const hasActive = await activeBtn.isVisible().catch(() => false)
     expect(hasAll || hasActive).toBeTruthy()
@@ -334,7 +334,8 @@ test.describe('Crucible - Create Agent Page', () => {
     await expect(page.locator('body')).toBeVisible()
 
     // Check for any heading or content
-    const hasContent = await page.evaluate(() => document.body.textContent?.length) > 100
+    const hasContent =
+      (await page.evaluate(() => document.body.textContent?.length)) > 100
     expect(hasContent).toBeTruthy()
 
     await page.screenshot({
@@ -350,7 +351,11 @@ test.describe('Crucible - Chat Page Components', () => {
     await page.waitForTimeout(2000)
 
     // Check for any room-related button
-    const hasNewRoom = await page.getByRole('button', { name: /New Room|Create|Room/i }).first().isVisible().catch(() => false)
+    const hasNewRoom = await page
+      .getByRole('button', { name: /New Room|Create|Room/i })
+      .first()
+      .isVisible()
+      .catch(() => false)
     expect(hasNewRoom || true).toBeTruthy() // Page loads is success
   })
 
