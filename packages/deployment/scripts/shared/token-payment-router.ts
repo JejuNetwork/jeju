@@ -33,10 +33,10 @@
 import { getRpcUrl } from '@jejunetwork/config'
 import {
   type Address,
-  type PublicClient,
   createPublicClient,
   formatUnits,
   http,
+  type PublicClient,
   parseAbi,
 } from 'viem'
 
@@ -231,18 +231,22 @@ export class TokenPaymentRouter {
             abi: ERC20_ABI,
             functionName: 'decimals',
           }),
-          this.client.readContract({
-            address: this.config.crossChainPaymaster,
-            abi: CROSS_CHAIN_PAYMASTER_ABI,
-            functionName: 'supportedTokens',
-            args: [token],
-          }).catch(() => false),
-          this.client.readContract({
-            address: this.config.crossChainPaymaster,
-            abi: CROSS_CHAIN_PAYMASTER_ABI,
-            functionName: 'getTotalLiquidity',
-            args: [token],
-          }).catch(() => 0n),
+          this.client
+            .readContract({
+              address: this.config.crossChainPaymaster,
+              abi: CROSS_CHAIN_PAYMASTER_ABI,
+              functionName: 'supportedTokens',
+              args: [token],
+            })
+            .catch(() => false),
+          this.client
+            .readContract({
+              address: this.config.crossChainPaymaster,
+              abi: CROSS_CHAIN_PAYMASTER_ABI,
+              functionName: 'getTotalLiquidity',
+              args: [token],
+            })
+            .catch(() => 0n),
         ])
 
       infos.push({
@@ -273,30 +277,34 @@ export class TokenPaymentRouter {
     }
 
     const [preference, fallbacks] = await Promise.all([
-      this.client.readContract({
-        address: this.config.appTokenPreference,
-        abi: APP_TOKEN_PREFERENCE_ABI,
-        functionName: 'getAppPreference',
-        args: [appAddress],
-      }).catch(
-        ():
-          | readonly [
-              Address,
-              Address,
-              string,
-              bigint,
-              boolean,
-              bigint,
-              boolean,
-            ]
-          | null => null,
-      ),
-      this.client.readContract({
-        address: this.config.appTokenPreference,
-        abi: APP_TOKEN_PREFERENCE_ABI,
-        functionName: 'getAppFallbackTokens',
-        args: [appAddress],
-      }).catch(() => [] as Address[]),
+      this.client
+        .readContract({
+          address: this.config.appTokenPreference,
+          abi: APP_TOKEN_PREFERENCE_ABI,
+          functionName: 'getAppPreference',
+          args: [appAddress],
+        })
+        .catch(
+          ():
+            | readonly [
+                Address,
+                Address,
+                string,
+                bigint,
+                boolean,
+                bigint,
+                boolean,
+              ]
+            | null => null,
+        ),
+      this.client
+        .readContract({
+          address: this.config.appTokenPreference,
+          abi: APP_TOKEN_PREFERENCE_ABI,
+          functionName: 'getAppFallbackTokens',
+          args: [appAddress],
+        })
+        .catch(() => [] as Address[]),
     ])
 
     if (!preference || preference[6] === false) {
@@ -446,12 +454,14 @@ export class TokenPaymentRouter {
       const commonTokens = this.getCommonTokens(chainId)
 
       for (const token of commonTokens) {
-        const balance = await client.readContract({
-          address: token.address,
-          abi: ERC20_ABI,
-          functionName: 'balanceOf',
-          args: [request.user],
-        }).catch(() => 0n)
+        const balance = await client
+          .readContract({
+            address: token.address,
+            abi: ERC20_ABI,
+            functionName: 'balanceOf',
+            args: [request.user],
+          })
+          .catch(() => 0n)
 
         if (balance > 0n) {
           crossChainBalances.push({
@@ -642,12 +652,14 @@ export class TokenPaymentRouter {
       const gasEstimate = 150000n // Default gas estimate
       const gasPrice = await this.client.getGasPrice()
 
-      return this.client.readContract({
-        address: this.config.crossChainPaymaster,
-        abi: CROSS_CHAIN_PAYMASTER_ABI,
-        functionName: 'previewTokenCost',
-        args: [gasEstimate, gasPrice, token],
-      }).catch((): null => null)
+      return this.client
+        .readContract({
+          address: this.config.crossChainPaymaster,
+          abi: CROSS_CHAIN_PAYMASTER_ABI,
+          functionName: 'previewTokenCost',
+          args: [gasEstimate, gasPrice, token],
+        })
+        .catch((): null => null)
     } else {
       // For service payments, convert the amount using oracle
       if (
@@ -656,16 +668,18 @@ export class TokenPaymentRouter {
         return request.amount
       }
 
-      return this.client.readContract({
-        address: this.config.priceOracle,
-        abi: PRICE_ORACLE_ABI,
-        functionName: 'convertAmount',
-        args: [
-          '0x0000000000000000000000000000000000000000' as Address,
-          token,
-          request.amount,
-        ],
-      }).catch((): null => null)
+      return this.client
+        .readContract({
+          address: this.config.priceOracle,
+          abi: PRICE_ORACLE_ABI,
+          functionName: 'convertAmount',
+          args: [
+            '0x0000000000000000000000000000000000000000' as Address,
+            token,
+            request.amount,
+          ],
+        })
+        .catch((): null => null)
     }
   }
 
@@ -682,18 +696,22 @@ export class TokenPaymentRouter {
       return Number(formatUnits(amount, 18))
     }
 
-    const [price, decimals] = await this.client.readContract({
-      address: this.config.priceOracle,
-      abi: PRICE_ORACLE_ABI,
-      functionName: 'getPrice',
-      args: [token],
-    }).catch(() => [0n, 18n] as const)
+    const [price, decimals] = await this.client
+      .readContract({
+        address: this.config.priceOracle,
+        abi: PRICE_ORACLE_ABI,
+        functionName: 'getPrice',
+        args: [token],
+      })
+      .catch(() => [0n, 18n] as const)
 
-    const tokenDecimals = await this.client.readContract({
-      address: token,
-      abi: ERC20_ABI,
-      functionName: 'decimals',
-    }).catch(() => 18)
+    const tokenDecimals = await this.client
+      .readContract({
+        address: token,
+        abi: ERC20_ABI,
+        functionName: 'decimals',
+      })
+      .catch(() => 18)
 
     return (
       (Number(amount) / 10 ** tokenDecimals) *

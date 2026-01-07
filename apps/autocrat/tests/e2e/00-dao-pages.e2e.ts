@@ -32,7 +32,9 @@ test.describe('DAOList Page (Home)', () => {
   test('displays hero section with heading', async ({ page }) => {
     await page.goto(BASE_URL)
     await expect(
-      page.getByRole('heading', { name: /DAOs with AI Leadership|AI-Powered/i }).first(),
+      page
+        .getByRole('heading', { name: /DAOs with AI Leadership|AI-Powered/i })
+        .first(),
     ).toBeVisible()
     await expect(
       page.getByText(/AI-powered organizations|autonomous/i).first(),
@@ -85,7 +87,10 @@ test.describe('DAOList Page (Home)', () => {
     await page.goto(BASE_URL)
 
     // Find filter button (could have shield icon or filter text)
-    const filterButton = page.locator('button').filter({ has: page.locator('svg') }).first()
+    const filterButton = page
+      .locator('button')
+      .filter({ has: page.locator('svg') })
+      .first()
     if (await filterButton.isVisible().catch(() => false)) {
       await filterButton.click()
       // Just verify it's clickable
@@ -273,12 +278,12 @@ test.describe('CreateDAO Wizard', () => {
     // Fill basics and navigate through steps
     await page.getByLabel(/Slug|Username/i).fill('test-dao')
     await page.getByLabel(/Display Name/i).fill('Test DAO')
-    
+
     // Click Continue to go to Director step
     await page.getByRole('button', { name: 'Continue' }).click()
     await page.waitForTimeout(1000)
 
-    // Click Continue to go to Board step  
+    // Click Continue to go to Board step
     const continueBtn = page.getByRole('button', { name: 'Continue' })
     if (await continueBtn.isEnabled().catch(() => false)) {
       await continueBtn.click()
@@ -298,7 +303,7 @@ test.describe('CreateDAO Wizard', () => {
     await page.getByLabel(/Display Name/i).fill('Test DAO')
     await page.getByRole('button', { name: 'Continue' }).click()
     await page.waitForTimeout(1000)
-    
+
     const continueBtn = page.getByRole('button', { name: 'Continue' })
     if (await continueBtn.isEnabled().catch(() => false)) {
       await continueBtn.click()
@@ -310,7 +315,7 @@ test.describe('CreateDAO Wizard', () => {
     if (await addButton.isVisible().catch(() => false)) {
       await addButton.click()
     }
-    
+
     // Verify page still works
     expect(await page.locator('main').isVisible()).toBeTruthy()
   })
@@ -361,7 +366,9 @@ test.describe('Navigation Between Pages', () => {
     await page.goto(`${BASE_URL}/create`)
 
     // On create page, use Cancel or any home link
-    const homeLink = page.getByRole('link', { name: /Cancel|Autocrat|Home/i }).first()
+    const homeLink = page
+      .getByRole('link', { name: /Cancel|Autocrat|Home/i })
+      .first()
     await homeLink.click()
     await expect(page).toHaveURL(BASE_URL)
   })

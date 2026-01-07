@@ -1,4 +1,4 @@
-import { readContract } from '@jejunetwork/contracts'
+// readContract is now called as client.readContract({...})
 import { type Address, createPublicClient, http, type PublicClient } from 'viem'
 import { z } from 'zod'
 import {
@@ -128,7 +128,7 @@ export class FederationDiscovery {
     const cached = this.getCached<NetworkInfo[]>(cacheKey)
     if (cached) return cached
 
-    const chainIds = (await readContract(this.hubClient, {
+    const chainIds = (await this.hubClient.readContract({
       address: this.config.networkRegistryAddress,
       abi: NETWORK_REGISTRY_ABI,
       functionName: 'getActiveNetworks',
@@ -150,7 +150,7 @@ export class FederationDiscovery {
     const cached = this.getCached<NetworkInfo>(cacheKey)
     if (cached) return cached
 
-    const result = await readContract(this.hubClient, {
+    const result = await this.hubClient.readContract({
       address: this.config.networkRegistryAddress,
       abi: NETWORK_REGISTRY_ABI,
       functionName: 'getNetwork',
@@ -176,7 +176,7 @@ export class FederationDiscovery {
     const cached = this.getCached<NetworkInfo[]>(cacheKey)
     if (cached) return cached
 
-    const chainIds = (await readContract(this.hubClient, {
+    const chainIds = (await this.hubClient.readContract({
       address: this.config.networkRegistryAddress,
       abi: NETWORK_REGISTRY_ABI,
       functionName: 'getVerifiedNetworks',
@@ -194,7 +194,7 @@ export class FederationDiscovery {
   }
 
   async getTrustedPeers(chainId: number): Promise<number[]> {
-    const result = (await readContract(this.hubClient, {
+    const result = (await this.hubClient.readContract({
       address: this.config.networkRegistryAddress,
       abi: NETWORK_REGISTRY_ABI,
       functionName: 'getTrustedPeers',
@@ -208,7 +208,7 @@ export class FederationDiscovery {
     sourceChainId: number,
     targetChainId: number,
   ): Promise<boolean> {
-    return readContract(this.hubClient, {
+    return this.hubClient.readContract({
       address: this.config.networkRegistryAddress,
       abi: NETWORK_REGISTRY_ABI,
       functionName: 'isTrusted',
@@ -252,7 +252,7 @@ export class FederationDiscovery {
       transport: http(localRpcUrl),
     }) as PublicClient
 
-    const solverIds = await readContract(localClient, {
+    const solverIds = await localClient.readContract({
       address: federatedSolverAddress,
       abi: FEDERATED_SOLVER_ABI,
       functionName: 'getSolversForRoute',
@@ -262,7 +262,7 @@ export class FederationDiscovery {
     const solvers: FederatedSolver[] = []
 
     for (const solverId of solverIds) {
-      const solverData = await readContract(localClient, {
+      const solverData = await localClient.readContract({
         address: federatedSolverAddress,
         abi: FEDERATED_SOLVER_ABI,
         functionName: 'getSolver',
@@ -307,7 +307,7 @@ export class FederationDiscovery {
       transport: http(localRpcUrl),
     }) as PublicClient
 
-    const [totalEth, totalToken] = (await readContract(localClient, {
+    const [totalEth, totalToken] = (await localClient.readContract({
       address: federatedLiquidityAddress,
       abi: FEDERATED_LIQUIDITY_ABI,
       functionName: 'getTotalFederatedLiquidity',

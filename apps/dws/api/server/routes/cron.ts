@@ -1,50 +1,80 @@
 /**
  * Cron Management API Routes
- *
- * Provides endpoints to:
- * - List cron schedules for workers
- * - Get cron execution statistics
- * - Manually trigger cron jobs
- * - Enable/disable cron schedules
  */
 
 import { Elysia, t } from 'elysia'
-import type { Address } from 'viem'
-import { dwsWorkerCronState, dwsWorkerState } from '../../state'
+import {
+  dwsWorkerCronState,
+  dwsWorkerState,
+  type WorkerCronSchedule,
+} from '../../state'
 import { getCronExecutor } from '../../workers/cron-executor'
+
+/** Serialize a cron schedule for API response */
+function serializeCron(s: WorkerCronSchedule) {
+  return {
+    id: s.id,
+    workerId: s.workerId,
+    name: s.name,
+    schedule: s.schedule,
+    endpoint: s.endpoint,
+    enabled: s.enabled,
+    nextRunAt: s.nextRunAt,
+    lastRunAt: s.lastRunAt,
+    totalRuns: s.totalRuns,
+    successfulRuns: s.successfulRuns,
+    failedRuns: s.failedRuns,
+    lastError: s.lastError,
+  }
+}
+
+const cronToggleSchema = {
+  params: t.Object({ workerId: t.String(), cronName: t.String() }),
+  headers: t.Object({ 'x-jeju-address': t.Optional(t.String()) }),
+}
+
+/** Shared handler for enable/disable */
+async function setCronEnabled(
+  params: { workerId: string; cronName: string },
+  headers: { 'x-jeju-address'?: string },
+  set: { status?: number | string },
+  enabled: boolean,
+) {
+  const owner = headers['x-jeju-address']
+  const worker = await dwsWorkerState.get(params.workerId)
+  if (!worker) {
+    set.status = 404
+    return { error: 'Worker not found' }
+  }
+  if (owner && worker.owner.toLowerCase() !== owner.toLowerCase()) {
+    set.status = 403
+    return { error: 'Not authorized' }
+  }
+  const success = await dwsWorkerCronState.setEnabled(
+    params.workerId,
+    params.cronName,
+    enabled,
+  )
+  if (!success) {
+    set.status = 404
+    return { error: 'Cron schedule not found' }
+  }
+  return { enabled }
+}
 
 export function createCronRouter() {
   return (
     new Elysia({ prefix: '/cron' })
-      // Get cron executor stats
-      .get('/stats', async () => {
-        const executor = getCronExecutor()
-        return executor.getStats()
-      })
+      .get('/stats', async () => getCronExecutor().getStats())
 
-      // List all cron schedules
       .get('/schedules', async () => {
         const schedules = await dwsWorkerCronState.listEnabled()
         return {
-          schedules: schedules.map((s) => ({
-            id: s.id,
-            workerId: s.workerId,
-            name: s.name,
-            schedule: s.schedule,
-            endpoint: s.endpoint,
-            enabled: s.enabled,
-            nextRunAt: s.nextRunAt,
-            lastRunAt: s.lastRunAt,
-            totalRuns: s.totalRuns,
-            successfulRuns: s.successfulRuns,
-            failedRuns: s.failedRuns,
-            lastError: s.lastError,
-          })),
+          schedules: schedules.map(serializeCron),
           total: schedules.length,
         }
       })
 
-      // List cron schedules for a specific worker
       .get(
         '/workers/:workerId',
         async ({ params }) => {
@@ -53,27 +83,11 @@ export function createCronRouter() {
           )
           return {
             workerId: params.workerId,
-            schedules: schedules.map((s) => ({
-              id: s.id,
-              name: s.name,
-              schedule: s.schedule,
-              endpoint: s.endpoint,
-              enabled: s.enabled,
-              nextRunAt: s.nextRunAt,
-              lastRunAt: s.lastRunAt,
-              totalRuns: s.totalRuns,
-              successfulRuns: s.successfulRuns,
-              failedRuns: s.failedRuns,
-              lastError: s.lastError,
-            })),
+            schedules: schedules.map(serializeCron),
             total: schedules.length,
           }
         },
-        {
-          params: t.Object({
-            workerId: t.String(),
-          }),
-        },
+        { params: t.Object({ workerId: t.String() }) },
       )
 
       // Get a specific cron schedule
@@ -152,88 +166,18 @@ export function createCronRouter() {
         },
       )
 
-      // Enable a cron schedule
       .post(
         '/workers/:workerId/:cronName/enable',
-        async ({ params, headers, set }) => {
-          const owner = headers['x-jeju-address'] as Address | undefined
-
-          // Verify worker exists and owner matches (if provided)
-          const worker = await dwsWorkerState.get(params.workerId)
-          if (!worker) {
-            set.status = 404
-            return { error: 'Worker not found' }
-          }
-
-          if (owner && worker.owner.toLowerCase() !== owner.toLowerCase()) {
-            set.status = 403
-            return { error: 'Not authorized' }
-          }
-
-          const success = await dwsWorkerCronState.setEnabled(
-            params.workerId,
-            params.cronName,
-            true,
-          )
-
-          if (!success) {
-            set.status = 404
-            return { error: 'Cron schedule not found' }
-          }
-
-          return { enabled: true }
-        },
-        {
-          params: t.Object({
-            workerId: t.String(),
-            cronName: t.String(),
-          }),
-          headers: t.Object({
-            'x-jeju-address': t.Optional(t.String()),
-          }),
-        },
+        async ({ params, headers, set }) =>
+          setCronEnabled(params, headers, set, true),
+        cronToggleSchema,
       )
 
-      // Disable a cron schedule
       .post(
         '/workers/:workerId/:cronName/disable',
-        async ({ params, headers, set }) => {
-          const owner = headers['x-jeju-address'] as Address | undefined
-
-          // Verify worker exists and owner matches (if provided)
-          const worker = await dwsWorkerState.get(params.workerId)
-          if (!worker) {
-            set.status = 404
-            return { error: 'Worker not found' }
-          }
-
-          if (owner && worker.owner.toLowerCase() !== owner.toLowerCase()) {
-            set.status = 403
-            return { error: 'Not authorized' }
-          }
-
-          const success = await dwsWorkerCronState.setEnabled(
-            params.workerId,
-            params.cronName,
-            false,
-          )
-
-          if (!success) {
-            set.status = 404
-            return { error: 'Cron schedule not found' }
-          }
-
-          return { enabled: false }
-        },
-        {
-          params: t.Object({
-            workerId: t.String(),
-            cronName: t.String(),
-          }),
-          headers: t.Object({
-            'x-jeju-address': t.Optional(t.String()),
-          }),
-        },
+        async ({ params, headers, set }) =>
+          setCronEnabled(params, headers, set, false),
+        cronToggleSchema,
       )
 
       // Get recent execution history

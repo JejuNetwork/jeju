@@ -81,8 +81,16 @@ test.describe('Director Dashboard', () => {
     await page.waitForTimeout(1500)
 
     // Check for pending section (flexible)
-    const hasPending = await page.getByText(/Pending/i).first().isVisible().catch(() => false)
-    const hasProposals = await page.getByText(/Proposals/i).first().isVisible().catch(() => false)
+    const hasPending = await page
+      .getByText(/Pending/i)
+      .first()
+      .isVisible()
+      .catch(() => false)
+    const hasProposals = await page
+      .getByText(/Proposals/i)
+      .first()
+      .isVisible()
+      .catch(() => false)
     expect(hasPending || hasProposals).toBeTruthy()
   })
 

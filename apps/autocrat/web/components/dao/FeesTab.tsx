@@ -42,7 +42,7 @@ export function FeesTab({ daoId }: { daoId: string }) {
 
   useEffect(() => {
     fetchData()
-  }, [daoId])
+  }, [fetchData])
 
   async function fetchData() {
     setLoading(true)
@@ -163,6 +163,7 @@ export function FeesTab({ daoId }: { daoId: string }) {
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-white">DAO Apps</h3>
           <button
+            type="button"
             onClick={() => setShowRegister(!showRegister)}
             className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors"
           >
@@ -170,7 +171,9 @@ export function FeesTab({ daoId }: { daoId: string }) {
           </button>
         </div>
 
-        {showRegister && <AppRegistrationForm daoId={daoId} onSuccess={fetchData} />}
+        {showRegister && (
+          <AppRegistrationForm daoId={daoId} onSuccess={fetchData} />
+        )}
 
         {apps.length === 0 ? (
           <div className="text-center py-8 text-zinc-500">
@@ -216,7 +219,9 @@ function AppCard({ app }: { app: AppInfo }) {
           <p className="text-sm text-zinc-400 mt-1">{app.description}</p>
           <div className="flex items-center gap-4 mt-2 text-xs text-zinc-500">
             <span>Contract: {app.primaryContract.slice(0, 10)}...</span>
-            <span>Created: {new Date(app.createdAt * 1000).toLocaleDateString()}</span>
+            <span>
+              Created: {new Date(app.createdAt * 1000).toLocaleDateString()}
+            </span>
           </div>
         </div>
 
@@ -236,15 +241,22 @@ function AppCard({ app }: { app: AppInfo }) {
       <div className="flex items-center gap-4 mt-4 pt-4 border-t border-zinc-700">
         <div>
           <div className="text-xs text-zinc-500">Transactions</div>
-          <div className="font-mono text-white">{app.stats.totalTransactions}</div>
+          <div className="font-mono text-white">
+            {app.stats.totalTransactions}
+          </div>
         </div>
         <div>
           <div className="text-xs text-zinc-500">Claimed</div>
-          <div className="font-mono text-white">{app.stats.totalFeesClaimed} ETH</div>
+          <div className="font-mono text-white">
+            {app.stats.totalFeesClaimed} ETH
+          </div>
         </div>
         <div className="flex-1" />
         {unclaimedFees > 0 && (
-          <button className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded text-sm font-medium transition-colors">
+          <button
+            type="button"
+            className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded text-sm font-medium transition-colors"
+          >
             Claim Fees
           </button>
         )}
@@ -283,7 +295,7 @@ function AppRegistrationForm({
         feeRecipient,
         daoId,
       })
-      
+
       // Show success message - in real implementation this would call the contract
       setSuccess(true)
       setTimeout(() => {
@@ -316,14 +328,21 @@ function AppRegistrationForm({
 
       {success && (
         <div className="mb-4 p-3 bg-green-500/10 border border-green-500/30 rounded text-green-400 text-sm">
-          App registration requires wallet connection. Connect your wallet to complete registration.
+          App registration requires wallet connection. Connect your wallet to
+          complete registration.
         </div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm text-zinc-400 mb-1">App Name</label>
+          <label
+            htmlFor="app-name"
+            className="block text-sm text-zinc-400 mb-1"
+          >
+            App Name
+          </label>
           <input
+            id="app-name"
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -334,10 +353,14 @@ function AppRegistrationForm({
         </div>
 
         <div>
-          <label className="block text-sm text-zinc-400 mb-1">
+          <label
+            htmlFor="primary-contract"
+            className="block text-sm text-zinc-400 mb-1"
+          >
             Primary Contract
           </label>
           <input
+            id="primary-contract"
             type="text"
             value={primaryContract}
             onChange={(e) => setPrimaryContract(e.target.value)}
@@ -348,10 +371,14 @@ function AppRegistrationForm({
         </div>
 
         <div>
-          <label className="block text-sm text-zinc-400 mb-1">
+          <label
+            htmlFor="fee-recipient"
+            className="block text-sm text-zinc-400 mb-1"
+          >
             Fee Recipient
           </label>
           <input
+            id="fee-recipient"
             type="text"
             value={feeRecipient}
             onChange={(e) => setFeeRecipient(e.target.value)}
@@ -362,8 +389,14 @@ function AppRegistrationForm({
         </div>
 
         <div className="md:col-span-2">
-          <label className="block text-sm text-zinc-400 mb-1">Description</label>
+          <label
+            htmlFor="app-description"
+            className="block text-sm text-zinc-400 mb-1"
+          >
+            Description
+          </label>
           <textarea
+            id="app-description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="What does your app do?"
@@ -397,4 +430,3 @@ function AppRegistrationForm({
     </form>
   )
 }
-

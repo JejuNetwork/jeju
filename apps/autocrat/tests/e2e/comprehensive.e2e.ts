@@ -463,14 +463,24 @@ test.describe('Autocrat - Create DAO Wizard', () => {
     await page.waitForTimeout(500)
 
     // Navigate through wizard steps
-    const slugInput = page.locator('input').filter({ hasText: '' }).first()
-    if (await page.getByLabel(/Slug|Username/i).isVisible().catch(() => false)) {
+    const _slugInput = page.locator('input').filter({ hasText: '' }).first()
+    if (
+      await page
+        .getByLabel(/Slug|Username/i)
+        .isVisible()
+        .catch(() => false)
+    ) {
       await page.getByLabel(/Slug|Username/i).fill('test-dao')
     }
-    if (await page.getByLabel(/Display Name/i).isVisible().catch(() => false)) {
+    if (
+      await page
+        .getByLabel(/Display Name/i)
+        .isVisible()
+        .catch(() => false)
+    ) {
       await page.getByLabel(/Display Name/i).fill('Test DAO')
     }
-    
+
     // Click Continue through steps
     for (let i = 0; i < 4; i++) {
       const continueBtn = page.getByRole('button', { name: 'Continue' })

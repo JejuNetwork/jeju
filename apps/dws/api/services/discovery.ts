@@ -29,6 +29,7 @@ export type ServiceType =
   | 'email'
   | 'da'
   | 'hubble'
+  | 'messaging'
   | 'oracle'
   | 'indexer'
   | 'rpc-gateway'

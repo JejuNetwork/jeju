@@ -317,7 +317,9 @@ export const appsRoutes = new Elysia({ prefix: '/apps' })
             totalTransactions: stats.totalTransactions.toString(),
             totalFeesEarned: formatEther(stats.totalFeesEarned),
             totalFeesClaimed: formatEther(stats.totalFeesClaimed),
-            unclaimedFees: formatEther(stats.totalFeesEarned - stats.totalFeesClaimed),
+            unclaimedFees: formatEther(
+              stats.totalFeesEarned - stats.totalFeesClaimed,
+            ),
             lastClaimAt: Number(stats.lastClaimAt),
           },
           agentId: app.agentId.toString(),
@@ -358,7 +360,10 @@ export const appsRoutes = new Elysia({ prefix: '/apps' })
         args: [params.address as Address],
       })
 
-      if (appId === '0x0000000000000000000000000000000000000000000000000000000000000000') {
+      if (
+        appId ===
+        '0x0000000000000000000000000000000000000000000000000000000000000000'
+      ) {
         return { success: false, error: 'Contract not registered to any app' }
       }
 
@@ -434,34 +439,39 @@ export const appsRoutes = new Elysia({ prefix: '/apps' })
     }
 
     if (distributorAddr !== '0x0000000000000000000000000000000000000000') {
-      const [totalDistributed, totalAppEarnings, totalLPEarnings, totalContributorEarnings, contributorPoolBalance] =
-        await Promise.all([
-          publicClient.readContract({
-            address: distributorAddr,
-            abi: FeeDistributorABI,
-            functionName: 'totalDistributed',
-          }),
-          publicClient.readContract({
-            address: distributorAddr,
-            abi: FeeDistributorABI,
-            functionName: 'totalAppEarnings',
-          }),
-          publicClient.readContract({
-            address: distributorAddr,
-            abi: FeeDistributorABI,
-            functionName: 'totalLPEarnings',
-          }),
-          publicClient.readContract({
-            address: distributorAddr,
-            abi: FeeDistributorABI,
-            functionName: 'totalContributorEarnings',
-          }),
-          publicClient.readContract({
-            address: distributorAddr,
-            abi: FeeDistributorABI,
-            functionName: 'contributorPoolBalance',
-          }),
-        ])
+      const [
+        totalDistributed,
+        totalAppEarnings,
+        totalLPEarnings,
+        totalContributorEarnings,
+        contributorPoolBalance,
+      ] = await Promise.all([
+        publicClient.readContract({
+          address: distributorAddr,
+          abi: FeeDistributorABI,
+          functionName: 'totalDistributed',
+        }),
+        publicClient.readContract({
+          address: distributorAddr,
+          abi: FeeDistributorABI,
+          functionName: 'totalAppEarnings',
+        }),
+        publicClient.readContract({
+          address: distributorAddr,
+          abi: FeeDistributorABI,
+          functionName: 'totalLPEarnings',
+        }),
+        publicClient.readContract({
+          address: distributorAddr,
+          abi: FeeDistributorABI,
+          functionName: 'totalContributorEarnings',
+        }),
+        publicClient.readContract({
+          address: distributorAddr,
+          abi: FeeDistributorABI,
+          functionName: 'contributorPoolBalance',
+        }),
+      ])
 
       stats = {
         totalDistributed: formatEther(totalDistributed),
@@ -544,4 +554,3 @@ export const appsRoutes = new Elysia({ prefix: '/apps' })
       }),
     },
   )
-

@@ -33,9 +33,7 @@ test.describe('All Pages Load', () => {
     await expect(page.locator('header')).toBeVisible()
 
     // Hero section with heading
-    await expect(
-      page.getByRole('heading').first(),
-    ).toBeVisible()
+    await expect(page.getByRole('heading').first()).toBeVisible()
 
     // Create DAO link visible
     await expect(
@@ -77,11 +75,16 @@ test.describe('Navigation', () => {
     await page.goto(BASE_URL)
 
     // Navigate to Create
-    await page.getByRole('link', { name: /Create DAO/i }).first().click()
+    await page
+      .getByRole('link', { name: /Create DAO/i })
+      .first()
+      .click()
     await expect(page).toHaveURL(`${BASE_URL}/create`)
 
     // Navigate back home
-    const homeLink = page.getByRole('link', { name: /Cancel|Autocrat|Home/i }).first()
+    const homeLink = page
+      .getByRole('link', { name: /Cancel|Autocrat|Home/i })
+      .first()
     await homeLink.click()
     await expect(page).toHaveURL(BASE_URL)
   })
@@ -92,20 +95,23 @@ test.describe('Theme Toggle', () => {
     await page.goto(BASE_URL)
 
     // Look for theme toggle button
-    const themeButton = page.locator('button').filter({ has: page.locator('svg') }).first()
-    
+    const themeButton = page
+      .locator('button')
+      .filter({ has: page.locator('svg') })
+      .first()
+
     if (await themeButton.isVisible().catch(() => false)) {
       await themeButton.click()
       // Just verify it's clickable
     }
-    
+
     // Page should still work
     await expect(page.locator('main')).toBeVisible()
   })
 
   test('theme persists across navigation', async ({ page }) => {
     await page.goto(BASE_URL)
-    
+
     // Navigate and verify page still works
     await page.goto(`${BASE_URL}/create`)
     await expect(page.locator('main')).toBeVisible()

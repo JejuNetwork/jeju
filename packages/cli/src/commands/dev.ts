@@ -187,8 +187,6 @@ async function deployAppsOnchain(
   rpcUrl: string,
   apps: AppManifest[],
 ): Promise<void> {
-  logger.step('Deploying apps on-chain through DWS...')
-
   // Use the deployer private key
   const deployerKey = WELL_KNOWN_KEYS.dev[0].privateKey as `0x${string}`
 
@@ -202,72 +200,14 @@ async function deployAppsOnchain(
   let dwsContracts = localDeployOrchestrator.loadDWSContracts()
 
   if (!dwsContracts) {
-    // Deploy DWS contracts
+    logger.step('Deploying DWS contracts...')
     dwsContracts = await localDeployOrchestrator.deployDWSContracts()
   } else {
     logger.debug('DWS contracts already deployed')
   }
 
-  logger.step('Registering local DWS node...')
-  await localDeployOrchestrator.registerLocalNode()
-
-  logger.step('Starting DWS server...')
-  const dwsDir = join(rootDir, 'apps/dws')
-  if (existsSync(dwsDir)) {
-    const dwsProc = execa('bun', ['run', 'dev'], {
-      cwd: dwsDir,
-      env: {
-        ...process.env,
-        RPC_URL: rpcUrl,
-        WORKER_REGISTRY_ADDRESS: dwsContracts.workerRegistry,
-        STORAGE_MANAGER_ADDRESS: dwsContracts.storageManager,
-        CDN_REGISTRY_ADDRESS: dwsContracts.cdnRegistry,
-        JNS_REGISTRY_ADDRESS: dwsContracts.jnsRegistry,
-        JNS_RESOLVER_ADDRESS: dwsContracts.jnsResolver,
-        FARCASTER_HUB_URL: getFarcasterHubUrl(),
-      },
-      stdio: 'pipe',
-    })
-
-    runningServices.push({
-      name: 'DWS',
-      port: 4030,
-      process: dwsProc,
-    })
-
-    // Wait for DWS to start
-    await new Promise((r) => setTimeout(r, 5000))
-    logger.success('DWS server running on port 4030')
-  }
-
-  // Start OAuth3 authentication gateway (required for auth flows)
-  logger.step('Starting OAuth3 authentication gateway...')
-  const oauth3Dir = join(rootDir, 'apps/oauth3')
-  if (existsSync(oauth3Dir)) {
-    const oauth3Proc = execa('bun', ['run', 'dev'], {
-      cwd: oauth3Dir,
-      env: {
-        ...process.env,
-        PORT: '4200',
-        RPC_URL: rpcUrl,
-        NODE_ENV: 'development',
-      },
-      stdio: 'pipe',
-    })
-
-    runningServices.push({
-      name: 'OAuth3',
-      port: 4200,
-      process: oauth3Proc,
-    })
-
-    // Give OAuth3 a moment to start
-    await new Promise((r) => setTimeout(r, 1000))
-    logger.success('OAuth3 gateway running on port 4200')
-  }
-
+  // Collect app directories
   const appsWithDirs = apps.map((app) => {
-    // Determine app directory - vendor apps are in vendor/, core apps in apps/
     const folderName = app._folderName || app.name
     const isVendor = app.type === 'vendor'
     const dir = isVendor
@@ -276,6 +216,97 @@ async function deployAppsOnchain(
     return { dir, manifest: app }
   })
 
+  // Pre-build all apps in parallel for maximum speed
+  logger.step(`Building ${appsWithDirs.length} apps in parallel...`)
+  const buildResults = await Promise.allSettled(
+    appsWithDirs.map(async ({ dir, manifest }) => {
+      const buildCmd = manifest.commands?.build ?? 'bun run build'
+      try {
+        await execa('sh', ['-c', buildCmd], {
+          cwd: dir,
+          stdio: 'pipe',
+          timeout: 120000, // 2 minute timeout per build
+        })
+        return { name: manifest.name, success: true }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error)
+        return { name: manifest.name, success: false, error: errorMsg }
+      }
+    }),
+  )
+
+  // Report build results
+  let successCount = 0
+  for (const result of buildResults) {
+    if (result.status === 'fulfilled' && result.value.success) {
+      successCount++
+    } else {
+      const name =
+        result.status === 'fulfilled'
+          ? result.value.name
+          : 'unknown'
+      const error =
+        result.status === 'fulfilled'
+          ? result.value.error
+          : result.reason?.message
+      logger.debug(`  Build failed for ${name}: ${error?.slice(0, 100)}`)
+    }
+  }
+  logger.success(`Built ${successCount}/${appsWithDirs.length} apps`)
+
+  // Start DWS, OAuth3, and register node in parallel
+  logger.step('Starting services in parallel...')
+  await Promise.all([
+    // Register local node
+    localDeployOrchestrator.registerLocalNode(),
+
+    // Start DWS server
+    (async () => {
+      const dwsDir = join(rootDir, 'apps/dws')
+      if (existsSync(dwsDir)) {
+        const dwsProc = execa('bun', ['run', 'dev'], {
+          cwd: dwsDir,
+          env: {
+            ...process.env,
+            RPC_URL: rpcUrl,
+            WORKER_REGISTRY_ADDRESS: dwsContracts.workerRegistry,
+            STORAGE_MANAGER_ADDRESS: dwsContracts.storageManager,
+            CDN_REGISTRY_ADDRESS: dwsContracts.cdnRegistry,
+            JNS_REGISTRY_ADDRESS: dwsContracts.jnsRegistry,
+            JNS_RESOLVER_ADDRESS: dwsContracts.jnsResolver,
+            FARCASTER_HUB_URL: getFarcasterHubUrl(),
+          },
+          stdio: 'pipe',
+        })
+        runningServices.push({ name: 'DWS', port: 4030, process: dwsProc })
+        await new Promise((r) => setTimeout(r, 3000))
+        logger.success('DWS server running on port 4030')
+      }
+    })(),
+
+    // Start OAuth3 gateway
+    (async () => {
+      const oauth3Dir = join(rootDir, 'apps/oauth3')
+      if (existsSync(oauth3Dir)) {
+        const oauth3Proc = execa('bun', ['run', 'dev'], {
+          cwd: oauth3Dir,
+          env: {
+            ...process.env,
+            PORT: '4200',
+            RPC_URL: rpcUrl,
+            NODE_ENV: 'development',
+          },
+          stdio: 'pipe',
+        })
+        runningServices.push({ name: 'OAuth3', port: 4200, process: oauth3Proc })
+        await new Promise((r) => setTimeout(r, 1000))
+        logger.success('OAuth3 gateway running on port 4200')
+      }
+    })(),
+  ])
+
+  // Deploy apps on-chain in parallel (skip build since we pre-built)
+  logger.step('Registering apps on-chain...')
   await localDeployOrchestrator.deployAllApps(appsWithDirs)
 
   // Start vendor app backend workers in parallel

@@ -13,12 +13,12 @@
 
 import { beforeAll, describe, expect, test } from 'bun:test'
 import { resetCacheClients } from '@jejunetwork/cache'
-import { getSQLitBlockProducerUrl } from '@jejunetwork/config'
 import type { Address } from 'viem'
 import { initializeDWSState } from '../api/state'
 
 // SQLit endpoint - use same default as server
-const SQLIT_ENDPOINT = process.env.SQLIT_BLOCK_PRODUCER_ENDPOINT ?? 'http://localhost:4661'
+const SQLIT_ENDPOINT =
+  process.env.SQLIT_BLOCK_PRODUCER_ENDPOINT ?? 'http://localhost:4661'
 
 // Check if SQLit is available by making a health check
 async function checkSQLitAvailable(): Promise<boolean> {
@@ -620,7 +620,12 @@ describe.skipIf(!SQLIT_AVAILABLE)('Full Flow Security', () => {
       })
 
       // Check access should pass (access control)
-      const accessCheck = await checkAccess(poorUser, listing, '/messages', 'POST')
+      const accessCheck = await checkAccess(
+        poorUser,
+        listing,
+        '/messages',
+        'POST',
+      )
       expect(accessCheck.allowed).toBe(true)
 
       // But actual payment check would fail (tested in proxy)

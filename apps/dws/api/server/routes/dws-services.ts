@@ -60,6 +60,16 @@ import {
   terminateHubble,
 } from '../../services/hubble'
 import {
+  deployMessaging,
+  getMessagingService,
+  getMessagingStats,
+  getTestnetMessagingConfig,
+  listMessagingServices,
+  type MessagingConfig,
+  scaleMessaging,
+  terminateMessaging,
+} from '../../services/messaging'
+import {
   deployOAuth3,
   getOAuth3MPCStatus,
   getOAuth3Service,
@@ -70,6 +80,17 @@ import {
   scaleOAuth3,
   terminateOAuth3,
 } from '../../services/oauth3'
+import {
+  deploySQLit,
+  getSQLitClusterStatus,
+  getSQLitService,
+  getSQLitStats,
+  getTestnetSQLitConfig,
+  listSQLitServices,
+  type SQLitConfig,
+  scaleSQLit,
+  terminateSQLit,
+} from '../../services/sqlit'
 import {
   deployRPCGateway,
   deploySQLitAdapter,
@@ -161,6 +182,30 @@ const WorkerProvisionSchema = z.object({
   replicas: z.number().int().min(1).max(20).default(2),
 })
 
+const MessagingProvisionSchema = z.object({
+  name: z
+    .string()
+    .min(1)
+    .max(64)
+    .regex(/^[a-z0-9-]+$/),
+  namespace: z.string().default('default'),
+  relayReplicas: z.number().int().min(1).max(20).default(3),
+  kmsEnabled: z.boolean().default(true),
+  kmsReplicas: z.number().int().min(1).max(10).default(3),
+})
+
+const SQLitProvisionSchema = z.object({
+  name: z
+    .string()
+    .min(1)
+    .max(64)
+    .regex(/^[a-z0-9-]+$/),
+  namespace: z.string().default('default'),
+  blockProducers: z.number().int().min(1).max(7).default(3),
+  followers: z.number().int().min(0).max(10).default(2),
+  storageSizeMb: z.number().int().min(1024).max(1024000).default(102400),
+})
+
 const ScaleSchema = z.object({
   replicas: z.number().int().min(0).max(20),
 })
@@ -221,6 +266,8 @@ export function createDWSServicesRouter() {
           da: getTestnetDAConfig(),
           email: getTestnetEmailConfig(),
           hubble: getTestnetHubbleConfig(),
+          messaging: getTestnetMessagingConfig(),
+          sqlit: getTestnetSQLitConfig(),
           workers: {
             x402: getTestnetX402Config(),
             rpcGateway: getTestnetRPCGatewayConfig(),
@@ -653,6 +700,183 @@ export function createDWSServicesRouter() {
           .delete('/:id', async ({ params, request }) => {
             const owner = getOwnerFromRequest(request)
             await terminateWorker(params.id, owner)
+            return { status: 'terminated' }
+          }),
+      )
+
+      // ========================================================================
+      // Messaging Service
+      // ========================================================================
+      .group('/messaging', (messaging) =>
+        messaging
+          .get('/', ({ query }) => {
+            const owner = query.owner as Address | undefined
+            const services = listMessagingServices(owner)
+            return { services }
+          })
+
+          .post('/', async ({ body, request, set }) => {
+            const parsed = MessagingProvisionSchema.safeParse(body)
+            if (!parsed.success) {
+              set.status = 400
+              return { error: 'Invalid request', details: parsed.error.issues }
+            }
+
+            const owner = getOwnerFromRequest(request)
+            const baseConfig = getTestnetMessagingConfig()
+            const config: MessagingConfig = {
+              ...baseConfig,
+              name: parsed.data.name,
+              namespace: parsed.data.namespace,
+              relay: {
+                ...baseConfig.relay,
+                replicas: parsed.data.relayReplicas,
+              },
+              kms: {
+                ...baseConfig.kms,
+                enabled: parsed.data.kmsEnabled,
+                replicas: parsed.data.kmsReplicas,
+              },
+            }
+
+            const service = await deployMessaging(owner, config)
+
+            set.status = 201
+            return { service }
+          })
+
+          .get('/:id', async ({ params, set }) => {
+            const service = getMessagingService(params.id)
+            if (!service) {
+              set.status = 404
+              return { error: 'Service not found' }
+            }
+            return { service }
+          })
+
+          .get('/:id/stats', async ({ params, set }) => {
+            const stats = await getMessagingStats(params.id)
+            if (!stats) {
+              set.status = 404
+              return { error: 'Service not found' }
+            }
+            return stats
+          })
+
+          .post('/:id/scale', async ({ params, body, request, set }) => {
+            const parsed = ScaleSchema.safeParse(body)
+            if (!parsed.success) {
+              set.status = 400
+              return { error: 'Invalid request', details: parsed.error.issues }
+            }
+
+            const owner = getOwnerFromRequest(request)
+            await scaleMessaging(params.id, owner, parsed.data.replicas)
+            return { status: 'scaled', replicas: parsed.data.replicas }
+          })
+
+          .delete('/:id', async ({ params, request }) => {
+            const owner = getOwnerFromRequest(request)
+            await terminateMessaging(params.id, owner)
+            return { status: 'terminated' }
+          }),
+      )
+
+      // ========================================================================
+      // SQLit Service
+      // ========================================================================
+      .group('/sqlit', (sqlit) =>
+        sqlit
+          .get('/', ({ query }) => {
+            const owner = query.owner as Address | undefined
+            const services = listSQLitServices(owner)
+            return { services }
+          })
+
+          .post('/', async ({ body, request, set }) => {
+            const parsed = SQLitProvisionSchema.safeParse(body)
+            if (!parsed.success) {
+              set.status = 400
+              return { error: 'Invalid request', details: parsed.error.issues }
+            }
+
+            const owner = getOwnerFromRequest(request)
+            const baseConfig = getTestnetSQLitConfig()
+            const config: SQLitConfig = {
+              ...baseConfig,
+              name: parsed.data.name,
+              namespace: parsed.data.namespace,
+              nodes: {
+                blockProducers: parsed.data.blockProducers,
+                followers: parsed.data.followers,
+              },
+              storage: {
+                ...baseConfig.storage,
+                sizeMb: parsed.data.storageSizeMb,
+              },
+            }
+
+            const service = await deploySQLit(owner, config)
+
+            set.status = 201
+            return { service }
+          })
+
+          .get('/:id', async ({ params, set }) => {
+            const service = getSQLitService(params.id)
+            if (!service) {
+              set.status = 404
+              return { error: 'Service not found' }
+            }
+            return { service }
+          })
+
+          .get('/:id/stats', async ({ params, set }) => {
+            const stats = await getSQLitStats(params.id)
+            if (!stats) {
+              set.status = 404
+              return { error: 'Service not found' }
+            }
+            return stats
+          })
+
+          .get('/:id/cluster', async ({ params, set }) => {
+            const cluster = await getSQLitClusterStatus(params.id)
+            if (!cluster) {
+              set.status = 404
+              return { error: 'Service not found' }
+            }
+            return cluster
+          })
+
+          .post('/:id/scale', async ({ params, body, request, set }) => {
+            const schema = z.object({
+              blockProducers: z.number().int().min(1).max(7),
+              followers: z.number().int().min(0).max(10).optional(),
+            })
+            const parsed = schema.safeParse(body)
+            if (!parsed.success) {
+              set.status = 400
+              return { error: 'Invalid request', details: parsed.error.issues }
+            }
+
+            const owner = getOwnerFromRequest(request)
+            await scaleSQLit(
+              params.id,
+              owner,
+              parsed.data.blockProducers,
+              parsed.data.followers,
+            )
+            return {
+              status: 'scaled',
+              blockProducers: parsed.data.blockProducers,
+              followers: parsed.data.followers,
+            }
+          })
+
+          .delete('/:id', async ({ params, request }) => {
+            const owner = getOwnerFromRequest(request)
+            await terminateSQLit(params.id, owner)
             return { status: 'terminated' }
           }),
       )

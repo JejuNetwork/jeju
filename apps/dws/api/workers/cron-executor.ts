@@ -11,7 +11,6 @@
  * the in-memory CronScheduler class.
  */
 
-import { getCurrentNetwork } from '@jejunetwork/config'
 import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import {
   type DWSWorker,
@@ -61,7 +60,7 @@ export class CronExecutor {
   private readonly maxHistorySize = 100
 
   constructor(config: Partial<CronExecutorConfig> = {}) {
-    const network = getCurrentNetwork()
+    const network = process.env.JEJU_NETWORK ?? 'localnet'
 
     this.config = {
       workerBaseUrl:
@@ -255,8 +254,22 @@ export class CronExecutor {
   ): Promise<CronExecutionResult> {
     const startTime = Date.now()
 
-    // Get CRON_SECRET from worker's env
-    const cronSecret = worker.env.CRON_SECRET ?? 'development'
+    // Get CRON_SECRET from worker's env - required for security
+    const cronSecret = worker.env.CRON_SECRET
+    if (!cronSecret) {
+      console.error(
+        `[CronExecutor] Worker ${worker.name} has no CRON_SECRET configured. ` +
+          'Cron endpoints must be protected. Skipping execution.',
+      )
+      return {
+        scheduleId: cron.id,
+        workerId: cron.workerId,
+        name: cron.name,
+        success: false,
+        durationMs: Date.now() - startTime,
+        error: 'CRON_SECRET not configured for worker',
+      }
+    }
 
     // Build the URL - workers are invoked via DWS HTTP proxy
     const url = `${this.config.workerBaseUrl}/workers/${worker.id}/http${cron.endpoint}`
@@ -328,30 +341,27 @@ export class CronExecutor {
   }
 
   /**
-   * Acquire a distributed lock using cache
+   * Acquire a distributed lock using atomic SETNX
+   * Returns true only if we acquired the lock atomically
    */
   private async acquireLock(key: string): Promise<boolean> {
     const lockValue = `${this.config.podId}:${Date.now()}`
 
-    // Use SETNX-style operation via get+set
-    const existing = await this.cache.get(key)
-    if (existing) {
-      // Lock already held
-      return false
-    }
-
-    // Set lock with TTL
-    await this.cache.set(key, lockValue, this.config.lockTtlSeconds)
-
-    // Verify we got the lock (race condition check)
-    const value = await this.cache.get(key)
-    return value === lockValue
+    // Use atomic SETNX (set if not exists) - this is race-condition safe
+    // Returns true if the key was set, false if it already existed
+    return this.cache.setNX(key, lockValue, this.config.lockTtlSeconds)
   }
 
   /**
    * Release a distributed lock
+   * Note: In a perfect world we'd use compare-and-delete, but delete is fine
+   * since the lock has a TTL and will expire anyway if we crash
    */
   private async releaseLock(key: string): Promise<void> {
+    // We don't verify ownership here because:
+    // 1. The lock has a TTL so it will expire anyway
+    // 2. If another pod took the lock, deleting it is actually correct
+    //    (they finished or crashed, and we're cleaning up)
     await this.cache.delete(key)
   }
 

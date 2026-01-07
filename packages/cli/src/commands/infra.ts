@@ -614,7 +614,7 @@ dwsServicesCommand
   .description('Deploy a specific DWS service')
   .argument(
     '<service>',
-    'Service to deploy (oauth3, da, email, hubble, x402, rpc-gateway, sqlit-adapter)',
+    'Service to deploy (oauth3, da, email, hubble, messaging, sqlit, x402, rpc-gateway, sqlit-adapter)',
   )
   .option('--replicas <n>', 'Number of replicas', '2')
   .option('--name <name>', 'Service name')
@@ -650,6 +650,8 @@ dwsServicesCommand
         da: 'da',
         email: 'email',
         hubble: 'hubble',
+        messaging: 'messaging',
+        sqlit: 'sqlit',
         x402: 'workers',
         'x402-facilitator': 'workers',
         'rpc-gateway': 'workers',
@@ -660,7 +662,7 @@ dwsServicesCommand
       if (!endpoint) {
         logger.error(`Unknown service: ${service}`)
         logger.info(
-          'Valid services: oauth3, da, email, hubble, x402, rpc-gateway, sqlit-adapter',
+          'Valid services: oauth3, da, email, hubble, messaging, sqlit, x402, rpc-gateway, sqlit-adapter',
         )
         return
       }
@@ -746,7 +748,10 @@ dwsServicesCommand
   .command('terminate')
   .description('Terminate a DWS service')
   .argument('<id>', 'Service ID to terminate')
-  .argument('<type>', 'Service type (oauth3, da, email, hubble, workers)')
+  .argument(
+    '<type>',
+    'Service type (oauth3, da, email, hubble, messaging, sqlit, workers)',
+  )
   .action(async (id: string, type: string) => {
     const { getDWSUrl, getCurrentNetwork } = await import('@jejunetwork/config')
     const network = getCurrentNetwork()

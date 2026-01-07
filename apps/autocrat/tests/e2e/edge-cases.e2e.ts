@@ -91,7 +91,7 @@ test.describe('Empty States', () => {
     // Page should load with some content
     const rootContent = page.locator('#root')
     await expect(rootContent).toBeVisible()
-    
+
     const content = await rootContent.textContent()
     expect(content?.length).toBeGreaterThan(0)
   })
@@ -257,7 +257,10 @@ test.describe('Mocked API Errors', () => {
     await page.waitForTimeout(2000)
 
     // Page should still render, even with API error
-    const mainVisible = await page.locator('main').isVisible().catch(() => false)
+    const mainVisible = await page
+      .locator('main')
+      .isVisible()
+      .catch(() => false)
     const hasCreateBtn = await page
       .locator('text=Create DAO')
       .isVisible()

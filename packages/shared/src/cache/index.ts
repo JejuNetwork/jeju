@@ -89,6 +89,8 @@ export interface CacheClientConfig {
 export interface CacheClient {
   get(key: string): Promise<string | null>
   set(key: string, value: string, ttl?: number): Promise<{ success: boolean }>
+  /** Atomic set-if-not-exists for distributed locking */
+  setNX(key: string, value: string, ttl: number): Promise<boolean>
   delete(key: string): Promise<boolean>
   mget(...keys: string[]): Promise<Map<string, string | null>>
   mset(
@@ -193,6 +195,37 @@ class DecentralizedCacheClient implements CacheClient {
     }
 
     return { success: true }
+  }
+
+  /**
+   * Atomic set-if-not-exists for distributed locking
+   * Returns true if the key was set, false if it already existed
+   */
+  async setNX(key: string, value: string, ttl: number): Promise<boolean> {
+    const response = await fetch(`${this.config.endpoint}/cache/set`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        key,
+        value,
+        ttl,
+        namespace: this.config.namespace,
+        nx: true, // Set if not exists (atomic operation)
+      }),
+      signal: AbortSignal.timeout(this.config.timeout),
+    })
+
+    if (!response.ok) {
+      // 409 Conflict or similar means key already exists
+      if (response.status === 409) {
+        return false
+      }
+      throw new Error(`Cache setNX failed: ${response.statusText}`)
+    }
+
+    const json = await response.json()
+    const data = CacheSuccessResponseSchema.parse(json)
+    return data.success
   }
 
   async delete(key: string): Promise<boolean> {

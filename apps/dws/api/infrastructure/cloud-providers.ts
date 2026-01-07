@@ -6,12 +6,12 @@
  */
 
 import {
+  type _InstanceType,
+  DescribeImagesCommand,
+  DescribeInstancesCommand,
   EC2Client,
   RunInstancesCommand,
-  DescribeInstancesCommand,
   TerminateInstancesCommand,
-  DescribeImagesCommand,
-  type _InstanceType,
 } from '@aws-sdk/client-ec2'
 
 export interface CloudProviderConfig {
@@ -48,7 +48,10 @@ export class AWSProvider {
   async initialize(config: CloudProviderConfig): Promise<void> {
     this.region = config.region
 
-    const clientConfig: { region: string; credentials?: { accessKeyId: string; secretAccessKey: string } } = {
+    const clientConfig: {
+      region: string
+      credentials?: { accessKeyId: string; secretAccessKey: string }
+    } = {
       region: config.region,
     }
 
@@ -105,7 +108,10 @@ export class AWSProvider {
 
     const tags = [
       { Key: 'Name', Value: request.name },
-      ...Object.entries(request.tags ?? {}).map(([Key, Value]) => ({ Key, Value })),
+      ...Object.entries(request.tags ?? {}).map(([Key, Value]) => ({
+        Key,
+        Value,
+      })),
     ]
 
     const response = await this.ec2Client.send(
@@ -114,7 +120,9 @@ export class AWSProvider {
         InstanceType: request.instanceType as _InstanceType,
         MinCount: 1,
         MaxCount: 1,
-        UserData: request.userData ? Buffer.from(request.userData).toString('base64') : undefined,
+        UserData: request.userData
+          ? Buffer.from(request.userData).toString('base64')
+          : undefined,
         EnclaveOptions: { Enabled: true },
         TagSpecifications: [
           {

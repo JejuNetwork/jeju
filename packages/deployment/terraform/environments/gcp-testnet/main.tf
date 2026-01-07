@@ -287,43 +287,26 @@ provider "helm" {
 }
 
 # ============================================================
-# Module: Farcaster Hub (Self-Hosted)
+# DECENTRALIZED SERVICES (deployed via DWS)
 # ============================================================
-module "farcaster_hub" {
-  source = "../../modules/farcaster-hub-gcp"
-
-  project_id                = var.project_id
-  environment               = local.environment
-  region                    = var.region
-  gke_cluster_name          = module.gke.cluster_name
-  gke_cluster_endpoint      = module.gke.cluster_endpoint
-  gke_cluster_ca_certificate = module.gke.cluster_ca_certificate
-  domain_name               = var.domain_name
-  dns_zone_name             = module.cloud_dns.zone_name
-  optimism_rpc_url          = "https://mainnet.optimism.io"
-  tags                      = local.common_labels
-
-  depends_on = [module.gke, module.cloud_dns]
-}
-
+# The following services are now deployed via DWS instead of Terraform:
+# - SQLit: Decentralized distributed database
+# - Farcaster Hubble: Farcaster protocol hub
+# - Messaging: Relay nodes and KMS
+# - Email: SMTP/IMAP infrastructure
+#
+# To deploy these services:
+#   jeju infra deploy sqlit --network testnet
+#   jeju infra deploy hubble --network testnet
+#   jeju infra deploy messaging --network testnet
+#   jeju infra deploy email --network testnet
+#
+# DWS handles:
+# - Node selection and load balancing
+# - On-chain registration and staking
+# - Health monitoring and auto-recovery
+# - IPFS-based persistence and backup
 # ============================================================
-# Module: SQLit (GCP - Parity with AWS)
-# ============================================================
-module "sqlit" {
-  source = "../../modules/sqlit-gcp"
-
-  project_id          = var.project_id
-  environment         = local.environment
-  region              = var.region
-  vpc_name            = module.network.vpc_name
-  subnet_name         = module.network.private_subnet_name
-  node_count          = 1
-  machine_type        = "e2-standard-2"
-  disk_size_gb        = 100
-  allowed_cidr_blocks = ["10.1.0.0/16"]
-
-  depends_on = [module.network]
-}
 
 # ============================================================
 # Cloud DNS Records for DWS Services (Parity with AWS Route53)
@@ -483,24 +466,19 @@ output "kms_key_id" {
 output "testnet_urls" {
   description = "Testnet service URLs"
   value = {
-    rpc         = "https://testnet-rpc.${var.domain_name}"
-    ws          = "wss://testnet-ws.${var.domain_name}"
-    api         = "https://api.testnet.${var.domain_name}"
-    gateway     = "https://gateway.testnet.${var.domain_name}"
-    bazaar      = "https://bazaar.testnet.${var.domain_name}"
-    hub         = module.farcaster_hub.hub_http_url
-    dws         = "https://dws.testnet.${var.domain_name}"
-    storage     = "https://storage.testnet.${var.domain_name}"
-    git         = "https://git.testnet.${var.domain_name}"
-    jns         = "https://jns.testnet.${var.domain_name}"
-    indexer     = "https://indexer.testnet.${var.domain_name}"
-    sqlit = module.sqlit.http_endpoint
+    rpc     = "https://testnet-rpc.${var.domain_name}"
+    ws      = "wss://testnet-ws.${var.domain_name}"
+    api     = "https://api.testnet.${var.domain_name}"
+    gateway = "https://gateway.testnet.${var.domain_name}"
+    bazaar  = "https://bazaar.testnet.${var.domain_name}"
+    dws     = "https://dws.testnet.${var.domain_name}"
+    storage = "https://storage.testnet.${var.domain_name}"
+    git     = "https://git.testnet.${var.domain_name}"
+    jns     = "https://jns.testnet.${var.domain_name}"
+    indexer = "https://indexer.testnet.${var.domain_name}"
+    # Hubble, SQLit, Messaging, Email are now deployed via DWS
+    # Use: jeju infra deploy <service> to provision
   }
-}
-
-output "farcaster_hub_url" {
-  description = "Farcaster Hub URL"
-  value       = module.farcaster_hub.hub_http_url
 }
 
 output "next_steps" {

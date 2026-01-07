@@ -2492,9 +2492,57 @@ function rowToWorkerCron(row: WorkerCronRow): WorkerCronSchedule {
 const workerCronsMemory = new Map<string, WorkerCronSchedule>()
 
 /**
+ * Parse a cron field and check if a value matches
+ * Supports: *, specific values, ranges (1-5), steps (* /5, 1-10/2), and lists (1,3,5)
+ */
+function matchesCronField(
+  value: number,
+  field: string,
+  min: number,
+  max: number,
+): boolean {
+  // Wildcard matches everything
+  if (field === '*') return true
+
+  // Handle step values (*/5 or 1-10/2)
+  if (field.includes('/')) {
+    const [range, stepStr] = field.split('/')
+    const step = parseInt(stepStr, 10)
+    if (Number.isNaN(step) || step <= 0) return false
+
+    if (range === '*') {
+      // */5 means every 5th value starting from min
+      return (value - min) % step === 0
+    }
+    // Range with step: 1-10/2
+    const rangeMatch = matchesCronField(value, range, min, max)
+    if (!rangeMatch) return false
+    return (value - min) % step === 0
+  }
+
+  // Handle ranges (1-5)
+  if (field.includes('-') && !field.includes(',')) {
+    const [startStr, endStr] = field.split('-')
+    const start = parseInt(startStr, 10)
+    const end = parseInt(endStr, 10)
+    return value >= start && value <= end
+  }
+
+  // Handle lists (1,3,5)
+  if (field.includes(',')) {
+    const values = field.split(',')
+    return values.some((v) => matchesCronField(value, v.trim(), min, max))
+  }
+
+  // Specific value
+  const parsed = parseInt(field, 10)
+  return value === parsed
+}
+
+/**
  * Parse a standard 5-field cron expression and calculate the next run time
- * Supports: minute (0-59), hour (0-23), day-of-month (1-31), month (1-12), day-of-week (0-6)
- * Supports: *, /n (step), specific values, and ranges (partially)
+ * Fields: minute (0-59), hour (0-23), day-of-month (1-31), month (1-12), day-of-week (0-6)
+ * Throws if no valid next run time is found within 1 year
  */
 function calculateNextRunTime(
   schedule: string,
@@ -2503,40 +2551,56 @@ function calculateNextRunTime(
   const parts = schedule.trim().split(/\s+/)
   if (parts.length !== 5) {
     throw new Error(
-      `Invalid cron expression: expected 5 fields, got ${parts.length}`,
+      `Invalid cron expression "${schedule}": expected 5 fields, got ${parts.length}`,
     )
   }
 
-  const [minutePart, hourPart, _dayPart, _monthPart, _dowPart] = parts
+  const [minutePart, hourPart, dayPart, monthPart, dowPart] = parts
 
-  // Simple implementation: find next matching minute/hour
-  const now = new Date(fromTime)
-  const candidate = new Date(now)
-  candidate.setSeconds(0, 0)
-
-  // Parse minute field
-  function matchesField(value: number, field: string): boolean {
-    if (field === '*') return true
-    if (field.startsWith('*/')) {
-      const step = parseInt(field.slice(2), 10)
-      return value % step === 0
-    }
-    return parseInt(field, 10) === value
+  // Validate we have all parts
+  if (!minutePart || !hourPart || !dayPart || !monthPart || !dowPart) {
+    throw new Error(`Invalid cron expression "${schedule}": missing fields`)
   }
 
-  // Try next 1440 minutes (24 hours) to find a match
-  for (let i = 1; i <= 1440; i++) {
-    candidate.setMinutes(candidate.getMinutes() + 1)
-    const min = candidate.getMinutes()
-    const hour = candidate.getHours()
+  // Start from the next minute
+  const candidate = new Date(fromTime)
+  candidate.setSeconds(0, 0)
+  candidate.setMinutes(candidate.getMinutes() + 1)
 
-    if (matchesField(min, minutePart) && matchesField(hour, hourPart)) {
+  // Search up to 1 year ahead (525600 minutes)
+  const maxIterations = 525600
+  for (let i = 0; i < maxIterations; i++) {
+    const minute = candidate.getMinutes()
+    const hour = candidate.getHours()
+    const dayOfMonth = candidate.getDate()
+    const month = candidate.getMonth() + 1 // JS months are 0-indexed
+    const dayOfWeek = candidate.getDay() // 0 = Sunday
+
+    // Check if all fields match
+    const minuteMatch = matchesCronField(minute, minutePart, 0, 59)
+    const hourMatch = matchesCronField(hour, hourPart, 0, 23)
+    const dayMatch = matchesCronField(dayOfMonth, dayPart, 1, 31)
+    const monthMatch = matchesCronField(month, monthPart, 1, 12)
+    const dowMatch = matchesCronField(dayOfWeek, dowPart, 0, 6)
+
+    // Day-of-month and day-of-week have special interaction:
+    // If both are specified (not *), either one matching is sufficient
+    const dayOrDowMatch =
+      dayPart === '*' || dowPart === '*'
+        ? dayMatch && dowMatch
+        : dayMatch || dowMatch
+
+    if (minuteMatch && hourMatch && dayOrDowMatch && monthMatch) {
       return candidate.getTime()
     }
+
+    // Move to next minute
+    candidate.setMinutes(candidate.getMinutes() + 1)
   }
 
-  // Default: 1 hour from now
-  return fromTime + 60 * 60 * 1000
+  throw new Error(
+    `No valid next run time found for cron "${schedule}" within 1 year`,
+  )
 }
 
 export const dwsWorkerCronState = {

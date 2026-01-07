@@ -519,7 +519,7 @@ async function executeSkill(
   }
 }
 
-import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
+import { type CacheClient, getCacheClient } from '@jejunetwork/cache'
 
 const MAX_BODY_SIZE = 1024 * 1024
 const A2A_RATE_LIMIT = 100

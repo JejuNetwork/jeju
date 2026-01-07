@@ -6,7 +6,14 @@
  * Set SQLIT_AVAILABLE=true to force running, or tests auto-detect SQLit availability.
  */
 
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'bun:test'
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from 'bun:test'
 import { getSQLit, resetSQLit, type SQLitClient } from './client.js'
 import {
   createMigrationManager,
@@ -22,8 +29,12 @@ const SQLIT_ENDPOINT = process.env.SQLIT_ENDPOINT ?? 'http://localhost:8546'
 // Check if SQLit is reachable
 async function isSQLitAvailable(): Promise<boolean> {
   // Try multiple health endpoints
-  const endpoints = [`${SQLIT_ENDPOINT}/health`, `${SQLIT_ENDPOINT}/v2/health`, `${SQLIT_ENDPOINT}/v1/status`]
-  
+  const endpoints = [
+    `${SQLIT_ENDPOINT}/health`,
+    `${SQLIT_ENDPOINT}/v2/health`,
+    `${SQLIT_ENDPOINT}/v1/status`,
+  ]
+
   for (const ep of endpoints) {
     try {
       const response = await fetch(ep, {
@@ -57,7 +68,7 @@ async function createDatabase(name: string): Promise<string> {
     // Return a generated ID for already existing case
     return name
   }
-  const result = await response.json() as { databaseId: string }
+  const result = (await response.json()) as { databaseId: string }
   return result.databaseId
 }
 

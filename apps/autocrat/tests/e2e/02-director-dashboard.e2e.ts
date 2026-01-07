@@ -63,20 +63,22 @@ test.describe('Director Dashboard Page', () => {
   test('refresh button reloads data', async ({ page }) => {
     // Look for a refresh button
     const refreshBtn = page.getByRole('button', { name: /Refresh/i })
-    
+
     if (await refreshBtn.isVisible().catch(() => false)) {
       await refreshBtn.click()
       await page.waitForTimeout(500)
     }
-    
+
     // Page should still work
     await expect(page.locator('#root')).toBeVisible()
   })
 
   test('back button navigates to dashboard', async ({ page }) => {
     // Navigate back to home
-    const backLink = page.getByRole('link', { name: /Back|Home|Autocrat/i }).first()
-    
+    const backLink = page
+      .getByRole('link', { name: /Back|Home|Autocrat/i })
+      .first()
+
     if (await backLink.isVisible().catch(() => false)) {
       await backLink.click()
       await expect(page).toHaveURL(BASE_URL)
@@ -89,10 +91,10 @@ test.describe('Director Dashboard Page', () => {
 
   test('can navigate from dashboard to Director page', async ({ page }) => {
     await page.goto(BASE_URL)
-    
+
     // Try to find a link to director
     const directorLink = page.getByRole('link', { name: /Director/i }).first()
-    
+
     if (await directorLink.isVisible().catch(() => false)) {
       await directorLink.click()
       await expect(page).toHaveURL(/director/)

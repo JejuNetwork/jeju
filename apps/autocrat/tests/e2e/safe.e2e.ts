@@ -65,7 +65,7 @@ test.describe('Safe Integration UI', () => {
 
     // Header should be visible
     await expect(page.locator('header')).toBeVisible()
-    
+
     // Main content area
     await expect(page.locator('main')).toBeVisible()
   })

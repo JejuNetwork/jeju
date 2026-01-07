@@ -3,7 +3,7 @@
  * SQLit-based search implementation
  */
 
-import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
+import { type CacheClient, getCacheClient } from '@jejunetwork/cache'
 import {
   type ComputeProvider,
   count,
