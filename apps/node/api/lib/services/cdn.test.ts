@@ -257,7 +257,9 @@ describe('CDN Region Validation', () => {
     'me-south-1',
   ]
 
-  test.each(validRegions)('accepts valid region: %s', (region: string) => {
+  test.each(
+    validRegions,
+  )('accepts valid region: %s', (region: CDNServiceConfig['region']) => {
     const config: Parameters<typeof validateCDNServiceConfig>[0] = {
       endpoint: 'https://cdn.example.com',
       region,

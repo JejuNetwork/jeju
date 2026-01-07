@@ -37,6 +37,9 @@ import {
   WELL_KNOWN_KEYS,
 } from '../types'
 
+// Local development cron secret - consistent across backend and cron scheduler
+const LOCAL_DEV_CRON_SECRET = 'local-dev-cron-secret-12345'
+
 interface RunningService {
   name: string
   port?: number
@@ -327,6 +330,8 @@ async function deployAppsOnchain(
         CDN_REGISTRY_ADDRESS: dwsContracts.cdnRegistry,
         JNS_REGISTRY_ADDRESS: dwsContracts.jnsRegistry,
         JNS_RESOLVER_ADDRESS: dwsContracts.jnsResolver,
+        // Local dev cron secret - ensures cron endpoints work
+        CRON_SECRET: LOCAL_DEV_CRON_SECRET,
         // Public RPC fallbacks for external chain queries
         ETHEREUM_RPC_URL:
           process.env.ETHEREUM_RPC_URL || 'https://eth.llamarpc.com',
@@ -483,10 +488,18 @@ function startLocalCronScheduler(
 
     for (const job of cronJobs) {
       if (shouldRunCron(job.schedule, minute, hour)) {
-        // Trigger the cron endpoint
+        // Trigger the cron endpoint with proper auth
         const url = `http://localhost:${job.port}${job.endpoint}`
         try {
-          const response = await fetch(url, { method: 'POST' })
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${LOCAL_DEV_CRON_SECRET}`,
+              'x-cron-secret': LOCAL_DEV_CRON_SECRET,
+              'x-cron-name': job.name,
+            },
+          })
           if (!response.ok) {
             logger.warn(`Cron ${job.name} failed: ${response.status}`)
           } else {

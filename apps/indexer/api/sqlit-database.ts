@@ -244,8 +244,11 @@ export class SQLitDatabase {
         ? `"${tableName}"`
         : tableName
 
-      // Count expected columns from DDL
-      const columnMatches = ddl.match(/^\s+\w+\s+(?:TEXT|INTEGER|BLOB)/gim)
+      // Count expected columns from DDL - match column definitions including REAL type
+      // Pattern: start of line, whitespace, column_name, whitespace, type (TEXT|INTEGER|BLOB|REAL|NUMERIC)
+      const columnMatches = ddl.match(
+        /^\s+[a-z_][a-z0-9_]*\s+(?:TEXT|INTEGER|BLOB|REAL|NUMERIC)/gim,
+      )
       const expectedColumns = columnMatches?.length || 0
 
       try {
@@ -660,12 +663,7 @@ class SQLitStore implements SQLitStoreInterface {
       if (prop === 'block') {
         return null // token_transfer doesn't have block_id, only block_number
       }
-      if (prop === 'operator') {
-        return null // token_transfer doesn't have operator_id column (only ERC1155 transfers have operator)
-      }
-      if (prop === 'logIndex') {
-        return null // token_transfer doesn't have log_index column (only log_id)
-      }
+      // operator_id and log_index are in schema - don't filter them
     }
 
     // Special handling for nft_approval_event - filter out properties that don't exist in schema
@@ -673,15 +671,7 @@ class SQLitStore implements SQLitStoreInterface {
       if (prop === 'block') {
         return null // nft_approval_event doesn't have block_id, only block_number
       }
-      if (prop === 'isApprovalForAll') {
-        return null // Schema doesn't have this column
-      }
-      if (prop === 'tokenStandard') {
-        return null // Schema doesn't have this column
-      }
-      if (prop === 'chainId') {
-        return null // Schema doesn't have this column
-      }
+      // isApprovalForAll, tokenStandard, chainId are in schema - don't filter them
     }
 
     // Special handling for token_approval_event - filter out properties that don't exist in schema
@@ -721,12 +711,16 @@ class SQLitStore implements SQLitStoreInterface {
       account: [
         'id',
         'address',
-        'balance',
-        'transaction_count',
         'is_contract',
-        'created_at',
         'first_seen_block',
-        // Note: contract relation is not stored as contract_id in schema
+        'last_seen_block',
+        'transaction_count',
+        'total_value_sent',
+        'total_value_received',
+        'labels',
+        'contract_id',
+        'first_seen_at',
+        'last_seen_at',
       ],
       block: [
         'id',
@@ -802,13 +796,17 @@ class SQLitStore implements SQLitStoreInterface {
         'id',
         'transaction_id',
         'log_id',
+        'log_index',
         'block_number',
+        'block_id',
         'timestamp',
         'token_address',
         'from_id',
         'to_id',
+        'operator_id',
         'value',
         'token_id',
+        'nft_token_id',
         'token_standard',
       ],
       token_balance: [
@@ -819,6 +817,62 @@ class SQLitStore implements SQLitStoreInterface {
         'token_standard',
         'token_id',
         'last_updated_block',
+        'transfer_count',
+      ],
+      eil_stats: [
+        'id',
+        'date',
+        'total_volume_usd',
+        'total_transactions',
+        'total_xl_ps',
+        'active_xl_ps',
+        'total_staked_eth',
+        'average_fee_percent',
+        'average_time_seconds',
+        'success_rate',
+        'last24h_volume',
+        'last24h_transactions',
+      ],
+      compute_stats: [
+        'id',
+        'date',
+        'total_providers',
+        'active_providers',
+        'total_resources',
+        'available_resources',
+        'total_rentals',
+        'active_rentals',
+        'completed_rentals',
+        'total_inference_requests',
+        'total_staked',
+        'total_earnings',
+        'last24h_rentals',
+        'last24h_inference',
+        'last_updated',
+      ],
+      oif_stats: [
+        'id',
+        'date',
+        'total_intents',
+        'open_intents',
+        'pending_intents',
+        'filled_intents',
+        'expired_intents',
+        'total_volume',
+        'total_volume_usd',
+        'total_fees',
+        'total_fees_usd',
+        'total_solvers',
+        'active_solvers',
+        'total_solver_stake',
+        'total_routes',
+        'active_routes',
+        'average_fill_time_seconds',
+        'success_rate',
+        'last24h_intents',
+        'last24h_volume',
+        'last24h_fees',
+        'last_updated',
       ],
     }
 
@@ -829,135 +883,6 @@ class SQLitStore implements SQLitStoreInterface {
 
     // Property doesn't exist in schema, skip it
     return null
-  }
-
-  // Extract value from entity property, handling relations and arrays
-  private extractValue(
-    val: unknown,
-    prop: string,
-    tableName: string,
-  ): QueryParam | null {
-    if (val === null || val === undefined) {
-      return null
-    }
-
-    // Special case: log.address is stored as address string, not relation ID
-    if (tableName === 'log' && prop === 'address') {
-      // If it's a relation object (Account), extract the address property
-      if (
-        typeof val === 'object' &&
-        'address' in val &&
-        typeof (val as { address: unknown }).address === 'string'
-      ) {
-        return (val as { address: string }).address
-      }
-      // If it's already a string, use as-is
-      if (typeof val === 'string') {
-        return val
-      }
-      // If it's an object with id, try to use id as address (fallback)
-      if (
-        typeof val === 'object' &&
-        'id' in val &&
-        typeof (val as { id: unknown }).id === 'string'
-      ) {
-        return (val as { id: string }).id
-      }
-      return null
-    }
-
-    // Special case: log.block_number - extract number from block relation
-    if (tableName === 'log' && prop === 'blockNumber') {
-      // This should come from block.number, but if blockNumber is directly set, use it
-      if (typeof val === 'number') {
-        return val
-      }
-      return null
-    }
-
-    // Special case: token_transfer.token, approval events.token maps to token_address (extract address from Contract)
-    if (
-      (tableName === 'token_transfer' ||
-        tableName === 'nft_approval_event' ||
-        tableName === 'token_approval_event') &&
-      prop === 'token'
-    ) {
-      if (
-        typeof val === 'object' &&
-        'address' in val &&
-        typeof (val as { address: unknown }).address === 'string'
-      ) {
-        return (val as { address: string }).address
-      }
-      if (typeof val === 'string') {
-        return val
-      }
-      return null
-    }
-
-    // Handle relation objects - extract their id
-    if (
-      typeof val === 'object' &&
-      !Array.isArray(val) &&
-      !(val instanceof Date) &&
-      !Buffer.isBuffer(val) &&
-      !(val instanceof Uint8Array) &&
-      'id' in val &&
-      typeof (val as { id: unknown }).id === 'string'
-    ) {
-      return (val as { id: string }).id
-    }
-
-    // Handle arrays (like labels) - convert to JSON
-    if (Array.isArray(val)) {
-      const stringifyWithBigInt = (obj: unknown): string => {
-        return JSON.stringify(obj, (_, value) =>
-          typeof value === 'bigint' ? value.toString() : value,
-        )
-      }
-      return stringifyWithBigInt(val)
-    }
-
-    // Handle Date
-    if (val instanceof Date) {
-      return val.toISOString()
-    }
-
-    // Handle BigInt
-    if (typeof val === 'bigint') {
-      return val.toString()
-    }
-
-    // Handle boolean
-    if (typeof val === 'boolean') {
-      return val ? 1 : 0
-    }
-
-    // Handle objects (non-relations) - stringify
-    if (
-      typeof val === 'object' &&
-      !Buffer.isBuffer(val) &&
-      !(val instanceof Uint8Array)
-    ) {
-      const stringifyWithBigInt = (obj: unknown): string => {
-        return JSON.stringify(obj, (_, value) =>
-          typeof value === 'bigint' ? value.toString() : value,
-        )
-      }
-      return stringifyWithBigInt(val)
-    }
-
-    // Handle primitives
-    if (
-      typeof val === 'string' ||
-      typeof val === 'number' ||
-      val instanceof Uint8Array
-    ) {
-      return val
-    }
-
-    // Fallback
-    return String(val)
   }
 
   private async batchUpsert(
@@ -1229,6 +1154,12 @@ class SQLitStore implements SQLitStoreInterface {
       }
     }
 
+    // Columns that exist in entity but NOT in schema - skip them
+    const schemaExclusions: Record<string, string[]> = {
+      token_balance: ['blockNumber'], // schema has last_updated_block, not block_number
+    }
+    const exclusions = schemaExclusions[tableName] || []
+
     // Filter out skip columns
     const columns: string[] = []
     const snakeCols: string[] = []
@@ -1237,6 +1168,7 @@ class SQLitStore implements SQLitStoreInterface {
 
     for (const col of rawColumns) {
       if (skipColumns.has(col)) continue
+      if (exclusions.includes(col)) continue
 
       columns.push(col)
       if (fkColumns.has(col)) {
@@ -1310,8 +1242,8 @@ class SQLitStore implements SQLitStoreInterface {
       valuesClauses.push(`(${placeholders})`)
       for (let i = 0; i < columns.length; i++) {
         const col = columns[i]
-        const dbCol = snakeCols[i] // Database column name (snake_case)
-        const prop = col // Property name on the entity (camelCase)
+        const _dbCol = snakeCols[i] // Database column name (snake_case)
+        const _prop = col // Property name on the entity (camelCase)
         const isFk = fkColumns.has(col)
         const val = entity[col]
 
@@ -1350,304 +1282,6 @@ class SQLitStore implements SQLitStoreInterface {
           // Fallback - stringify unknown types
           values.push(String(val))
         }
-
-        // Special case: log.block_number, token_transfer.block_number, and approval events - extract from block.number
-        if (
-          (tableName === 'log' ||
-            tableName === 'token_transfer' ||
-            tableName === 'nft_approval_event' ||
-            tableName === 'token_approval_event') &&
-          dbCol === 'block_number' &&
-          !prop
-        ) {
-          const block = entity.block
-          if (
-            block &&
-            typeof block === 'object' &&
-            'number' in block &&
-            typeof block.number === 'number'
-          ) {
-            values.push(block.number)
-            continue
-          }
-          // Fallback: try to get from blockNumber property if it exists
-          if (
-            'blockNumber' in entity &&
-            typeof entity.blockNumber === 'number'
-          ) {
-            values.push(entity.blockNumber)
-            continue
-          }
-          values.push(null)
-          continue
-        }
-
-        // Special case: token_transfer.timestamp and approval events - extract from block.timestamp or timestamp property
-        if (
-          (tableName === 'token_transfer' ||
-            tableName === 'nft_approval_event' ||
-            tableName === 'token_approval_event') &&
-          dbCol === 'timestamp' &&
-          !prop
-        ) {
-          // First try direct timestamp property
-          if ('timestamp' in entity) {
-            const ts = entity.timestamp
-            if (ts instanceof Date) {
-              values.push(ts.toISOString())
-              continue
-            }
-            if (typeof ts === 'string') {
-              values.push(ts)
-              continue
-            }
-          }
-          // Fallback: extract from block.timestamp
-          const block = entity.block
-          if (
-            block &&
-            typeof block === 'object' &&
-            'timestamp' in block &&
-            block.timestamp instanceof Date
-          ) {
-            values.push(block.timestamp.toISOString())
-            continue
-          }
-          values.push(null)
-          continue
-        }
-
-        // Special case: token_transfer.value - handle null values (ERC721 NFTs don't have value)
-        if (
-          tableName === 'token_transfer' &&
-          dbCol === 'value' &&
-          prop === 'value'
-        ) {
-          const val = entity[prop]
-          if (val === null || val === undefined) {
-            // For ERC721 NFTs, value is null - use "0" as default
-            values.push('0')
-            continue
-          }
-          // For BigInt values, convert to string
-          if (typeof val === 'bigint') {
-            values.push(val.toString())
-            continue
-          }
-          // For string values, use as-is
-          if (typeof val === 'string') {
-            values.push(val)
-            continue
-          }
-          // Fallback: convert to string
-          values.push(String(val))
-          continue
-        }
-
-        // Special case: approval events.token_address - extract from token relation
-        if (
-          (tableName === 'nft_approval_event' ||
-            tableName === 'token_approval_event') &&
-          dbCol === 'token_address' &&
-          !prop
-        ) {
-          const token = entity.token
-          if (
-            token &&
-            typeof token === 'object' &&
-            'address' in token &&
-            typeof token.address === 'string'
-          ) {
-            values.push(token.address)
-            continue
-          }
-          values.push(null)
-          continue
-        }
-
-        // Special case: token_approval_event.value - handle BigInt conversion
-        if (
-          tableName === 'token_approval_event' &&
-          dbCol === 'value' &&
-          prop === 'value'
-        ) {
-          const val = entity[prop]
-          if (val === null || val === undefined) {
-            values.push('0')
-            continue
-          }
-          // For BigInt values, convert to string
-          if (typeof val === 'bigint') {
-            values.push(val.toString())
-            continue
-          }
-          // For string values, use as-is
-          if (typeof val === 'string') {
-            values.push(val)
-            continue
-          }
-          // Fallback: convert to string
-          values.push(String(val))
-          continue
-        }
-
-        // Special case: approval events.token_address - extract from token relation
-        if (
-          (tableName === 'nft_approval_event' ||
-            tableName === 'token_approval_event') &&
-          dbCol === 'token_address' &&
-          !prop
-        ) {
-          const token = entity.token
-          if (
-            token &&
-            typeof token === 'object' &&
-            'address' in token &&
-            typeof token.address === 'string'
-          ) {
-            values.push(token.address)
-            continue
-          }
-          values.push(null)
-          continue
-        }
-
-        // Special case: token_approval_event.value - handle BigInt conversion
-        if (
-          tableName === 'token_approval_event' &&
-          dbCol === 'value' &&
-          prop === 'value'
-        ) {
-          const val = entity[prop]
-          if (val === null || val === undefined) {
-            values.push('0')
-            continue
-          }
-          // For BigInt values, convert to string
-          if (typeof val === 'bigint') {
-            values.push(val.toString())
-            continue
-          }
-          // For string values, use as-is
-          if (typeof val === 'string') {
-            values.push(val)
-            continue
-          }
-          // Fallback: convert to string
-          values.push(String(val))
-          continue
-        }
-
-        // Special case: nft_approval_event.approved - convert boolean to integer
-        if (
-          tableName === 'nft_approval_event' &&
-          dbCol === 'approved' &&
-          prop === 'approved'
-        ) {
-          const val = entity[prop]
-          if (val === null || val === undefined) {
-            values.push(null)
-            continue
-          }
-          // Convert boolean to integer (0 or 1)
-          if (typeof val === 'boolean') {
-            values.push(val ? 1 : 0)
-            continue
-          }
-          // For number values, use as-is
-          if (typeof val === 'number') {
-            values.push(val)
-            continue
-          }
-          // Fallback: convert to integer
-          values.push(val ? 1 : 0)
-          continue
-        }
-
-        // Special case: token_balance.token_standard - derive from token contract
-        if (
-          tableName === 'token_balance' &&
-          dbCol === 'token_standard' &&
-          !prop
-        ) {
-          const token = entity.token
-          if (token && typeof token === 'object') {
-            if ('isERC1155' in token && token.isERC1155 === true) {
-              values.push('ERC1155')
-              continue
-            }
-            if ('isERC721' in token && token.isERC721 === true) {
-              values.push('ERC721')
-              continue
-            }
-            if ('isERC20' in token && token.isERC20 === true) {
-              values.push('ERC20')
-              continue
-            }
-          }
-          // Default to ERC20 if we can't determine
-          values.push('ERC20')
-          continue
-        }
-
-        // Special case: token_balance.token_address - extract from token relation
-        if (
-          tableName === 'token_balance' &&
-          dbCol === 'token_address' &&
-          !prop
-        ) {
-          const token = entity.token
-          if (
-            token &&
-            typeof token === 'object' &&
-            'address' in token &&
-            typeof token.address === 'string'
-          ) {
-            values.push(token.address)
-            continue
-          }
-          values.push(null)
-          continue
-        }
-
-        // Special case: token_balance.last_updated_block - extract from blockNumber property or block relation
-        if (
-          tableName === 'token_balance' &&
-          dbCol === 'last_updated_block' &&
-          !prop
-        ) {
-          // Try to get from blockNumber property (set when balance is updated)
-          if (
-            'blockNumber' in entity &&
-            typeof entity.blockNumber === 'number'
-          ) {
-            values.push(entity.blockNumber)
-            continue
-          }
-          // Try to get from a block relation if it exists
-          const block = entity.block
-          if (
-            block &&
-            typeof block === 'object' &&
-            'number' in block &&
-            typeof block.number === 'number'
-          ) {
-            values.push(block.number)
-            continue
-          }
-          // Fallback to 0 if we can't determine
-          values.push(0)
-          continue
-        }
-
-        if (!prop) {
-          values.push(null)
-          continue
-        }
-
-        const propVal = entity[prop]
-        const extracted = this.extractValue(propVal, prop, tableName)
-        values.push(extracted)
       }
     }
 

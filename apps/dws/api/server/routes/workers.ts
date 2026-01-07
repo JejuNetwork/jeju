@@ -19,7 +19,7 @@ import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
 import { z } from 'zod'
 import type { JSONValue } from '../../shared/validation'
-import { dwsWorkerState } from '../../state'
+import { dwsWorkerCronState, dwsWorkerState } from '../../state'
 import type { BackendManager } from '../../storage/backends'
 import {
   getWorkerRegistry,
@@ -36,6 +36,16 @@ import type {
 const EnvRecordSchema = z.record(z.string(), z.string())
 const RuntimeTypeSchema = z.enum(['bun', 'node', 'deno'])
 
+/** Zod schema for cron schedule */
+const CronScheduleSchema = z.object({
+  name: z.string().min(1).max(64),
+  schedule: z.string().min(9).max(64), // e.g., "*/5 * * * *" is 11 chars
+  endpoint: z.string().min(1).max(256),
+  timezone: z.string().optional(),
+  timeoutMs: z.number().int().positive().optional(),
+  retries: z.number().int().min(0).max(5).optional(),
+})
+
 /** Zod schema for worker deployment */
 const DeployWorkerJsonBodySchema = z.object({
   name: z.string().optional(),
@@ -46,6 +56,7 @@ const DeployWorkerJsonBodySchema = z.object({
   memory: z.number().int().positive().optional(),
   timeout: z.number().int().positive().optional(),
   env: EnvRecordSchema.optional(),
+  crons: z.array(CronScheduleSchema).optional(), // Cron schedules to register
 })
 
 /** Zod schema for worker update */
@@ -388,6 +399,17 @@ export function createWorkersRouter(backend: BackendManager) {
               set.status = 400
               return { error: 'name is required' }
             }
+
+            // Parse crons from FormData if present
+            const cronsJson = getFormString(formData, 'crons')
+            const crons = cronsJson
+              ? expectJson(
+                  cronsJson,
+                  z.array(CronScheduleSchema),
+                  'worker crons',
+                )
+              : undefined
+
             params = {
               name: formName,
               runtime:
@@ -401,6 +423,7 @@ export function createWorkersRouter(backend: BackendManager) {
                 EnvRecordSchema,
                 'worker env',
               ),
+              crons,
             }
           } else {
             const jsonBody = expectValid(
@@ -468,12 +491,33 @@ export function createWorkersRouter(backend: BackendManager) {
               // Update worker location in shared cache
               registry.updateWorkerLocation(fn.id)
 
+              // Register cron schedules if provided
+              let cronsRegistered = 0
+              if (jsonBody.crons && jsonBody.crons.length > 0) {
+                for (const cron of jsonBody.crons) {
+                  await dwsWorkerCronState.register({
+                    workerId: fn.id,
+                    name: cron.name,
+                    schedule: cron.schedule,
+                    endpoint: cron.endpoint,
+                    timezone: cron.timezone,
+                    timeoutMs: cron.timeoutMs,
+                    retries: cron.retries,
+                  })
+                  cronsRegistered++
+                }
+                console.log(
+                  `[Workers] Registered ${cronsRegistered} cron schedule(s) for worker ${fn.name} (${fn.id})`,
+                )
+              }
+
               set.status = 201
               return {
                 functionId: fn.id,
                 name: fn.name,
                 codeCid: fn.codeCid,
                 status: fn.status,
+                cronsRegistered,
               }
             }
 
@@ -490,6 +534,7 @@ export function createWorkersRouter(backend: BackendManager) {
               memory: jsonBody.memory,
               timeout: jsonBody.timeout,
               env: jsonBody.env,
+              crons: jsonBody.crons,
             }
           }
 
@@ -555,12 +600,33 @@ export function createWorkersRouter(backend: BackendManager) {
           // Update worker location in shared cache
           registry.updateWorkerLocation(fn.id)
 
+          // Register cron schedules if provided
+          let cronsRegistered = 0
+          if (params.crons && params.crons.length > 0) {
+            for (const cron of params.crons) {
+              await dwsWorkerCronState.register({
+                workerId: fn.id,
+                name: cron.name,
+                schedule: cron.schedule,
+                endpoint: cron.endpoint,
+                timezone: cron.timezone,
+                timeoutMs: cron.timeoutMs,
+                retries: cron.retries,
+              })
+              cronsRegistered++
+            }
+            console.log(
+              `[Workers] Registered ${cronsRegistered} cron schedule(s) for worker ${fn.name} (${fn.id})`,
+            )
+          }
+
           set.status = 201
           return {
             functionId: fn.id,
             name: fn.name,
             codeCid: fn.codeCid,
             status: fn.status,
+            cronsRegistered,
           }
         },
         {
@@ -731,10 +797,18 @@ export function createWorkersRouter(backend: BackendManager) {
           // Unregister from registry
           registry.unregisterLocalWorker(fn.id)
 
+          // Delete associated cron schedules
+          const deletedCrons = await dwsWorkerCronState.deleteByWorker(fn.id)
+          if (deletedCrons > 0) {
+            console.log(
+              `[Workers] Deleted ${deletedCrons} cron schedule(s) for worker ${fn.name} (${fn.id})`,
+            )
+          }
+
           // Mark as inactive in persistence
           await dwsWorkerState.updateStatus(fn.id, 'inactive')
 
-          return { success: true }
+          return { success: true, cronsDeleted: deletedCrons }
         },
         {
           params: t.Object({

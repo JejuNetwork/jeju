@@ -95,7 +95,7 @@ async function uploadToDWS(
   filename: string,
 ): Promise<{ cid: string; url: string }> {
   const formData = new FormData()
-  formData.append('file', new Blob([content]), filename)
+  formData.append('file', new Blob([new Uint8Array(content)]), filename)
 
   const response = await fetch(`${DWS_STORAGE_URL}/upload`, {
     method: 'POST',
@@ -304,7 +304,6 @@ async function writeRegistryManifest(
     })),
   }
 
-  const _manifestPath = join(TEMP_DIR, `registry-manifest-${NETWORK}.json`)
   const manifestBuffer = Buffer.from(JSON.stringify(registryManifest, null, 2))
 
   // Upload to IPFS
