@@ -82,10 +82,20 @@ export interface AgentCharacter {
   modelPreferences?: {
     small: string
     large: string
+    analysis?: string | null
     embedding?: string | null
   } | null
   mcpServers?: string[] | null
   a2aCapabilities?: string[] | null
+  capabilities?: {
+    canTrade?: boolean
+    canChat?: boolean
+    canPropose?: boolean
+    canVote?: boolean
+    canStake?: boolean
+    a2a?: boolean
+    compute?: boolean
+  } | null
 }
 
 export interface MessageExample {

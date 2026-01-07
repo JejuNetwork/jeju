@@ -583,6 +583,110 @@ export class CrucibleAgentRuntime {
   }
 
   /**
+   * Generate text using DWS inference
+   * Required by Eliza action handlers like AUDIT_CONTRACT for LLM analysis
+   */
+  async generateText(prompt: string): Promise<string> {
+    const client = getSharedDWSClient()
+    const network = getCurrentNetwork()
+    const modelPrefs = this.config.character.modelPreferences
+
+    // Use larger model for analysis tasks
+    const model =
+      network === 'testnet' || network === 'mainnet'
+        ? (modelPrefs?.large ?? 'llama-3.3-70b-versatile')
+        : (modelPrefs?.small ?? 'llama-3.1-8b-instant')
+
+    this.log.info('generateText called', {
+      promptLength: prompt.length,
+      model,
+    })
+
+    const response = await client.chatCompletion(
+      [{ role: 'user', content: prompt }],
+      {
+        model,
+        temperature: 0.3, // Lower temperature for structured analysis
+        maxTokens: 2048,
+      },
+    )
+
+    const choice = response.choices[0]
+    if (!choice) {
+      throw new Error('DWS inference returned no choices')
+    }
+
+    const text = choice.message.content ?? ''
+    this.log.info('generateText completed', {
+      responseLength: text.length,
+    })
+
+    return text
+  }
+
+  /**
+   * Use a specific model tier for generation
+   * Required by Eliza action handlers
+   * @param modelTier - 'TEXT_SMALL', 'TEXT_LARGE', 'TEXT_ANALYSIS', etc.
+   * @param options - { prompt: string }
+   */
+  async useModel(
+    modelTier: string,
+    options: { prompt: string },
+  ): Promise<string> {
+    const client = getSharedDWSClient()
+
+    // Default tier to model mapping
+    const tierToModel: Record<string, string> = {
+      TEXT_SMALL: 'llama-3.1-8b-instant',
+      TEXT_LARGE: 'llama-3.3-70b-versatile',
+      TEXT_ANALYSIS: 'llama-3.3-70b-versatile',
+    }
+
+    // Character preferences override defaults for each tier
+    const modelPrefs = this.config.character.modelPreferences
+    let model: string
+    if (modelTier === 'TEXT_ANALYSIS') {
+      // Analysis tier: use analysis preference, fall back to large, then default
+      model = modelPrefs?.analysis ?? modelPrefs?.large ?? tierToModel[modelTier] ?? 'llama-3.3-70b-versatile'
+    } else if (modelTier === 'TEXT_LARGE') {
+      model = modelPrefs?.large ?? tierToModel[modelTier] ?? 'llama-3.3-70b-versatile'
+    } else if (modelTier === 'TEXT_SMALL') {
+      model = modelPrefs?.small ?? tierToModel[modelTier] ?? 'llama-3.1-8b-instant'
+    } else {
+      model = tierToModel[modelTier] ?? 'llama-3.1-8b-instant'
+    }
+
+    this.log.info('useModel called', {
+      modelTier,
+      model,
+      promptLength: options.prompt.length,
+    })
+
+    const response = await client.chatCompletion(
+      [{ role: 'user', content: options.prompt }],
+      {
+        model,
+        temperature: 0.3,
+        maxTokens: 2048,
+      },
+    )
+
+    const choice = response.choices[0]
+    if (!choice) {
+      throw new Error('DWS inference returned no choices')
+    }
+
+    const text = choice.message.content ?? ''
+    this.log.info('useModel completed', {
+      modelTier,
+      responseLength: text.length,
+    })
+
+    return text
+  }
+
+  /**
    * Get the Jeju SDK client directly
    */
   getJejuClient(): JejuClient | null {
