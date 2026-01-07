@@ -158,6 +158,7 @@ const EXTERNALS = [
   '@jejunetwork/deployment',
   '@jejunetwork/training',
   '@jejunetwork/messaging',
+  '@jejunetwork/sdk',
   'elysia',
   '@elysiajs/*',
   'ioredis',

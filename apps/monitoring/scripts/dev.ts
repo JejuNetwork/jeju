@@ -71,6 +71,7 @@ async function startAPIServer(): Promise<boolean> {
     env: {
       ...process.env,
       PORT: String(API_PORT),
+      A2A_PORT: String(API_PORT),
     },
   })
 

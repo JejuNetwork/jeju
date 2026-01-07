@@ -90,8 +90,10 @@ const BROWSER_EXTERNALS = [
   'elysia',
   '@elysiajs/*',
 ]
-const API_PORT = Number(process.env.API_PORT) || 3001
-const FRONTEND_PORT = Number(process.env.PORT) || 3000
+import { CORE_PORTS } from '@jejunetwork/config'
+
+const FRONTEND_PORT = CORE_PORTS.EXAMPLE.get()
+const API_PORT = FRONTEND_PORT + 1 // API on port + 1
 
 interface ProcessInfo {
   name: string
