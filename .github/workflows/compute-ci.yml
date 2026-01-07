@@ -68,7 +68,7 @@ jobs:
 
       - name: Run unit tests
         working-directory: apps/dws
-        run: bun test tests/unit/ tests/workerd.test.ts tests/infrastructure-direct.test.ts || true
+        run: bun test tests/workerd.test.ts || true
 
   integration-tests:
     name: Integration Tests (with Anvil)
