@@ -262,6 +262,54 @@ export const guardianContentSchema = baseContentSchema.extend({
   stake: ethAmountSchema.optional(),
 })
 
+// Security Audit Schemas
+
+/** Severity levels for security findings */
+export const severitySchema = z.enum([
+  'critical',
+  'high',
+  'medium',
+  'low',
+  'informational',
+])
+
+/** Single security finding */
+export const auditFindingSchema = z.object({
+  id: z.string(),
+  severity: severitySchema,
+  title: z.string(),
+  location: z.string(),
+  description: z.string(),
+  recommendation: z.string(),
+})
+
+/** Collection of findings from LLM analysis pass */
+export const auditFindingsArraySchema = z.array(auditFindingSchema)
+
+/** Severity counts for report summary */
+export const severityCountsSchema = z.object({
+  critical: z.number().default(0),
+  high: z.number().default(0),
+  medium: z.number().default(0),
+  low: z.number().default(0),
+  informational: z.number().default(0),
+})
+
+/** Complete audit report */
+export const auditReportSchema = z.object({
+  contractName: z.string(),
+  contractUrl: z.string().optional(),
+  date: z.string(),
+  summary: z.string(),
+  findings: z.array(auditFindingSchema),
+  severityCounts: severityCountsSchema,
+})
+
+export type Severity = z.infer<typeof severitySchema>
+export type AuditFinding = z.infer<typeof auditFindingSchema>
+export type SeverityCounts = z.infer<typeof severityCountsSchema>
+export type AuditReport = z.infer<typeof auditReportSchema>
+
 // Type Exports from Schemas
 
 export type EvidenceContent = z.infer<typeof evidenceContentSchema>

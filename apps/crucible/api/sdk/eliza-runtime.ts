@@ -57,7 +57,12 @@ export interface RuntimeMessage {
 export interface RuntimeResponse {
   text: string
   action?: string
-  actions?: Array<{ name: string; params: Record<string, string> }>
+  actions?: Array<{
+    type: string
+    params: Record<string, string>
+    success: boolean
+    result?: { response?: string; txHash?: string; error?: string }
+  }>
 }
 
 /**
@@ -455,10 +460,40 @@ export class CrucibleAgentRuntime {
       params: Object.keys(params).length > 0 ? params : null,
     })
 
+    // If action was detected, try to execute it
+    if (action && this.actionHasHandler(action)) {
+      this.log.info('Executing action', { action, params })
+      const execResult = await this.executeAction(action, params)
+
+      // Combine LLM response text with action result
+      const actionResultText = execResult.success
+        ? (execResult.result as { response?: string })?.response ?? ''
+        : `Action failed: ${execResult.error}`
+
+      const combinedText = actionResultText
+        ? `${cleanText}\n\n${actionResultText}`
+        : cleanText
+
+      return {
+        text: combinedText,
+        action,
+        actions: [
+          {
+            type: action,
+            params,
+            success: execResult.success,
+            result: execResult.success
+              ? { response: (execResult.result as { response?: string })?.response }
+              : { error: execResult.error },
+          },
+        ],
+      }
+    }
+
     return {
       text: cleanText,
       action,
-      actions: action ? [{ name: action, params }] : undefined,
+      actions: action ? [{ type: action, params, success: false, result: { error: 'No handler available' } }] : undefined,
     }
   }
 
@@ -587,8 +622,16 @@ export class CrucibleAgentRuntime {
       // The Eliza handler expects (runtime, message, state, options, callback)
       // We create mock objects that provide what most handlers need
 
+      // Build message text that handlers can parse
+      // Most handlers expect URLs/values directly in text, not as JSON
+      const messageText = params.url
+        ? params.url
+        : Object.entries(params)
+            .map(([k, v]) => `${k}=${v}`)
+            .join(' ')
+
       const mockMessage = {
-        content: { text: JSON.stringify(params) },
+        content: { text: messageText },
         userId: this.config.agentId,
         roomId: 'crucible-runtime',
       }
@@ -598,13 +641,16 @@ export class CrucibleAgentRuntime {
         roomId: 'crucible-runtime',
       }
 
-      // Eliza handlers return a boolean and call the callback with results
+      // Eliza handlers return void and call the callback with results
+      // Track whether callback was invoked and capture results
+      let callbackInvoked = false
       let callbackResult: JsonValue = null
 
       const callback = async (response: {
         text?: string
         content?: { text?: string }
       }): Promise<void> => {
+        callbackInvoked = true
         // Capture the response from the handler
         const text = response.text ?? response.content?.text ?? ''
         callbackResult = { response: text }
@@ -612,7 +658,7 @@ export class CrucibleAgentRuntime {
 
       // Execute the Eliza action handler
       // Cast through unknown as the mock objects don't fully implement Eliza types
-      const handlerResult = await action.elizaHandler(
+      await action.elizaHandler(
         this as unknown as Parameters<ElizaActionHandler>[0], // IAgentRuntime - we implement enough of the interface
         mockMessage as unknown as Parameters<ElizaActionHandler>[1],
         mockState as unknown as Parameters<ElizaActionHandler>[2],
@@ -624,15 +670,13 @@ export class CrucibleAgentRuntime {
 
       this.log.info('Action executed', {
         actionName,
-        handlerResult: String(handlerResult),
+        callbackInvoked,
         callbackResult,
       })
 
-      // Normalize the handler result for return
-      // Eliza handlers return void or ActionResult (string | object)
-      // Consider success if we got any non-null result
-      const success = handlerResult !== undefined && handlerResult !== null
-      const resultValue = callbackResult ?? { executed: success }
+      // Success if callback was invoked (handler communicated a result)
+      const success = callbackInvoked
+      const resultValue = callbackResult ?? { executed: true }
 
       return {
         success,

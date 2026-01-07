@@ -103,7 +103,8 @@ import {
   checkScamAddressAction,
   scanContractAction,
 } from './actions/security'
-// Extended Actions - Contract Fetching
+// Extended Actions - Contract Fetching & Analysis
+import { analyzeContractAction } from './actions/analyze-contract'
 import { fetchContractAction } from './actions/contract'
 import { retrieveFileAction, uploadFileAction } from './actions/storage'
 // Extended Actions - Storage
@@ -258,6 +259,7 @@ export const jejuPlugin: Plugin = {
     scanContractAction,
     checkScamAddressAction,
     fetchContractAction,
+    analyzeContractAction,
   ],
 }
 

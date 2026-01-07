@@ -320,7 +320,7 @@ function MessageBubble({ message }: MessageBubbleProps) {
                 </p>
                 {message.actions.map((action, idx) => (
                   <ActionResult
-                    key={`${action.type}-${idx}`}
+                    key={`${action.type ?? 'action'}-${idx}`}
                     action={action}
                     isUserMessage={isUser}
                   />
@@ -350,7 +350,8 @@ interface ActionResultProps {
 }
 
 function ActionResult({ action, isUserMessage }: ActionResultProps) {
-  const icon = ACTION_ICONS[action.type.toUpperCase()] ?? ACTION_ICONS.DEFAULT
+  const actionType = action.type ?? 'UNKNOWN'
+  const icon = ACTION_ICONS[actionType.toUpperCase()] ?? ACTION_ICONS.DEFAULT
   const txHash = action.result?.txHash
 
   return (
@@ -365,7 +366,7 @@ function ActionResult({ action, isUserMessage }: ActionResultProps) {
       <span className="text-base">{icon}</span>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <code className="font-mono font-medium">{action.type}</code>
+          <code className="font-mono font-medium">{actionType}</code>
           <span
             className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${
               action.success
