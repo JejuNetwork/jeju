@@ -102,7 +102,7 @@
     "@farcaster/miniapp-sdk": "^0.2.1",
     "@kitajs/html": "^4.2.11",
     "@noble/curves": "^1.9.7",
-    "@noble/hashes": "1.7.2",
+    "@noble/hashes": "^1.8.0",
     "@solana/web3.js": "^1.98.4",
     "@tensorflow/tfjs": "^4.22.0",
     "agent0-sdk": "^0.31.0",
