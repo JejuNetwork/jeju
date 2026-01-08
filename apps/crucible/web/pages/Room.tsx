@@ -2,6 +2,7 @@ import { useJejuAuth } from '@jejunetwork/auth/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { LoadingSpinner } from '../components/LoadingSpinner'
+import { SimpleMarkdown } from '../components/SimpleMarkdown'
 import { useAgents, useChatCharacters } from '../hooks'
 import {
   type AgentRole,
@@ -102,7 +103,7 @@ export default function RoomPage() {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
     }
-  }, [messages])
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -303,78 +304,75 @@ export default function RoomPage() {
               )}
 
               {/* Message List */}
-              {messages &&
-                messages.map((msg) => {
-                  // Check if this message is from the current user
-                  // (supports both new wallet-based IDs and legacy 'user-*' IDs)
-                  const isUserMessage =
-                    msg.agentId === senderAgentId ||
-                    msg.agentId === walletAddress ||
-                    msg.agentId === userId ||
-                    msg.agentId === 'user' ||
-                    msg.agentId.startsWith('user-')
-                  const member = room.members.find(
-                    (m) => String(m.agentId) === msg.agentId,
-                  )
-                  const roleConfig = member
-                    ? ROLE_CONFIG[member.role]
-                    : ROLE_CONFIG.participant
+              {messages?.map((msg) => {
+                // Check if this message is from the current user
+                // (supports both new wallet-based IDs and legacy 'user-*' IDs)
+                const isUserMessage =
+                  msg.agentId === senderAgentId ||
+                  msg.agentId === walletAddress ||
+                  msg.agentId === userId ||
+                  msg.agentId === 'user' ||
+                  (msg.agentId && msg.agentId.startsWith('user-'))
+                const member = room.members.find(
+                  (m) => String(m.agentId) === msg.agentId,
+                )
+                const roleConfig = member
+                  ? ROLE_CONFIG[member.role]
+                  : ROLE_CONFIG.participant
 
-                  return (
-                    <article
-                      key={msg.id}
-                      className={`flex ${isUserMessage ? 'justify-end' : 'justify-start'}`}
+                return (
+                  <article
+                    key={msg.id}
+                    className={`flex ${isUserMessage ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-[75%] p-4 rounded-2xl ${
+                        isUserMessage ? 'rounded-br-sm' : 'rounded-bl-sm'
+                      }`}
+                      style={{
+                        backgroundColor: isUserMessage
+                          ? 'var(--color-primary)'
+                          : 'var(--surface)',
+                        color: isUserMessage ? 'white' : 'var(--text-primary)',
+                        border: isUserMessage
+                          ? 'none'
+                          : '1px solid var(--border)',
+                      }}
                     >
-                      <div
-                        className={`max-w-[75%] p-4 rounded-2xl ${
-                          isUserMessage ? 'rounded-br-sm' : 'rounded-bl-sm'
-                        }`}
-                        style={{
-                          backgroundColor: isUserMessage
-                            ? 'var(--color-primary)'
-                            : 'var(--surface)',
-                          color: isUserMessage
-                            ? 'white'
-                            : 'var(--text-primary)',
-                          border: isUserMessage
-                            ? 'none'
-                            : '1px solid var(--border)',
-                        }}
-                      >
-                        {!isUserMessage && (
-                          <div className="flex items-center gap-2 mb-2">
+                      {!isUserMessage && (
+                        <div className="flex items-center gap-2 mb-2">
+                          <span
+                            className="text-xs font-bold"
+                            style={{ color: roleConfig.color }}
+                          >
+                            {getAgentName(msg.agentId)}
+                          </span>
+                          {member && (
                             <span
-                              className="text-xs font-bold"
-                              style={{ color: roleConfig.color }}
+                              className="text-xs px-1.5 py-0.5 rounded"
+                              style={{
+                                backgroundColor: `${roleConfig.color}20`,
+                                color: roleConfig.color,
+                              }}
                             >
-                              {getAgentName(msg.agentId)}
+                              {roleConfig.label}
                             </span>
-                            {member && (
-                              <span
-                                className="text-xs px-1.5 py-0.5 rounded"
-                                style={{
-                                  backgroundColor: `${roleConfig.color}20`,
-                                  color: roleConfig.color,
-                                }}
-                              >
-                                {roleConfig.label}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        <p className="text-sm whitespace-pre-wrap break-words">
-                          {msg.content}
-                        </p>
-                        <time
-                          className="text-xs mt-2 block opacity-70"
-                          dateTime={new Date(msg.timestamp).toISOString()}
-                        >
-                          {new Date(msg.timestamp).toLocaleTimeString()}
-                        </time>
-                      </div>
-                    </article>
-                  )
-                })}
+                          )}
+                        </div>
+                      )}
+                      <p className="text-sm whitespace-pre-wrap break-words">
+                        <SimpleMarkdown content={msg.content} />
+                      </p>
+                      <time
+                        className="text-xs mt-2 block opacity-70"
+                        dateTime={new Date(msg.timestamp).toISOString()}
+                      >
+                        {new Date(msg.timestamp).toLocaleTimeString()}
+                      </time>
+                    </div>
+                  </article>
+                )
+              })}
               <div ref={messagesEndRef} />
             </div>
 
