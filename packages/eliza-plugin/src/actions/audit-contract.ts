@@ -168,86 +168,267 @@ function combineBlockscoutSources(result: BlockscoutSourceResult): string {
   return parts.join('')
 }
 
-// Analysis prompts for each vulnerability category
+// Few-shot examples for vulnerability detection
+const FEW_SHOT_EXAMPLES = {
+  reentrancy: {
+    vulnerable: `// VULNERABLE: External call before state update
+function withdraw() external {
+    (bool sent,) = msg.sender.call{value: balances[msg.sender]}("");
+    balances[msg.sender] = 0;  // Too late! Attacker can re-enter
+}`,
+    safe: `// SAFE: State update before external call (CEI pattern)
+function withdraw() external {
+    uint256 bal = balances[msg.sender];
+    balances[msg.sender] = 0;  // First!
+    (bool sent,) = msg.sender.call{value: bal}("");
+}`,
+  },
+  accessControl: {
+    vulnerable: `// VULNERABLE: No access control on sensitive function
+function setOwner(address newOwner) external {
+    owner = newOwner;  // Anyone can call this!
+}`,
+    safe: `// SAFE: Proper access control
+function setOwner(address newOwner) external onlyOwner {
+    require(newOwner != address(0), "Invalid");
+    owner = newOwner;
+}`,
+  },
+  arithmetic: {
+    vulnerable: `// VULNERABLE: Unchecked arithmetic in pre-0.8 Solidity
+function transfer(address to, uint256 amount) external {
+    balances[msg.sender] -= amount;  // Can underflow!
+    balances[to] += amount;
+}`,
+    safe: `// SAFE: Solidity 0.8+ has built-in overflow checks
+pragma solidity ^0.8.0;
+function transfer(address to, uint256 amount) external {
+    balances[msg.sender] -= amount;  // Reverts on underflow
+    balances[to] += amount;
+}`,
+  },
+  general: {
+    vulnerable: `// VULNERABLE: Unchecked low-level call return value
+function sendEther(address to, uint256 amount) external {
+    to.call{value: amount}("");  // Return value ignored!
+}`,
+    safe: `// SAFE: Check return value
+function sendEther(address to, uint256 amount) external {
+    (bool success,) = to.call{value: amount}("");
+    require(success, "Transfer failed");
+}`,
+  },
+}
+
+// Analysis prompts for each vulnerability category with CoT structure
 const ANALYSIS_PROMPTS = {
   reentrancy: (
     source: string,
-  ) => `Analyze this Solidity contract for REENTRANCY vulnerabilities only.
+  ) => `You are a Solidity security auditor. Analyze this contract for REENTRANCY vulnerabilities.
 
-Look for:
-- External calls (call, send, transfer) before state updates
-- Callbacks that could re-enter the contract
-- Cross-function reentrancy via shared state
+## Definition
+Reentrancy occurs when an external call allows an attacker to re-enter the contract before the first invocation completes, potentially draining funds or corrupting state.
 
-Contract:
+## Detection Rule (GPTScan Pattern)
+SCENARIO: Function makes an external call (call, send, transfer, or callback) AND modifies contract state
+PROPERTY: State is modified AFTER the external call, with no reentrancy guard
+
+## Vulnerable Example
+\`\`\`solidity
+${FEW_SHOT_EXAMPLES.reentrancy.vulnerable}
+\`\`\`
+
+## Safe Example
+\`\`\`solidity
+${FEW_SHOT_EXAMPLES.reentrancy.safe}
+\`\`\`
+
+## Contract to Analyze
 \`\`\`solidity
 ${source}
 \`\`\`
 
-Output ONLY a JSON array of findings. Each finding: { id, severity, title, location, description, recommendation }
-If no issues: []
+## Analysis Steps
+STEP 1: Identify all external calls (msg.sender.call, address.call, transfer, send, interface calls)
+STEP 2: For each external call, trace what state variables are read/written before and after
+STEP 3: Check if state updates occur AFTER external calls without reentrancy guards (nonReentrant, mutex)
+STEP 4: For each vulnerability found, determine severity based on fund exposure and exploitability
+
+## Output Format
+Return ONLY a JSON array. For each finding include:
+{ "id": "REENTRANCY-N", "severity": "critical|high|medium|low|informational", "title": "Brief title", "function": "function name", "description": "What the issue is", "reasoning": "Why this is vulnerable (your analysis)", "exploitSteps": "1. First step 2. Second step (plain text)", "recommendation": "How to fix" }
+
+If no reentrancy issues found, return: []
 
 JSON:`,
 
   accessControl: (
     source: string,
-  ) => `Analyze this Solidity contract for ACCESS CONTROL vulnerabilities only.
+  ) => `You are a Solidity security auditor. Analyze this contract for ACCESS CONTROL vulnerabilities.
 
-Look for:
-- Missing onlyOwner/role checks on sensitive functions
-- Unprotected selfdestruct or delegatecall
-- tx.origin authentication
-- Centralization risks
+## Definition
+Access control vulnerabilities occur when sensitive functions lack proper authorization checks, allowing unauthorized users to perform privileged operations.
 
-Contract:
+## Detection Rule (GPTScan Pattern)
+SCENARIO: Function performs a sensitive operation (ownership change, fund transfer, pause, upgrade, selfdestruct, delegatecall)
+PROPERTY: No authorization check (onlyOwner, role-based, msg.sender validation) guards the operation
+
+## Vulnerable Example
+\`\`\`solidity
+${FEW_SHOT_EXAMPLES.accessControl.vulnerable}
+\`\`\`
+
+## Safe Example
+\`\`\`solidity
+${FEW_SHOT_EXAMPLES.accessControl.safe}
+\`\`\`
+
+## Contract to Analyze
 \`\`\`solidity
 ${source}
 \`\`\`
 
-Output ONLY a JSON array of findings. Each finding: { id, severity, title, location, description, recommendation }
-If no issues: []
+## Analysis Steps
+STEP 1: List all functions that perform sensitive operations (state changes, fund movements, admin actions)
+STEP 2: For each sensitive function, check for access control modifiers or require/if statements validating msg.sender
+STEP 3: Flag functions using tx.origin for authentication (vulnerable to phishing)
+STEP 4: Assess severity based on impact (fund loss = critical, admin takeover = high, info leak = low)
+
+## Output Format
+Return ONLY a JSON array. For each finding include:
+{ "id": "ACCESS-N", "severity": "critical|high|medium|low|informational", "title": "Brief title", "function": "function name", "description": "What the issue is", "reasoning": "Why this is vulnerable (your analysis)", "exploitSteps": "1. First step 2. Second step (plain text)", "recommendation": "How to fix" }
+
+If no access control issues found, return: []
 
 JSON:`,
 
   arithmetic: (
     source: string,
-  ) => `Analyze this Solidity contract for ARITHMETIC vulnerabilities only.
+  ) => `You are a Solidity security auditor. Analyze this contract for ARITHMETIC vulnerabilities.
 
-Look for:
-- Integer overflow/underflow (pre-0.8.0 without SafeMath)
-- Unchecked blocks with risky arithmetic
-- Division by zero
+## Definition
+Arithmetic vulnerabilities include integer overflow/underflow, division by zero, and precision loss that can corrupt calculations or enable exploits.
 
-Contract:
+## Detection Rule (GPTScan Pattern)
+SCENARIO: Contract has arithmetic operations (+, -, *, /, %)
+PROPERTY: Uses Solidity <0.8.0 without SafeMath, OR uses unchecked blocks with user-controlled values, OR has potential division by zero
+
+## Vulnerable Example
+\`\`\`solidity
+${FEW_SHOT_EXAMPLES.arithmetic.vulnerable}
+\`\`\`
+
+## Safe Example
+\`\`\`solidity
+${FEW_SHOT_EXAMPLES.arithmetic.safe}
+\`\`\`
+
+## Contract to Analyze
 \`\`\`solidity
 ${source}
 \`\`\`
 
-Output ONLY a JSON array of findings. Each finding: { id, severity, title, location, description, recommendation }
-If no issues: []
+## Analysis Steps
+STEP 1: Check the pragma version - Solidity 0.8.0+ has built-in overflow protection
+STEP 2: Find all unchecked { } blocks and analyze arithmetic within them for overflow/underflow risk
+STEP 3: Identify division operations and check if divisor can be zero
+STEP 4: Look for precision loss in division before multiplication patterns
+
+## Output Format
+Return ONLY a JSON array. For each finding include:
+{ "id": "ARITH-N", "severity": "critical|high|medium|low|informational", "title": "Brief title", "function": "function name", "description": "What the issue is", "reasoning": "Why this is vulnerable (your analysis)", "exploitSteps": "1. First step 2. Second step (plain text)", "recommendation": "How to fix" }
+
+If no arithmetic issues found, return: []
 
 JSON:`,
 
   general: (
     source: string,
-  ) => `Analyze this Solidity contract for GENERAL security issues.
+  ) => `You are a Solidity security auditor. Analyze this contract for GENERAL security issues.
 
-Look for:
-- Unchecked return values from low-level calls
-- Front-running vulnerabilities
-- Denial of Service vectors
-- Missing events, floating pragma
+## Definition
+General security issues include unchecked return values, front-running vulnerabilities, denial of service vectors, and other common smart contract pitfalls.
 
-Contract:
+## Detection Rule (GPTScan Pattern)
+SCENARIO: Any code pattern in the contract
+PROPERTY: Matches a known vulnerability pattern (unchecked call return, unbounded loops, timestamp dependence, etc.)
+
+## Vulnerable Example
+\`\`\`solidity
+${FEW_SHOT_EXAMPLES.general.vulnerable}
+\`\`\`
+
+## Safe Example
+\`\`\`solidity
+${FEW_SHOT_EXAMPLES.general.safe}
+\`\`\`
+
+## Contract to Analyze
 \`\`\`solidity
 ${source}
 \`\`\`
 
-Output ONLY a JSON array of findings. Each finding: { id, severity, title, location, description, recommendation }
-If no issues: []
+## Analysis Steps
+STEP 1: Find all low-level calls (.call, .delegatecall, .staticcall) and verify return values are checked
+STEP 2: Look for loops over dynamic arrays that could cause DoS via gas exhaustion
+STEP 3: Check for front-running risks (price-sensitive operations without slippage protection)
+STEP 4: Identify informational issues: floating pragma, missing events, unused variables
+
+## Severity Guidelines
+- Known token standard design limitations (ERC20 approve race condition, ERC721 safe transfer callbacks) = LOW or INFORMATIONAL, not medium/high
+- Issues with mitigations already provided by the codebase (e.g., increaseAllowance/decreaseAllowance) = INFORMATIONAL
+
+## Output Format
+Return ONLY a JSON array. For each finding include:
+{ "id": "GENERAL-N", "severity": "critical|high|medium|low|informational", "title": "Brief title", "function": "function name", "description": "What the issue is", "reasoning": "Why this is vulnerable (your analysis)", "exploitSteps": "1. First step 2. Second step (plain text)", "recommendation": "How to fix" }
+
+If no general issues found, return: []
 
 JSON:`,
 }
+
+// Critic prompt for filtering false positives
+const CRITIC_PROMPT = (
+  findings: AuditFinding[],
+  contractSource: string,
+) => `You are a security audit reviewer. Your job is to verify findings and remove false positives.
+
+## Contract Source
+\`\`\`solidity
+${contractSource}
+\`\`\`
+
+## Candidate Findings to Verify
+${JSON.stringify(findings, null, 2)}
+
+## Verification Task
+For EACH finding, determine if it is a real vulnerability or a false positive.
+
+Ask yourself:
+1. Can I describe a CONCRETE exploit? (specific steps, not theoretical)
+2. Are there mitigating factors in the code the auditor missed?
+
+## Output Format
+Return a JSON object with verdicts for each finding ID:
+{
+  "verdicts": {
+    "FINDING-ID": {
+      "keep": true,
+      "reason": "Brief explanation"
+    },
+    "ANOTHER-ID": {
+      "keep": false,
+      "reason": "Why it's a false positive"
+    }
+  }
+}
+
+Rules:
+- KEEP if: concrete exploit exists AND no complete mitigation
+- REMOVE if: purely theoretical OR mitigation exists in code
+- When uncertain, default to KEEP (don't filter real issues)
+
+JSON:`
 
 function extractContractName(source: string): string {
   const match = source.match(/contract\s+(\w+)/)
@@ -279,15 +460,75 @@ function parseFindingsFromResponse(response: string): AuditFinding[] {
             ? f.severity.toLowerCase()
             : 'medium') as Severity,
           title: String(f.title),
-          location: String(f.location ?? 'Unknown'),
+          function: String(f.function ?? f.location ?? 'Unknown'), // Backward compat: accept 'location' field
           description: String(f.description),
           recommendation: String(f.recommendation ?? 'Review and fix'),
+          reasoning: String(f.reasoning ?? 'See description'),
+          exploitSteps: Array.isArray(f.exploitSteps)
+            ? f.exploitSteps.join('\n')
+            : String(f.exploitSteps ?? 'Not specified'),
         }))
     }
     return []
   } catch {
     return []
   }
+}
+
+// Critic response types and parsing
+interface CriticVerdict {
+  keep: boolean
+  reason: string
+}
+
+interface CriticResponse {
+  verdicts: Record<string, CriticVerdict>
+}
+
+function parseCriticResponse(response: string): CriticResponse | null {
+  try {
+    const jsonMatch = response.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) return null
+
+    const parsed = JSON.parse(jsonMatch[0])
+    if (!parsed.verdicts || typeof parsed.verdicts !== 'object') {
+      return null
+    }
+
+    return parsed as CriticResponse
+  } catch {
+    return null
+  }
+}
+
+function filterFindingsWithCritic(
+  findings: AuditFinding[],
+  criticResponse: CriticResponse | null,
+): { kept: AuditFinding[]; removed: AuditFinding[] } {
+  if (!criticResponse) {
+    // If Critic fails, keep all findings (fail-safe)
+    console.log('[AUDIT_CONTRACT] Critic parsing failed, keeping all findings')
+    return { kept: findings, removed: [] }
+  }
+
+  const kept: AuditFinding[] = []
+  const removed: AuditFinding[] = []
+
+  for (const finding of findings) {
+    const verdict = criticResponse.verdicts[finding.id]
+
+    // Default to KEEP if no verdict (fail-safe)
+    if (!verdict || verdict.keep !== false) {
+      kept.push(finding)
+    } else {
+      removed.push(finding)
+      console.log(
+        `[AUDIT_CONTRACT] Critic removed: ${finding.id} - ${verdict.reason}`,
+      )
+    }
+  }
+
+  return { kept, removed }
 }
 
 function countBySeverity(findings: AuditFinding[]): SeverityCounts {
@@ -362,9 +603,13 @@ ${report.summary}
     for (const f of sorted) {
       md += `### ${emoji[f.severity]} [${f.severity.toUpperCase()}] ${f.title}
 
-**Location:** \`${f.location}\`
+**Function:** \`${f.function}\`
 
 ${f.description}
+
+**Reasoning:** ${f.reasoning}
+
+**Exploit Steps:** ${f.exploitSteps}
 
 **Fix:** ${f.recommendation}
 
@@ -604,13 +849,65 @@ export const auditContractAction: Action = {
       return true
     })
 
+    // Phase 2: Critic verification pass (if findings exist)
+    let finalFindings = unique
+    if (unique.length > 0) {
+      console.log(
+        `[AUDIT_CONTRACT] Running Critic pass on ${unique.length} findings...`,
+      )
+
+      try {
+        const criticPromptText = CRITIC_PROMPT(
+          unique,
+          truncateOutput(contractSource, 15000),
+        )
+
+        let criticResponse: string
+        if (hasUseModel) {
+          console.log(
+            `[AUDIT_CONTRACT] Calling useModel('TEXT_ANALYSIS') for Critic...`,
+          )
+          criticResponse = await (
+            runtime as unknown as {
+              useModel: (t: string, o: { prompt: string }) => Promise<string>
+            }
+          ).useModel('TEXT_ANALYSIS', { prompt: criticPromptText })
+        } else {
+          console.log(`[AUDIT_CONTRACT] Calling generateText() for Critic...`)
+          criticResponse = await (
+            runtime as unknown as {
+              generateText: (p: string) => Promise<string>
+            }
+          ).generateText(criticPromptText)
+        }
+
+        console.log(
+          `[AUDIT_CONTRACT] Critic response length: ${criticResponse.length}`,
+        )
+
+        const parsedCritic = parseCriticResponse(criticResponse)
+        const { kept, removed } = filterFindingsWithCritic(unique, parsedCritic)
+
+        finalFindings = kept
+        console.log(
+          `[AUDIT_CONTRACT] Critic: kept ${kept.length}, removed ${removed.length}`,
+        )
+      } catch (err) {
+        console.error(
+          '[AUDIT_CONTRACT] Critic pass failed, keeping all findings:',
+          err,
+        )
+        // Fail-safe: keep all findings if Critic errors
+      }
+    }
+
     const report: AuditReport = {
       contractName,
       contractUrl: targetUrl,
       date: new Date().toISOString().split('T')[0],
-      summary: generateSummary(unique, contractName),
-      findings: unique,
-      severityCounts: countBySeverity(unique),
+      summary: generateSummary(finalFindings, contractName),
+      findings: finalFindings,
+      severityCounts: countBySeverity(finalFindings),
     }
 
     callback?.({

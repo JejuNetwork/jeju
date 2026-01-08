@@ -16,15 +16,17 @@ import type {
 import {
   type AuditFinding,
   type AuditReport,
+  auditFindingsArraySchema,
   type Severity,
   type SeverityCounts,
-  auditFindingsArraySchema,
   truncateOutput,
 } from '../validation'
 
 // Analysis prompts for each vulnerability category
 const ANALYSIS_PROMPTS = {
-  reentrancy: (source: string) => `Analyze this Solidity contract for REENTRANCY vulnerabilities only.
+  reentrancy: (
+    source: string,
+  ) => `Analyze this Solidity contract for REENTRANCY vulnerabilities only.
 
 Look for:
 - External calls (call, send, transfer) before state updates
@@ -49,7 +51,9 @@ If no reentrancy issues found, output: []
 
 JSON array:`,
 
-  accessControl: (source: string) => `Analyze this Solidity contract for ACCESS CONTROL vulnerabilities only.
+  accessControl: (
+    source: string,
+  ) => `Analyze this Solidity contract for ACCESS CONTROL vulnerabilities only.
 
 Look for:
 - Missing onlyOwner or role-based modifiers on sensitive functions
@@ -75,7 +79,9 @@ If no access control issues found, output: []
 
 JSON array:`,
 
-  arithmetic: (source: string) => `Analyze this Solidity contract for ARITHMETIC vulnerabilities only.
+  arithmetic: (
+    source: string,
+  ) => `Analyze this Solidity contract for ARITHMETIC vulnerabilities only.
 
 Look for:
 - Integer overflow/underflow (especially in Solidity <0.8.0 without SafeMath)
@@ -101,7 +107,9 @@ If no arithmetic issues found, output: []
 
 JSON array:`,
 
-  general: (source: string) => `Analyze this Solidity contract for GENERAL security issues.
+  general: (
+    source: string,
+  ) => `Analyze this Solidity contract for GENERAL security issues.
 
 Look for:
 - Unchecked return values from low-level calls
@@ -168,15 +176,23 @@ function parseFindingsFromResponse(response: string): AuditFinding[] {
         )
         .map((f, i) => ({
           id: f.id ?? `FINDING-${i + 1}`,
-          severity: (['critical', 'high', 'medium', 'low', 'informational'].includes(
-            f.severity?.toLowerCase(),
-          )
+          severity: ([
+            'critical',
+            'high',
+            'medium',
+            'low',
+            'informational',
+          ].includes(f.severity?.toLowerCase())
             ? f.severity.toLowerCase()
             : 'medium') as Severity,
           title: String(f.title),
-          location: String(f.location ?? 'Unknown'),
+          function: String(f.function ?? f.location ?? 'Unknown'), // Backward compat: accept 'location' field
           description: String(f.description),
-          recommendation: String(f.recommendation ?? 'Review and fix as appropriate'),
+          recommendation: String(
+            f.recommendation ?? 'Review and fix as appropriate',
+          ),
+          reasoning: String(f.reasoning ?? 'See description'),
+          exploitSteps: String(f.exploitSteps ?? 'Not specified'),
         }))
     }
 
@@ -256,19 +272,30 @@ ${report.summary}
     md += `*No security issues identified in this analysis.*\n`
   } else {
     // Sort by severity
-    const severityOrder: Severity[] = ['critical', 'high', 'medium', 'low', 'informational']
+    const severityOrder: Severity[] = [
+      'critical',
+      'high',
+      'medium',
+      'low',
+      'informational',
+    ]
     const sortedFindings = [...report.findings].sort(
-      (a, b) => severityOrder.indexOf(a.severity) - severityOrder.indexOf(b.severity),
+      (a, b) =>
+        severityOrder.indexOf(a.severity) - severityOrder.indexOf(b.severity),
     )
 
     for (const finding of sortedFindings) {
       md += `### ${severityEmoji[finding.severity]} [${finding.severity.toUpperCase()}] ${finding.title}
 
 **ID:** ${finding.id}
-**Location:** \`${finding.location}\`
+**Function:** \`${finding.function}\`
 
 **Description:**
 ${finding.description}
+
+**Reasoning:** ${finding.reasoning}
+
+**Exploit Steps:** ${finding.exploitSteps}
 
 **Recommendation:**
 ${finding.recommendation}
@@ -291,7 +318,10 @@ This is an automated security analysis performed by an AI agent. It may not iden
 /**
  * Generate executive summary based on findings
  */
-function generateSummary(findings: AuditFinding[], contractName: string): string {
+function generateSummary(
+  findings: AuditFinding[],
+  contractName: string,
+): string {
   const counts = countBySeverity(findings)
   const total = findings.length
 
@@ -307,10 +337,14 @@ function generateSummary(findings: AuditFinding[], contractName: string): string
     )
   }
   if (counts.high > 0) {
-    parts.push(`${counts.high} high-severity issue${counts.high > 1 ? 's' : ''}`)
+    parts.push(
+      `${counts.high} high-severity issue${counts.high > 1 ? 's' : ''}`,
+    )
   }
   if (counts.medium > 0) {
-    parts.push(`${counts.medium} medium-severity issue${counts.medium > 1 ? 's' : ''}`)
+    parts.push(
+      `${counts.medium} medium-severity issue${counts.medium > 1 ? 's' : ''}`,
+    )
   }
   if (counts.low + counts.informational > 0) {
     parts.push(
@@ -319,7 +353,11 @@ function generateSummary(findings: AuditFinding[], contractName: string): string
   }
 
   const riskLevel =
-    counts.critical > 0 ? 'HIGH RISK' : counts.high > 0 ? 'MEDIUM RISK' : 'LOW RISK'
+    counts.critical > 0
+      ? 'HIGH RISK'
+      : counts.high > 0
+        ? 'MEDIUM RISK'
+        : 'LOW RISK'
 
   return `The ${contractName} contract analysis identified ${total} finding${total > 1 ? 's' : ''}: ${parts.join(', ')}. Overall risk assessment: **${riskLevel}**. ${counts.critical > 0 ? 'Critical issues should be addressed before deployment.' : ''}`
 }
@@ -363,7 +401,9 @@ export const analyzeContractAction: Action = {
 
     // Check if source is inline in message text (between code blocks)
     if (!contractSource) {
-      const codeBlockMatch = messageText.match(/```(?:solidity)?\s*([\s\S]*?)```/)
+      const codeBlockMatch = messageText.match(
+        /```(?:solidity)?\s*([\s\S]*?)```/,
+      )
       if (codeBlockMatch) {
         contractSource = codeBlockMatch[1].trim()
       }
@@ -397,20 +437,41 @@ export const analyzeContractAction: Action = {
 
     // Run analysis passes
     const allFindings: AuditFinding[] = []
-    const analysisCategories = ['reentrancy', 'accessControl', 'arithmetic', 'general'] as const
+    const analysisCategories = [
+      'reentrancy',
+      'accessControl',
+      'arithmetic',
+      'general',
+    ] as const
 
     for (const category of analysisCategories) {
       try {
-        const prompt = ANALYSIS_PROMPTS[category](truncateOutput(contractSource, 40000))
+        const prompt = ANALYSIS_PROMPTS[category](
+          truncateOutput(contractSource, 40000),
+        )
 
         // Use runtime's completion method if available, otherwise use simple approach
         let response: string
 
         if ('useModel' in runtime && typeof runtime.useModel === 'function') {
           // ElizaOS v2 pattern
-          response = await (runtime as unknown as { useModel: (type: string, opts: { prompt: string }) => Promise<string> }).useModel('TEXT_LARGE', { prompt })
-        } else if ('generateText' in runtime && typeof runtime.generateText === 'function') {
-          response = await (runtime as unknown as { generateText: (prompt: string) => Promise<string> }).generateText(prompt)
+          response = await (
+            runtime as unknown as {
+              useModel: (
+                type: string,
+                opts: { prompt: string },
+              ) => Promise<string>
+            }
+          ).useModel('TEXT_LARGE', { prompt })
+        } else if (
+          'generateText' in runtime &&
+          typeof runtime.generateText === 'function'
+        ) {
+          response = await (
+            runtime as unknown as {
+              generateText: (prompt: string) => Promise<string>
+            }
+          ).generateText(prompt)
         } else {
           // Fallback: return partial results
           callback?.({

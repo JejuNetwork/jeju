@@ -9,6 +9,7 @@
  */
 
 import { getCurrentNetwork } from '@jejunetwork/config'
+import { buildMaxTokensParam } from '@jejunetwork/shared/tokens'
 import { Elysia, t } from 'elysia'
 
 // SECURITY: Only allow this script to run in localnet
@@ -205,6 +206,8 @@ const app = new Elysia()
       }
 
       // OpenAI-compatible providers (OpenAI, Groq)
+      const maxTokens = body.max_tokens ?? 1024
+
       const response = await fetch(`${provider.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
@@ -215,7 +218,7 @@ const app = new Elysia()
           model: actualModel,
           messages: body.messages,
           temperature: body.temperature ?? 0.7,
-          max_tokens: body.max_tokens ?? 1024,
+          ...buildMaxTokensParam(actualModel, maxTokens),
         }),
       })
 

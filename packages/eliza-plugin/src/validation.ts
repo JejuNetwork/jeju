@@ -278,9 +278,11 @@ export const auditFindingSchema = z.object({
   id: z.string(),
   severity: severitySchema,
   title: z.string(),
-  location: z.string(),
+  function: z.string(), // Function/location where issue was found
   description: z.string(),
   recommendation: z.string(),
+  reasoning: z.string(), // CoT reasoning chain from analysis
+  exploitSteps: z.string(), // How to exploit (plain text)
 })
 
 /** Collection of findings from LLM analysis pass */
