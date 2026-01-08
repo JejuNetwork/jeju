@@ -595,7 +595,11 @@ export function createComputeRouter() {
         }
       })
 
-      .get('/nodes/inference', async () => await getActiveNodes())
+      .get('/nodes/inference', async () => {
+        const nodes = await getActiveNodes()
+        // Convert BigInt fields to strings for JSON serialization
+        return nodes.map((n) => ({ ...n, stake: n.stake.toString() }))
+      })
 
       .get('/nodes/:address', async ({ params, set }) => {
         const node = await trainingState.getNode(params.address)
