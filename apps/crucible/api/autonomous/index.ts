@@ -47,6 +47,8 @@ interface RegisteredAgent {
   config: ExtendedAgentConfig
   runtime: CrucibleAgentRuntime | null
   lastTick: number
+  /** Previous tick timestamp for polling actions to filter by */
+  previousTick: number
   tickCount: number
   errorCount: number
   lastError: string | null
@@ -156,6 +158,7 @@ export class AutonomousAgentRunner {
       config,
       runtime: null,
       lastTick: 0,
+      previousTick: 0,
       tickCount: 0,
       errorCount: 0,
       lastError: null,
@@ -298,6 +301,8 @@ export class AutonomousAgentRunner {
     agent: RegisteredAgent,
   ): Promise<{ reward: number }> {
     const agentId = agent.config.agentId
+    // Save previous tick timestamp before updating (for polling actions to filter by)
+    agent.previousTick = agent.lastTick
     agent.lastTick = Date.now()
     agent.tickCount++
 
@@ -383,6 +388,8 @@ export class AutonomousAgentRunner {
         }
       }
 
+      // Save previous tick timestamp before updating (for polling actions to filter by)
+      agent.previousTick = agent.lastTick
       agent.lastTick = Date.now()
       agent.tickCount++
 
@@ -574,6 +581,7 @@ export class AutonomousAgentRunner {
     // Calculate reward for this tick
     let tickReward = 0
     const actionsExecuted: string[] = []
+    const actionResults: Array<{ action: string; response: string }> = []
 
     // Execute any parsed actions
     if (response.actions && response.actions.length > 0) {
@@ -581,31 +589,75 @@ export class AutonomousAgentRunner {
         0,
         config.maxActionsPerTick,
       )) {
+        // Inject sinceTimestamp for polling actions (uses previousTick to filter new items)
+        const enrichedParams = { ...action.params }
+        if (action.type.toUpperCase().includes('POLL') && agent.previousTick > 0) {
+          // Convert ms to seconds for API timestamp
+          enrichedParams.sinceTimestamp = Math.floor(agent.previousTick / 1000).toString()
+          log.debug('Injected sinceTimestamp for polling action', {
+            agentId: config.agentId,
+            action: action.type,
+            previousTick: agent.previousTick,
+            sinceTimestamp: enrichedParams.sinceTimestamp,
+          })
+        }
+
         const actionResult = await this.executeAction(
           agent,
           action.type,
-          action.params,
+          enrichedParams,
           trajectoryId,
         )
         actionsExecuted.push(action.type)
         // Reward for successful actions
         if (actionResult.success) {
           tickReward += this.calculateActionReward(action.type)
+          // Collect action results for room posting
+          const resultResponse = (actionResult.result as { response?: string })?.response
+          log.info('Action result for room posting', {
+            agentId: config.agentId,
+            action: action.type,
+            hasResult: !!actionResult.result,
+            hasResponse: !!resultResponse,
+            responsePreview: resultResponse?.slice(0, 100),
+          })
+          if (resultResponse) {
+            actionResults.push({ action: action.type, response: resultResponse })
+          }
         }
       }
     }
 
-    // Post response to coordination room if configured
-    if (config.postToRoom && response.text) {
-      // Extract audit requests or meaningful content to post
-      const contentToPost = this.extractPostableContent(response.text, config.agentId)
-      if (contentToPost) {
-        await this.postToRoom(
-          config.agentId,
-          config.postToRoom,
-          contentToPost,
-          response.action,
-        )
+    // Post action results to coordination room if configured
+    if (config.postToRoom && actionResults.length > 0) {
+      log.info('Posting action results to room', {
+        agentId: config.agentId,
+        roomId: config.postToRoom,
+        actionCount: actionResults.length,
+      })
+      for (const result of actionResults) {
+        // Extract meaningful content from action result
+        const contentToPost = this.extractPostableContent(result.response, config.agentId)
+        if (contentToPost) {
+          log.debug('Posting content to room', {
+            agentId: config.agentId,
+            roomId: config.postToRoom,
+            action: result.action,
+            contentLength: contentToPost.length,
+          })
+          await this.postToRoom(
+            config.agentId,
+            config.postToRoom,
+            contentToPost,
+            result.action,
+          )
+        } else {
+          log.debug('No postable content extracted', {
+            agentId: config.agentId,
+            action: result.action,
+            responseLength: result.response.length,
+          })
+        }
       }
     }
 
@@ -682,13 +734,14 @@ export class AutonomousAgentRunner {
     const availableActions = this.getAvailableActions(agent.config.capabilities)
 
     // Fetch pending messages from watched room
+    // Use previousTick to catch messages posted since last tick (not current tick)
     let pendingMessages: PendingMessage[] = []
 
     if (agent.config.watchRoom) {
       pendingMessages = await this.fetchPendingMessages(
         agent.config.agentId,
         agent.config.watchRoom,
-        agent.lastTick,
+        agent.previousTick,
       )
     }
 
@@ -713,13 +766,22 @@ export class AutonomousAgentRunner {
       const db = getDatabase()
 
       // Get messages since last tick
+      const sinceSeconds = Math.floor(sinceTimestamp / 1000)
       const messages = await db.getMessages(roomId, {
         limit: 20,
-        since: Math.floor(sinceTimestamp / 1000),
+        since: sinceSeconds,
+      })
+
+      log.info('Fetched pending messages', {
+        agentId,
+        roomId,
+        sinceTimestamp,
+        sinceSeconds,
+        totalMessages: messages.length,
       })
 
       // Filter out own messages and convert to PendingMessage format
-      return messages
+      const filtered = messages
         .filter((msg: Message) => msg.agent_id !== agentId)
         .map((msg: Message) => ({
           id: String(msg.id),
@@ -731,6 +793,17 @@ export class AutonomousAgentRunner {
             msg.content.includes('blockscout.com/address/') ||
             msg.content.toLowerCase().includes('audit request'),
         }))
+
+      if (filtered.length > 0) {
+        log.info('Found pending messages for agent', {
+          agentId,
+          roomId,
+          messageCount: filtered.length,
+          messages: filtered.map(m => ({ from: m.from, preview: m.content.slice(0, 50) })),
+        })
+      }
+
+      return filtered
     } catch (err) {
       log.warn('Failed to fetch pending messages', {
         agentId,
@@ -847,7 +920,7 @@ export class AutonomousAgentRunner {
     if (capabilities.canTrade) {
       actions.push(
         {
-          name: 'SWAP',
+          name: 'SWAP_TOKENS',
           description: 'Execute a token swap',
           category: 'defi',
           parameters: [
@@ -873,7 +946,7 @@ export class AutonomousAgentRunner {
           requiresApproval: true,
         },
         {
-          name: 'PROVIDE_LIQUIDITY',
+          name: 'ADD_LIQUIDITY',
           description: 'Add liquidity to a pool',
           category: 'defi',
           requiresApproval: true,
@@ -883,7 +956,7 @@ export class AutonomousAgentRunner {
 
     if (capabilities.canPropose) {
       actions.push({
-        name: 'PROPOSE',
+        name: 'CREATE_PROPOSAL',
         description: 'Create a governance proposal',
         category: 'governance',
         requiresApproval: true,
@@ -892,7 +965,7 @@ export class AutonomousAgentRunner {
 
     if (capabilities.canVote) {
       actions.push({
-        name: 'VOTE',
+        name: 'VOTE_PROPOSAL',
         description: 'Vote on a proposal',
         category: 'governance',
         parameters: [
@@ -912,18 +985,19 @@ export class AutonomousAgentRunner {
       })
     }
 
-    if (capabilities.canStake) {
-      actions.push({
-        name: 'STAKE',
-        description: 'Stake tokens',
-        category: 'defi',
-        requiresApproval: true,
-      })
-    }
+    // TODO: STAKE action not implemented in eliza-plugin yet
+    // if (capabilities.canStake) {
+    //   actions.push({
+    //     name: 'STAKE',
+    //     description: 'Stake tokens',
+    //     category: 'defi',
+    //     requiresApproval: true,
+    //   })
+    // }
 
     if (capabilities.a2a) {
       actions.push({
-        name: 'A2A_MESSAGE',
+        name: 'CALL_AGENT',
         description: 'Send a message to another agent',
         category: 'communication',
       })
@@ -931,8 +1005,8 @@ export class AutonomousAgentRunner {
 
     if (capabilities.compute) {
       actions.push({
-        name: 'RUN_COMPUTE',
-        description: 'Execute a compute job on DWS',
+        name: 'RUN_INFERENCE',
+        description: 'Run AI inference on the network',
         category: 'compute',
       })
     }
@@ -1038,7 +1112,7 @@ export class AutonomousAgentRunner {
     actionName: string,
     params: Record<string, string>,
     trajectoryId: string | null,
-  ): Promise<{ success: boolean; error?: string }> {
+  ): Promise<{ success: boolean; error?: string; result?: unknown }> {
     log.info('Executing action', {
       agentId: agent.config.agentId,
       action: actionName,
@@ -1126,7 +1200,7 @@ export class AutonomousAgentRunner {
       ...(result.error && { error: result.error }),
     })
 
-    return { success: result.success, error: result.error }
+    return { success: result.success, error: result.error, result: result.result }
   }
 
   private getActionCategory(actionName: string): string {
