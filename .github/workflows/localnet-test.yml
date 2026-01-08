@@ -28,6 +28,9 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
       - name: Install dependencies
         run: bun install
 
@@ -49,6 +52,9 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
       - name: Install dependencies
         run: bun install
 
@@ -64,8 +70,18 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Initialize submodules
+        run: git submodule update --init --recursive
+
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install contract dependencies
+        working-directory: packages/contracts
+        run: |
+          forge install foundry-rs/forge-std --no-git || true
+          forge install OpenZeppelin/openzeppelin-contracts@v5.3.0 --no-git || true
+          forge install eth-infinitism/account-abstraction --no-git || true
 
       - name: Build contracts
         working-directory: packages/contracts
