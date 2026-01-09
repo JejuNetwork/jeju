@@ -179,6 +179,6 @@ export function createA2AServer(config: A2AConfig): AnyElysia {
             kind: 'message',
           },
         }
-      })
-  ) as unknown as AnyElysia
+      }) as unknown as AnyElysia
+  )
 }

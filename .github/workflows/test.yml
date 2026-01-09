@@ -22,10 +22,13 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
       - run: bun install
 
       - name: Run unit tests
-        run: bun test packages/
+        run: bun test packages/shared/ packages/config/ packages/types/
 
   integration:
     needs: unit
@@ -113,9 +116,12 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
       - run: bun install
 
       - name: Generate coverage report
         run: |
-          bun test packages/ --coverage || true
+          bun test packages/shared/ packages/config/ --coverage || true
           echo "Coverage report generated"

@@ -1,10 +1,11 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "@jejunetwork/sqlit-adapter",
       "dependencies": {
-        "elysia": "^1.4.19",
+        "elysia": "^1.1.25",
       },
     },
   },

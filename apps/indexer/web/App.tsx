@@ -60,24 +60,17 @@ interface StatConfig {
 // CONSTANTS
 // ============================================
 
-/**
- * Determine if we're running in local development mode.
- * Dev server runs on port 4355, production uses standard HTTPS (no port).
- */
-function isLocalDev(): boolean {
-  if (typeof window === 'undefined') return false
-  const port = window.location.port
-  // Dev server port is 4355 - anything else is production
-  return port === '4355'
-}
+import { getLocalhostHost } from '@jejunetwork/config'
 
-/**
- * API and GraphQL URLs:
- * - In development: Use localhost with specific ports
- * - In production: Use relative URLs (served from same origin)
- */
-const API_BASE = isLocalDev() ? 'http://127.0.0.1:4352' : '/api'
-const GRAPHQL_URL = isLocalDev() ? 'http://127.0.0.1:4350/graphql' : '/graphql'
+const API_BASE =
+  typeof window !== 'undefined' && window.location.port === '4355'
+    ? `http://${getLocalhostHost()}:4352`
+    : '/api'
+
+const GRAPHQL_URL =
+  typeof window !== 'undefined' && window.location.port === '4355'
+    ? `http://${getLocalhostHost()}:4350/graphql`
+    : '/graphql'
 
 const TABS: TabConfig[] = [
   { id: 'overview', label: 'Overview', ariaLabel: 'View network overview' },

@@ -49,59 +49,69 @@ const authConfig: AuthConfig = {
   devMode: oauth3Config.devMode,
 }
 
+/**
+ * Check if an origin matches allowed patterns
+ * Supports exact matches and wildcard patterns like "*.jejunetwork.org"
+ * When returning true with credentials:true, Elysia reflects the requesting origin
+ */
+function isOriginAllowed(
+  origin: string,
+  allowedOrigins: string[],
+  devMode: boolean,
+): boolean {
+  // In dev mode, allow localhost origins
+  if (devMode) {
+    const localhostPatterns = [
+      /^http:\/\/localhost(:\d+)?$/,
+      /^http:\/\/127\.0\.0\.1(:\d+)?$/,
+      /^http:\/\/\[::1\](:\d+)?$/,
+    ]
+    if (localhostPatterns.some((pattern) => pattern.test(origin))) {
+      return true
+    }
+  }
+
+  for (const allowed of allowedOrigins) {
+    // Wildcard allows all
+    if (allowed === '*') {
+      return true
+    }
+
+    // Exact match
+    if (allowed === origin) {
+      return true
+    }
+
+    // Wildcard subdomain pattern (e.g., "*.jejunetwork.org")
+    if (allowed.startsWith('*.')) {
+      const domain = allowed.slice(2) // Remove "*."
+      const originUrl = new URL(origin)
+      const originHost = originUrl.hostname
+      // Match the domain or any subdomain
+      if (originHost === domain || originHost.endsWith(`.${domain}`)) {
+        return true
+      }
+    }
+  }
+
+  return false
+}
+
 async function createApp() {
-  // Build explicit allowed origins for CORS (wildcards don't work with credentials)
-  const host = getLocalhostHost()
-  const explicitOrigins = [
-    // Localhost development
-    `http://${host}:3000`,
-    `http://${host}:3001`,
-    `http://${host}:4200`,
-    `http://${host}:4020`, // Crucible frontend
-    `http://${host}:4040`, // Autocrat frontend
-    // Local development proxy (Caddy on port 8080 or 80)
-    'http://crucible.local.jejunetwork.org:8080',
-    'http://crucible.local.jejunetwork.org',
-    'http://autocrat.local.jejunetwork.org:8080',
-    'http://autocrat.local.jejunetwork.org',
-    'http://bazaar.local.jejunetwork.org:8080',
-    'http://bazaar.local.jejunetwork.org',
-    'http://wallet.local.jejunetwork.org:8080',
-    'http://wallet.local.jejunetwork.org',
-    'http://factory.local.jejunetwork.org:8080',
-    'http://factory.local.jejunetwork.org',
-    'http://gateway.local.jejunetwork.org:8080',
-    'http://gateway.local.jejunetwork.org',
-    'http://dws.local.jejunetwork.org:8080',
-    'http://dws.local.jejunetwork.org',
-    'http://otto.local.jejunetwork.org:8080',
-    'http://otto.local.jejunetwork.org',
-    // Eliza cloud
-    'https://cloud.elizaos.com',
-    'https://eliza.cloud',
-    'https://elizaos.ai',
-    // Jeju testnet apps
-    'https://crucible.testnet.jejunetwork.org',
-    'https://autocrat.testnet.jejunetwork.org',
-    'https://factory.testnet.jejunetwork.org',
-    'https://gateway.testnet.jejunetwork.org',
-    'https://bazaar.testnet.jejunetwork.org',
-    'https://dws.testnet.jejunetwork.org',
-    // Jeju mainnet apps
-    'https://crucible.jejunetwork.org',
-    'https://autocrat.jejunetwork.org',
-    'https://factory.jejunetwork.org',
-    'https://gateway.jejunetwork.org',
-    'https://bazaar.jejunetwork.org',
-    'https://dws.jejunetwork.org',
-    // User-provided allowed origins
-    ...authConfig.allowedOrigins.filter((o) => o !== '*'),
-  ]
+  const allowedOrigins = oauth3Config.allowedOrigins
+  const devMode = oauth3Config.devMode
 
   const app = new Elysia()
     .use(
       cors({
-        origin: explicitOrigins,
+        origin: (request) => {
+          const originHeader = request.headers.get('origin')
+          if (!originHeader) {
+            // No origin header (same-origin request or non-browser client)
+            return true
+          }
+          return isOriginAllowed(originHeader, allowedOrigins, devMode)
+        },
         credentials: true,
         allowedHeaders: [
           'Content-Type',

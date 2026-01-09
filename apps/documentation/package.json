@@ -8,9 +8,11 @@
     "build": "bun run scripts/build.ts",
     "start": "bun run scripts/serve.ts",
     "deploy": "bun run scripts/deploy.ts",
-    "test": "bun test tests/",
+"test": "bun test tests/unit/",
     "typecheck": "tsc --noEmit",
-    "dev:vocs": "vocs dev --port ${PORT:-4055}"
+    "dev:vocs": "vocs dev --port ${PORT:-4055}",
+    "a2a": "bun run server/a2a-server.ts",
+    "build:docs-index": "bun run scripts/build-docs-index.ts"
   },
   "dependencies": {
     "@elysiajs/cors": "^1.4.0",

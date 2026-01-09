@@ -281,6 +281,6 @@ variable "solana_disk_size_gb" {
   default = ${config.diskSizeGb}
 }
 
-# See /packages/deployment/terraform/modules/solana for full implementation
+# See /packages/deployment/terraform/modules/aws/solana for full implementation
 `
 }

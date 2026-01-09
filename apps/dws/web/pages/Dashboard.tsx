@@ -13,7 +13,6 @@ import {
   Cpu,
   Database,
   DollarSign,
-  Download,
   Globe,
   HardDrive,
   Layers,
@@ -134,9 +133,7 @@ function ConnectWalletState() {
           <div className="welcome-icon">
             <Layers size={48} />
           </div>
-          <h1 className="welcome-title">
-            Decentralized Web Services
-          </h1>
+          <h1 className="welcome-title">Decentralized Web Services</h1>
           <p className="welcome-subtitle">
             Deploy containers, workers, storage, and AI inference on the
             decentralized cloud. Connect your wallet to get started.
@@ -342,23 +339,12 @@ function NewUserDashboard({
               label="IPFS Storage"
               href="/storage/ipfs"
             />
-            <ExploreItem
-              icon={<Bot />}
-              label="AI Agents"
-              href="/agents"
-            />
-            <ExploreItem
-              icon={<Layers />}
-              label="CDN"
-              href="/storage/cdn"
-            />
+            <ExploreItem icon={<Bot />} label="AI Agents" href="/agents" />
+            <ExploreItem icon={<Layers />} label="CDN" href="/storage/cdn" />
           </div>
         </div>
 
-        <SystemStatusCompact
-          health={health}
-          loading={healthLoading}
-        />
+        <SystemStatusCompact health={health} loading={healthLoading} />
       </div>
 
       <div className="earn-cta">
@@ -576,9 +562,7 @@ function ExistingUserDashboard({
           icon={<Wallet size={24} />}
           label="Balance"
           value={`${balanceEth} ETH`}
-          subtext={
-            account ? `${account.tier} tier` : 'x402 Credits'
-          }
+          subtext={account ? `${account.tier} tier` : 'x402 Credits'}
           color="green"
           valueSize="small"
         />
@@ -665,7 +649,9 @@ function SystemHealthCard({
   const allHealthy = healthyCount === totalCount && totalCount > 0
 
   return (
-    <div className={`stat-card-v2 stat-health ${allHealthy ? 'stat-healthy' : 'stat-degraded'}`}>
+    <div
+      className={`stat-card-v2 stat-health ${allHealthy ? 'stat-healthy' : 'stat-degraded'}`}
+    >
       <div className="stat-card-icon">
         {allHealthy ? <CheckCircle2 size={24} /> : <AlertCircle size={24} />}
       </div>
@@ -862,7 +848,10 @@ function RecentActivityCard({
       ) : (
         <div className="activity-list">
           {recentActivities.map((activity) => (
-            <div key={`${activity.type}-${activity.id}`} className="activity-item">
+            <div
+              key={`${activity.type}-${activity.id}`}
+              className="activity-item"
+            >
               <div className={`activity-icon activity-${activity.type}`}>
                 {getTypeIcon(activity.type)}
               </div>
@@ -870,10 +859,14 @@ function RecentActivityCard({
                 <span className="activity-name">{activity.name}</span>
                 <span className="activity-type">{activity.type}</span>
               </div>
-              <span className={`activity-status ${getStatusClass(activity.status)}`}>
+              <span
+                className={`activity-status ${getStatusClass(activity.status)}`}
+              >
                 {activity.status}
               </span>
-              <span className="activity-time">{formatTime(activity.timestamp)}</span>
+              <span className="activity-time">
+                {formatTime(activity.timestamp)}
+              </span>
             </div>
           ))}
         </div>

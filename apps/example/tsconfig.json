@@ -3,8 +3,9 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": ".",
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "skipLibCheck": true
   },
-  "include": ["api/**/*", "web/**/*", "lib/**/*", "tests/**/*", "*.ts"],
+  "include": ["api/**/*", "web/**/*", "lib/**/*", "tests/**/*", "*.ts", "global.d.ts"],
   "exclude": ["node_modules", "dist"]
 }

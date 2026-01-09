@@ -22,28 +22,26 @@ export {
   type OAuth3ProviderProps,
   type TypedDataParams,
   type UseCredentialsReturn,
-  useCredentials,
   type UseJejuAuthReturn,
-  useJejuAuth,
   type UseJejuWalletReturn,
-  useJejuWallet,
   type UseLoginOptions,
   type UseLoginReturn,
-  useLogin,
   type UseMFAOptions,
   type UseMFAReturn,
+  type UseSessionReturn,
+  useCredentials,
+  useJejuAuth,
+  useJejuWallet,
+  useLogin,
   useMFA,
   useOAuth3,
   useOAuth3Client,
-  type UseSessionReturn,
   useSession,
 } from '@jejunetwork/auth/react'
-
-// Export the unified auth button
-export { JejuAuthButton, type JejuAuthButtonProps } from './JejuAuthButton'
-
 // Export the auth header component
 export {
   AuthHeaderButton,
   type AuthHeaderButtonProps,
 } from './AuthHeaderButton'
+// Export the unified auth button
+export { JejuAuthButton, type JejuAuthButtonProps } from './JejuAuthButton'

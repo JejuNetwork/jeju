@@ -58,22 +58,29 @@ interface ContentResolution {
   workerEndpoint: string | null
 }
 
-// Local worker endpoint mappings for vendor apps during development
-// Maps app name to local backend URL (must match CORE_PORTS from @jejunetwork/config)
+// Local worker endpoint mappings for development
+// Maps app name to local backend URL (must match ports from jeju-manifest.json)
 function getLocalWorkerEndpoints(): Record<string, string> {
   const host = getLocalhostHost()
   return {
-    factory: `http://${host}:4009`,
-    bazaar: `http://${host}:4007`, // BAZAAR_API port
-    gateway: `http://${host}:4060`,
+    // Core apps with backends
     dws: `http://${host}:4030`,
-    oauth3: `http://${host}:4200`,
-    auth: `http://${host}:4200`, // alias for oauth3
-    monitoring: `http://${host}:9091`, // A2A server port from jeju-manifest.json
+    gateway: `http://${host}:4013`, // Gateway main port
+    crucible: `http://${host}:4021`, // Crucible API port
+    example: `http://${host}:4500`, // Example main port
+    autocrat: `http://${host}:4040`, // Autocrat API port
+    bazaar: `http://${host}:4007`, // Bazaar API port
+    factory: `http://${host}:4009`, // Factory port
+    oauth3: `http://${host}:4200`, // OAuth3 gateway
+    auth: `http://${host}:4200`, // Alias for oauth3
+    // Additional apps
+    monitoring: `http://${host}:9091`, // Monitoring A2A server
     wallet: `http://${host}:4015`, // Wallet main port
     vpn: `http://${host}:4021`, // VPN API port
-    node: `http://${host}:1420`, // Node main port (from manifest)
+    node: `http://${host}:1420`, // Node main port
+    // Vendor apps
     babylon: `http://${host}:5009`, // Babylon API server
+    'babylon-api': `http://${host}:5009`, // Babylon API alias
   }
 }
 
@@ -438,11 +445,13 @@ export class LocalJNSGateway {
     ]
 
     // Common build output directories (order matters - more specific first)
+    // Also check public folder for dev mode when assets aren't copied to dist
     const buildDirs = [
       'dist', // Most common
       'dist/web',
       'dist/client',
       'dist/static',
+      'public', // Dev mode - serve directly from public folder
       'docs/dist',
       'build',
       'out',

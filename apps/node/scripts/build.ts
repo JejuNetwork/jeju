@@ -3,14 +3,14 @@
  * Production build script for Node App
  *
  * Builds:
- * 1. Static frontend (dist/static/) - for IPFS/CDN deployment  
+ * 1. Static frontend (dist/static/) - for IPFS/CDN deployment
  * 2. CLI bundle (dist/cli/) - for command line usage
  * 3. Lander (dist/lander/) - landing page
  */
 
 import { existsSync } from 'node:fs'
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
-import { join, resolve } from 'node:path'
+import { resolve } from 'node:path'
 import { reportBundleSizes } from '@jejunetwork/shared'
 
 const APP_DIR = resolve(import.meta.dir, '..')

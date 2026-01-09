@@ -371,32 +371,61 @@ export async function fetchTokenDetails(address: Address): Promise<Token> {
   let holders: number | undefined
 
   if (await checkIndexerHealth()) {
-    const data = await gql<{
-      contracts: Array<{
-        creator: { address: string }
-        firstSeenAt: string
-        verified: boolean
-        totalVolume?: string
-        holderCount?: number
-      }>
-    }>(
-      `
-      query($address: String!) {
-        contracts(where: { address_eq: $address }, limit: 1) {
-          creator { address } firstSeenAt verified totalVolume holderCount
+    // Try to get token data first (has volume/holders), fall back to contract if not found
+    try {
+      const tokenData = await gql<{
+        tokens: Array<{
+          creator: { address: string }
+          createdAt: string
+          verified: boolean
+          volume24h: string
+          holderCount: number
+        }>
+      }>(
+        `
+        query($address: String!) {
+          tokens(where: { address_eq: $address }, limit: 1) {
+            creator { address } createdAt verified volume24h holderCount
+          }
         }
-      }
-    `,
-      { address: address.toLowerCase() },
-    )
+      `,
+        { address: address.toLowerCase() },
+      )
 
-    if (data.contracts[0]) {
-      const c = data.contracts[0]
-      creator = AddressSchema.parse(c.creator.address)
-      createdAt = new Date(c.firstSeenAt)
-      verified = c.verified
-      volume24h = c.totalVolume ? BigInt(c.totalVolume) : undefined
-      holders = c.holderCount
+      if (tokenData.tokens[0]) {
+        const t = tokenData.tokens[0]
+        creator = AddressSchema.parse(t.creator.address)
+        createdAt = new Date(t.createdAt)
+        verified = t.verified
+        volume24h = BigInt(t.volume24h)
+        holders = t.holderCount
+      }
+    } catch {
+      // Token not found, try contract (no volume/holders data)
+      const data = await gql<{
+        contracts: Array<{
+          creator: { address: string }
+          firstSeenAt: string
+          verified: boolean
+        }>
+      }>(
+        `
+        query($address: String!) {
+          contracts(where: { address_eq: $address }, limit: 1) {
+            creator { address } firstSeenAt verified
+          }
+        }
+      `,
+        { address: address.toLowerCase() },
+      )
+
+      if (data.contracts[0]) {
+        const c = data.contracts[0]
+        creator = AddressSchema.parse(c.creator.address)
+        createdAt = new Date(c.firstSeenAt)
+        verified = c.verified
+        // volume24h and holders remain undefined for contracts
+      }
     }
   }
 
@@ -666,21 +695,32 @@ export async function searchTokens(
 
   if (!(await checkIndexerHealth())) return []
 
-  const data = await gql<{ contracts: Array<Parameters<typeof mapToken>[0]> }>(
-    `
-    query($query: String!, $limit: Int!) {
-      contracts(
-        where: { isERC20_eq: true, OR: [{ name_containsInsensitive: $query }, { symbol_containsInsensitive: $query }] }
-        limit: $limit orderBy: totalVolume_DESC
-      ) {
-        address name symbol decimals totalSupply
-        creator { address } firstSeenAt verified
+  // Query Token entities (Contract doesn't have name/symbol fields for search)
+  // If no Token entities exist (e.g., on localnet without DEX activity), return empty
+  try {
+    const tokenData = await gql<{
+      tokens: Array<Parameters<typeof mapToken>[0]>
+    }>(
+      `
+      query($query: String!, $limit: Int!) {
+        tokens(
+          where: { OR: [{ name_containsInsensitive: $query }, { symbol_containsInsensitive: $query }] }
+          limit: $limit orderBy: volume24h_DESC
+        ) {
+          address chainId name symbol decimals totalSupply
+          creator { address } createdAt verified
+        }
       }
-    }
-  `,
-    { query, limit },
-  )
-  return data.contracts.map(mapToken)
+    `,
+      { query, limit },
+    )
+    return tokenData.tokens.map(mapToken)
+  } catch (error) {
+    // Tokens query failed or no tokens found - return empty array
+    // Note: Contract entities don't have name/symbol fields, so we can't search them
+    console.warn('[searchTokens] Token search failed:', error)
+    return []
+  }
 }
 
 export async function fetchToken24hStats(address: Address): Promise<{

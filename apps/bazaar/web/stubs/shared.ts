@@ -1,50 +1,75 @@
-/**
- * @jejunetwork/shared browser stub
- *
- * Provides browser-safe stubs and re-exports for shared utilities.
- */
+// Browser stub for @jejunetwork/shared
+// Provides minimal browser-safe exports
 
-import { type Address, parseEther } from 'viem'
+import type { Address } from 'viem'
+
+export function createLogger(name: string) {
+  return {
+    info: (...args: unknown[]) => console.info(`[${name}]`, ...args),
+    warn: (...args: unknown[]) => console.warn(`[${name}]`, ...args),
+    error: (...args: unknown[]) => console.error(`[${name}]`, ...args),
+    debug: (...args: unknown[]) => console.debug(`[${name}]`, ...args),
+  }
+}
+
+export function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+}
+
+export function hexToBytes(hex: string): Uint8Array {
+  const cleanHex = hex.startsWith('0x') ? hex.slice(2) : hex
+  const bytes = new Uint8Array(cleanHex.length / 2)
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(cleanHex.slice(i * 2, i * 2 + 2), 16)
+  }
+  return bytes
+}
+
+export function randomBytes(length: number): Uint8Array {
+  return crypto.getRandomValues(new Uint8Array(length))
+}
 
 // Environment utilities
 export function getEnv(key: string, defaultValue?: string): string {
   if (typeof window !== 'undefined') {
-    // Try window.__ENV__ first (injected by server)
-    type WindowWithEnv = { __ENV__?: Record<string, string> }
-    const windowEnv = (window as WindowWithEnv).__ENV__
-    if (windowEnv && key in windowEnv) {
-      return windowEnv[key]
+    const config = (window as { __JEJU_CONFIG__?: Record<string, string> })
+      .__JEJU_CONFIG__
+    if (config && key in config) {
+      return config[key]
     }
   }
   return defaultValue ?? ''
 }
 
-export function getEnvVar(key: string, defaultValue?: string): string {
-  return getEnv(key, defaultValue)
-}
-
-// Cache client stub
+// Cache stub (not available in browser)
 export interface CacheClient {
-  get: (key: string) => Promise<string | null>
-  set: (key: string, value: string, ttl?: number) => Promise<void>
-  delete: (key: string) => Promise<void>
+  get(key: string): Promise<string | null>
+  set(key: string, value: string, ttl?: number): Promise<void>
+  del(key: string): Promise<void>
 }
 
 export function getCacheClient(): CacheClient {
-  // Use localStorage as a simple browser cache
   return {
-    get: async (key: string) => localStorage.getItem(key),
-    set: async (key: string, value: string) => localStorage.setItem(key, value),
-    delete: async (key: string) => localStorage.removeItem(key),
+    async get(key: string) {
+      return localStorage.getItem(key)
+    },
+    async set(key: string, value: string, _ttl?: number) {
+      localStorage.setItem(key, value)
+    },
+    async del(key: string) {
+      localStorage.removeItem(key)
+    },
   }
 }
 
-// Storage types
+// Storage tier type
 export type StorageTier = 'hot' | 'warm' | 'cold' | 'archive'
 
-// =============================================================================
-// EIL (Economic Interoperability Layer) - Browser Safe
-// =============================================================================
+// ============================================================================
+// EIL (Economic Interoperability Layer) Exports
+// ============================================================================
 
 export interface ChainInfo {
   id: number
@@ -165,51 +190,3 @@ export const CROSS_CHAIN_PAYMASTER_ABI = [
     stateMutability: 'view',
   },
 ] as const
-
-export function getChainById(chainId: number): ChainInfo | undefined {
-  return SUPPORTED_CHAINS.find((c) => c.id === chainId)
-}
-
-export function isCrossChainSwap(
-  sourceChainId: number,
-  destChainId: number,
-): boolean {
-  return sourceChainId !== destChainId
-}
-
-export function calculateSwapFee(
-  amount: bigint,
-  sourceChainId: number,
-  destinationChainId: number,
-): { networkFee: bigint; xlpFee: bigint; totalFee: bigint } {
-  const networkFee = parseEther('0.001')
-  const xlpFee = (amount * 5n) / 10000n
-  const crossChainPremium =
-    sourceChainId !== destinationChainId ? parseEther('0.0005') : 0n
-
-  return {
-    networkFee: networkFee + crossChainPremium,
-    xlpFee,
-    totalFee: networkFee + crossChainPremium + xlpFee,
-  }
-}
-
-export function estimateSwapTime(
-  sourceChainId: number,
-  destinationChainId: number,
-): number {
-  if (sourceChainId === destinationChainId) return 0
-  const l1Chains = [1]
-  const isL1ToL2 = l1Chains.includes(sourceChainId)
-  const isL2ToL1 = l1Chains.includes(destinationChainId)
-  if (isL1ToL2) return 15
-  if (isL2ToL1) return 600
-  return 10
-}
-
-export function formatSwapRoute(
-  sourceChain: ChainInfo,
-  destChain: ChainInfo,
-): string {
-  return `${sourceChain.icon} ${sourceChain.name} → ${destChain.icon} ${destChain.name}`
-}

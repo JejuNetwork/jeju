@@ -20,7 +20,19 @@ import type { StatefulService } from '../containers/stateful-provisioner'
 // Types
 // ============================================================================
 
-export type ServiceType = 'stateful' | 'worker' | 'postgres' | 'sqlit' | 'oauth3' | 'email' | 'da' | 'hubble' | 'oracle' | 'indexer' | 'rpc-gateway'
+export type ServiceType =
+  | 'stateful'
+  | 'worker'
+  | 'postgres'
+  | 'sqlit'
+  | 'oauth3'
+  | 'email'
+  | 'da'
+  | 'hubble'
+  | 'messaging'
+  | 'oracle'
+  | 'indexer'
+  | 'rpc-gateway'
 
 export interface ServiceRecord {
   id: string
@@ -76,7 +88,9 @@ const servicesByType = new Map<ServiceType, Set<string>>()
 /**
  * Register a stateful service with internal DNS
  */
-export function registerStatefulService(service: StatefulService): ServiceRecord {
+export function registerStatefulService(
+  service: StatefulService,
+): ServiceRecord {
   const serviceId = service.id
   const config = service.config
 
@@ -118,7 +132,9 @@ export function registerStatefulService(service: StatefulService): ServiceRecord
   // Generate DNS records
   generateDNSRecords(record)
 
-  console.log(`[ServiceDiscovery] Registered ${record.headlessFqdn} with ${endpoints.length} endpoints`)
+  console.log(
+    `[ServiceDiscovery] Registered ${record.headlessFqdn} with ${endpoints.length} endpoints`,
+  )
 
   return record
 }
@@ -158,7 +174,9 @@ export function registerTypedService(
 
   generateDNSRecords(record)
 
-  console.log(`[ServiceDiscovery] Registered ${type} service ${record.headlessFqdn}`)
+  console.log(
+    `[ServiceDiscovery] Registered ${type} service ${record.headlessFqdn}`,
+  )
 
   return record
 }
@@ -203,10 +221,7 @@ export function markEndpointUnhealthy(
 /**
  * Mark endpoint as healthy
  */
-export function markEndpointHealthy(
-  serviceId: string,
-  ordinal: number,
-): void {
+export function markEndpointHealthy(serviceId: string, ordinal: number): void {
   const record = serviceRegistry.get(serviceId)
   if (!record) return
 
@@ -250,9 +265,7 @@ export function resolveA(fqdn: string): string[] {
   const records = dnsRecords.get(fqdn)
   if (!records) return []
 
-  return records
-    .filter((r) => r.recordType === 'A')
-    .map((r) => r.value)
+  return records.filter((r) => r.recordType === 'A').map((r) => r.value)
 }
 
 /**
@@ -284,9 +297,7 @@ export function resolveTXT(fqdn: string): string[] {
   const records = dnsRecords.get(fqdn)
   if (!records) return []
 
-  return records
-    .filter((r) => r.recordType === 'TXT')
-    .map((r) => r.value)
+  return records.filter((r) => r.recordType === 'TXT').map((r) => r.value)
 }
 
 /**
@@ -315,10 +326,15 @@ export function resolvePod(fqdn: string): ServiceEndpoint | null {
 /**
  * Get leader endpoint for a service (consensus-aware routing)
  */
-export function resolveLeader(serviceName: string, namespace: string): ServiceEndpoint | null {
+export function resolveLeader(
+  serviceName: string,
+  namespace: string,
+): ServiceEndpoint | null {
   for (const record of serviceRegistry.values()) {
     if (record.name === serviceName && record.namespace === namespace) {
-      return record.endpoints.find((e) => e.role === 'leader' && e.healthy) ?? null
+      return (
+        record.endpoints.find((e) => e.role === 'leader' && e.healthy) ?? null
+      )
     }
   }
   return null
@@ -446,18 +462,16 @@ function generateDNSRecords(service: ServiceRecord): void {
   // Store records indexed by FQDN
   for (const record of records) {
     const existing = dnsRecords.get(record.fqdn) ?? []
-    
+
     // Check if same record already exists
     const exists = existing.some(
-      (r) =>
-        r.recordType === record.recordType &&
-        r.value === record.value,
+      (r) => r.recordType === record.recordType && r.value === record.value,
     )
-    
+
     if (!exists) {
       existing.push(record)
     }
-    
+
     dnsRecords.set(record.fqdn, existing)
   }
 }

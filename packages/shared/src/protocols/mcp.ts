@@ -200,6 +200,6 @@ export function createMCPServer(config: MCPConfig): AnyElysia {
 
         const result = await config.getPrompt(name, args, address)
         return result
-      })
-  ) as unknown as AnyElysia
+      }) as unknown as AnyElysia
+  )
 }

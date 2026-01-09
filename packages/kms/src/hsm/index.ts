@@ -381,34 +381,29 @@ export class SoftHSMProvider implements HSMProvider {
  * SECURITY: On mainnet, only hardware HSM providers are allowed.
  */
 export function createHSMProvider(config: HSMConfig): HSMProvider {
-  // Dynamic imports to avoid loading unused HSM libraries
   switch (config.type) {
     case 'softhsm':
       return new SoftHSMProvider(config)
 
-    case 'aws-cloudhsm': {
-      // Lazy import AWS CloudHSM provider
-      const { AWSCloudHSMProvider } = require('./aws-cloudhsm.js')
-      return new AWSCloudHSMProvider(config)
-    }
+    case 'aws-cloudhsm':
+      throw new Error(
+        'AWS CloudHSM provider not available. Use softhsm for development.',
+      )
 
-    case 'azure-hsm': {
-      // Lazy import Azure HSM provider
-      const { AzureHSMProvider } = require('./azure-hsm.js')
-      return new AzureHSMProvider(config)
-    }
+    case 'azure-hsm':
+      throw new Error(
+        'Azure HSM provider not available. Use softhsm for development.',
+      )
 
-    case 'gcloud-hsm': {
-      // Lazy import Google Cloud HSM provider
-      const { GCloudHSMProvider } = require('./gcloud-hsm.js')
-      return new GCloudHSMProvider(config)
-    }
+    case 'gcloud-hsm':
+      throw new Error(
+        'Google Cloud HSM provider not available. Use softhsm for development.',
+      )
 
-    case 'yubihsm': {
-      // Lazy import YubiHSM provider
-      const { YubiHSMProvider } = require('./yubihsm.js')
-      return new YubiHSMProvider(config)
-    }
+    case 'yubihsm':
+      throw new Error(
+        'YubiHSM provider not available. Use softhsm for development.',
+      )
 
     default:
       throw new Error(`Unknown HSM type: ${config.type}`)

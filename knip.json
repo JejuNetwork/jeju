@@ -167,6 +167,11 @@
       "entry": ["web/main.tsx", "lib/index.ts", "extension/background/index.ts", "extension/content/index.ts", "extension/popup/index.tsx"],
       "project": ["api/**/*.ts", "web/**/*.ts", "web/**/*.tsx", "lib/**/*.ts", "extension/**/*.ts", "extension/**/*.tsx"],
       "ignore": ["**/synpress.config.ts", "**/playwright.config.ts", "**/tests/**"]
+    },
+    "apps/otto": {
+      "entry": ["api/index.ts", "web/main.tsx"],
+      "project": ["api/**/*.ts", "web/**/*.ts", "web/**/*.tsx"],
+      "ignore": ["**/synpress.config.ts", "**/playwright.config.ts", "**/tests/**"]
     }
   },
   "ignore": [

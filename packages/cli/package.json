@@ -21,7 +21,8 @@
     "build": "bun build src/index.ts --outdir dist --target bun --external electron --external playwright-core --external @vue/compiler-sfc --external @noble/hashes --external @phala/dstack-sdk",
     "dev": "bun run src/index.ts",
     "test": "bun test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "bunx biome check src/ --max-diagnostics=50"
   },
   "dependencies": {
     "@elysiajs/cors": "1.3.0",

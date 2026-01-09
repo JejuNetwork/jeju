@@ -13,14 +13,13 @@
  * - Automatic routing based on recipient type
  */
 
-import { createHash } from 'node:crypto'
 import { createKMSSigner, type KMSSigner } from '@jejunetwork/kms'
+import { sha256 } from '@noble/hashes/sha256'
 import {
   type Identifier,
-  type IdentifierKind,
   Client as XMTPClient,
   type Signer as XMTPSigner,
-} from '@xmtp/node-sdk'
+} from '@xmtp/browser-sdk'
 import type { Address } from 'viem'
 import { toBytes } from 'viem'
 import type { DCClientConfig, DirectCast, DirectCastClient } from './farcaster'
@@ -90,7 +89,7 @@ function createXMTPKMSSigner(
     type: 'EOA',
     getIdentifier: (): Identifier => ({
       identifier: address.toLowerCase(),
-      identifierKind: 0 as IdentifierKind, // 0 = Ethereum in IdentifierKind enum
+      identifierKind: 'Ethereum',
     }),
     signMessage: async (message: string): Promise<Uint8Array> => {
       const result = await kmsSigner.signMessage(message)
@@ -104,8 +103,7 @@ function createXMTPKMSSigner(
  */
 async function getDbEncryptionKey(kmsSigner: KMSSigner): Promise<Uint8Array> {
   const result = await kmsSigner.signMessage('XMTP_DB_ENCRYPTION_KEY_V1')
-  const hash = createHash('sha256').update(toBytes(result.signature)).digest()
-  return new Uint8Array(hash)
+  return sha256(toBytes(result.signature))
 }
 
 /** Default chain ID for Jeju network */
@@ -209,7 +207,7 @@ export class UnifiedMessagingService {
     // Create or find DM with recipient
     const dm = await this.xmtpClient.conversations.newDmWithIdentifier({
       identifier: recipient.toLowerCase(),
-      identifierKind: 0 as IdentifierKind, // 0 = Ethereum in IdentifierKind enum
+      identifierKind: 'Ethereum',
     })
 
     // Send the message via XMTP
@@ -288,16 +286,18 @@ export class UnifiedMessagingService {
     // Get XMTP conversations
     if (this.xmtpClient) {
       await this.xmtpClient.conversations.sync()
-      const dms = this.xmtpClient.conversations.listDms()
+      const dms = await this.xmtpClient.conversations.listDms()
 
       for (const dm of dms) {
+        const peerInboxId = await dm.peerInboxId()
+        const createdAtMs = dm.createdAt?.getTime() ?? Date.now()
         conversations.set(`xmtp-${dm.id}`, {
           id: `xmtp-${dm.id}`,
           type: 'wallet',
-          participants: [this.address, dm.peerInboxId as unknown as Address],
+          participants: [this.address, peerInboxId as unknown as Address],
           unreadCount: 0,
-          createdAt: dm.createdAt.getTime(),
-          updatedAt: dm.createdAt.getTime(),
+          createdAt: createdAtMs,
+          updatedAt: createdAtMs,
         })
       }
     }
@@ -363,7 +363,7 @@ export class UnifiedMessagingService {
 
       await conversation.sync()
       const messages = await conversation.messages({
-        limit: options?.limit ?? 50,
+        limit: BigInt(options?.limit ?? 50),
       })
 
       return messages.map((msg) => ({
@@ -372,7 +372,7 @@ export class UnifiedMessagingService {
         sender: msg.senderInboxId as unknown as Address,
         recipient: this.address,
         content: String(msg.content),
-        timestamp: msg.sentAt.getTime(),
+        timestamp: Number(msg.sentAtNs / BigInt(1_000_000)), // Convert ns to ms
         messageType: 'wallet' as const,
         deliveryStatus: 'delivered' as const,
       }))

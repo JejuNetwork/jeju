@@ -1,3 +1,18 @@
+import {
+  AuthProvider,
+  createOAuth3Client,
+  type OAuth3Client,
+  type OAuth3Config,
+  type OAuth3Session,
+} from '@jejunetwork/auth'
+import {
+  getCurrentNetwork,
+  getLocalhostHost,
+  getNetworkName,
+  getOAuth3Url,
+  getRpcUrl,
+} from '@jejunetwork/config'
+
 type EthereumRequestMethod =
   | 'eth_requestAccounts'
   | 'personal_sign'
@@ -67,6 +82,7 @@ interface AppState {
   error: string | null
   filter: 'all' | 'pending' | 'completed'
   isConnecting: boolean
+  oauth3Session: OAuth3Session | null
 }
 
 interface TodoListResponse {
@@ -129,10 +145,13 @@ function isEvmNativeWallet(provider: EthereumProviderWithMeta): boolean {
 
 /**
  * Get Ethereum provider with preference for EVM-native wallets.
- * Priority: Jeju Wallet > Rabby > MetaMask > Other EVM > Phantom
+ * Priority: Jeju Wallet > Rabby > MetaMask > Other EVM
+ *
+ * IMPORTANT: Phantom is completely excluded - not even as fallback.
+ * Phantom is primarily a Solana wallet and should not be used for EVM operations.
  *
  * When multiple wallets are installed, they compete for window.ethereum.
- * Phantom (Solana-first) often takes over, so we explicitly deprioritize it.
+ * Phantom (Solana-first) often takes over, so we explicitly exclude it.
  */
 function getEthereumProvider(): EthereumProvider | undefined {
   if (!hasEthereumProvider(window)) {
@@ -143,37 +162,55 @@ function getEthereumProvider(): EthereumProvider | undefined {
 
   // Check if there are multiple providers (EIP-5749)
   if (ethereum.providers && Array.isArray(ethereum.providers)) {
+    // Filter out Phantom completely
+    const evmProviders = ethereum.providers.filter((p) => !p.isPhantom)
+
+    if (evmProviders.length === 0) {
+      console.warn(
+        '[Wallet] Only Phantom detected - Phantom is excluded. Please install an EVM wallet.',
+      )
+      return undefined
+    }
+
     // Priority 1: Jeju Wallet
-    const jejuWallet = ethereum.providers.find((p) => p.isJejuWallet)
+    const jejuWallet = evmProviders.find((p) => p.isJejuWallet)
     if (jejuWallet) {
       console.log('[Wallet] Using Jeju Wallet')
       return jejuWallet
     }
 
     // Priority 2: Rabby (excellent EVM wallet)
-    const rabby = ethereum.providers.find((p) => p.isRabby)
+    const rabby = evmProviders.find((p) => p.isRabby)
     if (rabby) {
       console.log('[Wallet] Using Rabby')
       return rabby
     }
 
-    // Priority 3: MetaMask (but not Phantom pretending to be MetaMask)
-    const metaMask = ethereum.providers.find((p) => p.isMetaMask && !p.isPhantom)
+    // Priority 3: MetaMask
+    const metaMask = evmProviders.find((p) => p.isMetaMask)
     if (metaMask) {
       console.log('[Wallet] Using MetaMask')
       return metaMask
     }
 
     // Priority 4: Any other EVM-native wallet
-    const evmWallet = ethereum.providers.find((p) => isEvmNativeWallet(p))
+    const evmWallet = evmProviders.find((p) => isEvmNativeWallet(p))
     if (evmWallet) {
       console.log('[Wallet] Using EVM wallet')
       return evmWallet
     }
 
-    // Fallback: First available (might be Phantom)
-    console.log('[Wallet] Using first available provider')
-    return ethereum.providers[0]
+    // Fallback: First available EVM provider (Phantom already filtered out)
+    console.log('[Wallet] Using first available EVM provider')
+    return evmProviders[0]
+  }
+
+  // Single provider - check if it's Phantom (exclude it)
+  if (ethereum.isPhantom) {
+    console.warn(
+      '[Wallet] Phantom detected - Phantom is excluded. Please install an EVM wallet.',
+    )
+    return undefined
   }
 
   // Single provider - check if it's EVM-native
@@ -187,17 +224,18 @@ function getEthereumProvider(): EthereumProvider | undefined {
     return ethereum
   }
 
-  if (ethereum.isMetaMask && !ethereum.isPhantom) {
+  if (ethereum.isMetaMask) {
     console.log('[Wallet] Using MetaMask')
     return ethereum
   }
 
-  if (ethereum.isPhantom) {
-    console.log('[Wallet] Phantom detected - this is primarily a Solana wallet')
-    // Still return it as fallback, but user should know
+  // Unknown provider - assume EVM-native if it has request method
+  if (typeof ethereum.request === 'function') {
+    console.log('[Wallet] Using detected EVM provider')
+    return ethereum
   }
 
-  return ethereum
+  return undefined
 }
 
 function isHTMLInputElement(
@@ -228,7 +266,46 @@ const API_URL = ''
 const STORAGE_KEYS = {
   WALLET_ADDRESS: 'jeju-tasks-wallet',
   CHAIN_ID: 'jeju-tasks-chain',
+  OAUTH3_SESSION: 'jeju-tasks-oauth3-session',
 } as const
+
+// OAuth3 client configuration
+function getOAuth3Config(): OAuth3Config {
+  const network = getNetworkName()
+  const networkType = getCurrentNetwork()
+  const chainId =
+    network === 'localnet' ? 420691 : network === 'testnet' ? 420690 : 8453
+  const appId = 'example.oauth3.jeju'
+  const host = getLocalhostHost()
+  const redirectUri =
+    networkType === 'localnet'
+      ? `http://${host}:4501/auth/callback`
+      : `${getOAuth3Url(networkType)}/callback`
+  const rpcUrl = getRpcUrl()
+  const teeAgentUrl =
+    networkType === 'localnet'
+      ? `http://${host}:8004`
+      : getOAuth3Url(networkType)
+
+  return {
+    appId,
+    redirectUri,
+    rpcUrl,
+    chainId,
+    teeAgentUrl,
+    decentralized: true,
+  }
+}
+
+// OAuth3 client instance
+let oauth3Client: OAuth3Client | null = null
+
+function getOAuth3Client(): OAuth3Client {
+  if (!oauth3Client) {
+    oauth3Client = createOAuth3Client(getOAuth3Config())
+  }
+  return oauth3Client
+}
 
 // Jeju Network configurations
 const JEJU_NETWORKS = {
@@ -283,59 +360,38 @@ function saveWalletAddress(address: string): void {
   localStorage.setItem(STORAGE_KEYS.WALLET_ADDRESS, address)
 }
 
-// Load wallet address from localStorage
-function loadWalletAddress(): string | null {
-  return localStorage.getItem(STORAGE_KEYS.WALLET_ADDRESS)
-}
-
 // Clear wallet address from localStorage
 function clearWalletAddress(): void {
   localStorage.removeItem(STORAGE_KEYS.WALLET_ADDRESS)
 }
 
-// Switch to Jeju network
-async function switchToJejuNetwork(
-  ethereum: EthereumProvider,
-): Promise<boolean> {
-  const targetNetwork = getTargetNetwork()
+// Save OAuth3 session to localStorage
+function saveOAuth3Session(session: OAuth3Session): void {
+  localStorage.setItem(STORAGE_KEYS.OAUTH3_SESSION, JSON.stringify(session))
+}
 
+// Load OAuth3 session from localStorage
+function loadOAuth3Session(): OAuth3Session | null {
+  const stored = localStorage.getItem(STORAGE_KEYS.OAUTH3_SESSION)
+  if (!stored) return null
   try {
-    // Try to switch to the network
-    await ethereum.request({
-      method: 'wallet_switchEthereumChain',
-      params: [{ chainId: targetNetwork.chainId }],
-    })
-    return true
-  } catch (switchError) {
-    const error = switchError as { code?: number }
-
-    // Error code 4902 means the chain hasn't been added yet
-    if (error.code === 4902) {
-      try {
-        await ethereum.request({
-          method: 'wallet_addEthereumChain',
-          params: [targetNetwork],
-        })
-        return true
-      } catch (addError) {
-        console.error('Failed to add Jeju network:', addError)
-        return false
-      }
+    const session = JSON.parse(stored) as OAuth3Session
+    // Check if session is still valid (not expired)
+    if (session.expiresAt && session.expiresAt > Date.now()) {
+      return session
     }
-
-    // User rejected the switch or other error
-    console.error('Failed to switch to Jeju network:', switchError)
-    return false
+    // Session expired, clear it
+    clearOAuth3Session()
+    return null
+  } catch {
+    clearOAuth3Session()
+    return null
   }
 }
 
-// Check if currently on correct network
-async function isOnCorrectNetwork(
-  ethereum: EthereumProvider,
-): Promise<boolean> {
-  const chainId = await ethereum.request({ method: 'eth_chainId' })
-  const targetNetwork = getTargetNetwork()
-  return chainId === targetNetwork.chainId
+// Clear OAuth3 session from localStorage
+function clearOAuth3Session(): void {
+  localStorage.removeItem(STORAGE_KEYS.OAUTH3_SESSION)
 }
 
 class ApiClient {
@@ -415,6 +471,7 @@ const state: AppState = {
   error: null,
   filter: 'all',
   isConnecting: false,
+  oauth3Session: null,
 }
 
 function setState(updates: Partial<AppState>): void {
@@ -429,23 +486,14 @@ function clearError(): void {
 }
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
-  const ethereum = getEthereumProvider()
-  if (!state.address || !ethereum) {
-    throw new Error('Wallet not connected')
+  const session = state.oauth3Session
+  if (!session) {
+    throw new Error('Not authenticated. Please connect your wallet.')
   }
 
-  const timestamp = Date.now().toString()
-  const message = `jeju-dapp:${timestamp}`
-
-  const signature = await ethereum.request({
-    method: 'personal_sign',
-    params: [message, state.address],
-  })
-
+  // Use OAuth3 session for authentication
   return {
-    'x-jeju-address': state.address,
-    'x-jeju-timestamp': timestamp,
-    'x-jeju-signature': signature,
+    'x-oauth3-session': session.sessionId,
   }
 }
 
@@ -486,7 +534,8 @@ async function fetchTodos(): Promise<void> {
 
     setState({ todos: response.todos, loading: false })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to load tasks'
+    const message =
+      error instanceof Error ? error.message : 'Failed to load tasks'
     console.error('Failed to fetch todos:', error)
     setState({ loading: false, error: message })
   }
@@ -508,7 +557,8 @@ async function createTodo(
 
     await fetchTodos()
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to create task'
+    const message =
+      error instanceof Error ? error.message : 'Failed to create task'
     console.error('Failed to create todo:', error)
     setState({ error: message })
     throw error
@@ -525,7 +575,8 @@ async function toggleTodo(id: string, completed: boolean): Promise<void> {
     await client.updateTodo(id, { completed })
     await fetchTodos()
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to update task'
+    const message =
+      error instanceof Error ? error.message : 'Failed to update task'
     console.error('Failed to toggle todo:', error)
     setState({ error: message })
   }
@@ -541,7 +592,8 @@ async function deleteTodo(id: string): Promise<void> {
     await client.deleteTodo(id)
     await fetchTodos()
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to delete task'
+    const message =
+      error instanceof Error ? error.message : 'Failed to delete task'
     console.error('Failed to delete todo:', error)
     setState({ error: message })
   }
@@ -557,7 +609,8 @@ async function encryptTodo(id: string): Promise<void> {
     await client.encryptTodo(id)
     await fetchTodos()
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to encrypt task'
+    const message =
+      error instanceof Error ? error.message : 'Failed to encrypt task'
     console.error('Failed to encrypt todo:', error)
     setState({ error: message })
   }
@@ -568,80 +621,122 @@ async function connectWallet(): Promise<void> {
   if (!ethereum) {
     setState({
       error:
-        'Wallet not detected. Install MetaMask or another Web3 wallet to continue.',
+        'EVM wallet not detected. Please install an EVM wallet like MetaMask, Rabby, or Jeju Wallet. Phantom is not supported.',
     })
     return
   }
 
   setState({ isConnecting: true, error: null })
 
-  // First, get accounts (connect wallet)
-  const accounts = await ethereum.request({
-    method: 'eth_requestAccounts',
+  // Temporarily override window.ethereum to use our filtered provider
+  // This ensures OAuth3 client uses the correct EVM wallet (not Phantom)
+  const originalEthereum = window.ethereum
+  window.ethereum = ethereum as typeof window.ethereum
+
+  const client = getOAuth3Client()
+
+  // Initialize OAuth3 client (decentralized discovery)
+  await client.initialize().catch((err) => {
+    console.warn('OAuth3 decentralized init failed:', err)
   })
 
-  if (accounts.length === 0) {
+  // Login with wallet using OAuth3
+  let session: OAuth3Session
+  try {
+    session = await client.login({ provider: AuthProvider.WALLET })
+  } catch (err) {
+    // Restore original ethereum provider
+    window.ethereum = originalEthereum
+    const message =
+      err instanceof Error ? err.message : 'Failed to connect wallet'
     setState({
       isConnecting: false,
-      error: 'No accounts found. Unlock your wallet and try again.',
+      error: message,
     })
     return
   }
 
-  const address = accounts[0]
-  if (!address.startsWith('0x')) {
-    setState({ isConnecting: false, error: 'Invalid wallet address' })
+  // Restore original ethereum provider
+  window.ethereum = originalEthereum
+
+  // Extract address from session
+  const address = session.smartAccount
+  if (!address || !address.startsWith('0x')) {
+    setState({
+      isConnecting: false,
+      error: 'Invalid wallet address from OAuth3 session',
+    })
     return
   }
 
-  // Then switch to Jeju network (non-blocking - continue even if rejected)
-  await switchToJejuNetwork(ethereum)
-
-  // Save to localStorage for persistence
+  // Save session and address
+  saveOAuth3Session(session)
   saveWalletAddress(address)
 
-  setState({ address, isConnecting: false })
+  setState({
+    address,
+    oauth3Session: session,
+    isConnecting: false,
+  })
   await fetchTodos()
 }
 
-function disconnectWallet(): void {
+async function disconnectWallet(): Promise<void> {
+  const client = getOAuth3Client()
+  await client.logout().catch((err) => {
+    console.warn('OAuth3 logout error:', err)
+  })
   clearWalletAddress()
-  setState({ address: null, todos: [], error: null })
+  clearOAuth3Session()
+  setState({
+    address: null,
+    oauth3Session: null,
+    todos: [],
+    error: null,
+  })
 }
 
 // Try to restore wallet connection on page load
 async function tryRestoreWallet(): Promise<void> {
-  const savedAddress = loadWalletAddress()
-  if (!savedAddress) return
+  const savedSession = loadOAuth3Session()
+  if (!savedSession) {
+    // Try to restore from OAuth3 client
+    const client = getOAuth3Client()
+    await client.initialize().catch(() => {})
+    const session = client.getSession()
+    if (session && session.expiresAt > Date.now()) {
+      const address = session.smartAccount
+      setState({
+        address,
+        oauth3Session: session,
+      })
+      await fetchTodos().catch((err) => {
+        console.error('Failed to fetch todos on restore:', err)
+      })
+    }
+    return
+  }
 
-  const ethereum = getEthereumProvider()
-  if (!ethereum) {
+  // Verify session is still valid
+  if (savedSession.expiresAt <= Date.now()) {
+    clearOAuth3Session()
     clearWalletAddress()
     return
   }
 
-  // Check if the wallet is still connected
-  const accounts = await ethereum.request({ method: 'eth_accounts' })
-
-  // Verify the saved address is still accessible
-  const addressMatch = accounts.some(
-    (acc) => acc.toLowerCase() === savedAddress.toLowerCase(),
-  )
-
-  if (!addressMatch) {
+  // Restore from saved session
+  const address = savedSession.smartAccount
+  if (!address) {
+    clearOAuth3Session()
     clearWalletAddress()
     return
-  }
-
-  // Check if on correct network
-  const onCorrectNetwork = await isOnCorrectNetwork(ethereum)
-  if (!onCorrectNetwork) {
-    // Try to switch, but don't block if user declines
-    await switchToJejuNetwork(ethereum).catch(() => {})
   }
 
   // Restore the session
-  setState({ address: savedAddress })
+  setState({
+    address,
+    oauth3Session: savedSession,
+  })
   await fetchTodos().catch((err) => {
     console.error('Failed to fetch todos on restore:', err)
   })
@@ -1049,8 +1144,8 @@ function attachEventListeners(): void {
   })
 
   // Disconnect wallet
-  document.getElementById('disconnect')?.addEventListener('click', () => {
-    disconnectWallet()
+  document.getElementById('disconnect')?.addEventListener('click', async () => {
+    await disconnectWallet()
   })
 
   // Dismiss error
@@ -1183,5 +1278,3 @@ render()
 tryRestoreWallet().catch((err) => {
   console.error('Failed to restore wallet:', err)
 })
-
-export {}

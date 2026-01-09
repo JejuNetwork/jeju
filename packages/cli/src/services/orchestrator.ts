@@ -15,12 +15,13 @@ import {
 } from 'viem'
 import { z } from 'zod'
 import { logger } from '../lib/logger'
+import { ensurePortAvailable, killPort } from '../lib/system'
 import {
   CoinGeckoPriceResponseSchema,
   PriceDataResponseSchema,
   validate,
 } from '../schemas'
-import { DEFAULT_PORTS } from '../types'
+import { DEFAULT_PORTS, WELL_KNOWN_KEYS } from '../types'
 import { createInferenceServer, type LocalInferenceServer } from './inference'
 
 // Contract address values can be:
@@ -194,6 +195,7 @@ async function isPortInUse(port: number): Promise<boolean> {
 
 class ServicesOrchestrator {
   private services: Map<string, RunningService> = new Map()
+  private indexerProcesses: Subprocess[] = [] // Track all indexer child processes
   private rootDir: string
   private rpcUrl: string
 
@@ -307,35 +309,77 @@ class ServicesOrchestrator {
       return
     }
 
-    // Start SQLit via Docker Compose
+    // Start SQLit via Docker Compose (if available)
     const composeFile = join(
       this.rootDir,
       'packages/deployment/docker/sqlit-internal.compose.yaml',
     )
 
-    if (!existsSync(composeFile)) {
-      logger.error('SQLit compose file not found')
-      logger.info(
-        'Expected at: packages/deployment/docker/sqlit-internal.compose.yaml',
-      )
-      logger.info('Build with: cd packages/sqlit && make docker')
+    if (existsSync(composeFile)) {
+      logger.step('Starting SQLit cluster via Docker...')
+
+      const proc = spawn(['docker', 'compose', '-f', composeFile, 'up', '-d'], {
+        cwd: this.rootDir,
+        stdout: 'inherit',
+        stderr: 'inherit',
+      })
+
+      // Wait for cluster to be ready
+      const startTime = Date.now()
+      const timeout = 30000
+
+      while (Date.now() - startTime < timeout) {
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+        try {
+          const host = getLocalhostHost()
+          const response = await fetch(`http://${host}:${port}/v1/status`, {
+            signal: AbortSignal.timeout(2000),
+          })
+          if (response.ok) {
+            this.services.set('sqlit', {
+              name: 'SQLit (SQLit)',
+              type: 'process',
+              port,
+              process: proc,
+              url: `http://${getLocalhostHost()}:${port}`,
+              healthCheck: '/v1/status',
+            })
+            logger.success(`SQLit cluster running on port ${port}`)
+            return
+          }
+        } catch {
+          // Still starting
+        }
+      }
+
+      // Docker failed, fall back to direct server
+      logger.step('Docker SQLit failed, starting SQLit server directly...')
+    } else {
+      logger.step('Starting SQLit server directly...')
+    }
+    const serverPath = join(this.rootDir, 'packages/sqlit/src/server.ts')
+    if (!existsSync(serverPath)) {
+      logger.error('SQLit server not found at packages/sqlit/src/server.ts')
       return
     }
 
-    logger.step('Starting SQLit cluster via Docker...')
-
-    const proc = spawn(['docker', 'compose', '-f', composeFile, 'up', '-d'], {
+    const serverProc = spawn(['bun', 'run', serverPath], {
       cwd: this.rootDir,
       stdout: 'inherit',
       stderr: 'inherit',
+      env: {
+        ...process.env,
+        PORT: String(port),
+        SQLIT_PORT: String(port),
+      },
     })
 
-    // Wait for cluster to be ready
-    const startTime = Date.now()
-    const timeout = 30000
+    // Wait for server to be ready
+    const serverStartTime = Date.now()
+    const serverTimeout = 30000
 
-    while (Date.now() - startTime < timeout) {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+    while (Date.now() - serverStartTime < serverTimeout) {
+      await new Promise((resolve) => setTimeout(resolve, 500))
       try {
         const host = getLocalhostHost()
         const response = await fetch(`http://${host}:${port}/v1/status`, {
@@ -346,11 +390,11 @@ class ServicesOrchestrator {
             name: 'SQLit (SQLit)',
             type: 'process',
             port,
-            process: proc,
+            process: serverProc,
             url: `http://${getLocalhostHost()}:${port}`,
             healthCheck: '/v1/status',
           })
-          logger.success(`SQLit cluster running on port ${port}`)
+          logger.success(`SQLit server running on port ${port}`)
           return
         }
       } catch {
@@ -358,7 +402,7 @@ class ServicesOrchestrator {
       }
     }
 
-    logger.error('SQLit cluster failed to start within 30 seconds')
+    logger.error('SQLit server failed to start within 30 seconds')
   }
 
   private async startOracle(): Promise<void> {
@@ -637,8 +681,17 @@ class ServicesOrchestrator {
       logger.warn('Failed to apply migrations, continuing anyway...')
     }
 
-    // Start full indexer stack (processor, graphql, frontend, api)
-    const proc = spawn(['bun', 'run', 'dev:full'], {
+    // Ensure port is available before starting
+    logger.step(`Ensuring port ${SERVICE_PORTS.indexer} is available...`)
+    const portAvailable = await ensurePortAvailable(SERVICE_PORTS.indexer)
+    if (!portAvailable) {
+      logger.warn(
+        `Port ${SERVICE_PORTS.indexer} still in use after cleanup, attempting to start anyway...`,
+      )
+    }
+
+    // Start GraphQL server separately so it stays up even if processor crashes
+    const graphqlProc = spawn(['bun', 'run', 'dev:graphql'], {
       cwd: indexerPath,
       stdout: 'inherit',
       stderr: 'inherit',
@@ -650,25 +703,71 @@ class ServicesOrchestrator {
         DB_USER: 'postgres',
         DB_PASS: 'postgres',
         GQL_PORT: String(SERVICE_PORTS.indexer),
-        REST_PORT: '4352',
-        PORT: '4355',
+      },
+    })
+
+    // Start API server separately
+    const apiProc = spawn(['bun', 'run', 'dev:api'], {
+      cwd: indexerPath,
+      stdout: 'inherit',
+      stderr: 'inherit',
+      env: {
+        ...process.env,
+        DB_HOST: 'localhost',
+        DB_PORT: '23798',
+        DB_NAME: 'indexer',
+        DB_USER: 'postgres',
+        DB_PASS: 'postgres',
+        SQLIT_DATABASE_ID: 'indexer-sync',
+        SQLIT_PRIVATE_KEY: WELL_KNOWN_KEYS.dev[0].privateKey,
+      },
+    })
+
+    // Start processor separately (can crash without killing GraphQL/API)
+    const processorProc = spawn(['bun', 'run', 'dev:processor'], {
+      cwd: indexerPath,
+      stdout: 'inherit',
+      stderr: 'inherit',
+      env: {
+        ...process.env,
+        DB_HOST: 'localhost',
+        DB_PORT: '23798',
+        DB_NAME: 'indexer',
+        DB_USER: 'postgres',
+        DB_PASS: 'postgres',
         RPC_ETH_HTTP: this.rpcUrl,
         START_BLOCK: '0',
         CHAIN_ID: '31337',
         JEJU_NETWORK: 'localnet',
         NODE_ENV: 'development',
-        // Enable SQLit sync for decentralized reads
         SQLIT_SYNC_ENABLED: this.services.has('sqlit') ? 'true' : 'false',
         SQLIT_DATABASE_ID: 'indexer-sync',
         SQLIT_SYNC_INTERVAL: '30000',
+        SQLIT_PRIVATE_KEY: WELL_KNOWN_KEYS.dev[0].privateKey,
       },
     })
+
+    // Track all three processes so they can be killed on shutdown
+    this.indexerProcesses = [graphqlProc, apiProc, processorProc]
+
+    // Monitor processor exit but don't let crashes affect GraphQL
+    processorProc.exited
+      .then((code) => {
+        if (code !== 0) {
+          logger.warn(
+            `Indexer processor exited with code ${code} - GraphQL server continues running`,
+          )
+        }
+      })
+      .catch(() => {
+        // Ignore errors in monitoring
+      })
 
     this.services.set('indexer', {
       name: 'Indexer (On-Chain)',
       type: 'process',
       port: SERVICE_PORTS.indexer,
-      process: proc,
+      process: graphqlProc, // Track GraphQL as the main process
       url: `http://${getLocalhostHost()}:${SERVICE_PORTS.indexer}`,
       healthCheck: '/graphql',
     })
@@ -919,6 +1018,8 @@ class ServicesOrchestrator {
           SQLIT_SYNC_ENABLED: 'false', // Don't sync, just read
           SQLIT_READ_ENABLED: sqlitAvailable ? 'true' : 'false',
           SQLIT_DATABASE_ID: 'indexer-sync',
+          // SQLit requires a private key for local development
+          SQLIT_PRIVATE_KEY: WELL_KNOWN_KEYS.dev[0].privateKey,
         },
       })
 
@@ -1710,6 +1811,8 @@ class ServicesOrchestrator {
         TEE_PROVIDER: 'local',
         DWS_PRIVATE_KEY:
           '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
+        // SQLit requires a private key for local development
+        SQLIT_PRIVATE_KEY: WELL_KNOWN_KEYS.dev[0].privateKey,
       },
     })
 
@@ -2093,24 +2196,105 @@ class ServicesOrchestrator {
   async stopAll(): Promise<void> {
     logger.step('Stopping services...')
 
-    for (const [name, service] of this.services) {
+    // Kill all indexer child processes first
+    const indexerStopPromises = this.indexerProcesses.map(async (proc) => {
+      if (!proc || proc.killed) return
+
       try {
-        if (service.type === 'process' && service.process) {
-          service.process.kill()
+        proc.kill('SIGTERM')
+
+        // Wait for process to exit (with timeout)
+        const shutdownTimeout = 30000 // 30 seconds
+
+        // Check if process has 'exited' property (spawn process)
+        if ('exited' in proc) {
+          try {
+            await Promise.race([
+              (proc as { exited: Promise<number | null> }).exited,
+              new Promise((resolve) =>
+                setTimeout(() => resolve(null), shutdownTimeout),
+              ),
+            ])
+          } catch {
+            // Process already exited or error occurred
+          }
+        } else {
+          // For other process types, just wait a bit
+          await new Promise((resolve) => setTimeout(resolve, 5000))
         }
-        if (
-          (service.type === 'server' || service.type === 'mock') &&
-          service.server
-        ) {
-          await service.server.stop()
-        }
-        logger.info(`Stopped ${name}`)
+
+        // Don't send SIGKILL - let processes exit naturally
+        // If they don't exit, the OS will clean them up when parent exits
       } catch (error) {
-        logger.warn(`Failed to stop ${name}: ${error}`)
+        logger.warn(`Failed to stop indexer process: ${error}`)
       }
-    }
+    })
+    await Promise.all(indexerStopPromises)
+    this.indexerProcesses = []
+
+    // Stop all tracked services
+    const serviceStopPromises = Array.from(this.services.entries()).map(
+      async ([name, service]) => {
+        try {
+          if (service.type === 'process' && service.process) {
+            const proc = service.process
+            proc.kill('SIGTERM')
+
+            // Wait for process to exit (with timeout)
+            const shutdownTimeout = 30000 // 30 seconds
+
+            // Check if process has 'exited' property (spawn process)
+            if ('exited' in proc) {
+              try {
+                await Promise.race([
+                  (proc as { exited: Promise<number | null> }).exited,
+                  new Promise((resolve) =>
+                    setTimeout(() => resolve(null), shutdownTimeout),
+                  ),
+                ])
+              } catch {
+                // Process already exited or error occurred
+              }
+            } else {
+              // For other process types, just wait a bit
+              await new Promise((resolve) => setTimeout(resolve, 5000))
+            }
+
+            // Don't send SIGKILL - let processes exit naturally
+            // If they don't exit, the OS will clean them up when parent exits
+          }
+          if (
+            (service.type === 'server' || service.type === 'mock') &&
+            service.server
+          ) {
+            await service.server.stop()
+          }
+          logger.info(`Stopped ${name}`)
+        } catch (error) {
+          logger.warn(`Failed to stop ${name}: ${error}`)
+        }
+      },
+    )
+    await Promise.all(serviceStopPromises)
 
     this.services.clear()
+
+    // Clean up ports to ensure they're released
+    logger.step('Cleaning up ports...')
+    const portsToClean = [
+      SERVICE_PORTS.indexer,
+      SERVICE_PORTS.sqlit,
+      SERVICE_PORTS.oracle,
+      SERVICE_PORTS.jns,
+      SERVICE_PORTS.inference,
+      SERVICE_PORTS.cron,
+      SERVICE_PORTS.cvm,
+    ]
+    for (const port of portsToClean) {
+      await killPort(port).catch(() => {
+        // Ignore errors during cleanup
+      })
+    }
   }
 
   getRunningServices(): Map<string, RunningService> {

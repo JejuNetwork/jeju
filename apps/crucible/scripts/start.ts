@@ -293,9 +293,9 @@ async function deployWorker(
  * Uses worker.ts for remote workerd deployments
  */
 async function startWorkerProcess(config: StartConfig): Promise<void> {
-  // Use full server for local development to include autonomous agents
-  // server.ts has all routes including /api/v1/autonomous/*
-  _workerProcess = Bun.spawn(['bun', 'run', 'api/server.ts'], {
+  // Use worker for local development to include autonomous agents
+  // worker.ts has all routes including /api/v1/autonomous/*
+  _workerProcess = Bun.spawn(['bun', 'run', 'api/worker.ts'], {
     cwd: APP_DIR,
     env: {
       ...process.env,

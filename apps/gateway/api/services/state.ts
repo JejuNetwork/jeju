@@ -35,7 +35,7 @@ async function getSQLitClient(): Promise<SQLitClient> {
   if (!sqlitClient) {
     sqlitClient = getSQLit({
       databaseId: SQLIT_DATABASE_ID,
-      timeout: 30000,
+      timeoutMs: 30000,
       debug: !isProductionEnv(),
     })
 

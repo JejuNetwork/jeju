@@ -268,7 +268,7 @@ describe('MIME Type Detection', () => {
     ['/fonts/font.woff2', 'font/woff2'],
     ['/index.html', 'text/html'],
     ['/readme.txt', 'text/plain'],
-  ])('detects MIME type for %s', (path, expected) => {
+  ])('detects MIME type for %s', (path: string, expected: string) => {
     expect(getMimeType(path)).toBe(expected)
   })
 

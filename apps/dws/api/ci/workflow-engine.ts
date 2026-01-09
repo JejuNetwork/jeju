@@ -437,6 +437,13 @@ export class WorkflowEngine {
   }
 
   /**
+   * Get all runs across all repositories
+   */
+  getAllRuns(): WorkflowRun[] {
+    return Array.from(this.runs.values())
+  }
+
+  /**
    * Cancel a workflow run
    */
   cancelRun(runId: string): boolean {

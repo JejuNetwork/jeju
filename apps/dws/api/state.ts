@@ -175,22 +175,19 @@ async function getSQLitClient(): Promise<MinimalSQLitClient> {
 
     // Get URLs from centralized config (respects JEJU_NETWORK and env overrides)
     // Priority: SQLIT_BLOCK_PRODUCER_ENDPOINT env var > services.json config
-    const blockProducerEndpoint = getSQLitUrl()
-    const minerEndpoint = getSQLitMinerUrl()
+    const endpoint = getSQLitUrl()
 
     const network = getCurrentNetwork()
     const isK8s = Boolean(process.env.KUBERNETES_SERVICE_HOST)
     console.log(
       `[DWS State] Connecting to SQLit (network: ${network}, k8s: ${isK8s})`,
     )
-    console.log(`[DWS State]   Block producer: ${blockProducerEndpoint}`)
-    console.log(`[DWS State]   Miner: ${minerEndpoint}`)
+    console.log(`[DWS State]   Endpoint: ${endpoint}`)
 
     sqlitClient = getSQLit({
-      blockProducerEndpoint,
-      minerEndpoint,
+      endpoint,
       databaseId: SQLIT_DATABASE_ID,
-      timeout: 30000,
+      timeoutMs: 30000,
       debug: !isProductionEnv(),
     })
 
@@ -201,7 +198,7 @@ async function getSQLitClient(): Promise<MinimalSQLitClient> {
       // On testnet with fallback enabled, or when DWS_SQLIT_FALLBACK=1, use memory mode
       if (allowSQLitFallback || network === 'testnet') {
         console.warn(
-          `[DWS State] SQLit unavailable at ${blockProducerEndpoint}, falling back to memory mode`,
+          `[DWS State] SQLit unavailable at ${endpoint}, falling back to memory mode`,
         )
         memoryOnlyMode = true
         sqlitClient = createMemorySQLitClient()
@@ -218,7 +215,7 @@ async function getSQLitClient(): Promise<MinimalSQLitClient> {
         helpMessage = `Ensure SQLIT_BLOCK_PRODUCER_ENDPOINT env var points to a healthy SQLit service`
       }
 
-      const message = `DWS requires SQLit for decentralized state (network: ${network}). Endpoint ${blockProducerEndpoint} is not responding. ${helpMessage}`
+      const message = `DWS requires SQLit for decentralized state (network: ${network}). Endpoint ${endpoint} is not responding. ${helpMessage}`
       throw new Error(message)
     }
 
@@ -437,6 +434,27 @@ async function ensureTablesExist(): Promise<void> {
       UNIQUE(worker_id, version),
       FOREIGN KEY (worker_id) REFERENCES dws_workers(id)
     )`,
+    `CREATE TABLE IF NOT EXISTS dws_worker_crons (
+      id TEXT PRIMARY KEY,
+      worker_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      schedule TEXT NOT NULL,
+      endpoint TEXT NOT NULL,
+      timezone TEXT NOT NULL DEFAULT 'UTC',
+      enabled INTEGER NOT NULL DEFAULT 1,
+      timeout_ms INTEGER NOT NULL DEFAULT 30000,
+      retries INTEGER NOT NULL DEFAULT 0,
+      last_run_at INTEGER,
+      next_run_at INTEGER,
+      total_runs INTEGER NOT NULL DEFAULT 0,
+      successful_runs INTEGER NOT NULL DEFAULT 0,
+      failed_runs INTEGER NOT NULL DEFAULT 0,
+      last_error TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      UNIQUE(worker_id, name),
+      FOREIGN KEY (worker_id) REFERENCES dws_workers(id)
+    )`,
     `CREATE TABLE IF NOT EXISTS cli_secrets (
       id TEXT PRIMARY KEY,
       app_name TEXT NOT NULL,
@@ -504,6 +522,9 @@ async function ensureTablesExist(): Promise<void> {
     'CREATE INDEX IF NOT EXISTS idx_dws_workers_name ON dws_workers(name)',
     'CREATE INDEX IF NOT EXISTS idx_dws_workers_status ON dws_workers(status)',
     'CREATE INDEX IF NOT EXISTS idx_dws_worker_versions_worker ON dws_worker_versions(worker_id)',
+    'CREATE INDEX IF NOT EXISTS idx_dws_worker_crons_worker ON dws_worker_crons(worker_id)',
+    'CREATE INDEX IF NOT EXISTS idx_dws_worker_crons_enabled ON dws_worker_crons(enabled)',
+    'CREATE INDEX IF NOT EXISTS idx_dws_worker_crons_next_run ON dws_worker_crons(next_run_at)',
     'CREATE INDEX IF NOT EXISTS idx_cli_secrets_app ON cli_secrets(app_name)',
     'CREATE INDEX IF NOT EXISTS idx_cli_secrets_owner ON cli_secrets(owner)',
     'CREATE INDEX IF NOT EXISTS idx_cli_previews_owner ON cli_previews(owner)',
@@ -2171,17 +2192,6 @@ export const dwsWorkerState = {
     return row ? rowToWorker(row) : null
   },
 
-  async getByCid(codeCid: string): Promise<DWSWorker | null> {
-    const client = await getSQLitClient()
-    const result = await client.query<DWSWorkerRow>(
-      'SELECT * FROM dws_workers WHERE code_cid = ? ORDER BY updated_at DESC LIMIT 1',
-      [codeCid],
-      SQLIT_DATABASE_ID,
-    )
-    const row = result.rows[0]
-    return row ? rowToWorker(row) : null
-  },
-
   async listAll(): Promise<DWSWorker[]> {
     const client = await getSQLitClient()
     const result = await client.query<DWSWorkerRow>(
@@ -2262,6 +2272,17 @@ export const dwsWorkerState = {
       [newCount, newAvg, newErrors, Date.now(), id],
       SQLIT_DATABASE_ID,
     )
+  },
+
+  async getByCid(cid: string): Promise<DWSWorker | null> {
+    const client = await getSQLitClient()
+    const result = await client.query<DWSWorkerRow>(
+      'SELECT * FROM dws_workers WHERE code_cid = ? ORDER BY updated_at DESC LIMIT 1',
+      [cid],
+      SQLIT_DATABASE_ID,
+    )
+    const row = result.rows[0]
+    return row ? rowToWorker(row) : null
   },
 }
 
@@ -2397,6 +2418,563 @@ export const workerVersionState = {
   async getLatestVersion(workerId: string): Promise<WorkerVersion | null> {
     const versions = await this.listVersions(workerId)
     return versions[0] ?? null
+  },
+}
+
+// ============================================================================
+// Worker Cron Schedules State
+// ============================================================================
+
+/** Represents a cron schedule associated with a worker */
+export interface WorkerCronSchedule {
+  id: string
+  workerId: string
+  name: string
+  schedule: string
+  endpoint: string
+  timezone: string
+  enabled: boolean
+  timeoutMs: number
+  retries: number
+  lastRunAt: number | null
+  nextRunAt: number | null
+  totalRuns: number
+  successfulRuns: number
+  failedRuns: number
+  lastError: string | null
+  createdAt: number
+  updatedAt: number
+}
+
+interface WorkerCronRow {
+  id: string
+  worker_id: string
+  name: string
+  schedule: string
+  endpoint: string
+  timezone: string
+  enabled: number
+  timeout_ms: number
+  retries: number
+  last_run_at: number | null
+  next_run_at: number | null
+  total_runs: number
+  successful_runs: number
+  failed_runs: number
+  last_error: string | null
+  created_at: number
+  updated_at: number
+}
+
+function rowToWorkerCron(row: WorkerCronRow): WorkerCronSchedule {
+  return {
+    id: row.id,
+    workerId: row.worker_id,
+    name: row.name,
+    schedule: row.schedule,
+    endpoint: row.endpoint,
+    timezone: row.timezone,
+    enabled: row.enabled === 1,
+    timeoutMs: row.timeout_ms,
+    retries: row.retries,
+    lastRunAt: row.last_run_at,
+    nextRunAt: row.next_run_at,
+    totalRuns: row.total_runs,
+    successfulRuns: row.successful_runs,
+    failedRuns: row.failed_runs,
+    lastError: row.last_error,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+// In-memory store for worker crons (memory-only mode fallback)
+const workerCronsMemory = new Map<string, WorkerCronSchedule>()
+
+/**
+ * Parse a cron field and check if a value matches
+ * Supports: *, specific values, ranges (1-5), steps (* /5, 1-10/2), and lists (1,3,5)
+ */
+function matchesCronField(
+  value: number,
+  field: string,
+  min: number,
+  max: number,
+): boolean {
+  // Wildcard matches everything
+  if (field === '*') return true
+
+  // Handle step values (*/5 or 1-10/2)
+  if (field.includes('/')) {
+    const [range, stepStr] = field.split('/')
+    const step = parseInt(stepStr, 10)
+    if (Number.isNaN(step) || step <= 0) return false
+
+    if (range === '*') {
+      // */5 means every 5th value starting from min
+      return (value - min) % step === 0
+    }
+    // Range with step: 1-10/2
+    const rangeMatch = matchesCronField(value, range, min, max)
+    if (!rangeMatch) return false
+    return (value - min) % step === 0
+  }
+
+  // Handle ranges (1-5)
+  if (field.includes('-') && !field.includes(',')) {
+    const [startStr, endStr] = field.split('-')
+    const start = parseInt(startStr, 10)
+    const end = parseInt(endStr, 10)
+    return value >= start && value <= end
+  }
+
+  // Handle lists (1,3,5)
+  if (field.includes(',')) {
+    const values = field.split(',')
+    return values.some((v) => matchesCronField(value, v.trim(), min, max))
+  }
+
+  // Specific value
+  const parsed = parseInt(field, 10)
+  return value === parsed
+}
+
+/**
+ * Parse a standard 5-field cron expression and calculate the next run time
+ * Fields: minute (0-59), hour (0-23), day-of-month (1-31), month (1-12), day-of-week (0-6)
+ * Throws if no valid next run time is found within 1 year
+ */
+function calculateNextRunTime(
+  schedule: string,
+  fromTime: number = Date.now(),
+): number {
+  const parts = schedule.trim().split(/\s+/)
+  if (parts.length !== 5) {
+    throw new Error(
+      `Invalid cron expression "${schedule}": expected 5 fields, got ${parts.length}`,
+    )
+  }
+
+  const [minutePart, hourPart, dayPart, monthPart, dowPart] = parts
+
+  // Validate we have all parts
+  if (!minutePart || !hourPart || !dayPart || !monthPart || !dowPart) {
+    throw new Error(`Invalid cron expression "${schedule}": missing fields`)
+  }
+
+  // Start from the next minute
+  const candidate = new Date(fromTime)
+  candidate.setSeconds(0, 0)
+  candidate.setMinutes(candidate.getMinutes() + 1)
+
+  // Search up to 1 year ahead (525600 minutes)
+  const maxIterations = 525600
+  for (let i = 0; i < maxIterations; i++) {
+    const minute = candidate.getMinutes()
+    const hour = candidate.getHours()
+    const dayOfMonth = candidate.getDate()
+    const month = candidate.getMonth() + 1 // JS months are 0-indexed
+    const dayOfWeek = candidate.getDay() // 0 = Sunday
+
+    // Check if all fields match
+    const minuteMatch = matchesCronField(minute, minutePart, 0, 59)
+    const hourMatch = matchesCronField(hour, hourPart, 0, 23)
+    const dayMatch = matchesCronField(dayOfMonth, dayPart, 1, 31)
+    const monthMatch = matchesCronField(month, monthPart, 1, 12)
+    const dowMatch = matchesCronField(dayOfWeek, dowPart, 0, 6)
+
+    // Day-of-month and day-of-week have special interaction:
+    // If both are specified (not *), either one matching is sufficient
+    const dayOrDowMatch =
+      dayPart === '*' || dowPart === '*'
+        ? dayMatch && dowMatch
+        : dayMatch || dowMatch
+
+    if (minuteMatch && hourMatch && dayOrDowMatch && monthMatch) {
+      return candidate.getTime()
+    }
+
+    // Move to next minute
+    candidate.setMinutes(candidate.getMinutes() + 1)
+  }
+
+  throw new Error(
+    `No valid next run time found for cron "${schedule}" within 1 year`,
+  )
+}
+
+export const dwsWorkerCronState = {
+  /**
+   * Register a new cron schedule for a worker
+   */
+  async register(cron: {
+    workerId: string
+    name: string
+    schedule: string
+    endpoint: string
+    timezone?: string
+    timeoutMs?: number
+    retries?: number
+  }): Promise<WorkerCronSchedule> {
+    const now = Date.now()
+    const id = `${cron.workerId}:${cron.name}`
+    const nextRunAt = calculateNextRunTime(cron.schedule, now)
+
+    const schedule: WorkerCronSchedule = {
+      id,
+      workerId: cron.workerId,
+      name: cron.name,
+      schedule: cron.schedule,
+      endpoint: cron.endpoint,
+      timezone: cron.timezone ?? 'UTC',
+      enabled: true,
+      timeoutMs: cron.timeoutMs ?? 30000,
+      retries: cron.retries ?? 0,
+      lastRunAt: null,
+      nextRunAt,
+      totalRuns: 0,
+      successfulRuns: 0,
+      failedRuns: 0,
+      lastError: null,
+      createdAt: now,
+      updatedAt: now,
+    }
+
+    if (memoryOnlyMode) {
+      workerCronsMemory.set(id, schedule)
+      console.log(
+        `[WorkerCron] Registered (memory): ${cron.name} for worker ${cron.workerId}`,
+      )
+      return schedule
+    }
+
+    const client = await getSQLitClient()
+    await client.exec(
+      `INSERT OR REPLACE INTO dws_worker_crons (
+        id, worker_id, name, schedule, endpoint, timezone, enabled, timeout_ms, retries,
+        last_run_at, next_run_at, total_runs, successful_runs, failed_runs, last_error,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        cron.workerId,
+        cron.name,
+        cron.schedule,
+        cron.endpoint,
+        schedule.timezone,
+        1,
+        schedule.timeoutMs,
+        schedule.retries,
+        null,
+        nextRunAt,
+        0,
+        0,
+        0,
+        null,
+        now,
+        now,
+      ],
+      SQLIT_DATABASE_ID,
+    )
+
+    console.log(
+      `[WorkerCron] Registered: ${cron.name} (${cron.schedule}) → ${cron.endpoint} for worker ${cron.workerId}`,
+    )
+    return schedule
+  },
+
+  /**
+   * Get a specific cron schedule by worker and name
+   */
+  async get(
+    workerId: string,
+    name: string,
+  ): Promise<WorkerCronSchedule | null> {
+    const id = `${workerId}:${name}`
+
+    if (memoryOnlyMode) {
+      return workerCronsMemory.get(id) ?? null
+    }
+
+    const client = await getSQLitClient()
+    const result = await client.query<WorkerCronRow>(
+      'SELECT * FROM dws_worker_crons WHERE worker_id = ? AND name = ?',
+      [workerId, name],
+      SQLIT_DATABASE_ID,
+    )
+    const row = result.rows[0]
+    return row ? rowToWorkerCron(row) : null
+  },
+
+  /**
+   * List all cron schedules for a worker
+   */
+  async listByWorker(workerId: string): Promise<WorkerCronSchedule[]> {
+    if (memoryOnlyMode) {
+      return Array.from(workerCronsMemory.values())
+        .filter((c) => c.workerId === workerId)
+        .sort((a, b) => a.name.localeCompare(b.name))
+    }
+
+    const client = await getSQLitClient()
+    const result = await client.query<WorkerCronRow>(
+      'SELECT * FROM dws_worker_crons WHERE worker_id = ? ORDER BY name',
+      [workerId],
+      SQLIT_DATABASE_ID,
+    )
+    return result.rows.map(rowToWorkerCron)
+  },
+
+  /**
+   * List all enabled cron schedules that are due to run
+   */
+  async listDue(
+    beforeTime: number = Date.now(),
+  ): Promise<WorkerCronSchedule[]> {
+    if (memoryOnlyMode) {
+      return Array.from(workerCronsMemory.values())
+        .filter(
+          (c) => c.enabled && c.nextRunAt !== null && c.nextRunAt <= beforeTime,
+        )
+        .sort((a, b) => (a.nextRunAt ?? 0) - (b.nextRunAt ?? 0))
+    }
+
+    const client = await getSQLitClient()
+    const result = await client.query<WorkerCronRow>(
+      'SELECT * FROM dws_worker_crons WHERE enabled = 1 AND next_run_at <= ? ORDER BY next_run_at',
+      [beforeTime],
+      SQLIT_DATABASE_ID,
+    )
+    return result.rows.map(rowToWorkerCron)
+  },
+
+  /**
+   * List all enabled cron schedules
+   */
+  async listEnabled(): Promise<WorkerCronSchedule[]> {
+    if (memoryOnlyMode) {
+      return Array.from(workerCronsMemory.values())
+        .filter((c) => c.enabled)
+        .sort((a, b) => (a.nextRunAt ?? 0) - (b.nextRunAt ?? 0))
+    }
+
+    const client = await getSQLitClient()
+    const result = await client.query<WorkerCronRow>(
+      'SELECT * FROM dws_worker_crons WHERE enabled = 1 ORDER BY next_run_at',
+      [],
+      SQLIT_DATABASE_ID,
+    )
+    return result.rows.map(rowToWorkerCron)
+  },
+
+  /**
+   * Record a cron execution result
+   */
+  async recordExecution(
+    workerId: string,
+    name: string,
+    success: boolean,
+    error?: string,
+  ): Promise<void> {
+    const id = `${workerId}:${name}`
+    const now = Date.now()
+
+    if (memoryOnlyMode) {
+      const cron = workerCronsMemory.get(id)
+      if (cron) {
+        cron.lastRunAt = now
+        cron.nextRunAt = calculateNextRunTime(cron.schedule, now)
+        cron.totalRuns++
+        if (success) {
+          cron.successfulRuns++
+          cron.lastError = null
+        } else {
+          cron.failedRuns++
+          cron.lastError = error ?? 'Unknown error'
+        }
+        cron.updatedAt = now
+      }
+      return
+    }
+
+    const cron = await this.get(workerId, name)
+    if (!cron) return
+
+    const nextRunAt = calculateNextRunTime(cron.schedule, now)
+
+    const client = await getSQLitClient()
+    if (success) {
+      await client.exec(
+        `UPDATE dws_worker_crons SET
+          last_run_at = ?, next_run_at = ?, total_runs = total_runs + 1,
+          successful_runs = successful_runs + 1, last_error = NULL, updated_at = ?
+        WHERE id = ?`,
+        [now, nextRunAt, now, id],
+        SQLIT_DATABASE_ID,
+      )
+    } else {
+      await client.exec(
+        `UPDATE dws_worker_crons SET
+          last_run_at = ?, next_run_at = ?, total_runs = total_runs + 1,
+          failed_runs = failed_runs + 1, last_error = ?, updated_at = ?
+        WHERE id = ?`,
+        [now, nextRunAt, error ?? 'Unknown error', now, id],
+        SQLIT_DATABASE_ID,
+      )
+    }
+  },
+
+  /**
+   * Enable or disable a cron schedule
+   */
+  async setEnabled(
+    workerId: string,
+    name: string,
+    enabled: boolean,
+  ): Promise<boolean> {
+    const id = `${workerId}:${name}`
+    const now = Date.now()
+
+    if (memoryOnlyMode) {
+      const cron = workerCronsMemory.get(id)
+      if (cron) {
+        cron.enabled = enabled
+        cron.updatedAt = now
+        if (enabled) {
+          cron.nextRunAt = calculateNextRunTime(cron.schedule, now)
+        }
+        return true
+      }
+      return false
+    }
+
+    const client = await getSQLitClient()
+
+    // If enabling, also recalculate next run time
+    if (enabled) {
+      const cron = await this.get(workerId, name)
+      if (!cron) return false
+      const nextRunAt = calculateNextRunTime(cron.schedule, now)
+
+      const result = await client.exec(
+        'UPDATE dws_worker_crons SET enabled = 1, next_run_at = ?, updated_at = ? WHERE id = ?',
+        [nextRunAt, now, id],
+        SQLIT_DATABASE_ID,
+      )
+      return result.rowsAffected > 0
+    }
+
+    const result = await client.exec(
+      'UPDATE dws_worker_crons SET enabled = 0, updated_at = ? WHERE id = ?',
+      [now, id],
+      SQLIT_DATABASE_ID,
+    )
+    return result.rowsAffected > 0
+  },
+
+  /**
+   * Delete a cron schedule
+   */
+  async delete(workerId: string, name: string): Promise<boolean> {
+    const id = `${workerId}:${name}`
+
+    if (memoryOnlyMode) {
+      return workerCronsMemory.delete(id)
+    }
+
+    const client = await getSQLitClient()
+    const result = await client.exec(
+      'DELETE FROM dws_worker_crons WHERE id = ?',
+      [id],
+      SQLIT_DATABASE_ID,
+    )
+
+    if (result.rowsAffected > 0) {
+      console.log(`[WorkerCron] Deleted: ${name} for worker ${workerId}`)
+    }
+
+    return result.rowsAffected > 0
+  },
+
+  /**
+   * Delete all cron schedules for a worker (used when worker is deleted)
+   */
+  async deleteByWorker(workerId: string): Promise<number> {
+    if (memoryOnlyMode) {
+      let deleted = 0
+      for (const [id, cron] of workerCronsMemory) {
+        if (cron.workerId === workerId) {
+          workerCronsMemory.delete(id)
+          deleted++
+        }
+      }
+      return deleted
+    }
+
+    const client = await getSQLitClient()
+    const result = await client.exec(
+      'DELETE FROM dws_worker_crons WHERE worker_id = ?',
+      [workerId],
+      SQLIT_DATABASE_ID,
+    )
+
+    if (result.rowsAffected > 0) {
+      console.log(
+        `[WorkerCron] Deleted ${result.rowsAffected} cron(s) for worker ${workerId}`,
+      )
+    }
+
+    return result.rowsAffected
+  },
+
+  /**
+   * Get statistics about cron schedules
+   */
+  async getStats(): Promise<{
+    total: number
+    enabled: number
+    totalRuns: number
+    successfulRuns: number
+    failedRuns: number
+  }> {
+    if (memoryOnlyMode) {
+      const all = Array.from(workerCronsMemory.values())
+      return {
+        total: all.length,
+        enabled: all.filter((c) => c.enabled).length,
+        totalRuns: all.reduce((s, c) => s + c.totalRuns, 0),
+        successfulRuns: all.reduce((s, c) => s + c.successfulRuns, 0),
+        failedRuns: all.reduce((s, c) => s + c.failedRuns, 0),
+      }
+    }
+
+    const client = await getSQLitClient()
+    const result = await client.query<{
+      total: number
+      enabled: number
+      total_runs: number
+      successful_runs: number
+      failed_runs: number
+    }>(
+      `SELECT
+        COUNT(*) as total,
+        SUM(CASE WHEN enabled = 1 THEN 1 ELSE 0 END) as enabled,
+        SUM(total_runs) as total_runs,
+        SUM(successful_runs) as successful_runs,
+        SUM(failed_runs) as failed_runs
+      FROM dws_worker_crons`,
+      [],
+      SQLIT_DATABASE_ID,
+    )
+
+    const row = result.rows[0]
+    return {
+      total: row?.total ?? 0,
+      enabled: row?.enabled ?? 0,
+      totalRuns: row?.total_runs ?? 0,
+      successfulRuns: row?.successful_runs ?? 0,
+      failedRuns: row?.failed_runs ?? 0,
+    }
   },
 }
 

@@ -94,19 +94,17 @@ const browserPlugin: BunPlugin = {
     const messagingStub = resolve('./web/stubs/messaging.ts')
     const dbStub = resolve('./web/stubs/db.ts')
     const sharedStub = resolve('./web/stubs/shared.ts')
+    const contractsStub = resolve('./web/stubs/contracts.ts')
 
     build.onResolve({ filter: /^@jejunetwork\/kms/ }, () => ({ path: kmsStub }))
+    build.onResolve({ filter: /^@jejunetwork\/contracts/ }, () => ({
+      path: contractsStub,
+    }))
     build.onResolve({ filter: /^@jejunetwork\/messaging/ }, () => ({
       path: messagingStub,
     }))
     build.onResolve({ filter: /^@jejunetwork\/db/ }, () => ({ path: dbStub }))
     build.onResolve({ filter: /^@jejunetwork\/deployment/ }, () => ({
-      path: serverOnlyStub,
-    }))
-    build.onResolve({ filter: /^@xmtp\/node-sdk/ }, () => ({
-      path: serverOnlyStub,
-    }))
-    build.onResolve({ filter: /^@xmtp\/node-bindings/ }, () => ({
       path: serverOnlyStub,
     }))
     build.onResolve({ filter: /^ioredis/ }, () => ({ path: serverOnlyStub }))
@@ -120,7 +118,7 @@ const browserPlugin: BunPlugin = {
       path: resolve('./scripts/shims/pino.ts'),
     }))
 
-    // Dedupe React
+    // Dedupe React - ensure all React imports resolve to the same package
     const reactPath = require.resolve('react')
     const reactDomPath = require.resolve('react-dom')
     build.onResolve({ filter: /^react$/ }, () => ({ path: reactPath }))
@@ -135,17 +133,18 @@ const browserPlugin: BunPlugin = {
       path: require.resolve('react-dom/client'),
     }))
 
-    // Dedupe @noble/curves
-    build.onResolve({ filter: /^@noble\/curves\/secp256k1$/ }, () => ({
-      path: require.resolve('@noble/curves/secp256k1'),
+    // Dedupe wagmi and viem to prevent context and crypto issues
+    // Let these packages handle @noble/* internally - don't manually resolve
+    build.onResolve({ filter: /^wagmi$/ }, () => ({
+      path: require.resolve('wagmi'),
     }))
-    build.onResolve({ filter: /^@noble\/curves\/p256$/ }, () => ({
-      path: require.resolve('@noble/curves/p256'),
+    build.onResolve({ filter: /^wagmi\/connectors$/ }, () => ({
+      path: require.resolve('wagmi/connectors'),
     }))
-    build.onResolve({ filter: /^@noble\/curves$/ }, () => ({
-      path: require.resolve('@noble/curves'),
+    build.onResolve({ filter: /^viem$/ }, () => ({
+      path: require.resolve('viem'),
     }))
-    build.onResolve({ filter: /^@noble\/hashes/ }, (args) => ({
+    build.onResolve({ filter: /^viem\/(.*)$/ }, (args) => ({
       path: require.resolve(args.path),
     }))
 

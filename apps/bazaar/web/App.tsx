@@ -4,48 +4,48 @@
  * Main application component with routing and providers
  */
 
-import { OAuth3Provider } from "@jejunetwork/auth/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState } from "react";
-import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
-import { Toaster } from "sonner";
-import { WagmiProvider } from "wagmi";
-import { BanCheckWrapper } from "./components/BanCheckWrapper";
-import { ErrorBoundary } from "./components/ErrorBoundary";
-import { Header } from "./components/Header";
-import { chainId, rpcUrl, wagmiConfig } from "./config/wagmi";
-import AuthCallbackPage from "./pages/AuthCallback";
-import CoinCreatePage from "./pages/CoinCreate";
-import CoinDetailPage from "./pages/CoinDetail";
-import CoinLaunchPage from "./pages/CoinLaunch";
-import CoinsPage from "./pages/Coins";
+import { OAuth3Provider } from '@jejunetwork/auth/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { useState } from 'react'
+import { BrowserRouter, Link, Route, Routes } from 'react-router-dom'
+import { Toaster } from 'sonner'
+import { WagmiProvider } from 'wagmi'
+import { BanCheckWrapper } from './components/BanCheckWrapper'
+import { ErrorBoundary } from './components/ErrorBoundary'
+import { Header } from './components/Header'
+import { chainId, rpcUrl, wagmiConfig } from './config/wagmi'
+import AuthCallbackPage from './pages/AuthCallback'
+import CoinCreatePage from './pages/CoinCreate'
+import CoinDetailPage from './pages/CoinDetail'
+import CoinLaunchPage from './pages/CoinLaunch'
+import CoinsPage from './pages/Coins'
 // Direct imports for dev mode (no code splitting)
-import HomePage from "./pages/Home";
-import ItemDetailPage from "./pages/ItemDetail";
-import ItemMintPage from "./pages/ItemMint";
-import ItemsPage from "./pages/Items";
-import JejuICOPage from "./pages/JejuICO";
-import JejuWhitepaperPage from "./pages/JejuWhitepaper";
-import LiquidityPage from "./pages/Liquidity";
-import MarketCreatePage from "./pages/MarketCreate";
-import MarketDetailPage from "./pages/MarketDetail";
-import MarketsPage from "./pages/Markets";
-import NamesPage from "./pages/Names";
-import NotFoundPage from "./pages/NotFound";
-import PerpsPage from "./pages/Perps";
-import PerpsDetailPage from "./pages/PerpsDetail";
-import PoolsPage from "./pages/Pools";
-import PortfolioPage from "./pages/Portfolio";
-import PredictionDetailPage from "./pages/PredictionDetail";
-import ProfileDetailPage from "./pages/ProfileDetail";
-import RewardsPage from "./pages/Rewards";
-import SettingsPage from "./pages/Settings";
-import SharePnLPage from "./pages/SharePnL";
-import ShareReferralPage from "./pages/ShareReferral";
-import SwapPage from "./pages/Swap";
-import TFMMPage from "./pages/TFMM";
-import TrendingGroupPage from "./pages/TrendingGroup";
-import TrendingTagPage from "./pages/TrendingTag";
+import HomePage from './pages/Home'
+import ItemDetailPage from './pages/ItemDetail'
+import ItemMintPage from './pages/ItemMint'
+import ItemsPage from './pages/Items'
+import JejuICOPage from './pages/JejuICO'
+import JejuWhitepaperPage from './pages/JejuWhitepaper'
+import LiquidityPage from './pages/Liquidity'
+import MarketCreatePage from './pages/MarketCreate'
+import MarketDetailPage from './pages/MarketDetail'
+import MarketsPage from './pages/Markets'
+import NamesPage from './pages/Names'
+import NotFoundPage from './pages/NotFound'
+import PerpsPage from './pages/Perps'
+import PerpsDetailPage from './pages/PerpsDetail'
+import PoolsPage from './pages/Pools'
+import PortfolioPage from './pages/Portfolio'
+import PredictionDetailPage from './pages/PredictionDetail'
+import ProfileDetailPage from './pages/ProfileDetail'
+import RewardsPage from './pages/Rewards'
+import SettingsPage from './pages/Settings'
+import SharePnLPage from './pages/SharePnL'
+import ShareReferralPage from './pages/ShareReferral'
+import SwapPage from './pages/Swap'
+import TFMMPage from './pages/TFMM'
+import TrendingGroupPage from './pages/TrendingGroup'
+import TrendingTagPage from './pages/TrendingTag'
 
 function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -58,16 +58,16 @@ function Providers({ children }: { children: React.ReactNode }) {
             staleTime: 5000,
           },
         },
-      })
-  );
+      }),
+  )
 
   return (
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
         <OAuth3Provider
           config={{
-            appId: "bazaar.apps.jeju",
-            redirectUri: `${typeof window !== "undefined" ? window.location.origin : ""}/auth/callback`,
+            appId: 'bazaar.apps.jeju',
+            redirectUri: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback`,
             chainId,
             rpcUrl,
           }}
@@ -76,15 +76,15 @@ function Providers({ children }: { children: React.ReactNode }) {
         </OAuth3Provider>
       </QueryClientProvider>
     </WagmiProvider>
-  );
+  )
 }
 
 const FOOTER_LINKS = [
-  { label: "Coins", href: "/coins" },
-  { label: "Markets", href: "/markets" },
-  { label: "Items", href: "/items" },
-  { label: "Rewards", href: "/rewards" },
-];
+  { label: 'Coins', href: '/coins' },
+  { label: 'Markets', href: '/markets' },
+  { label: 'Items', href: '/items' },
+  { label: 'Rewards', href: '/rewards' },
+]
 
 function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -98,7 +98,7 @@ function Layout({ children }: { children: React.ReactNode }) {
       </main>
       <footer
         className="border-t py-8 mt-auto"
-        style={{ borderColor: "var(--border)" }}
+        style={{ borderColor: 'var(--border)' }}
       >
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
@@ -126,23 +126,23 @@ function Layout({ children }: { children: React.ReactNode }) {
                   </li>
                 ))}
               </ul>
-            </nav>{" "}
+            </nav>{' '}
           </div>
         </div>
       </footer>
       <Toaster
         position="bottom-right"
         toastOptions={{
-          className: "card-static",
+          className: 'card-static',
           style: {
-            background: "var(--surface)",
-            color: "var(--text-primary)",
-            border: "1px solid var(--border)",
+            background: 'var(--surface)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--border)',
           },
         }}
       />
     </div>
-  );
+  )
 }
 
 export function App() {
@@ -206,5 +206,5 @@ export function App() {
         </Providers>
       </BrowserRouter>
     </ErrorBoundary>
-  );
+  )
 }

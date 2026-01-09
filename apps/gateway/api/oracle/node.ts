@@ -18,7 +18,6 @@ import {
   FEED_REGISTRY_ABI,
   NETWORK_CONNECTOR_ABI,
   REPORT_VERIFIER_ABI,
-  readContract,
 } from '@jejunetwork/shared'
 import type { NodeMetrics, PriceSourceConfig } from '@jejunetwork/types'
 import { parseEnvAddress, ZERO_ADDRESS } from '@jejunetwork/types'
@@ -95,7 +94,11 @@ export class OracleNode {
     this.workerSigner = getKMSSigner(config.workerServiceId)
     this.operatorSigner = getKMSSigner(config.operatorServiceId)
 
-    this.priceFetcher = new PriceFetcher(config.rpcUrl, config.priceSources)
+    this.priceFetcher = new PriceFetcher(
+      config.rpcUrl,
+      config.priceSources,
+      config.chainId,
+    )
 
     this.metrics = {
       reportsSubmitted: 0,
@@ -150,7 +153,7 @@ export class OracleNode {
   private async ensureRegistered(): Promise<void> {
     if (!this.workerAddress) throw new Error('Worker address not initialized')
 
-    const existingOperatorId = await readContract(this.publicClient, {
+    const existingOperatorId = await this.publicClient.readContract({
       address: this.config.networkConnector,
       abi: NETWORK_CONNECTOR_ABI,
       functionName: 'workerToOperator',
@@ -178,7 +181,7 @@ export class OracleNode {
 
     await this.publicClient.waitForTransactionReceipt({ hash })
 
-    this.operatorId = await readContract(this.publicClient, {
+    this.operatorId = await this.publicClient.readContract({
       address: this.config.networkConnector,
       abi: NETWORK_CONNECTOR_ABI,
       functionName: 'workerToOperator',
@@ -192,7 +195,7 @@ export class OracleNode {
 
     console.log('[OracleNode] Polling prices...')
 
-    const feedIds = await readContract(this.publicClient, {
+    const feedIds = await this.publicClient.readContract({
       address: this.config.feedRegistry,
       abi: FEED_REGISTRY_ABI,
       functionName: 'getActiveFeeds',
@@ -220,7 +223,7 @@ export class OracleNode {
   private async isCommitteeMember(feedId: Hex): Promise<boolean> {
     if (!this.workerAddress) throw new Error('Worker address not initialized')
 
-    return readContract(this.publicClient, {
+    return this.publicClient.readContract({
       address: this.config.committeeManager,
       abi: COMMITTEE_MANAGER_ABI,
       functionName: 'isCommitteeMember',
@@ -229,7 +232,7 @@ export class OracleNode {
   }
 
   private async submitReport(feedId: Hex, priceData: PriceData): Promise<void> {
-    const currentRound = await readContract(this.publicClient, {
+    const currentRound = await this.publicClient.readContract({
       address: this.config.reportVerifier,
       abi: REPORT_VERIFIER_ABI,
       functionName: 'getCurrentRound',

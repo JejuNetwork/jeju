@@ -197,7 +197,9 @@ export class TestOrchestrator {
     // Remote network mode: skip all local infrastructure
     if (isRemoteNetwork) {
       logger.info(`Remote network mode: ${network}`)
-      logger.info('Skipping local infrastructure - testing against deployed services')
+      logger.info(
+        'Skipping local infrastructure - testing against deployed services',
+      )
 
       // Verify remote services are accessible
       await this.verifyRemoteServices(network)
@@ -424,7 +426,12 @@ export class TestOrchestrator {
       L2_RPC_URL: services.rpc.l2,
       L1_RPC_URL: services.rpc.l1,
       WS_URL: services.rpc.ws,
-      CHAIN_ID: network === 'localnet' ? '31337' : network === 'testnet' ? '420690' : '420691',
+      CHAIN_ID:
+        network === 'localnet'
+          ? '31337'
+          : network === 'testnet'
+            ? '420690'
+            : '420691',
       // Service URLs for the target network
       INDEXER_URL: services.indexer.graphql,
       EXPLORER_URL: services.explorer,
@@ -436,7 +443,9 @@ export class TestOrchestrator {
       AUTOCRAT_URL: services.autocrat.api,
       CRUCIBLE_URL: services.crucible.api,
       FACTORY_URL: services.factory.api,
-      SQLIT_URL: isRemoteNetwork ? services.sqlit.blockProducer : getSQLitBlockProducerUrl(),
+      SQLIT_URL: isRemoteNetwork
+        ? services.sqlit.blockProducer
+        : getSQLitBlockProducerUrl(),
       // Skip local webserver when testing remote
       SKIP_WEBSERVER: isRemoteNetwork ? '1' : '',
       // Infrastructure flags
@@ -446,8 +455,10 @@ export class TestOrchestrator {
       DOCKER_AVAILABLE: this.dockerOrchestrator ? 'true' : 'false',
       IPFS_AVAILABLE: this.dockerOrchestrator ? 'true' : 'false',
       // CONTRACTS_VERIFIED means we've verified contracts on-chain, not just file exists
-      CONTRACTS_VERIFIED: this.contractsVerified || isRemoteNetwork ? 'true' : 'false',
-      CONTRACTS_DEPLOYED: this.contractsVerified || isRemoteNetwork ? 'true' : 'false',
+      CONTRACTS_VERIFIED:
+        this.contractsVerified || isRemoteNetwork ? 'true' : 'false',
+      CONTRACTS_DEPLOYED:
+        this.contractsVerified || isRemoteNetwork ? 'true' : 'false',
     }
 
     // Local network - add local infrastructure env vars
@@ -505,7 +516,9 @@ export class TestOrchestrator {
     // Check DWS API is accessible
     const dwsHealthy = await this.checkHttpHealth(`${services.dws.api}/health`)
     if (!dwsHealthy) {
-      logger.warn(`DWS API not accessible: ${services.dws.api} (some tests may fail)`)
+      logger.warn(
+        `DWS API not accessible: ${services.dws.api} (some tests may fail)`,
+      )
     } else {
       logger.success(`DWS API accessible: ${services.dws.api}`)
     }
@@ -514,7 +527,9 @@ export class TestOrchestrator {
     if (services.indexer.api) {
       const indexerHealthy = await this.checkHttpHealth(services.indexer.api)
       if (!indexerHealthy) {
-        logger.warn(`Indexer not accessible: ${services.indexer.api} (some tests may fail)`)
+        logger.warn(
+          `Indexer not accessible: ${services.indexer.api} (some tests may fail)`,
+        )
       } else {
         logger.success(`Indexer accessible: ${services.indexer.api}`)
       }
@@ -542,11 +557,16 @@ export class TestOrchestrator {
         id: 1,
       }),
       signal: controller.signal,
-    }).catch(() => null).finally(() => clearTimeout(timeoutId))
+    })
+      .catch(() => null)
+      .finally(() => clearTimeout(timeoutId))
 
     if (!response?.ok) return false
 
-    const data = (await response.json().catch(() => null)) as { result?: string; error?: unknown } | null
+    const data = (await response.json().catch(() => null)) as {
+      result?: string
+      error?: unknown
+    } | null
     return Boolean(data?.result && !data?.error)
   }
 
@@ -560,7 +580,9 @@ export class TestOrchestrator {
     const response = await fetch(url, {
       method: 'GET',
       signal: controller.signal,
-    }).catch(() => null).finally(() => clearTimeout(timeoutId))
+    })
+      .catch(() => null)
+      .finally(() => clearTimeout(timeoutId))
 
     return Boolean(response?.ok || (response && response.status < 500))
   }

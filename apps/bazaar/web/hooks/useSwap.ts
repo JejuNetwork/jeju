@@ -22,7 +22,11 @@ function safeGetContract(
   network: string,
 ): string | undefined {
   try {
-    const result = getContract(category as 'amm' | 'tokens', name, network as 'localnet' | 'testnet' | 'mainnet')
+    const result = getContract(
+      category as 'amm' | 'tokens',
+      name,
+      network as 'localnet' | 'testnet' | 'mainnet',
+    )
     return result && result !== '' ? result : undefined
   } catch {
     return undefined
@@ -102,7 +106,13 @@ export interface SwapQuote {
   route: Address[]
 }
 
-export type SwapStatus = 'idle' | 'quoting' | 'approving' | 'swapping' | 'success' | 'error'
+export type SwapStatus =
+  | 'idle'
+  | 'quoting'
+  | 'approving'
+  | 'swapping'
+  | 'success'
+  | 'error'
 
 // Native ETH token
 const ETH_TOKEN: SwapToken = {
@@ -116,9 +126,13 @@ const ETH_TOKEN: SwapToken = {
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as const
 
 export function useSwapRouter() {
-  const routerAddress = safeGetContract('amm', 'XLPRouter', NETWORK) as Address | undefined
-  const wethAddress = safeGetContract('tokens', 'weth', NETWORK) as Address | undefined
-  
+  const routerAddress = safeGetContract('amm', 'XLPRouter', NETWORK) as
+    | Address
+    | undefined
+  const wethAddress = safeGetContract('tokens', 'weth', NETWORK) as
+    | Address
+    | undefined
+
   return {
     routerAddress,
     wethAddress,
@@ -129,165 +143,194 @@ export function useSwapRouter() {
 export function useSwap() {
   const { address: userAddress, chain } = useAccount()
   const publicClient = usePublicClient()
-  const { routerAddress, wethAddress, isAvailable: routerAvailable } = useSwapRouter()
-  
+  const {
+    routerAddress,
+    wethAddress,
+    isAvailable: routerAvailable,
+  } = useSwapRouter()
+
   const [status, setStatus] = useState<SwapStatus>('idle')
   const [quote, setQuote] = useState<SwapQuote | null>(null)
   const [error, setError] = useState<string | null>(null)
-  
-  const { writeContract, data: txHash, isPending, reset: resetWrite } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash })
-  
+
+  const {
+    writeContract,
+    data: txHash,
+    isPending,
+    reset: resetWrite,
+  } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash: txHash,
+  })
+
   const isCorrectChain = chain?.id === CHAIN_ID
-  
+
   // Update status based on transaction state
   useEffect(() => {
     if (isPending) setStatus('swapping')
     else if (isConfirming) setStatus('swapping')
     else if (isSuccess) setStatus('success')
   }, [isPending, isConfirming, isSuccess])
-  
+
   // Get quote for a swap
-  const getQuote = useCallback(async (
-    tokenIn: SwapToken,
-    tokenOut: SwapToken,
-    amountIn: bigint,
-  ): Promise<SwapQuote | null> => {
-    if (!publicClient || !routerAddress || amountIn <= 0n) {
-      return null
-    }
-    
-    setStatus('quoting')
-    setError(null)
-    
-    // Determine actual addresses (use WETH for native ETH)
-    const inputAddress = tokenIn.address === ZERO_ADDRESS 
-      ? wethAddress 
-      : tokenIn.address
-    const outputAddress = tokenOut.address === ZERO_ADDRESS 
-      ? wethAddress 
-      : tokenOut.address
-      
-    if (!inputAddress || !outputAddress) {
-      setError('WETH not configured')
-      setStatus('idle')
-      return null
-    }
-    
-    const [amountOut, , fee] = await publicClient.readContract({
-      address: routerAddress,
-      abi: XLP_ROUTER_ABI,
-      functionName: 'quoteForRouter',
-      args: [inputAddress, outputAddress, amountIn],
-    })
-    
-    // Calculate price impact (simplified)
-    const inputValue = Number(formatUnits(amountIn, tokenIn.decimals))
-    const outputValue = Number(formatUnits(amountOut, tokenOut.decimals))
-    const priceImpact = inputValue > 0 ? Math.abs((1 - outputValue / inputValue) * 100) : 0
-    
-    const newQuote: SwapQuote = {
-      inputAmount: amountIn,
-      outputAmount: amountOut,
-      priceImpact,
-      fee: Number(fee) / 10000, // Convert bps to percentage
-      route: [inputAddress, outputAddress],
-    }
-    
-    setQuote(newQuote)
-    setStatus('idle')
-    return newQuote
-  }, [publicClient, routerAddress, wethAddress])
-  
-  // Execute swap
-  const executeSwap = useCallback(async (
-    tokenIn: SwapToken,
-    tokenOut: SwapToken,
-    amountIn: bigint,
-    slippageBps: number = 50, // 0.5% default
-  ) => {
-    if (!userAddress || !routerAddress || !publicClient) {
-      setError('Wallet not connected or router not available')
-      return
-    }
-    
-    setStatus('swapping')
-    setError(null)
-    
-    // Get fresh quote
-    const currentQuote = await getQuote(tokenIn, tokenOut, amountIn)
-    if (!currentQuote) {
-      setError('Failed to get quote')
-      setStatus('error')
-      return
-    }
-    
-    // Calculate minimum output with slippage
-    const minOutput = (currentQuote.outputAmount * BigInt(10000 - slippageBps)) / 10000n
-    const deadline = BigInt(Math.floor(Date.now() / 1000) + 1800) // 30 minutes
-    
-    const isETHIn = tokenIn.address === ZERO_ADDRESS
-    const isETHOut = tokenOut.address === ZERO_ADDRESS
-    
-    // Approve token if not ETH
-    if (!isETHIn) {
-      setStatus('approving')
-      const allowance = await publicClient.readContract({
-        address: tokenIn.address,
-        abi: erc20Abi,
-        functionName: 'allowance',
-        args: [userAddress, routerAddress],
+  const getQuote = useCallback(
+    async (
+      tokenIn: SwapToken,
+      tokenOut: SwapToken,
+      amountIn: bigint,
+    ): Promise<SwapQuote | null> => {
+      if (!publicClient || !routerAddress || amountIn <= 0n) {
+        return null
+      }
+
+      setStatus('quoting')
+      setError(null)
+
+      // Determine actual addresses (use WETH for native ETH)
+      const inputAddress =
+        tokenIn.address === ZERO_ADDRESS ? wethAddress : tokenIn.address
+      const outputAddress =
+        tokenOut.address === ZERO_ADDRESS ? wethAddress : tokenOut.address
+
+      if (!inputAddress || !outputAddress) {
+        setError('WETH not configured')
+        setStatus('idle')
+        return null
+      }
+
+      const [amountOut, , fee] = await publicClient.readContract({
+        address: routerAddress,
+        abi: XLP_ROUTER_ABI,
+        functionName: 'quoteForRouter',
+        args: [inputAddress, outputAddress, amountIn],
       })
-      
-      if (allowance < amountIn) {
-        writeContract({
+
+      // Calculate price impact (simplified)
+      const inputValue = Number(formatUnits(amountIn, tokenIn.decimals))
+      const outputValue = Number(formatUnits(amountOut, tokenOut.decimals))
+      const priceImpact =
+        inputValue > 0 ? Math.abs((1 - outputValue / inputValue) * 100) : 0
+
+      const newQuote: SwapQuote = {
+        inputAmount: amountIn,
+        outputAmount: amountOut,
+        priceImpact,
+        fee: Number(fee) / 10000, // Convert bps to percentage
+        route: [inputAddress, outputAddress],
+      }
+
+      setQuote(newQuote)
+      setStatus('idle')
+      return newQuote
+    },
+    [publicClient, routerAddress, wethAddress],
+  )
+
+  // Execute swap
+  const executeSwap = useCallback(
+    async (
+      tokenIn: SwapToken,
+      tokenOut: SwapToken,
+      amountIn: bigint,
+      slippageBps: number = 50, // 0.5% default
+    ) => {
+      if (!userAddress || !routerAddress || !publicClient) {
+        setError('Wallet not connected or router not available')
+        return
+      }
+
+      setStatus('swapping')
+      setError(null)
+
+      // Get fresh quote
+      const currentQuote = await getQuote(tokenIn, tokenOut, amountIn)
+      if (!currentQuote) {
+        setError('Failed to get quote')
+        setStatus('error')
+        return
+      }
+
+      // Calculate minimum output with slippage
+      const minOutput =
+        (currentQuote.outputAmount * BigInt(10000 - slippageBps)) / 10000n
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + 1800) // 30 minutes
+
+      const isETHIn = tokenIn.address === ZERO_ADDRESS
+      const isETHOut = tokenOut.address === ZERO_ADDRESS
+
+      // Approve token if not ETH
+      if (!isETHIn) {
+        setStatus('approving')
+        const allowance = await publicClient.readContract({
           address: tokenIn.address,
           abi: erc20Abi,
-          functionName: 'approve',
-          args: [routerAddress, amountIn],
+          functionName: 'allowance',
+          args: [userAddress, routerAddress],
         })
-        return // Will continue after approval
+
+        if (allowance < amountIn) {
+          writeContract({
+            address: tokenIn.address,
+            abi: erc20Abi,
+            functionName: 'approve',
+            args: [routerAddress, amountIn],
+          })
+          return // Will continue after approval
+        }
       }
-    }
-    
-    // Execute swap based on token types
-    setStatus('swapping')
-    
-    if (isETHIn && !isETHOut) {
-      // ETH -> Token
-      writeContract({
-        address: routerAddress,
-        abi: XLP_ROUTER_ABI,
-        functionName: 'swapExactETHForTokensV2',
-        args: [minOutput, currentQuote.route, userAddress, deadline],
-        value: amountIn,
-      })
-    } else if (!isETHIn && isETHOut) {
-      // Token -> ETH  
-      writeContract({
-        address: routerAddress,
-        abi: XLP_ROUTER_ABI,
-        functionName: 'swapExactTokensForETHV2',
-        args: [amountIn, minOutput, currentQuote.route, userAddress, deadline],
-      })
-    } else {
-      // Token -> Token
-      writeContract({
-        address: routerAddress,
-        abi: XLP_ROUTER_ABI,
-        functionName: 'swapExactTokensForTokensV2',
-        args: [amountIn, minOutput, currentQuote.route, userAddress, deadline],
-      })
-    }
-  }, [userAddress, routerAddress, publicClient, writeContract, getQuote])
-  
+
+      // Execute swap based on token types
+      setStatus('swapping')
+
+      if (isETHIn && !isETHOut) {
+        // ETH -> Token
+        writeContract({
+          address: routerAddress,
+          abi: XLP_ROUTER_ABI,
+          functionName: 'swapExactETHForTokensV2',
+          args: [minOutput, currentQuote.route, userAddress, deadline],
+          value: amountIn,
+        })
+      } else if (!isETHIn && isETHOut) {
+        // Token -> ETH
+        writeContract({
+          address: routerAddress,
+          abi: XLP_ROUTER_ABI,
+          functionName: 'swapExactTokensForETHV2',
+          args: [
+            amountIn,
+            minOutput,
+            currentQuote.route,
+            userAddress,
+            deadline,
+          ],
+        })
+      } else {
+        // Token -> Token
+        writeContract({
+          address: routerAddress,
+          abi: XLP_ROUTER_ABI,
+          functionName: 'swapExactTokensForTokensV2',
+          args: [
+            amountIn,
+            minOutput,
+            currentQuote.route,
+            userAddress,
+            deadline,
+          ],
+        })
+      }
+    },
+    [userAddress, routerAddress, publicClient, writeContract, getQuote],
+  )
+
   const reset = useCallback(() => {
     setStatus('idle')
     setQuote(null)
     setError(null)
     resetWrite()
   }, [resetWrite])
-  
+
   return {
     // State
     status,
@@ -296,7 +339,7 @@ export function useSwap() {
     txHash,
     isCorrectChain,
     routerAvailable,
-    
+
     // Actions
     getQuote,
     executeSwap,
@@ -307,11 +350,11 @@ export function useSwap() {
 export function useSwapTokens() {
   const [tokens, setTokens] = useState<SwapToken[]>([ETH_TOKEN])
   const [isLoading, setIsLoading] = useState(true)
-  
+
   useEffect(() => {
     async function loadTokens() {
       setIsLoading(true)
-      
+
       // Try to fetch tokens from indexer
       const response = await fetch('/api/graphql', {
         method: 'POST',
@@ -331,7 +374,7 @@ export function useSwapTokens() {
           `,
         }),
       })
-      
+
       if (response.ok) {
         const json = await response.json()
         const indexerTokens = (json.data?.tokens ?? []) as Array<{
@@ -342,27 +385,27 @@ export function useSwapTokens() {
           logoUrl?: string
           liquidityUSD?: number
         }>
-        
+
         // Filter to tokens with liquidity and map to SwapToken format
         const tradableTokens = indexerTokens
-          .filter(t => (t.liquidityUSD ?? 0) > 0)
-          .map(t => ({
+          .filter((t) => (t.liquidityUSD ?? 0) > 0)
+          .map((t) => ({
             symbol: t.symbol,
             name: t.name,
             address: t.address as Address,
             decimals: t.decimals,
             logoUrl: t.logoUrl,
           }))
-        
+
         setTokens([ETH_TOKEN, ...tradableTokens])
       }
-      
+
       setIsLoading(false)
     }
-    
+
     loadTokens()
   }, [])
-  
+
   return { tokens, isLoading }
 }
 

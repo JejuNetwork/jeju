@@ -55,7 +55,7 @@ contract LiquidityPaymaster is BasePaymaster {
         address _oracle,
         uint256 _feeMargin,
         address _owner
-    ) BasePaymaster(_entryPoint) {
+    ) BasePaymaster(_entryPoint, _owner == address(0) ? msg.sender : _owner) {
         require(_token != address(0), "Invalid token");
         require(_vault != address(0), "Invalid vault");
         require(_oracle != address(0), "Invalid oracle");

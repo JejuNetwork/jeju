@@ -93,12 +93,11 @@ let dbClient: SQLitClient | null = null
 function getDatabase(env: BazaarEnv): SQLitClient {
   if (dbClient) return dbClient
 
-  const blockProducerEndpoint =
-    env.SQLIT_NODES.split(',')[0] || getSQLitBlockProducerUrl()
+  const endpoint = env.SQLIT_NODES.split(',')[0] || getSQLitBlockProducerUrl()
   const databaseId = env.SQLIT_DATABASE_ID
 
   dbClient = getSQLit({
-    blockProducerEndpoint,
+    endpoint,
     databaseId,
     debug: env.NETWORK === 'localnet',
   })
@@ -157,6 +156,73 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
     teeRegion: env?.TEE_REGION ?? 'local',
     network: env?.NETWORK ?? 'localnet',
   }))
+
+  // Seed state endpoint - must be registered early to avoid conflicts
+  app.get('/api/seed-state', async ({ set }) => {
+    try {
+      const { readFileSync, existsSync } = await import('node:fs')
+      const { join, dirname } = await import('node:path')
+      const { fileURLToPath } = await import('node:url')
+
+      // Try multiple possible paths
+      const possiblePaths: string[] = []
+
+      // Method 1: Use import.meta.dir if available (Bun-specific, most reliable)
+      if (
+        typeof import.meta !== 'undefined' &&
+        'dir' in import.meta &&
+        import.meta.dir
+      ) {
+        // This file is at apps/bazaar/api/worker.ts, so import.meta.dir is apps/bazaar/api
+        const apiDir = import.meta.dir
+        const bazaarDir = dirname(apiDir) // Go up one level to apps/bazaar
+        possiblePaths.push(join(bazaarDir, '.seed-state.json'))
+      }
+
+      // Method 2: Use fileURLToPath for Node.js compatibility
+      try {
+        const currentFile = fileURLToPath(import.meta.url)
+        const apiDir = dirname(currentFile)
+        const bazaarDir = dirname(apiDir)
+        possiblePaths.push(join(bazaarDir, '.seed-state.json'))
+      } catch {
+        // fileURLToPath might not work in all contexts
+      }
+
+      // Method 3: From workspace root (when running from root via jeju dev)
+      const workspaceRoot = process.cwd()
+      possiblePaths.push(
+        join(workspaceRoot, 'apps', 'bazaar', '.seed-state.json'),
+      )
+
+      // Method 4: From bazaar directory (when running from apps/bazaar)
+      possiblePaths.push(join(workspaceRoot, '.seed-state.json'))
+
+      set.headers['Content-Type'] = 'application/json'
+
+      for (const seedStatePath of possiblePaths) {
+        if (existsSync(seedStatePath)) {
+          const seedState = JSON.parse(readFileSync(seedStatePath, 'utf-8'))
+          console.log(`[Bazaar] ✓ Loaded seed state from ${seedStatePath}`)
+          console.log(
+            `[Bazaar]   Found ${seedState.coins?.length ?? 0} coins, ${seedState.nfts?.length ?? 0} NFTs`,
+          )
+          return seedState
+        }
+      }
+
+      console.warn(
+        `[Bazaar] ⚠ Seed state file not found. Tried paths:`,
+        possiblePaths,
+      )
+      console.warn(`[Bazaar]   Current working directory: ${process.cwd()}`)
+      return { coins: [], nfts: [] }
+    } catch (error) {
+      console.error('[Bazaar] ✗ Failed to load seed state:', error)
+      set.status = 500
+      return { error: 'Failed to load seed state', coins: [], nfts: [] }
+    }
+  })
 
   // TEE Attestation endpoint - allows clients to verify TEE integrity
   app.group('/api/tee', (app) =>
@@ -319,6 +385,113 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
     }
   })
 
+  // Swap execution endpoint - for same-chain token swaps (localnet/testing)
+  app.post('/api/swap/execute', async ({ body, set }) => {
+    try {
+      const { sourceToken, destinationToken, amount, outputAmount, recipient } =
+        body as {
+          sourceToken: string
+          destinationToken: string
+          amount: string
+          outputAmount: string
+          recipient: string
+        }
+
+      if (
+        !sourceToken ||
+        !destinationToken ||
+        !amount ||
+        !outputAmount ||
+        !recipient
+      ) {
+        set.status = 400
+        return { error: 'Missing required parameters' }
+      }
+
+      const network = getCurrentNetwork()
+
+      // For localnet: Transfer destination tokens from deployer to user
+      // In production, this would interact with a DEX contract
+      if (network === 'localnet') {
+        const { createWalletClient, createPublicClient, http } = await import(
+          'viem'
+        )
+        const { privateKeyToAccount } = await import('viem/accounts')
+        const { getL2RpcUrl } = await import('@jejunetwork/config')
+        const { getChain } = await import('@jejunetwork/shared')
+
+        // Use deployer key for localnet (only)
+        const deployerKey =
+          process.env.PRIVATE_KEY ||
+          '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
+        const account = privateKeyToAccount(deployerKey as `0x${string}`)
+        const chain = getChain('localnet')
+
+        const publicClient = createPublicClient({
+          chain,
+          transport: http(getL2RpcUrl()),
+        })
+
+        const walletClient = createWalletClient({
+          account,
+          chain,
+          transport: http(getL2RpcUrl()),
+        })
+
+        // Transfer destination tokens to user
+        const erc20Abi = [
+          {
+            inputs: [
+              { name: 'to', type: 'address' },
+              { name: 'amount', type: 'uint256' },
+            ],
+            name: 'transfer',
+            outputs: [{ name: '', type: 'bool' }],
+            stateMutability: 'nonpayable',
+            type: 'function',
+          },
+        ] as const
+
+        console.log(
+          `[Swap] Transferring ${outputAmount} ${destinationToken} to ${recipient}`,
+        )
+
+        const hash = await walletClient.writeContract({
+          address: destinationToken as `0x${string}`,
+          abi: erc20Abi,
+          functionName: 'transfer',
+          args: [recipient as `0x${string}`, BigInt(outputAmount)],
+        })
+
+        console.log(`[Swap] Transaction hash: ${hash}`)
+
+        // Wait for transaction confirmation
+        const receipt = await publicClient.waitForTransactionReceipt({ hash })
+
+        console.log(
+          `[Swap] Transaction confirmed in block ${receipt.blockNumber}`,
+        )
+
+        return {
+          success: true,
+          transactionHash: hash,
+          message: 'Swap completed successfully',
+        }
+      }
+
+      // For non-localnet: Return error (requires DEX contract)
+      set.status = 501
+      return {
+        error:
+          'Same-chain swaps require a DEX contract. This endpoint only works on localnet for testing.',
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      set.status = 500
+      return { error: `Swap execution failed: ${message}` }
+    }
+  })
+
   // RPC Proxy - proxies JSON-RPC requests to the L2 RPC endpoint from browser
   app.post('/api/rpc', async ({ body }) => {
     const rpcUrl = env?.RPC_URL || getL2RpcUrl()
@@ -443,8 +616,8 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
   // Agent card endpoint
   app.get('/.well-known/agent-card.json', () => handleAgentCard())
 
-  // Intel API - AI-powered market intelligence
-  app.group('/api', (apiGroup) => apiGroup.use(createIntelRouter()))
+  // Intel API - AI-powered market intelligence (must be last to avoid conflicts)
+  app.group('/api/intel', (apiGroup) => apiGroup.use(createIntelRouter()))
 
   // User API - referrals, preferences, portfolio
   app.group('/api/users', (usersGroup) =>

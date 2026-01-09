@@ -1,20 +1,6 @@
 {
   "name": "@jejunetwork/otto",
-  "version": "1.0.0",
-  "private": true,
-  "type": "module",
-  "description": "Otto - Decentralized multi-platform AI trading agent for Discord, Telegram, Twitter, and WhatsApp",
-  "main": "api/index.ts",
-  "scripts": {
-    "dev": "bun run scripts/dev.ts",
-    "build": "bun run scripts/build.ts",
-    "start": "bun run scripts/serve.ts",
-    "deploy": "bun run scripts/deploy.ts",
-    "test": "bun test tests/unit/",
-    "test:e2e": "bunx playwright test --config=playwright.config.ts",
-    "test:synpress": "bunx synpress --config=synpress.config.ts",
-    "typecheck": "tsc --noEmit"
-  },
+  "version": "0.1.0",
   "dependencies": {
     "@elizaos/core": "^1.0.0",
     "@elizaos/adapter-sqlite": "0.25.6-alpha.1",
@@ -48,5 +34,19 @@
     "@types/react": "19.1.8",
     "@types/react-dom": "19.1.6",
     "typescript": "5.9.3"
+  },
+  "private": true,
+  "type": "module",
+  "description": "Otto - Decentralized multi-platform AI trading agent for Discord, Telegram, Twitter, and WhatsApp",
+  "main": "api/index.ts",
+  "scripts": {
+    "dev": "bun run scripts/dev.ts",
+    "build": "bun run scripts/build.ts",
+    "start": "bun run scripts/serve.ts",
+    "deploy": "bun run scripts/deploy.ts",
+    "test": "bun test tests/unit/",
+    "test:e2e": "bunx playwright test --config=playwright.config.ts",
+    "test:synpress": "bunx synpress --config=synpress.config.ts",
+    "typecheck": "tsc --noEmit"
   }
 }

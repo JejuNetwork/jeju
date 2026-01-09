@@ -137,6 +137,7 @@ const EXTERNALS = [
   'bun:sqlite',
   'node:*',
   'typeorm',
+  '@jejunetwork/auth/providers',
   '@jejunetwork/db',
   '@jejunetwork/dws',
   '@jejunetwork/kms',
@@ -283,9 +284,11 @@ async function startFrontendServer(): Promise<boolean> {
         })
       }
 
-      // Serve CSS from web/
+      // Serve CSS from web/ (pathname like /web/app/globals.css)
       if (pathname.endsWith('.css')) {
-        const cssFile = Bun.file(resolve(APP_DIR, `web${pathname}`))
+        // Strip leading slash and try as-is first (for /web/app/globals.css)
+        const cssPath = pathname.startsWith('/') ? pathname.slice(1) : pathname
+        const cssFile = Bun.file(resolve(APP_DIR, cssPath))
         if (await cssFile.exists()) {
           return new Response(cssFile, {
             headers: {

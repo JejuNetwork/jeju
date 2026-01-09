@@ -225,23 +225,6 @@ export async function startLocalnet(
       : null
   const sqlitPort = sqlitPortStr ? parseInt(sqlitPortStr, 10) : 0
 
-  // Save ports config
-  const localhost = getLocalhostHost()
-  const portsConfig = {
-    l1Port,
-    l2Port,
-    sqlitPort,
-    l1Rpc: `http://${localhost}:${l1Port}`,
-    l2Rpc: `http://${localhost}:${l2Port}`,
-    sqlitApi: sqlitPort ? `http://${localhost}:${sqlitPort}` : undefined,
-    chainId: 31337,
-    timestamp: new Date().toISOString(),
-  }
-  writeFileSync(
-    join(kurtosisDir, 'ports.json'),
-    JSON.stringify(portsConfig, null, 2),
-  )
-
   // Set up port forwarding to static ports
   logger.step('Setting up port forwarding...')
   await setupPortForwarding(l1Port, DEFAULT_PORTS.l1Rpc, 'L1 RPC')
@@ -250,13 +233,36 @@ export async function startLocalnet(
     await setupPortForwarding(sqlitPort, DEFAULT_PORTS.sqlit, 'SQLit API')
   }
 
+  // Save ports config with STATIC forwarded ports (not dynamic Kurtosis ports)
+  // This ensures all code uses the same consistent ports
+  const localhost = getLocalhostHost()
+  const staticL1Port = DEFAULT_PORTS.l1Rpc
+  const staticL2Port = DEFAULT_PORTS.l2Rpc
+  const staticSqlitPort = sqlitPort ? DEFAULT_PORTS.sqlit : 0
+  const portsConfig = {
+    l1Port: staticL1Port,
+    l2Port: staticL2Port,
+    sqlitPort: staticSqlitPort,
+    l1Rpc: `http://${localhost}:${staticL1Port}`,
+    l2Rpc: `http://${localhost}:${staticL2Port}`,
+    sqlitApi: staticSqlitPort
+      ? `http://${localhost}:${staticSqlitPort}`
+      : undefined,
+    chainId: 31337,
+    timestamp: new Date().toISOString(),
+  }
+  writeFileSync(
+    join(kurtosisDir, 'ports.json'),
+    JSON.stringify(portsConfig, null, 2),
+  )
+
   // Wait for chain to be ready
   logger.step('Waiting for chain...')
   await waitForChain(getL2RpcUrl())
 
   logger.success('Localnet running')
 
-  return { l1Port: DEFAULT_PORTS.l1Rpc, l2Port: DEFAULT_PORTS.l2Rpc }
+  return { l1Port: staticL1Port, l2Port: staticL2Port }
 }
 
 async function setupPortForwarding(
@@ -383,6 +389,116 @@ async function verifyContractOnChain(
   }
 }
 
+/**
+ * Fund the deployer account from Geth dev account.
+ * Geth --dev mode creates a pre-funded dev account that can be used for transfers.
+ */
+async function fundDeployerFromDevAccount(rpcUrl: string): Promise<void> {
+  // Anvil default deployer account
+  const DEPLOYER_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
+  const FUNDING_AMOUNT = '100' // 100 ETH
+
+  // Check if deployer already has funds
+  const balanceResponse = await fetch(rpcUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'eth_getBalance',
+      params: [DEPLOYER_ADDRESS, 'latest'],
+      id: 1,
+    }),
+    signal: AbortSignal.timeout(10000),
+  })
+
+  const balanceData = await balanceResponse.json()
+  const balance = BigInt(balanceData.result ?? '0x0')
+
+  // If deployer has at least 1 ETH, skip funding
+  if (balance >= BigInt('1000000000000000000')) {
+    logger.debug('Deployer already funded, skipping')
+    return
+  }
+
+  logger.step('Funding deployer account from Geth dev account...')
+
+  // Get dev account address (first account in Geth --dev mode)
+  const accountsResponse = await fetch(rpcUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'eth_accounts',
+      params: [],
+      id: 1,
+    }),
+    signal: AbortSignal.timeout(10000),
+  })
+
+  const accountsData = await accountsResponse.json()
+  const accounts = accountsData.result as string[] | undefined
+
+  if (!accounts || accounts.length === 0) {
+    throw new Error('No dev accounts available - Geth may not be in dev mode')
+  }
+
+  const devAccount = accounts[0]
+  logger.debug(`Using Geth dev account: ${devAccount}`)
+
+  // Send ETH from dev account to deployer
+  const sendResponse = await fetch(rpcUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'eth_sendTransaction',
+      params: [
+        {
+          from: devAccount,
+          to: DEPLOYER_ADDRESS,
+          value: `0x${(BigInt(FUNDING_AMOUNT) * BigInt('1000000000000000000')).toString(16)}`,
+        },
+      ],
+      id: 1,
+    }),
+    signal: AbortSignal.timeout(30000),
+  })
+
+  const sendData = await sendResponse.json()
+
+  if (sendData.error) {
+    throw new Error(`Failed to fund deployer: ${sendData.error.message}`)
+  }
+
+  // Wait for transaction to be mined
+  const txHash = sendData.result as string
+  logger.debug(`Funding tx: ${txHash}`)
+
+  for (let i = 0; i < 30; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+
+    const receiptResponse = await fetch(rpcUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_getTransactionReceipt',
+        params: [txHash],
+        id: 1,
+      }),
+      signal: AbortSignal.timeout(10000),
+    })
+
+    const receiptData = await receiptResponse.json()
+    if (receiptData.result) {
+      logger.success(`Deployer funded with ${FUNDING_AMOUNT} ETH`)
+      return
+    }
+  }
+
+  throw new Error('Funding transaction not mined within 30 seconds')
+}
+
 export async function bootstrapContracts(
   rootDir: string,
   rpcUrl: string,
@@ -413,6 +529,9 @@ export async function bootstrapContracts(
       logger.debug('Bootstrap file has placeholder addresses, will redeploy')
     }
   }
+
+  // Fund the deployer account from Geth dev account if needed
+  await fundDeployerFromDevAccount(rpcUrl)
 
   logger.step('Bootstrapping contracts...')
 

@@ -32,8 +32,9 @@ interface RateLimitState {
   lastAccess: number
 }
 
-// Distributed rate limit cache - TTL based on longest window (month ~30 days)
-const RATE_LIMIT_TTL_SECONDS = 30 * 24 * 60 * 60 // 30 days
+// Distributed rate limit cache - TTL capped at 7 days (cache server max)
+// Rate limits reset within windows anyway, so shorter TTL is fine
+const RATE_LIMIT_TTL_SECONDS = 7 * 24 * 60 * 60 // 7 days (604800)
 
 let rateLimitCache: CacheClient | null = null
 

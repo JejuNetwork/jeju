@@ -15,12 +15,13 @@ import {
 import { useCallback, useMemo } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { AgentsTab } from '../components/dao/AgentsTab'
+import { FeesTab } from '../components/dao/FeesTab'
 import { GovernanceTab } from '../components/dao/GovernanceTab'
 import { SettingsTab } from '../components/dao/SettingsTab'
 import { TreasuryTab } from '../components/dao/TreasuryTab'
 import { useDAO } from '../hooks/useDAO'
 
-type TabId = 'agents' | 'governance' | 'treasury' | 'settings'
+type TabId = 'agents' | 'governance' | 'treasury' | 'fees' | 'settings'
 
 interface TabConfig {
   id: TabId
@@ -32,6 +33,7 @@ const TABS: TabConfig[] = [
   { id: 'agents', label: 'Agents', icon: Bot },
   { id: 'governance', label: 'Governance', icon: FileText },
   { id: 'treasury', label: 'Treasury', icon: Coins },
+  { id: 'fees', label: 'Fees', icon: Coins },
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
@@ -440,6 +442,7 @@ export default function DAODetailPage() {
         {activeTab === 'agents' && <AgentsTab dao={dao} />}
         {activeTab === 'governance' && <GovernanceTab dao={dao} />}
         {activeTab === 'treasury' && <TreasuryTab dao={dao} />}
+        {activeTab === 'fees' && <FeesTab daoId={daoId ?? ''} />}
         {activeTab === 'settings' && <SettingsTab dao={dao} />}
       </div>
     </div>

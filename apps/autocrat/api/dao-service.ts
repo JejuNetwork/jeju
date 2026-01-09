@@ -1339,7 +1339,8 @@ export class DAOService {
       // Check if the returned daoId is non-zero
       const dao = result as { daoId: `0x${string}` }
       return (
-        dao.daoId !== '0x0000000000000000000000000000000000000000000000000000000000000000'
+        dao.daoId !==
+        '0x0000000000000000000000000000000000000000000000000000000000000000'
       )
     } catch {
       return false

@@ -18,7 +18,7 @@
  *                                         KMS for sealed secrets
  */
 
-import { getCurrentNetwork, getCoreAppUrl } from '@jejunetwork/config'
+import { getCoreAppUrl, getCurrentNetwork } from '@jejunetwork/config'
 import { z } from 'zod'
 
 const network = process.env.NETWORK ?? getCurrentNetwork()
@@ -73,20 +73,26 @@ async function deployOAuth3(config: DeployConfig): Promise<void> {
 
   // Step 1: Check if service already exists
   console.log('[1/3] Checking existing services...')
-  const listResponse = await fetch(`${DWS_URL}/dws-services/oauth3?owner=${config.owner}`)
-  
+  const listResponse = await fetch(
+    `${DWS_URL}/dws-services/oauth3?owner=${config.owner}`,
+  )
+
   if (listResponse.ok) {
-    const listData = await listResponse.json() as { services: Array<{ name: string; id: string; status: string }> }
-    const existing = listData.services.find(s => s.name === config.name)
-    
+    const listData = (await listResponse.json()) as {
+      services: Array<{ name: string; id: string; status: string }>
+    }
+    const existing = listData.services.find((s) => s.name === config.name)
+
     if (existing) {
-      console.log(`  Found existing service: ${existing.id} (${existing.status})`)
-      
+      console.log(
+        `  Found existing service: ${existing.id} (${existing.status})`,
+      )
+
       if (existing.status === 'ready') {
         console.log('  Service already running. Use scale or terminate first.')
         return
       }
-      
+
       // Terminate failed service
       if (existing.status === 'failed') {
         console.log('  Terminating failed service...')
@@ -103,7 +109,7 @@ async function deployOAuth3(config: DeployConfig): Promise<void> {
 
   // Step 2: Deploy OAuth3 container service
   console.log('\n[2/3] Deploying OAuth3 container service...')
-  
+
   const deployRequest = {
     name: config.name,
     replicas: config.replicas,
@@ -126,7 +132,9 @@ async function deployOAuth3(config: DeployConfig): Promise<void> {
     throw new Error(`Deployment failed: ${error}`)
   }
 
-  const deployData = await deployResponse.json() as { service: z.infer<typeof OAuth3ServiceSchema> }
+  const deployData = (await deployResponse.json()) as {
+    service: z.infer<typeof OAuth3ServiceSchema>
+  }
   const service = deployData.service
 
   console.log(`  Service ID: ${service.id}`)
@@ -136,27 +144,35 @@ async function deployOAuth3(config: DeployConfig): Promise<void> {
 
   // Step 3: Wait for service to be ready
   console.log('\n[3/3] Waiting for service to be ready...')
-  
+
   let ready = false
   let attempts = 0
   const maxAttempts = 60 // 5 minutes
 
   while (!ready && attempts < maxAttempts) {
-    await new Promise(r => setTimeout(r, 5000))
+    await new Promise((r) => setTimeout(r, 5000))
     attempts++
 
-    const statusResponse = await fetch(`${DWS_URL}/dws-services/oauth3/${service.id}`)
+    const statusResponse = await fetch(
+      `${DWS_URL}/dws-services/oauth3/${service.id}`,
+    )
     if (statusResponse.ok) {
-      const statusData = await statusResponse.json() as { service: z.infer<typeof OAuth3ServiceSchema> }
-      
+      const statusData = (await statusResponse.json()) as {
+        service: z.infer<typeof OAuth3ServiceSchema>
+      }
+
       if (statusData.service.status === 'ready') {
         ready = true
         console.log('  Service is ready')
-        console.log(`  Threshold Public Key: ${statusData.service.thresholdPublicKey}`)
+        console.log(
+          `  Threshold Public Key: ${statusData.service.thresholdPublicKey}`,
+        )
       } else if (statusData.service.status === 'failed') {
         throw new Error('Service deployment failed')
       } else {
-        console.log(`  Status: ${statusData.service.status} (attempt ${attempts}/${maxAttempts})`)
+        console.log(
+          `  Status: ${statusData.service.status} (attempt ${attempts}/${maxAttempts})`,
+        )
       }
     }
   }
@@ -167,7 +183,7 @@ async function deployOAuth3(config: DeployConfig): Promise<void> {
 
   // Step 4: Update DWS app router to point to new container service
   console.log('\n[4/4] Updating DWS app routing...')
-  
+
   const appUpdateResponse = await fetch(`${DWS_URL}/apps/deployed`, {
     method: 'POST',
     headers: {
@@ -201,24 +217,34 @@ async function deployOAuth3(config: DeployConfig): Promise<void> {
   })
 
   if (!appUpdateResponse.ok) {
-    console.warn(`  Warning: App routing update failed: ${await appUpdateResponse.text()}`)
+    console.warn(
+      `  Warning: App routing update failed: ${await appUpdateResponse.text()}`,
+    )
   } else {
     console.log('  App routing updated')
   }
 
-  console.log('\n' + '='.repeat(50))
+  console.log(`\n${'='.repeat(50)}`)
   console.log('Deployment complete')
   console.log('')
   console.log('OAuth3 is now running as a DWS container service:')
   console.log(`  Service ID: ${service.id}`)
-  console.log(`  API: https://oauth3.${network === 'testnet' ? 'testnet.' : ''}jejunetwork.org`)
+  console.log(
+    `  API: https://oauth3.${network === 'testnet' ? 'testnet.' : ''}jejunetwork.org`,
+  )
   console.log(`  MPC Cluster: ${service.mpcClusterId}`)
   console.log('')
   console.log('Management commands:')
-  console.log(`  Scale:     curl -X POST ${DWS_URL}/dws-services/oauth3/${service.id}/scale -d '{"replicas":5}'`)
+  console.log(
+    `  Scale:     curl -X POST ${DWS_URL}/dws-services/oauth3/${service.id}/scale -d '{"replicas":5}'`,
+  )
   console.log(`  Status:    curl ${DWS_URL}/dws-services/oauth3/${service.id}`)
-  console.log(`  MPC Sign:  curl -X POST ${DWS_URL}/dws-services/oauth3/${service.id}/mpc/sign -d '{"message":"0x..."}'`)
-  console.log(`  Terminate: curl -X DELETE ${DWS_URL}/dws-services/oauth3/${service.id}`)
+  console.log(
+    `  MPC Sign:  curl -X POST ${DWS_URL}/dws-services/oauth3/${service.id}/mpc/sign -d '{"message":"0x..."}'`,
+  )
+  console.log(
+    `  Terminate: curl -X DELETE ${DWS_URL}/dws-services/oauth3/${service.id}`,
+  )
 }
 
 // Default testnet configuration
@@ -228,7 +254,9 @@ const testnetConfig: DeployConfig = {
   mpcThreshold: 2, // 2-of-3
   providers: ['github', 'google'],
   teeRequired: false, // Use simulated TEE for testnet
-  owner: process.env.DEPLOYER_ADDRESS ?? '0x0000000000000000000000000000000000000000',
+  owner:
+    process.env.DEPLOYER_ADDRESS ??
+    '0x0000000000000000000000000000000000000000',
 }
 
 // Parse CLI args
@@ -238,7 +266,7 @@ const config = { ...testnetConfig }
 for (let i = 0; i < args.length; i += 2) {
   const key = args[i]?.replace('--', '')
   const value = args[i + 1]
-  
+
   if (key === 'replicas') config.replicas = parseInt(value, 10)
   if (key === 'threshold') config.mpcThreshold = parseInt(value, 10)
   if (key === 'tee') config.teeRequired = value === 'true'

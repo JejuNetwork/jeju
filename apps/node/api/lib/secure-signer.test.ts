@@ -84,15 +84,17 @@ describe('SecureSigner Security Properties', () => {
 })
 
 describe('registerNodeWithKMS', () => {
-  test('should require operator address', () => {
-    expect(
-      registerNodeWithKMS(`0x${'00'.repeat(20)}` as `0x${string}`, {
-        nodeId: 'test-node',
-        region: 'us-east-1',
-        services: ['compute'],
-        teeCapable: false,
-      }),
-    ).rejects.toBeDefined() // Will fail without actual KMS endpoint
+  test('should return dev key on localnet', async () => {
+    // On localnet, registerNodeWithKMS returns a dev key instead of using KMS
+    const result = await registerNodeWithKMS(`0x${'00'.repeat(20)}` as `0x${string}`, {
+      nodeId: 'test-node',
+      region: 'us-east-1',
+      services: ['compute'],
+      teeCapable: false,
+    })
+    // On localnet, should return dev key
+    expect(result.keyId).toContain('dev-localnet-')
+    expect(result.address).toBeDefined()
   })
 
   test('should include node metadata in request', async () => {

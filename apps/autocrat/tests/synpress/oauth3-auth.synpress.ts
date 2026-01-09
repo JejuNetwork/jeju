@@ -166,7 +166,10 @@ test.describe('OAuth3 Authentication Flow', () => {
 
     // Click disconnect if visible
     if (
-      await disconnectButton.first().isVisible({ timeout: 2000 }).catch(() => false)
+      await disconnectButton
+        .first()
+        .isVisible({ timeout: 2000 })
+        .catch(() => false)
     ) {
       await disconnectButton.first().click()
       await page.waitForTimeout(1000)

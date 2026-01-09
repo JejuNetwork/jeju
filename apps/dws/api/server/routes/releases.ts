@@ -8,10 +8,7 @@
  */
 
 import { logger } from '@jejunetwork/shared'
-import {
-  type ReleaseManifest,
-  ReleaseManifestSchema,
-} from '@jejunetwork/types'
+import { type ReleaseManifest, ReleaseManifestSchema } from '@jejunetwork/types'
 import Elysia, { t } from 'elysia'
 
 const IS_PRODUCTION = process.env.NODE_ENV === 'production'

@@ -8,9 +8,9 @@
  * - Rate limiting with stake tiers
  */
 
-import { readContract } from '@jejunetwork/contracts'
+// readContract is now called as client.readContract({...})
 import { Elysia } from 'elysia'
-import type { Address } from 'viem'
+import type { Address, PublicClient } from 'viem'
 import { createPublicClient, getAddress, http, verifyMessage } from 'viem'
 import { z } from 'zod'
 import { NETWORK_BAN_MANAGER_ABI } from '../api/abis'
@@ -136,7 +136,7 @@ const IDENTITY_REGISTRY_ABI = [
 
 // ERC-8004 Identity Verification
 
-let erc8004Client: ReturnType<typeof createPublicClient> | null = null
+let erc8004Client: PublicClient | null = null
 let erc8004Config: ERC8004Config | null = null
 
 export function configureERC8004(config: ERC8004Config): void {
@@ -158,7 +158,7 @@ export async function getAgentInfo(
     )
   }
 
-  const agent = await readContract(erc8004Client, {
+  const agent = await erc8004Client.readContract({
     address: erc8004Config.identityRegistryAddress,
     abi: IDENTITY_REGISTRY_ABI,
     functionName: 'getAgentByAddress',
@@ -170,7 +170,7 @@ export async function getAgentInfo(
   }
 
   // Get tags
-  const tagsRaw = await readContract(erc8004Client, {
+  const tagsRaw = await erc8004Client.readContract({
     address: erc8004Config.identityRegistryAddress,
     abi: IDENTITY_REGISTRY_ABI,
     functionName: 'getAgentTags',
@@ -186,7 +186,7 @@ export async function getAgentInfo(
   let banReason: string | undefined
 
   if (erc8004Config.banManagerAddress) {
-    const banInfo = await readContract(erc8004Client, {
+    const banInfo = await erc8004Client.readContract({
       address: erc8004Config.banManagerAddress,
       abi: NETWORK_BAN_MANAGER_ABI,
       functionName: 'getNetworkBan',

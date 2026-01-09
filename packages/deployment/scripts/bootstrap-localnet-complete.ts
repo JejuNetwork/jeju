@@ -1116,7 +1116,10 @@ class CompleteBootstrapper {
       )
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      if (msg.includes('CreateContractSizeLimit')) {
+      if (
+        msg.includes('CreateContractSizeLimit') ||
+        msg.includes('max code size exceeded')
+      ) {
         console.log(
           '  ⚠️  ModerationMarketplace too large - using minimal setup',
         )

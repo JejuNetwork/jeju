@@ -1,23 +1,6 @@
 {
   "name": "@jejunetwork/bazaar",
-  "version": "1.0.0",
-  "description": "Unified DeFi + NFT Marketplace - Decentralized trading, swaps, perps, and collectibles",
-  "private": true,
-  "type": "module",
-  "main": "api/index.ts",
-  "scripts": {
-    "dev": "bun run scripts/dev.ts",
-    "build": "bun run scripts/build.ts",
-    "start": "bun run scripts/serve.ts",
-    "test": "bun test tests/unit/ api/__tests__/ web/**/__tests__/",
-    "test:integration": "bun test tests/integration/ tests/validation-checks.test.ts",
-    "test:e2e": "bunx playwright test tests/e2e/",
-    "test:synpress": "bunx playwright test tests/synpress/ --config synpress.config.ts",
-    "deploy": "bun run scripts/deploy.ts",
-    "deploy:testnet": "bun run scripts/deploy-testnet.ts",
-    "seed": "bun run scripts/seed.ts",
-    "typecheck": "tsc --noEmit"
-  },
+  "version": "0.1.0",
   "dependencies": {
     "@elysiajs/cors": "^1.4.0",
     "@jejunetwork/auth": "workspace:*",
@@ -56,5 +39,22 @@
     "postcss": "8.5.3",
     "tailwindcss": "3.4.17",
     "typescript": "5.9.3"
+  },
+  "description": "Unified DeFi + NFT Marketplace - Decentralized trading, swaps, perps, and collectibles",
+  "private": true,
+  "type": "module",
+  "main": "api/index.ts",
+  "scripts": {
+    "dev": "bun run scripts/dev.ts",
+    "build": "bun run scripts/build.ts",
+    "start": "bun run scripts/serve.ts",
+    "test": "bun test tests/unit/ api/__tests__/ web/**/__tests__/",
+    "test:integration": "bun test tests/integration/ tests/validation-checks.test.ts",
+    "test:e2e": "bunx playwright test tests/e2e/",
+    "test:synpress": "bunx playwright test tests/synpress/ --config synpress.config.ts",
+    "deploy": "bun run scripts/deploy.ts",
+    "deploy:testnet": "bun run scripts/deploy-testnet.ts",
+    "seed": "bun run scripts/seed.ts",
+    "typecheck": "tsc --noEmit"
   }
 }

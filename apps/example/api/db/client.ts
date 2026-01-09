@@ -52,14 +52,14 @@ async function initializeSchema(client: SQLitClient): Promise<void> {
 export function getDatabase(): SQLitClient {
   if (!dbClient) {
     dbClient = getSQLit({
-      blockProducerEndpoint:
+      endpoint:
         (typeof process !== 'undefined'
           ? process.env.SQLIT_BLOCK_PRODUCER_ENDPOINT
           : undefined) ||
         getSQLitBlockProducerUrl() ||
         getSQLitUrl(),
       databaseId: DATABASE_ID,
-      timeout: 30000,
+      timeoutMs: 30000,
       debug: !isProductionEnv(),
     })
     initializeSchema(dbClient).catch((err) => {

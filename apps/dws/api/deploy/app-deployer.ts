@@ -24,6 +24,17 @@ import {
   type ServiceInstance,
   type ServiceType,
 } from '../services'
+import { dwsWorkerCronState, dwsWorkerState } from '../state'
+
+/** Cron schedule definition for worker deployment */
+interface CronScheduleInput {
+  name: string
+  schedule: string
+  endpoint: string
+  timezone?: string
+  timeoutMs?: number
+  retries?: number
+}
 
 // ============================================================================
 // Types
@@ -548,6 +559,7 @@ export function createAppDeployerRouter() {
         let timeout = 30000
         let routes: string[] = []
         let env: Record<string, string> = {}
+        let crons: CronScheduleInput[] = []
 
         if (contentType.includes('application/json')) {
           const body = (await request.json()) as {
@@ -559,6 +571,7 @@ export function createAppDeployerRouter() {
             timeout?: number
             routes?: string[]
             env?: Record<string, string>
+            crons?: CronScheduleInput[]
           }
 
           if (!body.name) {
@@ -574,6 +587,7 @@ export function createAppDeployerRouter() {
           timeout = body.timeout ?? 30000
           routes = body.routes ?? []
           env = body.env ?? {}
+          crons = body.crons ?? []
         } else if (contentType.includes('multipart/form-data')) {
           const formData = await request.formData()
           const nameField = formData.get('name')
@@ -625,6 +639,11 @@ export function createAppDeployerRouter() {
           const envField = formData.get('env')
           if (envField && typeof envField === 'string') {
             env = JSON.parse(envField) as Record<string, string>
+          }
+
+          const cronsField = formData.get('crons')
+          if (cronsField && typeof cronsField === 'string') {
+            crons = JSON.parse(cronsField) as CronScheduleInput[]
           }
         } else {
           set.status = 400
@@ -720,6 +739,46 @@ export function createAppDeployerRouter() {
 
         await workerRuntime.deployFunction(fn)
 
+        // Persist worker to SQLit for recovery across restarts
+        await dwsWorkerState.save({
+          id: fn.id,
+          name: fn.name,
+          owner: fn.owner,
+          runtime: fn.runtime,
+          handler: fn.handler,
+          codeCid: fn.codeCid,
+          memory: fn.memory,
+          timeout: fn.timeout,
+          env: fn.env,
+          status: fn.status,
+          version: fn.version,
+          invocationCount: fn.invocationCount,
+          avgDurationMs: fn.avgDurationMs,
+          errorCount: fn.errorCount,
+          createdAt: fn.createdAt,
+          updatedAt: fn.updatedAt,
+        })
+
+        // Register cron schedules if provided
+        let cronsRegistered = 0
+        if (crons.length > 0) {
+          for (const cron of crons) {
+            await dwsWorkerCronState.register({
+              workerId: functionId,
+              name: cron.name,
+              schedule: cron.schedule,
+              endpoint: cron.endpoint,
+              timezone: cron.timezone,
+              timeoutMs: cron.timeoutMs,
+              retries: cron.retries,
+            })
+            cronsRegistered++
+          }
+          console.log(
+            `[AppDeployer] Registered ${cronsRegistered} cron schedule(s) for worker ${name} (${functionId})`,
+          )
+        }
+
         // Register with app router if routes specified
         if (routes.length > 0) {
           const { registerDeployedApp } = await import(
@@ -746,6 +805,7 @@ export function createAppDeployerRouter() {
           status: fn.status,
           runtime,
           routes,
+          cronsRegistered,
         }
       })
 

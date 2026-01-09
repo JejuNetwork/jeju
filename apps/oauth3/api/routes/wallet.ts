@@ -284,9 +284,16 @@ export function createWalletRouter(_config: AuthConfig) {
         const nonce = crypto.randomUUID()
         const timestamp = new Date().toISOString()
 
+        // Domain should match the OAuth3 server domain
+        const domain = redirectUri.includes('testnet')
+          ? 'oauth3.testnet.jejunetwork.org'
+          : redirectUri.includes('localhost')
+            ? 'localhost'
+            : 'oauth3.jejunetwork.org'
+
         const message = `Jeju Network sign-in request.
 
-Domain: auth.jejunetwork.org
+Domain: ${domain}
 Nonce: ${nonce}
 Issued At: ${timestamp}
 URI: ${redirectUri}

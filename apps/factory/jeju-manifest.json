@@ -89,7 +89,7 @@
     "backend": {
       "enabled": true,
       "runtime": "workerd",
-      "entrypoint": "api/workerd-worker.ts",
+      "entrypoint": "api/worker.ts",
       "memory": 512,
       "timeout": 30000,
       "minInstances": 1,
@@ -209,7 +209,7 @@
     "level": "full",
     "worker": {
       "name": "factory-api",
-      "entrypoint": "api/workerd-worker.ts",
+      "entrypoint": "api/worker.ts",
       "runtime": "workerd",
       "memory": 512,
       "timeout": 30000,

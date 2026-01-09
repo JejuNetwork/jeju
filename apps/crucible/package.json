@@ -1,24 +1,6 @@
 {
   "name": "@jejunetwork/crucible",
-  "version": "1.0.0",
-  "private": true,
-  "type": "module",
-  "description": "Decentralized agent orchestration platform - autonomous AI agents with serverless compute, storage, and coordination",
-  "main": "api/index.ts",
-  "scripts": {
-    "dev": "concurrently \"bun run scripts/dev.ts\" \"API_PORT=${API_PORT:-4021} AUTONOMOUS_ENABLED=${AUTONOMOUS_ENABLED:-true} bun --watch api/server.ts\"",
-    "build": "bun run scripts/build.ts",
-    "start": "bun run scripts/start.ts",
-    "serve": "bun run scripts/serve.ts",
-    "deploy": "bun run scripts/deploy.ts",
-    "seed": "bun run scripts/seed-agents.ts",
-    "seed:testnet": "bun run scripts/seed-agents.ts --network testnet",
-    "seed:mainnet": "bun run scripts/seed-agents.ts --network mainnet",
-    "test": "bun test tests/",
-    "test:e2e": "bunx playwright test --config playwright.config.ts",
-    "test:synpress": "bunx playwright test --config synpress.config.ts",
-    "typecheck": "tsc --noEmit"
-  },
+  "version": "0.1.0",
   "dependencies": {
     "@elizaos/core": "^1.6.6",
     "@elysiajs/cors": "^1.4.0",
@@ -52,5 +34,23 @@
     "postcss": "8.5.3",
     "tailwindcss": "3.4.17",
     "typescript": "5.9.3"
+  },
+  "private": true,
+  "type": "module",
+  "description": "Decentralized agent orchestration platform - autonomous AI agents with serverless compute, storage, and coordination",
+  "main": "api/index.ts",
+  "scripts": {
+    "dev": "concurrently \"bun run scripts/dev.ts\" \"API_PORT=${API_PORT:-4021} AUTONOMOUS_ENABLED=${AUTONOMOUS_ENABLED:-true} bun --watch api/worker.ts\"",
+    "build": "bun run scripts/build.ts",
+    "start": "bun run scripts/start.ts",
+    "serve": "bun run scripts/serve.ts",
+    "deploy": "bun run scripts/deploy.ts",
+    "seed": "bun run scripts/seed-agents.ts",
+    "seed:testnet": "bun run scripts/seed-agents.ts --network testnet",
+    "seed:mainnet": "bun run scripts/seed-agents.ts --network mainnet",
+    "test": "bun test tests/unit/",
+    "test:e2e": "bunx playwright test --config playwright.config.ts",
+    "test:synpress": "bunx playwright test --config synpress.config.ts",
+    "typecheck": "tsc --noEmit"
   }
 }

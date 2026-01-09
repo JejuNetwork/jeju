@@ -5,13 +5,13 @@
  * Uses wagmi's useWriteContract for actual on-chain transactions.
  */
 
+import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {
   Region,
+  type RegionValue,
   useNodeStaking,
   useWallet,
-  type RegionValue,
 } from '@jejunetwork/ui'
-import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {
   AlertCircle,
   ArrowRight,
@@ -25,7 +25,6 @@ import {
   Wifi,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { Address } from 'viem'
 import { formatEther } from 'viem'
 import { CONTRACTS } from '../config'
 
@@ -517,7 +516,11 @@ export default function NodeRegistrationWizard() {
       </div>
 
       <div
-        style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          gap: '1rem',
+        }}
       >
         <button
           type="button"
@@ -532,8 +535,7 @@ export default function NodeRegistrationWizard() {
           onClick={handleNextStep}
           disabled={selectedServices.length === 0}
         >
-          Continue ({selectedServices.length} selected){' '}
-          <ArrowRight size={16} />
+          Continue ({selectedServices.length} selected) <ArrowRight size={16} />
         </button>
       </div>
     </div>
@@ -630,6 +632,7 @@ export default function NodeRegistrationWizard() {
       {/* Node RPC URL input */}
       <div style={{ marginBottom: '1.5rem' }}>
         <label
+          htmlFor="node-rpc-url"
           style={{
             display: 'block',
             marginBottom: '0.5rem',
@@ -639,6 +642,7 @@ export default function NodeRegistrationWizard() {
           Node RPC URL
         </label>
         <input
+          id="node-rpc-url"
           type="text"
           value={nodeRpcUrl}
           onChange={(e) => setNodeRpcUrl(e.target.value)}
@@ -666,6 +670,7 @@ export default function NodeRegistrationWizard() {
       {/* Region selector */}
       <div style={{ marginBottom: '1.5rem' }}>
         <label
+          htmlFor="region-select"
           style={{
             display: 'block',
             marginBottom: '0.5rem',
@@ -675,8 +680,11 @@ export default function NodeRegistrationWizard() {
           Region
         </label>
         <select
+          id="region-select"
           value={selectedRegion}
-          onChange={(e) => setSelectedRegion(Number(e.target.value) as RegionValue)}
+          onChange={(e) =>
+            setSelectedRegion(Number(e.target.value) as RegionValue)
+          }
           style={{
             width: '100%',
             padding: '0.75rem',
@@ -697,7 +705,11 @@ export default function NodeRegistrationWizard() {
       </div>
 
       <div
-        style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          gap: '1rem',
+        }}
       >
         <button
           type="button"
@@ -822,7 +834,11 @@ export default function NodeRegistrationWizard() {
       )}
 
       <div
-        style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          gap: '1rem',
+        }}
       >
         <button
           type="button"
@@ -977,7 +993,11 @@ export default function NodeRegistrationWizard() {
       )}
 
       <div
-        style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          gap: '1rem',
+        }}
       >
         <button
           type="button"

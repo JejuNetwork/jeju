@@ -60,8 +60,14 @@
       "regions": ["global"]
     },
     "database": {
-      "type": "sqlit",
-      "name": "indexer-testnet"
+      "type": "postgres",
+      "name": "indexer-db",
+      "version": "16",
+      "resources": {
+        "cpuCores": 2,
+        "memoryMb": 4096,
+        "storageMb": 102400
+      }
     }
   },
   "decentralization": {
@@ -110,7 +116,7 @@
     },
     "robustness": {
       "frontendStorage": "ipfs",
-      "dataStorage": "sqlit",
+      "dataStorage": "postgres",
       "nodeDiscovery": "on-chain",
       "coordination": "p2p",
       "multiOrigin": true,
@@ -141,6 +147,6 @@
       "timeout": 300000,
       "requiresChain": true
     },
-    "services": ["sqlit", "chain"]
+    "services": ["postgres", "chain"]
   }
 }

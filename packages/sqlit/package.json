@@ -1,6 +1,17 @@
 {
   "name": "@jejunetwork/sqlit",
-  "version": "2.0.0",
+  "version": "0.1.0",
+  "dependencies": {
+    "@elysiajs/cors": "^1.0.0",
+    "@jejunetwork/types": "workspace:*",
+    "elysia": "^1.0.0",
+    "viem": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
   "type": "module",
   "description": "SQLit - Permissionless distributed SQL database for Jeju Network",
   "keywords": [
@@ -58,17 +69,6 @@
     "test": "bun test src/",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
-  },
-  "dependencies": {
-    "@elysiajs/cors": "^1.0.0",
-    "@jejunetwork/types": "workspace:*",
-    "elysia": "^1.0.0",
-    "viem": "^2.0.0"
-  },
-  "devDependencies": {
-    "@types/bun": "latest",
-    "@types/node": "^20.0.0",
-    "typescript": "^5.0.0"
   },
   "engines": {
     "bun": ">=1.0.0"

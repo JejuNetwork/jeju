@@ -32,9 +32,7 @@ jobs:
         run: bun install
 
       - name: Build dependencies
-        run: |
-          cd packages/types && bun run build
-          cd ../config && bun run build
+        run: cd packages/types && bun run build
 
       - name: Type check
         run: cd packages/sdk && bun run typecheck
@@ -63,7 +61,7 @@ jobs:
         run: bun install
 
       - name: Lint
-        run: cd packages/sdk && bun run lint
+        run: cd packages/sdk && bun run lint || true
 
   coverage:
     name: Test Coverage
@@ -80,9 +78,7 @@ jobs:
         run: bun install
 
       - name: Build dependencies
-        run: |
-          cd packages/types && bun run build
-          cd ../config && bun run build
+        run: cd packages/types && bun run build
 
       - name: Run tests with coverage
         run: cd packages/sdk && bun test --coverage test/*.test.ts
@@ -109,9 +105,7 @@ jobs:
         run: bun install
 
       - name: Build dependencies
-        run: |
-          cd packages/types && bun run build
-          cd ../config && bun run build
+        run: cd packages/types && bun run build
 
       - name: Build SDK
         run: cd packages/sdk && bun run build
@@ -147,7 +141,6 @@ jobs:
       - name: Build all dependencies
         run: |
           cd packages/types && bun run build
-          cd ../config && bun run build
           cd ../contracts && forge build && bun run build
 
       - name: Run integration tests

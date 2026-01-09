@@ -1,80 +1,27 @@
 /**
- * Empty stub for server-side modules in browser builds
- * Provides stub implementations for all server-only exports
+ * Empty stub for server-only modules in browser builds.
+ * Provides minimal exports to prevent import errors.
+ *
+ * Used by the build process to replace server-only packages:
+ * - @jejunetwork/kms
+ * - @jejunetwork/db
+ * - @jejunetwork/deployment
+ * - @jejunetwork/messaging
+ * - @jejunetwork/contracts
+ * - elysia / @elysiajs/*
+ * - ioredis
  */
 
-// Default export
+// Export empty object for any default import
 export default {}
 
-// Elysia
-export const Elysia = class {
-  use() {
-    return this
-  }
-  get() {
-    return this
-  }
-  post() {
-    return this
-  }
-  put() {
-    return this
-  }
-  delete() {
-    return this
-  }
-  patch() {
-    return this
-  }
-  group() {
-    return this
-  }
-  onBeforeHandle() {
-    return this
-  }
-  onAfterHandle() {
-    return this
-  }
-  onError() {
-    return this
-  }
-  listen() {
-    return this
-  }
+// Export a no-op function for any named function import
+export function noop(): void {}
+
+// Common database stub
+export function getSQLit(): null {
+  return null
 }
-export const cors = () => ({})
 
-// Cache
-export const getCacheClient = () => ({
-  get: async () => null,
-  set: async () => {},
-  delete: async () => {},
-})
-
-// Database
-export const SQLitClient = class {}
-export const getSQLit = () => null
-export type { SQLitClient }
-
-// KMS
-export const createKMSSigner = () => ({
-  initialize: async () => {},
-  isInitialized: () => false,
-  getAddress: () => '0x0000000000000000000000000000000000000000',
-  getKeyId: () => 'stub',
-  sign: async () => '0x',
-})
-
-// Logger
-export const createLogger = () => ({
-  info: () => {},
-  debug: () => {},
-  warn: () => {},
-  error: () => {},
-  trace: () => {},
-})
-
-// Null implementations for other server-side modules
-export const constantTimeCompare = () => false
-export const extractAuthHeaders = () => ({})
-export const validateWalletSignatureFromHeaders = async () => ({ valid: false })
+// Common type stubs
+export type SQLitClient = never

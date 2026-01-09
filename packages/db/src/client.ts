@@ -22,8 +22,8 @@ import {
   isSQLitDebug,
 } from '@jejunetwork/config'
 import {
-  SQLitClient as SQLitCoreClient,
   type SQLitClientConfig,
+  SQLitClient as SQLitCoreClient,
 } from '@jejunetwork/sqlit/client'
 import pino from 'pino'
 import type { Hex } from 'viem'
@@ -36,6 +36,9 @@ import type {
   QueryParam,
   QueryResult,
   RevokeRequest,
+  SQLitConnection,
+  SQLitConnectionPool,
+  SQLitTransaction,
   VectorBatchInsertRequest,
   VectorIndexConfig,
   VectorInsertRequest,
@@ -61,6 +64,13 @@ export class SQLitClient {
   constructor(config: SQLitClientConfig) {
     this.config = config
     this.client = new SQLitCoreClient(config)
+  }
+
+  /**
+   * Get the current endpoint URL
+   */
+  getEndpoint(): string {
+    return this.client.getEndpoint()
   }
 
   /**
@@ -140,6 +150,95 @@ export class SQLitClient {
   async deleteDatabase(_id: string): Promise<void> {
     // Note: deleteDatabase uses the client's configured databaseId
     await this.client.deleteDatabase()
+  }
+
+  /**
+   * Get database info by ID
+   * Uses the SQLit v2 databases info endpoint
+   */
+  async getDatabase(databaseId: string): Promise<DatabaseInfo | null> {
+    const endpoint = this.client.getEndpoint()
+    const response = await fetch(`${endpoint}/v2/databases/${databaseId}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return null
+      }
+      throw new Error(`Failed to get database info: ${response.statusText}`)
+    }
+
+    const result = (await response.json()) as {
+      success: boolean
+      databaseId: string
+      owner?: string
+      createdAt?: number
+      nodeCount?: number
+      status?: string
+      blockHeight?: number
+      sizeBytes?: number
+    }
+
+    if (!result.success) {
+      return null
+    }
+
+    return {
+      id: result.databaseId,
+      createdAt: result.createdAt ?? Date.now(),
+      owner: (result.owner ?? `0x${'0'.repeat(40)}`) as `0x${string}`,
+      nodeCount: result.nodeCount ?? 2,
+      consistencyMode: 'strong',
+      status: (result.status ?? 'running') as 'running' | 'stopped' | 'error',
+      blockHeight: result.blockHeight ?? 0,
+      sizeBytes: result.sizeBytes ?? 0,
+      monthlyCost: BigInt(0),
+    }
+  }
+
+  /**
+   * List available rental plans
+   */
+  async listPlans(): Promise<
+    Array<{
+      id: string
+      name: string
+      storageGB: number
+      pricePerMonth: bigint
+    }>
+  > {
+    const endpoint = this.client.getEndpoint()
+    const response = await fetch(`${endpoint}/v2/plans`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    if (!response.ok) {
+      return []
+    }
+
+    const result = (await response.json()) as {
+      success: boolean
+      plans?: Array<{
+        id: string
+        name: string
+        storageGB: number
+        pricePerMonth: string
+      }>
+    }
+
+    if (!result.success || !result.plans) {
+      return []
+    }
+
+    return result.plans.map((p) => ({
+      id: p.id,
+      name: p.name,
+      storageGB: p.storageGB,
+      pricePerMonth: BigInt(p.pricePerMonth),
+    }))
   }
 
   /**
@@ -300,8 +399,13 @@ export class SQLitClient {
    * Connect to the database (returns a connection-like wrapper)
    */
   async connect(_dbId?: string): Promise<SQLitConnection> {
+    const dbId = _dbId ?? this.config.databaseId ?? 'default'
+    const connId = `conn-${Date.now()}-${Math.random().toString(36).slice(2)}`
     // Return a connection wrapper that delegates to the client
     return {
+      id: connId,
+      databaseId: dbId,
+      active: true,
       query: <T = Record<string, string | number | boolean | null>>(
         sql: string,
         params?: QueryParam[],
@@ -316,17 +420,22 @@ export class SQLitClient {
   /**
    * Get connection pool (returns a minimal pool interface)
    */
-  getPool(_dbId?: string): SQLitPool {
+  getPool(_dbId?: string): SQLitConnectionPool {
     return {
       release: () => {},
       acquire: async () => this.connect(_dbId),
+      close: async () => {},
+      stats: () => ({ active: 0, idle: 1, total: 1 }),
     }
   }
 
   /**
    * Get circuit breaker state (not applicable for HTTP client)
    */
-  getCircuitState(): { state: 'open' | 'closed' | 'half-open'; failures: number } {
+  getCircuitState(): {
+    state: 'open' | 'closed' | 'half-open'
+    failures: number
+  } {
     return { state: 'closed', failures: 0 }
   }
 
@@ -334,9 +443,11 @@ export class SQLitClient {
    * Begin a transaction
    */
   private async beginTransaction(_dbId?: string): Promise<SQLitTransaction> {
+    const txId = `tx-${Date.now()}-${Math.random().toString(36).slice(2)}`
     // Begin transaction on the v2 client
     await this.client.execute('BEGIN TRANSACTION')
     return {
+      id: txId,
       query: <T = Record<string, string | number | boolean | null>>(
         sql: string,
         params?: QueryParam[],
@@ -360,33 +471,7 @@ export class SQLitClient {
   }
 }
 
-/** Connection interface for compatibility */
-interface SQLitConnection {
-  query<T = Record<string, string | number | boolean | null>>(
-    sql: string,
-    params?: QueryParam[],
-  ): Promise<QueryResult<T>>
-  exec(sql: string, params?: QueryParam[]): Promise<ExecResult>
-  beginTransaction(): Promise<SQLitTransaction>
-  close(): Promise<void>
-}
-
-/** Pool interface for compatibility */
-interface SQLitPool {
-  release(conn: SQLitConnection): void
-  acquire(): Promise<SQLitConnection>
-}
-
-/** Transaction interface for compatibility */
-interface SQLitTransaction {
-  query<T = Record<string, string | number | boolean | null>>(
-    sql: string,
-    params?: QueryParam[],
-  ): Promise<QueryResult<T>>
-  exec(sql: string, params?: QueryParam[]): Promise<ExecResult>
-  commit(): Promise<void>
-  rollback(): Promise<void>
-}
+// Use types from ./types.ts for SQLitConnection, SQLitConnectionPool, SQLitTransaction
 
 // Singleton instance
 let sqlitClient: SQLitClient | null = null
@@ -396,7 +481,8 @@ let sqlitClient: SQLitClient | null = null
  */
 export function getSQLit(config?: Partial<SQLitClientConfig>): SQLitClient {
   if (!sqlitClient) {
-    const endpoint = config?.endpoint ?? getSQLitUrl() ?? 'http://localhost:8546'
+    const endpoint =
+      config?.endpoint ?? getSQLitUrl() ?? 'http://localhost:8546'
     const databaseId = config?.databaseId ?? getSQLitDatabaseId() ?? 'default'
     const timeout =
       config?.timeoutMs ?? parseTimeout(getSQLitTimeout(), DEFAULT_TIMEOUT)

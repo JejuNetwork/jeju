@@ -117,9 +117,27 @@ async function buildWorker(): Promise<string> {
   return outputPath
 }
 
+// SQLit database configuration (decentralized distributed SQLite)
+interface SQLitConfig {
+  databaseId: string
+}
+
+function getSQLitConfig(network: NetworkType): SQLitConfig {
+  // Database IDs are network-specific
+  const databaseIds: Record<NetworkType, string> = {
+    localnet: 'indexer-localnet',
+    testnet: 'indexer-testnet',
+    mainnet: 'indexer-mainnet',
+  }
+  return {
+    databaseId: databaseIds[network],
+  }
+}
+
 async function deployWorker(
   config: DeployConfig,
   workerPath: string,
+  sqlitConfig: SQLitConfig,
 ): Promise<{ functionId: string; codeCid: string }> {
   console.log('[Indexer] Deploying worker to DWS...')
 
@@ -145,52 +163,27 @@ async function deployWorker(
     await uploadResponse.json(),
   )
   console.log(`   Worker code uploaded: ${uploadResult.cid}`)
+  console.log(`   SQLit Database: ${sqlitConfig.databaseId}`)
 
-  // SQLit endpoint based on network - use DWS proxy for HTTP access
-  const sqlitEndpoint =
-    config.network === 'localnet'
-      ? 'http://127.0.0.1:8546'
-      : config.network === 'testnet'
-        ? 'https://dws.testnet.jejunetwork.org/sqlit'
-        : 'https://dws.jejunetwork.org/sqlit'
-
-  // Indexer database IDs per network (created via /sqlit/v1/admin/create)
-  const databaseIds: Record<string, string> = {
-    localnet: 'indexer-local',
-    testnet: '13b03bc72029819feeca85f8cc82bbc9844ebdb04936ee490a9df85a38584c24',
-    mainnet: 'indexer-mainnet', // To be created on mainnet deployment
-  }
-  const databaseId = databaseIds[config.network] ?? 'indexer'
-
-  console.log(`   SQLit endpoint: ${sqlitEndpoint}`)
-  console.log(`   Database ID: ${databaseId}`)
-
-  // Deploy worker with SQLit credentials
+  // Deploy worker with SQLit connection (decentralized distributed SQLite)
   const deployResponse = await fetch(`${config.dwsUrl}/workers`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'x-jeju-address': account.address,
     },
-    // SECURITY: No secrets embedded in env - use KMS_SECRET_IDS for secrets
-    // Workers fetch secrets from KMS at runtime
     body: JSON.stringify({
       name: 'indexer-api',
       codeCid: uploadResult.cid,
       runtime: 'bun',
       handler: 'worker.js:default',
-      memory: 512,
-      timeout: 30000,
+      memory: 1024,
+      timeout: 60000,
       env: {
-        // Non-sensitive config only
         JEJU_NETWORK: config.network,
         NETWORK: config.network,
-        SQLIT_BLOCK_PRODUCER_ENDPOINT: sqlitEndpoint,
-        SQLIT_MINER_ENDPOINT: sqlitEndpoint,
-        SQLIT_DATABASE_ID: databaseId,
-        // KMS secret references - worker fetches actual values at runtime
-        // SECURITY: SQLIT_PRIVATE_KEY must be stored in KMS with ID: kms:indexer-api:SQLIT_PRIVATE_KEY
-        KMS_SECRET_IDS: 'kms:indexer-api:SQLIT_PRIVATE_KEY',
+        INDEXER_MODE: 'sqlit',
+        SQLIT_DATABASE_ID: sqlitConfig.databaseId,
         OWNER_ADDRESS: account.address,
       },
     }),
@@ -217,9 +210,6 @@ interface UploadResult {
   rootCid: string
 }
 
-/**
- * Verify content is retrievable from storage
- */
 async function verifyContentRetrievable(
   dwsUrl: string,
   cid: string,
@@ -227,9 +217,8 @@ async function verifyContentRetrievable(
   const response = await fetch(`${dwsUrl}/storage/download/${cid}`, {
     method: 'HEAD',
     signal: AbortSignal.timeout(10000),
-  }).catch(() => null)
-
-  return response?.ok === true
+  })
+  return response.ok
 }
 
 async function uploadFile(
@@ -341,8 +330,11 @@ async function registerApp(
     staticFilesRecord[path] = cid
   }
 
-  // Use UUID-based worker endpoint to preserve env vars (CID-based doesn't preserve env)
-  const backendEndpoint = `${config.dwsUrl}/workers/${workerInfo.functionId}/http`
+  // Use CID-based worker ID for decentralized routing
+  // CID-based routing allows any DWS pod to deploy the worker on-demand from IPFS
+  // The worker code is immutable and can be verified by the CID
+  const backendWorkerId = workerInfo.codeCid
+  const backendEndpoint = `${config.dwsUrl}/workers/${workerInfo.codeCid}/http`
 
   // App registration data for DWS app router
   const appConfig = {
@@ -350,8 +342,8 @@ async function registerApp(
     jnsName: 'indexer.jeju',
     frontendCid: indexCid, // CID for index.html (used as fallback)
     staticFiles: staticFilesRecord, // Map of all file paths to CIDs
-    backendWorkerId: workerInfo.functionId, // Use UUID to preserve env vars
-    backendEndpoint, // UUID-based endpoint
+    backendWorkerId, // Use CID for decentralized routing
+    backendEndpoint, // CID-based endpoint
     apiPaths: ['/api', '/health', '/a2a', '/mcp', '/graphql'], // Note: no trailing slashes - isApiPath checks pathname.startsWith(prefix + '/')
     spa: true, // Single-page application
     enabled: true,
@@ -389,46 +381,63 @@ async function registerApp(
  * eliminating "Function not found" errors due to load balancer routing to a pod
  * that doesn't have the worker loaded yet.
  */
+interface SyncResult {
+  success: boolean
+  podId?: string
+  error?: string
+}
+
+async function syncEndpoint(url: string): Promise<SyncResult> {
+  const response = await fetch(url, {
+    method: 'POST',
+    signal: AbortSignal.timeout(10000),
+  })
+  if (!response.ok) {
+    return {
+      success: false,
+      error: `${response.status} ${response.statusText}`,
+    }
+  }
+  return (await response.json()) as SyncResult
+}
+
 async function syncWorkersAcrossPods(config: DeployConfig): Promise<void> {
-  // Call sync endpoints multiple times to hit different pods through load balancer
-  const syncPromises: Promise<{ success: boolean; podId?: string }>[] = []
-  const syncCount = 5 // Hit enough times to reach multiple pods
+  const syncCount = 5
+  const syncPromises: Promise<SyncResult>[] = []
+  const errors: string[] = []
 
   for (let i = 0; i < syncCount; i++) {
-    // Sync workers
-    syncPromises.push(
-      fetch(`${config.dwsUrl}/workers/sync`, {
-        method: 'POST',
-        signal: AbortSignal.timeout(10000),
-      })
-        .then((r) => r.json())
-        .catch(() => ({ success: false })) as Promise<{
-        success: boolean
-        podId?: string
-      }>,
-    )
-
-    // Sync apps
-    syncPromises.push(
-      fetch(`${config.dwsUrl}/apps/sync`, {
-        method: 'POST',
-        signal: AbortSignal.timeout(10000),
-      })
-        .then((r) => r.json())
-        .catch(() => ({ success: false })) as Promise<{
-        success: boolean
-        podId?: string
-      }>,
-    )
+    syncPromises.push(syncEndpoint(`${config.dwsUrl}/workers/sync`))
+    syncPromises.push(syncEndpoint(`${config.dwsUrl}/apps/sync`))
   }
 
-  const results = await Promise.all(syncPromises)
-  const uniquePods = new Set(results.filter((r) => r.podId).map((r) => r.podId))
-  const successCount = results.filter((r) => r.success).length
+  const results = await Promise.allSettled(syncPromises)
+  let successCount = 0
+  const uniquePods = new Set<string>()
+
+  for (const result of results) {
+    if (result.status === 'fulfilled' && result.value.success) {
+      successCount++
+      if (result.value.podId) uniquePods.add(result.value.podId)
+    } else if (result.status === 'rejected') {
+      errors.push(
+        result.reason instanceof Error
+          ? result.reason.message
+          : String(result.reason),
+      )
+    } else if (result.status === 'fulfilled' && result.value.error) {
+      errors.push(result.value.error)
+    }
+  }
 
   console.log(
     `   Synced ${successCount}/${results.length} endpoints, reached ${uniquePods.size} unique pods`,
   )
+  if (errors.length > 0) {
+    console.warn(
+      `   Sync errors: ${errors.slice(0, 3).join(', ')}${errors.length > 3 ? ` (+${errors.length - 3} more)` : ''}`,
+    )
+  }
 }
 
 async function deploy(): Promise<void> {
@@ -445,13 +454,18 @@ async function deploy(): Promise<void> {
   // Ensure frontend build exists
   await ensureFrontendBuild()
 
+  // Get SQLit configuration (decentralized distributed SQLite)
+  console.log('\nConfiguring SQLit database...')
+  const sqlitConfig = getSQLitConfig(config.network)
+  console.log(`   Database ID: ${sqlitConfig.databaseId}`)
+
   // Build worker
   console.log('\nBuilding worker...')
   const workerPath = await buildWorker()
 
-  // Deploy worker to DWS
+  // Deploy worker to DWS with SQLit connection
   console.log('\nDeploying worker...')
-  const workerInfo = await deployWorker(config, workerPath)
+  const workerInfo = await deployWorker(config, workerPath, sqlitConfig)
 
   // Upload static assets from dist directory (excluding worker dir)
   console.log('\nUploading static assets...')

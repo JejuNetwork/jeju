@@ -8,7 +8,7 @@
   "commands": {
     "dev": "bun run dev",
     "build": "bun run build",
-    "start": "bun run api/server.ts",
+    "start": "bun run api/worker.ts",
     "test": "bun test"
   },
   "ports": {

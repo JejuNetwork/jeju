@@ -107,7 +107,9 @@ class CrucibleMessagingService {
       console.debug('[Crucible] Cache miss, caching profile:', fid)
       cache
         .set(cacheKey, JSON.stringify(profile), PROFILE_CACHE_TTL)
-        .catch((err: Error) => console.warn('[Crucible] Cache write failed:', err))
+        .catch((err: Error) =>
+          console.warn('[Crucible] Cache write failed:', err),
+        )
     }
     return profile
   }

@@ -22,12 +22,12 @@ import type { Address } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import { z } from 'zod'
 import {
-  getContainerProvisioner,
   type ContainerDeployConfig,
-  type ProvisionedContainer,
+  getContainerProvisioner,
   type HardwareSpec,
+  type ProvisionedContainer,
 } from '../containers/provisioner'
-import { registerTypedService, deregisterService } from './discovery'
+import { deregisterService, registerTypedService } from './discovery'
 
 // ============================================================================
 // Types
@@ -226,9 +226,7 @@ export async function deployX402Facilitator(
       timeoutSeconds: 10,
       failureThreshold: 3,
     },
-    ports: [
-      { containerPort: X402_PORT, protocol: 'tcp', expose: true },
-    ],
+    ports: [{ containerPort: X402_PORT, protocol: 'tcp', expose: true }],
     terminationGracePeriodSeconds: 30,
     restartPolicy: 'always',
     labels: {
@@ -277,7 +275,9 @@ export async function deployX402Facilitator(
 
   workerServices.set(serviceId, workerService)
 
-  console.log(`[WorkerService] Deployed x402-facilitator ${validatedConfig.name}`)
+  console.log(
+    `[WorkerService] Deployed x402-facilitator ${validatedConfig.name}`,
+  )
 
   return workerService
 }
@@ -465,9 +465,7 @@ export async function deploySQLitAdapter(
       timeoutSeconds: 5,
       failureThreshold: 3,
     },
-    ports: [
-      { containerPort: SQLIT_PORT, protocol: 'tcp', expose: true },
-    ],
+    ports: [{ containerPort: SQLIT_PORT, protocol: 'tcp', expose: true }],
     terminationGracePeriodSeconds: 30,
     restartPolicy: 'always',
     labels: {

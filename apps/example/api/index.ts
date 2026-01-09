@@ -513,10 +513,6 @@ const startupBanner = `
  * Workerd-compatible export
  * When deployed to DWS workers, this is the entry point
  */
-export default {
-  fetch: app.fetch,
-}
-
 /**
  * Standalone server mode
  * Only starts when running directly with Bun (not when imported as a worker module)
@@ -527,5 +523,12 @@ if (isMainModule) {
   console.log(startupBanner)
   app.listen(PORT)
 }
+
+/**
+ * Workerd-compatible export
+ * When deployed to DWS workers, this is the entry point
+ * Only export when NOT running as main module to avoid Bun auto-serving
+ */
+export default isMainModule ? {} : { fetch: app.fetch }
 
 export type App = typeof app

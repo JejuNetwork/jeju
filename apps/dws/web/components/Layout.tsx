@@ -18,7 +18,6 @@ import {
   Gauge,
   GitBranch,
   Globe,
-  HardDrive,
   Key,
   Keyboard,
   Layers,

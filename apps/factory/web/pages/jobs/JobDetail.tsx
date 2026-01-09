@@ -36,7 +36,9 @@ export function JobDetailPage() {
       toast.error('Please connect your wallet to apply')
       return
     }
-    toast.success('Application submitted. The employer will review your profile.')
+    toast.success(
+      'Application submitted. The employer will review your profile.',
+    )
   }
 
   const handleShare = async () => {

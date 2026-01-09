@@ -178,7 +178,7 @@ export function createCDNRouter() {
         async ({ body }) => {
           // Register app assets with CDN cache
           const registry = getAppRegistry()
-          
+
           // Register or update app in registry
           const existingApp = registry.getApp(body.name)
           if (existingApp) {
@@ -193,7 +193,9 @@ export function createCDNRouter() {
             let cached = 0
             for (const asset of body.assets) {
               if (asset.cid && asset.path) {
-                const cacheKey = cache.generateKey({ path: `/apps/${body.name}${asset.path}` })
+                const cacheKey = cache.generateKey({
+                  path: `/apps/${body.name}${asset.path}`,
+                })
                 // Store reference in cache metadata (actual content fetched on demand)
                 cache.set(cacheKey, Buffer.from(''), {
                   contentType: asset.contentType || 'application/octet-stream',
@@ -203,7 +205,9 @@ export function createCDNRouter() {
                 cached++
               }
             }
-            console.log(`[CDN] Cached ${cached} asset references for ${body.name}`)
+            console.log(
+              `[CDN] Cached ${cached} asset references for ${body.name}`,
+            )
           }
 
           return {
@@ -217,23 +221,33 @@ export function createCDNRouter() {
           body: t.Object({
             name: t.String(),
             domain: t.Optional(t.String()),
-            spa: t.Optional(t.Object({
-              enabled: t.Boolean(),
-              fallback: t.Optional(t.String()),
-              routes: t.Optional(t.Array(t.String())),
-            })),
-            assets: t.Optional(t.Array(t.Object({
-              path: t.String(),
-              cid: t.String(),
-              contentType: t.Optional(t.String()),
-              immutable: t.Optional(t.Boolean()),
-            }))),
-            cacheRules: t.Optional(t.Array(t.Object({
-              pattern: t.String(),
-              ttl: t.Number(),
-              immutable: t.Optional(t.Boolean()),
-              staleWhileRevalidate: t.Optional(t.Number()),
-            }))),
+            spa: t.Optional(
+              t.Object({
+                enabled: t.Boolean(),
+                fallback: t.Optional(t.String()),
+                routes: t.Optional(t.Array(t.String())),
+              }),
+            ),
+            assets: t.Optional(
+              t.Array(
+                t.Object({
+                  path: t.String(),
+                  cid: t.String(),
+                  contentType: t.Optional(t.String()),
+                  immutable: t.Optional(t.Boolean()),
+                }),
+              ),
+            ),
+            cacheRules: t.Optional(
+              t.Array(
+                t.Object({
+                  pattern: t.String(),
+                  ttl: t.Number(),
+                  immutable: t.Optional(t.Boolean()),
+                  staleWhileRevalidate: t.Optional(t.Number()),
+                }),
+              ),
+            ),
           }),
         },
       )

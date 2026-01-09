@@ -73,110 +73,110 @@ export default function App() {
               <ToastProvider>
                 <BanCheckWrapper>
                   <BrowserRouter>
-                  <OnboardingWizard />
-                  <Routes>
-                    <Route
-                      path="/"
-                      element={
-                        <Layout>
-                          <Navigate to="/registry" replace />
-                        </Layout>
-                      }
-                    />
-                    <Route
-                      path="/registry"
-                      element={
-                        <Layout>
-                          <RegistryTab />
-                        </Layout>
-                      }
-                    />
-                    <Route
-                      path="/faucet"
-                      element={
-                        <Layout>
-                          <FaucetTab />
-                        </Layout>
-                      }
-                    />
-                    <Route
-                      path="/transfer"
-                      element={
-                        <Layout>
-                          <TransferPage />
-                        </Layout>
-                      }
-                    />
-                    <Route
-                      path="/intents"
-                      element={
-                        <Layout>
-                          <IntentsTab />
-                        </Layout>
-                      }
-                    />
-                    <Route
-                      path="/liquidity"
-                      element={
-                        <Layout>
-                          <XLPDashboard />
-                        </Layout>
-                      }
-                    />
-                    <Route
-                      path="/nodes"
-                      element={
-                        <Layout>
-                          <NodeStakingTab />
-                        </Layout>
-                      }
-                    />
-                    <Route
-                      path="/oracle"
-                      element={
-                        <Layout>
-                          <OracleTab />
-                        </Layout>
-                      }
-                    />
-                    <Route
-                      path="/risk"
-                      element={
-                        <Layout>
-                          <RiskAllocationDashboard />
-                        </Layout>
-                      }
-                    />
-                    <Route
-                      path="/tokens"
-                      element={
-                        <Layout>
-                          <TokensPage />
-                        </Layout>
-                      }
-                    />
-                    <Route
-                      path="/deploy"
-                      element={
-                        <Layout>
-                          <DeployPaymaster />
-                        </Layout>
-                      }
-                    />
-                    <Route
-                      path="/settings"
-                      element={
-                        <Layout>
-                          <SettingsPage />
-                        </Layout>
-                      }
-                    />
-                    {/* Catch-all redirect */}
-                    <Route
-                      path="*"
-                      element={<Navigate to="/registry" replace />}
-                    />
-                  </Routes>
+                    <OnboardingWizard />
+                    <Routes>
+                      <Route
+                        path="/"
+                        element={
+                          <Layout>
+                            <Navigate to="/registry" replace />
+                          </Layout>
+                        }
+                      />
+                      <Route
+                        path="/registry"
+                        element={
+                          <Layout>
+                            <RegistryTab />
+                          </Layout>
+                        }
+                      />
+                      <Route
+                        path="/faucet"
+                        element={
+                          <Layout>
+                            <FaucetTab />
+                          </Layout>
+                        }
+                      />
+                      <Route
+                        path="/transfer"
+                        element={
+                          <Layout>
+                            <TransferPage />
+                          </Layout>
+                        }
+                      />
+                      <Route
+                        path="/intents"
+                        element={
+                          <Layout>
+                            <IntentsTab />
+                          </Layout>
+                        }
+                      />
+                      <Route
+                        path="/liquidity"
+                        element={
+                          <Layout>
+                            <XLPDashboard />
+                          </Layout>
+                        }
+                      />
+                      <Route
+                        path="/nodes"
+                        element={
+                          <Layout>
+                            <NodeStakingTab />
+                          </Layout>
+                        }
+                      />
+                      <Route
+                        path="/oracle"
+                        element={
+                          <Layout>
+                            <OracleTab />
+                          </Layout>
+                        }
+                      />
+                      <Route
+                        path="/risk"
+                        element={
+                          <Layout>
+                            <RiskAllocationDashboard />
+                          </Layout>
+                        }
+                      />
+                      <Route
+                        path="/tokens"
+                        element={
+                          <Layout>
+                            <TokensPage />
+                          </Layout>
+                        }
+                      />
+                      <Route
+                        path="/deploy"
+                        element={
+                          <Layout>
+                            <DeployPaymaster />
+                          </Layout>
+                        }
+                      />
+                      <Route
+                        path="/settings"
+                        element={
+                          <Layout>
+                            <SettingsPage />
+                          </Layout>
+                        }
+                      />
+                      {/* Catch-all redirect */}
+                      <Route
+                        path="*"
+                        element={<Navigate to="/registry" replace />}
+                      />
+                    </Routes>
                   </BrowserRouter>
                 </BanCheckWrapper>
               </ToastProvider>

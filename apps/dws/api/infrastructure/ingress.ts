@@ -402,7 +402,7 @@ export class IngressController {
       if (!this.sqlitClient) {
         this.sqlitClient = getSQLit({
           databaseId: IngressController.RATE_LIMIT_DB,
-          timeout: 5000,
+          timeoutMs: 5000,
           debug: false,
         })
       }

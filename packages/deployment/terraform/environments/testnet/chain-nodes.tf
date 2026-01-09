@@ -90,7 +90,7 @@ locals {
 
 # Deploy each chain node
 module "chain_nodes" {
-  source   = "../../modules/evm-chain"
+  source   = "../../modules/aws/evm-chain"
   for_each = var.enable_chain_nodes ? local.testnet_chains : {}
   
   environment        = local.environment

@@ -369,8 +369,8 @@ export function getJejuStorageClient(): JejuStorageClient {
     const endpoint =
       getJejuStorageEndpoint() ??
       (isProduction()
-        ? 'https://storage.jeju.io'
-        : 'https://storage.testnet.jeju.io')
+        ? 'https://dws.jejunetwork.org'
+        : 'https://dws.testnet.jejunetwork.org')
 
     storageClient = new JejuStorageClient({
       endpoint,

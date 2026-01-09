@@ -32,7 +32,7 @@ import {
   isProductionEnv,
   tryGetContract,
 } from '@jejunetwork/config'
-import { type Context, Elysia } from 'elysia'
+import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
 import {
   getLocalCDNServer,
@@ -94,7 +94,6 @@ import { createObservabilityRoutes } from '../observability/routes'
 import { PkgRegistryManager } from '../pkg/registry-manager'
 import { createSecurityRoutes } from '../security/routes'
 import { createServicesRouter, discoverExistingServices } from '../services'
-import { createDWSServicesRouter } from './routes/dws-services'
 import { initializeDWSState } from '../state'
 import { createBackendManager } from '../storage/backends'
 import type { ServiceHealth } from '../types'
@@ -112,7 +111,9 @@ import { createCDNRouter } from './routes/cdn'
 import { createCIRouter } from './routes/ci'
 import { createComputeRouter } from './routes/compute'
 import { createContainerRouter } from './routes/containers'
+import { createCronRouter } from './routes/cron'
 import { createDARouter, shutdownDA } from './routes/da'
+import { createDWSServicesRouter } from './routes/dws-services'
 import { createEdgeRouter, handleEdgeWebSocket } from './routes/edge'
 import { createExecRouter } from './routes/exec'
 import { createFaucetRouter } from './routes/faucet'
@@ -126,7 +127,9 @@ import {
 } from './routes/load-balancer'
 import { createMCPRouter } from './routes/mcp'
 import { createModerationRouter } from './routes/moderation'
+import { createNitroDatabaseRouter } from './routes/nitro-database'
 import { createOAuth3Router } from './routes/oauth3'
+import { createOCIRegistryRouter } from './routes/oci-registry'
 import { createPkgRouter } from './routes/pkg'
 import { createPkgRegistryProxyRouter } from './routes/pkg-registry-proxy'
 import {
@@ -136,6 +139,7 @@ import {
   SubscriptionMessageSchema,
 } from './routes/prices'
 import { createPyPkgRouter } from './routes/pypkg'
+import { releasesRoutes } from './routes/releases'
 import { createRPCRouter } from './routes/rpc'
 import { createS3Router } from './routes/s3'
 import { createScrapingRouter } from './routes/scraping'
@@ -144,7 +148,6 @@ import { createStakingRouter } from './routes/staking'
 import { createStorageRouter } from './routes/storage'
 import { createVPNRouter } from './routes/vpn'
 import { createDefaultWorkerdRouter } from './routes/workerd'
-import { releasesRoutes } from './routes/releases'
 import { createWorkersRouter } from './routes/workers'
 
 // Config injection for workerd compatibility
@@ -260,7 +263,7 @@ function rateLimiter() {
     async ({
       request,
       set,
-    }: Context): Promise<
+    }): Promise<
       { error: string; message: string; retryAfter: number } | undefined
     > => {
       const url = new URL(request.url)
@@ -369,22 +372,11 @@ const app = new Elysia()
         'X-Request-ID',
         'X-Babylon-Api-Key',
         'X-Jeju-Address',
-        'X-Jeju-Nonce',
-        'X-Jeju-Signature',
-        'X-Jeju-Timestamp',
+        'x-jeju-address',
         'X-IPFS-Gateway',
         'X-JNS-Name',
-        'X-Address',
-        'X-Signature',
-        'X-Timestamp',
       ],
-      exposeHeaders: [
-        'X-Request-ID',
-        'X-Rate-Limit-Remaining',
-        'X-DWS-Node',
-        'X-DWS-Backend',
-        'X-DWS-Cache',
-      ],
+      exposeHeaders: ['X-Request-ID', 'X-Rate-Limit-Remaining', 'X-DWS-Node'],
       maxAge: 86400,
     }),
   )
@@ -725,7 +717,7 @@ app
   })
 
   // Serve frontend at root
-  .get('/', async ({ set }: Context) => {
+  .get('/', async ({ set }) => {
     const decentralizedResponse =
       await decentralized.frontend.serveAsset('index.html')
     if (decentralizedResponse) return decentralizedResponse
@@ -841,6 +833,7 @@ app.use(
 app.use(createOAuth3Router())
 app.use(createAPIMarketplaceRouter())
 app.use(createContainerRouter())
+app.use(createOCIRegistryRouter()) // Docker Registry v2 API for container pulls
 app.use(createA2ARouter())
 app.use(createMCPRouter())
 
@@ -850,6 +843,7 @@ app.use(createExecRouter())
 // New DWS services
 app.use(createS3Router(backendManager))
 app.use(createWorkersRouter(backendManager))
+app.use(createCronRouter()) // Worker cron management
 app.use(createDurableObjectsRouter()) // Durable Objects
 app.use(createDefaultWorkerdRouter(backendManager)) // V8 isolate runtime
 app.use(createKMSRouter())
@@ -863,6 +857,7 @@ app.use(createPricesRouter())
 app.use(createModerationRouter())
 app.use(releasesRoutes)
 app.use(createEmailRouter())
+app.use(createNitroDatabaseRouter())
 
 // Funding and package registry proxy
 app.use(createFundingRouter())
@@ -976,7 +971,7 @@ app.use(createServiceMeshRouter(getServiceMesh()))
 app.use(createKubernetesBridgeRouter())
 
 // Serve static assets (JS, CSS, images) from /web/*
-app.get('/web/*', async ({ request, set }: Context) => {
+app.get('/web/*', async ({ request, set }) => {
   const url = new URL(request.url)
   const assetPath = url.pathname.replace('/web/', '')
 
@@ -1017,7 +1012,7 @@ app.get('/web/*', async ({ request, set }: Context) => {
 })
 
 // Serve frontend - from IPFS when configured, fallback to local
-app.get('/app', async ({ set }: Context) => {
+app.get('/app', async ({ set }) => {
   const decentralizedResponse =
     await decentralized.frontend.serveAsset('index.html')
   if (decentralizedResponse) return decentralizedResponse
@@ -1040,7 +1035,7 @@ app.get('/app', async ({ set }: Context) => {
   }
 })
 
-app.get('/app/ci', async ({ set }: Context) => {
+app.get('/app/ci', async ({ set }) => {
   const decentralizedResponse =
     await decentralized.frontend.serveAsset('ci.html')
   if (decentralizedResponse) return decentralizedResponse
@@ -1060,7 +1055,7 @@ app.get('/app/ci', async ({ set }: Context) => {
   return { error: 'CI frontend not available' }
 })
 
-app.get('/app/da', async ({ set }: Context) => {
+app.get('/app/da', async ({ set }) => {
   const decentralizedResponse =
     await decentralized.frontend.serveAsset('da.html')
   if (decentralizedResponse) return decentralizedResponse
@@ -1080,7 +1075,7 @@ app.get('/app/da', async ({ set }: Context) => {
   return { error: 'DA dashboard not available' }
 })
 
-app.get('/app/*', async ({ request, set }: Context) => {
+app.get('/app/*', async ({ request, set }) => {
   const url = new URL(request.url)
   const path = url.pathname.replace('/app', '')
 
@@ -1103,7 +1098,7 @@ app.get('/app/*', async ({ request, set }: Context) => {
 })
 
 // Internal P2P endpoints
-app.get('/_internal/ratelimit/:clientKey', ({ params }: Context) => {
+app.get('/_internal/ratelimit/:clientKey', ({ params }) => {
   const count = distributedRateLimiter?.getLocalCount(params.clientKey) ?? 0
   return { count }
 })
@@ -1230,7 +1225,7 @@ app.get('/stats', () => {
 // SPA catch-all route for frontend routes like /security/oauth3
 // This must come after all API routes but before 404 fallback
 // Only serves index.html for paths that look like frontend routes (not API endpoints)
-app.get('/*', async ({ path, set }: Context) => {
+app.get('/*', async ({ path, set }) => {
   // Skip API-like paths that should return 404 if not handled
   // Include both with and without trailing slash for exact matches
   const apiPrefixes = [
@@ -1338,6 +1333,15 @@ function shutdown(signal: string) {
   console.log('[DWS] Indexer proxy stopped')
   stopKeepaliveService()
   console.log('[DWS] Keepalive service stopped')
+  // Stop cron executor
+  import('../workers/cron-executor')
+    .then(({ stopCronExecutor }) => {
+      stopCronExecutor()
+      console.log('[DWS] Cron executor stopped')
+    })
+    .catch(() => {
+      // Ignore import errors during shutdown
+    })
   if (p2pCoordinator) {
     p2pCoordinator.stop()
     console.log('[DWS] P2P coordinator stopped')
@@ -1493,12 +1497,7 @@ if (import.meta.main) {
   const appsDir =
     serverConfig.appsDir ??
     (typeof process !== 'undefined' ? process.env.JEJU_APPS_DIR : undefined) ??
-    join(
-      typeof import.meta !== 'undefined' && 'dir' in import.meta
-        ? import.meta.dir
-        : process.cwd(),
-      '../../../../apps',
-    ) // Default to monorepo apps directory
+    join(import.meta.dir, '../../../../apps') // Default to monorepo apps directory
   if (
     (!isProduction || serverConfig.devnet || isLocalnet(NETWORK)) &&
     existsSync(appsDir)
@@ -1521,28 +1520,29 @@ if (import.meta.main) {
       })
   }
 
-  // Adapter to convert Bun's ServerWebSocket to SubscribableWebSocket
-  function toSubscribableWebSocket(ws: {
+  // Adapter types for Bun's ServerWebSocket
+  interface BunServerWebSocket {
     readonly readyState: number
     send(data: string): number
-  }): SubscribableWebSocket {
+    close(): void
+  }
+
+  // Adapter to convert Bun's ServerWebSocket to SubscribableWebSocket
+  function toSubscribableWebSocket(
+    ws: BunServerWebSocket,
+  ): SubscribableWebSocket {
     return {
       get readyState() {
         return ws.readyState
       },
       send(data: string) {
         ws.send(data)
-        return
       },
     }
   }
 
   // Adapter to convert Bun's ServerWebSocket to EdgeWebSocket (includes close)
-  function toEdgeWebSocket(ws: {
-    readonly readyState: number
-    send(data: string): number
-    close(): void
-  }) {
+  function toEdgeWebSocket(ws: BunServerWebSocket) {
     return {
       get readyState() {
         return ws.readyState
@@ -1589,7 +1589,7 @@ if (import.meta.main) {
     | EdgeWebSocketData
     | DurableObjectWebSocketData
 
-  server = Bun.serve<WebSocketData>({
+  server = Bun.serve({
     port: PORT,
     maxRequestBodySize: 500 * 1024 * 1024, // 500MB for large artifact uploads
     idleTimeout: 120, // 120 seconds - health checks can take time when external services are slow
@@ -1644,7 +1644,6 @@ if (import.meta.main) {
 
       // App routing - check if request is for a deployed app
       const hostname = req.headers.get('host') ?? url.hostname
-      console.log(`[Bun.serve] Request: ${hostname}${url.pathname}`)
 
       // Check if this is a deployed app (not dws itself)
       // Skip internal IPs and localhost for health checks
@@ -1659,7 +1658,6 @@ if (import.meta.main) {
         const appName = hostname.split('.')[0]
         const deployedApp = getDeployedApp(appName)
         if (deployedApp?.enabled) {
-          console.log(`[Bun.serve] Routing to deployed app: ${appName}`)
           // Route to backend for API paths - use DEFAULT_API_PATHS if not configured
           const apiPaths = deployedApp.apiPaths ?? DEFAULT_API_PATHS
           const isApiRequest = apiPaths.some((pattern) => {
@@ -1683,13 +1681,9 @@ if (import.meta.main) {
             isApiRequest &&
             (deployedApp.backendEndpoint || deployedApp.backendWorkerId)
           ) {
-            console.log(`[Bun.serve] Proxying API to backend: ${url.pathname}`)
             return proxyToBackend(req, deployedApp, url.pathname)
           }
           // Serve frontend from IPFS/storage if configured
-          console.log(
-            `[Bun.serve] App ${appName}: frontendCid=${deployedApp.frontendCid}, staticFiles=${deployedApp.staticFiles ? Object.keys(deployedApp.staticFiles).length : 0}`,
-          )
           if (deployedApp.frontendCid || deployedApp.staticFiles) {
             const gateway = getIpfsGatewayUrl(NETWORK)
             let assetPath = url.pathname === '/' ? '/index.html' : url.pathname
@@ -1697,7 +1691,6 @@ if (import.meta.main) {
             if (deployedApp.spa && !assetPath.match(/\.\w+$/)) {
               assetPath = '/index.html'
             }
-            console.log(`[Bun.serve] Looking for assetPath: ${assetPath}`)
 
             // Check staticFiles map first for individual file CIDs
             if (deployedApp.staticFiles) {
@@ -1705,23 +1698,16 @@ if (import.meta.main) {
                 ? assetPath
                 : `/${assetPath}`
               const filePathWithoutSlash = assetPath.replace(/^\//, '')
-              console.log(
-                `[Bun.serve] Checking staticFiles for: ${filePathWithSlash} or ${filePathWithoutSlash}`,
-              )
               // Try both with and without leading slash since deploy scripts vary
               const fileCid =
                 deployedApp.staticFiles[filePathWithSlash] ??
                 deployedApp.staticFiles[filePathWithoutSlash]
-              console.log(`[Bun.serve] Found CID: ${fileCid}`)
               if (fileCid) {
                 // Fetch from DWS storage
                 const storageUrl =
                   NETWORK === 'localnet'
                     ? `http://127.0.0.1:4030/storage/download/${fileCid}`
                     : `https://dws.${NETWORK === 'testnet' ? 'testnet.' : ''}jejunetwork.org/storage/download/${fileCid}`
-                console.log(
-                  `[Bun.serve] Serving from staticFiles: ${storageUrl}`,
-                )
                 const resp = await fetch(storageUrl).catch(() => null)
                 if (resp?.ok) {
                   const contentType = getMimeType(filePathWithoutSlash)
@@ -1739,7 +1725,6 @@ if (import.meta.main) {
             // Fallback: try directory-style CID if frontendCid is set
             if (deployedApp.frontendCid) {
               const ipfsUrl = `${gateway}/ipfs/${deployedApp.frontendCid}${assetPath}`
-              console.log(`[Bun.serve] Serving from IPFS: ${ipfsUrl}`)
               const resp = await fetch(ipfsUrl).catch(() => null)
               if (resp?.ok) {
                 return resp
@@ -1748,7 +1733,6 @@ if (import.meta.main) {
               // the CID itself might be the index.html file
               if (assetPath === '/index.html') {
                 const directUrl = `${gateway}/ipfs/${deployedApp.frontendCid}`
-                console.log(`[Bun.serve] Fallback to direct CID: ${directUrl}`)
                 return fetch(directUrl)
               }
             }
@@ -1758,15 +1742,9 @@ if (import.meta.main) {
           }
           // No frontend CID or staticFiles - proxy all requests to backend
           if (deployedApp.backendEndpoint || deployedApp.backendWorkerId) {
-            console.log(
-              `[Bun.serve] No frontend configured, proxying all to backend: ${url.pathname}`,
-            )
             return proxyToBackend(req, deployedApp, url.pathname)
           }
           // App is registered but has no frontend or backend - return 503
-          console.log(
-            `[Bun.serve] App ${appName} has no frontend or backend configured`,
-          )
           return new Response(
             JSON.stringify({
               error: 'Service unavailable',
@@ -1779,7 +1757,6 @@ if (import.meta.main) {
           )
         }
         // App not found in registry - return 404 instead of falling through to DWS
-        console.log(`[Bun.serve] App not found or disabled: ${appName}`)
         return new Response(
           JSON.stringify({
             error: 'Not Found',
@@ -1795,13 +1772,8 @@ if (import.meta.main) {
       return app.handle(req)
     },
     websocket: {
-      open(ws: {
-        data: WebSocketData
-        readyState: number
-        send(data: string): number
-        close(): void
-      }) {
-        const data = ws.data
+      open(ws) {
+        const data = ws.data as WebSocketData
         if (data.type === 'prices') {
           // Set up price subscription service
           const service = getPriceService()
@@ -1855,16 +1827,16 @@ if (import.meta.main) {
           }
         }
       },
-      message(ws: { data: WebSocketData }, message: string | Buffer) {
-        const data = ws.data
+      message(ws, message) {
+        const data = ws.data as WebSocketData
         const msgStr =
           typeof message === 'string'
             ? message
             : new TextDecoder().decode(message)
         data.handlers.message?.(msgStr)
       },
-      close(ws: { data: WebSocketData }) {
-        const data = ws.data
+      close(ws) {
+        const data = ws.data as WebSocketData
         data.handlers.close?.()
       },
     },
@@ -1956,7 +1928,7 @@ if (import.meta.main) {
 
   // Initialize DWS state (determines memory-only vs SQLit mode)
   initializeDWSState()
-    .then(() => {
+    .then(async () => {
       console.log('[DWS] State initialized')
 
       // Start Durable Objects manager
@@ -1970,6 +1942,26 @@ if (import.meta.main) {
             err.message,
           )
         })
+
+      // Start Cron Executor after state is initialized
+      const { startCronExecutor } = await import('../workers/cron-executor')
+      try {
+        const cronExecutor = startCronExecutor({
+          workerBaseUrl: `http://localhost:${PORT}`,
+          tickIntervalMs: 30000, // Check every 30 seconds
+          maxConcurrent: 10,
+          lockTtlSeconds: 300, // 5 minute lock TTL
+        })
+        const stats = await cronExecutor.getStats()
+        console.log(
+          `[DWS] Cron executor started (${stats.cronStats.enabled} enabled crons)`,
+        )
+      } catch (err) {
+        console.warn(
+          '[DWS] Cron executor init failed:',
+          err instanceof Error ? err.message : String(err),
+        )
+      }
     })
     .catch((err) => {
       console.warn('[DWS] State init warning:', err.message)

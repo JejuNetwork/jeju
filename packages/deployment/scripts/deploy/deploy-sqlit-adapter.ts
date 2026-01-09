@@ -27,7 +27,10 @@ const AWS_REGION = 'us-east-1'
 const AWS_ACCOUNT_ID = '502713364895'
 const ECR_REPO = `${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/jeju/sqlit-adapter`
 
-function run(cmd: string, options?: { cwd?: string; stdio?: 'inherit' | 'pipe' }): string {
+function run(
+  cmd: string,
+  options?: { cwd?: string; stdio?: 'inherit' | 'pipe' },
+): string {
   console.log(`$ ${cmd}`)
   const result = spawnSync('sh', ['-c', cmd], {
     cwd: options?.cwd ?? ROOT_DIR,
@@ -92,7 +95,9 @@ async function deploy(): Promise<void> {
   console.log('\n=== Deployment Complete ===')
   console.log('\nSQLit adapter is now available at:')
   console.log('  Internal: http://sqlit-adapter.dws.svc.cluster.local:8546')
-  console.log('\nDWS should use this endpoint via SQLIT_BLOCK_PRODUCER_ENDPOINT env var.')
+  console.log(
+    '\nDWS should use this endpoint via SQLIT_BLOCK_PRODUCER_ENDPOINT env var.',
+  )
 }
 
 async function checkHealth(): Promise<boolean> {

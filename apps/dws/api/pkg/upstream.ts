@@ -4,11 +4,7 @@
  * Uses SQLit for persistent package and tarball records
  */
 
-import {
-  getSQLitMinerUrl,
-  getSQLitUrl,
-  isProductionEnv,
-} from '@jejunetwork/config'
+import { getSQLitUrl, isProductionEnv } from '@jejunetwork/config'
 import { getSQLit, resetSQLit } from '@jejunetwork/db'
 import { z } from 'zod'
 import type { BackendManager } from '../storage/backends'
@@ -31,14 +27,12 @@ let sqlitClient: ReturnType<typeof getSQLit> | null = null
 async function getSQLitClient() {
   if (!sqlitClient) {
     resetSQLit()
-    const blockProducerEndpoint = getSQLitUrl()
-    const minerEndpoint = getSQLitMinerUrl()
+    const endpoint = getSQLitUrl()
 
     sqlitClient = getSQLit({
-      blockProducerEndpoint,
-      minerEndpoint,
+      endpoint,
       databaseId: SQLIT_DATABASE_ID,
-      timeout: 30000,
+      timeoutMs: 30000,
       debug: !isProductionEnv(),
     })
 

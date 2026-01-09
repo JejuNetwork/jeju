@@ -111,7 +111,10 @@ const CHAIN_IDS: Record<NetworkType, number> = {
  * Get the frontend URL for an app on a remote network (testnet/mainnet).
  * Pattern: https://{app}.testnet.jejunetwork.org or https://{app}.jejunetwork.org
  */
-function getRemoteFrontendURL(app: AppName, network: 'testnet' | 'mainnet'): string {
+function getRemoteFrontendURL(
+  app: AppName,
+  network: 'testnet' | 'mainnet',
+): string {
   const services = getServicesConfig(network)
 
   // Map app names to their service config keys
@@ -130,18 +133,30 @@ function getRemoteFrontendURL(app: AppName, network: 'testnet' | 'mainnet'): str
     case 'autocrat':
       return services.autocrat.api
     case 'monitoring':
-      return services.monitoring.api ?? `https://monitoring.${network === 'testnet' ? 'testnet.' : ''}jejunetwork.org`
+      return (
+        services.monitoring.api ??
+        `https://monitoring.${network === 'testnet' ? 'testnet.' : ''}jejunetwork.org`
+      )
     case 'oauth3':
-      return services.oauth3?.api ?? `https://oauth3.${network === 'testnet' ? 'testnet.' : ''}jejunetwork.org`
+      return (
+        services.oauth3?.api ??
+        `https://oauth3.${network === 'testnet' ? 'testnet.' : ''}jejunetwork.org`
+      )
     case 'indexer':
       return services.indexer.api ?? services.indexer.graphql
     case 'node':
-      return services.node?.api ?? `https://node.${network === 'testnet' ? 'testnet.' : ''}jejunetwork.org`
+      return (
+        services.node?.api ??
+        `https://node.${network === 'testnet' ? 'testnet.' : ''}jejunetwork.org`
+      )
     case 'wallet':
       // Wallet is typically served from gateway or its own subdomain
       return `https://wallet.${network === 'testnet' ? 'testnet.' : ''}jejunetwork.org`
     case 'vpn':
-      return services.node?.vpn ?? `https://vpn.${network === 'testnet' ? 'testnet.' : ''}jejunetwork.org`
+      return (
+        services.node?.vpn ??
+        `https://vpn.${network === 'testnet' ? 'testnet.' : ''}jejunetwork.org`
+      )
     case 'otto':
       return `https://otto.${network === 'testnet' ? 'testnet.' : ''}jejunetwork.org`
     case 'example':
@@ -171,17 +186,29 @@ function getRemoteApiURL(app: AppName, network: 'testnet' | 'mainnet'): string {
     case 'autocrat':
       return services.autocrat.api
     case 'monitoring':
-      return services.monitoring.api ?? `https://monitoring.${network === 'testnet' ? 'testnet.' : ''}jejunetwork.org/api`
+      return (
+        services.monitoring.api ??
+        `https://monitoring.${network === 'testnet' ? 'testnet.' : ''}jejunetwork.org/api`
+      )
     case 'oauth3':
-      return services.oauth3?.api ?? `https://oauth3.${network === 'testnet' ? 'testnet.' : ''}jejunetwork.org`
+      return (
+        services.oauth3?.api ??
+        `https://oauth3.${network === 'testnet' ? 'testnet.' : ''}jejunetwork.org`
+      )
     case 'indexer':
       return services.indexer.api ?? services.indexer.graphql
     case 'node':
-      return services.node?.api ?? `https://node.${network === 'testnet' ? 'testnet.' : ''}jejunetwork.org`
+      return (
+        services.node?.api ??
+        `https://node.${network === 'testnet' ? 'testnet.' : ''}jejunetwork.org`
+      )
     case 'wallet':
       return services.gateway.api // Wallet typically uses gateway API
     case 'vpn':
-      return services.node?.vpn ?? `https://vpn.${network === 'testnet' ? 'testnet.' : ''}jejunetwork.org`
+      return (
+        services.node?.vpn ??
+        `https://vpn.${network === 'testnet' ? 'testnet.' : ''}jejunetwork.org`
+      )
     case 'otto':
       return `https://otto.${network === 'testnet' ? 'testnet.' : ''}jejunetwork.org`
     case 'example':
@@ -214,7 +241,10 @@ function getRemoteApiURL(app: AppName, network: 'testnet' | 'mainnet'): string {
  * })
  * ```
  */
-export function getTestConfig(app: AppName, networkOverride?: NetworkType): TestConfig {
+export function getTestConfig(
+  app: AppName,
+  networkOverride?: NetworkType,
+): TestConfig {
   const network = networkOverride ?? getCurrentNetwork()
   const isRemote = network !== 'localnet'
   const services = getServicesConfig(network)
@@ -239,7 +269,7 @@ export function getTestConfig(app: AppName, networkOverride?: NetworkType): Test
     apiURL,
     network,
     isRemote,
-    skipWebServer: isRemote, // Skip local server when testing remote
+    skipWebServer: isRemote || process.env.SKIP_WEBSERVER === '1', // Skip when testing remote OR when env is set
     chainId: CHAIN_IDS[network],
     rpcURL: services.rpc.l2,
   }
@@ -253,7 +283,10 @@ export function getTestConfig(app: AppName, networkOverride?: NetworkType): Test
  * @param timeout - Timeout in milliseconds (default: 10000)
  * @returns true if service responded with 2xx/3xx status
  */
-export async function checkServiceHealth(url: string, timeout = 10000): Promise<boolean> {
+export async function checkServiceHealth(
+  url: string,
+  timeout = 10000,
+): Promise<boolean> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeout)
 
@@ -273,7 +306,10 @@ export async function checkServiceHealth(url: string, timeout = 10000): Promise<
  * @param network - Target network
  * @throws Error if required services are not accessible
  */
-export async function verifyTestnetServices(app: AppName, network: NetworkType = 'testnet'): Promise<void> {
+export async function verifyTestnetServices(
+  app: AppName,
+  network: NetworkType = 'testnet',
+): Promise<void> {
   if (network === 'localnet') {
     return // Skip verification for local
   }
@@ -285,7 +321,7 @@ export async function verifyTestnetServices(app: AppName, network: NetworkType =
   if (!frontendHealthy) {
     throw new Error(
       `Frontend not accessible for ${app} on ${network}: ${config.baseURL}\n` +
-        `Make sure the app is deployed and accessible.`
+        `Make sure the app is deployed and accessible.`,
     )
   }
 
@@ -298,7 +334,7 @@ export async function verifyTestnetServices(app: AppName, network: NetworkType =
     if (!apiBaseHealthy) {
       throw new Error(
         `API not accessible for ${app} on ${network}: ${config.apiURL}\n` +
-          `Make sure the backend is deployed and accessible.`
+          `Make sure the backend is deployed and accessible.`,
       )
     }
   }
@@ -308,7 +344,7 @@ export async function verifyTestnetServices(app: AppName, network: NetworkType =
   if (!rpcHealthy) {
     throw new Error(
       `RPC not accessible for ${network}: ${config.rpcURL}\n` +
-        `Make sure the chain is running and accessible.`
+        `Make sure the chain is running and accessible.`,
     )
   }
 }

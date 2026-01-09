@@ -55,7 +55,7 @@ variable "availability_zones" {
 
 # Network module
 module "network" {
-  source = "../../modules/network"
+  source = "../../modules/aws/network"
 
   environment        = "mainnet"
   vpc_cidr           = "10.2.0.0/16"
@@ -64,7 +64,7 @@ module "network" {
 
 # EKS module
 module "eks" {
-  source = "../../modules/eks"
+  source = "../../modules/aws/eks"
 
   environment        = "mainnet"
   cluster_version    = "1.31"
@@ -120,7 +120,7 @@ module "eks" {
 
 # RDS module
 module "rds" {
-  source = "../../modules/rds"
+  source = "../../modules/aws/rds"
 
   environment             = "mainnet"
   vpc_id                  = module.network.vpc_id
@@ -134,14 +134,14 @@ module "rds" {
 
 # KMS module
 module "kms" {
-  source = "../../modules/kms"
+  source = "../../modules/aws/kms"
 
   environment = "mainnet"
 }
 
 # Vault module
 module "vault" {
-  source = "../../modules/vault"
+  source = "../../modules/aws/vault"
 
   environment       = "mainnet"
   namespace         = "infra"
@@ -154,7 +154,7 @@ module "vault" {
 
 # WAF module (enabled for production)
 module "waf" {
-  source = "../../modules/waf"
+  source = "../../modules/aws/waf"
 
   environment = "mainnet"
   enabled     = true

@@ -1,18 +1,6 @@
 {
   "name": "@jejunetwork/monitoring",
-  "version": "1.0.0",
-  "type": "module",
-  "description": "Network monitoring dashboard with Prometheus/Grafana integration",
-  "main": "api/a2a.ts",
-  "scripts": {
-    "dev": "bun run scripts/dev.ts",
-    "build": "bun run scripts/build.ts",
-    "start": "bun run scripts/serve.ts",
-    "deploy": "bun run scripts/deploy.ts",
-    "test": "bun test tests/unit tests/integration",
-    "test:e2e": "bunx playwright test",
-    "typecheck": "tsc --noEmit"
-  },
+  "version": "0.1.0",
   "dependencies": {
     "@elysiajs/cors": "^1.4.0",
     "@jejunetwork/cache": "workspace:*",
@@ -33,5 +21,17 @@
     "@types/react-dom": "19.2.3",
     "typescript": "5.9.3",
     "vite": "^6.0.0"
+  },
+  "type": "module",
+  "description": "Network monitoring dashboard with Prometheus/Grafana integration",
+  "main": "api/a2a.ts",
+  "scripts": {
+    "dev": "bun run scripts/dev.ts",
+    "build": "bun run scripts/build.ts",
+    "start": "bun run scripts/serve.ts",
+    "deploy": "bun run scripts/deploy.ts",
+    "test": "bun test tests/unit/",
+    "test:e2e": "bunx playwright test",
+    "typecheck": "tsc --noEmit"
   }
 }

@@ -38,6 +38,7 @@ export type DatabaseNodeStatus =
 export const DatabaseInstanceStatus = {
   CREATING: 'creating',
   RUNNING: 'running',
+  READY: 'ready',
   STOPPED: 'stopped',
   MIGRATING: 'migrating',
   ERROR: 'error',
@@ -68,10 +69,14 @@ export type TransactionIsolation =
 
 export interface DatabaseNode {
   id: string
+  /** Alias for id used in some contexts */
+  nodeId: string
+  /** Alias for operatorAddress */
+  operator?: Address
   operatorAddress: Address
   endpoint: string
   wsEndpoint: string
-  region: DatabaseRegion
+  region: DatabaseRegion | string
   role: DatabaseNodeRole
   status: DatabaseNodeStatus
   stakedAmount: bigint
@@ -79,22 +84,41 @@ export interface DatabaseNode {
   version: string
   registeredAt: number
   lastHeartbeat: number
+  /** Number of databases hosted by this node */
+  databaseCount: number
+  /** Total queries processed */
+  totalQueries: bigint
+  /** Performance score */
+  performanceScore?: number
+  /** Slashed amount */
+  slashedAmount?: bigint
 }
 
 export interface DatabaseInstance {
   id: string
+  /** Alias for id used in some contexts */
+  databaseId?: string
   name: string
   owner: Address
   primaryNodeId: string
   replicaNodeIds: string[]
   encryptionMode: DatabaseEncryptionMode
   createdAt: number
+  updatedAt: number
   sizeBytes: bigint
   rowCount: bigint
   walPosition: bigint
   status: DatabaseInstanceStatus
   replicationConfig: ReplicationConfig
+  /** Alias for replicationConfig */
+  replication?: ReplicationConfig
   accessControl: ACLRule[]
+  /** Connection string for database clients */
+  connectionString?: string
+  /** HTTP endpoint for REST API */
+  httpEndpoint?: string
+  /** Schema version number */
+  schemaVersion?: number
 }
 
 export interface ReplicationConfig {
@@ -103,6 +127,8 @@ export interface ReplicationConfig {
   syncMode: 'sync' | 'async'
   readPreference: 'primary' | 'nearest' | 'any'
   failoverTimeout: number
+  /** Preferred regions for replicas */
+  preferredRegions?: string[]
 }
 
 export interface ReplicationStatus {
@@ -120,6 +146,12 @@ export interface WALEntry {
   sql: string
   params: (string | number | boolean | null)[]
   checksum: Hex
+  /** Transaction identifier */
+  transactionId?: string
+  /** Hash of this entry */
+  hash?: Hex
+  /** Hash of the previous entry */
+  prevHash?: Hex
 }
 
 export interface Transaction {
@@ -144,6 +176,8 @@ export interface QueryResult {
   lastInsertId: bigint
   executionTimeMs: number
   walPosition?: bigint
+  /** Node that processed this query */
+  processedByNodeId?: string
 }
 
 export interface DatabaseAuditChallenge {
@@ -302,6 +336,8 @@ export interface CreateDatabaseRequest {
   encryptionMode: DatabaseEncryptionMode
   replication: Partial<ReplicationConfig>
   schema?: string
+  /** Optional custom database ID. If not provided, one will be generated. */
+  databaseId?: string
 }
 
 export interface CreateDatabaseResponse {
@@ -317,6 +353,8 @@ export interface ExecuteRequest extends QueryRequest {
   signature?: Hex
   /** Timestamp for replay protection */
   timestamp?: number
+  /** Required WAL position for strong consistency */
+  requiredWalPosition?: bigint
 }
 
 export interface ExecuteResponse extends QueryResult {
@@ -324,6 +362,8 @@ export interface ExecuteResponse extends QueryResult {
   databaseId: string
   /** Whether query was read-only */
   readOnly: boolean
+  /** Node that processed this query */
+  processedByNodeId?: string
 }
 
 export interface BatchExecuteRequest {
@@ -490,15 +530,24 @@ export const AUDIT_CHALLENGE_TIMEOUT_MS = 60000
 
 // ============ TEE Types ============
 
-export type TEEPlatform = 'sgx' | 'sev-snp' | 'nitro' | 'simulated'
+export type TEEPlatform =
+  | 'sgx'
+  | 'sev-snp'
+  | 'nitro'
+  | 'aws-nitro'
+  | 'simulated'
 
 export interface TEEAttestation {
   platform: TEEPlatform
   measurement: Hex
   timestamp: number
-  signature: Hex
-  publicKey: Hex
+  signature?: Hex
+  publicKey?: Hex
   certificateChain?: string[]
+  /** Platform-specific attestation quote */
+  quote?: Hex
+  /** Whether attestation has been verified */
+  verified?: boolean
 }
 
 // SQLit Registry ABI (subset for common operations)

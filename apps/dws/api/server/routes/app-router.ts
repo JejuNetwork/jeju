@@ -5,19 +5,28 @@
  * - appname.testnet.jejunetwork.org → App frontend + API
  * - appname.jns.testnet.jejunetwork.org → JNS-resolved frontend + API
  *
+ * DECENTRALIZED ROUTING:
+ * 1. Primary: JNS contract resolution (on-chain contenthash + text records)
+ * 2. Fallback: SQLit/ConfigMap cache (for apps not yet registered on-chain)
+ * 3. Devnet: Local app registry
+ *
  * Routing logic:
- * - / and frontend routes → IPFS (if deployed) or local CDN (devnet)
- * - /api/*, /health, /a2a, /mcp → Backend worker or container
+ * - / and frontend routes → IPFS (from JNS contenthash)
+ * - /api/*, /health, /a2a, /mcp → Backend worker (from JNS dws.worker text record)
  */
 
 import {
+  getContract,
   getCurrentNetwork,
   getIpfsGatewayUrl,
+  getL2RpcUrl,
   getLocalhostHost,
 } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
+import type { Address } from 'viem'
 import { getAppRegistry } from '../../../src/cdn/app-registry'
 import { getLocalCDNServer } from '../../../src/cdn/local-server'
+import { JNSResolver } from '../../dns/jns-resolver'
 import { getIngressController } from '../../infrastructure'
 import { deployedAppState, isDegradedMode } from '../../state'
 import {
@@ -25,7 +34,11 @@ import {
   loadAppsFromConfigMap,
   saveAppsToConfigMap,
 } from './configmap-persistence'
-import { getSharedWorkerRegistry, getSharedWorkersRuntime } from './workers'
+import {
+  getOrLoadWorkerPublic,
+  getSharedWorkerRegistry,
+  getSharedWorkersRuntime,
+} from './workers'
 
 // App deployment registry - tracks deployed apps and their configurations
 export interface DeployedApp {
@@ -46,6 +59,12 @@ export interface DeployedApp {
 // The cache is synced with SQLit for persistence across pod restarts
 const deployedAppsCache = new Map<string, DeployedApp>()
 
+// JNS resolution cache (separate from SQLit cache, uses on-chain TTL)
+const jnsResolutionCache = new Map<
+  string,
+  { app: DeployedApp; expiresAt: number }
+>()
+
 // Last sync timestamp for cache invalidation
 let lastSyncTimestamp = 0
 const SYNC_INTERVAL_MS = 15000 // Sync every 15 seconds
@@ -53,6 +72,114 @@ const POD_ID = `pod-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
 // Domain patterns
 const NETWORK = getCurrentNetwork()
+
+// Shared JNS resolver instance (lazy initialized)
+let jnsResolver: JNSResolver | null = null
+
+/**
+ * Get or create JNS resolver
+ */
+function getJNSResolver(): JNSResolver | null {
+  if (jnsResolver) return jnsResolver
+
+  const jnsRegistry = getContract('jns', 'registry') as Address | undefined
+  if (!jnsRegistry) {
+    console.log(
+      '[AppRouter] JNS registry not configured, skipping JNS resolution',
+    )
+    return null
+  }
+
+  const rpcUrl = getL2RpcUrl()
+  jnsResolver = new JNSResolver({
+    rpcUrl,
+    registryAddress: jnsRegistry,
+    cacheTTL: 300, // 5 minute cache
+  })
+
+  console.log(`[AppRouter] JNS resolver initialized: registry=${jnsRegistry}`)
+  return jnsResolver
+}
+
+/**
+ * Resolve app via JNS contract
+ * Returns a DeployedApp if the JNS name has a valid contenthash or worker endpoint
+ */
+async function resolveAppViaJNS(appName: string): Promise<DeployedApp | null> {
+  // Check JNS cache first
+  const cached = jnsResolutionCache.get(appName)
+  if (cached && cached.expiresAt > Date.now()) {
+    console.log(`[AppRouter] JNS cache hit for ${appName}`)
+    return cached.app
+  }
+
+  const resolver = getJNSResolver()
+  if (!resolver) return null
+
+  // Resolve the JNS name (e.g., "factory.jeju")
+  const jnsName = `${appName}.jeju`
+  console.log(`[AppRouter] Resolving JNS name: ${jnsName}`)
+
+  const resolution = await resolver.resolve(jnsName)
+  if (!resolution) {
+    console.log(`[AppRouter] JNS name not found: ${jnsName}`)
+    return null
+  }
+
+  // Extract frontend CID from contenthash (ipfsHash takes precedence)
+  const frontendCid = resolution.records.ipfsHash ?? null
+
+  // Extract backend worker from text record
+  // The worker CID/ID is stored in dws.worker or dws.endpoint text record
+  const backendWorkerId =
+    resolution.records.workerEndpoint ??
+    resolution.records.text['dws.worker'] ??
+    resolution.records.text.worker ??
+    null
+
+  // If no frontend or backend, this isn't a valid app deployment
+  if (!frontendCid && !backendWorkerId) {
+    console.log(
+      `[AppRouter] JNS name ${jnsName} has no frontend CID or worker ID`,
+    )
+    return null
+  }
+
+  // Parse additional config from text records
+  const apiPathsText = resolution.records.text['dws.apiPaths']
+  const apiPaths = apiPathsText
+    ? apiPathsText.split(',').map((p) => p.trim())
+    : DEFAULT_API_PATHS
+
+  const spa = resolution.records.text['dws.spa'] !== 'false' // Default to true
+
+  const app: DeployedApp = {
+    name: appName,
+    jnsName,
+    frontendCid,
+    staticFiles: null, // JNS uses single CID, not per-file mapping
+    backendWorkerId,
+    backendEndpoint: null, // JNS apps use workers, not external endpoints
+    apiPaths,
+    spa,
+    enabled: true,
+    deployedAt: resolution.resolvedAt,
+    updatedAt: resolution.resolvedAt,
+  }
+
+  // Cache with JNS TTL
+  const ttlMs = (resolution.ttl || 300) * 1000
+  jnsResolutionCache.set(appName, {
+    app,
+    expiresAt: Date.now() + ttlMs,
+  })
+
+  console.log(
+    `[AppRouter] Resolved ${jnsName} via JNS: frontend=${frontendCid}, worker=${backendWorkerId}, ttl=${resolution.ttl}s`,
+  )
+
+  return app
+}
 
 // Default API paths to route to backend
 export const DEFAULT_API_PATHS = [
@@ -68,7 +195,6 @@ export const DEFAULT_API_PATHS = [
   '/auth',
   '/callback',
   '/webhook',
-  '/.well-known',
 ]
 
 /**
@@ -157,7 +283,9 @@ function isApiPath(pathname: string, apiPaths: string[]): boolean {
       return pathname.startsWith(basePrefix)
     }
     // Exact match (normalize trailing slashes)
-    const normalizedPrefix = pattern.endsWith('/') ? pattern.slice(0, -1) : pattern
+    const normalizedPrefix = pattern.endsWith('/')
+      ? pattern.slice(0, -1)
+      : pattern
     return (
       pathname === normalizedPrefix ||
       pathname === `${normalizedPrefix}/` ||
@@ -722,92 +850,18 @@ export async function proxyToBackend(
       targetUrl = `${app.backendEndpoint}${pathname}`
     }
   } else if (app.backendWorkerId) {
-    // DWS worker - use multi-tier lookup
+    // DWS worker - use getOrLoadWorkerPublic which handles both UUID and CID-based IDs
     const runtime = getSharedWorkersRuntime()
     const registry = getSharedWorkerRegistry()
 
     if (runtime && registry) {
-      // Tier 1: Check local runtime memory first (fastest path)
-      let fn = runtime.getFunction(app.backendWorkerId)
+      // Use the unified worker loader which handles:
+      // 1. Local runtime memory lookup
+      // 2. Registry multi-tier lookup (cache, SQLit)
+      // 3. CID-based lookup and on-demand deployment
+      const fn = await getOrLoadWorkerPublic(app.backendWorkerId)
 
-      // Tier 2: Use registry's multi-tier lookup
-      if (!fn) {
-        console.log(
-          `[AppRouter] Worker ${app.backendWorkerId} not in local memory, using registry lookup`,
-        )
-        const result = await registry.getWorker(app.backendWorkerId)
-        if (result) {
-          fn = result.worker
-          console.log(
-            `[AppRouter] Found worker via registry: source=${result.source}, loadTime=${result.loadTimeMs}ms, coldStart=${result.coldStart}`,
-          )
-        }
-      }
-
-      // Tier 3: Check for warm pods (other pods that have this worker loaded)
-      if (!fn) {
-        console.log(
-          `[AppRouter] Worker ${app.backendWorkerId} not found locally, checking warm pods`,
-        )
-        const warmPods = registry.findWarmPods(
-          app.backendWorkerId,
-          registry.getPodRegion(),
-        )
-
-        if (warmPods.length > 0) {
-          // Route to the first warm pod (already sorted by preference)
-          const targetPod = warmPods[0]
-          console.log(
-            `[AppRouter] Routing to warm pod: ${targetPod.podId} (${targetPod.region})`,
-          )
-
-          // Build target URL for the warm pod
-          targetUrl = `${targetPod.endpoint}/workers/${app.backendWorkerId}/http${pathname}`
-
-          // Make HTTP request to the warm pod
-          const url = new URL(request.url)
-          const targetUrlObj = new URL(targetUrl)
-
-          const proxyHeaders = new Headers(request.headers)
-          proxyHeaders.set('Host', targetUrlObj.host)
-          proxyHeaders.set(
-            'X-Forwarded-Host',
-            request.headers.get('host') ?? '',
-          )
-          proxyHeaders.set('X-DWS-Routed-From', registry.getPodId())
-
-          const proxyRequest = new Request(targetUrl + url.search, {
-            method: request.method,
-            headers: proxyHeaders,
-            body:
-              request.method !== 'GET' && request.method !== 'HEAD'
-                ? request.body
-                : undefined,
-          })
-
-          const response = await fetch(proxyRequest, {
-            signal: AbortSignal.timeout(30000),
-          }).catch((err: Error) => {
-            console.error(`[AppRouter] Warm pod request failed: ${err.message}`)
-            return null
-          })
-
-          if (response?.ok || (response && response.status < 500)) {
-            const headers = new Headers(response.headers)
-            headers.set('X-DWS-Backend', app.backendWorkerId)
-            headers.set('X-DWS-Invocation', 'warm-pod')
-            headers.set('X-DWS-Warm-Pod', targetPod.podId)
-
-            return new Response(response.body, {
-              status: response.status,
-              headers,
-            })
-          }
-          // Fall through to other methods if warm pod failed
-        }
-      }
-
-      // Execute direct invocation if we have the function locally
+      // Execute direct invocation if we have the function
       if (fn) {
         const requestHeaders: Record<string, string> = {}
         request.headers.forEach((value, key) => {
@@ -840,7 +894,7 @@ export async function proxyToBackend(
       }
     }
 
-    // Tier 4: Fall back to HTTP proxy (for CID-based workers or when all else fails)
+    // Fall back to HTTP proxy (for when runtime is not initialized or worker load failed)
     console.log(
       `[AppRouter] Falling back to HTTP proxy for ${app.backendWorkerId}`,
     )
@@ -950,19 +1004,36 @@ export function createAppRouter() {
           return undefined
         }
 
-        // Look up deployed app (from cache)
-        let app = deployedAppsCache.get(appName)
-        console.log(
-          `[AppRouter] Found app: ${app?.name}, apiPaths: ${JSON.stringify(app?.apiPaths)}`,
-        )
+        // Look up deployed app using multi-tier resolution:
+        // 1. SQLit/ConfigMap cache (fastest, for apps deployed via DWS)
+        // 2. JNS contract resolution (decentralized, on-chain source of truth)
+        // 3. Local app registry (devnet fallback)
 
-        // If not in deployed apps, check local app registry (devnet fallback)
+        let app = deployedAppsCache.get(appName)
+        let source = 'cache'
+
+        // Tier 2: Try JNS contract resolution (decentralized)
         if (!app) {
+          try {
+            app = (await resolveAppViaJNS(appName)) ?? undefined
+            if (app) {
+              source = 'jns'
+            }
+          } catch (error) {
+            console.error(
+              `[AppRouter] JNS resolution failed for ${appName}:`,
+              error,
+            )
+          }
+        }
+
+        // Tier 3: Check local app registry (devnet fallback)
+        if (!app && NETWORK === 'localnet') {
           const registry = getAppRegistry()
           const localApp = registry.getApp(appName)
 
           if (localApp) {
-            // Create a temporary deployment entry from local app
+            source = 'local'
             app = {
               name: localApp.name,
               jnsName: localApp.jnsName,
@@ -979,10 +1050,24 @@ export function createAppRouter() {
           }
         }
 
+        console.log(
+          `[AppRouter] Resolved ${appName}: source=${source}, frontend=${app?.frontendCid}, worker=${app?.backendWorkerId}`,
+        )
+
         if (!app || !app.enabled) {
-          // App not found - let request fall through to 404
-          console.log(`[AppRouter] App not found or disabled: ${appName}`)
-          return undefined
+          // App not found in any tier - return 404 with helpful message
+          console.log(`[AppRouter] App not found: ${appName}`)
+          return new Response(
+            JSON.stringify({
+              error: 'App not found',
+              message: `No deployment found for ${appName}. Deploy via 'jeju deploy' or register JNS name '${appName}.jeju' with contenthash.`,
+              jnsName: `${appName}.jeju`,
+            }),
+            {
+              status: 404,
+              headers: { 'Content-Type': 'application/json' },
+            },
+          )
         }
 
         // Route to backend for API paths (use defaults if not configured)

@@ -631,7 +631,9 @@ export async function bootstrapTFMMPools(
       console.log('  Liquidity added.')
     } catch {
       // Pool is still valid even if liquidity add fails - owner can add later
-      console.log('  Warning: Liquidity add failed. Pool created without initial liquidity.')
+      console.log(
+        '  Warning: Liquidity add failed. Pool created without initial liquidity.',
+      )
     }
 
     pools.push({
@@ -800,12 +802,7 @@ export async function bootstrapOracleRegistry(
     config,
     oracleRegistry,
     'registerOracle(address,address,uint256,uint8)',
-    [
-      tokens.usdc,
-      oracleRegistry,
-      '86400',
-      '8',
-    ],
+    [tokens.usdc, oracleRegistry, '86400', '8'],
     'USDC oracle registered',
   )
   registeredTokens.push(tokens.usdc)

@@ -1,33 +1,11 @@
 {
   "name": "@jejunetwork/dws",
-  "version": "1.0.0",
-  "description": "Decentralized Web Services - storage, compute, CDN, training, and infrastructure",
-  "type": "module",
-  "main": "api/index.ts",
-  "exports": {
-    ".": "./api/index.ts",
-    "./api/utils/event-emitter": "./api/utils/event-emitter.ts"
-  },
-  "scripts": {
-    "dev": "bun run scripts/dev-with-infra.ts",
-    "dev:simple": "concurrently \"bun run scripts/dev-frontend.ts\" \"bun run api/server/index.ts\"",
-    "dev:api": "NETWORK=localnet PORT=4030 bun run api/server/index.ts",
-    "dev:frontend": "PORT=4031 bun run scripts/dev-frontend.ts",
-    "deploy:contracts": "bun run scripts/deploy-contracts.ts",
-    "build": "bun build api/index.ts --outdir dist --target bun && bun build.web.ts",
-    "build:web": "bun build.web.ts",
-    "start": "bun run api/server/index.ts",
-    "serve": "bun run scripts/serve.ts",
-    "deploy": "bun run scripts/deploy.ts",
-    "test": "bun test tests/",
-    "typecheck": "tsc --noEmit"
-  },
+  "version": "0.1.0",
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "3.954.0",
-    "@elysiajs/cors": "^1.4.1",
+    "@aws-sdk/client-ec2": "3.954.0",
+    "@elysiajs/cors": "1.4.0",
     "@elysiajs/eden": "1.4.5",
-    "@elysiajs/static": "^1.4.7",
-    "@elysiajs/swagger": "^1.3.1",
     "@jejunetwork/api": "workspace:*",
     "@jejunetwork/auth": "workspace:*",
     "@jejunetwork/config": "workspace:*",
@@ -47,6 +25,7 @@
     "@solana/web3.js": "1.98.0",
     "@tanstack/react-query": "5.79.0",
     "@types/sharp": "0.32.0",
+    "bigint-buffer": "1.1.5",
     "cockatiel": "3.2.1",
     "croner": "9.0.0",
     "elysia": "1.4.19",
@@ -72,5 +51,27 @@
     "ioredis": "^5.8.2",
     "redis": "^5.10.0",
     "typescript": "5.9.3"
+  },
+  "description": "Decentralized Web Services - storage, compute, CDN, training, and infrastructure",
+  "type": "module",
+  "main": "api/index.ts",
+  "exports": {
+    ".": "./api/index.ts",
+    "./api/utils/event-emitter": "./api/utils/event-emitter.ts"
+  },
+  "scripts": {
+    "dev": "bun run scripts/dev-with-infra.ts",
+    "dev:simple": "concurrently \"bun run scripts/dev-frontend.ts\" \"bun run api/server/index.ts\"",
+    "dev:api": "NETWORK=localnet PORT=4030 bun run api/server/index.ts",
+    "dev:frontend": "PORT=4031 bun run scripts/dev-frontend.ts",
+    "deploy:contracts": "bun run scripts/deploy-contracts.ts",
+    "build": "bun build api/index.ts --outdir dist --target bun && bun build.web.ts",
+    "build:web": "bun build.web.ts",
+    "start": "bun run api/server/index.ts",
+    "serve": "bun run scripts/serve.ts",
+    "deploy": "bun run scripts/deploy.ts",
+    "test": "bun test tests/*.test.ts tests/sdk-compatibility/*.test.ts tests/mcp-a2a/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "install:workerd": "bun run scripts/install-workerd.ts"
   }
 }

@@ -7,24 +7,15 @@
  */
 
 import { type Address, formatEther, parseEther } from 'viem'
+// Import from API (single source of truth) and re-export
+import { SWAP_TOKENS } from '../api/swap'
 import type {
   SwapFeeEstimate,
   SwapQuote,
   SwapToken,
   SwapValidationResult,
 } from '../schemas/swap'
-
-// Only include ETH (native token) as it's the only guaranteed available token
-// Other tokens are loaded dynamically from config based on network
-export const SWAP_TOKENS: SwapToken[] = [
-  {
-    symbol: 'ETH',
-    name: 'Ethereum',
-    icon: '⟠',
-    address: '0x0000000000000000000000000000000000000000',
-    decimals: 18,
-  },
-]
+export { SWAP_TOKENS }
 
 export const DEFAULT_FEE_BPS = 30n
 export const BASE_NETWORK_FEE = parseEther('0.001')

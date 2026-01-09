@@ -89,6 +89,11 @@ const app = new Elysia()
       allowedHeaders: ['Content-Type', 'Authorization'],
     }),
   )
+  .get('/health', () => ({
+    status: 'ok',
+    service: 'monitoring-a2a',
+    timestamp: new Date().toISOString(),
+  }))
   .get('/.well-known/agent-card.json', ({ request }) => {
     const host = request.headers.get('host') ?? `${getLocalhostHost()}:9091`
     const protocol = request.headers.get('x-forwarded-proto') ?? 'http'

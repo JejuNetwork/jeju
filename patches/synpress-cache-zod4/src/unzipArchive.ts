@@ -35,7 +35,7 @@ export async function unzipArchive(options: UnzipArchiveOptions) {
 
     fs.createReadStream(archivePath)
       .pipe(unzippper.Parse())
-      .on('entry', function (entry) {
+      .on('entry', function (entry: { path: string; type: string; pipe: (dest: NodeJS.WritableStream) => void }) {
         const fileName = entry.path
         const type = entry.type as 'Directory' | 'File'
 

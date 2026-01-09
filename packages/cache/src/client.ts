@@ -99,6 +99,15 @@ export class CacheClient {
   }
 
   /**
+   * Atomic set-if-not-exists for distributed locking
+   * Returns true if the key was set, false if it already existed
+   */
+  async setNX(key: string, value: string, ttl: number): Promise<boolean> {
+    const result = await this.set(key, value, { ttl, nx: true })
+    return result.success
+  }
+
+  /**
    * Get a value from the cache
    */
   async get(key: string): Promise<string | null> {

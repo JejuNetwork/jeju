@@ -2,7 +2,7 @@
  * Cache E2E Tests
  *
  * Tests the decentralized cache service end-to-end
- * 
+ *
  * Note: Some tests require strong consistency and may be skipped on testnet/mainnet
  * where the distributed cache has eventual consistency.
  */
@@ -10,7 +10,9 @@
 import { expect, test } from '@playwright/test'
 
 const DWS_API_URL = process.env.DWS_API_URL || 'http://localhost:4030'
-const isRemote = process.env.JEJU_NETWORK === 'testnet' || process.env.JEJU_NETWORK === 'mainnet'
+const isRemote =
+  process.env.JEJU_NETWORK === 'testnet' ||
+  process.env.JEJU_NETWORK === 'mainnet'
 
 test.describe('Cache Service E2E', () => {
   test('cache health endpoint returns healthy', async ({ request }) => {
@@ -39,11 +41,13 @@ test.describe('Cache Service E2E', () => {
   test('set and get a cache value', async ({ request }) => {
     // Skip on testnet/mainnet due to eventual consistency
     if (isRemote) {
-      console.log('   ⚠️ Skipping set/get test on remote network (eventual consistency)')
+      console.log(
+        '   ⚠️ Skipping set/get test on remote network (eventual consistency)',
+      )
       test.skip()
       return
     }
-    
+
     const testKey = `test-key-${Date.now()}`
     const testValue = `test-value-${Date.now()}`
 
@@ -71,7 +75,10 @@ test.describe('Cache Service E2E', () => {
   })
 
   test('delete cache keys', async ({ request }) => {
-    if (isRemote) { test.skip(); return }
+    if (isRemote) {
+      test.skip()
+      return
+    }
     const testKey = `delete-test-${Date.now()}`
 
     // Set value first
@@ -103,7 +110,10 @@ test.describe('Cache Service E2E', () => {
   })
 
   test('mset and mget multiple values', async ({ request }) => {
-    if (isRemote) { test.skip(); return }
+    if (isRemote) {
+      test.skip()
+      return
+    }
     const prefix = `mtest-${Date.now()}`
     const entries = [
       { key: `${prefix}-1`, value: 'value1' },
@@ -136,7 +146,10 @@ test.describe('Cache Service E2E', () => {
   })
 
   test('increment and decrement operations', async ({ request }) => {
-    if (isRemote) { test.skip(); return }
+    if (isRemote) {
+      test.skip()
+      return
+    }
     const testKey = `counter-${Date.now()}`
 
     // Set initial value
@@ -174,7 +187,10 @@ test.describe('Cache Service E2E', () => {
   })
 
   test('hash operations (hset, hget, hgetall)', async ({ request }) => {
-    if (isRemote) { test.skip(); return }
+    if (isRemote) {
+      test.skip()
+      return
+    }
     const testKey = `hash-${Date.now()}`
 
     // Set hash fields
@@ -215,7 +231,10 @@ test.describe('Cache Service E2E', () => {
   })
 
   test('list operations (lpush, rpush, lrange)', async ({ request }) => {
-    if (isRemote) { test.skip(); return }
+    if (isRemote) {
+      test.skip()
+      return
+    }
     const testKey = `list-${Date.now()}`
 
     // Push to left
@@ -255,7 +274,10 @@ test.describe('Cache Service E2E', () => {
   })
 
   test('set operations (sadd, smembers)', async ({ request }) => {
-    if (isRemote) { test.skip(); return }
+    if (isRemote) {
+      test.skip()
+      return
+    }
     const testKey = `set-${Date.now()}`
 
     // Add members
@@ -280,7 +302,10 @@ test.describe('Cache Service E2E', () => {
   })
 
   test('sorted set operations (zadd, zrange)', async ({ request }) => {
-    if (isRemote) { test.skip(); return }
+    if (isRemote) {
+      test.skip()
+      return
+    }
     const testKey = `zset-${Date.now()}`
 
     // Add members with scores
@@ -307,7 +332,10 @@ test.describe('Cache Service E2E', () => {
   })
 
   test('TTL and expire operations', async ({ request }) => {
-    if (isRemote) { test.skip(); return }
+    if (isRemote) {
+      test.skip()
+      return
+    }
     const testKey = `ttl-${Date.now()}`
 
     // Set with TTL
@@ -342,7 +370,10 @@ test.describe('Cache Service E2E', () => {
   })
 
   test('list keys with pattern', async ({ request }) => {
-    if (isRemote) { test.skip(); return }
+    if (isRemote) {
+      test.skip()
+      return
+    }
     const prefix = `pattern-${Date.now()}`
 
     // Create some keys
@@ -426,7 +457,10 @@ test.describe('Cache Service E2E', () => {
   })
 
   test('MCP cache_set and cache_get tools work', async ({ request }) => {
-    if (isRemote) { test.skip(); return }
+    if (isRemote) {
+      test.skip()
+      return
+    }
     const testKey = `mcp-test-${Date.now()}`
     const testValue = 'mcp-value'
 
@@ -464,7 +498,10 @@ test.describe('Cache Service E2E', () => {
   })
 
   test('clear cache namespace', async ({ request }) => {
-    if (isRemote) { test.skip(); return }
+    if (isRemote) {
+      test.skip()
+      return
+    }
     // First add some keys
     await request.post(`${DWS_API_URL}/cache/mset`, {
       data: {

@@ -11,15 +11,56 @@
  * Note: Some tests require SQLit for state operations.
  */
 
-import { describe, expect, test } from 'bun:test'
-import { getSQLitBlockProducerUrl } from '@jejunetwork/config'
+import { beforeAll, describe, expect, test } from 'bun:test'
+import { resetCacheClients } from '@jejunetwork/cache'
 import type { Address } from 'viem'
+import { initializeDWSState } from '../api/state'
 
-// Check if SQLit is available
-const SQLIT_AVAILABLE =
-  !!(typeof process !== 'undefined'
-    ? process.env.SQLIT_BLOCK_PRODUCER_ENDPOINT
-    : undefined) || !!getSQLitBlockProducerUrl()
+// SQLit endpoint - use same default as server
+const SQLIT_ENDPOINT =
+  process.env.SQLIT_BLOCK_PRODUCER_ENDPOINT ?? 'http://localhost:4661'
+
+// Check if SQLit is available by making a health check
+async function checkSQLitAvailable(): Promise<boolean> {
+  const endpoints = [`${SQLIT_ENDPOINT}/health`, `${SQLIT_ENDPOINT}/v2/health`]
+  for (const ep of endpoints) {
+    try {
+      const response = await fetch(ep, { signal: AbortSignal.timeout(2000) })
+      if (response.ok) return true
+    } catch {
+      // Try next
+    }
+  }
+  return false
+}
+
+// Create the dws database if it doesn't exist
+async function ensureDWSDatabase(): Promise<void> {
+  try {
+    // Try to create the dws database with explicit ID
+    const response = await fetch(`${SQLIT_ENDPOINT}/v2/databases`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'dws',
+        databaseId: 'dws',
+        encryptionMode: 'none',
+      }),
+    })
+    if (!response.ok) {
+      const text = await response.text()
+      // Ignore "already exists" errors
+      if (!text.includes('already exists')) {
+        console.warn('Failed to create dws database:', text)
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to create dws database:', err)
+  }
+}
+
+// Check at module load time
+const SQLIT_AVAILABLE = await checkSQLitAvailable()
 
 import {
   type AccessControl,
@@ -348,7 +389,12 @@ describe('Access Control Bypass Prevention', () => {
   })
 
   describe('Rate Limit Bypass Attempts', () => {
-    test('should enforce limits per user+listing combination', () => {
+    beforeAll(() => {
+      // Reset cache clients to ensure they use the correct DWS_CACHE_URL
+      resetCacheClients()
+    })
+
+    test('should enforce limits per user+listing combination', async () => {
       const limits = {
         requestsPerSecond: 2,
         requestsPerMinute: 10,
@@ -362,17 +408,19 @@ describe('Access Control Bypass Prevention', () => {
 
       // User 1 exceeds limit
       for (let i = 0; i < 3; i++) {
-        incrementRateLimit(user1, listingId)
+        await incrementRateLimit(user1, listingId)
       }
 
       // User 1 should be blocked
-      expect(checkRateLimit(user1, listingId, limits).allowed).toBe(false)
+      const result1 = await checkRateLimit(user1, listingId, limits)
+      expect(result1.allowed).toBe(false)
 
       // User 2 should still work (separate tracking)
-      expect(checkRateLimit(user2, listingId, limits).allowed).toBe(true)
+      const result2 = await checkRateLimit(user2, listingId, limits)
+      expect(result2.allowed).toBe(true)
     })
 
-    test('should track limits per listing', () => {
+    test('should track limits per listing', async () => {
       const limits = {
         requestsPerSecond: 2,
         requestsPerMinute: 10,
@@ -386,12 +434,14 @@ describe('Access Control Bypass Prevention', () => {
 
       // Exhaust limit on listing 1
       for (let i = 0; i < 3; i++) {
-        incrementRateLimit(user, listing1)
+        await incrementRateLimit(user, listing1)
       }
 
       // Listing 1 blocked, listing 2 allowed
-      expect(checkRateLimit(user, listing1, limits).allowed).toBe(false)
-      expect(checkRateLimit(user, listing2, limits).allowed).toBe(true)
+      const result1 = await checkRateLimit(user, listing1, limits)
+      const result2 = await checkRateLimit(user, listing2, limits)
+      expect(result1.allowed).toBe(false)
+      expect(result2.allowed).toBe(true)
     })
   })
 })
@@ -399,11 +449,16 @@ describe('Access Control Bypass Prevention', () => {
 // Key Vault Security Tests
 
 describe('Key Vault Security', () => {
-  test('should not expose encrypted key data in metadata', () => {
-    const apiKey = 'sk-vault-security-test123456789'
-    const vaultKey = storeKey('openai', TEST_SELLER, apiKey)
+  beforeAll(async () => {
+    await ensureDWSDatabase()
+    await initializeDWSState()
+  })
 
-    const metadata = getKeyMetadata(vaultKey.id)
+  test('should not expose encrypted key data in metadata', async () => {
+    const apiKey = 'sk-vault-security-test123456789'
+    const vaultKey = await storeKey('openai', TEST_SELLER, apiKey)
+
+    const metadata = await getKeyMetadata(vaultKey.id)
 
     expect(metadata).toBeDefined()
     expect(metadata.id).toBe(vaultKey.id)
@@ -412,12 +467,12 @@ describe('Key Vault Security', () => {
     expect(JSON.stringify(metadata)).not.toContain(apiKey)
   })
 
-  test('should only decrypt for authorized contexts', () => {
+  test('should only decrypt for authorized contexts', async () => {
     const apiKey = 'sk-decrypt-auth-test1234567890'
-    const vaultKey = storeKey('groq', TEST_SELLER, apiKey)
+    const vaultKey = await storeKey('groq', TEST_SELLER, apiKey)
 
     // Valid decryption
-    const decrypted = decryptKeyForRequest({
+    const decrypted = await decryptKeyForRequest({
       keyId: vaultKey.id,
       requester: TEST_USER,
       requestContext: {
@@ -430,7 +485,7 @@ describe('Key Vault Security', () => {
     expect(decrypted).toBe(apiKey)
 
     // Invalid key ID
-    const invalidDecrypt = decryptKeyForRequest({
+    const invalidDecrypt = await decryptKeyForRequest({
       keyId: 'non-existent',
       requester: TEST_USER,
       requestContext: {
@@ -443,9 +498,9 @@ describe('Key Vault Security', () => {
     expect(invalidDecrypt).toBeNull()
   })
 
-  test('should generate unique attestations', () => {
-    const key1 = storeKey('openai', TEST_SELLER, 'key1')
-    const key2 = storeKey('openai', TEST_SELLER, 'key2')
+  test('should generate unique attestations', async () => {
+    const key1 = await storeKey('openai', TEST_SELLER, 'key1')
+    const key2 = await storeKey('openai', TEST_SELLER, 'key2')
 
     expect(key1.attestation).toBeDefined()
     expect(key2.attestation).toBeDefined()
@@ -512,21 +567,26 @@ describe('Injection Attack Prevention', () => {
 // Full Flow Security Tests (require SQLit)
 
 describe.skipIf(!SQLIT_AVAILABLE)('Full Flow Security', () => {
-  test('should prevent key exposure in complete proxy flow', () => {
+  beforeAll(async () => {
+    await ensureDWSDatabase()
+    await initializeDWSState()
+  })
+
+  test('should prevent key exposure in complete proxy flow', async () => {
     const apiKey = 'sk-flow-security-test1234567890'
     const seller = '0x4444444444444444444444444444444444444444' as Address
     const user = '0x5555555555555555555555555555555555555555' as Address
 
     // Setup
-    const vaultKey = storeKey('openai', seller, apiKey)
-    const listing = createListing({
+    const vaultKey = await storeKey('openai', seller, apiKey)
+    const listing = await createListing({
       providerId: 'openai',
       seller,
       keyVaultId: vaultKey.id,
     })
 
     // Fund user
-    deposit(user, 10000000000000000000n)
+    await deposit(user, 10000000000000000000n)
 
     // The key should never appear in listing data (handle BigInt for JSON)
     const listingStr = JSON.stringify(listing, (_, v) =>
@@ -535,7 +595,7 @@ describe.skipIf(!SQLIT_AVAILABLE)('Full Flow Security', () => {
     expect(listingStr).not.toContain(apiKey)
 
     // Metadata should not contain key
-    const metadata = getKeyMetadata(vaultKey.id)
+    const metadata = await getKeyMetadata(vaultKey.id)
     const metadataStr = JSON.stringify(metadata, (_, v) =>
       typeof v === 'bigint' ? v.toString() : v,
     )
@@ -545,12 +605,13 @@ describe.skipIf(!SQLIT_AVAILABLE)('Full Flow Security', () => {
   test.skipIf(!SQLIT_AVAILABLE)(
     'should enforce payment before access',
     async () => {
-      const testId = Date.now().toString(16).slice(-8)
-      const poorUser = `0x${testId}666666666666666666666666666666` as Address
+      // Generate valid 40-hex-char addresses (need exactly 40 hex chars after 0x)
+      const testId = Date.now().toString(16).padStart(8, '0').slice(-8)
+      const poorUser = `0x${testId}66666666666666666666666666666666` as Address // 8 + 32 = 40 chars
       await getOrCreateAccount(poorUser) // Create account with 0 balance
 
-      const seller = `0x${testId}777777777777777777777777777777` as Address
-      const vaultKey = storeKey('anthropic', seller, 'test-key')
+      const seller = `0x${testId}77777777777777777777777777777777` as Address // 8 + 32 = 40 chars
+      const vaultKey = await storeKey('anthropic', seller, 'test-key')
       const listing = await createListing({
         providerId: 'anthropic',
         seller,
@@ -558,8 +619,13 @@ describe.skipIf(!SQLIT_AVAILABLE)('Full Flow Security', () => {
         pricePerRequest: 100000000000000n, // 0.0001 ETH
       })
 
-      // Check access should pass (access control) - checkAccess is sync and only checks ACLs
-      const accessCheck = checkAccess(poorUser, listing, '/messages', 'POST')
+      // Check access should pass (access control)
+      const accessCheck = await checkAccess(
+        poorUser,
+        listing,
+        '/messages',
+        'POST',
+      )
       expect(accessCheck.allowed).toBe(true)
 
       // But actual payment check would fail (tested in proxy)

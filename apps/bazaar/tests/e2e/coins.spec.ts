@@ -6,7 +6,9 @@
 import { assertNoPageErrors } from '@jejunetwork/tests/playwright-only'
 import { expect, type Page, test } from '@playwright/test'
 
-const isRemote = process.env.JEJU_NETWORK === 'testnet' || process.env.JEJU_NETWORK === 'mainnet'
+const isRemote =
+  process.env.JEJU_NETWORK === 'testnet' ||
+  process.env.JEJU_NETWORK === 'mainnet'
 
 async function navigateTo(page: Page, url: string): Promise<void> {
   await page.goto(url, { waitUntil: 'networkidle' })

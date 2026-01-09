@@ -58,6 +58,7 @@ function fixCircularImports(): number {
 // 2. Fix ESM imports (add .js extensions for Node ESM compatibility)
 function fixEsmImports(): number {
   const modelDirs = [
+    join(indexerRoot, 'lib/model/generated'),
     join(indexerRoot, 'lib/src/model/generated'),
     join(indexerRoot, 'lib/api/model/generated'),
   ]

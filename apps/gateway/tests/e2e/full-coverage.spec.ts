@@ -8,7 +8,9 @@
 import { expect, test } from '@playwright/test'
 
 // Check if running against testnet/mainnet where UI may differ
-const isRemote = process.env.JEJU_NETWORK === 'testnet' || process.env.JEJU_NETWORK === 'mainnet'
+const isRemote =
+  process.env.JEJU_NETWORK === 'testnet' ||
+  process.env.JEJU_NETWORK === 'mainnet'
 
 test.describe('Gateway - Full Coverage', () => {
   // Skip on remote - UI structure may differ significantly

@@ -265,7 +265,7 @@ const PROMPTS = [
   },
 ]
 
-import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
+import { type CacheClient, getCacheClient } from '@jejunetwork/cache'
 
 const MAX_BODY_SIZE = 1024 * 1024
 const MCP_RATE_LIMIT = 100

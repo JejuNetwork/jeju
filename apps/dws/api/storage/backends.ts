@@ -260,10 +260,7 @@ class BackendManagerImpl implements BackendManager {
     if (knownBackend) {
       const backend = this.backends.get(knownBackend)
       if (backend) {
-        const content = await backend.download(cid)
-        // Check if this is a chunked file manifest
-        const assembled = await this.assembleChunkedFile(content)
-        return { content: assembled, backend: backend.type }
+        return { content: await backend.download(cid), backend: backend.type }
       }
     }
 
@@ -276,9 +273,7 @@ class BackendManagerImpl implements BackendManager {
       })
       if (content) {
         this.cidToBackend.set(cid, name)
-        // Check if this is a chunked file manifest
-        const assembled = await this.assembleChunkedFile(content)
-        return { content: assembled, backend: backend.type }
+        return { content, backend: backend.type }
       }
     }
 
@@ -292,48 +287,6 @@ class BackendManagerImpl implements BackendManager {
     }
 
     throw new Error(`Content not found: ${cid}`)
-  }
-
-  /**
-   * Check if content is a chunked file manifest and assemble if so
-   */
-  private async assembleChunkedFile(content: Buffer): Promise<Buffer> {
-    // Try to parse as JSON to check for chunked file manifest
-    try {
-      const str = content.toString('utf-8')
-      if (!str.startsWith('{')) return content
-
-      const manifest = JSON.parse(str) as {
-        type?: string
-        chunks?: string[]
-        totalSize?: number
-      }
-
-      if (manifest.type !== 'chunked-file' || !manifest.chunks) {
-        return content
-      }
-
-      console.log(
-        `[BackendManager] Assembling chunked file with ${manifest.chunks.length} chunks`,
-      )
-
-      // Download and assemble all chunks
-      const chunks: Buffer[] = []
-      for (const chunkCid of manifest.chunks) {
-        const chunkResponse = await this.download(chunkCid)
-        chunks.push(chunkResponse.content)
-      }
-
-      const assembled = Buffer.concat(chunks)
-      console.log(
-        `[BackendManager] Assembled ${assembled.length} bytes from ${chunks.length} chunks`,
-      )
-
-      return assembled
-    } catch {
-      // Not JSON or not a chunked file manifest - return as-is
-      return content
-    }
   }
 
   async downloadBatch(cids: string[]): Promise<Map<string, Buffer>> {

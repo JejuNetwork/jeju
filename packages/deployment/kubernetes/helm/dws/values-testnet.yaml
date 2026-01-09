@@ -1,24 +1,49 @@
 # Testnet-specific values for DWS
+#
+# DECENTRALIZED ARCHITECTURE:
+# - All app routing is dynamic via JNS contract resolution
+# - Apps register their contenthash on-chain (e.g., factory.jeju -> QmXxx)
+# - DWS app-router resolves appname.testnet.jejunetwork.org via JNS
+# - No static app definitions needed in this file
+#
+# Only infrastructure subdomains are defined here (dws, storage, git, etc.)
+# Application subdomains are handled dynamically by the app-router.
+#
+# DECENTRALIZATION STATUS:
+# - [DONE] App routing via JNS (on-chain)
+# - [DONE] Storage via IPFS
+# - [DONE] Database via SQLit + DWS-provisioned PostgreSQL
+# - [DONE] Image registry: DWS OCI registry (proxies Docker Hub, caches in IPFS)
+# - [DONE] Ingress: nginx with cert-manager
+# - [TODO] DNS: Route53 -> JNS DNS mirroring (in progress)
 
 replicaCount: 3
 
+# IMAGE REGISTRY - Decentralized via DWS OCI Registry
+# DWS hosts its own OCI-compatible registry that:
+# 1. Resolves images from on-chain ContainerRegistry contract
+# 2. Falls back to Docker Hub proxy for standard images
+# 3. Caches all layers in IPFS
 image:
-  repository: 502713364895.dkr.ecr.us-east-1.amazonaws.com/jeju/dws
+  repository: registry.jeju/jeju/dws
   tag: "testnet-latest"
+  pullPolicy: Always
 
+imagePullSecrets: []
+
+# INGRESS - Decentralized using nginx + cert-manager
+# Uses Let's Encrypt for TLS certificates (not AWS ACM)
 ingress:
   enabled: true
-  className: "alb"
+  className: "nginx"
   annotations:
-    alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
-    alb.ingress.kubernetes.io/ssl-redirect: "443"
-    # ACM certificate ARN - set via Helmfile or terraform output
-    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:502713364895:certificate/414c8f7b-6ebf-470b-86c4-fc5d1722b8b7"
-    alb.ingress.kubernetes.io/group.name: jeju-testnet
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
   hosts:
-    # Core DWS services
+    # Core DWS infrastructure - these are NOT apps, they are system services
     - host: dws.testnet.jejunetwork.org
       paths:
         - path: /
@@ -27,12 +52,10 @@ ingress:
       paths:
         - path: /
           pathType: Prefix
-    # Git hosting
     - host: git.testnet.jejunetwork.org
       paths:
         - path: /
           pathType: Prefix
-    # Package registries
     - host: npm.testnet.jejunetwork.org
       paths:
         - path: /
@@ -45,59 +68,32 @@ ingress:
       paths:
         - path: /
           pathType: Prefix
-    # JNS Gateway (serves decentralized apps)
     - host: jns.testnet.jejunetwork.org
       paths:
         - path: /
           pathType: Prefix
-    # App routing - individual apps routed through DWS
-    # DWS app router handles frontend (IPFS) + backend (workers) routing
-    - host: oauth3.testnet.jejunetwork.org
+    # OCI Registry endpoint for docker pull
+    - host: registry.jeju
+      paths:
+        - path: /v2
+          pathType: Prefix
+    # Wildcard - ALL other subdomains route to DWS app-router
+    # The app-router resolves apps dynamically via JNS contract
+    - host: "*.testnet.jejunetwork.org"
       paths:
         - path: /
           pathType: Prefix
-    - host: autocrat.testnet.jejunetwork.org
-      paths:
-        - path: /
-          pathType: Prefix
-    - host: bazaar.testnet.jejunetwork.org
-      paths:
-        - path: /
-          pathType: Prefix
-    - host: crucible.testnet.jejunetwork.org
-      paths:
-        - path: /
-          pathType: Prefix
-    - host: factory.testnet.jejunetwork.org
-      paths:
-        - path: /
-          pathType: Prefix
-    - host: gateway.testnet.jejunetwork.org
-      paths:
-        - path: /
-          pathType: Prefix
-    - host: indexer.testnet.jejunetwork.org
-      paths:
-        - path: /
-          pathType: Prefix
-    - host: example.testnet.jejunetwork.org
-      paths:
-        - path: /
-          pathType: Prefix
-    # Babylon prediction markets platform
-    - host: babylon.testnet.jejunetwork.org
-      paths:
-        - path: /
-          pathType: Prefix
-    - host: babylon-api.testnet.jejunetwork.org
-      paths:
-        - path: /
-          pathType: Prefix
-    # Eliza Cloud - AI agent cloud platform
-    - host: cloud.testnet.jejunetwork.org
-      paths:
-        - path: /
-          pathType: Prefix
+  tls:
+    - secretName: dws-tls
+      hosts:
+        - dws.testnet.jejunetwork.org
+        - storage.testnet.jejunetwork.org
+        - git.testnet.jejunetwork.org
+        - npm.testnet.jejunetwork.org
+        - hub.testnet.jejunetwork.org
+        - registry.testnet.jejunetwork.org
+        - jns.testnet.jejunetwork.org
+        - "*.testnet.jejunetwork.org"
 
 resources:
   limits:
@@ -130,12 +126,22 @@ config:
       - type: ipfs
         enabled: true
         gateway: "https://ipfs.io"
+        apiUrl: "http://ipfs.dws.svc.cluster.local:5001"
         pinningService: "internal"
       - type: arweave
         enabled: true
         gateway: "https://arweave.net"
       - type: webtorrent
         enabled: true
+  
+  # Database - uses DWS-provisioned PostgreSQL for Subsquid indexer
+  # PostgreSQL image pulled through DWS OCI registry
+  database:
+    postgres:
+      enabled: true
+      image: "registry.jeju/library/postgres:16-alpine"
+    sqlit:
+      enabled: true
   
   # JNS Gateway - serves apps at jns.testnet.jejunetwork.org
   jnsGateway:
@@ -207,21 +213,21 @@ env:
     value: "info"
   - name: NETWORK
     value: "testnet"
-  - name: DWS_P2P_ENABLED
-    value: "true"
   - name: DWS_BASE_URL
     value: "https://dws.testnet.jejunetwork.org"
   - name: JNS_GATEWAY_ENABLED
     value: "true"
   - name: JNS_GATEWAY_DOMAIN
     value: "jns.testnet.jejunetwork.org"
+  # OCI Registry - DWS serves as Docker registry at registry.jeju
+  - name: DWS_OCI_REGISTRY_ENABLED
+    value: "true"
+  - name: DWS_REGISTRY_URL
+    value: "https://registry.testnet.jejunetwork.org"
   # SQLit connection for decentralized database
   - name: SQLIT_ENABLED
     value: "true"
-  # Allow fallback to memory mode if SQLit adapter isn't deployed yet
-  - name: DWS_SQLIT_FALLBACK
-    value: "1"
-  # Use sqlit-adapter service for HTTP API (sqlit pod itself only listens on native RPC port 4661)
+  # Use sqlit-adapter service for HTTP API
   - name: SQLIT_HTTP_URL
     value: "http://sqlit-adapter.dws.svc.cluster.local:8546"
   - name: SQLIT_BLOCK_PRODUCER_ENDPOINT
@@ -229,20 +235,21 @@ env:
   # Native SQLit RPC connection
   - name: SQLIT_CLUSTER_URL
     value: "sqlit.dws.svc.cluster.local:4661"
-  # SQLit authentication - testnet uses a static key (simple adapter doesn't verify signatures)
-  # In production, use KMS-backed key via SQLIT_KEY_ID
+  # IPFS connection for storage and OCI registry
+  - name: IPFS_API_URL
+    value: "http://ipfs.dws.svc.cluster.local:5001"
+  - name: IPFS_GATEWAY_URL
+    value: "http://ipfs.dws.svc.cluster.local:8080"
+
+# Secrets - use Kubernetes secrets, NOT environment variables
+secretEnv:
   - name: SQLIT_PRIVATE_KEY
-    valueFrom:
-      secretKeyRef:
-        name: dws-sqlit-credentials
-        key: private-key
-        optional: false
+    secretName: dws-sqlit-credentials
+    secretKey: private-key
 
 persistence:
   # Disabled - DWS uses SQLit + ConfigMap for state (allows HA with 3 replicas)
   enabled: false
-  storageClass: "gp3"
-  size: 100Gi
 
 autoscaling:
   enabled: true
@@ -255,9 +262,26 @@ metrics:
   serviceMonitor:
     enabled: true
 
-# SQLit configuration for testnet
+# SQLit sidecar for distributed database
 sqlit:
   enabled: true
-  # Static testnet key (32 bytes hex) - simple adapter doesn't verify signatures
-  # WARNING: This is for testnet only. Use SealedSecrets or AWS Secrets Manager for mainnet
-  privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+  image: registry.jeju/jeju/sqlit:latest
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 250m
+      memory: 512Mi
+
+# IPFS sidecar for decentralized storage
+ipfs:
+  enabled: true
+  image: registry.jeju/library/kubo:v0.24.0
+  resources:
+    limits:
+      cpu: 500m
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 256Mi

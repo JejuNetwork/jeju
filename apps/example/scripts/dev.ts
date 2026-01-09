@@ -1,15 +1,16 @@
 #!/usr/bin/env bun
+
 /**
  * Example App Development Server
  *
  * Starts both API and frontend with hot reload.
  */
 
-import type { BunPlugin, Subprocess } from 'bun'
 import { watch } from 'node:fs'
 import { mkdir, readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { getLocalhostHost } from '@jejunetwork/config'
+import type { BunPlugin, Subprocess } from 'bun'
 
 const APP_DIR = resolve(import.meta.dir, '..')
 
@@ -88,9 +89,17 @@ const BROWSER_EXTERNALS = [
   'node:worker_threads',
   'elysia',
   '@elysiajs/*',
+  '@jejunetwork/contracts',
+  '@jejunetwork/deployment',
+  '@jejunetwork/db',
+  '@jejunetwork/kms',
+  '@jejunetwork/dws',
 ]
-const API_PORT = Number(process.env.API_PORT) || 3001
-const FRONTEND_PORT = Number(process.env.PORT) || 3000
+
+import { CORE_PORTS } from '@jejunetwork/config'
+
+const FRONTEND_PORT = CORE_PORTS.EXAMPLE.get()
+const API_PORT = FRONTEND_PORT + 1 // API on port + 1
 
 interface ProcessInfo {
   name: string
@@ -172,7 +181,7 @@ async function buildFrontend(): Promise<boolean> {
   const startTime = Date.now()
 
   const result = await Bun.build({
-    entrypoints: [resolve(APP_DIR, 'web/main.tsx')],
+    entrypoints: [resolve(APP_DIR, 'web/app.ts')],
     outdir: resolve(APP_DIR, 'dist/dev'),
     target: 'browser',
     minify: false,

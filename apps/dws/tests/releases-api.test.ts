@@ -9,8 +9,8 @@
  * - Concurrent request handling
  */
 
-import { ReleaseManifestSchema } from '@jejunetwork/types'
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import { ReleaseManifestSchema } from '@jejunetwork/types'
 import Elysia from 'elysia'
 import { releasesRoutes } from '../api/server/routes/releases'
 
@@ -70,7 +70,9 @@ describe('Releases API - Node App', () => {
 
   test('node artifacts include all major platforms', async () => {
     const { json } = await fetchJson('/releases/node/latest')
-    const platforms = json.artifacts.map((a: { platform: string }) => a.platform)
+    const platforms = json.artifacts.map(
+      (a: { platform: string }) => a.platform,
+    )
 
     expect(platforms).toContain('macos')
     expect(platforms).toContain('windows')
@@ -129,7 +131,9 @@ describe('Releases API - Wallet App', () => {
 
   test('wallet artifacts include browser extensions', async () => {
     const { json } = await fetchJson('/releases/wallet/latest')
-    const platforms = json.artifacts.map((a: { platform: string }) => a.platform)
+    const platforms = json.artifacts.map(
+      (a: { platform: string }) => a.platform,
+    )
 
     expect(platforms).toContain('chrome')
     expect(platforms).toContain('firefox')
@@ -255,9 +259,9 @@ describe('Releases API - Manifest Validation', () => {
     expect(res.status).toBe(200)
     expect(json.valid).toBe(false)
     expect(Array.isArray(json.errors)).toBe(true)
-    expect(json.errors.some((e: { path: string }) => e.path === 'version')).toBe(
-      true,
-    )
+    expect(
+      json.errors.some((e: { path: string }) => e.path === 'version'),
+    ).toBe(true)
   })
 
   test('POST /releases/validate rejects manifest without app name', async () => {
@@ -276,7 +280,9 @@ describe('Releases API - Manifest Validation', () => {
 
     expect(res.status).toBe(200)
     expect(json.valid).toBe(false)
-    expect(json.errors.some((e: { path: string }) => e.path === 'app')).toBe(true)
+    expect(json.errors.some((e: { path: string }) => e.path === 'app')).toBe(
+      true,
+    )
   })
 
   test('POST /releases/validate rejects artifact with invalid size', async () => {

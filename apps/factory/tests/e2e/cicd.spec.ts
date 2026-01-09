@@ -1,5 +1,7 @@
 // Check if running against testnet/mainnet
-const isRemote = process.env.JEJU_NETWORK === 'testnet' || process.env.JEJU_NETWORK === 'mainnet'
+const isRemote =
+  process.env.JEJU_NETWORK === 'testnet' ||
+  process.env.JEJU_NETWORK === 'mainnet'
 
 /**
  * CI/CD E2E Tests

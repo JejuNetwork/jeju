@@ -1,4 +1,2 @@
-/**
- * Empty stub for server-only packages in browser
- */
-export default {}
+// Empty stub for server-only modules in browser builds
+export {}

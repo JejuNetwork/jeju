@@ -12,6 +12,7 @@ import {
   walletAuthHeadersSchema,
 } from '../lib/schemas'
 import { constructAuthMessage, TIMESTAMP_WINDOW_MS } from '../lib/utils'
+import { getOAuth3Service } from './services/auth'
 import { getTodoService } from './services/todo'
 import {
   expectDefined,
@@ -46,7 +47,26 @@ export function createRESTRoutes() {
           return { address: undefined }
         }
 
-        // Validate headers with zod
+        // Try OAuth3 authentication first
+        const oauth3SessionId = request.headers.get('x-oauth3-session')
+        if (oauth3SessionId) {
+          const oauth3Service = getOAuth3Service()
+          await oauth3Service.initialize().catch(() => {})
+          const session = oauth3Service.getSession()
+
+          if (
+            session &&
+            session.sessionId === oauth3SessionId &&
+            session.expiresAt > Date.now() &&
+            session.smartAccount
+          ) {
+            return { address: session.smartAccount }
+          }
+
+          // Session invalid or expired, fall through to wallet signature auth
+        }
+
+        // Fall back to wallet signature authentication
         const headers = {
           'x-jeju-address': request.headers.get('x-jeju-address'),
           'x-jeju-timestamp': request.headers.get('x-jeju-timestamp'),

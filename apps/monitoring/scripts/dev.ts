@@ -12,8 +12,11 @@ import { getLocalhostHost } from '@jejunetwork/config'
 import type { Subprocess } from 'bun'
 
 const APP_DIR = resolve(import.meta.dir, '..')
-const API_PORT = Number(process.env.API_PORT) || 4011
-const FRONTEND_PORT = Number(process.env.PORT) || 4010
+
+import { CORE_PORTS } from '@jejunetwork/config'
+
+const FRONTEND_PORT = CORE_PORTS.MONITORING.get()
+const API_PORT = FRONTEND_PORT + 1
 
 interface ProcessInfo {
   name: string
@@ -71,6 +74,7 @@ async function startAPIServer(): Promise<boolean> {
     env: {
       ...process.env,
       PORT: String(API_PORT),
+      A2A_PORT: String(API_PORT),
     },
   })
 

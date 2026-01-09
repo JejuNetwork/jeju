@@ -157,6 +157,11 @@ export class OAuth3DecentralizedDiscovery {
   }
 
   private async getAppFromRegistry(appId: Hex): Promise<DiscoveredApp | null> {
+    // Skip RPC calls if registry address is not configured
+    if (this.appRegistryAddress === ZERO_ADDRESS) {
+      return null
+    }
+
     const catchNotFound = (error: Error) => {
       if (error.message.includes('reverted')) return null
       throw error // Rethrow connection errors
@@ -205,17 +210,21 @@ export class OAuth3DecentralizedDiscovery {
 
   private async buildAppFromJNS(jnsApp: OAuth3AppJNS): Promise<DiscoveredApp> {
     const appId = keccak256(toBytes(jnsApp.fullName))
-    const onChainApp = await this.client
-      .readContract({
-        address: this.appRegistryAddress,
-        abi: OAUTH3_APP_REGISTRY_ABI,
-        functionName: 'getApp',
-        args: [appId],
-      })
-      .catch((error: Error) => {
-        if (error.message.includes('reverted')) return null
-        throw error
-      })
+    // Skip on-chain verification if registry address is not configured
+    const onChainApp =
+      this.appRegistryAddress === ZERO_ADDRESS
+        ? null
+        : await this.client
+            .readContract({
+              address: this.appRegistryAddress,
+              abi: OAUTH3_APP_REGISTRY_ABI,
+              functionName: 'getApp',
+              args: [appId],
+            })
+            .catch((error: Error) => {
+              if (error.message.includes('reverted')) return null
+              throw error
+            })
 
     const nodes = await this.discoverNodes()
     return {
@@ -383,6 +392,8 @@ export class OAuth3DecentralizedDiscovery {
   }
 
   async validateRedirectUri(appId: Hex, uri: string): Promise<boolean> {
+    // Without app registry, allow all redirect URIs (centralized fallback)
+    if (this.appRegistryAddress === ZERO_ADDRESS) return true
     return this.client.readContract({
       address: this.appRegistryAddress,
       abi: OAUTH3_APP_REGISTRY_ABI,
@@ -395,6 +406,8 @@ export class OAuth3DecentralizedDiscovery {
     appId: Hex,
     provider: AuthProvider,
   ): Promise<boolean> {
+    // Without app registry, allow all providers (centralized fallback)
+    if (this.appRegistryAddress === ZERO_ADDRESS) return true
     const index = ALL_PROVIDERS.indexOf(provider)
     if (index === -1) return false
     return this.client.readContract({

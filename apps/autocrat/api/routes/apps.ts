@@ -1,20 +1,9 @@
 import { Elysia, t } from 'elysia'
-import type { Address, Hash, Hex } from 'viem'
+import type { Address, Hex } from 'viem'
+import { formatEther } from 'viem'
 import { getSharedState } from '../shared-state'
 
-/**
- * App Fee Management Routes
- *
- * Core Principle: Network gets 0% - fees go to apps and community
- *
- * These routes allow:
- * - App registration for fee eligibility
- * - Viewing app fee stats
- * - Claiming accumulated fees
- * - Managing app contracts
- */
-
-// ABIs for contract interaction
+// AppFeeRegistry ABI (minimal for read/write operations)
 const AppFeeRegistryABI = [
   {
     type: 'function',
@@ -27,26 +16,6 @@ const AppFeeRegistryABI = [
       { name: 'daoId', type: 'bytes32' },
     ],
     outputs: [{ name: 'appId', type: 'bytes32' }],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    name: 'addAppContract',
-    inputs: [
-      { name: 'appId', type: 'bytes32' },
-      { name: 'contractAddr', type: 'address' },
-    ],
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    name: 'setFeeRecipient',
-    inputs: [
-      { name: 'appId', type: 'bytes32' },
-      { name: 'newRecipient', type: 'address' },
-    ],
-    outputs: [],
     stateMutability: 'nonpayable',
   },
   {
@@ -95,152 +64,159 @@ const AppFeeRegistryABI = [
     type: 'function',
     name: 'getDAOApps',
     inputs: [{ name: 'daoId', type: 'bytes32' }],
-    outputs: [{ type: 'bytes32[]' }],
+    outputs: [{ name: '', type: 'bytes32[]' }],
     stateMutability: 'view',
   },
   {
     type: 'function',
     name: 'getOwnerApps',
     inputs: [{ name: 'ownerAddr', type: 'address' }],
-    outputs: [{ type: 'bytes32[]' }],
+    outputs: [{ name: '', type: 'bytes32[]' }],
     stateMutability: 'view',
   },
   {
     type: 'function',
-    name: 'getAppForContract',
-    inputs: [{ name: 'contractAddr', type: 'address' }],
-    outputs: [{ type: 'bytes32' }],
+    name: 'getAppCount',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
     stateMutability: 'view',
   },
   {
     type: 'function',
     name: 'isEligibleForFees',
     inputs: [{ name: 'contractAddr', type: 'address' }],
-    outputs: [{ type: 'bool' }],
+    outputs: [{ name: '', type: 'bool' }],
     stateMutability: 'view',
   },
   {
     type: 'function',
-    name: 'linkAgent',
+    name: 'getFeeRecipient',
+    inputs: [{ name: 'contractAddr', type: 'address' }],
+    outputs: [{ name: '', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'contractToApp',
+    inputs: [{ name: 'contractAddr', type: 'address' }],
+    outputs: [{ name: '', type: 'bytes32' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'addAppContract',
     inputs: [
       { name: 'appId', type: 'bytes32' },
-      { name: 'agentId', type: 'uint256' },
+      { name: 'contractAddr', type: 'address' },
     ],
     outputs: [],
     stateMutability: 'nonpayable',
   },
   {
     type: 'function',
-    name: 'verifyApp',
-    inputs: [{ name: 'appId', type: 'bytes32' }],
+    name: 'setFeeRecipient',
+    inputs: [
+      { name: 'appId', type: 'bytes32' },
+      { name: 'newRecipient', type: 'address' },
+    ],
     outputs: [],
     stateMutability: 'nonpayable',
   },
 ] as const
 
+// FeeDistributor ABI (for claiming and stats)
 const FeeDistributorABI = [
   {
     type: 'function',
-    name: 'getEarnings',
-    inputs: [{ name: 'app', type: 'address' }],
-    outputs: [{ type: 'uint256' }],
+    name: 'appEarnings',
+    inputs: [{ name: 'appAddress', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
     stateMutability: 'view',
   },
   {
     type: 'function',
-    name: 'claimEarnings',
+    name: 'totalAppEarnings',
     inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'totalLPEarnings',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'totalContributorEarnings',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'totalDistributed',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'contributorPoolBalance',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'claimAppFees',
+    inputs: [{ name: 'appAddress', type: 'address' }],
     outputs: [],
     stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    name: 'claimEarningsTo',
-    inputs: [{ name: 'recipient', type: 'address' }],
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    name: 'getCurrentFeeSplits',
-    inputs: [],
-    outputs: [
-      { name: 'appShareBps', type: 'uint16' },
-      { name: 'lpShareBps', type: 'uint16' },
-      { name: 'contributorShareBps', type: 'uint16' },
-      { name: 'ethLpShareBps', type: 'uint16' },
-      { name: 'tokenLpShareBps', type: 'uint16' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    name: 'getStats',
-    inputs: [],
-    outputs: [
-      { name: '_totalDistributed', type: 'uint256' },
-      { name: '_totalAppEarnings', type: 'uint256' },
-      { name: '_totalLPEarnings', type: 'uint256' },
-      { name: '_totalContributorEarnings', type: 'uint256' },
-      { name: '_computeFeesCollected', type: 'uint256' },
-      { name: '_storageFeesCollected', type: 'uint256' },
-      { name: '_contributorPoolBalance', type: 'uint256' },
-      { name: '_currentPeriod', type: 'uint256' },
-    ],
-    stateMutability: 'view',
   },
 ] as const
 
-import { ZERO_ADDRESS } from '@jejunetwork/types'
-
 function getAppFeeRegistry(): Address {
   const state = getSharedState()
-  const address = state.contracts.appFeeRegistry
-  if (!address || address === ZERO_ADDRESS) {
-    throw new Error(
-      'AppFeeRegistry address not configured - deploy the contract first',
-    )
-  }
-  return address
+  return state.contracts.appFeeRegistry
 }
 
 function getFeeDistributor(): Address {
   const state = getSharedState()
-  const address = state.contracts.feeDistributor
-  if (!address || address === ZERO_ADDRESS) {
-    throw new Error(
-      'FeeDistributor address not configured - deploy the contract first',
-    )
-  }
-  return address
+  return state.contracts.feeDistributor
 }
 
 export const appsRoutes = new Elysia({ prefix: '/apps' })
   /**
    * GET /apps
-   * List all apps for the caller or a specific DAO
+   * List all apps, optionally filtered by DAO or owner
    */
   .get(
     '/',
     async ({ query }) => {
       const state = getSharedState()
-      if (!state.clients.publicClient) {
+      const publicClient = state.clients.publicClient
+      if (!publicClient) {
         return { success: false, error: 'Public client not initialized' }
       }
 
       const registryAddr = getAppFeeRegistry()
+      if (registryAddr === '0x0000000000000000000000000000000000000000') {
+        return { success: false, error: 'AppFeeRegistry not configured' }
+      }
 
       let appIds: Hex[] = []
 
       if (query.daoId) {
-        appIds = (await state.clients.publicClient.readContract({
+        appIds = (await publicClient.readContract({
           address: registryAddr,
           abi: AppFeeRegistryABI,
           functionName: 'getDAOApps',
           args: [query.daoId as Hex],
         })) as Hex[]
       } else if (query.owner) {
-        appIds = (await state.clients.publicClient.readContract({
+        appIds = (await publicClient.readContract({
           address: registryAddr,
           abi: AppFeeRegistryABI,
           functionName: 'getOwnerApps',
@@ -252,13 +228,13 @@ export const appsRoutes = new Elysia({ prefix: '/apps' })
       const apps = await Promise.all(
         appIds.map(async (appId) => {
           const [app, stats] = await Promise.all([
-            state.clients.publicClient?.readContract({
+            publicClient.readContract({
               address: registryAddr,
               abi: AppFeeRegistryABI,
               functionName: 'getApp',
               args: [appId],
             }),
-            state.clients.publicClient?.readContract({
+            publicClient.readContract({
               address: registryAddr,
               abi: AppFeeRegistryABI,
               functionName: 'getAppStats',
@@ -268,7 +244,12 @@ export const appsRoutes = new Elysia({ prefix: '/apps' })
 
           return {
             ...app,
-            stats,
+            stats: {
+              totalTransactions: stats.totalTransactions.toString(),
+              totalFeesEarned: formatEther(stats.totalFeesEarned),
+              totalFeesClaimed: formatEther(stats.totalFeesClaimed),
+              lastClaimAt: Number(stats.lastClaimAt),
+            },
             appId: app.appId,
             agentId: app.agentId.toString(),
             createdAt: Number(app.createdAt),
@@ -293,27 +274,30 @@ export const appsRoutes = new Elysia({ prefix: '/apps' })
 
   /**
    * GET /apps/:appId
-   * Get app details by ID
+   * Get details for a specific app
    */
   .get(
     '/:appId',
     async ({ params }) => {
       const state = getSharedState()
-      if (!state.clients.publicClient) {
+      const publicClient = state.clients.publicClient
+      if (!publicClient) {
         return { success: false, error: 'Public client not initialized' }
       }
 
       const registryAddr = getAppFeeRegistry()
-      const distributorAddr = getFeeDistributor()
+      if (registryAddr === '0x0000000000000000000000000000000000000000') {
+        return { success: false, error: 'AppFeeRegistry not configured' }
+      }
 
       const [app, stats] = await Promise.all([
-        state.clients.publicClient.readContract({
+        publicClient.readContract({
           address: registryAddr,
           abi: AppFeeRegistryABI,
           functionName: 'getApp',
           args: [params.appId as Hex],
         }),
-        state.clients.publicClient.readContract({
+        publicClient.readContract({
           address: registryAddr,
           abi: AppFeeRegistryABI,
           functionName: 'getAppStats',
@@ -321,174 +305,99 @@ export const appsRoutes = new Elysia({ prefix: '/apps' })
         }),
       ])
 
-      // Get pending earnings from FeeDistributor
-      const pendingEarnings = await state.clients.publicClient.readContract({
-        address: distributorAddr,
-        abi: FeeDistributorABI,
-        functionName: 'getEarnings',
-        args: [app.feeRecipient],
-      })
+      if (app.createdAt === 0n) {
+        return { success: false, error: 'App not found' }
+      }
 
       return {
         success: true,
         app: {
           ...app,
-          appId: app.appId,
+          stats: {
+            totalTransactions: stats.totalTransactions.toString(),
+            totalFeesEarned: formatEther(stats.totalFeesEarned),
+            totalFeesClaimed: formatEther(stats.totalFeesClaimed),
+            unclaimedFees: formatEther(
+              stats.totalFeesEarned - stats.totalFeesClaimed,
+            ),
+            lastClaimAt: Number(stats.lastClaimAt),
+          },
           agentId: app.agentId.toString(),
           createdAt: Number(app.createdAt),
           lastActivityAt: Number(app.lastActivityAt),
         },
-        stats: {
-          totalTransactions: stats.totalTransactions.toString(),
-          totalFeesEarned: stats.totalFeesEarned.toString(),
-          totalFeesClaimed: stats.totalFeesClaimed.toString(),
-          lastClaimAt: Number(stats.lastClaimAt),
-          pendingEarnings: pendingEarnings.toString(),
-        },
       }
     },
     {
       params: t.Object({
         appId: t.String(),
-      }),
-    },
-  )
-
-  /**
-   * POST /apps/register
-   * Register a new app for fee eligibility
-   */
-  .post(
-    '/register',
-    async ({ body }) => {
-      const state = getSharedState()
-      if (!state.clients.walletClient) {
-        return {
-          success: false,
-          error: 'Wallet client not initialized - write operations unavailable',
-        }
-      }
-
-      const registryAddr = getAppFeeRegistry()
-
-      const daoIdBytes =
-        body.daoId && body.daoId !== ''
-          ? (body.daoId as Hex)
-          : (`0x${'0'.repeat(64)}` as Hex)
-
-      const hash = await state.clients.walletClient.writeContract({
-        chain: null,
-        account: null,
-        address: registryAddr,
-        abi: AppFeeRegistryABI,
-        functionName: 'registerApp',
-        args: [
-          body.name,
-          body.description,
-          body.primaryContract as Address,
-          body.feeRecipient as Address,
-          daoIdBytes,
-        ],
-      })
-
-      return {
-        success: true,
-        txHash: hash,
-        message:
-          'App registration submitted. Apps receive 45% of all network fees.',
-      }
-    },
-    {
-      body: t.Object({
-        name: t.String({ minLength: 1 }),
-        description: t.String(),
-        primaryContract: t.String(),
-        feeRecipient: t.String(),
-        daoId: t.Optional(t.String()),
-      }),
-    },
-  )
-
-  /**
-   * POST /apps/:appId/contracts
-   * Add additional contract to an app
-   */
-  .post(
-    '/:appId/contracts',
-    async ({ params, body }) => {
-      const state = getSharedState()
-      if (!state.clients.walletClient) {
-        return {
-          success: false,
-          error: 'Wallet client not initialized',
-        }
-      }
-
-      const registryAddr = getAppFeeRegistry()
-
-      const hash = await state.clients.walletClient.writeContract({
-        chain: null,
-        account: null,
-        address: registryAddr,
-        abi: AppFeeRegistryABI,
-        functionName: 'addAppContract',
-        args: [params.appId as Hex, body.contractAddress as Address],
-      })
-
-      return {
-        success: true,
-        txHash: hash,
-        message:
-          'Contract added. Transactions from this contract will now earn fees.',
-      }
-    },
-    {
-      params: t.Object({
-        appId: t.String(),
-      }),
-      body: t.Object({
-        contractAddress: t.String(),
       }),
     },
   )
 
   /**
    * GET /apps/contract/:address
-   * Check if a contract is registered and eligible for fees
+   * Get app info for a contract address
    */
   .get(
     '/contract/:address',
     async ({ params }) => {
       const state = getSharedState()
-      if (!state.clients.publicClient) {
+      const publicClient = state.clients.publicClient
+      if (!publicClient) {
         return { success: false, error: 'Public client not initialized' }
       }
 
       const registryAddr = getAppFeeRegistry()
+      if (registryAddr === '0x0000000000000000000000000000000000000000') {
+        return { success: false, error: 'AppFeeRegistry not configured' }
+      }
 
-      const [appId, isEligible] = await Promise.all([
-        state.clients.publicClient.readContract({
+      const appId = await publicClient.readContract({
+        address: registryAddr,
+        abi: AppFeeRegistryABI,
+        functionName: 'contractToApp',
+        args: [params.address as Address],
+      })
+
+      if (
+        appId ===
+        '0x0000000000000000000000000000000000000000000000000000000000000000'
+      ) {
+        return { success: false, error: 'Contract not registered to any app' }
+      }
+
+      const [app, isEligible, feeRecipient] = await Promise.all([
+        publicClient.readContract({
           address: registryAddr,
           abi: AppFeeRegistryABI,
-          functionName: 'getAppForContract',
-          args: [params.address as Address],
+          functionName: 'getApp',
+          args: [appId],
         }),
-        state.clients.publicClient.readContract({
+        publicClient.readContract({
           address: registryAddr,
           abi: AppFeeRegistryABI,
           functionName: 'isEligibleForFees',
           args: [params.address as Address],
         }),
+        publicClient.readContract({
+          address: registryAddr,
+          abi: AppFeeRegistryABI,
+          functionName: 'getFeeRecipient',
+          args: [params.address as Address],
+        }),
       ])
-
-      const isRegistered = appId !== `0x${'0'.repeat(64)}`
 
       return {
         success: true,
-        contractAddress: params.address,
-        isRegistered,
+        appId,
+        app: {
+          name: app.name,
+          isActive: app.isActive,
+          isVerified: app.isVerified,
+        },
         isEligible,
-        appId: isRegistered ? appId : null,
+        feeRecipient,
       }
     },
     {
@@ -499,275 +408,149 @@ export const appsRoutes = new Elysia({ prefix: '/apps' })
   )
 
   /**
-   * GET /apps/fees/summary
-   * Get network-wide fee distribution summary
+   * GET /apps/stats
+   * Get network-wide fee distribution stats
    */
-  .get('/fees/summary', async () => {
+  .get('/stats', async () => {
     const state = getSharedState()
-    if (!state.clients.publicClient) {
+    const publicClient = state.clients.publicClient
+    if (!publicClient) {
       return { success: false, error: 'Public client not initialized' }
     }
 
+    const registryAddr = getAppFeeRegistry()
     const distributorAddr = getFeeDistributor()
 
-    const [splits, stats] = await Promise.all([
-      state.clients.publicClient.readContract({
-        address: distributorAddr,
-        abi: FeeDistributorABI,
-        functionName: 'getCurrentFeeSplits',
-      }),
-      state.clients.publicClient.readContract({
-        address: distributorAddr,
-        abi: FeeDistributorABI,
-        functionName: 'getStats',
-      }),
-    ])
+    const appCount =
+      registryAddr !== '0x0000000000000000000000000000000000000000'
+        ? await publicClient.readContract({
+            address: registryAddr,
+            abi: AppFeeRegistryABI,
+            functionName: 'getAppCount',
+          })
+        : 0n
+
+    let stats = {
+      totalDistributed: '0',
+      totalAppEarnings: '0',
+      totalLPEarnings: '0',
+      totalContributorEarnings: '0',
+      contributorPoolBalance: '0',
+    }
+
+    if (distributorAddr !== '0x0000000000000000000000000000000000000000') {
+      const [
+        totalDistributed,
+        totalAppEarnings,
+        totalLPEarnings,
+        totalContributorEarnings,
+        contributorPoolBalance,
+      ] = await Promise.all([
+        publicClient.readContract({
+          address: distributorAddr,
+          abi: FeeDistributorABI,
+          functionName: 'totalDistributed',
+        }),
+        publicClient.readContract({
+          address: distributorAddr,
+          abi: FeeDistributorABI,
+          functionName: 'totalAppEarnings',
+        }),
+        publicClient.readContract({
+          address: distributorAddr,
+          abi: FeeDistributorABI,
+          functionName: 'totalLPEarnings',
+        }),
+        publicClient.readContract({
+          address: distributorAddr,
+          abi: FeeDistributorABI,
+          functionName: 'totalContributorEarnings',
+        }),
+        publicClient.readContract({
+          address: distributorAddr,
+          abi: FeeDistributorABI,
+          functionName: 'contributorPoolBalance',
+        }),
+      ])
+
+      stats = {
+        totalDistributed: formatEther(totalDistributed),
+        totalAppEarnings: formatEther(totalAppEarnings),
+        totalLPEarnings: formatEther(totalLPEarnings),
+        totalContributorEarnings: formatEther(totalContributorEarnings),
+        contributorPoolBalance: formatEther(contributorPoolBalance),
+      }
+    }
 
     return {
       success: true,
-      feeSplits: {
-        appShare: `${Number(splits[0]) / 100}%`,
-        lpShare: `${Number(splits[1]) / 100}%`,
-        contributorShare: `${Number(splits[2]) / 100}%`,
-        networkShare: '0%', // Core principle: network gets nothing
-        ethLpShare: `${Number(splits[3]) / 100}% of LP`,
-        tokenLpShare: `${Number(splits[4]) / 100}% of LP`,
+      registeredApps: Number(appCount),
+      feeSplit: {
+        apps: '45%',
+        liquidityProviders: '45%',
+        contributors: '10%',
+        network: '0%',
       },
-      networkStats: {
-        totalDistributed: stats[0].toString(),
-        totalAppEarnings: stats[1].toString(),
-        totalLPEarnings: stats[2].toString(),
-        totalContributorEarnings: stats[3].toString(),
-        computeFeesCollected: stats[4].toString(),
-        storageFeesCollected: stats[5].toString(),
-        contributorPoolBalance: stats[6].toString(),
-        currentPeriod: Number(stats[7]),
-      },
-      principle: 'Network gets 0% - all fees go to apps and community',
+      ...stats,
     }
   })
 
   /**
    * GET /apps/:appId/earnings
-   * Get pending earnings for an app
+   * Get unclaimed earnings for an app
    */
   .get(
     '/:appId/earnings',
     async ({ params }) => {
       const state = getSharedState()
-      if (!state.clients.publicClient) {
+      const publicClient = state.clients.publicClient
+      if (!publicClient) {
         return { success: false, error: 'Public client not initialized' }
       }
 
       const registryAddr = getAppFeeRegistry()
       const distributorAddr = getFeeDistributor()
 
-      const app = await state.clients.publicClient.readContract({
+      if (registryAddr === '0x0000000000000000000000000000000000000000') {
+        return { success: false, error: 'AppFeeRegistry not configured' }
+      }
+
+      // Get app to find the primary contract
+      const app = await publicClient.readContract({
         address: registryAddr,
         abi: AppFeeRegistryABI,
         functionName: 'getApp',
         args: [params.appId as Hex],
       })
 
-      const pendingEarnings = await state.clients.publicClient.readContract({
-        address: distributorAddr,
-        abi: FeeDistributorABI,
-        functionName: 'getEarnings',
-        args: [app.feeRecipient],
-      })
+      if (app.createdAt === 0n) {
+        return { success: false, error: 'App not found' }
+      }
+
+      // Get earnings from FeeDistributor
+      let earnings = 0n
+      if (distributorAddr !== '0x0000000000000000000000000000000000000000') {
+        earnings = await publicClient.readContract({
+          address: distributorAddr,
+          abi: FeeDistributorABI,
+          functionName: 'appEarnings',
+          args: [app.primaryContract],
+        })
+      }
 
       return {
         success: true,
         appId: params.appId,
+        appName: app.name,
+        primaryContract: app.primaryContract,
         feeRecipient: app.feeRecipient,
-        pendingEarnings: pendingEarnings.toString(),
-        canClaim: pendingEarnings > 0n,
+        unclaimedEarnings: formatEther(earnings),
+        unclaimedEarningsWei: earnings.toString(),
       }
     },
     {
       params: t.Object({
         appId: t.String(),
-      }),
-    },
-  )
-
-  /**
-   * POST /apps/:appId/claim
-   * Claim accumulated fees for an app
-   */
-  .post(
-    '/:appId/claim',
-    async ({ params: _params, body }) => {
-      // Note: params.appId is available but claim is based on msg.sender (walletClient's account)
-      const state = getSharedState()
-      if (!state.clients.walletClient) {
-        return {
-          success: false,
-          error: 'Wallet client not initialized',
-        }
-      }
-
-      const distributorAddr = getFeeDistributor()
-
-      let hash: Hash
-
-      if (body?.recipient) {
-        hash = await state.clients.walletClient.writeContract({
-          chain: null,
-          account: null,
-          address: distributorAddr,
-          abi: FeeDistributorABI,
-          functionName: 'claimEarningsTo',
-          args: [body.recipient as Address],
-        })
-      } else {
-        hash = await state.clients.walletClient.writeContract({
-          chain: null,
-          account: null,
-          address: distributorAddr,
-          abi: FeeDistributorABI,
-          functionName: 'claimEarnings',
-          args: [],
-        })
-      }
-
-      return {
-        success: true,
-        txHash: hash,
-        message: 'Fee claim submitted.',
-      }
-    },
-    {
-      params: t.Object({
-        appId: t.String(),
-      }),
-      body: t.Optional(
-        t.Object({
-          recipient: t.Optional(t.String()),
-        }),
-      ),
-    },
-  )
-
-  /**
-   * POST /apps/:appId/verify
-   * Verify an app (only by DAO admin)
-   */
-  .post(
-    '/:appId/verify',
-    async ({ params }) => {
-      const state = getSharedState()
-      if (!state.clients.walletClient) {
-        return {
-          success: false,
-          error: 'Wallet client not initialized',
-        }
-      }
-
-      const registryAddr = getAppFeeRegistry()
-
-      const hash = await state.clients.walletClient.writeContract({
-        chain: null,
-        account: null,
-        address: registryAddr,
-        abi: AppFeeRegistryABI,
-        functionName: 'verifyApp',
-        args: [params.appId as Hex],
-      })
-
-      return {
-        success: true,
-        txHash: hash,
-        message: 'App verification submitted.',
-      }
-    },
-    {
-      params: t.Object({
-        appId: t.String(),
-      }),
-    },
-  )
-
-  /**
-   * POST /apps/:appId/link-agent
-   * Link an ERC-8004 agent to the app
-   */
-  .post(
-    '/:appId/link-agent',
-    async ({ params, body }) => {
-      const state = getSharedState()
-      if (!state.clients.walletClient) {
-        return {
-          success: false,
-          error: 'Wallet client not initialized',
-        }
-      }
-
-      const registryAddr = getAppFeeRegistry()
-
-      const hash = await state.clients.walletClient.writeContract({
-        chain: null,
-        account: null,
-        address: registryAddr,
-        abi: AppFeeRegistryABI,
-        functionName: 'linkAgent',
-        args: [params.appId as Hex, BigInt(body.agentId)],
-      })
-
-      return {
-        success: true,
-        txHash: hash,
-        message: 'Agent linked to app.',
-      }
-    },
-    {
-      params: t.Object({
-        appId: t.String(),
-      }),
-      body: t.Object({
-        agentId: t.String(),
-      }),
-    },
-  )
-
-  /**
-   * PUT /apps/:appId/fee-recipient
-   * Update fee recipient for an app
-   */
-  .put(
-    '/:appId/fee-recipient',
-    async ({ params, body }) => {
-      const state = getSharedState()
-      if (!state.clients.walletClient) {
-        return {
-          success: false,
-          error: 'Wallet client not initialized',
-        }
-      }
-
-      const registryAddr = getAppFeeRegistry()
-
-      const hash = await state.clients.walletClient.writeContract({
-        chain: null,
-        account: null,
-        address: registryAddr,
-        abi: AppFeeRegistryABI,
-        functionName: 'setFeeRecipient',
-        args: [params.appId as Hex, body.newRecipient as Address],
-      })
-
-      return {
-        success: true,
-        txHash: hash,
-        message: 'Fee recipient updated.',
-      }
-    },
-    {
-      params: t.Object({
-        appId: t.String(),
-      }),
-      body: t.Object({
-        newRecipient: t.String(),
       }),
     },
   )

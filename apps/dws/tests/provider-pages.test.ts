@@ -8,7 +8,7 @@
  * - Hardware detection edge cases
  */
 
-import { beforeAll, beforeEach, describe, expect, mock, test } from 'bun:test'
+import { describe, expect, mock, test } from 'bun:test'
 
 // Mock fetch for API calls
 const mockFetch = mock(() =>
@@ -39,7 +39,9 @@ describe('Provider Page Data Utilities', () => {
     test('formats whole numbers correctly', () => {
       expect(formatStakeAmount(BigInt('1000000000000000000'))).toBe('1 JEJU')
       expect(formatStakeAmount(BigInt('5000000000000000000'))).toBe('5 JEJU')
-      expect(formatStakeAmount(BigInt('100000000000000000000'))).toBe('100 JEJU')
+      expect(formatStakeAmount(BigInt('100000000000000000000'))).toBe(
+        '100 JEJU',
+      )
     })
 
     test('formats fractional amounts correctly', () => {
@@ -212,9 +214,10 @@ describe('Hardware Detection Logic', () => {
       return 'unknown'
     }
 
-    function evaluateGpuStatus(
-      renderer: string | null,
-    ): { status: Status; hasGoodGpu: boolean } {
+    function evaluateGpuStatus(renderer: string | null): {
+      status: Status
+      hasGoodGpu: boolean
+    } {
       if (!renderer) return { status: 'unknown', hasGoodGpu: false }
       const name = renderer.toLowerCase()
       const hasGoodGpu =
@@ -324,8 +327,7 @@ describe('Hardware Detection Logic', () => {
 
     test('Edge takes priority over Chrome', () => {
       // Edge UA contains both "Chrome" and "Edg"
-      const edgeUA =
-        'Mozilla/5.0 Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0'
+      const edgeUA = 'Mozilla/5.0 Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0'
       expect(detectBrowser(edgeUA)).toBe('edge')
     })
 
@@ -498,6 +500,8 @@ describe('API Response Handling', () => {
   test('handles network failure', async () => {
     mockFetch.mockRejectedValueOnce(new Error('Network error'))
 
-    await expect(fetch('/releases/node/latest')).rejects.toThrow('Network error')
+    await expect(fetch('/releases/node/latest')).rejects.toThrow(
+      'Network error',
+    )
   })
 })

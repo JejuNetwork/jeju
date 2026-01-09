@@ -351,12 +351,12 @@ async function deployWorkerToWorkerd(): Promise<void> {
 async function initializeSQLitDatabase(): Promise<void> {
   console.log('[Bazaar] Initializing SQLit database...')
 
-  const blockProducerEndpoint = getSQLitBlockProducerUrl()
+  const endpoint = getSQLitBlockProducerUrl()
   const databaseId = process.env.SQLIT_DATABASE_ID || 'bazaar-db'
 
   try {
     state.sqlit = getSQLit({
-      blockProducerEndpoint,
+      endpoint,
       databaseId,
       debug: network === 'localnet',
     })
@@ -371,7 +371,7 @@ async function initializeSQLitDatabase(): Promise<void> {
     await initializeDatabase(state.sqlit)
 
     console.log(`[Bazaar] SQLit database initialized: ${databaseId}`)
-    console.log(`[Bazaar] SQLit endpoint: ${blockProducerEndpoint}`)
+    console.log(`[Bazaar] SQLit endpoint: ${endpoint}`)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     throw new Error(`SQLit initialization failed: ${message}`)

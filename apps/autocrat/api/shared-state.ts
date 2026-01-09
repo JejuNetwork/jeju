@@ -122,6 +122,15 @@ let _orchestrator: AutocratOrchestrator | null = null
 /**
  * Get shared state for use in routes and services
  */
+// Helper to get distributor contract addresses
+const getDistributorAddr = (name: string): Address => {
+  try {
+    return toAddress(getContract('distributor', name))
+  } catch {
+    return ZERO_ADDRESS
+  }
+}
+
 export function getSharedState(): {
   config: BoardConfig
   autocratConfig: AutocratConfig
@@ -130,6 +139,8 @@ export function getSharedState(): {
     treasury: Address
     board: Address
     daoRegistry: Address
+    appFeeRegistry: Address
+    feeDistributor: Address
   }
   clients: {
     publicClient: AutocratBlockchain['client'] | null
@@ -144,6 +155,8 @@ export function getSharedState(): {
       treasury: config.contracts.treasury ?? ZERO_ADDRESS,
       board: config.contracts.board ?? ZERO_ADDRESS,
       daoRegistry: config.contracts.daoRegistry ?? ZERO_ADDRESS,
+      appFeeRegistry: getDistributorAddr('appFeeRegistry'),
+      feeDistributor: getDistributorAddr('feeDistributor'),
     },
     clients: {
       publicClient: blockchain.client,

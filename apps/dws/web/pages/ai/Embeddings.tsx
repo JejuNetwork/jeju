@@ -20,23 +20,28 @@ export default function EmbeddingsPage() {
     e.preventDefault()
     if (!input.trim()) return
 
-    const result = await embeddings.mutateAsync({
-      input: input,
-      model,
-    })
+    try {
+      const result = await embeddings.mutateAsync({
+        input: input,
+        model,
+      })
 
-    if (result.data[0]) {
-      setResults([
-        ...results,
-        {
-          input: input,
-          embedding: result.data[0].embedding,
-          model: result.model,
-          tokens: result.usage.total_tokens,
-        },
-      ])
+      if (result.data[0]) {
+        setResults([
+          ...results,
+          {
+            input: input,
+            embedding: result.data[0].embedding,
+            model: result.model,
+            tokens: result.usage.total_tokens,
+          },
+        ])
+      }
+      setInput('')
+    } catch (error) {
+      // Error is handled by React Query, but we prevent uncaught promise rejection
+      console.error('Embedding error:', error)
     }
-    setInput('')
   }
 
   const handleCopy = (embedding: number[], index: number) => {

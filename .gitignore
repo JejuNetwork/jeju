@@ -156,3 +156,9 @@ training_output
 *-validation-report.html
 validation-report.html
 ONBOARDING-FIXES.md
+
+# Vendor repos (independent git repos, not submodules)
+vendor/babylon/
+vendor/eliza/
+vendor/eliza-cloud-v2/
+vendor/packages/contracts/mcore_*

@@ -145,7 +145,7 @@ async function ensureAuditTable(): Promise<SQLitClient> {
   if (!auditSQLitClient) {
     auditSQLitClient = getSQLit({
       databaseId: SQLIT_DATABASE_ID,
-      timeout: 10000,
+      timeoutMs: 10000,
       debug: false,
     })
   }

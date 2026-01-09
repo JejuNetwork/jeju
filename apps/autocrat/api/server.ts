@@ -20,6 +20,7 @@ import { initModeration } from './moderation'
 import { createOrchestrator } from './orchestrator'
 import { a2aRoutes } from './routes/a2a'
 import { agentsRoutes } from './routes/agents'
+import { appsRoutes } from './routes/apps'
 import { bugBountyRoutes } from './routes/bug-bounty'
 import { casualRoutes } from './routes/casual'
 import { daoRoutes, directorRoutes } from './routes/dao'
@@ -124,6 +125,7 @@ const app = new Elysia()
   .use(rlaifRoutes)
   .use(bugBountyRoutes)
   .use(safeRoutes)
+  .use(appsRoutes)
   // Root route - serve SPA if static files exist, otherwise return API info
   .get('/', () => {
     // If static files exist, serve index.html for the root

@@ -7,6 +7,7 @@ import {
   erc20Abi,
   formatUnits,
   http,
+  isAddress,
 } from 'viem'
 import { CONTRACTS, RPC_URL } from '../../config'
 import {
@@ -111,10 +112,55 @@ async function fetchDefaultTokens(): Promise<Token[]> {
   const rpcUrl = typeof window !== 'undefined' ? '/api/rpc' : RPC_URL
   const client = createPublicClient({ transport: http(rpcUrl) })
 
-  // Known localnet tokens
+  // Known localnet tokens - include JEJU and seeded tokens
   const knownTokens: Array<{ address: Address; verified: boolean }> = [
     { address: CONTRACTS.jeju, verified: true },
   ]
+
+  // Load seeded tokens from seed state if available (for localnet)
+  if (typeof window === 'undefined') {
+    // Server-side: try to read seed state file
+    try {
+      const { readFileSync, existsSync } = await import('node:fs')
+      const { join } = await import('node:path')
+      const seedStatePath = join(process.cwd(), 'apps/bazaar/.seed-state.json')
+      if (existsSync(seedStatePath)) {
+        const seedState = JSON.parse(readFileSync(seedStatePath, 'utf-8'))
+        if (seedState.coins && Array.isArray(seedState.coins)) {
+          for (const coin of seedState.coins) {
+            if (coin.address && isAddress(coin.address)) {
+              knownTokens.push({
+                address: coin.address as Address,
+                verified: false, // Seeded tokens are not verified by default
+              })
+            }
+          }
+        }
+      }
+    } catch {
+      // Failed to load seed state - continue with default tokens
+    }
+  } else {
+    // Client-side: try to fetch seed state from API
+    try {
+      const response = await fetch('/api/seed-state')
+      if (response.ok) {
+        const seedState = await response.json()
+        if (seedState.coins && Array.isArray(seedState.coins)) {
+          for (const coin of seedState.coins) {
+            if (coin.address && isAddress(coin.address)) {
+              knownTokens.push({
+                address: coin.address as Address,
+                verified: false,
+              })
+            }
+          }
+        }
+      }
+    } catch {
+      // Failed to fetch seed state - continue with default tokens
+    }
+  }
 
   for (const { address, verified } of knownTokens) {
     // Skip zero addresses
@@ -195,12 +241,21 @@ export default function CoinsPage() {
             verified: filter === 'verified' ? true : undefined,
             orderBy,
           })
+          // If indexer returns tokens, use them
           if (result.length > 0) return result
-        } catch {
+          // If indexer is up but returns empty (no Token entities yet), fall back to RPC
+          console.log(
+            '[Coins] Indexer returned empty tokens, falling back to RPC',
+          )
+        } catch (error) {
           // Indexer error, fall through to default tokens
+          console.warn(
+            '[Coins] Indexer query failed, falling back to RPC:',
+            error,
+          )
         }
       }
-      // Fetch default tokens directly from RPC
+      // Fetch default tokens directly from RPC (seeded tokens + JEJU)
       return fetchDefaultTokens()
     },
     refetchInterval: 15000,

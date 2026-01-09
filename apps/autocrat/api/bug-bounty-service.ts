@@ -16,6 +16,7 @@ import {
   isAddress,
   isHex,
   keccak256,
+  parseAbi,
   stringToHex,
 } from 'viem'
 import {
@@ -87,7 +88,7 @@ async function getSQLitClient(): Promise<SQLitClient> {
   if (!sqlitClient) {
     sqlitClient = getSQLit({
       databaseId: SQLIT_DATABASE_ID,
-      timeout: 30000,
+      timeoutMs: 30000,
       debug: !config.isProduction,
     })
   }
@@ -231,19 +232,18 @@ async function ensureTablesExist(): Promise<void> {
     SQLIT_DATABASE_ID,
   )
 }
-const SECURITY_BOUNTY_REGISTRY_ABI = [
+const SECURITY_BOUNTY_REGISTRY_ABI = parseAbi([
   'function submitVulnerability(uint8 severity, uint8 vulnType, bytes32 encryptedReportCid, bytes32 encryptionKeyId, bytes32 proofOfConceptHash) external payable returns (bytes32)',
-  'function completeValidation(bytes32 submissionId, uint8 result, string memory notes) external',
-  'function submitGuardianVote(bytes32 submissionId, bool approved, uint256 suggestedReward, string memory feedback) external',
-  'function directorDecision(bytes32 submissionId, bool approved, uint256 rewardAmount, string memory reasoning) external',
+  'function completeValidation(bytes32 submissionId, uint8 result, string notes) external',
+  'function submitGuardianVote(bytes32 submissionId, bool approved, uint256 suggestedReward, string feedback) external',
+  'function directorDecision(bytes32 submissionId, bool approved, uint256 rewardAmount, string reasoning) external',
   'function payReward(bytes32 submissionId) external',
-  'function getSubmission(bytes32 submissionId) external view returns (tuple(bytes32 submissionId, address researcher, uint256 researcherAgentId, uint8 severity, uint8 vulnType, bytes32 encryptedReportCid, bytes32 encryptionKeyId, bytes32 proofOfConceptHash, uint256 stake, uint256 submittedAt, uint256 validatedAt, uint256 resolvedAt, uint8 status, uint8 validationResult, string validationNotes, uint256 rewardAmount, uint256 guardianApprovals, uint256 guardianRejections, bytes32 fixCommitHash, uint256 disclosureDate, bool researcherDisclosed))',
   'function getTotalPool() external view returns (uint256)',
   'function getGuardianCount() external view returns (uint256)',
   'event VulnerabilitySubmitted(bytes32 indexed submissionId, address indexed researcher, uint8 severity)',
   'event ValidationCompleted(bytes32 indexed submissionId, uint8 result)',
   'event RewardPaid(bytes32 indexed submissionId, address indexed researcher, uint256 amount)',
-] as const
+])
 
 function getPublicClient() {
   return createPublicClient({

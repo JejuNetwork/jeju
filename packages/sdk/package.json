@@ -14,7 +14,8 @@
   "scripts": {
     "build": "bun build.ts",
     "test": "bun test test/",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "bunx biome check src/ --max-diagnostics=50"
   },
   "dependencies": {
     "@jejunetwork/config": "workspace:*",

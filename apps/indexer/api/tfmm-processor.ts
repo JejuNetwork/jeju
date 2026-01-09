@@ -10,7 +10,6 @@
 
 import type { Store } from '@subsquid/typeorm-store'
 import type { Hex } from 'viem'
-import { config } from './config'
 import {
   TFMMLiquidityEvent,
   TFMMLiquidityEventType,
@@ -19,6 +18,7 @@ import {
   TFMMSwap,
   TFMMWeightUpdate,
 } from '../src/model'
+import { config } from './config'
 import type { ProcessorContext } from './processor'
 import {
   type BlockHeader,

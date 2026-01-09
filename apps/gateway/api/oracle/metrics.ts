@@ -2,10 +2,10 @@ import {
   COMMITTEE_MANAGER_ABI,
   FEED_REGISTRY_ABI,
   REPORT_VERIFIER_ABI,
-  readContract,
 } from '@jejunetwork/shared'
 import type { NodeMetrics, OracleNodeConfig } from '@jejunetwork/types'
-import { createPublicClient, http } from 'viem'
+import { createPublicClient, defineChain, http } from 'viem'
+import { base, baseSepolia, foundry } from 'viem/chains'
 
 interface PrometheusMetric {
   name: string
@@ -35,7 +35,20 @@ export class MetricsExporter {
   constructor(config: MetricsConfig) {
     this.config = config
     this.client = createPublicClient({
+      chain: this.getChain(config.chainId),
       transport: http(config.rpcUrl),
+    }) as ReturnType<typeof createPublicClient>
+  }
+
+  private getChain(chainId: number) {
+    if (chainId === 8453) return base
+    if (chainId === 84532) return baseSepolia
+    if (chainId === 31337) return foundry
+    return defineChain({
+      id: chainId,
+      name: 'custom',
+      nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+      rpcUrls: { default: { http: [this.config.rpcUrl] } },
     })
   }
 
@@ -200,7 +213,7 @@ export class MetricsExporter {
       return metrics
     }
 
-    const feedIds = await readContract(this.client, {
+    const feedIds = await this.client.readContract({
       address: this.config.feedRegistry,
       abi: FEED_REGISTRY_ABI,
       functionName: 'getActiveFeeds',
@@ -219,25 +232,25 @@ export class MetricsExporter {
 
     for (const feedId of feedIds) {
       const [feed, priceData, currentRound, committee] = await Promise.all([
-        readContract(this.client, {
+        this.client.readContract({
           address: this.config.feedRegistry,
           abi: FEED_REGISTRY_ABI,
           functionName: 'getFeed',
           args: [feedId],
         }),
-        readContract(this.client, {
+        this.client.readContract({
           address: this.config.reportVerifier,
           abi: REPORT_VERIFIER_ABI,
           functionName: 'getLatestPrice',
           args: [feedId],
         }),
-        readContract(this.client, {
+        this.client.readContract({
           address: this.config.reportVerifier,
           abi: REPORT_VERIFIER_ABI,
           functionName: 'getCurrentRound',
           args: [feedId],
         }),
-        readContract(this.client, {
+        this.client.readContract({
           address: this.config.committeeManager,
           abi: COMMITTEE_MANAGER_ABI,
           functionName: 'getCommittee',

@@ -114,8 +114,7 @@ export function parseFarcasterSignInMessage(
     else if (line.startsWith('FID: ')) result.fid = parseInt(line.slice(5), 10)
     else if (line.startsWith('Custody: '))
       result.custody = line.slice(9) as Address
-    else if (line.match(/^0x[a-fA-F0-9]{40}$/))
-      result.address = line as Address
+    else if (line.match(/^0x[a-fA-F0-9]{40}$/)) result.address = line as Address
     else if (line.includes(' wants you to sign in')) {
       result.domain = line.split(' wants you to sign in')[0]
     }

@@ -36,13 +36,8 @@ export function AuthHeaderButton({
   className = '',
   style,
 }: AuthHeaderButtonProps) {
-  const {
-    authenticated,
-    loading,
-    walletAddress,
-    loginWithWallet,
-    logout,
-  } = useJejuAuth()
+  const { authenticated, loading, walletAddress, loginWithWallet, logout } =
+    useJejuAuth()
 
   const [showDropdown, setShowDropdown] = useState(false)
 

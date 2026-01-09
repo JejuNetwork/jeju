@@ -3,11 +3,7 @@
  * Implements content-addressed deduplication across images
  */
 
-import {
-  getSQLitMinerUrl,
-  getSQLitUrl,
-  isProductionEnv,
-} from '@jejunetwork/config'
+import { getSQLitUrl, isProductionEnv } from '@jejunetwork/config'
 import { getSQLit, resetSQLit } from '@jejunetwork/db'
 import type { ContainerImage, ImageCache, LayerCache } from './types'
 
@@ -26,14 +22,12 @@ let sqlitClient: ReturnType<typeof getSQLit> | null = null
 async function getSQLitClient() {
   if (!sqlitClient) {
     resetSQLit()
-    const blockProducerEndpoint = getSQLitUrl()
-    const minerEndpoint = getSQLitMinerUrl()
+    const endpoint = getSQLitUrl()
 
     sqlitClient = getSQLit({
-      blockProducerEndpoint,
-      minerEndpoint,
+      endpoint,
       databaseId: SQLIT_DATABASE_ID,
-      timeout: 30000,
+      timeoutMs: 30000,
       debug: !isProductionEnv(),
     })
 

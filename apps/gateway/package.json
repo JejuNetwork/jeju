@@ -1,23 +1,9 @@
 {
   "name": "@jejunetwork/gateway",
-  "version": "1.0.0",
-  "type": "module",
-  "description": "Gateway - Protocol Infrastructure Hub for bridge, LP, nodes, oracles, and more",
-  "main": "api/a2a-server.ts",
-  "scripts": {
-    "dev": "bun run scripts/dev.ts",
-    "build": "bun run scripts/build.ts",
-    "start": "bun run scripts/serve.ts",
-    "deploy": "bun run scripts/deploy.ts",
-    "test": "bun test tests/",
-    "test:e2e": "bunx playwright test tests/e2e/",
-    "test:synpress": "bunx playwright test tests/synpress/",
-    "typecheck": "tsc --noEmit"
-  },
+  "version": "0.1.0",
   "dependencies": {
     "@elysiajs/cors": "^1.4.0",
     "@jejunetwork/auth": "workspace:*",
-    "@jejunetwork/cache": "workspace:*",
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/messaging": "workspace:*",
     "@jejunetwork/contracts": "workspace:*",
@@ -51,5 +37,20 @@
     "vite": "^6.0.0",
     "playwright-core": "1.57.0",
     "typescript": "5.9.3"
+  },
+  "type": "module",
+  "description": "Gateway - Protocol Infrastructure Hub for bridge, LP, nodes, oracles, and more",
+  "main": "api/a2a-server.ts",
+  "scripts": {
+    "dev": "bun run scripts/dev.ts",
+    "build": "bun run scripts/build.ts",
+    "start": "bun run scripts/serve.ts",
+    "deploy": "bun run scripts/deploy.ts",
+    "test": "bun test tests/unit/",
+    "test:unit": "bun test tests/unit/",
+    "test:e2e": "bunx playwright test tests/e2e/",
+    "test:synpress": "bunx playwright test tests/synpress/",
+    "typecheck": "tsc --noEmit",
+    "lint": "bunx biome check src/ api/ --max-diagnostics=50"
   }
 }

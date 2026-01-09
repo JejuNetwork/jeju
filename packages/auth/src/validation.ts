@@ -47,12 +47,20 @@ export type ValidatedOAuth3Config = z.infer<typeof OAuth3ConfigSchema>
 
 // TEEAttestationSchema is imported from @jejunetwork/types
 
+// Session capability schema - use z.enum with explicit values for Zod 4.x compatibility
+const SessionCapabilitySchema = z.enum([
+  SessionCapability.SIGN_TRANSACTION,
+  SessionCapability.SIGN_MESSAGE,
+  SessionCapability.MANAGE_IDENTITY,
+  SessionCapability.DELEGATE,
+])
+
 export const OAuth3SessionSchema = z.object({
   sessionId: HexSchema,
   identityId: HexSchema,
   smartAccount: AddressSchema,
   expiresAt: z.number().int().positive(),
-  capabilities: z.array(z.nativeEnum(SessionCapability)),
+  capabilities: z.array(SessionCapabilitySchema),
   /** Public key for verifying signatures - the signing key stays in the TEE */
   signingPublicKey: HexSchema,
   /** Optional TEE attestation for the session - required for secure sessions */

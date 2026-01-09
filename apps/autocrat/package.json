@@ -1,24 +1,6 @@
 {
   "name": "@jejunetwork/autocrat",
-  "version": "1.0.0",
-  "description": "Autonomous governance engine",
-  "main": "api/server.ts",
-  "type": "module",
-  "scripts": {
-    "dev": "bun run scripts/dev.ts",
-    "dev:api": "bun --watch api/worker.ts",
-    "build": "bun run scripts/build.ts",
-    "build:worker": "bun run scripts/build.ts",
-    "start": "bun run scripts/serve.ts",
-    "deploy": "bun run scripts/deploy.ts",
-    "seed": "bun run scripts/seed-agents.ts",
-    "seed:testnet": "bun run scripts/seed-agents.ts --network testnet",
-    "seed:mainnet": "bun run scripts/seed-agents.ts --network mainnet",
-    "test": "bun test tests/",
-    "test:e2e": "bunx playwright test tests/e2e/ --config playwright.config.ts",
-    "test:synpress": "bunx playwright test tests/synpress/ --config synpress.config.ts",
-    "typecheck": "tsc --noEmit"
-  },
+  "version": "0.1.0",
   "dependencies": {
     "@elizaos/core": "^1.6.4",
     "@elysiajs/cors": "^1.4.0",
@@ -55,5 +37,23 @@
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",
     "typescript": "5.9.3"
+  },
+  "description": "Autonomous governance engine",
+  "main": "api/server.ts",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run scripts/dev.ts",
+    "dev:api": "bun --watch api/worker.ts",
+    "build": "bun run scripts/build.ts",
+    "build:worker": "bun run scripts/build.ts",
+    "start": "bun run scripts/serve.ts",
+    "deploy": "bun run scripts/deploy.ts",
+    "seed": "bun run scripts/seed-agents.ts",
+    "seed:testnet": "bun run scripts/seed-agents.ts --network testnet",
+    "seed:mainnet": "bun run scripts/seed-agents.ts --network mainnet",
+    "test": "bun test tests/unit/",
+    "test:e2e": "bunx playwright test tests/e2e/ --config playwright.config.ts",
+    "test:synpress": "bunx playwright test tests/synpress/ --config synpress.config.ts",
+    "typecheck": "tsc --noEmit"
   }
 }

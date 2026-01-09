@@ -275,14 +275,31 @@ export async function killPort(port: number): Promise<void> {
     timeout: 5000,
   })
   if (result.exitCode === 0 && result.stdout) {
-    const pids = result.stdout.trim().split('\n')
+    const pids = result.stdout.trim().split('\n').filter(Boolean)
     for (const pid of pids) {
       // Validate PID is numeric only
       if (/^\d+$/.test(pid)) {
-        await execa('kill', ['-9', pid], { reject: false, timeout: 5000 })
+        // Try SIGTERM first for graceful shutdown
+        await execa('kill', ['-TERM', pid], { reject: false, timeout: 2000 })
       }
     }
+
+    // Wait a bit for graceful shutdown
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+
+    // Don't force kill - let processes exit naturally
+    // If ports are still in use, they'll be cleaned up when processes exit
   }
+}
+
+/**
+ * Ensure a port is available by killing any process using it
+ * Returns true if port is now available, false if still in use
+ */
+export async function ensurePortAvailable(port: number): Promise<boolean> {
+  await killPort(port)
+  // Verify port is actually available
+  return await isPortAvailable(port)
 }
 
 export function findMonorepoRoot(): string {

@@ -86,7 +86,9 @@ export default function EarningsPage() {
     let failCount = 0
 
     for (const node of nodesWithRewards) {
-      const result = await claimRewards.mutateAsync(node.nodeId).catch(() => null)
+      const result = await claimRewards
+        .mutateAsync(node.nodeId)
+        .catch(() => null)
       if (result) {
         successCount++
       } else {
@@ -125,7 +127,7 @@ export default function EarningsPage() {
   const isLoading = statsLoading || aggregateLoading
   const stats = aggregateStats
   const nodes = operatorStats?.nodes ?? []
-  
+
   // Convert history items to include approximate timestamps
   // Assuming ~12 second block time, calculate timestamp from current block
   const rawHistory = earningsHistory?.history ?? []
@@ -366,9 +368,14 @@ export default function EarningsPage() {
                             type="button"
                             className="btn btn-primary btn-sm"
                             onClick={async () => {
-                              const result = await claimRewards.mutateAsync(node.nodeId).catch(() => null)
+                              const result = await claimRewards
+                                .mutateAsync(node.nodeId)
+                                .catch(() => null)
                               if (result) {
-                                showSuccess('Claimed', `Claimed ${result.claimed} tokens`)
+                                showSuccess(
+                                  'Claimed',
+                                  `Claimed ${result.claimed} tokens`,
+                                )
                                 refetchStats()
                               } else {
                                 showError('Failed', 'Could not claim rewards')
@@ -389,7 +396,9 @@ export default function EarningsPage() {
         </div>
 
         {/* Right Sidebar */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <div
+          style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}
+        >
           {/* Quick Stats */}
           <div className="card">
             <div className="card-header">

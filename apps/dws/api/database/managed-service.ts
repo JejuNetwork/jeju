@@ -735,7 +735,8 @@ class BackupManager {
     let bodyData: ArrayBuffer
     try {
       const decompressed = Bun.gunzipSync(view)
-      bodyData = decompressed.buffer.slice(
+      // Bun.gunzipSync always returns a fresh ArrayBuffer, not SharedArrayBuffer
+      bodyData = (decompressed.buffer as ArrayBuffer).slice(
         decompressed.byteOffset,
         decompressed.byteOffset + decompressed.byteLength,
       )

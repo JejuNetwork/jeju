@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useAccount, useConnect, useDisconnect, useSignMessage } from 'wagmi'
 import { injected, walletConnect } from 'wagmi/connectors'
+
+// Note: Window.ethereum type is provided by wagmi
 
 interface SIWEMessage {
   domain: string
@@ -135,7 +137,7 @@ export function AuthButton({
   const [hasPasskeys, setHasPasskeys] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const { address, isConnected } = useAccount()
+  const { address, isConnected, chainId } = useAccount()
   const { connectAsync } = useConnect()
   const { disconnectAsync } = useDisconnect()
   const { signMessageAsync } = useSignMessage()
@@ -143,6 +145,78 @@ export function AuthButton({
   useState(() => {
     isPlatformAuthenticatorAvailable().then(setHasPasskeys)
   })
+
+  // Validate connected account matches MetaMask's current account on mount/change
+  // Also listen for account changes in MetaMask
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.ethereum) return
+
+    const validateAccount = async () => {
+      if (!isConnected || !address) return
+
+      try {
+        const accounts = (await window.ethereum.request({
+          method: 'eth_accounts',
+        })) as string[]
+
+        if (accounts.length > 0) {
+          const metaMaskAccount = accounts[0]?.toLowerCase()
+          const connectedAccount = address.toLowerCase()
+
+          if (metaMaskAccount && metaMaskAccount !== connectedAccount) {
+            console.warn('[Auth] Account mismatch detected:', {
+              connected: connectedAccount,
+              metamask: metaMaskAccount,
+            })
+            // Auto-disconnect if accounts don't match
+            await disconnectAsync()
+            localStorage.removeItem('bazaar_session')
+            setError(
+              `Account mismatch: MetaMask shows ${metaMaskAccount.slice(0, 6)}...${metaMaskAccount.slice(-4)}, but app is connected to ${connectedAccount.slice(0, 6)}...${connectedAccount.slice(-4)}. Please reconnect.`,
+            )
+          }
+        }
+      } catch (err) {
+        console.error('[Auth] Error validating account:', err)
+      }
+    }
+
+    // Validate on mount and when address changes
+    validateAccount()
+
+    // Listen for account changes in MetaMask
+    const handleAccountsChanged = (accounts: string[]) => {
+      if (accounts.length === 0) {
+        // User disconnected from MetaMask
+        disconnectAsync().catch(console.error)
+        localStorage.removeItem('bazaar_session')
+        return
+      }
+
+      const newAccount = accounts[0]?.toLowerCase()
+      const connectedAccount = address?.toLowerCase()
+
+      if (newAccount && connectedAccount && newAccount !== connectedAccount) {
+        console.log('[Auth] MetaMask account changed, disconnecting:', {
+          old: connectedAccount,
+          new: newAccount,
+        })
+        disconnectAsync().catch(console.error)
+        localStorage.removeItem('bazaar_session')
+        setError('Account changed in MetaMask. Please reconnect.')
+      }
+    }
+
+    // Add event listener for account changes
+    window.ethereum.on('accountsChanged', handleAccountsChanged)
+
+    return () => {
+      // Cleanup: remove event listener
+      if (window.ethereum?.removeListener) {
+        window.ethereum.removeListener('accountsChanged', handleAccountsChanged)
+      }
+    }
+  }, [isConnected, address, disconnectAsync])
 
   const handleWalletConnect = async (
     connectorType: 'injected' | 'walletConnect',
@@ -152,19 +226,265 @@ export function AuthButton({
     setError(null)
 
     try {
+      // For injected connector (MetaMask/Trust Wallet), explicitly request the current account
+      // This ensures we get the account that's currently selected in the wallet
+      let expectedAccount: string | null = null
+
+      if (
+        connectorType === 'injected' &&
+        typeof window !== 'undefined' &&
+        window.ethereum
+      ) {
+        // First, disconnect any existing connection and clear ALL caches
+        try {
+          await disconnectAsync()
+
+          // Try to revoke permissions from the wallet itself
+          try {
+            await window.ethereum.request({
+              method: 'wallet_revokePermissions',
+              params: [{ eth_accounts: {} }],
+            })
+            console.log('[Auth] Revoked wallet permissions')
+          } catch (revokeError) {
+            console.log(
+              '[Auth] Could not revoke permissions (wallet may not support it):',
+              revokeError,
+            )
+          }
+
+          // Clear wagmi's localStorage cache more aggressively
+          if (typeof window !== 'undefined' && window.localStorage) {
+            // Clear ALL wagmi-related storage
+            const keys = Object.keys(window.localStorage)
+            keys.forEach((key) => {
+              if (
+                key.startsWith('wagmi') ||
+                key.startsWith('wc@') ||
+                key.includes('connector') ||
+                key.includes('wallet') ||
+                key.includes('bazaar_session') ||
+                key.includes('trustwallet') ||
+                key.includes('metamask')
+              ) {
+                window.localStorage.removeItem(key)
+                console.log('[Auth] Cleared localStorage key:', key)
+              }
+            })
+          }
+
+          // Also clear sessionStorage
+          if (typeof window !== 'undefined' && window.sessionStorage) {
+            const sessionKeys = Object.keys(window.sessionStorage)
+            sessionKeys.forEach((key) => {
+              if (
+                key.includes('wagmi') ||
+                key.includes('wallet') ||
+                key.includes('bazaar')
+              ) {
+                window.sessionStorage.removeItem(key)
+                console.log('[Auth] Cleared sessionStorage key:', key)
+              }
+            })
+          }
+
+          // Small delay to ensure disconnect and revoke complete
+          await new Promise((resolve) => setTimeout(resolve, 500))
+        } catch {
+          // Ignore disconnect errors - might not be connected
+        }
+
+        // Check what account MetaMask is currently showing BEFORE requesting
+        // This helps us detect if MetaMask auto-connects to a different account
+        let metaMaskCurrentAccount: string | null = null
+        try {
+          // Check what MetaMask thinks is selected (without requesting)
+          const currentAccounts = (await window.ethereum.request({
+            method: 'eth_accounts',
+          })) as string[]
+          if (currentAccounts.length > 0) {
+            metaMaskCurrentAccount = currentAccounts[0]?.toLowerCase()
+            console.log(
+              '[Auth] MetaMask eth_accounts (before request):',
+              metaMaskCurrentAccount,
+            )
+          }
+        } catch {
+          // Ignore - might not have any accounts yet
+        }
+
+        // IMPORTANT: Request accounts - this should show the wallet's connection popup
+        // But wallets often auto-approve if there's a cached connection
+        console.log('[Auth] Requesting accounts from wallet...')
+        console.log(
+          '[Auth] MetaMask is currently showing:',
+          metaMaskCurrentAccount || 'no account',
+        )
+
+        const accounts = (await window.ethereum.request({
+          method: 'eth_requestAccounts',
+        })) as string[]
+
+        if (!accounts || accounts.length === 0) {
+          throw new Error(
+            'No accounts found. Please unlock your wallet and try again.',
+          )
+        }
+
+        // Store the account that the wallet returned
+        expectedAccount = accounts[0]?.toLowerCase()
+        console.log('[Auth] Wallet returned account:', expectedAccount)
+        console.log('[Auth] Full address:', expectedAccount)
+
+        if (!expectedAccount) {
+          throw new Error('Failed to get account from wallet')
+        }
+
+        // Check what account MetaMask is showing AFTER requesting (should be the same)
+        let currentSelectedAccount: string | null = null
+        try {
+          const selectedAccounts = (await window.ethereum.request({
+            method: 'eth_accounts',
+          })) as string[]
+          if (selectedAccounts.length > 0) {
+            currentSelectedAccount = selectedAccounts[0]?.toLowerCase()
+            console.log(
+              '[Auth] MetaMask eth_accounts (after request):',
+              currentSelectedAccount,
+            )
+          }
+        } catch {
+          // Ignore - might not have any accounts yet
+        }
+
+        // Log comparison for debugging
+        console.log('[Auth] Account comparison:', {
+          beforeRequest: metaMaskCurrentAccount,
+          walletReturned: expectedAccount,
+          afterRequest: currentSelectedAccount,
+        })
+
+        // If MetaMask was showing Account #6 before request but wallet returned different account,
+        // that means MetaMask auto-approved the cached connection
+        if (
+          metaMaskCurrentAccount &&
+          metaMaskCurrentAccount !== expectedAccount
+        ) {
+          console.warn(
+            '[Auth] MetaMask was showing different account before request:',
+            {
+              wasShowing: metaMaskCurrentAccount,
+              returned: expectedAccount,
+            },
+          )
+
+          const errorMessage = `❌ Wrong Account Auto-Connected
+
+MetaMask was showing: ${metaMaskCurrentAccount.slice(0, 6)}...${metaMaskCurrentAccount.slice(-4)}
+But wallet auto-connected to: ${expectedAccount.slice(0, 6)}...${expectedAccount.slice(-4)}
+
+🔧 MetaMask auto-approved a cached connection. To fix:
+
+**Option 1: Reset MetaMask Account Connections**
+1. In MetaMask: Settings → Advanced → Reset Account
+2. This clears ALL site connections (you'll need to reconnect to all sites)
+3. Refresh this page
+4. Switch to Account #6 in MetaMask
+5. Click Connect - MetaMask should now show the account selection dialog
+
+**Option 2: Use Incognito/Private Mode**
+1. Open this site in an incognito/private window
+2. MetaMask won't have cached connections
+3. Switch to Account #6
+4. Connect
+
+**Option 3: Clear Browser Data**
+1. Close ALL tabs with localhost:4006
+2. Clear browser cookies/cache for localhost
+3. Restart browser
+4. Switch to Account #6
+5. Connect`
+
+          setError(errorMessage)
+          setIsLoading(false)
+          setActiveMethod(null)
+          return
+        }
+
+        // Verify the account matches what MetaMask is showing
+        // This ensures we're using the account the user actually selected, not a cached one
+        if (
+          currentSelectedAccount &&
+          currentSelectedAccount !== expectedAccount
+        ) {
+          console.error('[Auth] Account mismatch detected:', {
+            metamaskShowing: currentSelectedAccount,
+            walletReturned: expectedAccount,
+          })
+
+          const errorMessage = `❌ Account Mismatch Detected
+
+MetaMask is showing: ${currentSelectedAccount.slice(0, 6)}...${currentSelectedAccount.slice(-4)}
+But wallet returned: ${expectedAccount.slice(0, 6)}...${expectedAccount.slice(-4)}
+
+🔧 The wallet is auto-connecting to a cached account. Try:
+1. In MetaMask: Settings → Advanced → Reset Account
+2. Refresh this page
+3. Switch to Account #6 BEFORE clicking Connect
+4. Try connecting again`
+
+          setError(errorMessage)
+          setIsLoading(false)
+          setActiveMethod(null)
+          return
+        }
+
+        // Account is valid - proceed with connection
+        console.log(
+          '[Auth] Account validated, proceeding with connection:',
+          expectedAccount,
+        )
+      }
+
       const connector =
         connectorType === 'injected'
           ? injected()
           : walletConnect({ projectId: WALLETCONNECT_PROJECT_ID })
 
+      // Now connect with wagmi
       const result = await connectAsync({ connector })
-      const walletAddress = result.accounts[0]
+      const walletAddress = result.accounts[0]?.toLowerCase()
+
+      if (!walletAddress) {
+        throw new Error('Failed to get wallet address from connection')
+      }
+
+      // Verify the connected account matches what the wallet is showing
+      if (connectorType === 'injected' && expectedAccount) {
+        if (walletAddress !== expectedAccount) {
+          console.error('[Auth] Account mismatch:', {
+            connected: walletAddress,
+            wallet: expectedAccount,
+          })
+          // Force disconnect and show error
+          await disconnectAsync()
+          throw new Error(
+            `Account mismatch: Wallet shows ${expectedAccount.slice(0, 6)}...${expectedAccount.slice(-4)}, but connected to ${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}. Please select the correct account in your wallet and try again.`,
+          )
+        }
+      }
+
+      console.log('[Auth] Connected account:', walletAddress)
+
+      // Get the actual chain ID from the connection result or use the configured one
+      // This ensures the SIWE message matches MetaMask's connected chain
+      const connectedChainId = result.chainId ?? chainId ?? CHAIN_ID
 
       const message = createSIWEMessage({
         domain: window.location.host,
         address: walletAddress as `0x${string}`,
         uri: window.location.origin,
-        chainId: CHAIN_ID,
+        chainId: connectedChainId,
         statement: 'Sign in to Bazaar',
         expirationMinutes: 60 * 24,
       })
@@ -293,8 +613,18 @@ export function AuthButton({
   }
 
   const handleDisconnect = async () => {
-    await disconnectAsync()
-    localStorage.removeItem('bazaar_session')
+    try {
+      await disconnectAsync()
+      localStorage.removeItem('bazaar_session')
+      // Clear wagmi's connection cache by reloading the page
+      // This ensures a fresh connection on next login
+      window.location.reload()
+    } catch (err) {
+      console.error('Disconnect error:', err)
+      // Still clear localStorage and reload even if disconnect fails
+      localStorage.removeItem('bazaar_session')
+      window.location.reload()
+    }
   }
 
   if (isConnected && address) {

@@ -4,10 +4,9 @@
  * Tests wallet connection, token display, and balance functionality.
  */
 
+import { getGatewayApiEndpoint, getLocalhostHost } from '@jejunetwork/config'
 import { testWithSynpress } from '@synthetixio/synpress'
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright'
-
-import { getGatewayApiEndpoint, getLocalhostHost } from '@jejunetwork/config'
 import { basicSetup } from '../../synpress.config'
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup))

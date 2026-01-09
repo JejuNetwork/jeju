@@ -1,0 +1,5 @@
+declare module 'rimraf'
+declare module 'gradient-string'
+declare module 'unzip-crx-3'
+declare module 'unzipper'
+declare module 'progress'

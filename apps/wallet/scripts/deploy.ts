@@ -78,34 +78,44 @@ async function uploadToIPFS(
   dwsUrl: string,
   filePath: string,
   name: string,
+  maxRetries = 3,
 ): Promise<UploadResult> {
   const content = await readFile(resolve(APP_DIR, filePath))
   const hash = keccak256(content) as `0x${string}`
 
-  const formData = new FormData()
-  formData.append('file', new Blob([content]), name)
-  formData.append('name', name)
+  let lastError: Error | null = null
 
-  const response = await fetch(`${dwsUrl}/storage/upload`, {
-    method: 'POST',
-    body: formData,
-  })
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const formData = new FormData()
+    formData.append('file', new Blob([content]), name)
+    formData.append('name', name)
 
-  if (!response.ok) {
-    throw new Error(`Upload failed: ${await response.text()}`)
+    const response = await fetch(`${dwsUrl}/storage/upload`, {
+      method: 'POST',
+      body: formData,
+    })
+
+    if (response.ok) {
+      const rawJson: unknown = await response.json()
+      const parsed = IPFSUploadResponseSchema.safeParse(rawJson)
+      if (!parsed.success) {
+        throw new Error(`Invalid upload response: ${parsed.error.message}`)
+      }
+      return {
+        cid: parsed.data.cid,
+        hash,
+        size: content.length,
+      }
+    }
+
+    lastError = new Error(`Upload failed: ${await response.text()}`)
+    if (attempt < maxRetries) {
+      console.log(`   Retry ${attempt}/${maxRetries} for ${name}...`)
+      await new Promise((r) => setTimeout(r, 1000 * attempt))
+    }
   }
 
-  const rawJson: unknown = await response.json()
-  const parsed = IPFSUploadResponseSchema.safeParse(rawJson)
-  if (!parsed.success) {
-    throw new Error(`Invalid upload response: ${parsed.error.message}`)
-  }
-
-  return {
-    cid: parsed.data.cid,
-    hash,
-    size: content.length,
-  }
+  throw lastError ?? new Error('Upload failed after retries')
 }
 
 async function uploadDirectory(
@@ -146,6 +156,47 @@ function getContentType(path: string): string {
   if (path.endsWith('.png')) return 'image/png'
   if (path.endsWith('.woff2')) return 'font/woff2'
   return 'application/octet-stream'
+}
+
+async function registerApp(
+  config: DeployConfig,
+  staticAssets: Map<string, UploadResult>,
+): Promise<void> {
+  const indexCid = staticAssets.get('index.html')?.cid
+  if (!indexCid) {
+    console.warn('   No index.html found, skipping app registration')
+    return
+  }
+
+  const staticFiles: Record<string, string> = {}
+  for (const [path, result] of staticAssets) {
+    staticFiles[path] = result.cid
+  }
+
+  const appConfig = {
+    name: 'wallet',
+    displayName: 'Network Wallet',
+    jnsName: 'wallet.jeju',
+    frontendCid: indexCid,
+    staticFiles,
+    backendWorkerId: null,
+    backendEndpoint: null,
+    apiPaths: ['/api/', '/health'],
+    spa: true,
+    enabled: true,
+  }
+
+  const response = await fetch(`${config.dwsUrl}/apps/deployed`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(appConfig),
+  })
+
+  if (!response.ok) {
+    console.warn(`   App registration warning: ${await response.text()}`)
+  } else {
+    console.log('   App registered with DWS gateway')
+  }
 }
 
 async function setupCDN(
@@ -217,12 +268,20 @@ async function deploy(): Promise<void> {
   console.log('Configuring CDN...')
   await setupCDN(config, staticAssets)
 
+  // Register app with DWS gateway
+  console.log('\nRegistering app with DWS...')
   const indexCid = staticAssets.get('index.html')?.cid
+  if (indexCid) {
+    await registerApp(config, staticAssets)
+  }
+
   console.log('')
   console.log('╔════════════════════════════════════════════════════════════╗')
   console.log('║                  Deployment Complete                        ║')
   console.log('╠════════════════════════════════════════════════════════════╣')
-  console.log(`║  Frontend: https://wallet.jejunetwork.org                   ║`)
+  console.log(
+    `║  Frontend: https://wallet.${config.network === 'mainnet' ? '' : 'testnet.'}jejunetwork.org ║`,
+  )
   console.log(
     `║  IPFS:     ipfs://${indexCid?.slice(0, 20)}...                  ║`,
   )

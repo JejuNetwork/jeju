@@ -1,132 +1,81 @@
 /**
  * Browser shim for @jejunetwork/sdk
- * The SDK has Node.js dependencies but its types are used by @jejunetwork/ui.
- * This shim provides empty implementations for browser builds.
+ *
+ * Provides browser-safe stubs for SDK functions that may require Node.js
  */
 
-// Type-only exports (no runtime behavior needed)
+// Type definitions
+export interface JejuClientConfig {
+  network?: string
+  account?: unknown
+  rpcUrl?: string
+}
+
 export interface JejuClient {
-  identity: {
-    lookupName: (name: string) => Promise<null>
-    resolveName: (name: string) => Promise<null>
-    reverseLookup: (address: string) => Promise<null>
-    registerName: (name: string, resolver: string) => Promise<null>
-  }
-  crosschain: {
-    getConfig: () => Promise<null>
-    quote: () => Promise<null>
-    swap: () => Promise<null>
-    getXLPPosition: () => Promise<null>
-    getAllVouchers: () => Promise<null>
-    registerAsXLP: () => Promise<null>
-    stake: () => Promise<null>
-    unstake: () => Promise<null>
-    claimFees: () => Promise<null>
-    startUnbonding: () => Promise<null>
-    completeUnbonding: () => Promise<null>
-  }
-  payments: {
-    getServices: () => Promise<null>
-    getBalance: () => Promise<null>
-    deposit: () => Promise<null>
-  }
-  governance: {
-    createProposal: () => Promise<null>
-    vote: () => Promise<null>
-    execute: () => Promise<null>
-    getProposal: () => Promise<null>
-    getProposals: () => Promise<null>
-  }
-  defi: {
-    getPositions: () => Promise<null>
-    stake: () => Promise<null>
-    unstake: () => Promise<null>
-    claim: () => Promise<null>
-  }
-  compute: {
-    submitJob: () => Promise<null>
-    getJob: () => Promise<null>
-    getJobResult: () => Promise<null>
-    getAvailableWorkers: () => Promise<null>
-    getNodeStats: () => Promise<null>
-  }
-  storage: {
-    pin: () => Promise<null>
-    unpin: () => Promise<null>
-  }
-}
-
-export interface EILConfig {
-  chainId: number
-  contractAddress: string
-}
-
-export interface XLPPosition {
-  xlpAddress: string
-  stakedAmount: bigint
-  unbondingAmount: bigint
-  pendingFees: bigint
-  lastClaimTime: bigint
-}
-
-export interface QuoteResult {
-  sourceAmount: bigint
-  destAmount: bigint
-  fee: bigint
-}
-
-export interface PaymentService {
-  id: string
-  name: string
-  price: bigint
-}
-
-export interface Proposal {
-  id: string
-  title: string
-  description: string
-  status: string
-}
-
-export interface StakingPosition {
-  amount: bigint
-  rewards: bigint
-}
-
-export interface ComputeJob {
-  id: string
-  status: string
-}
-
-export interface ComputeWorker {
-  id: string
-  available: boolean
-}
-
-export interface NodeStats {
-  totalNodes: number
-  activeNodes: number
-}
-
-export interface PinInfo {
-  cid: string
-  status: string
+  network: string
+  publicClient: unknown
+  walletClient: unknown
+  compute: unknown
+  storage: unknown
+  identity: unknown
+  governance: unknown
+  payments: unknown
+  crossChain: unknown
+  names: unknown
+  defi: unknown
 }
 
 export interface UploadOptions {
   name?: string
+  metadata?: Record<string, string>
 }
 
 export interface UploadResult {
   cid: string
+  name: string
+  size: number
 }
 
-export interface Voucher {
-  id: string
-  amount: bigint
+export interface PinInfo {
+  cid: string
+  name: string
+  size: number
+  pinned: boolean
 }
 
-// Factory function - returns null since we can't create real clients in browser
-export function createJejuClient(): JejuClient {
-  throw new Error('SDK not available in browser. Use contract hooks instead.')
+// Create a mock client for browser environments
+export function createJejuClient(_config?: JejuClientConfig): JejuClient {
+  console.warn('JejuClient in browser mode - some features may be limited')
+  return {
+    network: 'localnet',
+    publicClient: null,
+    walletClient: null,
+    compute: {},
+    storage: {},
+    identity: {},
+    governance: {},
+    payments: {},
+    crossChain: {},
+    names: {},
+    defi: {},
+  }
 }
+
+// Export browser-safe functions
+export function getClient() {
+  console.warn('SDK getClient not available in browser')
+  return null
+}
+
+export function getPublicClient() {
+  console.warn('SDK getPublicClient not available in browser')
+  return null
+}
+
+export function getWalletClient() {
+  console.warn('SDK getWalletClient not available in browser')
+  return null
+}
+
+// Export constants
+export const SDK_VERSION = '0.0.0-browser'

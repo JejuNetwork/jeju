@@ -134,9 +134,7 @@ const browserPlugin: BunPlugin = {
     build.onResolve({ filter: /^node:crypto$/ }, () => ({
       path: resolve(APP_DIR, 'web/shims/node-crypto.ts'),
     }))
-    build.onResolve({ filter: /^@jejunetwork\/sdk$/ }, () => ({
-      path: resolve(APP_DIR, 'web/shims/sdk.ts'),
-    }))
+    // SDK is in externals so no shim needed
   },
 }
 
@@ -158,6 +156,9 @@ const EXTERNALS = [
   '@jejunetwork/deployment',
   '@jejunetwork/training',
   '@jejunetwork/messaging',
+  '@jejunetwork/sdk',
+  '@jejunetwork/ui',
+  '@jejunetwork/contracts',
   'elysia',
   '@elysiajs/*',
   'ioredis',

@@ -178,7 +178,7 @@ async function main() {
     const config = JSON.parse(readFileSync(configFile, 'utf-8'))
     config.testnet.compute.registry = contractAddress
     config.lastUpdated = new Date().toISOString().split('T')[0]
-    writeFileSync(configFile, JSON.stringify(config, null, 2) + '\n')
+    writeFileSync(configFile, `${JSON.stringify(config, null, 2)}\n`)
     console.log('Updated packages/config/contracts.json')
   }
 
@@ -193,7 +193,7 @@ async function main() {
   }
   deployments.ComputeRegistry = contractAddress
   deployments.lastDeployed = new Date().toISOString()
-  writeFileSync(deploymentsFile, JSON.stringify(deployments, null, 2) + '\n')
+  writeFileSync(deploymentsFile, `${JSON.stringify(deployments, null, 2)}\n`)
   console.log('Updated packages/contracts/deployments/testnet/deployment.json')
 }
 

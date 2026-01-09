@@ -22,16 +22,19 @@
  *   DEPLOYER_ADDRESS - Address derived from private key
  */
 
-import { type Address, type Hex } from 'viem'
+import { getCurrentNetwork, getDWSUrl, getRpcUrl } from '@jejunetwork/config'
+import type { Address, Hex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { getRpcUrl, getDWSUrl, getCurrentNetwork } from '@jejunetwork/config'
 
 // ============================================================================
 // Configuration
 // ============================================================================
 
 const NETWORK = getCurrentNetwork()
-const DWS_URL = process.env.DWS_URL ?? getDWSUrl(NETWORK) ?? 'https://dws.testnet.jejunetwork.org'
+const DWS_URL =
+  process.env.DWS_URL ??
+  getDWSUrl(NETWORK) ??
+  'https://dws.testnet.jejunetwork.org'
 const RPC_URL = getRpcUrl(NETWORK)
 
 // Deployment configuration for testnet
@@ -90,7 +93,10 @@ interface DWSClient {
   deployDA(config: typeof TESTNET_CONFIG.da): Promise<DeploymentResult>
   deployEmail(config: typeof TESTNET_CONFIG.email): Promise<DeploymentResult>
   deployHubble(config: typeof TESTNET_CONFIG.hubble): Promise<DeploymentResult>
-  deployWorker(type: string, config: { name: string; replicas: number }): Promise<DeploymentResult>
+  deployWorker(
+    type: string,
+    config: { name: string; replicas: number },
+  ): Promise<DeploymentResult>
   getServiceStatus(serviceId: string): Promise<ServiceStatus>
   waitForReady(serviceId: string, timeoutMs: number): Promise<boolean>
 }
@@ -166,13 +172,16 @@ function createDWSClient(baseUrl: string, address: Address): DWSClient {
       const startTime = Date.now()
       while (Date.now() - startTime < timeoutMs) {
         const status = await this.getServiceStatus(serviceId)
-        if (status.status === 'running' && status.replicas.ready === status.replicas.total) {
+        if (
+          status.status === 'running' &&
+          status.replicas.ready === status.replicas.total
+        ) {
           return true
         }
         if (status.status === 'failed') {
           throw new Error(`Service ${serviceId} failed to start`)
         }
-        await new Promise(resolve => setTimeout(resolve, 5000))
+        await new Promise((resolve) => setTimeout(resolve, 5000))
       }
       return false
     },
@@ -246,7 +255,10 @@ async function deployWorkers(client: DWSClient): Promise<DeployedService[]> {
   const workers: DeployedService[] = []
 
   console.log('⚡ Deploying x402 Facilitator...')
-  const x402Result = await client.deployWorker('x402-facilitator', TESTNET_CONFIG.workers.x402)
+  const x402Result = await client.deployWorker(
+    'x402-facilitator',
+    TESTNET_CONFIG.workers.x402,
+  )
   console.log(`   ✓ x402 deployed: ${x402Result.service.id}`)
   workers.push({
     name: TESTNET_CONFIG.workers.x402.name,
@@ -256,7 +268,10 @@ async function deployWorkers(client: DWSClient): Promise<DeployedService[]> {
   })
 
   console.log('🌐 Deploying RPC Gateway...')
-  const rpcResult = await client.deployWorker('rpc-gateway', TESTNET_CONFIG.workers.rpcGateway)
+  const rpcResult = await client.deployWorker(
+    'rpc-gateway',
+    TESTNET_CONFIG.workers.rpcGateway,
+  )
   console.log(`   ✓ RPC Gateway deployed: ${rpcResult.service.id}`)
   workers.push({
     name: TESTNET_CONFIG.workers.rpcGateway.name,
@@ -266,7 +281,10 @@ async function deployWorkers(client: DWSClient): Promise<DeployedService[]> {
   })
 
   console.log('🗄️ Deploying SQLit Adapter...')
-  const sqlitResult = await client.deployWorker('sqlit-adapter', TESTNET_CONFIG.workers.sqlitAdapter)
+  const sqlitResult = await client.deployWorker(
+    'sqlit-adapter',
+    TESTNET_CONFIG.workers.sqlitAdapter,
+  )
   console.log(`   ✓ SQLit Adapter deployed: ${sqlitResult.service.id}`)
   workers.push({
     name: TESTNET_CONFIG.workers.sqlitAdapter.name,
@@ -283,9 +301,15 @@ async function deployWorkers(client: DWSClient): Promise<DeployedService[]> {
 // ============================================================================
 
 async function main() {
-  console.log('╔═══════════════════════════════════════════════════════════════════╗')
-  console.log('║        DWS Testnet Bootstrap - Decentralized Service Deployment   ║')
-  console.log('╚═══════════════════════════════════════════════════════════════════╝')
+  console.log(
+    '╔═══════════════════════════════════════════════════════════════════╗',
+  )
+  console.log(
+    '║        DWS Testnet Bootstrap - Decentralized Service Deployment   ║',
+  )
+  console.log(
+    '╚═══════════════════════════════════════════════════════════════════╝',
+  )
   console.log()
   console.log(`Network: ${NETWORK}`)
   console.log(`DWS URL: ${DWS_URL}`)
@@ -310,9 +334,15 @@ async function main() {
   // Track all deployed services
   const deployedServices: DeployedService[] = []
 
-  console.log('═══════════════════════════════════════════════════════════════════')
-  console.log('                     Deploying DWS Services                        ')
-  console.log('═══════════════════════════════════════════════════════════════════')
+  console.log(
+    '═══════════════════════════════════════════════════════════════════',
+  )
+  console.log(
+    '                     Deploying DWS Services                        ',
+  )
+  console.log(
+    '═══════════════════════════════════════════════════════════════════',
+  )
   console.log()
 
   // Deploy all services
@@ -333,9 +363,15 @@ async function main() {
   console.log()
 
   // Wait for all services to be ready
-  console.log('═══════════════════════════════════════════════════════════════════')
-  console.log('                   Waiting for Services to Start                   ')
-  console.log('═══════════════════════════════════════════════════════════════════')
+  console.log(
+    '═══════════════════════════════════════════════════════════════════',
+  )
+  console.log(
+    '                   Waiting for Services to Start                   ',
+  )
+  console.log(
+    '═══════════════════════════════════════════════════════════════════',
+  )
   console.log()
 
   const STARTUP_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
@@ -351,9 +387,15 @@ async function main() {
   }
 
   console.log()
-  console.log('═══════════════════════════════════════════════════════════════════')
-  console.log('                        Deployment Summary                         ')
-  console.log('═══════════════════════════════════════════════════════════════════')
+  console.log(
+    '═══════════════════════════════════════════════════════════════════',
+  )
+  console.log(
+    '                        Deployment Summary                         ',
+  )
+  console.log(
+    '═══════════════════════════════════════════════════════════════════',
+  )
   console.log()
   console.log('Deployed Services:')
   console.log()
@@ -371,17 +413,27 @@ async function main() {
     console.log()
   }
 
-  console.log('═══════════════════════════════════════════════════════════════════')
-  console.log('             DWS Testnet Bootstrap Complete                        ')
-  console.log('═══════════════════════════════════════════════════════════════════')
+  console.log(
+    '═══════════════════════════════════════════════════════════════════',
+  )
+  console.log(
+    '             DWS Testnet Bootstrap Complete                        ',
+  )
+  console.log(
+    '═══════════════════════════════════════════════════════════════════',
+  )
   console.log()
   console.log('All services are now deployed via DWS control plane.')
   console.log('The following K8s Helm charts are NO LONGER NEEDED:')
   console.log('  - packages/deployment/kubernetes/helm/oauth3 (DELETED)')
   console.log('  - packages/deployment/kubernetes/helm/jeju-da (DELETED)')
   console.log('  - packages/deployment/kubernetes/helm/email (DELETED)')
-  console.log('  - packages/deployment/kubernetes/helm/farcaster-hubble (DELETED)')
-  console.log('  - packages/deployment/kubernetes/helm/x402-facilitator (DELETED)')
+  console.log(
+    '  - packages/deployment/kubernetes/helm/farcaster-hubble (DELETED)',
+  )
+  console.log(
+    '  - packages/deployment/kubernetes/helm/x402-facilitator (DELETED)',
+  )
   console.log('  - packages/deployment/kubernetes/helm/rpc-gateway (DELETED)')
   console.log('  - packages/deployment/kubernetes/helm/sqlit-adapter (DELETED)')
   console.log('  - packages/deployment/kubernetes/helm/sqlit (DELETED)')

@@ -146,9 +146,5 @@
       "timeout": 300000,
       "requiresChain": false
     }
-  },
-  "architecture": {
-    "frontend": { "outputDir": "dist/lander" },
-    "backend": { "outputDir": "dist/worker" }
   }
 }

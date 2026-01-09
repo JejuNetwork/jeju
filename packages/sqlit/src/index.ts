@@ -73,6 +73,15 @@ export {
 
 // Types
 export {
+  // ACL types
+  type ACLPermission,
+  type ACLRule,
+  AUDIT_CHALLENGE_TIMEOUT_MS,
+  type BatchExecuteRequest,
+  type BatchExecuteResponse,
+  // API types
+  type CreateDatabaseRequest,
+  type CreateDatabaseResponse,
   // Database types
   type DatabaseAuditChallenge,
   type DatabaseAuditResponse,
@@ -84,63 +93,54 @@ export {
   type DatabaseNodeRole,
   type DatabaseNodeStatus,
   type DatabaseRegion,
+  // State types
+  type DatabaseState,
+  // Constants
+  DEFAULT_REPLICATION_CONFIG,
+  type ExecuteRequest,
+  type ExecuteResponse,
+  type GrantRequest,
+  HEARTBEAT_INTERVAL_MS,
+  MAX_HEARTBEAT_MISSED,
+  MIN_BP_STAKE_WEI,
+  MIN_NODE_STAKE_WEI,
+  type NodeState,
+  type PeerConnection,
+  type PromoteRequest,
   type QueryRequest,
   type QueryResult,
   type ReplicationConfig,
   type ReplicationStatus,
-  type Transaction,
-  type TransactionIsolation,
-  type WALEntry,
-  // Config types
-  type SQLitNodeConfig,
-  type SQLitServiceConfig,
-  // State types
-  type DatabaseState,
-  type NodeState,
-  type PeerConnection,
-  // Protocol types
-  type WALSyncRequest,
-  type WALSyncResponse,
-  type PromoteRequest,
+  type RevokeRequest,
   type SnapshotRequest,
   type SnapshotResponse,
-  // API types
-  type CreateDatabaseRequest,
-  type CreateDatabaseResponse,
-  type ExecuteRequest,
-  type ExecuteResponse,
-  type BatchExecuteRequest,
-  type BatchExecuteResponse,
-  // Vector types
-  type VectorType,
-  type VectorDistanceMetric,
-  type VectorMetadataColumn,
-  type VectorIndexConfig,
-  type VectorInsertRequest,
-  type VectorBatchInsertRequest,
-  type VectorSearchRequest,
-  type VectorSearchResult,
-  // ACL types
-  type ACLPermission,
-  type ACLRule,
-  type GrantRequest,
-  type RevokeRequest,
-  // Event types
-  type SQLitEventType,
-  type SQLitEvent,
-  type SQLitEventHandler,
-  // TEE types
-  type TEEPlatform,
-  type TEEAttestation,
+  SQLIT_REGISTRY_ABI,
   // Error types
   SQLitError,
   SQLitErrorCode,
-  // Constants
-  DEFAULT_REPLICATION_CONFIG,
-  HEARTBEAT_INTERVAL_MS,
-  MAX_HEARTBEAT_MISSED,
-  MIN_NODE_STAKE_WEI,
-  MIN_BP_STAKE_WEI,
-  AUDIT_CHALLENGE_TIMEOUT_MS,
-  SQLIT_REGISTRY_ABI,
+  type SQLitEvent,
+  type SQLitEventHandler,
+  // Event types
+  type SQLitEventType,
+  // Config types
+  type SQLitNodeConfig,
+  type SQLitServiceConfig,
+  type TEEAttestation,
+  // TEE types
+  type TEEPlatform,
+  type Transaction,
+  type TransactionIsolation,
+  type VectorBatchInsertRequest,
+  type VectorDistanceMetric,
+  type VectorIndexConfig,
+  type VectorInsertRequest,
+  type VectorMetadataColumn,
+  type VectorSearchRequest,
+  type VectorSearchResult,
+  // Vector types
+  type VectorType,
+  type WALEntry,
+  // Protocol types
+  type WALSyncRequest,
+  type WALSyncResponse,
 } from './types'

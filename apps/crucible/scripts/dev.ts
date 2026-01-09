@@ -48,7 +48,16 @@ async function buildFrontend(): Promise<void> {
     splitting: false,
     minify: false,
     sourcemap: 'inline',
-    external: DEFAULT_BROWSER_EXTERNALS,
+    external: [
+      ...DEFAULT_BROWSER_EXTERNALS,
+      '@jejunetwork/contracts',
+      '@jejunetwork/deployment',
+      '@jejunetwork/db',
+      '@jejunetwork/sqlit',
+      'elysia',
+      '@elysiajs/cors',
+      '@elysiajs/eden',
+    ],
     define: {
       'process.env.NODE_ENV': JSON.stringify('development'),
       'process.env.PUBLIC_API_URL': JSON.stringify(
@@ -86,6 +95,24 @@ async function buildFrontend(): Promise<void> {
               };
               export default function pino() { return logger; }
               export const levels = logger.levels;
+            `,
+            loader: 'js',
+          }))
+
+          // Elysia stub (server-only)
+          build.onResolve({ filter: /^elysia$/ }, () => ({
+            path: 'elysia',
+            namespace: 'elysia-stub',
+          }))
+          build.onLoad({ filter: /.*/, namespace: 'elysia-stub' }, () => ({
+            contents: `
+              export class Elysia {
+                use() { return this; }
+                get() { return this; }
+                post() { return this; }
+                listen() { return this; }
+              }
+              export default Elysia;
             `,
             loader: 'js',
           }))

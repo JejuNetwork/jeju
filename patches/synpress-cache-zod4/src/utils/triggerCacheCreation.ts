@@ -23,8 +23,8 @@ export async function triggerCacheCreation(
       const funcHash = hashes[index]
 
       const cachePath = path.join(cacheDirPath, funcHash || 'unknown')
-      const doesCacheDirExist = await fs.exists(cachePath)
-      const isCacheDirEmpty = await isDirEmpty(cachePath)
+      const doesCacheDirExist = await fs.pathExists(cachePath)
+      const isCacheDirEmpty = doesCacheDirExist ? await isDirEmpty(cachePath) : true
 
       if (doesCacheDirExist) {
         if (isCacheDirEmpty) {

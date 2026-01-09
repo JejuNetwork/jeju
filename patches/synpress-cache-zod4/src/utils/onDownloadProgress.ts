@@ -3,7 +3,7 @@ import ProgressBar from 'progress'
 import { bytesToMegabytes } from './bytesToMegabytes'
 
 export function onDownloadProgress(url: string, fileName: string) {
-  let progressBar: ProgressBar
+  let progressBar: InstanceType<typeof ProgressBar>
   let lastDownloadedBytes = 0
 
   return ({ loaded: downloadedBytes, total: totalDownloadBytes }: AxiosProgressEvent) => {

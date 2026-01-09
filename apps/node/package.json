@@ -1,23 +1,6 @@
 {
   "name": "@jejunetwork/node",
-  "version": "1.0.0",
-  "description": "Network Node - Run infrastructure and earn rewards",
-  "type": "module",
-  "bin": {
-    "jeju-node": "./api/cli.ts"
-  },
-  "scripts": {
-    "dev": "bun run scripts/dev.ts",
-    "build": "bun run scripts/build.ts",
-    "start": "bun run scripts/serve.ts",
-    "deploy": "bun run scripts/deploy.ts",
-    "test": "bun test api/ lib/ web/ --timeout 30000",
-    "test:e2e": "bunx playwright test",
-    "typecheck": "tsc --noEmit",
-    "dev:app": "cd app/src-tauri && tauri dev",
-    "build:app": "cd app/src-tauri && tauri build",
-    "cli": "bun api/cli.ts"
-  },
+  "version": "0.1.0",
   "dependencies": {
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/contracts": "workspace:*",
@@ -57,5 +40,22 @@
     "postcss": "^8.5.6",
     "tailwindcss": "3.4.17",
     "typescript": "5.9.3"
+  },
+  "description": "Network Node - Run infrastructure and earn rewards",
+  "type": "module",
+  "bin": {
+    "jeju-node": "./api/cli.ts"
+  },
+  "scripts": {
+    "dev": "bun run scripts/dev.ts",
+    "build": "bun run scripts/build.ts",
+    "start": "bun run scripts/serve.ts",
+    "deploy": "bun run scripts/deploy.ts",
+    "test": "bun test api/ lib/ web/ --timeout 30000",
+    "test:e2e": "bunx playwright test",
+    "typecheck": "tsc --noEmit",
+    "dev:app": "cd app/src-tauri && tauri dev",
+    "build:app": "cd app/src-tauri && tauri build",
+    "cli": "bun api/cli.ts"
   }
 }

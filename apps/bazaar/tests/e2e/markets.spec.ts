@@ -6,7 +6,9 @@
 import { assertNoPageErrors } from '@jejunetwork/tests/playwright-only'
 import { expect, test } from '@playwright/test'
 
-const isRemote = process.env.JEJU_NETWORK === 'testnet' || process.env.JEJU_NETWORK === 'mainnet'
+const isRemote =
+  process.env.JEJU_NETWORK === 'testnet' ||
+  process.env.JEJU_NETWORK === 'mainnet'
 
 test.describe('Markets Page', () => {
   test.skip(isRemote, 'Skipping on remote network')

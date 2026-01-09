@@ -137,10 +137,6 @@ export class SQLitClient {
       timestamp: Date.now(),
     }
 
-    if (this.config.debug) {
-      console.log(`[SQLit Client] Executing: ${sql}`)
-    }
-
     try {
       const response = await fetch(`${endpoint}/v2/execute`, {
         method: 'POST',

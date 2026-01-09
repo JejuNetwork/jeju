@@ -48,7 +48,12 @@ function getLocalnetRpcUrl(): string {
   if (typeof window !== 'undefined') {
     // If we're in a browser on localhost, still return the local RPC
     const hostname = window.location?.hostname
-    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname?.startsWith('192.168.') || hostname?.startsWith('10.')) {
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname?.startsWith('192.168.') ||
+      hostname?.startsWith('10.')
+    ) {
       return getL2RpcUrl()
     }
     // In browser on production domain, don't use localhost RPC
@@ -180,14 +185,17 @@ export function getRpcUrl(chainId?: number): string {
   // Check env override first
   const envRpc = getEnv('JEJU_RPC_URL')
   if (envRpc) return envRpc
-  
+
   // Determine network from chainId or detect from browser hostname
   let network: NetworkType
   if (chainId) {
     network = getNetworkType(chainId)
   } else if (typeof window !== 'undefined') {
     const hostname = window.location?.hostname
-    if (hostname?.includes('.testnet.jejunetwork.org') || hostname === 'testnet.jejunetwork.org') {
+    if (
+      hostname?.includes('.testnet.jejunetwork.org') ||
+      hostname === 'testnet.jejunetwork.org'
+    ) {
       network = 'testnet'
     } else if (hostname?.endsWith('.jejunetwork.org')) {
       network = 'mainnet'
@@ -197,7 +205,7 @@ export function getRpcUrl(chainId?: number): string {
   } else {
     network = 'localnet'
   }
-  
+
   return RPC_URLS[network]
 }
 

@@ -1,5 +1,5 @@
+import { type CacheClient, getCacheClient } from '@jejunetwork/cache'
 import { getChainlinkFeed, hasChainlinkSupport } from '@jejunetwork/config'
-import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import { AddressSchema, validateOrThrow } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import {

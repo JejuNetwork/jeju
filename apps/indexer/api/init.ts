@@ -2,13 +2,21 @@
  * Indexer initialization and contract registry
  */
 
+// Mute verbose squid processor logs in dev (set before any subsquid imports)
+// Only show warnings and errors, not INFO level block processing logs
+if (!process.env.SQD_LOG_LEVEL) {
+  process.env.SQD_LOG_LEVEL = 'WARN'
+}
+
 import 'reflect-metadata'
 // Import ALL models via the index file which handles circular dependency ordering
 // The index.ts imports all models as side effects first, then exports them
 import '../src/model'
 
 import { getContract, getCurrentNetwork } from '@jejunetwork/config'
+import { config } from './config'
 import { type ContractInfo, registerContract } from './contract-events'
+import { configureDWSDatabase } from './dws-database'
 import { getContractAddressSet, loadNetworkConfig } from './network-config'
 import { registerTFMMPool } from './tfmm-processor'
 
@@ -65,17 +73,24 @@ const CONTRACT_TYPES: Record<string, ContractInfo['type']> = {
 
 let initialized = false
 
-export function initializeIndexer(): void {
+export async function initializeIndexer(): Promise<void> {
   if (initialized) return
 
-  const config = loadNetworkConfig()
+  // If using DWS mode, configure database credentials first
+  if (config.indexerMode === 'dws') {
+    console.log('[Indexer] Using DWS database provisioning...')
+    await configureDWSDatabase()
+  }
+
+  const networkConfig = loadNetworkConfig()
   console.log(
-    `Initializing indexer for network: ${config.network} (chainId: ${config.chainId})`,
+    `Initializing indexer for network: ${networkConfig.network} (chainId: ${networkConfig.chainId})`,
   )
-  console.log(`RPC endpoint: ${config.rpcUrl}`)
+  console.log(`RPC endpoint: ${networkConfig.rpcUrl}`)
+  console.log(`Indexer mode: ${config.indexerMode}`)
 
   let registeredCount = 0
-  for (const [name, address] of Object.entries(config.contracts)) {
+  for (const [name, address] of Object.entries(networkConfig.contracts)) {
     if (address && typeof address === 'string') {
       const contractType = CONTRACT_TYPES[name]
       if (!contractType) {
@@ -117,7 +132,7 @@ export function initializeIndexer(): void {
     console.log(`Registered ${tfmmPoolCount} TFMM pools for event processing`)
   }
 
-  const addressSet = getContractAddressSet(config)
+  const addressSet = getContractAddressSet(networkConfig)
   if (addressSet.size > 0) {
     console.log(
       `Known contract addresses: ${Array.from(addressSet).slice(0, 5).join(', ')}${addressSet.size > 5 ? '...' : ''}`,
@@ -125,7 +140,7 @@ export function initializeIndexer(): void {
   }
 
   // Log which optional contracts are configured
-  const c = config.contracts
+  const c = networkConfig.contracts
   const missingOptional: string[] = []
 
   // Check moderation contracts (optional - may not be deployed on all networks)
@@ -136,7 +151,7 @@ export function initializeIndexer(): void {
 
   if (missingOptional.length > 0) {
     console.log(
-      `Optional contracts not configured for ${config.network}: ${missingOptional.join(', ')}. ` +
+      `Optional contracts not configured for ${networkConfig.network}: ${missingOptional.join(', ')}. ` +
         `Some features may be unavailable.`,
     )
   } else {

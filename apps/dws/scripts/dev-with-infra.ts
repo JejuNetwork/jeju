@@ -145,8 +145,6 @@ async function deployContracts(): Promise<boolean> {
 async function startDWSServer(): Promise<boolean> {
   console.log('[Dev] Starting DWS API server...')
 
-  const host = getLocalhostHost()
-
   // Check if already running
   if (await isPortInUse(4030)) {
     console.log('[Dev] DWS already running on port 4030')

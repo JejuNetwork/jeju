@@ -129,13 +129,54 @@ export interface AppManifest {
   }
   /** Architecture configuration for on-chain deployment */
   architecture?: {
-    frontend?: boolean | { outputDir?: string }
+    type?: 'hybrid' | 'frontend' | 'backend'
+    frontend?: boolean | { outputDir?: string; buildDir?: string }
     backend?: boolean | { outputDir?: string }
+  }
+  /** Decentralization configuration */
+  decentralization?: {
+    cdn?: {
+      enabled?: boolean
+      regions?: string[]
+      cacheRules?: Array<{
+        pattern: string
+        ttl: number
+        staleWhileRevalidate?: number
+        immutable?: boolean
+      }>
+      apiCaching?: {
+        enabled?: boolean
+        defaultTtl?: number
+        varyHeaders?: string[]
+      }
+      serviceWorker?: boolean
+    }
+    frontend?: {
+      ipfs?: boolean
+      arweave?: boolean
+      jnsName?: string
+      buildDir?: string
+      spa?: boolean
+      fallbackOrigins?: string[]
+    }
+    robustness?: {
+      multiOrigin?: boolean
+      offlineSupport?: boolean
+      p2pFallback?: boolean
+      contentAddressed?: boolean
+    }
   }
   /** Populated by discoverApps with actual directory name */
   _folderName?: string
   /** DAO governance configuration */
   dao?: DAOConfig
+  /** Default environment variables for the app */
+  defaultEnv?: Record<string, string>
+  /** DWS deployment configuration */
+  dws?: {
+    frontend?: { outputDir?: string }
+    backend?: { outputDir?: string }
+  }
 }
 
 // ============ DAO Configuration Types ============

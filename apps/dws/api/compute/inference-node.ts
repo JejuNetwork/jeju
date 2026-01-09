@@ -225,9 +225,16 @@ export async function syncFromChain(): Promise<void> {
   const registryAddress = getComputeRegistryAddress()
   if (!registryAddress) {
     // No registry contract deployed - rely on locally registered nodes only
-    console.log(
-      `[Inference] ComputeRegistry not configured, using ${locallyRegisteredNodes.size} local nodes only`,
-    )
+    // This is expected for testnet where compute.registry may not be deployed
+    if (locallyRegisteredNodes.size === 0) {
+      console.log(
+        '[Inference] ComputeRegistry not configured for testnet. Set COMPUTE_REGISTRY env var or add compute.registry to contracts.json',
+      )
+    } else {
+      console.log(
+        `[Inference] ComputeRegistry not configured, using ${locallyRegisteredNodes.size} local nodes only`,
+      )
+    }
     lastSyncTimestamp = now
     return
   }

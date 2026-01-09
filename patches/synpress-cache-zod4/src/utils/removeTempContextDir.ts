@@ -1,10 +1,10 @@
-import { type RimrafAsyncOptions, rimraf } from 'rimraf'
+import { rimraf } from 'rimraf'
 
 /**
  * Sometimes the browser is still closing when we remove the context directory which results in an error/unwanted behaviour.
  * We retry a few times to make sure it's removed.
  */
-const opts: RimrafAsyncOptions = {
+const opts = {
   maxRetries: 10
 }
 

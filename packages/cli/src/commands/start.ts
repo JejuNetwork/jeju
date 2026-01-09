@@ -23,7 +23,12 @@ import {
   createLocalDeployOrchestrator,
   type LocalDeployOrchestrator,
 } from '../services/local-deploy-orchestrator'
-import { type AppManifest, DOMAIN_CONFIG, WELL_KNOWN_KEYS } from '../types'
+import {
+  type AppManifest,
+  DEFAULT_PORTS,
+  DOMAIN_CONFIG,
+  WELL_KNOWN_KEYS,
+} from '../types'
 
 interface RunningService {
   name: string
@@ -264,6 +269,13 @@ async function deployAppsProduction(
 
     const apiPort = manifest.ports?.api ?? manifest.ports?.main ?? 5009
 
+    // Get database ID from manifest defaultEnv or use app name
+    const defaultEnv = (manifest.defaultEnv ?? {}) as Record<string, string>
+    const sqLitDatabaseId = defaultEnv.SQLIT_DATABASE_ID ?? manifest.name
+
+    // Get inference URL for LLM calls
+    const inferenceUrl = `http://${getLocalhostHost()}:${DEFAULT_PORTS.inference}`
+
     const workerProc = execa('bun', ['run', startCmd.replace('bun run ', '')], {
       cwd: dir,
       env: {
@@ -274,6 +286,11 @@ async function deployAppsProduction(
         JEJU_DWS_ENDPOINT: `http://${getLocalhostHost()}:4030`,
         JEJU_NETWORK: 'localnet',
         SQLIT_BLOCK_PRODUCER_ENDPOINT: getSQLitBlockProducerUrl(),
+        SQLIT_DATABASE_ID: sqLitDatabaseId,
+        // Inference URL for LLM calls via Jeju Compute
+        JEJU_GATEWAY_URL: inferenceUrl,
+        JEJU_COMPUTE_ENDPOINT: inferenceUrl,
+        JEJU_INFERENCE_URL: inferenceUrl,
         WORKER_REGISTRY_ADDRESS: dwsContracts.workerRegistry,
         STORAGE_MANAGER_ADDRESS: dwsContracts.storageManager,
         CDN_REGISTRY_ADDRESS: dwsContracts.cdnRegistry,

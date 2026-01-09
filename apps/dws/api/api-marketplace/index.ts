@@ -67,6 +67,7 @@ export {
 export {
   checkForLeaks,
   createSanitizationConfig,
+  DEFAULT_KEY_PATTERNS,
   extractPotentialKeys,
   mightContainKey,
   sanitizeObject,

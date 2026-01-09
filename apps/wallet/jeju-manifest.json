@@ -112,8 +112,5 @@
       "requiresWallet": true
     },
     "services": ["inference", "indexer"]
-  },
-  "architecture": {
-    "frontend": { "outputDir": "dist" }
   }
 }

@@ -34,6 +34,9 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
       - name: Install dependencies
         run: bun install
 
@@ -47,7 +50,11 @@ jobs:
         run: |
           # Deploy using Jeju CLI to DWS Workers
           cd apps/indexer
-          bun run deploy --env $ENVIRONMENT || echo "DWS deployment pending setup"
+          if [ -n "$DWS_API_KEY" ]; then
+            bun run deploy --env $ENVIRONMENT
+          else
+            echo "Skipping deployment - DWS_API_KEY not configured"
+          fi
 
       - name: Verify deployment
         run: |

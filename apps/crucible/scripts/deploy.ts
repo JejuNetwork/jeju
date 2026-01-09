@@ -340,6 +340,75 @@ async function setupCDN(
   }
 }
 
+/**
+ * Register app with DWS app router
+ *
+ * This is the key step for decentralized routing - registers the app's
+ * staticFiles map with the app router so SPA routing works correctly.
+ */
+async function _registerWithAppRouter(
+  config: DeployConfig,
+  staticAssets: Map<string, UploadResult>,
+  workerId: string,
+): Promise<void> {
+  // Build staticFiles map: path -> CID
+  const staticFiles: Record<string, string> = {}
+  for (const [path, result] of staticAssets) {
+    // Store with leading slash for consistency
+    staticFiles[`/${path}`] = result.cid
+  }
+
+  // For localnet, use direct endpoint. For testnet/mainnet, use worker routing only
+  // Don't set backendEndpoint to the same URL as frontend - that creates a routing loop
+  const backendEndpoint =
+    config.network === 'localnet' ? 'http://localhost:4021' : null
+
+  const appData = {
+    name: 'crucible',
+    jnsName: 'crucible.jeju',
+    frontendCid: staticFiles['/index.html'],
+    staticFiles,
+    backendWorkerId: workerId,
+    backendEndpoint,
+    apiPaths: ['/api/', '/a2a/', '/mcp/', '/health', '/.well-known/'],
+    spa: true,
+    enabled: true,
+  }
+
+  console.log(
+    `   Registering with staticFiles: ${Object.keys(staticFiles).length} paths`,
+  )
+
+  const response = await fetch(`${config.dwsUrl}/apps/deployed`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(appData),
+  })
+
+  if (!response.ok) {
+    const text = await response.text()
+    throw new Error(`App router registration failed: ${text}`)
+  }
+
+  const rawJson: unknown = await response.json()
+  const result = z
+    .object({
+      success: z.boolean(),
+      warning: z.string().optional(),
+    })
+    .safeParse(rawJson)
+
+  if (!result.success) {
+    throw new Error(`Invalid registration response: ${result.error.message}`)
+  }
+
+  if (result.data.warning) {
+    console.warn(`   Warning: ${result.data.warning}`)
+  }
+
+  console.log('   App router registration complete')
+}
+
 async function deploy(): Promise<void> {
   console.log('╔════════════════════════════════════════════════════════════╗')
   console.log('║              Crucible Deployment to DWS                     ║')

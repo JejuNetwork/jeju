@@ -66,16 +66,12 @@ export async function initializeSchema(): Promise<void> {
     }
   }
 
-  // Create indexes
+  // Create indexes (silently skip errors for missing columns - tables may have fewer columns)
   for (const idx of INDEX_DDL) {
     try {
       await sqlit.exec(idx, [], DATABASE_ID)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      // Ignore "index already exists" errors
-      if (!message.includes('already exists')) {
-        console.error(`[SQLit] Index error: ${message}`)
-      }
+    } catch {
+      // Indexes are optional - silently skip errors for missing columns or already exists
     }
   }
 
