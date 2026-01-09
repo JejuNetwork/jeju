@@ -7,7 +7,6 @@ import { moderatorCharacter } from './moderator'
 import { projectManagerCharacter } from './project-manager'
 import { securityAnalystCharacter } from './security-analyst'
 import { socialMediaManagerCharacter } from './social-media-manager'
-import { testAgentCharacter } from './test-agent'
 
 export const characters: Record<string, AgentCharacter> = {
   'project-manager': projectManagerCharacter,
@@ -17,7 +16,6 @@ export const characters: Record<string, AgentCharacter> = {
   'social-media-manager': socialMediaManagerCharacter,
   moderator: moderatorCharacter,
   'security-analyst': securityAnalystCharacter,
-  'test-agent': testAgentCharacter,
   'base-watcher': baseWatcherCharacter,
 }
 
@@ -46,4 +44,3 @@ export { moderatorCharacter } from './moderator'
 export { projectManagerCharacter } from './project-manager'
 export { securityAnalystCharacter } from './security-analyst'
 export { socialMediaManagerCharacter } from './social-media-manager'
-export { testAgentCharacter } from './test-agent'

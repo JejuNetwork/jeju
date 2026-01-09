@@ -18,6 +18,11 @@ export default {}
 // Export a no-op function for any named function import
 export function noop(): void {}
 
+// Elysia/cors stub - returns a no-op middleware
+export function cors(): unknown {
+  return {}
+}
+
 // Common database stub
 export function getSQLit(): null {
   return null

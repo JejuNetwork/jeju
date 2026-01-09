@@ -30,6 +30,7 @@ export type {
   AutonomousRunnerStatus,
 }
 export { DEFAULT_AUTONOMOUS_CONFIG } from './types'
+export { createAutonomousRouter } from './router'
 
 const log = createLogger('AutonomousRunner')
 
