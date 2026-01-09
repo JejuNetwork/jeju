@@ -1002,8 +1002,8 @@ export async function stopProxy(): Promise<void> {
     await $`rm -f ${PID_FILE}`.nothrow().quiet()
   }
 
-  // Kill any Caddy processes using our config file
-  await $`pkill -f "caddy run --config ${CADDYFILE_PATH}"`.nothrow().quiet()
+  // Kill ALL Caddy processes to ensure clean state
+  await $`pkill caddy`.nothrow().quiet()
 
   // Remove port forwarding rules
   await removePortForwarding()

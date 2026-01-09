@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { LoadingSpinner } from '../components/LoadingSpinner'
-import { API_URL } from '../config'
+import { API_URL, getIpfsUrl } from '../config'
 import {
   useAgent,
   useAgentBalance,
@@ -447,6 +447,7 @@ export default function AgentDetailPage() {
                   <AddressField
                     label="Character CID"
                     value={agent.characterCid}
+                    href={getIpfsUrl(agent.characterCid)}
                   />
                 )}
               </dl>
@@ -816,9 +817,10 @@ export default function AgentDetailPage() {
 interface AddressFieldProps {
   label: string
   value: string
+  href?: string
 }
 
-function AddressField({ label, value }: AddressFieldProps) {
+function AddressField({ label, value, href }: AddressFieldProps) {
   const handleCopy = () => {
     navigator.clipboard.writeText(value)
     toast.success('Copied to clipboard')
@@ -830,15 +832,30 @@ function AddressField({ label, value }: AddressFieldProps) {
         {label}
       </dt>
       <dd className="flex items-center gap-2">
-        <code
-          className="text-sm font-mono px-3 py-2.5 rounded-lg flex-1 truncate"
-          style={{
-            backgroundColor: 'var(--bg-secondary)',
-            color: 'var(--text-secondary)',
-          }}
-        >
-          {value}
-        </code>
+        {href ? (
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm font-mono px-3 py-2.5 rounded-lg flex-1 truncate no-underline hover:underline"
+            style={{
+              backgroundColor: 'var(--bg-secondary)',
+              color: 'var(--text-secondary)',
+            }}
+          >
+            {value}
+          </a>
+        ) : (
+          <code
+            className="text-sm font-mono px-3 py-2.5 rounded-lg flex-1 truncate"
+            style={{
+              backgroundColor: 'var(--bg-secondary)',
+              color: 'var(--text-secondary)',
+            }}
+          >
+            {value}
+          </code>
+        )}
         <button
           type="button"
           onClick={handleCopy}

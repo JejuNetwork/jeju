@@ -57,7 +57,12 @@ export interface RuntimeMessage {
 export interface RuntimeResponse {
   text: string
   action?: string
-  actions?: Array<{ name: string; params: Record<string, string> }>
+  actions?: Array<{
+    type: string
+    params: Record<string, string>
+    success: boolean
+    result?: { response?: string; txHash?: string; error?: string }
+  }>
 }
 
 /**
@@ -455,10 +460,40 @@ export class CrucibleAgentRuntime {
       params: Object.keys(params).length > 0 ? params : null,
     })
 
+    // If action was detected, try to execute it
+    if (action && this.actionHasHandler(action)) {
+      this.log.info('Executing action', { action, params })
+      const execResult = await this.executeAction(action, params)
+
+      // Combine LLM response text with action result
+      const actionResultText = execResult.success
+        ? (execResult.result as { response?: string })?.response ?? ''
+        : `Action failed: ${execResult.error}`
+
+      const combinedText = actionResultText
+        ? `${cleanText}\n\n${actionResultText}`
+        : cleanText
+
+      return {
+        text: combinedText,
+        action,
+        actions: [
+          {
+            type: action,
+            params,
+            success: execResult.success,
+            result: execResult.success
+              ? { response: (execResult.result as { response?: string })?.response }
+              : { error: execResult.error },
+          },
+        ],
+      }
+    }
+
     return {
       text: cleanText,
       action,
-      actions: action ? [{ name: action, params }] : undefined,
+      actions: action ? [{ type: action, params, success: false, result: { error: 'No handler available' } }] : undefined,
     }
   }
 
@@ -548,6 +583,110 @@ export class CrucibleAgentRuntime {
   }
 
   /**
+   * Generate text using DWS inference
+   * Required by Eliza action handlers like AUDIT_CONTRACT for LLM analysis
+   */
+  async generateText(prompt: string): Promise<string> {
+    const client = getSharedDWSClient()
+    const network = getCurrentNetwork()
+    const modelPrefs = this.config.character.modelPreferences
+
+    // Use larger model for analysis tasks
+    const model =
+      network === 'testnet' || network === 'mainnet'
+        ? (modelPrefs?.large ?? 'llama-3.3-70b-versatile')
+        : (modelPrefs?.small ?? 'llama-3.1-8b-instant')
+
+    this.log.info('generateText called', {
+      promptLength: prompt.length,
+      model,
+    })
+
+    const response = await client.chatCompletion(
+      [{ role: 'user', content: prompt }],
+      {
+        model,
+        temperature: 0.3, // Lower temperature for structured analysis
+        maxTokens: 2048,
+      },
+    )
+
+    const choice = response.choices[0]
+    if (!choice) {
+      throw new Error('DWS inference returned no choices')
+    }
+
+    const text = choice.message.content ?? ''
+    this.log.info('generateText completed', {
+      responseLength: text.length,
+    })
+
+    return text
+  }
+
+  /**
+   * Use a specific model tier for generation
+   * Required by Eliza action handlers
+   * @param modelTier - 'TEXT_SMALL', 'TEXT_LARGE', 'TEXT_ANALYSIS', etc.
+   * @param options - { prompt: string }
+   */
+  async useModel(
+    modelTier: string,
+    options: { prompt: string },
+  ): Promise<string> {
+    const client = getSharedDWSClient()
+
+    // Default tier to model mapping
+    const tierToModel: Record<string, string> = {
+      TEXT_SMALL: 'llama-3.1-8b-instant',
+      TEXT_LARGE: 'llama-3.3-70b-versatile',
+      TEXT_ANALYSIS: 'llama-3.3-70b-versatile',
+    }
+
+    // Character preferences override defaults for each tier
+    const modelPrefs = this.config.character.modelPreferences
+    let model: string
+    if (modelTier === 'TEXT_ANALYSIS') {
+      // Analysis tier: use analysis preference, fall back to large, then default
+      model = modelPrefs?.analysis ?? modelPrefs?.large ?? tierToModel[modelTier] ?? 'llama-3.3-70b-versatile'
+    } else if (modelTier === 'TEXT_LARGE') {
+      model = modelPrefs?.large ?? tierToModel[modelTier] ?? 'llama-3.3-70b-versatile'
+    } else if (modelTier === 'TEXT_SMALL') {
+      model = modelPrefs?.small ?? tierToModel[modelTier] ?? 'llama-3.1-8b-instant'
+    } else {
+      model = tierToModel[modelTier] ?? 'llama-3.1-8b-instant'
+    }
+
+    this.log.info('useModel called', {
+      modelTier,
+      model,
+      promptLength: options.prompt.length,
+    })
+
+    const response = await client.chatCompletion(
+      [{ role: 'user', content: options.prompt }],
+      {
+        model,
+        temperature: 0.3,
+        maxTokens: 2048,
+      },
+    )
+
+    const choice = response.choices[0]
+    if (!choice) {
+      throw new Error('DWS inference returned no choices')
+    }
+
+    const text = choice.message.content ?? ''
+    this.log.info('useModel completed', {
+      modelTier,
+      responseLength: text.length,
+    })
+
+    return text
+  }
+
+  /**
    * Get the Jeju SDK client directly
    */
   getJejuClient(): JejuClient | null {
@@ -587,8 +726,16 @@ export class CrucibleAgentRuntime {
       // The Eliza handler expects (runtime, message, state, options, callback)
       // We create mock objects that provide what most handlers need
 
+      // Build message text that handlers can parse
+      // Most handlers expect URLs/values directly in text, not as JSON
+      const messageText = params.url
+        ? params.url
+        : Object.entries(params)
+            .map(([k, v]) => `${k}=${v}`)
+            .join(' ')
+
       const mockMessage = {
-        content: { text: JSON.stringify(params) },
+        content: { text: messageText },
         userId: this.config.agentId,
         roomId: 'crucible-runtime',
       }
@@ -598,13 +745,16 @@ export class CrucibleAgentRuntime {
         roomId: 'crucible-runtime',
       }
 
-      // Eliza handlers return a boolean and call the callback with results
+      // Eliza handlers return void and call the callback with results
+      // Track whether callback was invoked and capture results
+      let callbackInvoked = false
       let callbackResult: JsonValue = null
 
       const callback = async (response: {
         text?: string
         content?: { text?: string }
       }): Promise<void> => {
+        callbackInvoked = true
         // Capture the response from the handler
         const text = response.text ?? response.content?.text ?? ''
         callbackResult = { response: text }
@@ -612,7 +762,7 @@ export class CrucibleAgentRuntime {
 
       // Execute the Eliza action handler
       // Cast through unknown as the mock objects don't fully implement Eliza types
-      const handlerResult = await action.elizaHandler(
+      await action.elizaHandler(
         this as unknown as Parameters<ElizaActionHandler>[0], // IAgentRuntime - we implement enough of the interface
         mockMessage as unknown as Parameters<ElizaActionHandler>[1],
         mockState as unknown as Parameters<ElizaActionHandler>[2],
@@ -624,15 +774,13 @@ export class CrucibleAgentRuntime {
 
       this.log.info('Action executed', {
         actionName,
-        handlerResult: String(handlerResult),
+        callbackInvoked,
         callbackResult,
       })
 
-      // Normalize the handler result for return
-      // Eliza handlers return void or ActionResult (string | object)
-      // Consider success if we got any non-null result
-      const success = handlerResult !== undefined && handlerResult !== null
-      const resultValue = callbackResult ?? { executed: success }
+      // Success if callback was invoked (handler communicated a result)
+      const success = callbackInvoked
+      const resultValue = callbackResult ?? { executed: true }
 
       return {
         success,

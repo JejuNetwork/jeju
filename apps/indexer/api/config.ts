@@ -1,9 +1,8 @@
 import {
   createAppConfig,
-  getCurrentNetwork,
   getEnvNumber,
   getEnvVar,
-  getLocalhostHost,
+  getIpfsGatewayUrl,
   isProductionEnv,
 } from '@jejunetwork/config'
 
@@ -41,30 +40,15 @@ export interface IndexerConfig {
   logLevel: string
   corsOrigins: string[]
 
-  // Indexer mode: 'dws' (default, permissionless) | 'postgres' | 'sqlit'
+  // Indexer mode
   indexerMode: string
-
-  // DWS database provisioning
-  dwsUrl: string
 
   // Staking
   stakingAddress?: string
   ethUsdPrice: number
-}
 
-function getDwsUrl(): string {
-  const explicit = getEnvVar('DWS_URL')
-  if (explicit) return explicit
-
-  const network = getCurrentNetwork()
-  switch (network) {
-    case 'localnet':
-      return `http://${getLocalhostHost()}:4030`
-    case 'testnet':
-      return 'https://dws.testnet.jejunetwork.org'
-    case 'mainnet':
-      return 'https://dws.jejunetwork.org'
-  }
+  // IPFS
+  ipfsGateway: string
 }
 
 const { config, configure: setIndexerConfig } = createAppConfig<IndexerConfig>({
@@ -101,15 +85,15 @@ const { config, configure: setIndexerConfig } = createAppConfig<IndexerConfig>({
   logLevel: getEnvVar('LOG_LEVEL') ?? 'info',
   corsOrigins: (getEnvVar('CORS_ORIGINS') ?? '').split(',').filter(Boolean),
 
-  // Indexer mode: 'dws' (default) | 'postgres' | 'sqlit'
-  indexerMode: getEnvVar('INDEXER_MODE') ?? 'dws',
-
-  // DWS database provisioning
-  dwsUrl: getDwsUrl(),
+  // Indexer mode
+  indexerMode: getEnvVar('INDEXER_MODE') ?? 'postgres',
 
   // Staking
   stakingAddress: getEnvVar('INDEXER_STAKING_ADDRESS'),
   ethUsdPrice: getEnvNumber('ETH_USD_PRICE') ?? 2000,
+
+  // IPFS - use gateway URL from config, fallback to localhost for local dev
+  ipfsGateway: getEnvVar('IPFS_GATEWAY') ?? getIpfsGatewayUrl() ?? 'http://127.0.0.1:4030/cdn',
 })
 
 export { config }

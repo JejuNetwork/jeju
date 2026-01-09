@@ -35,6 +35,9 @@ import type { CrucibleCompute } from './compute'
 import { createLogger, type Logger } from './logger'
 import type { CrucibleStorage } from './storage'
 
+// Timeout for waiting for transaction receipts (60s for localnet, longer for prod)
+const TX_RECEIPT_TIMEOUT_MS = 60_000
+
 // ABI matching actual IdentityRegistry.sol contract
 const IDENTITY_REGISTRY_ABI = parseAbi([
   'function register(string tokenURI_) external returns (uint256 agentId)',
@@ -151,6 +154,7 @@ export class AgentSDK {
 
     const receipt = await this.publicClient.waitForTransactionReceipt({
       hash: txHash,
+      timeout: TX_RECEIPT_TIMEOUT_MS,
     })
 
     const log = receipt.logs[0]
@@ -198,7 +202,10 @@ export class AgentSDK {
       args: [agentId],
       value: funding,
     })
-    await this.publicClient.waitForTransactionReceipt({ hash: txHash })
+    await this.publicClient.waitForTransactionReceipt({
+      hash: txHash,
+      timeout: TX_RECEIPT_TIMEOUT_MS,
+    })
 
     const vaultAddress = (await this.publicClient.readContract({
       address: this.config.contracts.agentVault,
@@ -410,7 +417,10 @@ export class AgentSDK {
       args: [agentId],
       value: amount,
     })
-    await this.publicClient.waitForTransactionReceipt({ hash: txHash })
+    await this.publicClient.waitForTransactionReceipt({
+      hash: txHash,
+      timeout: TX_RECEIPT_TIMEOUT_MS,
+    })
 
     this.log.info('Vault funded', { agentId: agentId.toString(), txHash })
     return txHash
@@ -434,7 +444,10 @@ export class AgentSDK {
       functionName: 'withdraw',
       args: [agentId, amount],
     })
-    await this.publicClient.waitForTransactionReceipt({ hash: txHash })
+    await this.publicClient.waitForTransactionReceipt({
+      hash: txHash,
+      timeout: TX_RECEIPT_TIMEOUT_MS,
+    })
 
     this.log.info('Withdrawal complete', {
       agentId: agentId.toString(),
@@ -480,9 +493,7 @@ export class AgentSDK {
     // Build query based on filter
     const limit = filter.limit ?? 50
     const offset = filter.offset ?? 0
-    const ownerFilter = filter.owner
-      ? `, where: { owner: { id_eq: "${filter.owner.toLowerCase()}" } }`
-      : ''
+    const ownerFilter = filter.owner ? `, where: { owner: { id_eq: "${filter.owner.toLowerCase()}" } }` : ''
 
     const query = `
       query SearchAgents {
@@ -491,6 +502,9 @@ export class AgentSDK {
           agentId
           owner { id }
           tokenURI
+          name
+          description
+          tags
           registeredAt
           isBanned
           isSlashed
@@ -511,9 +525,7 @@ export class AgentSDK {
     // Handle GraphQL errors
     if (rawResult.errors) {
       this.log.error('GraphQL error', { errors: rawResult.errors })
-      throw new Error(
-        `GraphQL error: ${rawResult.errors[0]?.message ?? 'Unknown error'}`,
-      )
+      throw new Error(`GraphQL error: ${rawResult.errors[0]?.message ?? 'Unknown error'}`)
     }
 
     const agents = rawResult.data?.registeredAgents ?? []
@@ -521,33 +533,46 @@ export class AgentSDK {
     this.log.debug('Search complete', { total })
 
     // Convert indexed agents to AgentDefinition format
-    const items: AgentDefinition[] = agents.map(
-      (a: {
-        id: string
-        agentId: string
-        owner: { id: string }
-        tokenURI: string
-        registeredAt: string
-        isBanned: boolean
-        isSlashed: boolean
-      }) => {
-        const { characterCid, stateCid } = this.parseTokenUriSafe(a.tokenURI)
-        return {
-          id: a.id,
-          name: `Agent #${a.agentId}`,
-          agentId: BigInt(a.agentId),
-          owner: a.owner.id as `0x${string}`,
-          botType: 'ai_agent' as const,
-          characterCid,
-          stateCid,
-          vaultAddress: ZERO_ADDRESS,
-          active: !a.isBanned && !a.isSlashed,
-          registeredAt: Number(a.registeredAt),
-          lastExecutedAt: 0,
-          executionCount: 0,
-        }
-      },
-    )
+    // Name, description, and tags are populated by the indexer from IPFS metadata
+    const items: AgentDefinition[] = agents.map((a: {
+      id: string
+      agentId: string
+      owner: { id: string }
+      tokenURI: string
+      name: string
+      description?: string
+      tags?: string[]
+      registeredAt: string
+      isBanned: boolean
+      isSlashed: boolean
+    }) => {
+      const { characterCid, stateCid } = this.parseTokenUriSafe(a.tokenURI)
+
+      // Infer botType from tags (populated from character topics by indexer)
+      const tags = a.tags ?? []
+      const isTradingBot =
+        tags.includes('trading') ||
+        tags.includes('arbitrage') ||
+        tags.includes('mev')
+      const botType: 'ai_agent' | 'trading_bot' | 'org_tool' = isTradingBot
+        ? 'trading_bot'
+        : 'ai_agent'
+
+      return {
+        id: a.id,
+        name: a.name || `Agent #${a.agentId}`,
+        agentId: BigInt(a.agentId),
+        owner: a.owner.id as `0x${string}`,
+        botType,
+        characterCid,
+        stateCid,
+        vaultAddress: ZERO_ADDRESS,
+        active: !a.isBanned && !a.isSlashed,
+        registeredAt: Number(a.registeredAt),
+        lastExecutedAt: 0,
+        executionCount: 0,
+      }
+    })
 
     return { items, total, hasMore: agents.length === limit }
   }

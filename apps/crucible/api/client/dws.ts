@@ -1,4 +1,5 @@
 import { getDWSUrl, getServiceUrl } from '@jejunetwork/config'
+import { buildMaxTokensParam } from '@jejunetwork/shared/tokens'
 import { z } from 'zod'
 import { expect, expectTrue, StorageUploadResponseSchema } from '../schemas'
 
@@ -187,13 +188,16 @@ export class DWSClient {
       maxTokens?: number
     },
   ): Promise<z.infer<typeof ChatCompletionResponseSchema>> {
+    const model = options?.model ?? 'llama-3.1-8b-instant'
+    const maxTokens = options?.maxTokens ?? 1000
+
     return this.fetch('/compute/chat/completions', {
       method: 'POST',
       body: JSON.stringify({
-        model: options?.model ?? 'llama-3.1-8b-instant',
+        model,
         messages,
         temperature: options?.temperature ?? 0.7,
-        max_tokens: options?.maxTokens ?? 1000,
+        ...buildMaxTokensParam(model, maxTokens),
       }),
       schema: ChatCompletionResponseSchema,
     })

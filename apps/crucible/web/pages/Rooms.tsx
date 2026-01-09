@@ -39,7 +39,7 @@ export default function RoomsPage() {
     setShowCreateRoom(false)
     setRoomName('')
     setRoomDescription('')
-    navigate(`/chat/${result.roomId}`)
+    navigate(`/rooms/${result.roomId}`)
   }
 
   const handleFilterType = (type: RoomType | undefined) => {
@@ -360,6 +360,7 @@ interface RoomCardProps {
     members: { agentId: string; role: string }[]
     active: boolean
     createdAt: number
+    source?: 'onchain' | 'offchain'
   }
 }
 
@@ -368,7 +369,7 @@ function RoomCard({ room }: RoomCardProps) {
 
   return (
     <Link
-      to={`/chat/${room.roomId}`}
+      to={`/rooms/${room.roomId}`}
       className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] rounded-2xl"
       aria-label={`Join ${room.name}`}
     >
@@ -388,13 +389,20 @@ function RoomCard({ room }: RoomCardProps) {
             >
               {typeConfig.label}
             </span>
-            <span className={room.active ? 'badge-success' : 'badge-error'}>
-              <span
-                className="w-1.5 h-1.5 rounded-full bg-current"
-                aria-hidden="true"
-              />
-              {room.active ? 'Active' : 'Ended'}
-            </span>
+            <div className="flex gap-2">
+              {room.source === 'offchain' && (
+                <span className="badge badge-ghost text-xs" title="Off-chain room">
+                  Local
+                </span>
+              )}
+              <span className={room.active ? 'badge-success' : 'badge-error'}>
+                <span
+                  className="w-1.5 h-1.5 rounded-full bg-current"
+                  aria-hidden="true"
+                />
+                {room.active ? 'Active' : 'Ended'}
+              </span>
+            </div>
           </div>
         </div>
 

@@ -10,6 +10,30 @@ const FRONTEND_PORT = Number(process.env.PORT) || 4020
 const API_PORT = Number(process.env.API_PORT) || 4021
 
 let buildInProgress = false
+let cssCompileInProgress = false
+let prodBuildInProgress = false
+
+async function compileTailwindCSS(): Promise<void> {
+  if (cssCompileInProgress) return
+  cssCompileInProgress = true
+  const start = Date.now()
+
+  const proc = Bun.spawn(
+    ['bunx', 'tailwindcss', '-i', './web/globals.css', '-o', './dist/dev/globals.css'],
+    { stdout: 'pipe', stderr: 'pipe', cwd: process.cwd() },
+  )
+
+  const exitCode = await proc.exited
+  cssCompileInProgress = false
+
+  if (exitCode !== 0) {
+    const stderr = await new Response(proc.stderr).text()
+    console.error('[Crucible] Tailwind compilation failed:', stderr)
+    return
+  }
+
+  console.log(`[Crucible] Tailwind compiled in ${Date.now() - start}ms`)
+}
 
 async function buildFrontend(): Promise<void> {
   if (buildInProgress) return
@@ -174,6 +198,29 @@ async function buildFrontend(): Promise<void> {
   console.log(`[Crucible] Built in ${Date.now() - start}ms`)
 }
 
+async function buildProduction(): Promise<void> {
+  if (prodBuildInProgress) return
+  prodBuildInProgress = true
+  const start = Date.now()
+
+  const proc = Bun.spawn(['bun', 'run', 'build'], {
+    stdout: 'pipe',
+    stderr: 'pipe',
+    cwd: process.cwd(),
+  })
+
+  const exitCode = await proc.exited
+  prodBuildInProgress = false
+
+  if (exitCode !== 0) {
+    const stderr = await new Response(proc.stderr).text()
+    console.error('[Crucible] Production build failed:', stderr)
+    return
+  }
+
+  console.log(`[Crucible] Production build completed in ${Date.now() - start}ms`)
+}
+
 function generateDevHtml(): string {
   const theme = CRUCIBLE_THEME
   return `<!DOCTYPE html>
@@ -188,19 +235,7 @@ function generateDevHtml(): string {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="${theme.fonts.google}" rel="stylesheet">
   <script>window.process = window.process || { env: { NODE_ENV: 'development' } };</script>
-  <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          fontFamily: { sans: ['${theme.fonts.sans}', 'system-ui', 'sans-serif'], display: ['${theme.fonts.display}', 'system-ui', 'sans-serif'], mono: ['${theme.fonts.mono}', 'monospace'] },
-          colors: {
-            crucible: { primary: '${theme.colors.primary}', accent: '${theme.colors.accent}', purple: '${theme.colors.purple}', ember: '#F97316', success: '#10B981', error: '#EF4444' },
-          },
-        },
-      },
-    }
     const saved = localStorage.getItem('${theme.storageKey}');
     if (saved === 'dark' || (!saved && matchMedia('(prefers-color-scheme: dark)').matches)) {
       document.documentElement.classList.add('dark');
@@ -217,6 +252,7 @@ function generateDevHtml(): string {
 
 async function startServer(): Promise<void> {
   await mkdir('./dist/dev', { recursive: true })
+  await compileTailwindCSS()
   await buildFrontend()
 
   Bun.serve({
@@ -254,17 +290,14 @@ async function startServer(): Promise<void> {
         }
       }
 
-      // Serve CSS - strip @import tailwindcss for dev (handled by CDN)
+      // Serve compiled Tailwind CSS
       if (path === '/globals.css') {
-        const cssFile = Bun.file('./web/globals.css')
-        const css = await cssFile.text()
-        const devCss = css.replace(
-          '@import "tailwindcss";',
-          '/* Tailwind handled by CDN in dev */',
-        )
-        return new Response(devCss, {
-          headers: { 'Content-Type': 'text/css', 'Cache-Control': 'no-cache' },
-        })
+        const cssFile = Bun.file('./dist/dev/globals.css')
+        if (await cssFile.exists()) {
+          return new Response(cssFile, {
+            headers: { 'Content-Type': 'text/css', 'Cache-Control': 'no-cache' },
+          })
+        }
       }
 
       // Serve public files
@@ -289,6 +322,13 @@ async function startServer(): Promise<void> {
         if (file?.endsWith('.ts') || file?.endsWith('.tsx')) {
           console.log(`[Crucible] ${file} changed, rebuilding...`)
           buildFrontend()
+          compileTailwindCSS() // Recompile CSS in case new Tailwind classes were added
+          buildProduction() // Rebuild production bundle for DWS
+        }
+        if (file?.endsWith('.css')) {
+          console.log(`[Crucible] ${file} changed, recompiling CSS...`)
+          compileTailwindCSS()
+          buildProduction() // Rebuild production bundle for DWS
         }
       })
     }

@@ -28,7 +28,8 @@ const isLocalDev =
 export const processor = new EvmBatchProcessor()
   .setRpcEndpoint({
     url: getRpcUrl(),
-    rateLimit: 10,
+    // No rate limit for local dev (Anvil), 10 req/s for production
+    ...(isLocalDev ? {} : { rateLimit: 10 }),
   })
   .setFinalityConfirmation(isLocalDev ? 0 : 10)
   .setFields({

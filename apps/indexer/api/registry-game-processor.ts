@@ -21,6 +21,7 @@ import {
 import type { ProcessorContext } from './processor'
 import { createAccountFactory } from './utils/entities'
 import { decodeEventArgs } from './utils/hex'
+import { fetchAgentMetadata } from './utils/ipfs-metadata'
 import { relationId } from './utils/relation-id'
 
 const stringArraySchema = z.array(z.string())
@@ -242,6 +243,12 @@ export async function processRegistryEvents(
           blockTimestamp,
         )
 
+        // Fetch agent metadata from IPFS to get actual name and description
+        const metadata = await fetchAgentMetadata(args.tokenURI, id)
+        const name = metadata?.name || `Agent #${id}`
+        const description = metadata?.description || undefined
+        const tags = metadata?.topics || []
+
         agents.set(
           id,
           new RegisteredAgent({
@@ -249,8 +256,9 @@ export async function processRegistryEvents(
             agentId,
             owner,
             tokenURI: args.tokenURI,
-            name: args.tokenURI || `Agent #${id}`,
-            tags: [],
+            name,
+            description,
+            tags,
             stakeTier: Number(args.tier),
             stakeToken: ZERO_ADDRESS,
             stakeAmount: BigInt(args.stakedAmount.toString()),
@@ -452,6 +460,17 @@ export async function processRegistryEvents(
 
         agent.tokenURI = args.newTokenURI
         agent.lastActivityAt = blockTimestamp
+
+        // Re-fetch metadata from IPFS when URI is updated
+        const metadata = await fetchAgentMetadata(args.newTokenURI, agent.id)
+        if (metadata) {
+          agent.name = metadata.name
+          agent.description = metadata.description ?? null
+          agent.tags = metadata.topics ?? []
+          console.log(`[Indexer] Updated metadata for agent ${agent.id}: name="${metadata.name}"`)
+        } else {
+          console.warn(`[Indexer] Failed to fetch IPFS metadata for agent ${agent.id}, keeping tokenURI update only`)
+        }
       } else if (topic0 === METADATA_SET) {
         const args = decodeEventArgs<MetadataSetArgs>(
           identityRegistryInterface,

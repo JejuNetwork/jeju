@@ -116,6 +116,10 @@ packages/contracts/cache-root-owned/
 
 # Generated documentation
 docs/
+# But allow documentation app's required pages directory
+!apps/documentation/docs/
+apps/documentation/docs/*
+!apps/documentation/docs/pages/
 
 # Generated indexer models (regenerated from schema)
 apps/indexer/api/model/generated/

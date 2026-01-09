@@ -18,10 +18,32 @@ export default {}
 // Export a no-op function for any named function import
 export function noop(): void {}
 
+// Elysia/cors stub - returns a no-op middleware
+export function cors(): unknown {
+  return {}
+}
+export class Elysia {
+  use() { return this }
+  get() { return this }
+  post() { return this }
+  group() { return this }
+  derive() { return this }
+  onBeforeHandle() { return this }
+}
+
 // Common database stub
 export function getSQLit(): null {
   return null
 }
+
+// Contracts stub
+export async function readContract(): Promise<null> {
+  return null
+}
+export async function writeContract(): Promise<null> {
+  return null
+}
+export const banManagerAbi = []
 
 // Common type stubs
 export type SQLitClient = never

@@ -14,6 +14,7 @@ const AgentsPage = lazy(() => import('./pages/Agents'))
 const AgentDetailPage = lazy(() => import('./pages/AgentDetail'))
 const CreateAgentPage = lazy(() => import('./pages/CreateAgent'))
 const RoomsPage = lazy(() => import('./pages/Rooms'))
+const RoomPage = lazy(() => import('./pages/Room'))
 const ChatPage = lazy(() => import('./pages/Chat'))
 const AutonomousPage = lazy(() => import('./pages/Autonomous'))
 const BotsPage = lazy(() => import('./pages/Bots'))
@@ -104,6 +105,7 @@ export function App() {
               <Route path="/agents/new" element={<CreateAgentPage />} />
               <Route path="/agents/:id" element={<AgentDetailPage />} />
               <Route path="/rooms" element={<RoomsPage />} />
+              <Route path="/rooms/:roomId" element={<RoomPage />} />
               <Route path="/chat" element={<ChatPage />} />
               <Route path="/chat/:roomId" element={<ChatPage />} />
               <Route path="/autonomous" element={<AutonomousPage />} />

@@ -166,6 +166,14 @@ export class RoomSDK {
     }
     const roomId = BigInt(topic)
 
+    // Update the room state on-chain with the IPFS CID
+    await this.executeWrite({
+      address: this.config.contracts.roomRegistry,
+      abi: ROOM_REGISTRY_ABI,
+      functionName: 'updateRoomState',
+      args: [roomId, stateCid],
+    })
+
     this.log.info('Room created', { roomId: roomId.toString(), stateCid })
     return { roomId, stateCid }
   }
@@ -352,7 +360,7 @@ export class RoomSDK {
 
   async postMessage(
     roomId: bigint,
-    agentId: bigint,
+    agentId: string,
     content: string,
     action?: string,
   ): Promise<RoomMessage> {
@@ -360,7 +368,7 @@ export class RoomSDK {
       throw new Error('Signer required for post message (KMS or wallet)')
     }
     expectTrue(roomId > 0n, 'Room ID must be greater than 0')
-    expectTrue(agentId > 0n, 'Agent ID must be greater than 0')
+    expect(agentId, 'Agent ID is required')
     expect(content, 'Message content is required')
     expectTrue(
       content.length > 0 && content.length <= 10000,
@@ -369,13 +377,13 @@ export class RoomSDK {
 
     this.log.debug('Posting message', {
       roomId: roomId.toString(),
-      agentId: agentId.toString(),
+      agentId,
     })
 
     const state = await this.loadState(roomId)
     const message: RoomMessage = {
       id: crypto.randomUUID(),
-      agentId: agentId.toString(),
+      agentId,
       content,
       timestamp: Date.now(),
       action,

@@ -122,3 +122,43 @@ export function getOAuth3Config() {
 
 // Export getter function for network (lazy evaluation)
 export { getNetwork }
+
+/**
+ * Get the IPFS gateway URL based on current environment
+ * In local dev, uses DWS CDN at localhost:4030
+ * In production, uses Jeju-hosted IPFS gateway
+ */
+export function getIpfsGatewayUrl(): string {
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname
+
+    // Local development - use DWS CDN
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname.endsWith('.local.jejunetwork.org')
+    ) {
+      return `http://${getLocalhostHost()}:4030/cdn`
+    }
+
+    // Testnet
+    if (hostname.includes('testnet')) {
+      return 'https://ipfs.testnet.jejunetwork.org'
+    }
+
+    // Mainnet
+    if (hostname.endsWith('.jejunetwork.org')) {
+      return 'https://ipfs.jejunetwork.org'
+    }
+  }
+
+  // Fallback
+  return 'https://ipfs.io'
+}
+
+/**
+ * Get full IPFS URL for a CID
+ */
+export function getIpfsUrl(cid: string): string {
+  return `${getIpfsGatewayUrl()}/ipfs/${cid}`
+}

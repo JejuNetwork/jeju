@@ -5,7 +5,7 @@
 import './init'
 
 import { ZERO_ADDRESS } from '@jejunetwork/types'
-import type { Store } from '@subsquid/typeorm-store'
+import { type Store, TypeormDatabase } from '@subsquid/typeorm-store'
 import {
   Account,
   Block as BlockEntity,
@@ -48,19 +48,19 @@ import { SQLitDatabase } from './sqlit-database'
 import { processStorageEvents } from './storage-processor'
 import { processTFMMEvents } from './tfmm-processor'
 
-const SQLIT_DATABASE_ID = config.sqlitDatabaseId || 'indexer-testnet'
+// Database mode: 'postgres' (default, for local dev) or 'sqlit' (decentralized)
+const usePostgres = config.indexerMode !== 'sqlit'
 
-console.log(`[Indexer] Using SQLit database: ${SQLIT_DATABASE_ID}`)
-
-// SQLitDatabase implements all Store methods used by the indexer
-// Type assertion through unknown is needed because SQLitDatabase provides compatible
-// Store interface at runtime but TypeORM Store has extra methods we don't use
-// Note: FinalDatabase type comes from transitive dependency
 import type { FinalDatabase } from '@subsquid/util-internal-processor-tools'
 
-const db = new SQLitDatabase({
-  databaseId: SQLIT_DATABASE_ID,
-}) as unknown as FinalDatabase<Store>
+const db = usePostgres
+  ? new TypeormDatabase({ supportHotBlocks: true })
+  : (new SQLitDatabase({
+      databaseId: config.sqlitDatabaseId || 'indexer-testnet',
+    }) as unknown as FinalDatabase<Store>)
+
+console.log(`[Indexer] Using ${usePostgres ? 'PostgreSQL (TypeORM)' : 'SQLit'} database`)
+
 processor.run(db, async (ctx: ProcessorContext<Store>) => {
   const blocks: BlockEntity[] = []
   const transactions: TransactionEntity[] = []

@@ -162,25 +162,18 @@ export class LocalDeployOrchestrator {
   async deployAllApps(
     apps: Array<{ dir: string; manifest: AppManifest }>,
   ): Promise<void> {
-    logger.step(`Deploying ${apps.length} apps on-chain in parallel...`)
+    logger.step(`Deploying ${apps.length} apps on-chain...`)
 
-    // Deploy all apps in parallel using Promise.allSettled to continue even if some fail
-    const deployResults = await Promise.allSettled(
-      apps.map(async ({ dir, manifest }) => {
+    // Deploy apps sequentially to avoid nonce race conditions
+    // (all apps use the same wallet, parallel deployment causes "nonce too low" errors)
+    for (const { dir, manifest } of apps) {
+      try {
         await this.deployApp(dir, manifest)
-        return manifest.name
-      }),
-    )
-
-    // Report failures
-    for (let i = 0; i < deployResults.length; i++) {
-      const result = deployResults[i]
-      if (result.status === 'rejected') {
+        logger.debug(`Deployed ${manifest.name}`)
+      } catch (error) {
         const errorMsg =
-          result.reason instanceof Error
-            ? result.reason.message
-            : String(result.reason)
-        logger.warn(`Failed to deploy ${apps[i].manifest.name}: ${errorMsg}`)
+          error instanceof Error ? error.message : String(error)
+        logger.warn(`Failed to deploy ${manifest.name}: ${errorMsg}`)
       }
     }
 

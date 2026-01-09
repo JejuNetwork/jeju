@@ -10,7 +10,8 @@
     ".": "./src/index.ts",
     "./dev-server": "./src/dev-server/index.ts",
     "./protocols/middleware": "./src/protocols/middleware.ts",
-    "./moderation": "./src/moderation/index.ts"
+    "./moderation": "./src/moderation/index.ts",
+    "./tokens": "./src/tokens/index.ts"
   },
   "files": ["dist", "src"],
   "sideEffects": false,

@@ -13,6 +13,7 @@ import type {
 import { JEJU_SERVICE_NAME, type JejuService } from '../service'
 import {
   getMessageText,
+  getOptionalMessageText,
   sanitizeAgentResponse,
   truncateOutput,
   validateServiceExists,

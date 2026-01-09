@@ -67,8 +67,9 @@ This automatically starts:
 1. **Localnet** (anvil) - Local blockchain on port 6546
 2. **Contracts** - Deploys Crucible smart contracts
 3. **DWS** - Decentralized Workstation Service on port 4030
-4. **Inference Node** - Local AI inference node on port 4031 (registers with DWS)
-5. **Crucible** - Agent orchestration API on port 3000
+4. **Inference Node** - Local AI inference node on port 4031
+5. **Indexer** - Blockchain indexer on port 4350 (requires Docker)
+6. **Crucible** - Agent orchestration API on port 3000
 
 ### Configuration
 
@@ -118,6 +119,18 @@ curl http://localhost:4030/compute/nodes/stats
 
 # Check Crucible
 curl http://localhost:3000/health
+```
+
+### Indexer
+
+The indexer starts automatically with `bun run dev` (requires Docker for PostgreSQL).
+
+Services available at:
+- GraphQL: http://localhost:4350/graphql
+
+If the indexer fails to start, check Docker is running:
+```bash
+docker ps  # Should show postgres container
 ```
 
 ## API Reference

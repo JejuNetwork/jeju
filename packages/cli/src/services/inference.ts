@@ -82,19 +82,12 @@ const MODEL_PATTERNS: Array<{ pattern: RegExp; provider: string }> = [
   { pattern: /^grok-/i, provider: 'xai' },
   { pattern: /^command-/i, provider: 'cohere' },
   { pattern: /^jamba-/i, provider: 'ai21' },
-  { pattern: /^llama-.*-versatile|^mixtral-|^qwen/i, provider: 'groq' },
+  { pattern: /^llama-|^mixtral-/i, provider: 'groq' },
   { pattern: /^accounts\/fireworks\//i, provider: 'fireworks' },
   { pattern: /^mistral-|^codestral-/i, provider: 'mistral' },
   { pattern: /^deepseek-/i, provider: 'deepseek' },
   { pattern: /^pplx-/i, provider: 'perplexity' },
 ]
-
-// Provider aliases - map vendor model prefixes to their hosting providers
-const PROVIDER_ALIASES: Record<string, string> = {
-  qwen: 'groq', // Qwen models hosted on Groq
-  meta: 'groq', // Meta Llama models hosted on Groq
-  llama: 'groq', // Llama models hosted on Groq
-}
 
 const API_KEY_VARS: Record<string, string> = {
   openai: 'OPENAI_API_KEY',
@@ -162,16 +155,10 @@ class LocalInferenceServer {
     model: string,
     explicitProvider?: string,
   ): { provider: string; model: string } {
-    if (explicitProvider) {
-      // Resolve alias if the explicit provider is an alias
-      const resolved = PROVIDER_ALIASES[explicitProvider] ?? explicitProvider
-      return { provider: resolved, model }
-    }
+    if (explicitProvider) return { provider: explicitProvider, model }
 
     if (model.includes('/') && !model.startsWith('accounts/')) {
-      const [providerPrefix, ...rest] = model.split('/')
-      // Resolve alias - e.g., qwen/qwen3-32b -> provider: groq, model: qwen3-32b
-      const provider = PROVIDER_ALIASES[providerPrefix] ?? providerPrefix
+      const [provider, ...rest] = model.split('/')
       return { provider, model: rest.join('/') }
     }
 
@@ -251,49 +238,33 @@ class LocalInferenceServer {
         validatedBody.model,
         validatedBody.provider,
       )
+      const endpoint = this.getProviderEndpoint(provider)
 
-      // Try the resolved provider first, then fallback to cloud providers
-      const providersToTry = [provider]
-
-      // If resolved to DWS, add cloud fallback providers
-      if (provider === 'dws') {
-        const cloudFallbacks = ['groq', 'anthropic', 'openai', 'openrouter']
-        for (const fallback of cloudFallbacks) {
-          if (this.getApiKey(fallback)) {
-            providersToTry.push(fallback)
-          }
-        }
+      if (!endpoint) {
+        logger.warn(`Unknown provider: ${provider}`)
+        return this.localFallback(validatedBody, provider)
       }
 
-      for (const tryProvider of providersToTry) {
-        const endpoint = this.getProviderEndpoint(tryProvider)
-        if (!endpoint) continue
-
-        const apiKey =
-          tryProvider === 'dws' ? 'dws' : this.getApiKey(tryProvider)
-        if (!apiKey && tryProvider !== 'dws') continue
-
-        const providerConfig: InferenceProvider = {
-          name: tryProvider,
-          type: endpoint.type,
-          apiKey: apiKey ?? '',
-          baseUrl: endpoint.baseUrl,
-        }
-
-        const requestWithModel = { ...validatedBody, model }
-
-        const response = await this.tryProvider(
-          providerConfig,
-          requestWithModel,
-        )
-        if (response) {
-          return response
-        }
+      const apiKey = provider === 'dws' ? 'dws' : this.getApiKey(provider)
+      if (!apiKey) {
+        logger.warn(`No API key for provider: ${provider}`)
+        return this.localFallback(validatedBody, provider)
       }
 
-      // All providers failed
-      logger.warn(`All providers failed for model: ${model}`)
-      return this.localFallback(validatedBody, provider)
+      const providerConfig: InferenceProvider = {
+        name: provider,
+        type: endpoint.type,
+        apiKey,
+        baseUrl: endpoint.baseUrl,
+      }
+
+      const requestWithModel = { ...validatedBody, model }
+
+      const response = await this.proxyToProvider(
+        providerConfig,
+        requestWithModel,
+      )
+      return response
     })
 
     this.app.post('/v1/providers', ({ body, set }) => {
@@ -359,41 +330,32 @@ class LocalInferenceServer {
     })
   }
 
-  /**
-   * Try a provider and return null if it fails
-   * Used for fallback chain - allows trying multiple providers
-   */
-  private async tryProvider(
+  private async proxyToProvider(
     provider: InferenceProvider,
     request: ChatRequest,
-  ): Promise<object | null> {
+  ): Promise<object> {
     const { url, headers, body } = this.buildProviderRequest(provider, request)
 
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(30000),
-      })
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    })
 
-      if (!response.ok) {
-        const errorText = await response.text()
-        logger.warn(
-          `Provider ${provider.name} failed: ${response.status} - ${errorText.slice(0, 100)}`,
-        )
-        return null
-      }
-
-      const rawData: unknown = await response.json()
-      const result = this.normalizeResponse(provider, rawData, request.model)
-      logger.info(`Provider ${provider.name} succeeded`)
-      return result
-    } catch (error) {
-      const err = error as Error
-      logger.warn(`Provider ${provider.name} error: ${err.message}`)
-      return null
+    if (!response.ok) {
+      const errorText = await response.text()
+      logger.error(
+        `Provider ${provider.name} error: ${response.status} - ${errorText}`,
+      )
+      return this.localFallback(
+        request,
+        provider.name,
+        `${response.status}: ${errorText.slice(0, 200)}`,
+      )
     }
+
+    const rawData: unknown = await response.json()
+    return this.normalizeResponse(provider, rawData, request.model)
   }
 
   private buildProviderRequest(

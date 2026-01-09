@@ -103,6 +103,16 @@ import {
   checkScamAddressAction,
   scanContractAction,
 } from './actions/security'
+// Extended Actions - Contract Fetching & Analysis
+import { analyzeContractAction } from './actions/analyze-contract'
+import { auditContractAction } from './actions/audit-contract'
+import { pollBlockscoutAction } from './actions/blockscout'
+import { fetchContractAction } from './actions/contract'
+import {
+  analyzeInfraHealthAction,
+  collectNodeStatsAction,
+} from './actions/infra'
+import { probeEndpointsAction } from './actions/probe'
 import { retrieveFileAction, uploadFileAction } from './actions/storage'
 // Extended Actions - Storage
 import {
@@ -255,6 +265,15 @@ export const jejuPlugin: Plugin = {
     analyzeTransactionAction,
     scanContractAction,
     checkScamAddressAction,
+    fetchContractAction,
+    analyzeContractAction,
+    auditContractAction,
+    pollBlockscoutAction,
+
+    // Infrastructure monitoring actions
+    collectNodeStatsAction,
+    analyzeInfraHealthAction,
+    probeEndpointsAction,
   ],
 }
 

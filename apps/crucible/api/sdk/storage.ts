@@ -24,6 +24,13 @@ export interface StorageConfig {
 // Default maximum content size: 10MB
 const DEFAULT_MAX_CONTENT_SIZE = 10 * 1024 * 1024
 const DEFAULT_CACHE_TTL = 3600
+const UPLOAD_TIMEOUT_MS = 30_000 // 30s for uploads
+const FETCH_TIMEOUT_MS = 30_000 // 30s for downloads
+const HEAD_TIMEOUT_MS = 5_000 // 5s for HEAD requests
+
+function createTimeoutSignal(ms: number): AbortSignal {
+  return AbortSignal.timeout(ms)
+}
 
 export class CrucibleStorage {
   private config: StorageConfig
@@ -238,7 +245,10 @@ export class CrucibleStorage {
     expect(cid, 'CID is required')
     expectTrue(cid.length > 0, 'CID cannot be empty')
     return (
-      await fetch(`${this.config.ipfsGateway}/ipfs/${cid}`, { method: 'HEAD' })
+      await fetch(`${this.config.ipfsGateway}/ipfs/${cid}`, {
+        method: 'HEAD',
+        signal: createTimeoutSignal(HEAD_TIMEOUT_MS),
+      })
     ).ok
   }
 
@@ -246,10 +256,12 @@ export class CrucibleStorage {
     expect(cid, 'CID is required')
     expectTrue(cid.length > 0, 'CID cannot be empty')
     this.log.debug('Pinning CID', { cid })
-    const r = await fetch(`${this.config.apiUrl}/api/v1/pin`, {
+    // TODO: DWS storage does not have a pin endpoint yet - need to add /storage/pin route
+    const r = await fetch(`${this.config.apiUrl}/storage/pin`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ cid }),
+      signal: createTimeoutSignal(UPLOAD_TIMEOUT_MS),
     })
     expectTrue(r.ok, `Failed to pin CID: ${r.statusText}`)
   }
@@ -265,9 +277,10 @@ export class CrucibleStorage {
     formData.append('file', blob, filename)
     formData.append('tier', 'popular')
 
-    const r = await fetch(`${this.config.apiUrl}/upload`, {
+    const r = await fetch(`${this.config.apiUrl}/storage/upload`, {
       method: 'POST',
       body: formData,
+      signal: createTimeoutSignal(UPLOAD_TIMEOUT_MS),
     })
     if (!r.ok) {
       throw new Error(`Failed to upload to IPFS: ${await r.text()}`)
@@ -286,6 +299,7 @@ export class CrucibleStorage {
     // First make a HEAD request to check content length
     const headResponse = await fetch(`${this.config.ipfsGateway}/ipfs/${cid}`, {
       method: 'HEAD',
+      signal: createTimeoutSignal(HEAD_TIMEOUT_MS),
     })
     if (headResponse.ok) {
       const contentLength = headResponse.headers.get('content-length')
@@ -296,7 +310,9 @@ export class CrucibleStorage {
       }
     }
 
-    const r = await fetch(`${this.config.ipfsGateway}/ipfs/${cid}`)
+    const r = await fetch(`${this.config.ipfsGateway}/ipfs/${cid}`, {
+      signal: createTimeoutSignal(FETCH_TIMEOUT_MS),
+    })
     expectTrue(r.ok, `Failed to fetch from IPFS: ${r.statusText}`)
 
     // Read content with size limit using streaming

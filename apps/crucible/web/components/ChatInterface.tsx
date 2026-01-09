@@ -5,27 +5,16 @@ import { LoadingSpinner } from './LoadingSpinner'
 
 interface Message {
   id: string
-  role: 'user' | 'agent' | 'system'
+  role: 'user' | 'agent'
   content: string
   timestamp: number
   actions?: ChatResponse['actions']
   agentName?: string
 }
 
-interface RoomMember {
-  agentId: string
-  name: string
-  role: string
-  lastActive?: number
-}
-
 interface ChatInterfaceProps {
   characterId: string
   characterName: string
-  roomId?: string
-  roomType?: 'collaboration' | 'adversarial' | 'debate' | 'board'
-  members?: RoomMember[]
-  showMemberSidebar?: boolean
 }
 
 const ACTION_ICONS: Record<string, string> = {
@@ -45,15 +34,10 @@ const ACTION_ICONS: Record<string, string> = {
 export function ChatInterface({
   characterId,
   characterName,
-  roomId,
-  roomType,
-  members = [],
-  showMemberSidebar = false,
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
-  const [typingAgents, setTypingAgents] = useState<string[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const chat = useChat()
@@ -70,18 +54,7 @@ export function ChatInterface({
     setMessages([])
     setInput('')
     inputRef.current?.focus()
-
-    // Add system message for room
-    if (roomType) {
-      const systemMessage: Message = {
-        id: 'system-welcome',
-        role: 'system',
-        content: getRoomWelcomeMessage(roomType),
-        timestamp: Date.now(),
-      }
-      setMessages([systemMessage])
-    }
-  }, [roomType])
+  }, [characterId])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -97,18 +70,17 @@ export function ChatInterface({
 
     setMessages((prev) => [...prev, userMessage])
     setInput('')
+
     setIsTyping(true)
-    setTypingAgents([characterName])
 
     const response = await chat.mutateAsync({
       characterId,
       text: trimmedInput,
       userId: 'web-user',
-      roomId: roomId ?? 'web-chat',
+      roomId: 'web-chat',
     })
 
     setIsTyping(false)
-    setTypingAgents([])
 
     const agentMessage: Message = {
       id: `agent-${Date.now()}`,
@@ -120,14 +92,6 @@ export function ChatInterface({
     }
 
     setMessages((prev) => [...prev, agentMessage])
-
-    // Show notification for executed actions
-    if (response.actions && response.actions.length > 0) {
-      const successCount = response.actions.filter((a) => a.success).length
-      if (successCount > 0) {
-        // Could integrate with toast here
-      }
-    }
   }
 
   return (
@@ -162,28 +126,6 @@ export function ChatInterface({
               {isTyping ? 'Typing...' : 'Online'}
             </p>
           </div>
-          {roomType && (
-            <span
-              className="badge text-xs"
-              style={{
-                backgroundColor: getRoomTypeColor(roomType),
-                color: 'white',
-              }}
-            >
-              {roomType}
-            </span>
-          )}
-          {roomId && (
-            <span
-              className="text-xs font-mono px-2 py-1 rounded"
-              style={{
-                backgroundColor: 'var(--bg-secondary)',
-                color: 'var(--text-tertiary)',
-              }}
-            >
-              {roomId.slice(0, 8)}...
-            </span>
-          )}
         </div>
 
         {/* Messages Area */}
@@ -217,7 +159,7 @@ export function ChatInterface({
           ))}
 
           {/* Typing Indicator */}
-          {isTyping && typingAgents.length > 0 && (
+          {isTyping && (
             <div className="flex justify-start animate-slide-up">
               <div
                 className="flex items-center gap-2 px-4 py-3 rounded-2xl"
@@ -250,8 +192,7 @@ export function ChatInterface({
                   className="text-sm"
                   style={{ color: 'var(--text-tertiary)' }}
                 >
-                  {typingAgents.join(', ')}{' '}
-                  {typingAgents.length > 1 ? 'are' : 'is'} typing
+                  {characterName} is typing
                 </span>
               </div>
             </div>
@@ -321,62 +262,6 @@ export function ChatInterface({
           )}
         </form>
       </div>
-
-      {/* Member Sidebar */}
-      {showMemberSidebar && members.length > 0 && (
-        <div className="hidden lg:flex flex-col w-64 card-static overflow-hidden flex-shrink-0">
-          <div
-            className="p-4 border-b flex-shrink-0"
-            style={{ borderColor: 'var(--border)' }}
-          >
-            <h3 className="font-bold" style={{ color: 'var(--text-primary)' }}>
-              Members ({members.length})
-            </h3>
-          </div>
-          <ul className="flex-1 overflow-y-auto p-2 space-y-1">
-            {members.map((member) => (
-              <li
-                key={member.agentId}
-                className="flex items-center gap-3 p-2 rounded-lg hover:bg-[var(--bg-secondary)]"
-              >
-                <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-sm"
-                  style={{
-                    backgroundColor: `hsl(${(parseInt(member.agentId, 10) * 137) % 360}, 70%, 50%)`,
-                    color: 'white',
-                  }}
-                >
-                  {member.name.charAt(0).toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p
-                    className="text-sm font-medium truncate"
-                    style={{ color: 'var(--text-primary)' }}
-                  >
-                    {member.name}
-                  </p>
-                  <p
-                    className="text-xs"
-                    style={{ color: 'var(--text-tertiary)' }}
-                  >
-                    {member.role}
-                  </p>
-                </div>
-                <span
-                  className="w-2 h-2 rounded-full flex-shrink-0"
-                  style={{
-                    backgroundColor:
-                      member.lastActive &&
-                      Date.now() - member.lastActive < 60000
-                        ? 'var(--color-success)'
-                        : 'var(--text-tertiary)',
-                  }}
-                />
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
     </div>
   )
 }
@@ -386,22 +271,6 @@ interface MessageBubbleProps {
 }
 
 function MessageBubble({ message }: MessageBubbleProps) {
-  if (message.role === 'system') {
-    return (
-      <div className="flex justify-center animate-fade-in">
-        <div
-          className="px-4 py-2 rounded-full text-sm text-center max-w-md"
-          style={{
-            backgroundColor: 'var(--bg-secondary)',
-            color: 'var(--text-tertiary)',
-          }}
-        >
-          {message.content}
-        </div>
-      </div>
-    )
-  }
-
   const isUser = message.role === 'user'
 
   return (
@@ -451,7 +320,7 @@ function MessageBubble({ message }: MessageBubbleProps) {
                 </p>
                 {message.actions.map((action, idx) => (
                   <ActionResult
-                    key={`${action.type}-${idx}`}
+                    key={`${action.type ?? 'action'}-${idx}`}
                     action={action}
                     isUserMessage={isUser}
                   />
@@ -481,7 +350,8 @@ interface ActionResultProps {
 }
 
 function ActionResult({ action, isUserMessage }: ActionResultProps) {
-  const icon = ACTION_ICONS[action.type.toUpperCase()] ?? ACTION_ICONS.DEFAULT
+  const actionType = action.type ?? 'UNKNOWN'
+  const icon = ACTION_ICONS[actionType.toUpperCase()] ?? ACTION_ICONS.DEFAULT
   const txHash = action.result?.txHash
 
   return (
@@ -496,7 +366,7 @@ function ActionResult({ action, isUserMessage }: ActionResultProps) {
       <span className="text-base">{icon}</span>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <code className="font-mono font-medium">{action.type}</code>
+          <code className="font-mono font-medium">{actionType}</code>
           <span
             className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${
               action.success
@@ -539,27 +409,4 @@ function ActionResult({ action, isUserMessage }: ActionResultProps) {
       </div>
     </div>
   )
-}
-
-function getRoomTypeColor(type: string): string {
-  const colors: Record<string, string> = {
-    collaboration: 'rgb(16, 185, 129)',
-    adversarial: 'rgb(239, 68, 68)',
-    debate: 'rgb(245, 158, 11)',
-    board: 'rgb(99, 102, 241)',
-  }
-  return colors[type] ?? colors.collaboration
-}
-
-function getRoomWelcomeMessage(type: string): string {
-  const messages: Record<string, string> = {
-    collaboration:
-      'Welcome to the collaboration room. Work together to achieve your goals.',
-    adversarial:
-      'Red Team vs Blue Team. The battle begins. May the best team win.',
-    debate:
-      'Welcome to the debate. Present your arguments clearly and respectfully.',
-    board: 'Board session started. Proposals will be voted on by all members.',
-  }
-  return messages[type] ?? 'Welcome to the chat room.'
 }

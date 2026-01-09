@@ -28,7 +28,7 @@
     "rpcGateway": "http://127.0.0.1:4004",
     "bazaar": "http://127.0.0.1:4006",
     "storage": {
-      "api": "http://127.0.0.1:4030/storage",
+      "api": "http://127.0.0.1:4030",
       "ipfsGateway": "http://127.0.0.1:4030/cdn"
     },
     "compute": {
@@ -106,7 +106,7 @@
     },
     "ipfs": {
       "api": "http://127.0.0.1:5001",
-      "gateway": "http://127.0.0.1:8080"
+      "gateway": "http://127.0.0.1:4030/cdn"
     },
     "agents": {
       "api": "http://127.0.0.1:4060",

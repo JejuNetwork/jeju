@@ -1,4 +1,4 @@
-import type { AgentCharacter } from '../../../lib/types'
+import type { AgentCharacter } from '../../lib/types'
 
 export const moderatorCharacter: AgentCharacter = {
   id: 'moderator',

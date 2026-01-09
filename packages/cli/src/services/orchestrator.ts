@@ -632,6 +632,21 @@ class ServicesOrchestrator {
       return
     }
 
+    const port = SERVICE_PORTS.indexer
+
+    // Check if already running
+    if (await isPortInUse(port)) {
+      logger.info(`Indexer already running on port ${port}`)
+      this.services.set('indexer', {
+        name: 'Indexer (On-Chain)',
+        type: 'server',
+        port,
+        url: `http://${getLocalhostHost()}:${port}`,
+        healthCheck: '/graphql',
+      })
+      return
+    }
+
     // Check if Docker is available
     const dockerAvailable = await this.isDockerAvailable()
     if (!dockerAvailable) {
