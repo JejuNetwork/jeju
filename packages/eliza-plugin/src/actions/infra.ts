@@ -15,6 +15,7 @@ import type {
   UUID,
 } from '@elizaos/core'
 import { getDWSUrl } from '@jejunetwork/config'
+import { createAlert, formatAlert, type AlertSeverity } from '@jejunetwork/shared'
 import { z } from 'zod'
 import { fetchWithTimeout } from '../validation'
 
@@ -343,16 +344,26 @@ function analyzeSnapshots(snapshots: NodeSnapshot[]): InfraHealthResult {
   return { status, alerts, recommendation }
 }
 
-function formatHealthResult(result: InfraHealthResult): string {
+function mapSeverityToAlertSeverity(severity: 'critical' | 'warning'): AlertSeverity {
+  return severity === 'critical' ? 'P0' : 'P1'
+}
+
+function formatHealthResult(result: InfraHealthResult, agentId = 'infra-analyzer'): string {
   const lines: string[] = [`**Infrastructure Status: ${result.status.toUpperCase()}**\n`]
 
   if (result.alerts.length > 0) {
-    lines.push('**Alerts:**')
-    for (const alert of result.alerts) {
-      const icon = alert.severity === 'critical' ? '[CRITICAL]' : '[WARNING]'
-      lines.push(`- ${icon} ${alert.message}`)
+    for (const infraAlert of result.alerts) {
+      const alert = createAlert({
+        severity: mapSeverityToAlertSeverity(infraAlert.severity),
+        category: 'infrastructure',
+        source: agentId,
+        message: infraAlert.message,
+        roomId: 'infra-monitoring',
+        metadata: { type: infraAlert.type },
+      })
+      lines.push(formatAlert(alert))
+      lines.push('')
     }
-    lines.push('')
   }
 
   lines.push(`**Recommendation:** ${result.recommendation}`)
@@ -398,8 +409,11 @@ export const analyzeInfraHealthAction: Action = {
     const snapshots = parseSnapshotsFromText(allText)
     const result = analyzeSnapshots(snapshots)
 
+    // Get agentId from runtime or use default
+    const agentId = runtime.agentId ?? 'infra-analyzer'
+
     callback?.({
-      text: formatHealthResult(result),
+      text: formatHealthResult(result, agentId),
       content: {
         type: 'infra_health_analysis',
         snapshotsAnalyzed: snapshots.length,

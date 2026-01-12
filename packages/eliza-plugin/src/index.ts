@@ -103,6 +103,8 @@ import {
   checkScamAddressAction,
   scanContractAction,
 } from './actions/security'
+// Extended Actions - Alerts
+import { postAlertAction } from './actions/alert'
 // Extended Actions - Contract Fetching & Analysis
 import { analyzeContractAction } from './actions/analyze-contract'
 import { auditContractAction } from './actions/audit-contract'
@@ -274,6 +276,9 @@ export const jejuPlugin: Plugin = {
     collectNodeStatsAction,
     analyzeInfraHealthAction,
     probeEndpointsAction,
+
+    // Alert actions
+    postAlertAction,
   ],
 }
 

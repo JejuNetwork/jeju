@@ -13,6 +13,7 @@ import {
 } from '../sdk/eliza-runtime'
 import { getDatabase, type Message } from '../sdk/database'
 import { createLogger } from '../sdk/logger'
+import { getAlertService } from './alert-service'
 import type {
   ActivityEntry,
   AgentTickContext,
@@ -122,11 +123,22 @@ export class AutonomousAgentRunner {
       await this.initializeAgentRuntime(agent)
       this.startAgentTicks(agentId, agent)
     }
+
+    // Start alert escalation loop
+    const alertService = getAlertService()
+    alertService.setPostToRoom(async (roomId, agentId, content, action) => {
+      await this.postToRoom(agentId, roomId, content, action)
+    })
+    alertService.startEscalationLoop()
   }
 
   async stop(): Promise<void> {
     this.running = false
     log.info('Stopping autonomous runner')
+
+    // Stop alert escalation
+    const alertService = getAlertService()
+    alertService.stopEscalationLoop()
 
     // Stop all agent tick loops
     for (const agent of this.agents.values()) {
@@ -715,6 +727,14 @@ export class AutonomousAgentRunner {
       const db = getDatabase()
       const sinceSeconds = Math.floor(sinceTimestamp / 1000)
       const messages = await db.getMessages(roomId, { limit: 20, since: sinceSeconds })
+
+      // Check for ACK patterns in incoming messages
+      const alertService = getAlertService()
+      for (const msg of messages) {
+        if (msg.agent_id !== agentId) {
+          alertService.processMessageForAck(msg.content, msg.agent_id)
+        }
+      }
 
       return messages
         .filter((msg: Message) => msg.agent_id !== agentId)

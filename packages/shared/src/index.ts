@@ -3,6 +3,8 @@
  * Common hooks, components, APIs, services, protocols and utilities used across all network apps
  */
 
+// Alerts
+export * from './alerts'
 // Cache Client - re-export from @jejunetwork/cache
 export {
   CacheClient as CacheClientClass,
