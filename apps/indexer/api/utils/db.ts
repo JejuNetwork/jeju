@@ -81,6 +81,11 @@ export async function initializeSQLitWithRetry(
   maxRetries = 3,
   retryDelayMs = 2000,
 ): Promise<boolean> {
+  if (process.env.SKIP_SQLIT === 'true') {
+    console.log('[DB] SKIP_SQLIT=true, skipping SQLit initialization')
+    return true
+  }
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     const success = await initializeSQLit()
     if (success) return true

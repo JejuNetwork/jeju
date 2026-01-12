@@ -14,7 +14,7 @@
     "test:e2e": "bunx playwright test",
     "typecheck": "tsc --noEmit",
     "dev:full": "bun run build && bun run db:ensure && bun run db:migrate && concurrently --kill-others \"bun run dev:processor\" \"bun run dev:graphql\" \"PORT=4355 bun run scripts/dev.ts\" \"bun run dev:api\"",
-    "dev:api": "DB_HOST=localhost DB_PORT=23798 DB_NAME=indexer DB_USER=postgres DB_PASS=postgres bun lib/api/api-server.js",
+    "dev:api": "SKIP_SQLIT=true CHAIN_ID=31337 DB_HOST=localhost DB_PORT=23798 DB_NAME=indexer DB_USER=postgres DB_PASS=postgres bun lib/api/api-server.js",
     "dev:processor": "DB_HOST=localhost DB_PORT=23798 DB_NAME=indexer DB_USER=postgres DB_PASS=postgres RPC_ETH_HTTP=http://127.0.0.1:6546 bun lib/api/main.js",
     "dev:graphql": "DB_HOST=localhost DB_PORT=23798 DB_NAME=indexer DB_USER=postgres DB_PASS=postgres GQL_PORT=4350 sqd serve",
     "db:ensure": "docker compose up -d && sleep 3 && docker exec squid-db-1 psql -U postgres -c 'CREATE DATABASE indexer;' 2>/dev/null || true",
