@@ -35,7 +35,15 @@ export {
   useOAuth3Client,
   useSession,
 } from './auth'
-
+// TrustCenter - TEE verification visualization
+export {
+  type AttestationRecord,
+  type AttestationStatus,
+  type ProviderInfo,
+  type TEEPlatform,
+  type TrustCenterProps,
+  TrustCenterWidget,
+} from './components/TrustCenter/index.js'
 export {
   type NetworkContextValue,
   NetworkProvider,

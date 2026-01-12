@@ -240,22 +240,6 @@ export async function getInternalRPCClient(): Promise<RPCClient> {
   })
 }
 
-/**
- * @deprecated Use getInternalRPCClient() instead - this returns null API key
- * Synchronous version that doesn't fetch from KMS (for backwards compat during migration)
- */
-export function getInternalRPCClientSync(): RPCClient {
-  if (isProductionEnv()) {
-    console.warn(
-      '[RPC] getInternalRPCClientSync() called in production - use async getInternalRPCClient()',
-    )
-  }
-  return createRPCClient({
-    apiKey: cachedInternalApiKey ?? undefined,
-    walletAddress: undefined,
-  })
-}
-
 export const CLOUD_RPC_CONFIG = {
   gatewayUrl: getRpcGatewayUrl(),
   // SECURITY: API key is no longer exposed in static config

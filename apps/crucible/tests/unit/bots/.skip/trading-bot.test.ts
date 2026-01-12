@@ -8,8 +8,7 @@ import {
 import type { TradingBotOptions } from '../../../api/bots/trading-bot'
 import type { TradingBotChain, TradingBotStrategy } from '../../../lib/types'
 
-// Note: These tests focus on logic and structure
-// Full integration tests would require mocked RPC clients
+// Tests focus on logic and structure - full integration tests require mocked RPC clients
 
 describe('TradingBot Configuration', () => {
   const baseConfig: TradingBotOptions = {

@@ -8,8 +8,8 @@ const TEST_DIR = join(tmpdir(), `jeju-node-test-${Date.now()}`)
 // Create test dir immediately
 mkdirSync(TEST_DIR, { recursive: true })
 
-// Note: CLI spawn tests are skipped due to bun:test child process output capture issues
-// The CLI can be tested manually with: bun run apps/node/api/cli.ts --help
+// CLI spawn tests skipped due to bun:test child process output capture issues
+// Test manually with: bun run apps/node/api/cli.ts --help
 const runCli = (_args: string): string => ''
 
 afterAll(() => {

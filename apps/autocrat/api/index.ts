@@ -1140,8 +1140,7 @@ const port = CORE_PORTS.AUTOCRAT_API.get()
 
 async function start() {
   // Initialize config from environment variables
-  // NOTE: Secrets (API keys, private keys) are managed via KMS SecretVault
-  // See api/secrets.ts for centralized secret access
+  // Secrets (API keys, private keys) are managed via KMS SecretVault in api/secrets.ts
   configureAutocrat({
     rpcUrl: getRpcUrl(),
     network: getCurrentNetwork(),
@@ -1200,8 +1199,6 @@ async function start() {
 
 start()
 
-// Note: Don't use `export default { port, fetch }` as Bun will auto-start a server,
-// conflicting with app.listen() above
 export { app, config, port }
 export type {
   BoardConfig,

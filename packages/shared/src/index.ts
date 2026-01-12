@@ -72,7 +72,7 @@ export {
   validateBuildInputs,
   WORKER_EXTERNALS,
 } from './build'
-// Legacy cache exports for backwards compatibility
+// Cache rental client (for DWS cache instances)
 export {
   type CacheClient,
   type CacheClientConfig,
@@ -80,9 +80,7 @@ export {
   CacheRentalClient,
   type CacheStats,
   getCacheRentalClient,
-  getLegacyCacheClient,
   resetCacheRentalClient,
-  resetLegacyCacheClients,
 } from './cache'
 // Chains
 export {

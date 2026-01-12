@@ -348,8 +348,7 @@ func TestEncPingFindNeighbor(t *testing.T) {
 	Convey("test FindNeighbor", t, func() {
 		So(nodeIDList, ShouldContain, string(node1.ID))
 		So(nodeIDList, ShouldContain, string(node2.ID))
-		// Note: kms.BP.NodeID is only available when config is loaded,
-		// so we skip that assertion in unit tests
+		// kms.BP.NodeID is only available when config is loaded, so we skip that assertion
 	})
 	_ = client.Close()
 	server.Stop()

@@ -70,9 +70,8 @@ import servicesJsonRaw from './services.json' with { type: 'json' }
 import vendorAppsJsonRaw from './vendor-apps.json' with { type: 'json' }
 
 export * from './dev-proxy'
-// Network utilities
-// Note: Some of these use fs and are Node.js-only (loadDeployedContracts, getNetworkInfo)
-// They will throw in browser builds if called, but won't break the import
+// Network utilities - some use fs and are Node.js-only (loadDeployedContracts, getNetworkInfo).
+// They will throw in browser builds if called, but won't break the import.
 export {
   checkHasBalance,
   checkRpcReachable,

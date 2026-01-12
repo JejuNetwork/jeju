@@ -563,8 +563,7 @@ describe('Edge Cases', () => {
       String.fromCharCode(i),
     ).join('')
 
-    // Note: This will produce invalid UTF-8, but should still roundtrip
-    // In practice, messages should be valid text
+    // This produces invalid UTF-8 but should still roundtrip (in practice, use valid text)
     const { ciphertext, nonce, ephemeralPublicKey } = encrypt(
       binaryStr,
       bobKeys.publicKey,

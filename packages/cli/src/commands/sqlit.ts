@@ -198,7 +198,7 @@ sqlitCommand
       process.exit(1)
     }
 
-    logger.info('Note: SQLIT operators register in the unified ComputeRegistry')
+    logger.info('SQLIT operators register in the unified ComputeRegistry')
     logger.info('      with serviceType = keccak256("database")')
     logger.newline()
 

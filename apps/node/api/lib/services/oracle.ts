@@ -142,7 +142,7 @@ export class OracleService {
     // and submit them periodically
     console.log('[OracleService] Oracle service started')
     console.log(
-      '[OracleService] Note: Price submissions require manual registration first',
+      '[OracleService] Price submissions require manual registration first',
     )
   }
 

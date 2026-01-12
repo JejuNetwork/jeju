@@ -1,8 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { LoadingSpinner } from '../components/LoadingSpinner'
-import { API_URL } from '../config'
-import { useCharacters } from '../hooks'
+import { useAuthenticatedFetch, useMyAgents } from '../hooks'
 
 interface AutonomousStatus {
   enabled: boolean
@@ -10,34 +9,28 @@ interface AutonomousStatus {
   agentCount?: number
   agents?: Array<{
     id: string
+    agentId?: string
     character: string
     lastTick: number
     tickCount: number
+    enabled?: boolean
   }>
   message?: string
 }
 
 interface RegisterAgentRequest {
-  characterId: string
+  agentId: string
   tickIntervalMs?: number
-  capabilities?: {
-    canChat?: boolean
-    canTrade?: boolean
-    canVote?: boolean
-    canPropose?: boolean
-    canStake?: boolean
-    a2a?: boolean
-    compute?: boolean
-  }
 }
 
 function useAutonomousStatus() {
+  const { authenticatedFetch } = useAuthenticatedFetch()
   return useQuery({
     queryKey: ['autonomous-status'],
     queryFn: async (): Promise<AutonomousStatus> => {
-      const response = await fetch(`${API_URL}/api/v1/autonomous/status`)
-      if (!response.ok) throw new Error('Failed to fetch status')
-      return response.json()
+      return authenticatedFetch<AutonomousStatus>('/api/v1/autonomous/status', {
+        requireAuth: false,
+      })
     },
     refetchInterval: 5000,
   })
@@ -45,13 +38,13 @@ function useAutonomousStatus() {
 
 function useStartRunner() {
   const queryClient = useQueryClient()
+  const { authenticatedFetch } = useAuthenticatedFetch()
   return useMutation({
     mutationFn: async () => {
-      const response = await fetch(`${API_URL}/api/v1/autonomous/start`, {
+      return authenticatedFetch('/api/v1/autonomous/start', {
         method: 'POST',
+        requireAuth: true,
       })
-      if (!response.ok) throw new Error('Failed to start runner')
-      return response.json()
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['autonomous-status'] })
@@ -61,13 +54,13 @@ function useStartRunner() {
 
 function useStopRunner() {
   const queryClient = useQueryClient()
+  const { authenticatedFetch } = useAuthenticatedFetch()
   return useMutation({
     mutationFn: async () => {
-      const response = await fetch(`${API_URL}/api/v1/autonomous/stop`, {
+      return authenticatedFetch('/api/v1/autonomous/stop', {
         method: 'POST',
+        requireAuth: true,
       })
-      if (!response.ok) throw new Error('Failed to stop runner')
-      return response.json()
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['autonomous-status'] })
@@ -77,18 +70,14 @@ function useStopRunner() {
 
 function useRegisterAgent() {
   const queryClient = useQueryClient()
+  const { authenticatedFetch } = useAuthenticatedFetch()
   return useMutation({
     mutationFn: async (request: RegisterAgentRequest) => {
-      const response = await fetch(`${API_URL}/api/v1/autonomous/agents`, {
+      return authenticatedFetch(`/api/v1/autonomous/agents`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request),
+        body: request,
+        requireAuth: true,
       })
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error ?? 'Failed to register agent')
-      }
-      return response.json()
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['autonomous-status'] })
@@ -98,16 +87,13 @@ function useRegisterAgent() {
 
 function useUnregisterAgent() {
   const queryClient = useQueryClient()
+  const { authenticatedFetch } = useAuthenticatedFetch()
   return useMutation({
     mutationFn: async (agentId: string) => {
-      const response = await fetch(
-        `${API_URL}/api/v1/autonomous/agents/${agentId}`,
-        {
-          method: 'DELETE',
-        },
-      )
-      if (!response.ok) throw new Error('Failed to unregister agent')
-      return response.json()
+      return authenticatedFetch(`/api/v1/autonomous/agents/${agentId}`, {
+        method: 'DELETE',
+        requireAuth: true,
+      })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['autonomous-status'] })
@@ -117,37 +103,27 @@ function useUnregisterAgent() {
 
 export default function AutonomousPage() {
   const { data: status, isLoading, error } = useAutonomousStatus()
-  const { data: characters } = useCharacters()
+  const { data: agentsData } = useMyAgents()
   const startRunner = useStartRunner()
   const stopRunner = useStopRunner()
   const registerAgent = useRegisterAgent()
   const unregisterAgent = useUnregisterAgent()
 
   const [showRegister, setShowRegister] = useState(false)
-  const [selectedCharacter, setSelectedCharacter] = useState('')
+  const [selectedAgentId, setSelectedAgentId] = useState('')
   const [tickInterval, setTickInterval] = useState(60000)
-  const [capabilities, setCapabilities] = useState({
-    canChat: true,
-    canTrade: false,
-    canVote: false,
-    canPropose: false,
-    canStake: false,
-    a2a: false,
-    compute: false,
-  })
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedCharacter) return
+    if (!selectedAgentId) return
 
     await registerAgent.mutateAsync({
-      characterId: selectedCharacter,
+      agentId: selectedAgentId,
       tickIntervalMs: tickInterval,
-      capabilities,
     })
 
     setShowRegister(false)
-    setSelectedCharacter('')
+    setSelectedAgentId('')
   }
 
   const formatTime = (timestamp: number) => {
@@ -343,23 +319,23 @@ export default function AutonomousPage() {
               <form onSubmit={handleRegister} className="space-y-5">
                 <div>
                   <label
-                    htmlFor="character-select"
+                    htmlFor="agent-select"
                     className="block text-sm font-medium mb-2"
                     style={{ color: 'var(--text-secondary)' }}
                   >
-                    Character
+                    Agent
                   </label>
                   <select
-                    id="character-select"
-                    value={selectedCharacter}
-                    onChange={(e) => setSelectedCharacter(e.target.value)}
+                    id="agent-select"
+                    value={selectedAgentId}
+                    onChange={(e) => setSelectedAgentId(e.target.value)}
                     className="input max-w-md"
                     required
                   >
-                    <option value="">Select a character...</option>
-                    {characters?.map((char) => (
-                      <option key={char.id} value={char.id}>
-                        {char.name} - {char.description}
+                    <option value="">Select an agent...</option>
+                    {agentsData?.agents.map((agent) => (
+                      <option key={agent.agentId} value={agent.agentId}>
+                        {agent.name} (#{agent.agentId})
                       </option>
                     ))}
                   </select>
@@ -379,51 +355,12 @@ export default function AutonomousPage() {
                     onChange={(e) => setTickInterval(Number(e.target.value))}
                     className="input max-w-xs"
                   >
-                    <option value={30000}>30 seconds</option>
                     <option value={60000}>1 minute</option>
                     <option value={120000}>2 minutes</option>
                     <option value={300000}>5 minutes</option>
                     <option value={600000}>10 minutes</option>
                   </select>
                 </div>
-
-                <fieldset>
-                  <legend
-                    className="block text-sm font-medium mb-3"
-                    style={{ color: 'var(--text-secondary)' }}
-                  >
-                    Capabilities
-                  </legend>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {Object.entries(capabilities).map(([key, value]) => (
-                      <label
-                        key={key}
-                        className="flex items-center gap-2 p-3 rounded-lg cursor-pointer"
-                        style={{ backgroundColor: 'var(--bg-secondary)' }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={value}
-                          onChange={(e) =>
-                            setCapabilities((prev) => ({
-                              ...prev,
-                              [key]: e.target.checked,
-                            }))
-                          }
-                          className="w-4 h-4"
-                        />
-                        <span
-                          className="text-sm"
-                          style={{ color: 'var(--text-primary)' }}
-                        >
-                          {key
-                            .replace(/([A-Z])/g, ' $1')
-                            .replace(/^./, (s) => s.toUpperCase())}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
 
                 <div className="flex gap-3 pt-2">
                   <button
@@ -435,7 +372,7 @@ export default function AutonomousPage() {
                   </button>
                   <button
                     type="submit"
-                    disabled={!selectedCharacter || registerAgent.isPending}
+                    disabled={!selectedAgentId || registerAgent.isPending}
                     className="btn-primary"
                   >
                     {registerAgent.isPending ? (
@@ -484,13 +421,13 @@ export default function AutonomousPage() {
                         className="font-bold font-display"
                         style={{ color: 'var(--text-primary)' }}
                       >
-                        {agent.character}
+                        Agent #{agent.agentId ?? 'Unknown'}
                       </h3>
                       <p
                         className="text-sm font-mono"
                         style={{ color: 'var(--text-tertiary)' }}
                       >
-                        {agent.id}
+                        trigger: {agent.id}
                       </p>
                     </div>
                   </div>
@@ -525,8 +462,12 @@ export default function AutonomousPage() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => unregisterAgent.mutate(agent.id)}
-                      disabled={unregisterAgent.isPending}
+                      onClick={() =>
+                        agent.agentId
+                          ? unregisterAgent.mutate(agent.agentId)
+                          : undefined
+                      }
+                      disabled={!agent.agentId || unregisterAgent.isPending}
                       className="btn-ghost btn-sm"
                       style={{ color: 'var(--color-error)' }}
                     >

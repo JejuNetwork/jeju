@@ -2,7 +2,7 @@
  * DNS Module Tests
  *
  * Tests the DNS-over-HTTPS implementation.
- * Note: These tests require network access to DoH providers.
+ * Requires network access to DoH providers.
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test'

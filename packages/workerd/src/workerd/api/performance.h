@@ -262,7 +262,7 @@ class PerformanceObserverEntryList: public jsg::Object {
 // Spec: https://w3c.github.io/performance-timeline/#the-performanceobserver-interface
 // MDN: https://developer.mozilla.org/en-US/docs/Web/API/PerformanceObserver
 //
-// Note: In the Workers environment, this observer will not receive most performance
+// In the Workers environment, this observer will not receive most performance
 // entries as we don't track detailed performance metrics within workers. The API
 // is provided mainly for compatibility with code that expects it to exist.
 class PerformanceObserver: public jsg::Object {

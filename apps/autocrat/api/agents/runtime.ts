@@ -116,7 +116,6 @@ export async function checkDWSCompute(): Promise<boolean> {
     if (!healthRes.ok) return false
 
     // Then verify inference capability with a minimal test request
-    // Note: endpoint already includes /compute, so just add /chat/completions
     const testRes = await fetch(`${endpoint}/chat/completions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -143,7 +142,6 @@ export async function dwsGenerate(
 ): Promise<string> {
   const endpoint = getDWSEndpoint()
   // Use OpenAI-compatible endpoint via DWS compute router
-  // Note: endpoint already includes /compute, so just add /chat/completions
   const r = await fetch(`${endpoint}/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

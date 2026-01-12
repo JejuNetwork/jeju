@@ -286,8 +286,7 @@ function AppRegistrationForm({
     setError(null)
 
     try {
-      // Note: This would need wallet connection to actually submit
-      // For now, just show the form structure
+      // TODO: Implement app registration with wallet connection
       console.log('Would register app:', {
         name,
         description,

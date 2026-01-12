@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useAccount, useConnect, useDisconnect, useSignMessage } from 'wagmi'
 import { injected, walletConnect } from 'wagmi/connectors'
 
-// Note: Window.ethereum type is provided by wagmi
+// Window.ethereum type is provided by wagmi
 
 interface SIWEMessage {
   domain: string

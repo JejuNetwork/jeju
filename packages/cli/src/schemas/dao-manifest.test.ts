@@ -588,10 +588,8 @@ describe('Edge Cases', () => {
   test('handles whitespace-only name', () => {
     const manifest = createValidManifest()
     manifest.name = '   '
-    // Should fail validation - whitespace is not a valid name
+    // Zod string() doesn't reject whitespace by default - documents current behavior
     const result = DAOManifestSchema.safeParse(manifest)
-    // Note: Zod string() doesn't reject whitespace by default
-    // This test documents current behavior
     expect(result.success).toBe(true)
   })
 

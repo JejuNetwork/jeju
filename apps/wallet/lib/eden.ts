@@ -272,8 +272,8 @@ export async function jsonRpcRequest<T>(
   return parsed.data.result as T
 }
 
-// Note: These use the treaty function but without the actual App types imported
-// In a full setup, you would import the App types from the backend packages.
+// These use the treaty function but without the actual App types imported
+// In a full setup, you would import the App types from the backend packages
 // For now, we create untyped clients that still benefit from Eden's error handling
 
 /**

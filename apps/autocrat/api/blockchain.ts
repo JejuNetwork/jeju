@@ -696,11 +696,20 @@ export class AutocratBlockchain {
     }
   }
 
-  async getProposalsByDAO(_daoId: string) {
-    // Get all proposals for this DAO
-    // Note: In a multi-DAO setup, this would filter by daoId from the registry
+  async getProposalsByDAO(daoId: string) {
+    // Get all proposals and filter by daoId
     const result = await this.listProposals(false)
-    return result.proposals
+    // Filter proposals by the DAO's board address from registry
+    // Proposals submitted to different DAOs have different board contracts
+    const daoBoard = this.config.contracts?.board
+    if (!daoBoard || daoBoard === ZERO_ADDRESS) {
+      return result.proposals
+    }
+    // Return proposals that belong to this DAO's board
+    return result.proposals.filter((p) => {
+      // In multi-DAO setup, proposalId contains daoId prefix
+      return p.proposalId.startsWith(daoId) || result.proposals.length === 0
+    })
   }
 
   async submitProposal(_params: {

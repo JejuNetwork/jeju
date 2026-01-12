@@ -218,7 +218,7 @@ kj::Own<JSGWrappable> JSGWrappable::detachWrapper(bool shouldFreelistShim) {
     //
     // So to work around cppgc's incorrect assumption, we manually unpoison the memory.
     //
-    // Note: An alternative strategy could have been for CppgcShim itself to allocate a separate
+    // An alternative strategy could have been for CppgcShim itself to allocate a separate
     // C++ heap object to store its own state in, so that that state could be modified even while
     // the CppgcShim object itself is poisoned. In this case `Wrappable::cppgcShim` would change to
     // point at this state object, not to the `CppgcShim` itself. However, this approach would

@@ -86,8 +86,8 @@ function generateCID(content: string): string {
 }
 
 /**
- * Convert MessageEnvelope to SQLit StoredMessage format
- * Note: Addresses are normalized to lowercase for consistent querying
+ * Convert MessageEnvelope to SQLit StoredMessage format.
+ * Addresses are normalized to lowercase for consistent querying.
  */
 function envelopeToSQLitMessage(
   envelope: MessageEnvelope,
@@ -216,9 +216,7 @@ async function getMessage(id: string): Promise<StoredMessage | null> {
   const cached = messageCache.get(id)
   if (cached) return cached
 
-  // Try SQLit storage
-  // Note: SQLit doesn't have a getMessageById method, so we'd need to add it
-  // For now, return null if not in cache
+  // TODO: Add getMessageById method to SQLit for message lookup by ID
   return null
 }
 

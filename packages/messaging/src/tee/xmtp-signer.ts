@@ -247,9 +247,9 @@ function hexToBytes(hex: Hex): Uint8Array {
  * @returns Deterministic address-format identifier (last 20 bytes of keccak256 hash)
  */
 export function deriveAddressFromPublicKey(publicKey: Hex): Address {
-  // Create deterministic identifier from Ed25519 public key
-  // Note: This is NOT an Ethereum address derivation (wrong curve)
-  // It's a fallback identifier when the real address is unknown
+  // Create deterministic identifier from Ed25519 public key.
+  // This is NOT an Ethereum address derivation (wrong curve).
+  // It's a fallback identifier when the real address is unknown.
   const hash = keccak256(publicKey)
   return `0x${hash.slice(-40)}` as Address
 }

@@ -631,7 +631,7 @@ export default (<ExportedHandler<Env>>{
       ).toEqualTypeOf<RpcStub<(p: string) => number>>() // stubified
 
       expectTypeOf(s.nonSerializable1).returns.toBeNever()
-      // Note: Since one of the object's members is non-serializable,
+      // Since one of the object's members is non-serializable,
       //   the entire object is resolved as 'never'.
       expectTypeOf(s.nonSerializable2).returns.toBeNever()
       expectTypeOf(s.nonSerializable3).returns.toBeNever()

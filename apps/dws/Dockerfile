@@ -78,8 +78,8 @@ RUN NETWORK=testnet bun ./build.web.ts
 # Production stage
 FROM --platform=linux/amd64 oven/bun:1.3
 
-# Install workerd runtime for V8 isolate execution
-# Note: workerd requires glibc, which is available in the bun base image
+# Install workerd runtime for V8 isolate execution.
+# workerd requires glibc, which is available in the bun base image.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends curl ca-certificates && \
     curl -Lo /tmp/workerd.gz https://github.com/cloudflare/workerd/releases/download/v1.20251231.0/workerd-linux-64.gz && \

@@ -42,8 +42,8 @@ contract DeployAppFeeRegistry is Script {
         appFeeRegistry.setFeeDistributor(feeDistributor);
         console.log("Fee distributor authorized");
 
-        // Note: FeeDistributor integration is handled via AppFeeRegistry.setFeeDistributor()
-        // The FeeDistributor will call AppFeeRegistry to get app splits during fee distribution
+        // FeeDistributor integration is handled via AppFeeRegistry.setFeeDistributor().
+        // The FeeDistributor will call AppFeeRegistry to get app splits during fee distribution.
         console.log("AppFeeRegistry ready for use");
 
         vm.stopBroadcast();

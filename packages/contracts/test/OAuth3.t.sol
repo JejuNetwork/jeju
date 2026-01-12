@@ -21,6 +21,8 @@ contract OAuth3Test is Test {
 
     uint256 public user1PrivateKey;
     uint256 public user2PrivateKey;
+    uint256 public teeSignerPrivateKey;
+    address public teeSigner;
 
     address public constant ENTRY_POINT = 0x0000000071727De22E5E9d8BAf0edAc6f37da032;
 
@@ -31,6 +33,8 @@ contract OAuth3Test is Test {
         user1 = vm.addr(user1PrivateKey);
         user2 = vm.addr(user2PrivateKey);
         board = makeAddr("board");
+        teeSignerPrivateKey = 0x1111111111111111111111111111111111111111111111111111111111111111;
+        teeSigner = vm.addr(teeSignerPrivateKey);
 
         // Deploy TEE Verifier first (placeholder address for identity registry)
         teeVerifier = new OAuth3TEEVerifier(address(0));
@@ -50,6 +54,9 @@ contract OAuth3Test is Test {
         // Add trusted measurement for testing
         bytes32 testMeasurement = keccak256("test-measurement");
         teeVerifier.addTrustedMeasurement(testMeasurement);
+
+        // Add a trusted signer so our mock attestation can pass signature verification
+        teeVerifier.addTrustedSigner(teeSigner);
     }
 
     // ============ Identity Registry Tests ============
@@ -431,18 +438,24 @@ contract OAuth3Test is Test {
 
     // ============ Helper Functions ============
 
-    function _createMockAttestation() internal view returns (bytes memory) {
+    function _createMockAttestation() internal returns (bytes memory) {
         bytes32 measurement = keccak256("test-measurement");
-        bytes32 reportData = keccak256("test-report");
+        // Embed a quote timestamp in the first 8 bytes (big-endian) so the verifier
+        // considers it fresh.
+        uint64 ts = uint64(block.timestamp);
+        uint256 low192 = uint256(uint192(uint256(keccak256("test-report"))));
+        bytes32 reportData = bytes32((uint256(ts) << 192) | low192);
         uint8 provider = 0; // DSTACK
 
-        // Create mock signature (64 bytes minimum)
-        bytes memory signature = new bytes(64);
-        for (uint256 i = 0; i < 64; i++) {
-            signature[i] = bytes1(uint8(i));
-        }
+        // Sign the verifier's expected digest:
+        // keccak256(abi.encodePacked(measurement, reportData, provider, chainId))
+        // then Ethereum Signed Message wrapper.
+        bytes32 messageHash = keccak256(abi.encodePacked(measurement, reportData, provider, block.chainid));
+        bytes32 ethSignedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(teeSignerPrivateKey, ethSignedHash);
+        bytes memory signature = abi.encodePacked(r, s, v);
 
-        uint16 sigLength = 64;
+        uint16 sigLength = uint16(signature.length);
 
         return abi.encodePacked(
             measurement, // 32 bytes

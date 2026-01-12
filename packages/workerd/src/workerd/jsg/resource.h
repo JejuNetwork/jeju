@@ -1798,7 +1798,7 @@ class ResourceWrapper {
     jsg::setAlignedPointerInEmbedderData(
         context, jsg::ContextPointerSlot::MAX_POINTER_SLOT, nullptr);
 
-    // (Note: V8 docs say: "Note that index 0 currently has a special meaning for Chrome's
+    // (V8 docs say: "Note that index 0 currently has a special meaning for Chrome's
     // debugger." We aren't Chrome, but it does appear that some versions of V8 will mess with
     // slot 0, causing us to segfault if we try to put anything there. So we avoid it and use slot
     // 1, which seems to work just fine.)

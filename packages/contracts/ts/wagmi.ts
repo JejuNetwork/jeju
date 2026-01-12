@@ -16,7 +16,7 @@ import type {
 
 /**
  * Parameters for typed write contract operations.
- * Note: args uses readonly unknown[] for wagmi compatibility, but when used
+ * args uses readonly unknown[] for wagmi compatibility, but when used
  * with a specific ABI and functionName, TypeScript will infer the correct types.
  */
 export interface TypedWriteContractParams<

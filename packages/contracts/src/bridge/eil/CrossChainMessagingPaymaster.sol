@@ -364,9 +364,9 @@ contract CrossChainMessagingPaymaster is Ownable, ReentrancyGuard, Pausable {
         address recipient,
         uint256 originChainId
     ) external nonReentrant {
-        // Verify message is from our counterpart via the messenger
-        // Note: For L1→L2 messages, msg.sender is the messenger
-        // For direct calls (testing), we allow owner
+        // Verify message is from our counterpart via the messenger.
+        // For L1→L2 messages, msg.sender is the messenger.
+        // For direct calls (testing), we allow owner.
         bool isValidMessage = msg.sender == address(messenger) || msg.sender == owner();
         if (!isValidMessage) revert NotCounterpart();
 

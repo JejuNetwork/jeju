@@ -55,7 +55,7 @@ console.log(`[Indexer] Using SQLit database: ${SQLIT_DATABASE_ID}`)
 // SQLitDatabase implements all Store methods used by the indexer
 // Type assertion through unknown is needed because SQLitDatabase provides compatible
 // Store interface at runtime but TypeORM Store has extra methods we don't use
-// Note: FinalDatabase type comes from transitive dependency
+// FinalDatabase type comes from transitive dependency
 import type { FinalDatabase } from '@subsquid/util-internal-processor-tools'
 
 const db = new SQLitDatabase({

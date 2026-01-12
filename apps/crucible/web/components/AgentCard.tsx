@@ -18,6 +18,67 @@ const CAPABILITY_ICONS: Record<string, { icon: string; label: string }> = {
   autonomous: { icon: '🔄', label: 'Auto' },
 }
 
+// TEE Badge Component
+function TEEBadge({
+  status,
+  platform,
+}: {
+  status: Agent['tee']
+  platform?: string
+}) {
+  if (!status?.enabled) return null
+
+  const statusConfig: Record<
+    string,
+    { icon: string; label: string; bgColor: string; textColor: string }
+  > = {
+    valid: {
+      icon: '🔒',
+      label: 'TEE Verified',
+      bgColor: 'rgba(16, 185, 129, 0.1)',
+      textColor: 'var(--color-success)',
+    },
+    expired: {
+      icon: '⚠️',
+      label: 'Attestation Expired',
+      bgColor: 'rgba(239, 68, 68, 0.1)',
+      textColor: 'var(--color-error)',
+    },
+    pending: {
+      icon: '⏳',
+      label: 'Pending Verification',
+      bgColor: 'rgba(59, 130, 246, 0.1)',
+      textColor: 'var(--color-info)',
+    },
+    unverified: {
+      icon: '❓',
+      label: 'Unverified',
+      bgColor: 'rgba(245, 158, 11, 0.1)',
+      textColor: 'var(--color-warning)',
+    },
+  }
+
+  // Default to unverified if status is unexpected
+  const config = statusConfig[status.status] ?? statusConfig.unverified
+  const platformLabel = platform
+    ? ` (${platform.replace('_', ' ').toUpperCase()})`
+    : ''
+
+  return (
+    <span
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+      style={{
+        backgroundColor: config.bgColor,
+        color: config.textColor,
+      }}
+      title={`${config.label}${platformLabel}`}
+    >
+      <span aria-hidden="true">{config.icon}</span>
+      <span className="hidden sm:inline">TEE</span>
+    </span>
+  )
+}
+
 export function AgentCard({ agent }: AgentCardProps) {
   const botType = getBotTypeConfig(agent.botType)
 
@@ -46,13 +107,18 @@ export function AgentCard({ agent }: AgentCardProps) {
           </div>
           <div className="flex flex-col items-end gap-2">
             <span className={botType.badgeClass}>{botType.label}</span>
-            <span className={agent.active ? 'badge-success' : 'badge-error'}>
-              <span
-                className="w-1.5 h-1.5 rounded-full bg-current"
-                aria-hidden="true"
-              />
-              {agent.active ? 'Active' : 'Inactive'}
-            </span>
+            <div className="flex items-center gap-1">
+              {agent.tee?.enabled && (
+                <TEEBadge status={agent.tee} platform={agent.tee.platform} />
+              )}
+              <span className={agent.active ? 'badge-success' : 'badge-error'}>
+                <span
+                  className="w-1.5 h-1.5 rounded-full bg-current"
+                  aria-hidden="true"
+                />
+                {agent.active ? 'Active' : 'Inactive'}
+              </span>
+            </div>
           </div>
         </div>
 

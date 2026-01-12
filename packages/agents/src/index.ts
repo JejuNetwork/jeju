@@ -175,6 +175,17 @@ export {
   type JejuProviderConfig,
 } from './llm/provider'
 
+export {
+  createTEEInferenceClient,
+  type InferenceRequest as TEEInferenceRequest,
+  type InferenceResponse as TEEInferenceResponse,
+  type SettlementResult,
+  type TEEAttestation,
+  TEEInferenceClient,
+  type TEEInferenceConfig,
+  type TEEProvider as TEEProviderInfo,
+} from './llm/tee-inference-client'
+
 // =============================================================================
 // AGENT0 INTEGRATION
 // =============================================================================
@@ -272,6 +283,16 @@ export {
   type RuntimeCreationOptions,
 } from './runtime/factory'
 export { AgentRuntimeManager, agentRuntimeManager } from './runtime/manager'
+
+export {
+  type AgentSecret,
+  createTEEStateManager,
+  type EncryptedState,
+  type StateSnapshot,
+  type StateStorage,
+  type TEEStateConfig,
+  TEEStateManager,
+} from './runtime/tee-state-manager'
 
 // =============================================================================
 // COMMUNICATION

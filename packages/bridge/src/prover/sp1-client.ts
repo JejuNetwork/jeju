@@ -609,7 +609,7 @@ export class SP1Client {
     startTime: number,
   ): Promise<ProofResult> {
     // Production guard: mock proofs are not allowed in production
-    // Note: isProduction and isRequireRealProofs are imported at top of file
+    // isProduction and isRequireRealProofs are imported at top of file
     if (isProduction() || isRequireRealProofs()) {
       return {
         id,

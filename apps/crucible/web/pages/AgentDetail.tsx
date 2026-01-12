@@ -1,3 +1,8 @@
+import {
+  type AttestationStatus,
+  type TEEPlatform,
+  TrustCenterWidget,
+} from '@jejunetwork/ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
@@ -7,6 +12,7 @@ import { API_URL } from '../config'
 import {
   useAgent,
   useAgentBalance,
+  useAuthenticatedFetch,
   useExecuteAgent,
   useFundVault,
 } from '../hooks'
@@ -40,6 +46,7 @@ function useActionHistory(agentId: string) {
 
 function useToggleAutonomous() {
   const queryClient = useQueryClient()
+  const { authenticatedFetch } = useAuthenticatedFetch()
 
   return useMutation({
     mutationFn: async ({
@@ -49,19 +56,15 @@ function useToggleAutonomous() {
       agentId: string
       enabled: boolean
     }) => {
-      const response = await fetch(
-        `${API_URL}/api/v1/agents/${agentId}/autonomous`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ enabled }),
-        },
-      )
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error ?? 'Failed to toggle autonomous mode')
-      }
-      return response.json()
+      return authenticatedFetch<{
+        success: boolean
+        enabled: boolean
+        tickIntervalMs: number
+      }>(`/api/v1/agents/${agentId}/autonomous`, {
+        method: 'POST',
+        body: { enabled },
+        requireAuth: true,
+      })
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['agent', variables.agentId] })
@@ -554,6 +557,61 @@ export default function AgentDetailPage() {
                 </button>
               </div>
             </section>
+
+            {/* TEE Trust Center - Only shown when TEE data is available from the agent */}
+            {agent.tee?.enabled &&
+              agent.tee.mrEnclave &&
+              agent.tee.mrSigner && (
+                <TrustCenterWidget
+                  provider={{
+                    name: agent.name,
+                    address: agent.owner,
+                    endpoint: agent.tee.endpoint ?? 'TEE Provider',
+                    teePlatform: (agent.tee.platform ??
+                      'unknown') as TEEPlatform,
+                    mrEnclave: agent.tee.mrEnclave,
+                    mrSigner: agent.tee.mrSigner,
+                  }}
+                  status={agent.tee.status as AttestationStatus}
+                  expiresAt={agent.tee.expiresAt}
+                />
+              )}
+
+            {/* TEE Pending - show simple status when TEE is enabled but attestation data incomplete */}
+            {agent.tee?.enabled &&
+              (!agent.tee.mrEnclave || !agent.tee.mrSigner) && (
+                <section
+                  className="card-static p-6"
+                  aria-labelledby="tee-pending-heading"
+                >
+                  <h2
+                    id="tee-pending-heading"
+                    className="text-lg font-bold mb-4 font-display flex items-center gap-2"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
+                    <span>🔒</span> TEE Verification
+                  </h2>
+                  <div
+                    className="p-4 rounded-xl"
+                    style={{ backgroundColor: 'var(--bg-secondary)' }}
+                  >
+                    <p
+                      className="font-medium"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
+                      {agent.tee.status === 'pending'
+                        ? 'Attestation Pending'
+                        : 'Awaiting Attestation'}
+                    </p>
+                    <p
+                      className="text-sm mt-1"
+                      style={{ color: 'var(--text-tertiary)' }}
+                    >
+                      TEE measurements will appear once attestation is complete.
+                    </p>
+                  </div>
+                </section>
+              )}
           </div>
         </div>
       )}

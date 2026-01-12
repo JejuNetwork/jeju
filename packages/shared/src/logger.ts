@@ -240,9 +240,8 @@ const MAX_LOGGERS_CACHE_SIZE = 1000
 const loggers = new Map<string, Logger>()
 
 /**
- * Get or create a logger for a service (cached)
- *
- * Note: The cache is bounded to prevent memory leaks from dynamic service names.
+ * Get or create a logger for a service (cached).
+ * The cache is bounded to prevent memory leaks from dynamic service names.
  * If the cache is full, the oldest loggers are evicted.
  */
 export function getLogger(service: string, config?: LoggerConfig): Logger {
@@ -289,8 +288,7 @@ export function getDefaultLogger(): Logger {
   return defaultLogger
 }
 
-// For backwards compatibility, export a logger getter
-// Note: This creates the logger on first access, not at module load
+// For backwards compatibility, export a logger getter (lazy-initialized on first access)
 export const logger: Logger = {
   get debug() {
     return getDefaultLogger().debug

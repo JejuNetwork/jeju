@@ -13,26 +13,23 @@ interface WorkerInfo {
   name: string
   path: string
   port: number
+  portEnvVar?: string // Environment variable name for port (if not just PORT)
   requiresServices?: string[] // External services required (sqlit, cache, etc)
 }
 
 const WORKERS: WorkerInfo[] = [
-  { name: 'autocrat', path: 'apps/autocrat/api/worker.ts', port: 14040 },
-  { name: 'bazaar', path: 'apps/bazaar/api/worker.ts', port: 14007 },
-  { name: 'crucible', path: 'apps/crucible/api/worker.ts', port: 14020 },
-  { name: 'example', path: 'apps/example/api/worker.ts', port: 14500 },
-  { name: 'factory', path: 'apps/factory/api/worker.ts', port: 14009 },
-  { name: 'gateway', path: 'apps/gateway/api/worker.ts', port: 14013 },
-  { name: 'indexer', path: 'apps/indexer/api/worker.ts', port: 14352 },
-  { name: 'monitoring', path: 'apps/monitoring/api/worker.ts', port: 14091 },
-  {
-    name: 'oauth3',
-    path: 'apps/oauth3/api/worker.ts',
-    port: 14200,
-    requiresServices: ['sqlit', 'cache'],
-  },
-  { name: 'otto', path: 'apps/otto/api/worker.ts', port: 14050 },
-  { name: 'vpn', path: 'apps/vpn/api/worker.ts', port: 14021 },
+  { name: 'autocrat', path: 'apps/autocrat/api/worker.ts', port: 14040, portEnvVar: 'AUTOCRAT_API_PORT' },
+  { name: 'bazaar', path: 'apps/bazaar/api/worker.ts', port: 14007, portEnvVar: 'BAZAAR_API_PORT' },
+  { name: 'crucible', path: 'apps/crucible/api/worker.ts', port: 14020, portEnvVar: 'CRUCIBLE_PORT' },
+  { name: 'factory', path: 'apps/factory/api/worker.ts', port: 14009, portEnvVar: 'FACTORY_PORT' },
+  { name: 'indexer', path: 'apps/indexer/api/worker.ts', port: 14352, portEnvVar: 'INDEXER_PORT' },
+  // These apps don't have worker.ts yet - they use server.ts or multiple entry points:
+  // - example: no worker.ts (needs creation)
+  // - gateway: multiple servers (rpc-server.ts, x402-server.ts, etc.)
+  // - monitoring: multiple servers (heartbeat.ts, database-monitor.ts, etc.)
+  // - oauth3: api/index.ts (needs worker.ts wrapper)
+  // - otto: no worker.ts (needs creation)
+  // - vpn: no worker.ts (needs creation)
 ]
 
 interface TestResult {
@@ -96,23 +93,30 @@ async function testWorkerHTTP(worker: WorkerInfo): Promise<TestResult> {
   let proc: Subprocess | null = null
 
   try {
-    // Start the worker
-    proc = spawn(['bun', 'run', worker.path], {
-      env: {
-        ...process.env,
-        PORT: String(worker.port),
-        NETWORK: 'localnet',
-        // Provide SQLit private key for apps that require it
-        SQLIT_PRIVATE_KEY:
-          process.env.SQLIT_PRIVATE_KEY ??
-          '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
-      },
+    // Build environment with correct port variable for each worker
+    const workerEnv: Record<string, string> = {
+      ...process.env as Record<string, string>,
+      PORT: String(worker.port), // Fallback PORT
+      NETWORK: 'localnet',
+      // Provide SQLit private key for apps that require it
+      SQLIT_PRIVATE_KEY:
+        process.env.SQLIT_PRIVATE_KEY ??
+        '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
+    }
+    // Set the specific port env var for this worker
+    if (worker.portEnvVar) {
+      workerEnv[worker.portEnvVar] = String(worker.port)
+    }
+
+    // Start the worker (use 'bun' directly, not 'bun run' which adds dev server overhead)
+    proc = spawn(['bun', worker.path], {
+      env: workerEnv,
       stdout: 'pipe',
       stderr: 'pipe',
     })
 
-    // Wait for startup
-    await setTimeout(3000)
+    // Wait for startup (factory needs longer due to DB init, use 8s to be safe)
+    await setTimeout(8000)
 
     // Test health endpoint
     const healthResponse = await fetch(
@@ -146,7 +150,21 @@ async function testWorkerHTTP(worker: WorkerInfo): Promise<TestResult> {
   } finally {
     if (proc) {
       proc.kill()
+      // Wait for process to fully terminate and port to be freed
+      await setTimeout(1000)
     }
+  }
+}
+
+// Kill any existing processes on a port using fuser (more reliable)
+async function killProcessOnPort(port: number): Promise<void> {
+  const { execSync } = await import('node:child_process')
+  try {
+    // Try to find and kill any process on the port
+    execSync(`lsof -t -i:${port} | xargs -r kill -9 2>/dev/null`, { stdio: 'ignore' })
+    await setTimeout(500) // Wait for process to die
+  } catch {
+    // Ignore errors - port may already be free
   }
 }
 
@@ -206,7 +224,7 @@ async function main() {
     const failed = results.filter((r) => r.status === 'fail').length
     console.log(`Results: ${passed} passed, ${skipped} skipped, ${failed} failed`)
     if (skipped > 0) {
-      console.log('Note: Use --full to test workers requiring external services')
+      console.log('Use --full to test workers requiring external services')
     }
 
     // Exit with success if only skipped tests remain

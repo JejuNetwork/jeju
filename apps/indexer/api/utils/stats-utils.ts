@@ -56,7 +56,6 @@ export interface MarketplaceStats {
 
 /**
  * Get marketplace statistics from SQLit
- * @deprecated dataSource parameter is no longer used - queries go directly to SQLit
  */
 export async function getMarketplaceStats(): Promise<MarketplaceStats> {
   // Compute stats - using SQLit queries

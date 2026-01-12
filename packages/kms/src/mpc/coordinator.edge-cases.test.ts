@@ -218,9 +218,7 @@ describe('MPC Coordinator Edge Cases', () => {
     })
 
     it('should handle 3-of-5 threshold configuration', async () => {
-      // Note: Using 'testnet' instead of 'mainnet' because mainnet now
-      // requires MPC_ACKNOWLEDGE_CENTRALIZED_RISK=true to prevent insecure
-      // coordinator usage in production (see security review)
+      // Using 'testnet' - mainnet requires MPC_ACKNOWLEDGE_CENTRALIZED_RISK=true
       const coordinator35 = new MPCCoordinator({
         threshold: 3,
         totalParties: 5,

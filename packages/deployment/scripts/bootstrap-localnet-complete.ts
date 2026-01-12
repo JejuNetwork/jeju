@@ -258,7 +258,7 @@ class CompleteBootstrapper {
     console.log('')
 
     // Step 3: Deploy CreditManager (uses JEJU after it's deployed in Step 5.6)
-    // Note: We'll deploy credit manager later after JEJU is deployed
+    // Deploy credit manager later after JEJU is deployed
     console.log('')
 
     // Step 4: Initialize Oracle Prices (will be done after JEJU is deployed)
@@ -1797,7 +1797,7 @@ class CompleteBootstrapper {
       )
 
       // Deploy L2CrossDomainMessenger for local testing
-      // Note: For single-chain localnet, we use L2CrossDomainMessenger on the same chain
+      // For single-chain localnet, we use L2CrossDomainMessenger on the same chain
       // For proper dual-chain testing, use deploy-crosschain.ts instead
       const messenger = this.deployContractFromPackages(
         'src/bridge/eil/L2CrossDomainMessenger.sol:L2CrossDomainMessenger',
@@ -2693,6 +2693,37 @@ class CompleteBootstrapper {
       return {}
     }
   }
+
+  private sleepSync(ms: number): void {
+    // Avoid async/await inside the many sync execSync deployment helpers.
+    // This keeps deployment sequencing simple while still allowing backoff.
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+  }
+
+  private waitForRpcReady(timeoutMs: number): void {
+    const start = Date.now()
+    while (Date.now() - start < timeoutMs) {
+      try {
+        execSync(`cast block-number --rpc-url ${this.rpcUrl}`, {
+          stdio: 'pipe',
+        })
+        return
+      } catch {
+        this.sleepSync(250)
+      }
+    }
+    throw new Error(`RPC not reachable: ${this.rpcUrl}`)
+  }
+
+  private isRpcConnectivityFailure(message: string): boolean {
+    return (
+      message.includes('Connection refused') ||
+      message.includes('error sending request for url') ||
+      message.includes('Unable to connect') ||
+      message.includes('HTTP request failed')
+    )
+  }
+
   private deployContract(path: string, args: string[], name: string): string {
     const argsStr = args.join(' ')
     const cmd = `cd packages/contracts && forge create ${path} \
@@ -2701,11 +2732,29 @@ class CompleteBootstrapper {
       --broadcast \
       ${args.length > 0 ? `--constructor-args ${argsStr}` : ''}`
 
-    const output = execSync(cmd, {
-      encoding: 'utf-8',
-      maxBuffer: 50 * 1024 * 1024,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    })
+    const run = (): string =>
+      execSync(cmd, {
+        encoding: 'utf-8',
+        maxBuffer: 50 * 1024 * 1024,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      })
+
+    let output = ''
+    try {
+      output = run()
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error)
+      if (!this.isRpcConnectivityFailure(errorMessage)) {
+        throw error
+      }
+
+      console.log(
+        `  ⚠️  RPC unavailable while deploying ${name}. Waiting for localnet...`,
+      )
+      this.waitForRpcReady(60_000)
+      output = run()
+    }
 
     // Parse deployment output (format: "Deployed to: 0x...")
     const match = output.match(/Deployed to: (0x[a-fA-F0-9]{40})/)
@@ -2727,7 +2776,21 @@ class CompleteBootstrapper {
   ): void {
     const argsStr = args.map((a) => `"${a}"`).join(' ')
     const cmd = `cast send ${to} "${sig}" ${argsStr} --rpc-url ${this.rpcUrl} --private-key ${this.deployerKey}`
-    execSync(cmd, { stdio: 'pipe' })
+    try {
+      execSync(cmd, { stdio: 'pipe' })
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error)
+      if (!this.isRpcConnectivityFailure(errorMessage)) {
+        throw error
+      }
+
+      console.log(
+        '     ⚠️  RPC unavailable while sending tx. Waiting for localnet...',
+      )
+      this.waitForRpcReady(60_000)
+      execSync(cmd, { stdio: 'pipe' })
+    }
     if (label) console.log(`     ${label}`)
   }
 

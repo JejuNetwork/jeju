@@ -1,11 +1,8 @@
 /**
  * SSH Gateway Tests
  *
- * Note: Full token generation requires wallet signatures which are complex to mock.
- * These tests focus on the testable parts of the gateway:
- * - Credential registration and removal
- * - Session lookup and listing
- * - Stats and audit
+ * Full token generation requires wallet signatures which are complex to mock.
+ * These tests cover: credential management, session lookup, stats, and audit.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'

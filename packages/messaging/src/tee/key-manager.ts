@@ -57,8 +57,8 @@ export const MAX_MOCK_KEYS = 100000
 
 // Recommended scrypt parameters for backup encryption
 // N=2^14 (~16k), r=8, p=1, keylen=32
-// This provides strong security while staying within Bun's memory limits
-// Note: r=8 provides ~128x memory multiplier, so effective cost is ~2MB
+// This provides strong security while staying within Bun's memory limits.
+// r=8 provides ~128x memory multiplier, so effective cost is ~2MB.
 const SCRYPT_N = 16384
 const SCRYPT_R = 8
 const SCRYPT_P = 1
@@ -632,8 +632,8 @@ export class TEEXMTPKeyManager {
       // Use real TEE provider
       await this.ensureTEEConnected()
 
-      // Note: KMS doesn't support x25519 directly, but ed25519 keys can be converted
-      // For x25519 requests, we use ed25519 in TEE and convert the public key
+      // KMS doesn't support x25519 directly, but ed25519 keys can be converted.
+      // For x25519 requests, we use ed25519 in TEE and convert the public key.
       const curve: KeyCurve = 'ed25519'
       const owner =
         (request.policy?.owner as Address) ??

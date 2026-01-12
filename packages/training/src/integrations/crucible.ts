@@ -172,7 +172,7 @@ export class CrucibleTrainingClient {
   /**
    * Submit a trajectory for training.
    *
-   * Note: Uses message-based submission rather than raw tokens.
+   * Uses message-based submission rather than raw tokens.
    * The Atropos server handles tokenization using the configured tokenizer.
    */
   async submitTrajectory(trajectory: AgentTrajectory): Promise<void> {

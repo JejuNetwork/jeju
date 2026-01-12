@@ -90,7 +90,7 @@ contract RealUserOpTest is Test {
     function test_SimulateHandleOps() public {
         console.log("=== Simulating handleOps (bundler behavior) ===");
 
-        // Note: This will revert because:
+        // This will revert because:
         // 1. The sender is not a smart contract wallet
         // 2. The signature is empty
         // BUT it proves the EntryPoint is real and processes the call

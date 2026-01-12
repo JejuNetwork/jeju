@@ -2,8 +2,8 @@ groups:
   - name: dev_services
     interval: 30s
     rules:
-      # Note: Dev alerts are informational only
-      # Services may not expose metrics endpoints, which is OK for dev
+      # Dev alerts are informational only.
+      # Services may not expose metrics endpoints, which is OK for dev.
       
       # Indexer Health (if metrics available)
       - alert: SubsquidProcessorDown

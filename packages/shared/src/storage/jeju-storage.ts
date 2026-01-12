@@ -165,9 +165,13 @@ export class JejuStorageClient {
       throw new Error(
         `Upload failed: ${response.status} - ${await response.text()}`,
       )
-    
+
     // IPFS API returns { Hash, Size, Name }
-    const data = (await response.json()) as { Hash: string; Size: string; Name: string }
+    const data = (await response.json()) as {
+      Hash: string
+      Size: string
+      Name: string
+    }
     const cid = data.Hash
     const size = parseInt(data.Size, 10)
 
@@ -278,7 +282,9 @@ export class JejuStorageClient {
       { headers: this.getHeaders() },
     )
     if (!response.ok) throw new Error(`List failed: ${response.status}`)
-    const data = (await response.json()) as { Entries?: Array<{ Name: string; Hash: string; Size: number }> }
+    const data = (await response.json()) as {
+      Entries?: Array<{ Name: string; Hash: string; Size: number }>
+    }
     return (data.Entries ?? []).map((entry) => ({
       cid: entry.Hash,
       filename: entry.Name,

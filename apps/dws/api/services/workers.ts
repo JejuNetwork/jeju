@@ -414,8 +414,7 @@ export async function deployRPCGateway(
 // ============================================================================
 
 /**
- * Deploy SQLit Adapter on DWS
- * Note: This is a lightweight HTTP adapter, not the full SQLit cluster
+ * Deploy SQLit Adapter on DWS (lightweight HTTP adapter, not full SQLit cluster)
  */
 export async function deploySQLitAdapter(
   owner: Address,

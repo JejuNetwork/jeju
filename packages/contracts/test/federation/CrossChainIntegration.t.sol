@@ -613,7 +613,7 @@ contract CrossChainIntegrationTest is Test {
         vm.prank(deployer);
         identitySync.setTrustedRemote(BASE_DOMAIN, remoteSync);
 
-        // Note: In production, this would come from Hyperlane relayers
+        // In production, this would come from Hyperlane relayers
 
         // Verify local agent exists
         assertTrue(identityRegistry.agentExists(agentId));

@@ -749,7 +749,7 @@ static void Existing_Large_Byte_Auto64K_HWM16K(benchmark::State& state) {
 // =============================================================================
 
 // Slow value stream - these produce one chunk per microtask, adding processing overhead.
-// Note: This does NOT trigger the adaptive read policy because microtask delays don't
+// This does NOT trigger the adaptive read policy because microtask delays don't
 // cause early returns from pumpReadImpl. The policy would only activate with real I/O
 // latency that blocks the KJ event loop. See PUMP_PERFORMANCE_ANALYSIS.md section 9.
 static void New_Small_SlowValue(benchmark::State& state) {

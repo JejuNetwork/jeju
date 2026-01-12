@@ -604,4 +604,23 @@ export const SQLIT_REGISTRY_ABI = [
     stateMutability: 'nonpayable',
     type: 'function',
   },
+  {
+    inputs: [
+      { name: 'databaseId', type: 'bytes32' },
+      { name: 'owner', type: 'address' },
+      { name: 'encryptionMode', type: 'uint8' },
+      { name: 'regions', type: 'uint8[]' },
+    ],
+    name: 'createDatabase',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'getActiveNodes',
+    outputs: [{ name: '', type: 'bytes32[]' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
 ] as const

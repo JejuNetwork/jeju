@@ -581,49 +581,6 @@ export class PoCVerifier {
 
     return verifier
   }
-
-  /**
-   * @deprecated Use fromEnvAsync() instead. This method uses direct private keys.
-   */
-  static fromEnv(): PoCVerifier {
-    const network = getCurrentNetwork()
-    const chain = network === 'mainnet' ? base : baseSepolia
-    const pocConfig = getPoCConfig()
-    const isProduction = isProductionEnv()
-
-    if (isProduction) {
-      throw new Error(
-        'SECURITY: fromEnv() cannot be used in production. Use fromEnvAsync() with KMS.',
-      )
-    }
-
-    const signerKey = process.env.POC_SIGNER_KEY
-    if (!signerKey) throw new Error('POC_SIGNER_KEY required')
-
-    if (!pocConfig.validatorAddress)
-      throw new Error('PoC validator not configured')
-    if (!pocConfig.identityRegistryAddress)
-      throw new Error('PoC identity registry not configured')
-
-    const hardwareIdSalt = process.env.HARDWARE_ID_SALT
-    if (!hardwareIdSalt) {
-      console.warn(
-        '[PoC Verifier] WARNING: HARDWARE_ID_SALT not set. Using dev-only salt.',
-      )
-    }
-    const salt =
-      hardwareIdSalt ?? keccak256(toBytes('DEV_ONLY_INSECURE_POC_SALT'))
-
-    return new PoCVerifier({
-      chain,
-      rpcUrl: pocConfig.rpcUrl,
-      signerKey: signerKey as Hex,
-      validatorAddress: pocConfig.validatorAddress as Address,
-      identityRegistryAddress: pocConfig.identityRegistryAddress as Address,
-      registryEndpoint: process.env.POC_REGISTRY_ENDPOINT,
-      hardwareIdSalt: salt as Hex,
-    })
-  }
 }
 
 export function isQuoteFresh(

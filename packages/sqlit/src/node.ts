@@ -7,7 +7,7 @@
  * - Staking and slashing integration
  * - Automatic peer discovery and failover
  *
- * Note: Uses bun:sqlite (SQLite3) as the storage engine. For production
+ * Uses bun:sqlite (SQLite3) as the storage engine. For production
  * distributed deployments, consider migrating to libSQL/Turso for native
  * replication support.
  */
@@ -1405,17 +1405,19 @@ WHERE embedding MATCH ?
     )
 
     try {
-      // Note: 'createDatabase' is not in the ABI subset, using heartbeat as placeholder
-      // In production, this would call the actual createDatabase function
       await walletClient.writeContract({
         address: this.config.registryAddress,
         abi: SQLIT_REGISTRY_ABI,
-        functionName: 'heartbeat',
-        args: [instance.id as Hex],
+        functionName: 'createDatabase',
+        args: [
+          instance.id as Hex,
+          instance.owner,
+          encryptionModeIndex,
+          regionIndices,
+        ],
       })
-      // Store the data locally for now
       console.log(
-        `[SQLit v2] Database ${instance.name} registered (encryptionMode=${encryptionModeIndex}, regions=${regionIndices.join(',')})`,
+        `[SQLit v2] Database ${instance.name} registered on-chain (encryptionMode=${encryptionModeIndex}, regions=${regionIndices.join(',')})`,
       )
     } catch (error) {
       console.warn(
@@ -1634,9 +1636,11 @@ WHERE embedding MATCH ?
     })
 
     try {
-      // Note: getActiveNodes is not in the ABI subset. For now, we use a placeholder.
-      // In production, this would be a proper registry call.
-      const nodeIds: Hex[] = [] // Would come from contract
+      const nodeIds = (await publicClient.readContract({
+        address: this.config.registryAddress,
+        abi: SQLIT_REGISTRY_ABI,
+        functionName: 'getActiveNodes',
+      })) as Hex[]
 
       for (const nodeId of nodeIds) {
         if (nodeId === this.state.node.nodeId) continue

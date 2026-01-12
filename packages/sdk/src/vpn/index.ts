@@ -5,7 +5,7 @@
  * - x402 Payment Integration for VPN services
  * - A2A (Agent-to-Agent) client for VPN agents
  *
- * Note: For VPN node management integrated with JejuClient,
+ * For VPN node management integrated with JejuClient,
  * see vpn-module.ts which provides the VPNModule interface.
  */
 

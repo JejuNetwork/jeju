@@ -42,7 +42,7 @@ export const CHAIN_IDS = {
 } as const
 
 // RPC URLs per network - browser-safe
-// Note: localnet URL is only valid in Node.js; browser apps should detect via hostname
+// localnet URL is only valid in Node.js; browser apps should detect via hostname
 function getLocalnetRpcUrl(): string {
   // In browser, never return localhost URL - apps should use hostname detection
   if (typeof window !== 'undefined') {

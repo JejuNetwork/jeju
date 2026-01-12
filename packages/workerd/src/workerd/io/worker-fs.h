@@ -126,7 +126,7 @@
 // simple in-memory table to track the file descriptors and their associated
 // files/directories.
 //
-// Note: It is important to keep in mind that Directory, File, and SymbolicLink
+// It is important to keep in mind that Directory, File, and SymbolicLink
 // instances are kj::Refcounted objects. We utilize the Isolate lock to safely
 // manage the refcounts to avoid having to make these AtomicRefcounted, which
 // would carry additional overhead. This means that it is essentially that all

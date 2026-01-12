@@ -1,5 +1,5 @@
-# OP-Conductor values for testnet
-# Note: Conductor is for sequencer HA - optional for basic testnet
+# OP-Conductor values for testnet.
+# Conductor is for sequencer HA - optional for basic testnet.
 
 replicaCount: 0  # Disabled for basic testnet - enable when HA is needed
 

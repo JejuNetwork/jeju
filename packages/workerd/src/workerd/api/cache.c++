@@ -479,7 +479,7 @@ jsg::Promise<void> Cache::put(jsg::Lock& js,
         // moved away into the handleResponse method (which ensures proper
         // cleanup order). In such a case, we explicitly layout a cleanup order
         // here to make it clear.
-        // Note: we could do this by ordering the arguments in a particular way,
+        // We could do this by ordering the arguments in a particular way,
         // or by doing what a previous iteration of this code did and put everything
         // into a struct in a particular order but pulling things out like this makes
         // what is going on here much more intentional and explicit.

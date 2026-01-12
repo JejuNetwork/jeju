@@ -99,6 +99,31 @@ export class SQLitClient {
   }
 
   /**
+   * Execute a write query and return rows (for INSERT/UPDATE/DELETE with RETURNING)
+   */
+  async queryWrite<T = Record<string, string | number | boolean | null>>(
+    sql: string,
+    params?: QueryParam[],
+    _dbId?: string,
+  ): Promise<QueryResult<T>> {
+    // Convert params to sqlit expected types (no Uint8Array support)
+    const convertedParams = params?.map((p) =>
+      p instanceof Uint8Array ? null : p,
+    )
+    // Use execute() with queryType: 'write' to get rows from INSERT/UPDATE with RETURNING
+    const result = await this.client.execute(sql, convertedParams, {
+      queryType: 'write',
+    })
+    return {
+      rows: result.rows as T[],
+      rowCount: result.rows.length,
+      columns: [],
+      executionTime: result.executionTimeMs ?? 0,
+      blockHeight: 0,
+    }
+  }
+
+  /**
    * Execute a write query
    */
   async exec(
@@ -145,10 +170,9 @@ export class SQLitClient {
   }
 
   /**
-   * Delete a database
+   * Delete a database (uses the client's configured databaseId)
    */
   async deleteDatabase(_id: string): Promise<void> {
-    // Note: deleteDatabase uses the client's configured databaseId
     await this.client.deleteDatabase()
   }
 

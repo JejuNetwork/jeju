@@ -44,7 +44,7 @@ import {
   useCrossChainTransfer,
   useOIFAvailable,
 } from '../hooks/useCrossChain'
-// Note: EIL has been deprecated in favor of OIF (Open Intents Framework)
+// EIL deprecated in favor of OIF (Open Intents Framework)
 import { usePaymaster } from '../hooks/usePaymaster'
 import { useSameChainSwap } from '../hooks/useSameChainSwap'
 import {
@@ -110,14 +110,14 @@ export default function SwapPage() {
     hash: sameChainHash,
   } = useSameChainSwap()
 
-  // Note: EIL cross-chain has been deprecated in favor of OIF
+  // EIL cross-chain deprecated in favor of OIF
   const eilAvailable = false
   const crossChainLoading = false
   const crossChainHash = undefined
   const resetCrossChain = () => {}
 
   // OIF for cross-chain (unified quotes from EIL + OIF routes)
-  // Note: oifQuoteParams is computed inline in useCrossChainQuotes below after parsedAmount is defined
+  // oifQuoteParams is computed inline in useCrossChainQuotes below after parsedAmount is defined
   const oifAvailable = useOIFAvailable()
   const { status: oifTransferStatus, prepareTransfer: prepareOIFTransfer } =
     useCrossChainTransfer()
@@ -322,9 +322,8 @@ export default function SwapPage() {
             data: prepared.data,
             value: prepared.value,
           })
-          // Track after tx is submitted
-          // Note: wagmi's sendTransaction is async but doesn't return hash immediately
-          // The tracking will be handled by useEffect when txHash changes
+          // Track after tx is submitted. wagmi's sendTransaction is async but doesn't
+          // return hash immediately - tracking will be handled by useEffect when txHash changes.
         }
         return
       }

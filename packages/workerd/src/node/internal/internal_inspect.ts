@@ -1095,7 +1095,7 @@ function formatProxy(
   )
 }
 
-// Note: using `formatValue` directly requires the indentation level to be
+// Using `formatValue` directly requires the indentation level to be
 // corrected by setting `ctx.indentationLvL += diff` and then to decrease the
 // value afterwards again.
 function formatValue(

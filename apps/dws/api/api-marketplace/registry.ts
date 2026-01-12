@@ -206,7 +206,7 @@ export async function getListingsBySeller(
 }
 
 /**
- * Get all listings (Note: uses in-memory fallback for listing enumeration)
+ * Get all listings - uses in-memory fallback for listing enumeration
  * In production, use getListingsBySeller with pagination
  */
 export async function getAllListings(): Promise<APIListing[]> {

@@ -26,5 +26,5 @@ mock.module('@jejunetwork/sdk', () => ({
   }),
 }))
 
-// Note: @jejunetwork/config is NOT mocked - tests need the real exports
+// @jejunetwork/config is NOT mocked - tests need the real exports
 // including INFRA_PORTS, getCoreAppUrl, etc.

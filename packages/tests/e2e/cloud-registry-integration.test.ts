@@ -129,8 +129,7 @@ describe.skipIf(!localnetAvailable || !cloudContractsDeployed)(
       // Setup provider
       publicClient = createPublicClient({ transport: http(TEST_CONFIG.rpcUrl) })
 
-      // Create test accounts using shared constants (Anvil defaults)
-      // Note: Extended test accounts for multi-sig testing
+      // Create test accounts using shared constants (Anvil defaults) for multi-sig testing
       const extendedPrivateKeys = [
         TEST_ACCOUNTS.deployer.privateKey, // deployer
         TEST_ACCOUNTS.user1.privateKey, // cloud operator

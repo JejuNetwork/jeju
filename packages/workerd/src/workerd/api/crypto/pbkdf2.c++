@@ -56,7 +56,7 @@ class Pbkdf2Key final: public CryptoKey::Impl {
     JSG_REQUIRE(iterations > 0, DOMOperationError,
         "PBKDF2 requires a positive iteration count (requested ", iterations, ").");
 
-    // Note: The user could DoS us by selecting a very high iteration count. Our dead man's switch
+    // The user could DoS us by selecting a very high iteration count. Our dead man's switch
     // would kick in, resulting in a process restart. We guard against this by limiting the
     // maximum iteration count a user can select -- this is an intentional non-conformity.
     // Another approach might be to fork OpenSSL's PKCS5_PBKDF2_HMAC() function and insert a

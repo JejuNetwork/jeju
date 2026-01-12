@@ -2696,7 +2696,7 @@ v8::Local<v8::String> v8Str(v8::Isolate* isolate, kj::ArrayPtr<const char16_t> p
 v8::Local<v8::String> v8StrIntern(v8::Isolate* isolate, kj::StringPtr str);
 ```
 
-**Note:** New code should prefer using the methods on `jsg::Lock` instead:
+New code should prefer using the methods on `jsg::Lock` instead:
 
 ```cpp
 void someMethod(jsg::Lock& js) {

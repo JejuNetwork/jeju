@@ -424,7 +424,7 @@ class Immediate final: public jsg::Object {
   }
 
  private:
-  // Note: We cannot use IoContext::WeakRef here because it's not thread-safe (it's only intended
+  // We cannot use IoContext::WeakRef here because it's not thread-safe (it's only intended
   // to be held from KJ I/O objects, but this is a JSG object which can be accessed by V8's GC
   // on different threads). Instead, we use IoPtr<IoContext> which is safe to hold from JSG objects.
   IoPtr<IoContext> ioContext;

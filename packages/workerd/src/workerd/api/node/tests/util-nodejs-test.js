@@ -826,7 +826,7 @@ export const utilInspect = {
     }
 
     // Tampered error stack or name property (different type than string).
-    // Note: Symbols are not supported by `Error#toString()` which is called by
+    // Symbols are not supported by `Error#toString()` which is called by
     // accessing the `stack` property.
     [
       [404, '404 [RangeError]: foo', '[404]'],

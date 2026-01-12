@@ -67,10 +67,12 @@ class IPFSBackend implements StorageBackend {
   type: BackendType = 'ipfs'
   private apiUrl: string
   private gatewayUrl: string
+  private skipPin: boolean
 
-  constructor(apiUrl: string, gatewayUrl: string) {
+  constructor(apiUrl: string, gatewayUrl: string, skipPin = false) {
     this.apiUrl = apiUrl
     this.gatewayUrl = gatewayUrl
+    this.skipPin = skipPin
   }
 
   async upload(
@@ -82,7 +84,10 @@ class IPFSBackend implements StorageBackend {
     const filename = (options?.filename ?? 'file').replace(/\//g, '_')
     formData.append('file', new Blob([new Uint8Array(content)]), filename)
 
-    const response = await fetch(`${this.apiUrl}/api/v0/add`, {
+    // Skip pinning in local dev for faster uploads (pinning is slow)
+    // In production, content should be pinned for persistence
+    const pinParam = this.skipPin ? '?pin=false' : ''
+    const response = await fetch(`${this.apiUrl}/api/v0/add${pinParam}`, {
       method: 'POST',
       body: formData,
     })
@@ -175,7 +180,11 @@ class BackendManagerImpl implements BackendManager {
         ? process.env.IPFS_GATEWAY_URL
         : undefined) ?? getIpfsGatewayUrl(network)
     if (ipfsApiUrl) {
-      this.backends.set('ipfs', new IPFSBackend(ipfsApiUrl, ipfsGatewayUrl))
+      // Always pin in IPFS to ensure content persistence for downloads
+      this.backends.set(
+        'ipfs',
+        new IPFSBackend(ipfsApiUrl, ipfsGatewayUrl, false),
+      )
     }
   }
 
@@ -187,8 +196,11 @@ class BackendManagerImpl implements BackendManager {
     const network = getCurrentNetwork()
 
     if (!backendName) {
-      // Try IPFS first - this is the decentralized option
-      if (this.backends.has('ipfs')) {
+      // Localnet: Use local backend for instant uploads (great for development)
+      // Production: Use IPFS for decentralized storage
+      if (network === 'localnet') {
+        backendName = 'local'
+      } else if (this.backends.has('ipfs')) {
         const ipfsBackend = this.backends.get('ipfs')
         const healthy = await ipfsBackend?.healthCheck().catch(() => false)
         backendName = healthy ? 'ipfs' : 'local'

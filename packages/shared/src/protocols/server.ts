@@ -111,7 +111,7 @@ export interface A2ASkill {
   }
 }
 
-// Note: For AgentCard type, import from './a2a'
+// For AgentCard type, import from './a2a'
 
 export interface MCPResource {
   uri: string

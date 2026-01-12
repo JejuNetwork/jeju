@@ -655,7 +655,7 @@ export function createSequencerModule(
     },
 
     async reportMissedBlock(sequencer, blockNumber) {
-      // Note: This requires the caller to be an authorized reporter
+      // This requires the caller to be an authorized reporter
       // Proof would be generated from the L1 chain to prove the block was missed
       const data = encodeFunctionData({
         abi: SLASHING_ABI,

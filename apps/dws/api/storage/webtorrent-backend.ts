@@ -379,7 +379,7 @@ export class WebTorrentBackend extends WorkerdEventEmitter {
     }
 
     // Config injection for workerd compatibility
-    // Note: Environment variables can still be used via configureWebTorrentBackend
+    // Environment variables can still be used via configureWebTorrentBackend
   }
 
   /** Initialize storage bucket */

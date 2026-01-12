@@ -1,7 +1,7 @@
 /**
  * Otto User Flow Tests
  * Tests complete user journeys through trading features
- * Note: These tests require AI_MODEL to be configured for chat responses
+ * These tests require AI_MODEL to be configured for chat responses
  */
 
 import { expect, test } from '@playwright/test'

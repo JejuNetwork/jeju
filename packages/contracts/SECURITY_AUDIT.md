@@ -127,6 +127,6 @@ January 2, 2026
 ## Auditor
 AI Security Review (Claude Opus 4.5)
 
-**Note:** This is an automated security review. A professional third-party audit is recommended before mainnet deployment.
+**⚠️ IMPORTANT:** This is an automated security review. A professional third-party audit is required before mainnet deployment.
 
 

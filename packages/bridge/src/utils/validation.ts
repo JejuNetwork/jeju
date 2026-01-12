@@ -204,7 +204,7 @@ export const OrchestratorConfigSchema = z.object({
 })
 
 // Jupiter Quote response schema (simplified version for bridge use)
-// Note: Uses inline route plan schema since full JupiterRoutePlanSchema is defined later
+// Uses inline route plan schema since full JupiterRoutePlanSchema is defined later
 export const JupiterQuoteResponseSchema = z.object({
   inputMint: z.string(),
   outputMint: z.string(),

@@ -322,7 +322,7 @@ async function main() {
 
   if (l2Stake === 0n) {
     console.log('   Syncing stake to L2 (admin set for local testing)...')
-    // Note: In production, this would come via L1→L2 bridge message
+    // In production, this would come via L1→L2 bridge message
     // updateXLPStake() requires the call to come from L2 messenger
     // with xDomainMessageSender = L1StakeManager
     const hash = await deployerWallet.writeContract({

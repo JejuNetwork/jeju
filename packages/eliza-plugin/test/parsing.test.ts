@@ -165,9 +165,8 @@ describe('parseSwapParams', () => {
   })
 
   describe('complex inputs', () => {
-    // Note: The pairMatch regex matches the first "word for/to/into word" pattern
-    // which may capture unintended words like "want to swap" before the actual tokens.
-    // The tokenIn from amountMatch takes precedence if found.
+    // The pairMatch regex matches the first "word for/to/into word" pattern
+    // which may capture unintended words. tokenIn from amountMatch takes precedence.
 
     test('parses natural language - tokenIn from amount takes precedence', () => {
       const result = parseSwapParams(
@@ -728,8 +727,8 @@ describe('Parser robustness tests', () => {
     }
   })
 
-  // Note: null/undefined inputs will throw since these are internal functions
-  // that expect string input. Callers (action handlers) should validate first.
+  // null/undefined inputs will throw - internal functions expect string input
+  // Callers (action handlers) should validate first
   test('parseSwapParams throws on null input', () => {
     expect(() => parseSwapParamsRaw(null)).toThrow()
   })

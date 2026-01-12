@@ -321,7 +321,7 @@ function keyCheck(
   // b) The same set of keys/indexes (although not necessarily the same order)
   // c) Equivalent values for every corresponding key/index
   // d) For Sets and Maps, equal contents
-  // Note: this accounts for both named and indexed properties on Arrays.
+  // This accounts for both named and indexed properties on Arrays.
   if (arguments.length === 5) {
     aKeys = Object.keys(val1 as Object)
     const bKeys = Object.keys(val2 as Object)
@@ -493,7 +493,7 @@ function setEquiv(
   // pairwise.
   let set = null
   for (const val of a) {
-    // Note: Checking for the objects first improves the performance for object
+    // Checking for the objects first improves the performance for object
     // heavy sets but it is a minor slow down for primitives. As they are fast
     // to check this improves the worst case scenario instead.
     if (typeof val === 'object' && val !== null) {

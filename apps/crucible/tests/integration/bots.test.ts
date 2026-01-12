@@ -191,7 +191,7 @@ describe('Data Flow Validation', () => {
     networks.forEach((network) => {
       const bots = getDefaultBotsForNetwork(network)
       bots.forEach((bot) => {
-        // Note: createTradingBotOptions signature is (config, agentId, network, treasuryAddress?)
+        // createTradingBotOptions: (config, agentId, network, treasuryAddress?)
         const options = createTradingBotOptions(bot, 1n, network)
 
         // Verify transformation

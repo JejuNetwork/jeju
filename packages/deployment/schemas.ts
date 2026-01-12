@@ -833,7 +833,7 @@ export type BuildOutputLine = z.infer<typeof BuildOutputLineSchema>
 
 /**
  * IPFS add API response line (ndjson format)
- * Note: IPFS API uses PascalCase for field names
+ * IPFS API uses PascalCase for field names
  */
 export const IPFSAddResponseLineSchema = z.object({
   Hash: z.string(),

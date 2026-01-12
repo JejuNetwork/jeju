@@ -7,7 +7,7 @@
  * - Staking and slashing integration
  * - Automatic peer discovery and failover
  *
- * Note: Uses bun:sqlite (SQLite3) as the storage engine. For production
+ * Uses bun:sqlite (SQLite3) as the storage engine. For production
  * distributed deployments, consider migrating to libSQL/Turso for native
  * replication support.
  */

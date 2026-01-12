@@ -973,9 +973,8 @@ describe('Concurrent Behavior', () => {
 import { Elysia } from 'elysia'
 
 describe('Email API Routes', () => {
-  // Create a test app with the email router
-  // Note: This tests the production routes from src/email/routes.ts
-  // These require EmailRelayService to be initialized, so we create a minimal setup
+  // Tests production routes from src/email/routes.ts
+  // Requires EmailRelayService initialization
 
   describe('Health Check', () => {
     test('returns healthy status', async () => {
@@ -1492,8 +1491,7 @@ describe('Rate Limiting Edge Cases', () => {
     )
     expect(blockedResult.success).toBe(false)
 
-    // But staked tier should work (separate limit check for tier)
-    // Note: This tests the tier check logic, actual limit persists per-address
+    // Staked tier should work (separate limit check for tier)
   })
 
   test('recipient count at exact limit succeeds', async () => {

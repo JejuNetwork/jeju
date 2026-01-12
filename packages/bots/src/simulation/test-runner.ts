@@ -250,7 +250,7 @@ export class TestPipeline {
         } catch (error) {
           failed++
           console.error('❌ Flash loan test error:', error)
-          console.log('   Note: Requires Anvil (Foundry) installed')
+          console.log('   Requires Anvil (Foundry) installed')
         }
       }
     }

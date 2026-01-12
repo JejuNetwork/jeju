@@ -1,6 +1,6 @@
 # DWS Helm Values - AWS Testnet
-# AWS-specific configuration for DWS deployment
-# Note: Image repository and certificate ARN are set via helmfile
+# AWS-specific configuration for DWS deployment.
+# Image repository and certificate ARN are set via helmfile.
 
 replicaCount: 3
 

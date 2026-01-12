@@ -196,9 +196,8 @@ describe('TEECacheProvider', () => {
         await provider.sadd('test-ns', 'set3', 'a', 'b', 'c')
         expect(await provider.scard('test-ns', 'set3')).toBe(3)
 
-        // Note: srem with encryption enabled has limitations because
-        // each encrypt() call generates a different ciphertext (random nonce).
-        // In production, deterministic encryption or key derivation would be used.
+        // srem with encryption has limitations - each encrypt() call generates different ciphertext (random nonce)
+        // In production, deterministic encryption or key derivation would be used
       })
     })
 

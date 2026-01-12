@@ -472,7 +472,7 @@ export class TEECacheProvider {
   /**
    * Remove from set
    *
-   * Note: With encryption enabled, we must decrypt all members and compare
+   * With encryption enabled, we must decrypt all members and compare
    * because encryption is non-deterministic (different nonce each time).
    */
   async srem(
@@ -523,7 +523,7 @@ export class TEECacheProvider {
   /**
    * Check set membership
    *
-   * Note: With encryption enabled, we must decrypt all members and compare
+   * With encryption enabled, we must decrypt all members and compare
    * because encryption is non-deterministic (different nonce each time).
    */
   async sismember(

@@ -309,7 +309,7 @@ describe('Block Identifier Patterns', () => {
     '0x', // Empty hash
     '0xabc', // Too short
     'abc',
-    // Note: '12.5' and '12abc' are NOT included because parseInt() will parse them as 12
+    // '12.5' and '12abc' are NOT included because parseInt() parses them as 12
   ]
 
   it('should accept all valid block numbers', () => {

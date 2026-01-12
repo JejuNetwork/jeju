@@ -141,7 +141,7 @@ contract DecentralizationFuzzTest is Test {
     }
 
     function testFuzzExecuteAfterDelay(uint256 delay) public {
-        // Note: GRACE_PERIOD is 14 days, so proposals expire after executeAfter + 14 days
+        // GRACE_PERIOD is 14 days, so proposals expire after executeAfter + 14 days
         vm.assume(delay >= 60 && delay <= 365 days);
 
         bytes memory data = abi.encodeWithSelector(bytes4(0x12345678));

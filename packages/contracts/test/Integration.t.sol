@@ -87,9 +87,9 @@ contract DecentralizationIntegrationTest is Test {
         (address[] memory addressesBefore,) = sequencerRegistry.getActiveSequencers();
         assertEq(addressesBefore.length, 2);
 
-        // Slash sequencer1 via timelock governance ban (since ownership was transferred)
-        // Note: slashDoubleSign is now permissionless with cryptographic proof
-        // This test uses slashGovernanceBan which requires governance/owner
+        // Slash sequencer1 via timelock governance ban (since ownership was transferred).
+        // slashDoubleSign is now permissionless with cryptographic proof.
+        // This test uses slashGovernanceBan which requires governance/owner.
         bytes memory slashData = abi.encodeWithSelector(SequencerRegistry.slashGovernanceBan.selector, sequencer1);
 
         vm.prank(governance);
@@ -130,8 +130,8 @@ contract DecentralizationIntegrationTest is Test {
     }
 
     function testEmergencyBugfixViaTimelock() public {
-        // Emergency bugfix has shorter delay - test emergency pause
-        // Note: Treasury changes now require 30-day internal timelock for security
+        // Emergency bugfix has shorter delay - test emergency pause.
+        // Treasury changes now require 30-day internal timelock for security.
         bytes memory data = abi.encodeWithSelector(DisputeGameFactory.pause.selector);
         bytes32 bugProof = keccak256("bug exists");
 

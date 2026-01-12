@@ -3,7 +3,7 @@
  *
  * Tests against real API providers when keys are available.
  * These tests are skipped if the required API keys are not set.
- * Note: These tests also require SQLit for state management.
+ * Requires SQLit for state management.
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
@@ -428,7 +428,7 @@ describe('GCP Vertex AI Live', () => {
     const listing = await findCheapestListing('gcp-vertex')
     expect(listing).toBeDefined()
 
-    // Note: Actual endpoint depends on project/location
+    // Actual endpoint depends on project/location
     const response = await proxyRequest(
       {
         listingId: listing?.id,
@@ -463,7 +463,7 @@ describe('Azure OpenAI Live', () => {
     const listing = await findCheapestListing('azure-openai')
     expect(listing).toBeDefined()
 
-    // Note: Actual endpoint depends on resource-name and deployment-id
+    // Actual endpoint depends on resource-name and deployment-id
     const response = await proxyRequest(
       {
         listingId: listing?.id,

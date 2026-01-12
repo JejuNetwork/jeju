@@ -13,6 +13,7 @@
     "@jejunetwork/training": "workspace:*",
     "@jejunetwork/types": "workspace:*",
     "@jejunetwork/eliza-plugin": "workspace:*",
+    "@jejunetwork/ui": "workspace:*",
     "@tanstack/react-query": "5.90.12",
     "concurrently": "^9.1.2",
     "elysia": "^1.4.19",

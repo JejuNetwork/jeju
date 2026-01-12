@@ -377,9 +377,9 @@ contract CreditPurchaseContract is Ownable, Pausable, ReentrancyGuard {
         // Subtract platform fee from USD value
         uint256 netUsdValue = usdValue - ((usdValue * platformFeeBps) / BASIS_POINTS);
 
-        // Calculate credits out
-        // Note: both netUsdValue and jejuPriceUSD are in 18 decimals
-        // Result will be in JEJU token decimals (18)
+        // Calculate credits out.
+        // Both netUsdValue and jejuPriceUSD are in 18 decimals.
+        // Result will be in JEJU token decimals (18).
         creditsOut = (netUsdValue * 1e18) / jejuPriceUSD;
 
         // Calculate price per credit in payment token
@@ -431,8 +431,8 @@ contract CreditPurchaseContract is Ownable, Pausable, ReentrancyGuard {
         require(paused(), "Must be paused");
 
         if (token == ETH) {
-            // Note: This does not withdraw pending withdrawals
-            // Users must call withdraw() themselves to claim pending amounts
+            // This does not withdraw pending withdrawals.
+            // Users must call withdraw() themselves to claim pending amounts.
             (bool success,) = owner().call{value: amount}("");
             require(success, "ETH transfer failed");
         } else {

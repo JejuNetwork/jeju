@@ -1,7 +1,7 @@
 /**
  * Otto Chat Tests
  * Tests chat session and message functionality
- * Note: Chat message tests require AI_MODEL to be configured
+ * Chat message tests require AI_MODEL to be configured
  */
 
 import { expect, test } from '@playwright/test'

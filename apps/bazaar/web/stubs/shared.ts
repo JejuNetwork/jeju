@@ -43,6 +43,10 @@ export function getEnv(key: string, defaultValue?: string): string {
   return defaultValue ?? ''
 }
 
+export function getEnvOrDefault(key: string, defaultValue: string): string {
+  return getEnv(key, defaultValue)
+}
+
 // Cache stub (not available in browser)
 export interface CacheClient {
   get(key: string): Promise<string | null>

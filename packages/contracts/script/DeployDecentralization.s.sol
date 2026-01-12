@@ -15,7 +15,7 @@ import "../src/registry/IdentityRegistry.sol";
 import "../src/registry/ReputationRegistry.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-// Note: Cannon components (PreimageOracle, MIPS64) must be deployed separately
+// Cannon components (PreimageOracle, MIPS64) must be deployed separately
 // using Optimism's official deployment scripts (requires solc 0.8.15)
 // See: https://github.com/ethereum-optimism/optimism/tree/develop/packages/contracts-bedrock
 
@@ -139,9 +139,9 @@ contract DeployDecentralization is Script {
         console.log("PreimageOracle:", preimageOracleAddress);
         console.log("MIPS:", mipsAddress);
 
-        // Deploy CannonProver with MIPS integration
-        // Note: CannonProver will only work for real fraud proofs when
-        // connected to actual deployed MIPS and PreimageOracle contracts
+        // Deploy CannonProver with MIPS integration.
+        // CannonProver will only work for real fraud proofs when
+        // connected to actual deployed MIPS and PreimageOracle contracts.
         CannonProver cannonProver = new CannonProver(mipsAddress, preimageOracleAddress, ABSOLUTE_PRESTATE);
         console.log("CannonProver deployed:", address(cannonProver));
         console.log("");

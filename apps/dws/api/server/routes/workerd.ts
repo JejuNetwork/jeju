@@ -890,7 +890,7 @@ function getChainForNetwork(network: NetworkType) {
 }
 
 // Default contract addresses per network
-// Note: For localnet, contracts are deployed fresh on each chain restart
+// For localnet, contracts are deployed fresh on each chain restart
 // The identityRegistry address should come from config or env vars
 const NETWORK_DEFAULTS: Record<
   NetworkType,

@@ -387,7 +387,7 @@ export class NodeUpdateService {
         // Install update
         await invoke('install_update')
 
-        // Note: App will restart, so we won't reach here
+        // App will restart, so we won't reach here
       }
 
       this.state.installing = false

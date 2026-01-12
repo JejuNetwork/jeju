@@ -495,7 +495,7 @@ infraCommand
       label: 'Prometheus Alerts',
     })
     logger.info(
-      'Note: Your Prometheus instance must be configured to load rules from this ConfigMap.',
+      'Your Prometheus instance must be configured to load rules from this ConfigMap.',
     )
   })
 
@@ -513,7 +513,7 @@ infraCommand
       label: 'Grafana Dashboards',
     })
     logger.info(
-      'Note: Your Grafana instance must be configured to load dashboards from this ConfigMap.',
+      'Your Grafana instance must be configured to load dashboards from this ConfigMap.',
     )
   })
 

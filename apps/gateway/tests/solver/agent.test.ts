@@ -41,7 +41,7 @@ describe('OutputSettler ABI Encoding', () => {
     const amount = parseEther('1.0')
     const recipient = `0x${'2'.repeat(40)}` as `0x${string}`
 
-    // Note: fillDirect signature is (orderId, token, amount, recipient)
+    // fillDirect signature: (orderId, token, amount, recipient)
     const data = encodeFunctionData({
       abi,
       functionName: 'fillDirect',

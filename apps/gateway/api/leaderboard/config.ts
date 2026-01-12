@@ -155,13 +155,6 @@ export const LEADERBOARD_TOKENS = {
 } as const
 
 export const LEADERBOARD_GITHUB = {
-  /**
-   * @deprecated Use getGitHubToken() instead for KMS-secured token
-   * Synchronous getter returns cached value (may be null if not loaded)
-   */
-  get token(): string | undefined {
-    return tokenCache.github ?? undefined
-  },
   get repositories(): string[] {
     return config.leaderboardRepositories.split(',')
   },
@@ -177,13 +170,6 @@ export const LEADERBOARD_STORAGE = {
 } as const
 
 export const LEADERBOARD_LLM = {
-  /**
-   * @deprecated Use getOpenRouterApiKey() instead for KMS-secured key
-   * Synchronous getter returns cached value (may be null if not loaded)
-   */
-  get openRouterApiKey(): string | undefined {
-    return tokenCache.openrouter ?? undefined
-  },
   get model(): string {
     return config.leaderboardLlmModel
   },

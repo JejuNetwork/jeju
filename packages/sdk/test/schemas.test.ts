@@ -274,8 +274,7 @@ describe('Schema Validation', () => {
     })
 
     test('accepts negative values (schema allows any number)', () => {
-      // Note: Current schema uses z.number() which allows negatives
-      // This tests actual behavior, not ideal behavior
+      // Current schema uses z.number() which allows negatives - tests actual behavior
       const result = StorageStatsSchema.safeParse({
         totalPins: -1,
         totalSizeBytes: -1000,

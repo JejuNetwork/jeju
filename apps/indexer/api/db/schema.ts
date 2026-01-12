@@ -2336,7 +2336,7 @@ export const SCHEMA_DDL = [
   )`,
 
   // Token Balance table (duplicate removed - using earlier definition)
-  // Note: token_transfer and token_balance are already defined earlier in the array
+  // token_transfer and token_balance are already defined earlier in the array
   // with all required columns including log_index and transfer_count
   `CREATE TABLE IF NOT EXISTS token_balance_placeholder (
     id TEXT PRIMARY KEY,

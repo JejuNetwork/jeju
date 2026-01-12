@@ -603,7 +603,7 @@ class SQLitStore implements SQLitStoreInterface {
   // Handles relations (from -> from_id, block -> block_id, etc.)
   private mapPropertyToColumn(prop: string, tableName: string): string | null {
     // Relation mappings - convert relation properties to _id columns
-    // Note: Some relations don't exist in schema and should be filtered out
+    // Some relations don't exist in schema and should be filtered out
     const relationMappings: Record<string, string | null> = {
       from: 'from_id',
       to: 'to_id',
@@ -788,7 +788,7 @@ class SQLitStore implements SQLitStoreInterface {
         'signature', // Maps from eventSignature property
         'contract_type',
         'args',
-        // Note: address, block, transaction, log, timestamp relations are not stored as columns
+        // address, block, transaction, log, timestamp relations are not stored as columns
       ],
       token_transfer: [
         'id',

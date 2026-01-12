@@ -780,7 +780,7 @@ export function createOAuth3Worker(config: OAuth3WorkerConfig) {
         const params = CredentialVerifyBodySchema.parse(body)
 
         // Verify credential signature
-        // Note: In production, credential hash would be verified against issuer's public key
+        // In production, credential hash would be verified against issuer's public key
         // const credentialHash = keccak256(toBytes(JSON.stringify(params.credential)))
 
         // For now, return success if signature format is valid

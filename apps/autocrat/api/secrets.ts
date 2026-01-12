@@ -284,22 +284,3 @@ export function shutdownSecrets(): void {
   vaultInitialized = false
   console.log('[Secrets] Shutdown - all secrets cleared from memory')
 }
-
-// ════════════════════════════════════════════════════════════════════════════
-//                      DEPRECATED - MIGRATION HELPERS
-// ════════════════════════════════════════════════════════════════════════════
-
-/**
- * @deprecated Use getOperatorSigner().getViemAccount() instead
- * This is kept for backward compatibility during migration
- */
-export function getOperatorKeyDeprecated(): Hex | undefined {
-  const key = process.env.OPERATOR_KEY ?? process.env.PRIVATE_KEY
-  if (key) {
-    console.warn(
-      '[Secrets] DEPRECATED: Direct key access via getOperatorKeyDeprecated(). ' +
-        'Migrate to getOperatorSigner() for KMS-based signing.',
-    )
-  }
-  return key as Hex | undefined
-}

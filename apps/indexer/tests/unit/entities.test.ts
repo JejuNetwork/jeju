@@ -2,9 +2,8 @@
  * Entities Unit Tests
  *
  * Tests the entity helper functions.
- * Note: Testing createAccountFactory requires TypeORM initialization due to
- * circular dependencies in the generated models. Full testing of the factory
- * is done in integration tests where the TypeORM context is available.
+ * Testing createAccountFactory requires TypeORM initialization due to
+ * circular dependencies. Full factory testing is done in integration tests.
  *
  * This test validates the relationId helper which doesn't require ORM setup.
  */

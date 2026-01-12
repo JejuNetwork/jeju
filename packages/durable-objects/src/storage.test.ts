@@ -616,8 +616,7 @@ describe('DWSObjectStorage', () => {
     })
 
     test('lists keys with start (mock limitation: may return all keys)', async () => {
-      // Note: start/end options require proper SQL parsing in mock
-      // This test verifies no errors are thrown
+      // start/end options require proper SQL parsing in mock - verifies no errors thrown
       await storage.put({ a: 1, b: 2, c: 3, d: 4, e: 5 })
       const result = await storage.list({ start: 'c' })
 

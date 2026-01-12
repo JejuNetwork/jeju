@@ -2,7 +2,7 @@
  * Scammer Archetype Evaluation Rubric
  *
  * Tests adversarial behavior - manipulation, deception, exploitation
- * Note: This evaluates effectiveness at the archetype, not ethics
+ * This evaluates effectiveness at the archetype, not ethics
  */
 
 export const SCAMMER_RUBRIC = `

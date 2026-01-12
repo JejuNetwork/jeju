@@ -287,7 +287,7 @@ federationCommand
     console.log()
 
     if (tierName === 'UNSTAKED') {
-      console.log(chalk.yellow('Note: UNSTAKED networks cannot:'))
+      console.log(chalk.yellow('UNSTAKED networks cannot:'))
       console.log(chalk.yellow('  - Participate in federation consensus'))
       console.log(chalk.yellow('  - Run shared sequencer'))
       console.log(chalk.yellow('  - Receive delegated liquidity'))

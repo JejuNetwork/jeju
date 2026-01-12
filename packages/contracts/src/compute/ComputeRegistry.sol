@@ -5,6 +5,16 @@ import {ProviderRegistryBase} from "../registry/ProviderRegistryBase.sol";
 import {IComputeRegistry} from "./interfaces/IComputeRegistry.sol";
 
 /**
+ * @title IUnifiedAttestationVerifier
+ * @notice Interface for the UnifiedAttestationVerifier contract
+ */
+interface IUnifiedAttestationVerifier {
+    function isNodeAttested(bytes32 nodeId) external view returns (bool valid, bytes32 attestationId);
+    function isAttestationValid(bytes32 attestationId) external view returns (bool valid, uint256 expiresAt);
+    function isTrustedMeasurement(bytes32 mrEnclave, bytes32 mrSigner, uint8 platform) external view returns (bool);
+}
+
+/**
  * @title ComputeRegistry
  * @notice Provider registry for all compute services (AI, database, training, etc.)
  *
@@ -14,6 +24,11 @@ import {IComputeRegistry} from "./interfaces/IComputeRegistry.sol";
  * - training: Model training/fine-tuning
  * - storage: Compute-adjacent storage
  * - custom: User-defined compute services
+ *
+ * TEE Integration:
+ * - Integrates with UnifiedAttestationVerifier for attestation validation
+ * - Providers can register with TEE attestation for enhanced trust
+ * - Non-TEE providers are still supported but marked accordingly
  */
 contract ComputeRegistry is ProviderRegistryBase, IComputeRegistry {
     /// @notice Service type constants
@@ -21,6 +36,15 @@ contract ComputeRegistry is ProviderRegistryBase, IComputeRegistry {
     bytes32 public constant SERVICE_DATABASE = keccak256("database");
     bytes32 public constant SERVICE_TRAINING = keccak256("training");
     bytes32 public constant SERVICE_STORAGE = keccak256("storage");
+
+    /// @notice TEE platform constants (matching UnifiedAttestationVerifier)
+    uint8 public constant TEE_NONE = 0;
+    uint8 public constant TEE_INTEL_TDX = 1;
+    uint8 public constant TEE_INTEL_SGX = 2;
+    uint8 public constant TEE_AMD_SEV_SNP = 3;
+    uint8 public constant TEE_PHALA = 4;
+    uint8 public constant TEE_AWS_NITRO = 5;
+    uint8 public constant TEE_GCP_CONFIDENTIAL = 6;
 
     struct Provider {
         address owner;
@@ -32,6 +56,12 @@ contract ComputeRegistry is ProviderRegistryBase, IComputeRegistry {
         uint256 agentId; // ERC-8004 agent ID (0 if not linked)
         bytes32 serviceType; // Primary service type
         bool active;
+        // TEE-specific fields
+        bytes32 nodeId; // Unique node ID for attestation lookup
+        uint8 teePlatform; // TEE platform type (0 = none)
+        bytes32 mrEnclave; // Enclave measurement (if TEE)
+        bytes32 mrSigner; // Signer measurement (if TEE)
+        bool teeVerified; // Whether TEE attestation is verified
     }
 
     struct Capability {
@@ -42,9 +72,16 @@ contract ComputeRegistry is ProviderRegistryBase, IComputeRegistry {
         bool active;
     }
 
+    /// @notice Attestation verifier contract
+    IUnifiedAttestationVerifier public attestationVerifier;
+
+    /// @notice Whether TEE attestation is required for registration
+    bool public requireTeeAttestation;
+
     mapping(address => Provider) public providers;
     mapping(address => Capability[]) private _capabilities;
     mapping(bytes32 => address[]) private _providersByService; // service type => providers
+    mapping(bytes32 => address) private _nodeIdToProvider; // nodeId => provider address
 
     event ProviderRegistered(
         address indexed provider,
@@ -53,6 +90,14 @@ contract ComputeRegistry is ProviderRegistryBase, IComputeRegistry {
         bytes32 attestationHash,
         uint256 stake,
         uint256 agentId,
+        bytes32 serviceType
+    );
+    event ProviderRegisteredWithTEE(
+        address indexed provider,
+        string name,
+        bytes32 indexed nodeId,
+        uint8 teePlatform,
+        bytes32 mrEnclave,
         bytes32 serviceType
     );
     event ProviderUpdated(address indexed provider, string endpoint, bytes32 attestationHash);
@@ -65,15 +110,26 @@ contract ComputeRegistry is ProviderRegistryBase, IComputeRegistry {
     );
     event CapabilityUpdated(address indexed provider, uint256 index, bool active);
     event ServiceTypeUpdated(address indexed provider, bytes32 oldType, bytes32 newType);
+    event AttestationVerifierUpdated(address indexed oldVerifier, address indexed newVerifier);
+    event ProviderTEEStatusUpdated(address indexed provider, bool teeVerified);
+    event RequireTeeAttestationUpdated(bool oldValue, bool newValue);
 
     error InvalidEndpoint();
     error InvalidName();
     error InvalidCapabilityIndex();
     error InvalidServiceType();
+    error InvalidNodeId();
+    error NodeIdAlreadyRegistered();
+    error TeeAttestationRequired();
+    error TeeAttestationInvalid();
+    error AttestationVerifierNotSet();
+    error UntrustedMeasurement();
 
     constructor(address _owner, address _identityRegistry, address _banManager, uint256 _minProviderStake)
         ProviderRegistryBase(_owner, _identityRegistry, _banManager, _minProviderStake)
-    {}
+    {
+        requireTeeAttestation = false; // Default: don't require TEE
+    }
 
     /// @notice Register as an inference provider (default service type)
     function register(string calldata name, string calldata endpoint, bytes32 attestationHash)
@@ -82,6 +138,7 @@ contract ComputeRegistry is ProviderRegistryBase, IComputeRegistry {
         nonReentrant
         whenNotPaused
     {
+        if (requireTeeAttestation) revert TeeAttestationRequired();
         _registerWithService(name, endpoint, attestationHash, 0, SERVICE_INFERENCE);
     }
 
@@ -92,6 +149,7 @@ contract ComputeRegistry is ProviderRegistryBase, IComputeRegistry {
         bytes32 attestationHash,
         bytes32 serviceType
     ) external payable nonReentrant whenNotPaused {
+        if (requireTeeAttestation) revert TeeAttestationRequired();
         _registerWithService(name, endpoint, attestationHash, 0, serviceType);
     }
 
@@ -102,6 +160,7 @@ contract ComputeRegistry is ProviderRegistryBase, IComputeRegistry {
         nonReentrant
         whenNotPaused
     {
+        if (requireTeeAttestation) revert TeeAttestationRequired();
         _registerWithService(name, endpoint, attestationHash, 0, SERVICE_DATABASE);
     }
 
@@ -111,6 +170,7 @@ contract ComputeRegistry is ProviderRegistryBase, IComputeRegistry {
         nonReentrant
         whenNotPaused
     {
+        if (requireTeeAttestation) revert TeeAttestationRequired();
         _registerWithAgentAndService(name, endpoint, attestationHash, agentId, SERVICE_INFERENCE);
     }
 
@@ -122,7 +182,172 @@ contract ComputeRegistry is ProviderRegistryBase, IComputeRegistry {
         uint256 agentId,
         bytes32 serviceType
     ) external payable nonReentrant whenNotPaused {
+        if (requireTeeAttestation) revert TeeAttestationRequired();
         _registerWithAgentAndService(name, endpoint, attestationHash, agentId, serviceType);
+    }
+
+    /**
+     * @notice Register with TEE attestation
+     * @param name Provider name
+     * @param endpoint Service endpoint URL
+     * @param nodeId Unique node ID (from attestation)
+     * @param teePlatform TEE platform type
+     * @param mrEnclave Enclave measurement
+     * @param mrSigner Signer measurement
+     * @param serviceType Service type
+     */
+    function registerWithTEE(
+        string calldata name,
+        string calldata endpoint,
+        bytes32 nodeId,
+        uint8 teePlatform,
+        bytes32 mrEnclave,
+        bytes32 mrSigner,
+        bytes32 serviceType
+    ) external payable nonReentrant whenNotPaused {
+        if (bytes(name).length == 0) revert InvalidName();
+        if (bytes(endpoint).length == 0) revert InvalidEndpoint();
+        if (nodeId == bytes32(0)) revert InvalidNodeId();
+        if (serviceType == bytes32(0)) revert InvalidServiceType();
+        if (_nodeIdToProvider[nodeId] != address(0)) revert NodeIdAlreadyRegistered();
+
+        // Verify attestation with UnifiedAttestationVerifier if set
+        bool teeVerified = false;
+        if (address(attestationVerifier) != address(0)) {
+            // Check if measurement is trusted
+            if (!attestationVerifier.isTrustedMeasurement(mrEnclave, mrSigner, teePlatform)) {
+                revert UntrustedMeasurement();
+            }
+
+            // Check if node has valid attestation
+            (bool valid,) = attestationVerifier.isNodeAttested(nodeId);
+            teeVerified = valid;
+
+            // If TEE attestation is required, reject if not verified
+            if (requireTeeAttestation && !teeVerified) {
+                revert TeeAttestationInvalid();
+            }
+        } else if (requireTeeAttestation) {
+            revert AttestationVerifierNotSet();
+        }
+
+        _registerProviderWithoutAgent(msg.sender);
+
+        // Store provider data with TEE info
+        bytes32 attestationHash = keccak256(abi.encodePacked(nodeId, mrEnclave, mrSigner, teePlatform));
+        
+        providers[msg.sender] = Provider({
+            owner: msg.sender,
+            name: name,
+            endpoint: endpoint,
+            attestationHash: attestationHash,
+            stake: msg.value,
+            registeredAt: block.timestamp,
+            agentId: 0,
+            serviceType: serviceType,
+            active: true,
+            nodeId: nodeId,
+            teePlatform: teePlatform,
+            mrEnclave: mrEnclave,
+            mrSigner: mrSigner,
+            teeVerified: teeVerified
+        });
+
+        _providersByService[serviceType].push(msg.sender);
+        _nodeIdToProvider[nodeId] = msg.sender;
+
+        emit ProviderRegisteredWithTEE(msg.sender, name, nodeId, teePlatform, mrEnclave, serviceType);
+    }
+
+    /**
+     * @notice Register with TEE attestation and agent
+     * @param name Provider name
+     * @param endpoint Service endpoint URL
+     * @param nodeId Unique node ID (from attestation)
+     * @param teePlatform TEE platform type
+     * @param mrEnclave Enclave measurement
+     * @param mrSigner Signer measurement
+     * @param agentId ERC-8004 agent ID
+     * @param serviceType Service type
+     */
+    function registerWithTEEAndAgent(
+        string calldata name,
+        string calldata endpoint,
+        bytes32 nodeId,
+        uint8 teePlatform,
+        bytes32 mrEnclave,
+        bytes32 mrSigner,
+        uint256 agentId,
+        bytes32 serviceType
+    ) external payable nonReentrant whenNotPaused {
+        if (bytes(name).length == 0) revert InvalidName();
+        if (bytes(endpoint).length == 0) revert InvalidEndpoint();
+        if (nodeId == bytes32(0)) revert InvalidNodeId();
+        if (serviceType == bytes32(0)) revert InvalidServiceType();
+        if (_nodeIdToProvider[nodeId] != address(0)) revert NodeIdAlreadyRegistered();
+
+        // Verify attestation with UnifiedAttestationVerifier if set
+        bool teeVerified = false;
+        if (address(attestationVerifier) != address(0)) {
+            if (!attestationVerifier.isTrustedMeasurement(mrEnclave, mrSigner, teePlatform)) {
+                revert UntrustedMeasurement();
+            }
+
+            (bool valid,) = attestationVerifier.isNodeAttested(nodeId);
+            teeVerified = valid;
+
+            if (requireTeeAttestation && !teeVerified) {
+                revert TeeAttestationInvalid();
+            }
+        } else if (requireTeeAttestation) {
+            revert AttestationVerifierNotSet();
+        }
+
+        _registerProviderWithAgent(msg.sender, agentId);
+
+        bytes32 attestationHash = keccak256(abi.encodePacked(nodeId, mrEnclave, mrSigner, teePlatform));
+        
+        providers[msg.sender] = Provider({
+            owner: msg.sender,
+            name: name,
+            endpoint: endpoint,
+            attestationHash: attestationHash,
+            stake: msg.value,
+            registeredAt: block.timestamp,
+            agentId: agentId,
+            serviceType: serviceType,
+            active: true,
+            nodeId: nodeId,
+            teePlatform: teePlatform,
+            mrEnclave: mrEnclave,
+            mrSigner: mrSigner,
+            teeVerified: teeVerified
+        });
+
+        _providersByService[serviceType].push(msg.sender);
+        _nodeIdToProvider[nodeId] = msg.sender;
+
+        emit ProviderRegisteredWithTEE(msg.sender, name, nodeId, teePlatform, mrEnclave, serviceType);
+    }
+
+    /**
+     * @notice Refresh TEE verification status for a provider
+     * @param providerAddr Provider address to refresh
+     */
+    function refreshTEEStatus(address providerAddr) external {
+        Provider storage provider = providers[providerAddr];
+        if (provider.registeredAt == 0) revert ProviderNotRegistered();
+        if (provider.nodeId == bytes32(0)) return; // Not a TEE provider
+
+        if (address(attestationVerifier) == address(0)) {
+            provider.teeVerified = false;
+            emit ProviderTEEStatusUpdated(providerAddr, false);
+            return;
+        }
+
+        (bool valid,) = attestationVerifier.isNodeAttested(provider.nodeId);
+        provider.teeVerified = valid;
+        emit ProviderTEEStatusUpdated(providerAddr, valid);
     }
 
     function _registerWithService(
@@ -172,7 +397,12 @@ contract ComputeRegistry is ProviderRegistryBase, IComputeRegistry {
             registeredAt: block.timestamp,
             agentId: agentId,
             serviceType: serviceType,
-            active: true
+            active: true,
+            nodeId: bytes32(0),
+            teePlatform: TEE_NONE,
+            mrEnclave: bytes32(0),
+            mrSigner: bytes32(0),
+            teeVerified: false
         });
 
         _providersByService[serviceType].push(provider);
@@ -379,7 +609,112 @@ contract ComputeRegistry is ProviderRegistryBase, IComputeRegistry {
         return providers[provider].serviceType == SERVICE_DATABASE && providers[provider].active;
     }
 
+    // ============ TEE-Specific View Functions ============
+
+    /**
+     * @notice Check if provider has verified TEE attestation
+     * @param provider Provider address
+     * @return hasTEE Whether provider is registered with TEE
+     * @return verified Whether TEE attestation is currently valid
+     * @return platform TEE platform type
+     */
+    function getProviderTEEStatus(address provider) external view returns (bool hasTEE, bool verified, uint8 platform) {
+        Provider storage p = providers[provider];
+        hasTEE = p.teePlatform != TEE_NONE;
+        verified = p.teeVerified;
+        platform = p.teePlatform;
+    }
+
+    /**
+     * @notice Get provider by node ID
+     * @param nodeId Node ID to lookup
+     * @return provider Provider address
+     */
+    function getProviderByNodeId(bytes32 nodeId) external view returns (address) {
+        return _nodeIdToProvider[nodeId];
+    }
+
+    /**
+     * @notice Get TEE-verified providers
+     * @return verifiedProviders Array of verified provider addresses
+     */
+    function getTEEVerifiedProviders() external view returns (address[] memory) {
+        uint256 verifiedCount = 0;
+        for (uint256 i = 0; i < providerList.length; i++) {
+            if (providers[providerList[i]].teeVerified && providers[providerList[i]].active) {
+                verifiedCount++;
+            }
+        }
+
+        address[] memory verifiedProviders = new address[](verifiedCount);
+        uint256 idx = 0;
+        for (uint256 i = 0; i < providerList.length; i++) {
+            if (providers[providerList[i]].teeVerified && providers[providerList[i]].active) {
+                verifiedProviders[idx++] = providerList[i];
+            }
+        }
+        return verifiedProviders;
+    }
+
+    /**
+     * @notice Get TEE-verified providers by service type
+     * @param serviceType Service type to filter
+     * @return verifiedProviders Array of verified provider addresses
+     */
+    function getTEEVerifiedProvidersByService(bytes32 serviceType) external view returns (address[] memory) {
+        address[] storage allProviders = _providersByService[serviceType];
+        uint256 verifiedCount = 0;
+        for (uint256 i = 0; i < allProviders.length; i++) {
+            if (providers[allProviders[i]].teeVerified && providers[allProviders[i]].active) {
+                verifiedCount++;
+            }
+        }
+
+        address[] memory verifiedProviders = new address[](verifiedCount);
+        uint256 idx = 0;
+        for (uint256 i = 0; i < allProviders.length; i++) {
+            if (providers[allProviders[i]].teeVerified && providers[allProviders[i]].active) {
+                verifiedProviders[idx++] = allProviders[i];
+            }
+        }
+        return verifiedProviders;
+    }
+
+    /**
+     * @notice Get provider's TEE measurements
+     * @param provider Provider address
+     * @return nodeId Node ID
+     * @return mrEnclave Enclave measurement
+     * @return mrSigner Signer measurement
+     */
+    function getProviderMeasurements(address provider) external view returns (bytes32 nodeId, bytes32 mrEnclave, bytes32 mrSigner) {
+        Provider storage p = providers[provider];
+        return (p.nodeId, p.mrEnclave, p.mrSigner);
+    }
+
+    // ============ Admin Functions ============
+
+    /**
+     * @notice Set the attestation verifier contract
+     * @param _attestationVerifier New verifier address
+     */
+    function setAttestationVerifier(address _attestationVerifier) external onlyOwner {
+        address oldVerifier = address(attestationVerifier);
+        attestationVerifier = IUnifiedAttestationVerifier(_attestationVerifier);
+        emit AttestationVerifierUpdated(oldVerifier, _attestationVerifier);
+    }
+
+    /**
+     * @notice Set whether TEE attestation is required
+     * @param _requireTeeAttestation Whether to require TEE attestation
+     */
+    function setRequireTeeAttestation(bool _requireTeeAttestation) external onlyOwner {
+        bool oldValue = requireTeeAttestation;
+        requireTeeAttestation = _requireTeeAttestation;
+        emit RequireTeeAttestationUpdated(oldValue, _requireTeeAttestation);
+    }
+
     function version() external pure returns (string memory) {
-        return "3.0.0-unified";
+        return "4.0.0-tee";
     }
 }

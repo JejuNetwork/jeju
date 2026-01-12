@@ -159,9 +159,9 @@ impl WalletManager {
         self.signer.as_ref()
     }
 
-    /// Get balances
-    /// Note: Balance fetching is now done through ContractClient in commands/wallet.rs
-    /// This method is kept for compatibility but delegates to a simpler implementation
+    /// Get balances.
+    /// Balance fetching is now done through ContractClient in commands/wallet.rs.
+    /// This method is kept for compatibility but delegates to a simpler implementation.
     #[allow(dead_code)]
     pub async fn get_balance(&self) -> Result<BalanceInfo, String> {
         // Balance fetching is now done through ContractClient

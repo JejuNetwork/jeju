@@ -364,7 +364,7 @@ export namespace GasCostModel {
     /**
      * Base fee by chain (gwei)
      * VALIDATED: Dec 2024 from block explorer data
-     * Note: These are averages; actual fees vary significantly
+     * These are averages; actual fees vary significantly
      */
     const baseFees: Record<number, number> = {
       1: 15, // Ethereum mainnet (8-25 gwei typical Dec 2024)

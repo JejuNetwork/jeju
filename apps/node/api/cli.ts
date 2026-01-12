@@ -593,7 +593,7 @@ sequencer
       console.log(chalk.green('\n  Successfully left sequencer network.'))
       console.log(`    Transaction: ${result}`)
       console.log(
-        '    Note: Stake will be available for withdrawal after cooldown period.',
+        '    Stake will be available for withdrawal after cooldown period.',
       )
       console.log()
     } catch (error) {

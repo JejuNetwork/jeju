@@ -186,7 +186,7 @@ describe('CDN Endpoints', () => {
 })
 
 describe('Marketplace Endpoints', () => {
-  // Note: Marketplace requires SQLit. Tests validate endpoint exists.
+  // Marketplace requires SQLit - tests validate endpoint exists
   test('GET /api/marketplace/listings returns response', async () => {
     const { status } = await api<{ listings: unknown[] }>(
       '/api/marketplace/listings',

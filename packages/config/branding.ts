@@ -394,8 +394,8 @@ function generateAsciiBanner(name: string): string[] {
 // Cache management
 
 /**
- * Clear the branding cache (for testing purposes)
- * Note: Since branding is loaded at module init, this is a no-op in production.
+ * Clear the branding cache (for testing purposes).
+ * Since branding is loaded at module init, this is a no-op in production.
  */
 export function clearBrandingCache(): void {
   // No-op - branding is loaded at module initialization
@@ -403,8 +403,8 @@ export function clearBrandingCache(): void {
 }
 
 /**
- * Set a custom config path (for testing purposes)
- * Note: Since branding uses a static JSON import, this is a no-op.
+ * Set a custom config path (for testing purposes).
+ * Since branding uses a static JSON import, this is a no-op.
  */
 export function setConfigPath(_path: string): void {
   // No-op - branding uses static JSON import

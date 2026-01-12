@@ -354,7 +354,7 @@ export class CronExecutor {
 
   /**
    * Release a distributed lock
-   * Note: In a perfect world we'd use compare-and-delete, but delete is fine
+   * In a perfect world we'd use compare-and-delete, but delete is fine
    * since the lock has a TTL and will expire anyway if we crash
    */
   private async releaseLock(key: string): Promise<void> {

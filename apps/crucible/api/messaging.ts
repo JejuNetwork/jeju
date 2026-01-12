@@ -78,7 +78,7 @@ class CrucibleMessagingService {
 
   /**
    * Get a user's profile
-   * Note: Returns null if profile fetch fails (Hub API limitations)
+   * Returns null if profile fetch fails (Hub API limitations)
    */
   async getProfile(fid: number): Promise<FarcasterProfile | null> {
     const cache = getProfileCache()

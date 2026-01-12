@@ -719,8 +719,7 @@ export function createStakingRouter() {
             return { error: 'Staking manager not configured' }
           }
 
-          // Note: This endpoint returns the transaction data to be signed by the user's wallet
-          // The actual claim happens on-chain when the user signs and submits the transaction
+          // Returns transaction data to be signed by user's wallet
           const nodeId = params.nodeId as Hex
           const client = getClient()
 
@@ -747,8 +746,7 @@ export function createStakingRouter() {
         },
       )
 
-      // Get contract info for registration
-      // Note: Actual registration is done client-side via wagmi useWriteContract
+      // Get contract info for registration (use wagmi useWriteContract client-side)
       .get('/contract-info', async ({ set }) => {
         const stakingManager = getStakingManagerAddress()
         if (!stakingManager) {
@@ -775,7 +773,6 @@ export function createStakingRouter() {
           stakingManager,
           minStakeUSD: formatEther(minStake),
           baseRewardPerMonthUSD: formatEther(baseReward),
-          note: 'Use wagmi useWriteContract to call registerNode on the contract directly.',
         }
       })
 

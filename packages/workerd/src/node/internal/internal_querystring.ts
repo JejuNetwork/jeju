@@ -1095,7 +1095,7 @@ export function parse(
 
 /**
  * V8 does not optimize functions with try-catch blocks, so we isolate them here
- * to minimize the damage (Note: no longer true as of V8 5.4 -- but still will
+ * to minimize the damage (no longer true as of V8 5.4 -- but still will
  * not be inlined).
  */
 function decodeStr(s: string, decoder: DecodeFunction): string {

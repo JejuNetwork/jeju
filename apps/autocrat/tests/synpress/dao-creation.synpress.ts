@@ -173,7 +173,7 @@ test.describe('DAO Creation with Wallet', () => {
     await expect(createButton).toBeEnabled()
 
     // Click create (will trigger API call)
-    // Note: In real test with backend, this would create the DAO
+    // In real test with backend, this would create the DAO
     // await createButton.click()
     // await expect(page).toHaveURL(/\/dao\/test-dao/)
   })

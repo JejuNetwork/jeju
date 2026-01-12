@@ -1,7 +1,7 @@
 /**
  * Shared utilities for DWS
  *
- * Note: x402 payment utilities are available by importing from ./x402
+ * x402 payment utilities are available by importing from ./x402
  */
 
 // Schemas (heavily used by routes)

@@ -197,7 +197,7 @@ export function createSequencerService(
 
     console.log('[Sequencer] Sequencer service started')
     console.log(
-      `[Sequencer] Note: Batch submission and proposals are handled by op-node`,
+      `[Sequencer] Batch submission and proposals are handled by op-node`,
     )
     console.log(`[Sequencer] This service manages registration and staking`)
   }

@@ -162,9 +162,8 @@ export function truncateToTokenLimitSync(
 }
 
 /**
- * Model-specific INPUT CONTEXT token limits
- *
- * Note: Output limits are separate from input limits on modern models.
+ * Model-specific INPUT CONTEXT token limits.
+ * Output limits are separate from input limits on modern models.
  */
 export const MODEL_TOKEN_LIMITS: Record<string, number> = {
   // OpenAI

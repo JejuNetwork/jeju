@@ -302,7 +302,7 @@ export class SMTPServer {
         if (socket instanceof TLSSocket) {
           return '454 TLS not available due to temporary reason'
         }
-        // Note: In a real implementation, you'd upgrade the socket to TLS here
+        // In a real implementation, you'd upgrade the socket to TLS here
         // This requires handling at the connection level
         return '220 Ready to start TLS'
       }

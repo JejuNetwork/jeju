@@ -110,8 +110,6 @@ function getSwapTokensFromConfig(): SwapToken[] {
       address: '0xb994b19645c597292148df7c6f5fdf2e41c711ce' as Address,
       decimals: 18,
     })
-
-    // Note: GO token - need to check if it exists or was created differently
   }
 
   return tokens

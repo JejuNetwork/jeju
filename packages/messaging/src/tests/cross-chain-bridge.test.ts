@@ -101,8 +101,7 @@ describe('CrossChainBridgeClient', () => {
       const ephemeralPublicKey = '0xabc123'
       const nonce = '0xdef456'
 
-      // Note: This will fail because there's no relay server, but we can validate
-      // the message construction by checking the error includes valid data
+      // This fails without a relay server, but validates message construction via error
       const promise = client.sendMessage(
         sender,
         recipient,

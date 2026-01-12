@@ -23,7 +23,7 @@ import {
 
 /**
  * Unsigned EIP-7702 Authorization structure.
- * Note: viem uses 'address' internally but accepts 'contractAddress' in function params
+ * viem uses 'address' internally but accepts 'contractAddress' in function params
  */
 export interface Authorization {
   /** Chain ID the authorization is valid for. Use 0 for all chains. */

@@ -372,7 +372,7 @@ export function createStakingManagerService(
     const contractAddr = getContractAddress()
 
     console.log(`[Staking] Initiating commission change to ${bps / 100}%...`)
-    console.log(`[Staking] Note: 7-day delay before commission takes effect`)
+    console.log(`[Staking] 7-day delay before commission takes effect`)
 
     const data = encodeFunctionData({
       abi: DELEGATED_NODE_STAKING_ABI,

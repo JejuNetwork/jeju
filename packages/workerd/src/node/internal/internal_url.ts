@@ -120,7 +120,7 @@ export function isURL(self?: any): self is URL {
 
 export function getPathFromURLPosix(url: URL): string {
   if (url.hostname !== '') {
-    // Note: Difference between Node.js and Workerd.
+    // Difference between Node.js and Workerd:
     // Node.js uses `process.platform` whereas workerd hard codes it to linux.
     // This is done to avoid confusion regarding non-linux support and conformance.
     throw new ERR_INVALID_FILE_URL_HOST('linux')

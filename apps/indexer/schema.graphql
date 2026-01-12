@@ -1232,7 +1232,7 @@ type TagIndex @entity {
   tag: String! @unique @index
   agentCount: Int!
   lastUpdated: DateTime! @index
-  # Note: agents are looked up via RegisteredAgent.tags array
+  # Agents are looked up via RegisteredAgent.tags array
 }
 
 type RegistryStake @entity {

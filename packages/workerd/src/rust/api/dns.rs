@@ -124,7 +124,7 @@ impl DnsUtil {
     ///       |  - Number representation of "`is_critical`"
     ///       - Length of the data
     ///
-    /// Note: Field can be "issuewild", "issue" or "iodef".
+    /// Field can be "issuewild", "issue" or "iodef".
     ///
     /// ```
     /// let record = parse_caa_record("\\# 15 00 05 69 73 73 75 65 70 6b 69 2e 67 6f 6f 67");

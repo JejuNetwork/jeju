@@ -155,8 +155,7 @@ async function installWorkerd(): Promise<string> {
   await makeExecutable(binaryPath)
 
   // Cleanup archive
-  await Bun.write(archivePath, '') // Truncate
-  // Note: Bun doesn't have a direct unlink, but we can just leave the empty file
+  await Bun.write(archivePath, '') // Truncate (Bun doesn't have direct unlink)
 
   // Verify installation
   if (!(await isWorkerdInstalled(binaryPath))) {

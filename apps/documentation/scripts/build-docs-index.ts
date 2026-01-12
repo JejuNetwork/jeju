@@ -6,8 +6,8 @@
 
 import { readdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { DOCS_ROOT } from '../lib/build-utils'
 import type { DocIndex, Topic } from '../lib/a2a'
+import { DOCS_ROOT } from '../lib/build-utils'
 
 const EXCLUDED_DIRS = new Set(['node_modules', 'public', 'components'])
 
@@ -22,7 +22,7 @@ async function collectDocs(
 
   for (const entry of entries) {
     const fullPath = join(dir, entry.name)
-    const relativePath = fullPath.replace(baseDir + '/', '')
+    const relativePath = fullPath.replace(`${baseDir}/`, '')
 
     if (entry.isDirectory()) {
       if (!EXCLUDED_DIRS.has(entry.name)) {
@@ -60,4 +60,3 @@ async function main() {
 }
 
 main().catch(console.error)
-

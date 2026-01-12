@@ -26,7 +26,7 @@ interface D1Meta {
 
   /**
    * Number of total attempts to execute the query, due to automatic retries.
-   * Note: All other fields in the response like `timings` only apply to the last attempt.
+   * All other fields in the response like `timings` only apply to the last attempt.
    */
   total_attempts?: number
 }

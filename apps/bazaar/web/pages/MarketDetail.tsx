@@ -1,3 +1,8 @@
+import {
+  type AttestationStatus,
+  type TEEPlatform,
+  TrustCenterWidget,
+} from '@jejunetwork/ui'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
@@ -309,6 +314,51 @@ export default function MarketDetailPage() {
           )}
         </div>
       </div>
+
+      {/* TEE Oracle Verification - full widget when attestation data available */}
+      {market.tee?.enabled && market.tee.mrEnclave && market.tee.mrSigner && (
+        <div className="mt-4">
+          <TrustCenterWidget
+            provider={{
+              name: 'Market Oracle',
+              address: market.tee.oracleAddress,
+              endpoint: 'On-chain Oracle',
+              teePlatform: (market.tee.platform ?? 'unknown') as TEEPlatform,
+              mrEnclave: market.tee.mrEnclave,
+              mrSigner: market.tee.mrSigner,
+            }}
+            status={market.tee.status as AttestationStatus}
+            expiresAt={market.tee.expiresAt}
+            defaultExpanded={false}
+          />
+        </div>
+      )}
+
+      {/* TEE Pending - simple badge when attestation data incomplete */}
+      {market.tee?.enabled &&
+        (!market.tee.mrEnclave || !market.tee.mrSigner) && (
+          <div className="card p-4 mt-4">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🔒</span>
+              <div>
+                <h3
+                  className="text-sm font-semibold"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  TEE-Backed Oracle
+                </h3>
+                <p
+                  className="text-xs"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
+                  {market.tee.status === 'pending'
+                    ? 'Attestation pending verification'
+                    : 'Awaiting attestation data'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   )
 }

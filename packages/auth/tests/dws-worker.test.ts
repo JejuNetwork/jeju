@@ -2,8 +2,7 @@
  * DWS Worker Integration Tests
  *
  * Tests the OAuth3 DWS worker MPC client integration.
- * Note: These tests use mocked MPC infrastructure since we can't
- * spin up a real MPC cluster in unit tests.
+ * Tests use mocked MPC infrastructure since we can't spin up a real cluster.
  */
 
 import { describe, expect, it, mock } from 'bun:test'
@@ -58,8 +57,7 @@ describe('OAuth3 DWS Worker', () => {
       const worker = createOAuth3Worker(config)
 
       // Test wallet auth flow - prefix is /oauth3
-      // Note: Will return 500 because signature verification fails with mock data
-      // This test verifies the endpoint exists and processes the request
+      // Returns 500 because signature verification fails with mock data - verifies endpoint exists
       const walletAuthResponse = await worker.handle(
         new Request('http://localhost/oauth3/auth/wallet', {
           method: 'POST',

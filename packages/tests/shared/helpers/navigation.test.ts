@@ -1,8 +1,8 @@
 /**
  * Navigation Helper Tests - Server health, routing, page state
  *
- * Note: Some tests require Playwright which may not be fully available in bun test.
- * These tests focus on the utility functions that don't require a browser.
+ * Some tests require Playwright (may not be available in bun test).
+ * Focus on utility functions that don't require a browser.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'

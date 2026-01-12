@@ -33,7 +33,10 @@
     "tauri:all": "bun run tauri:wallet && bun run tauri:node && bun run tauri:vpn"
   },
   "dependencies": {
+    "@jejunetwork/agents": "workspace:*",
+    "@jejunetwork/zksolbridge": "workspace:*",
     "@jejunetwork/config": "workspace:*",
+    "@jejunetwork/contracts": "workspace:*",
     "@jejunetwork/kms": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/types": "workspace:*",

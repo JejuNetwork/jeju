@@ -2,7 +2,7 @@
  * MCP Server Factory - Model Context Protocol
  *
  * Creates MCP servers for dApps.
- * Note: For new implementations, prefer createServer from './server'
+ * For new implementations, prefer createServer from './server'.
  */
 
 import { cors } from '@elysiajs/cors'

@@ -168,8 +168,8 @@ export async function clearAllDuplicates(): Promise<void> {
 // Cleanup handled by distributed cache TTL - no periodic cleanup needed
 
 /**
- * Get statistics about duplicate detection
- * Note: Returns estimated stats based on cache keys
+ * Get statistics about duplicate detection.
+ * Returns estimated stats based on cache keys.
  */
 export async function getDuplicateStats(): Promise<{
   totalUsers: number

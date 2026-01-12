@@ -517,7 +517,7 @@ struct Worker::Impl {
   kj::Maybe<jsg::Value> env;
   kj::Maybe<jsg::Value> ctxExports;
 
-  // Note: The default export is given the string name "default", because that's what V8 tells us,
+  // The default export is given the string name "default", because that's what V8 tells us,
   // and so it's easiest to go with it. I guess that means that you can't actually name an export
   // "default"?
   kj::HashMap<kj::String, api::ExportedHandler> namedHandlers;
@@ -2234,8 +2234,8 @@ kj::Maybe<kj::Own<api::ExportedHandler>> Worker::Lock::getExportedHandler(
     // If the default export was requested, and we didn't find a handler for it, we'll fall back
     // to addEventListener().
     //
-    // Note: The original intention was that we only use addEventListener() for
-    //   service-worker-syntax scripts, but apparently the code has long allowed it for
+    // The original intention was that we only use addEventListener() for
+    // service-worker-syntax scripts, but apparently the code has long allowed it for
     //   modules-based script too, if they lacked an `export default`. Yikes! Sadly, there are
     //   Workers in production relying on this so we are stuck with it.
     return kj::none;
@@ -3815,7 +3815,7 @@ kj::Promise<void> Worker::Actor::ensureConstructedImpl(IoContext& context, Actor
 }
 
 Worker::Actor::~Actor() noexcept(false) {
-  // Note: We do not need an isolate lock to destroy the actor impl. Everything in it is specific
+  // We do not need an isolate lock to destroy the actor impl. Everything in it is specific
   // to our thread, or is a handle that can be dropped outside of the lock.
 }
 

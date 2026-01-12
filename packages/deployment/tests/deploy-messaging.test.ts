@@ -174,8 +174,7 @@ describe('Edge cases in forge output', () => {
 
   it('should handle extra whitespace', () => {
     const output = 'Deployed to:   0x1234567890123456789012345678901234567890  '
-    // Note: The regex expects exactly one space after the colon
-    // This test verifies current behavior
+    // The regex expects exactly one space after the colon - verifies current behavior
     expect(() => extractContractAddress(output)).toThrow()
   })
 

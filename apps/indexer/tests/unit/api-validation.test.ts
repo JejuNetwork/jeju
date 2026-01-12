@@ -192,7 +192,7 @@ describe('Search Parameter Validation', () => {
     })
 
     it('should clamp limit to valid range', () => {
-      // Note: '0' is falsy so falls back to default 50, then clamped to min 1
+      // '0' is falsy so falls back to default 50, then clamped to min 1
       expect(validateSearchParams({ limit: '0' }).limit).toBe(50)
       expect(validateSearchParams({ limit: '-10' }).limit).toBe(1)
       expect(validateSearchParams({ limit: '5000' }).limit).toBe(1000)

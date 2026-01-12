@@ -218,7 +218,7 @@ export const testCommand = new Command('test')
     }
 
     // Create test orchestrator with fail-fast settings
-    // Note: skipPreflight, skipWarmup, skipBootstrap are no longer supported
+    // skipPreflight, skipWarmup, skipBootstrap are no longer supported
     // For remote networks, infrastructure setup is skipped entirely
     const testOrchestrator = createTestOrchestrator({
       mode,

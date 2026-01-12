@@ -26,6 +26,10 @@ function findWorkspaceRoot(): string {
 const WORKSPACE_ROOT = findWorkspaceRoot()
 const CLI_PATH = join(WORKSPACE_ROOT, 'packages/cli/src/index.ts')
 
+// These tests spawn the CLI (which loads a large monorepo). Under load this can
+// exceed Bun's default 5s timeout even when behavior is correct.
+const CLI_TEST_TIMEOUT_MS = 20_000
+
 interface CLIResult {
   exitCode: number
   stdout: string
@@ -92,73 +96,117 @@ describe('Test Orchestrator - CLI Exists', () => {
 
 // CLI execution tests - these verify the test command works correctly
 describe('Test Orchestrator - Help Command', () => {
-  test('should exit 0 with --help and show usage', async () => {
-    const result = await runCLI(['test', '--help'])
-    expect(result.exitCode).toBe(0)
-  })
+  test(
+    'should exit 0 with --help and show usage',
+    async () => {
+      const result = await runCLI(['test', '--help'])
+      expect(result.exitCode).toBe(0)
+    },
+    CLI_TEST_TIMEOUT_MS,
+  )
 })
 
 describe('Test Orchestrator - List Command', () => {
-  test('should exit 0 with list subcommand and show apps', async () => {
-    const result = await runCLI(['test', 'list'])
-    expect(result.exitCode).toBe(0)
-  })
+  test(
+    'should exit 0 with list subcommand and show apps',
+    async () => {
+      const result = await runCLI(['test', 'list'])
+      expect(result.exitCode).toBe(0)
+    },
+    CLI_TEST_TIMEOUT_MS,
+  )
 })
 
 describe('Test Orchestrator - Error Handling', () => {
-  test('should exit 1 when invalid mode provided', async () => {
-    const result = await runCLI(['test', '--mode', 'invalid'])
-    expect(result.exitCode).toBe(1)
-  })
+  test(
+    'should exit 1 when invalid mode provided',
+    async () => {
+      const result = await runCLI(['test', '--mode', 'invalid'])
+      expect(result.exitCode).toBe(1)
+    },
+    CLI_TEST_TIMEOUT_MS,
+  )
 })
 
 describe('Test Orchestrator - Skip Flags', () => {
-  test('should accept --skip-lock flag with list', async () => {
-    const result = await runCLI(['test', '--skip-lock', 'list'])
-    expect(result.exitCode).toBe(0)
-  })
-  test('should accept --force flag with list', async () => {
-    const result = await runCLI(['test', '--force', 'list'])
-    expect(result.exitCode).toBe(0)
-  })
-  test('should accept --verbose flag with list', async () => {
-    const result = await runCLI(['test', '--verbose', 'list'])
-    expect(result.exitCode).toBe(0)
-  })
+  test(
+    'should accept --skip-lock flag with list',
+    async () => {
+      const result = await runCLI(['test', '--skip-lock', 'list'])
+      expect(result.exitCode).toBe(0)
+    },
+    CLI_TEST_TIMEOUT_MS,
+  )
+  test(
+    'should accept --force flag with list',
+    async () => {
+      const result = await runCLI(['test', '--force', 'list'])
+      expect(result.exitCode).toBe(0)
+    },
+    CLI_TEST_TIMEOUT_MS,
+  )
+  test(
+    'should accept --verbose flag with list',
+    async () => {
+      const result = await runCLI(['test', '--verbose', 'list'])
+      expect(result.exitCode).toBe(0)
+    },
+    CLI_TEST_TIMEOUT_MS,
+  )
 })
 
 describe('Test Orchestrator - Mode Flags', () => {
-  test('should accept unit mode with list', async () => {
-    const result = await runCLI(['test', '--mode', 'unit', 'list'])
-    expect(result.exitCode).toBe(0)
-  })
-  test('should accept integration mode with list', async () => {
-    const result = await runCLI(['test', '--mode', 'integration', 'list'])
-    expect(result.exitCode).toBe(0)
-  })
-  test('should accept e2e mode with list', async () => {
-    const result = await runCLI(['test', '--mode', 'e2e', 'list'])
-    expect(result.exitCode).toBe(0)
-  })
+  test(
+    'should accept unit mode with list',
+    async () => {
+      const result = await runCLI(['test', '--mode', 'unit', 'list'])
+      expect(result.exitCode).toBe(0)
+    },
+    CLI_TEST_TIMEOUT_MS,
+  )
+  test(
+    'should accept integration mode with list',
+    async () => {
+      const result = await runCLI(['test', '--mode', 'integration', 'list'])
+      expect(result.exitCode).toBe(0)
+    },
+    CLI_TEST_TIMEOUT_MS,
+  )
+  test(
+    'should accept e2e mode with list',
+    async () => {
+      const result = await runCLI(['test', '--mode', 'e2e', 'list'])
+      expect(result.exitCode).toBe(0)
+    },
+    CLI_TEST_TIMEOUT_MS,
+  )
 })
 
 describe('Test Orchestrator - Concurrent Access Protection', () => {
-  test('should handle concurrent list commands', async () => {
-    const results = await Promise.all([
-      runCLI(['test', 'list']),
-      runCLI(['test', 'list']),
-    ])
-    expect(results[0].exitCode).toBe(0)
-    expect(results[1].exitCode).toBe(0)
-  })
-  test('should allow concurrent with --force', async () => {
-    const results = await Promise.all([
-      runCLI(['test', '--force', 'list']),
-      runCLI(['test', '--force', 'list']),
-    ])
-    expect(results[0].exitCode).toBe(0)
-    expect(results[1].exitCode).toBe(0)
-  })
+  test(
+    'should handle concurrent list commands',
+    async () => {
+      const results = await Promise.all([
+        runCLI(['test', 'list']),
+        runCLI(['test', 'list']),
+      ])
+      expect(results[0].exitCode).toBe(0)
+      expect(results[1].exitCode).toBe(0)
+    },
+    CLI_TEST_TIMEOUT_MS,
+  )
+  test(
+    'should allow concurrent with --force',
+    async () => {
+      const results = await Promise.all([
+        runCLI(['test', '--force', 'list']),
+        runCLI(['test', '--force', 'list']),
+      ])
+      expect(results[0].exitCode).toBe(0)
+      expect(results[1].exitCode).toBe(0)
+    },
+    CLI_TEST_TIMEOUT_MS,
+  )
 })
 
 describe('Test Orchestrator - App Discovery', () => {

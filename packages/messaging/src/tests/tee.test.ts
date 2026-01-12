@@ -293,8 +293,7 @@ describe('Key Registry Sync', () => {
     expect(registrySync).toBeInstanceOf(KeyRegistrySync)
   })
 
-  // Note: The following tests would require a mock or actual contract
-  // In CI/CD, these would use a forked network or local node
+  // The following tests use a mock - CI/CD would use forked network or local node
 
   test('lookup returns null for unregistered address', async () => {
     const result = await registrySync.getOnChainKey(
@@ -386,8 +385,7 @@ describe('TEE Integration Flow', () => {
       signer.getIdentityKey().publicKey,
     )
 
-    // But different attestations (different enclaves)
-    // Note: In real TEE, attestations would differ by enclave
+    // Different attestations (different enclaves) - in real TEE, attestations differ by enclave
     await signer.getAttestation()
     await signer2.getAttestation()
   })

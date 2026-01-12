@@ -459,8 +459,8 @@ export class MPCCoordinator {
       message: { raw: toBytes(session.messageHash) },
     })
 
-    // SECURITY: Clear the reconstructed key reference after use
-    // Note: bigint is immutable, but clearing the reference helps with GC
+    // SECURITY: Clear the reconstructed key reference after use.
+    // bigint is immutable, but clearing the reference helps with GC.
     reconstructedKey = 0n
 
     return {

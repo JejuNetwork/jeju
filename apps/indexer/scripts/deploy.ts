@@ -344,7 +344,7 @@ async function registerApp(
     staticFiles: staticFilesRecord, // Map of all file paths to CIDs
     backendWorkerId, // Use CID for decentralized routing
     backendEndpoint, // CID-based endpoint
-    apiPaths: ['/api', '/health', '/a2a', '/mcp', '/graphql'], // Note: no trailing slashes - isApiPath checks pathname.startsWith(prefix + '/')
+    apiPaths: ['/api', '/health', '/a2a', '/mcp', '/graphql'], // No trailing slashes - isApiPath checks pathname.startsWith(prefix + '/')
     spa: true, // Single-page application
     enabled: true,
   }

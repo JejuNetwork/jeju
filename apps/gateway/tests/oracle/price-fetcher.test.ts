@@ -34,8 +34,7 @@ describe('PriceFetcher', () => {
 
       priceFetcher.setManualPrice(feedId, price, confidence)
 
-      // Fetch should return the set price
-      // Note: fetchPrice is async but manual just returns from cache
+      // Fetch should return the set price - fetchPrice is async but manual just returns from cache
     })
 
     test('should update manual price on subsequent sets', () => {

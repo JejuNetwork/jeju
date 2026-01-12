@@ -621,8 +621,8 @@ jsg::Ref<CryptoKey> SubtleCrypto::importKeySync(jsg::Lock& js,
   JSG_REQUIRE(algoImpl.importFunc != nullptr, DOMNotSupportedError,
       "Unrecognized key import algorithm \"", algorithm.name, "\" requested.");
 
-  // Note: we pass in the algorithm name (algoImpl.name) because we know it is uppercase, which
-  //   the `name` member of the `algorithm` value itself is not required to be. The individual
+  // We pass in the algorithm name (algoImpl.name) because we know it is uppercase, which
+  // the `name` member of the `algorithm` value itself is not required to be. The individual
   //   implementation functions don't necessarily know the name of the algorithm whose key they're
   //   importing (importKeyAesImpl handles AES-CTR, -CBC, and -GCM, for instance), so they should
   //   rely on this value to set the imported CryptoKey's name.

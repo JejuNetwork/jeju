@@ -18,7 +18,7 @@ export const AddressSchema = z.custom<Address>(
 // Hub API response schemas for external data validation
 
 // User Data Types (internal schema for API responses)
-// Note: Hub may return new types not in this list - accept any string
+// Hub may return new types not in this list - accept any string
 const UserDataTypeRaw = z.string()
 
 type UserDataType =
@@ -109,7 +109,7 @@ const EmbedSchema = z.object({
 })
 
 // Cast Add Body (shared between CastMessage and SingleCast)
-// Note: Hub API returns null for absent fields, so we use .nullish() (null | undefined)
+// Hub API returns null for absent fields, so we use .nullish() (null | undefined)
 const CastAddBodySchema = z.object({
   text: z.string().max(1024), // Farcaster increased limit from 320 to 1024
   parentCastId: CastIdSchema.nullish(),
@@ -171,8 +171,7 @@ export const LinksResponseSchema = z.object({
   nextPageToken: z.string().optional(),
 })
 
-// Username Proof
-// Note: proofs may be absent from response when no matching proof exists
+// Username Proof - proofs may be absent from response when no matching proof exists
 export const UsernameProofResponseSchema = z.object({
   proofs: z
     .array(

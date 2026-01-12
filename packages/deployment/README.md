@@ -19,6 +19,7 @@ packages/deployment/
 ├── docker/              # Docker images
 │   ├── sqlit/    # SQLit multi-arch image
 │   └── ipfs/           # IPFS node configuration
+│   └── phala-tee/       # Phala Cloud TEE images (base + eliza)
 ├── kubernetes/          # Kubernetes deployment
 │   ├── helm/           # Helm charts for each service
 │   └── helmfile/       # Environment-specific values

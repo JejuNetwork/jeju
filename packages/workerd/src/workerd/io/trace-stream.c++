@@ -1047,8 +1047,8 @@ bool TailStreamWriter::reportImpl(TailEvent&& event) {
 
 // Delivers the queued tail events to a streaming tail worker.
 //
-// Note: An invocation of pump() may outlive the TailStreamWriter, as it is placed in
-//   `waitUntilTasks`. Hence, it is declared `static`, and owns a strong ref to its `Active`.
+// An invocation of pump() may outlive the TailStreamWriter, as it is placed in
+// `waitUntilTasks`. Hence, it is declared `static`, and owns a strong ref to its `Active`.
 kj::Promise<void> TailStreamWriter::pump(kj::Own<Active> current) {
   current->pumping = true;
   KJ_DEFER(current->pumping = false);

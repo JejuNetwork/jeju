@@ -465,7 +465,7 @@ export class BackrunStrategy extends EventEmitter {
           {
             txs: [signedTx],
             blockNumber: `0x${targetBlock.toString(16)}`,
-            // Note: In a real implementation, we'd include the target tx hash
+            // In a real implementation, we'd include the target tx hash
             // to ensure our tx comes after it in the block
           },
         ],

@@ -30,9 +30,6 @@ const browserPlugin: BunPlugin = {
     build.onResolve({ filter: /^@jejunetwork\/messaging/ }, () => ({
       path: serverOnlyStub,
     }))
-    build.onResolve({ filter: /^@jejunetwork\/contracts/ }, () => ({
-      path: serverOnlyStub,
-    }))
     build.onResolve({ filter: /^ioredis/ }, () => ({ path: serverOnlyStub }))
     build.onResolve({ filter: /^elysia/ }, () => ({ path: serverOnlyStub }))
     build.onResolve({ filter: /^@elysiajs\// }, () => ({
@@ -86,6 +83,10 @@ const browserPlugin: BunPlugin = {
     }))
     build.onResolve({ filter: /^@jejunetwork\/config$/ }, () => ({
       path: resolve('../../packages/config/index.ts'),
+    }))
+    // Browser-safe contracts exports (avoid Node-only deployment helpers)
+    build.onResolve({ filter: /^@jejunetwork\/contracts$/ }, () => ({
+      path: resolve('./web/stubs/contracts.ts'),
     }))
     build.onResolve({ filter: /^@jejunetwork\/auth\/react$/ }, () => ({
       path: resolve('../../packages/auth/src/react/index.ts'),

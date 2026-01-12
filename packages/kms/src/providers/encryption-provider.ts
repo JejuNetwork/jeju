@@ -15,7 +15,7 @@
  * - Implement key rotation schedules to limit exposure window
  */
 
-import { getEnv, getEnvBoolean, requireEnv } from '@jejunetwork/shared'
+import { getEnv, requireEnv } from '@jejunetwork/shared'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes, toHex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -572,7 +572,7 @@ export class EncryptionProvider implements KMSProvider {
 let encryptionProvider: EncryptionProvider | undefined
 
 export function getEncryptionProvider(
-  config?: Partial<EncryptionConfig>,
+  _config?: Partial<EncryptionConfig>,
 ): EncryptionProvider {
   if (!encryptionProvider) {
     encryptionProvider = new EncryptionProvider()

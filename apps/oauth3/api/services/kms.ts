@@ -17,8 +17,8 @@ import {
   getKMS,
   type KMSService,
 } from '@jejunetwork/kms'
-import { keccak256, toBytes, toHex, verifyMessage } from 'viem'
 import type { Address, Hex } from 'viem'
+import { keccak256, toBytes, toHex, verifyMessage } from 'viem'
 
 interface OAuth3KMSConfig {
   jwtSigningKeyId: string
@@ -81,7 +81,10 @@ function base64urlEncode(data: string): string {
 
 function base64urlDecode(data: string): string {
   const padding = '='.repeat((4 - (data.length % 4)) % 4)
-  return Buffer.from(data.replace(/-/g, '+').replace(/_/g, '/') + padding, 'base64').toString()
+  return Buffer.from(
+    data.replace(/-/g, '+').replace(/_/g, '/') + padding,
+    'base64',
+  ).toString()
 }
 
 /**
@@ -121,7 +124,10 @@ export async function generateSecureToken(
   const signingInput = `${headerB64}.${payloadB64}`
   const messageHash = keccak256(toBytes(signingInput))
 
-  const signed = await kms.sign({ message: messageHash, keyId: config.jwtSigningKeyId })
+  const signed = await kms.sign({
+    message: messageHash,
+    keyId: config.jwtSigningKeyId,
+  })
   const signatureB64 = base64urlEncode(signed.signature)
 
   return `${headerB64}.${payloadB64}.${signatureB64}`
@@ -197,10 +203,7 @@ export async function sealSecret(
   // Derive encryption key from binding
   const key = await deriveKeyFromSecretAsync(binding, 'oauth3-seal')
 
-  const encrypted = await aesGcmEncrypt(
-    new TextEncoder().encode(secret),
-    key,
-  )
+  const encrypted = await aesGcmEncrypt(new TextEncoder().encode(secret), key)
 
   // Extract tag from ciphertext (last 16 bytes)
   const tag = encrypted.ciphertext.slice(-16)

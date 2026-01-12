@@ -172,7 +172,7 @@ test.describe('DWS - Storage Features', () => {
 
     // Upload is optional but expected
     if (!hasUpload) {
-      console.log('Note: No upload UI found on storage page')
+      console.log('No upload UI found on storage page')
     }
   })
 })

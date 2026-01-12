@@ -8,7 +8,7 @@
  * - Rate limiting enforcement
  * - Injection attacks
  *
- * Note: Some tests require SQLit for state operations.
+ * Some tests require SQLit for state operations.
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
@@ -541,8 +541,7 @@ describe('Injection Attack Prevention', () => {
   })
 
   test('should handle circular reference gracefully', () => {
-    // Note: JSON.stringify will fail on circular refs, but our sanitizer
-    // should at least not crash
+    // JSON.stringify fails on circular refs, but our sanitizer should not crash
     const obj: Record<string, unknown> = { a: 1 }
     // Can't test true circular refs easily, but test self-reference handling
     const config = createSanitizationConfig()

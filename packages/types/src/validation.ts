@@ -196,7 +196,7 @@ export const ChainIdSchema = z.number().int().positive()
  * Convert an unknown caught error to a proper Error instance.
  * Use this in catch blocks to safely convert unknown to Error.
  *
- * Note: `unknown` is necessary here because JavaScript allows throwing
+ * `unknown` is necessary here because JavaScript allows throwing
  * any value. This function provides a type-safe way to handle caught errors.
  *
  * Handles:

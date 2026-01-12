@@ -144,7 +144,7 @@ export const tokenEconomicsSchema = z.object({
 /**
  * Liquidity DEX protocols for token deployment
  * Includes EVM DEXes (Uniswap) and Solana DEXes (Raydium, Orca, Jupiter)
- * Note: Different from @jejunetwork/types DexProtocol which covers general DeFi protocols
+ * Different from @jejunetwork/types DexProtocol which covers general DeFi protocols
  * Type: LiquidityDex is exported from types.ts
  */
 export const liquidityDexSchema = z.enum([

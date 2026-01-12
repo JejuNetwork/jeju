@@ -1041,11 +1041,8 @@ function getAppForEnv(env: BazaarEnv): ReturnType<typeof createBazaarApp> {
 }
 
 /**
- * Default export for workerd/Cloudflare Workers
- *
- * Note: For optimal workerd performance, the build script should generate
- * a worker entry that uses CloudflareAdapter in the Elysia constructor.
- * This export provides the fetch handler pattern.
+ * Default export for workerd/Cloudflare Workers.
+ * Uses CloudflareAdapter via build script for optimal performance.
  */
 export default {
   async fetch(
@@ -1073,6 +1070,7 @@ if (isMainModule) {
   })
 
   const PORT = CORE_PORTS.BAZAAR_API.get()
+  const host = getLocalhostHost()
 
   const app = createBazaarApp({
     NETWORK: getCurrentNetwork(),
@@ -1088,9 +1086,13 @@ if (isMainModule) {
     SQLIT_PRIVATE_KEY: config.sqlitPrivateKey || '',
   })
 
-  const host = getLocalhostHost()
-  app.listen(PORT, () => {
-    console.log(`Bazaar API Worker running at http://${host}:${PORT}`)
+  console.log(`Bazaar API Worker running at http://${host}:${PORT}`)
+
+  // Use Bun.serve() directly to prevent Bun from auto-serving the default export
+  Bun.serve({
+    port: PORT,
+    hostname: host,
+    fetch: app.fetch,
   })
 }
 

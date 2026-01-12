@@ -87,7 +87,10 @@
     "tee": {
       "mode": "simulated",
       "platform": "local",
-      "region": "local"
+      "region": "local",
+      "endpoint": "http://127.0.0.1:8000",
+      "verifierContract": "0x0000000000000000000000000000000000000000",
+      "registryContract": "0x0000000000000000000000000000000000000000"
     },
     "oracle": {
       "api": "http://127.0.0.1:4070",
@@ -217,7 +220,10 @@
       "mode": "phala",
       "platform": "phala",
       "region": "global",
-      "endpoint": "https://tee.testnet.jejunetwork.org"
+      "endpoint": "https://tee.testnet.jejunetwork.org",
+      "dstackEndpoint": "https://dstack.phala.network",
+      "verifierContract": "0x0000000000000000000000000000000000000000",
+      "registryContract": "0x0000000000000000000000000000000000000000"
     },
     "oracle": {
       "api": "https://oracle.testnet.jejunetwork.org",
@@ -348,7 +354,10 @@
       "mode": "phala",
       "platform": "phala",
       "region": "global",
-      "endpoint": "https://tee.jejunetwork.org"
+      "endpoint": "https://tee.jejunetwork.org",
+      "dstackEndpoint": "https://dstack.phala.network",
+      "verifierContract": "0x0000000000000000000000000000000000000000",
+      "registryContract": "0x0000000000000000000000000000000000000000"
     },
     "oracle": {
       "api": "https://oracle.jejunetwork.org",

@@ -54,30 +54,34 @@ interface StorageBackend {
   healthCheck(): Promise<boolean>
 }
 
-// Default Configuration
+// Network-aware configuration
+// Localnet prioritizes speed (local + IPFS without pinning)
+// Production prioritizes durability (IPFS + Filecoin with replication)
+function getDefaultConfig(): MultiBackendConfig {
+  const network = getCurrentNetwork()
+  const isLocalnet = network === 'localnet'
 
-const DEFAULT_CONFIG: MultiBackendConfig = {
-  backends: [
-    { type: 'local', enabled: true, priority: 0 },
-    { type: 'webtorrent', enabled: true, priority: 1 },
-    { type: 'ipfs', enabled: true, priority: 2 },
-    { type: 'filecoin', enabled: true, priority: 3 },
-    { type: 'arweave', enabled: true, priority: 4 },
-  ],
-  defaultTier: 'popular',
-  replicationFactor: 2,
+  return {
+    backends: [
+      { type: 'local', enabled: true, priority: 0 },
+      { type: 'webtorrent', enabled: true, priority: 1 },
+      { type: 'ipfs', enabled: true, priority: 2 },
+      { type: 'filecoin', enabled: !isLocalnet, priority: 3 }, // Skip Filecoin in localnet
+      { type: 'arweave', enabled: !isLocalnet, priority: 4 }, // Skip Arweave in localnet
+    ],
+    defaultTier: 'popular',
+    // Localnet: single replica for speed; Production: 2 replicas for durability
+    replicationFactor: isLocalnet ? 1 : 2,
 
-  // System content: IPFS + Filecoin (no local fallback for system content)
-  // IPFS first for reliable CIDs, Filecoin for permanent storage
-  systemContentBackends: ['ipfs', 'filecoin'],
-
-  // Popular content: IPFS + Filecoin (no local fallback for popular content)
-  // Local backend returns non-IPFS CIDs which break decentralized routing
-  popularContentBackends: ['ipfs', 'filecoin'],
-
-  // Private content: IPFS only (encrypted)
-  privateContentBackends: ['ipfs'],
+    // Localnet: IPFS only (fast, with pin=false applied separately)
+    // Production: IPFS + Filecoin for permanent storage
+    systemContentBackends: isLocalnet ? ['ipfs'] : ['ipfs', 'filecoin'],
+    popularContentBackends: isLocalnet ? ['ipfs'] : ['ipfs', 'filecoin'],
+    privateContentBackends: ['ipfs'],
+  }
 }
+
+const DEFAULT_CONFIG: MultiBackendConfig = getDefaultConfig()
 
 // Multi-Backend Manager
 
@@ -148,7 +152,7 @@ export class MultiBackendManager {
       type: 'local',
       async upload(content: Buffer): Promise<{ cid: string; url: string }> {
         // Generate a local content hash for caching purposes
-        // Note: This is NOT an IPFS CID and should only be used as last resort
+        // This is NOT an IPFS CID and should only be used as last resort
         const contentHash = keccak256(new Uint8Array(content)).slice(2, 50)
         localStorage.set(contentHash, content)
         console.warn(

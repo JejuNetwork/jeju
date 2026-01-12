@@ -290,7 +290,7 @@ export const scanContractAction: Action = {
 **Warnings:**
 ${analysis.warnings.length > 0 ? analysis.warnings.map((w) => `- ${w}`).join('\n') : '- No major warnings detected'}
 
-${analysis.isProxy ? '\n**Note:** This is a proxy contract. The actual implementation should also be audited.' : ''}`
+${analysis.isProxy ? '\n**Proxy Contract:** The actual implementation should also be audited.' : ''}`
 
     callback?.({ text: response })
   },
@@ -345,7 +345,7 @@ export const checkScamAddressAction: Action = {
       })
     } else {
       callback?.({
-        text: `**Address Check: ${address}**\n\n✅ This address is not in our known scam database.\n\n**Note:** This doesn't guarantee safety. Always verify:\n- Contract source code if interacting with a contract\n- Transaction history and patterns\n- On-chain reputation labels`,
+        text: `**Address Check: ${address}**\n\n✅ This address is not in our known scam database.\n\n**Disclaimer:** This doesn't guarantee safety. Always verify:\n- Contract source code if interacting with a contract\n- Transaction history and patterns\n- On-chain reputation labels`,
       })
     }
   },

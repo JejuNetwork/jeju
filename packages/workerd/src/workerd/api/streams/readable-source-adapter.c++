@@ -212,7 +212,7 @@ jsg::Promise<ReadableStreamSourceJsAdapter::ReadResult> ReadableStreamSourceJsAd
       minBytes = minBytes + (elementSize - (minBytes % elementSize)) % elementSize;
     }
 
-    // Note: We do not enforce that the source must provide at least minBytes
+    // We do not enforce that the source must provide at least minBytes
     // if available here as that is part of the contract of the source itself.
     // We will simply pass minBytes along to the source and it is up to the
     // source to honor it. We do, however, enforce that the source must
@@ -1096,7 +1096,7 @@ void ReadableSourceKjAdapter::throwIfCancelingOrCanceled(Active& active) {
 
 kj::Promise<void> ReadableSourceKjAdapter::pumpToImpl(
     kj::Own<Active> active, WritableSink& output, EndAfterPump end) {
-  // Note: this intentionally contains code that is similar to the ReadableSourceImpl::pumpImpl
+  // This intentionally contains code that is similar to the ReadableSourceImpl::pumpImpl
   // impl in readable-source.c++. The optimizations are generally the same but the targets are
   // a bit different (ReadableStream vs. kj::AsyncInputStream).
   KJ_DASSERT(active->state.is<Active::Idle>() || active->state.is<Active::Readable>(),

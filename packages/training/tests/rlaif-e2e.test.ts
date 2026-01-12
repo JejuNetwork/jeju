@@ -9,8 +9,7 @@
  * - DWS compute integration
  * - Cross-chain bridge functionality
  *
- * Note: This test uses lazy imports to avoid bun's subpath export resolution
- * issue with viem/tempo -> ox/tempo/SignatureEnvelope
+ * Uses lazy imports to avoid bun's subpath export resolution issue with viem/tempo
  */
 
 import {

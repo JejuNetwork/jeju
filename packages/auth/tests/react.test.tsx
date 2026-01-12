@@ -27,8 +27,8 @@ import { OAuth3Provider } from '../src/react/provider.js'
 import { createOAuth3Client } from '../src/sdk/client.js'
 import { AuthProvider } from '../src/types.js'
 
-// Mock React for testing without DOM
-// Note: Using explicit type casts since we're testing module exports, not React integration
+// Mock React for testing without DOM.
+// Using explicit type casts since we're testing module exports, not React integration.
 function mockUseState<T>(initial: T): [T, () => void] {
   return [
     initial,

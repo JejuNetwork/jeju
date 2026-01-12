@@ -90,7 +90,7 @@ describeIfSQLit('ExtendedTaskStore', () => {
       taskSaveTimes = {}
 
       // Create test data - save order determines updated_at order
-      // Note: status.timestamp is metadata, updated_at is actual save time
+      // status.timestamp is metadata, updated_at is actual save time
       const now = Date.now()
 
       taskSaveTimes['task-1'] = Date.now()

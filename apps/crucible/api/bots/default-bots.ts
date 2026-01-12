@@ -1,8 +1,5 @@
 import type { Address } from 'viem'
-import type {
-  TradingBotChain,
-  TradingBotStrategy,
-} from '../../lib/types'
+import type { TradingBotChain, TradingBotStrategy } from '../../lib/types'
 import type { TradingBotOptions } from './trading-bot'
 
 /**
@@ -202,10 +199,10 @@ export function getDefaultBotsForNetwork(
     const testnetChains = [420690, 11155111, 84532, 421614]
     return DEFAULT_BOTS.map((bot) => ({
       ...bot,
-      chains: bot.chains.filter((chainId) =>
-        testnetChains.includes(chainId),
+      chains: bot.chains.filter((chainId) => testnetChains.includes(chainId)),
+      initialFunding: String(
+        Math.max(0.01, parseFloat(bot.initialFunding) * 0.1),
       ),
-      initialFunding: String(Math.max(0.01, parseFloat(bot.initialFunding) * 0.1)),
     }))
   }
 

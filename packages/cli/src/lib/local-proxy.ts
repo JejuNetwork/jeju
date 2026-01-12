@@ -63,7 +63,7 @@ function buildServicesFromApps(): Record<string, number> {
   // OAuth3 authentication:
   // - auth.local → authentication gateway API (port 4200)
   // - oauth3.local → authentication gateway API (port 4200) - also serves frontend
-  // Note: The API server on 4200 serves both API endpoints and frontend HTML
+  // The API server on 4200 serves both API endpoints and frontend HTML
   services.auth = 4200
   services.oauth3 = 4200
 
@@ -367,7 +367,7 @@ const DIRECT_ROUTE_SERVICES = new Set([
   'auth', // OAuth3 authentication gateway API
   'oauth3', // OAuth3 lander/frontend page
   'vpn', // VPN app - serves its own frontend in dev
-  // Note: 'dws' is NOT here - it has a frontend served via JNS Gateway
+  // 'dws' is NOT here - it has a frontend served via JNS Gateway
 ])
 
 // Services that need hybrid routing (frontend + API on same domain)
@@ -436,7 +436,7 @@ export function generateCaddyfile(config: ProxyConfig = {}): string {
   // Use port 80 by default for clean URLs (requires sudo on Unix)
   const proxyPort = config.port || 80
   // JNS Gateway port for app content from IPFS
-  // Note: Port 4302 is used by JNS resolution service, gateway is on 4303
+  // Port 4302 is used by JNS resolution service, gateway is on 4303
   const jnsGatewayPort = 4303
 
   const entries: string[] = [

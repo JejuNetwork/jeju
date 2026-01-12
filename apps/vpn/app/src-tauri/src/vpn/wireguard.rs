@@ -709,12 +709,12 @@ mod platform {
         }
     }
 
-    /// Create a TUN interface on iOS
-    /// Note: On iOS, the actual TUN is created by NEPacketTunnelProvider in Swift
-    /// This function creates a placeholder that expects set_tun_fd to be called
+    /// Create a TUN interface on iOS.
+    /// On iOS, the actual TUN is created by NEPacketTunnelProvider in Swift.
+    /// This function creates a placeholder that expects set_tun_fd to be called.
     pub async fn create_tun_interface() -> Result<TunDevice, VPNError> {
         tracing::info!("Creating iOS TUN interface placeholder");
-        tracing::info!("Note: iOS requires NEPacketTunnelProvider to provide the tunnel fd");
+        tracing::info!("iOS requires NEPacketTunnelProvider to provide the tunnel fd");
 
         Ok(TunDevice {
             name: "utun".to_string(),
@@ -788,12 +788,12 @@ mod platform {
         }
     }
 
-    /// Create a TUN interface on Android
-    /// Note: On Android, the actual TUN is created by VpnService in Kotlin/Java
-    /// This function creates a placeholder that expects set_tun_fd to be called
+    /// Create a TUN interface on Android.
+    /// On Android, the actual TUN is created by VpnService in Kotlin/Java.
+    /// This function creates a placeholder that expects set_tun_fd to be called.
     pub async fn create_tun_interface() -> Result<TunDevice, VPNError> {
         tracing::info!("Creating Android TUN interface placeholder");
-        tracing::info!("Note: Android requires VpnService to provide the tunnel fd");
+        tracing::info!("Android requires VpnService to provide the tunnel fd");
 
         Ok(TunDevice {
             name: "tun0".to_string(),

@@ -122,7 +122,7 @@ async function main() {
   
   // Now register on-chain (would need staking tokens)
   console.log('')
-  console.log('Note: Registration requires staking tokens (10k+ JEJU)')
+  console.log('Registration requires staking tokens (10k+ JEJU)')
   console.log('Saving identity for later registration...')
   
   // Save to file for later use

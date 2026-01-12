@@ -653,8 +653,7 @@ describe('Integration - Real Data Verification', () => {
 
     expect(response.messages.length).toBeGreaterThan(0)
 
-    // Note: Farcaster timestamps are NOT Unix timestamps - they are
-    // "Farcaster timestamps" which are seconds since Jan 1, 2021 UTC
+    // Farcaster timestamps are seconds since Jan 1, 2021 UTC (not Unix timestamps)
     // So they will be smaller numbers than Unix timestamps
     for (const cast of response.messages) {
       expect(cast.timestamp).toBeGreaterThan(0)
@@ -679,7 +678,7 @@ describe('Integration - Real Data Verification', () => {
     })
 
     // The Hub returns casts for the channel
-    // Note: parentUrl may be set differently depending on Hub implementation
+    // parentUrl may be set differently depending on Hub implementation
     expect(response.messages).toBeDefined()
     expect(Array.isArray(response.messages)).toBe(true)
 

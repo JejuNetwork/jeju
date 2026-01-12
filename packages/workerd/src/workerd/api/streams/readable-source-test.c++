@@ -1144,8 +1144,8 @@ KJ_TEST("Adaptive pump: verify mock stream is called") {
     co_await environment.context.waitForDeferredProxy(source->pumpTo(sink, EndAfterPump::YES));
     KJ_ASSERT(sink.getTotalBytesWritten() == 100 * 1024);
 
-    // Verify that our mock was actually called
-    // Note: Vector tracking doesn't work reliably in coroutine context, but readCount does
+    // Verify that our mock was actually called.
+    // Vector tracking doesn't work reliably in coroutine context, but readCount does.
     KJ_ASSERT(input.getReadCount() > 0, "Mock stream was never read from");
   });
 }

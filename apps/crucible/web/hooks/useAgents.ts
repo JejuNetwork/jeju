@@ -32,6 +32,31 @@ interface Agent {
     a2a?: boolean
     compute?: boolean
   }
+  /** TEE verification status */
+  tee?: {
+    /** Whether agent runs in TEE */
+    enabled: boolean
+    /** TEE platform type */
+    platform?:
+      | 'intel_tdx'
+      | 'intel_sgx'
+      | 'amd_sev_snp'
+      | 'phala'
+      | 'aws_nitro'
+      | 'gcp_confidential'
+    /** Attestation status */
+    status: 'valid' | 'expired' | 'unverified' | 'pending'
+    /** mrEnclave measurement */
+    mrEnclave?: string
+    /** mrSigner measurement */
+    mrSigner?: string
+    /** Provider endpoint */
+    endpoint?: string
+    /** When attestation expires */
+    expiresAt?: number
+    /** Last attestation timestamp */
+    lastAttestationAt?: number
+  }
 }
 
 interface AgentsSearchResponse {

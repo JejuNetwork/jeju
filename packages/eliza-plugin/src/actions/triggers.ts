@@ -74,7 +74,7 @@ export const createTriggerAction: Action = {
     const endpoint = urlMatch[0]
 
     // Validate endpoint URL is safe (prevent SSRF via trigger creation)
-    // Note: For triggers, we're more permissive but still block obvious internal URLs
+    // For triggers, we're more permissive but still block obvious internal URLs
     if (!isUrlSafeToFetch(endpoint)) {
       callback?.({
         text: 'Cannot create trigger pointing to internal or private URLs for security reasons.',

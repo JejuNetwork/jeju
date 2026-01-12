@@ -12,6 +12,7 @@
     "@jejunetwork/sdk": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/types": "workspace:*",
+    "@jejunetwork/ui": "workspace:*",
     "@tanstack/react-query": "5.90.12",
     "date-fns": "^4.1.0",
     "elysia": "^1.4.19",

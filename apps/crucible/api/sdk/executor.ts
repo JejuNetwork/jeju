@@ -24,9 +24,9 @@ import type { RoomSDK } from './room'
 import type { CrucibleStorage } from './storage'
 
 const TRIGGER_REGISTRY_ABI = parseAbi([
-  'function registerTrigger(string name, uint8 triggerType, string cronExpression, string endpoint, uint256 timeout, uint8 paymentMode, uint256 pricePerExecution) external returns (bytes32 triggerId)',
-  'function registerTriggerWithAgent(string name, uint8 triggerType, string cronExpression, string endpoint, uint256 timeout, uint8 paymentMode, uint256 pricePerExecution, uint256 agentId) external returns (bytes32 triggerId)',
-  'function getTrigger(bytes32 triggerId) external view returns (address owner, uint8 triggerType, string name, string endpoint, bool active, uint256 executionCount)',
+  'function registerTriggerWithAgent(string name, string description, uint8 triggerType, string cronExpression, string endpoint, uint256 timeout, uint8 paymentMode, uint256 pricePerExecution, uint256 agentId) external returns (bytes32 triggerId)',
+  'function setTriggerActive(bytes32 triggerId, bool active) external',
+  'function getTrigger(bytes32 triggerId) external view returns (address owner, uint8 triggerType, string name, string endpoint, bool active, uint256 executionCount, uint256 lastExecutedAt, uint256 agentId)',
   'function recordExecution(bytes32 triggerId, bool success, bytes32 outputHash) external returns (bytes32 executionId)',
   'function getAgentTriggers(uint256 agentId) external view returns (bytes32[])',
   'event TriggerRegistered(bytes32 indexed triggerId, address owner, string name)',
@@ -416,7 +416,7 @@ export class ExecutorSDK {
       abi: TRIGGER_REGISTRY_ABI,
       functionName: 'getTrigger',
       args: [asHex(triggerId)],
-    })) as [Address, number, string, string, boolean, bigint]
+    })) as [Address, number, string, string, boolean, bigint, bigint, bigint]
 
     expect(active, `Trigger not active: ${triggerId}`)
 
@@ -464,11 +464,12 @@ export class ExecutorSDK {
       functionName: 'registerTriggerWithAgent',
       args: [
         name,
+        `Autonomous trigger for agent ${agentId.toString()}`,
         0,
         cronExpression,
         `agent://${agentId}`,
         300n,
-        2,
+        0,
         options?.pricePerExecution ?? 0n,
         agentId,
       ],
@@ -506,7 +507,16 @@ export class ExecutorSDK {
           abi: TRIGGER_REGISTRY_ABI,
           functionName: 'getTrigger',
           args: [triggerId],
-        })) as [Address, number, string, string, boolean, bigint]
+        })) as [
+          Address,
+          number,
+          string,
+          string,
+          boolean,
+          bigint,
+          bigint,
+          bigint,
+        ]
 
       const triggerTypes = ['cron', 'webhook', 'event', 'room_message'] as const
       if (triggerType < 0 || triggerType >= triggerTypes.length) {
@@ -524,6 +534,19 @@ export class ExecutorSDK {
       })
     }
     return triggers
+  }
+
+  async setTriggerActive(triggerId: string, active: boolean): Promise<void> {
+    if (!this.canWrite()) throw new Error('KMS signer required')
+    expect(triggerId, 'Trigger ID is required')
+    expectTrue(triggerId.length > 0, 'Trigger ID cannot be empty')
+
+    await this.executeWrite({
+      address: this.config.contracts.triggerRegistry,
+      abi: TRIGGER_REGISTRY_ABI,
+      functionName: 'setTriggerActive',
+      args: [asHex(triggerId), active],
+    })
   }
 
   private async buildContext(

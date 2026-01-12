@@ -676,7 +676,7 @@ async function main() {
 
   if (!teeRegistryAddress) {
     console.log(`
-Note: TEE_REGISTRY_ADDRESS not set. To enable on-chain registration:
+TEE_REGISTRY_ADDRESS not set. To enable on-chain registration:
   1. Deploy TEERegistry contract: bun run forge script DeployTEE.s.sol
   2. Set TEE_REGISTRY_ADDRESS environment variable
   3. Re-run this script

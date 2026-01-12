@@ -518,11 +518,11 @@ async function runAIVerification(
     )
   }
 
-  // Note: Don't fail on "doesn't match" because pages may show wallet connect
+  // Don't fail on "doesn't match" because pages may show wallet connect
   // prompts when not logged in. Focus on quality and critical issues instead.
   if (!verification.matches) {
     console.log(
-      `   ℹ️ Note: Page appearance differs from description (may need wallet connection)`,
+      `   ℹ️ Page appearance differs from description (may need wallet connection)`,
     )
   }
 }

@@ -424,10 +424,7 @@ ip.address = function (name, family) {
   }
 
   const all = Object.keys(interfaces).map((nic) => {
-    //
-    // Note: name will only be `public` or `private`
-    // when this is called.
-    //
+    // At this point, name will only be `public` or `private`
     const addresses = interfaces[nic].filter((details) => {
       details.family = _normalizeFamily(details.family);
       if (details.family !== family || ip.isLoopback(details.address)) {

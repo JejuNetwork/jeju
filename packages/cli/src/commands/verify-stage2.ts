@@ -269,7 +269,7 @@ async function checkSecurityBoard(network: NetworkType): Promise<CheckResult> {
     return { passed: false, reason: 'GovernanceTimelock has no code' }
   }
 
-  // Note: Real implementation would check if Security Board multisig has CANCELLER_ROLE
+  // Real implementation would check if Security Board multisig has CANCELLER_ROLE
   return {
     passed: true,
     details: { timelockAddress },

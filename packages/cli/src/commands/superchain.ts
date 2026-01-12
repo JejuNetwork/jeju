@@ -228,7 +228,7 @@ async function checkSecurityBoard(network: NetworkType): Promise<{
     return { status: 'fail', details: 'SecurityBoard has no code' }
   }
 
-  // Note: Full verification would check threshold and owner count
+  // Full verification would check threshold and owner count
   return {
     status: 'warn',
     details: 'Deployed - verify 4/7 threshold manually',

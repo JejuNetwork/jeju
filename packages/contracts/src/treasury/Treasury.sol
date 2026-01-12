@@ -376,8 +376,7 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
 
         for (uint256 i = 0; i < NUM_BUCKETS; i++) {
             WithdrawalBucket storage bucket = withdrawalBuckets[i];
-            // Include bucket if it's within the rolling window
-            // Note: bucket.amount > 0 check handles empty buckets
+            // Include bucket if it's within the rolling window (bucket.amount > 0 handles empty buckets)
             if (bucket.timestamp >= windowStart && bucket.amount > 0) {
                 rollingTotal += bucket.amount;
             }

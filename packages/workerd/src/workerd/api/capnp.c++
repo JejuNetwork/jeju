@@ -459,8 +459,8 @@ struct JsCapnpConverter {
         case capnp::DynamicValue::CAPABILITY:
           KJ_IF_SOME(p, pipelinedCap) {
             // Use the same CapnpCapability object that we returned earlier for promise pipelining.
-            // Note: We know the JS wrapper exists because CapnpCapability objects are always created
-            //   by CapnpTypeWrapper::wrap() and immediately have a wrapper added.
+            // We know the JS wrapper exists because CapnpCapability objects are always created
+            // by CapnpTypeWrapper::wrap() and immediately have a wrapper added.
             return KJ_ASSERT_NONNULL(p.content.get<jsg::Ref<CapnpCapability>>().tryGetHandle(js));
           } else {
             return wrapper.wrapCap(js, js.v8Context(), value.as<capnp::DynamicCapability>());
@@ -660,8 +660,8 @@ v8::Local<v8::Value> CapnpCapability::call(jsg::Lock& js,
     JSG_FAIL_REQUIRE(TypeError, "Argument to a capnp RPC call must be an object.");
   }
   if (method.isStreaming()) {
-    // Note: We know the JS wrapper exists for JSG_THIS because CapnpCapability objects are always
-    //   created by CapnpTypeWrapper::wrap() and immediately have a wrapper added.
+    // We know the JS wrapper exists for JSG_THIS because CapnpCapability objects are always
+    // created by CapnpTypeWrapper::wrap() and immediately have a wrapper added.
     return wrapper.wrapPromise(js, js.v8Context(), KJ_ASSERT_NONNULL(JSG_THIS.tryGetHandle(js)),
         ioContext.awaitIo(
             js, req.sendStreaming(), [](jsg::Lock& js) { return js.v8Ref(js.v8Undefined()); }));
@@ -673,8 +673,8 @@ v8::Local<v8::Value> CapnpCapability::call(jsg::Lock& js,
     auto& pipelinedCapRef = *pipelinedCapHolder;
 
     // We'll consume the promise itself to handle converting the response.
-    // Note: We know the JS wrapper exists for JSG_THIS because CapnpCapability objects are always
-    //   created by CapnpTypeWrapper::wrap() and immediately have a wrapper added.
+    // We know the JS wrapper exists for JSG_THIS because CapnpCapability objects are always
+    // created by CapnpTypeWrapper::wrap() and immediately have a wrapper added.
     auto responsePromise =
         kj::Promise<capnp::Response<capnp::DynamicStruct>>(kj::mv(rpcPromise))
             .catch_([](kj::Exception&& ex) -> kj::Promise<capnp::Response<capnp::DynamicStruct>> {

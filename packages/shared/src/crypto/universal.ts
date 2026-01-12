@@ -723,9 +723,9 @@ export async function encryptChaCha20Poly1305(
   plaintext: Uint8Array,
   aad: Uint8Array = new Uint8Array(0),
 ): Promise<Uint8Array> {
-  // Note: Web Crypto doesn't natively support ChaCha20-Poly1305 in all browsers
-  // For Node.js/Bun environments, we use the Bun-native implementation
-  // This function assumes a runtime that supports ChaCha20-Poly1305
+  // Web Crypto doesn't natively support ChaCha20-Poly1305 in all browsers.
+  // For Node.js/Bun environments, we use the Bun-native implementation.
+  // This function assumes a runtime that supports ChaCha20-Poly1305.
 
   // Import the key
   const cryptoKey = await crypto.subtle.importKey(

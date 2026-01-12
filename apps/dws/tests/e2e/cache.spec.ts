@@ -3,7 +3,7 @@
  *
  * Tests the decentralized cache service end-to-end
  *
- * Note: Some tests require strong consistency and may be skipped on testnet/mainnet
+ * Some tests require strong consistency and may be skipped on testnet/mainnet
  * where the distributed cache has eventual consistency.
  */
 

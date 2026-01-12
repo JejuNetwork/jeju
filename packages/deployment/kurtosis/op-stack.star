@@ -209,8 +209,8 @@ def run(plan, args={}):
     
     plan.print("op-geth started")
     
-    # Start op-node (L2 consensus/derivation)
-    # Note: In dev mode, we run op-node pointing to op-geth engine API
+    # Start op-node (L2 consensus/derivation).
+    # In dev mode, we run op-node pointing to op-geth engine API.
     op_node = plan.add_service(
         name="op-node",
         config=ServiceConfig(

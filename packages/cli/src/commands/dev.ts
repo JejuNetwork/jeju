@@ -283,11 +283,8 @@ async function deployAppsOnchain(
     logger.success(`Built ${successCount}/${appsWithDirs.length} apps`)
   }
 
-  // Start DWS, OAuth3, and register node in parallel
+  // Start DWS, OAuth3, and register node in parallel (DWS may already be running from orchestrator)
   logger.step('Starting services in parallel...')
-
-  // Note: DWS is already started by the orchestrator in startAll()
-  // Don't call ensurePortAvailable here as it would kill the already running DWS
 
   // Helper to check if port is in use
   const isPortInUse = async (port: number): Promise<boolean> => {

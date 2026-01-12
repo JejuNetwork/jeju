@@ -525,8 +525,8 @@ class Isolate: public IsolateBase {
   //
   // If using v8 sandboxing, the group argument controls which isolates share a
   // sandbox, and which are isolated (as much as possible) in the event of a
-  // heap corruption attack. Note: The isolates in a group are limited to at
-  // most 4Gbytes of V8 heap in all.  Groups can be created with
+  // heap corruption attack. The isolates in a group are limited to at
+  // most 4Gbytes of V8 heap in all. Groups can be created with
   // v8::IsolateGroup::Create().  (If using V8 pointer compression, this
   // requires the enable_pointer_compression_multiple_cages build flag for V8.)
   // Pass v8::IsolateGroup::Default() as the group to put all isolates in the

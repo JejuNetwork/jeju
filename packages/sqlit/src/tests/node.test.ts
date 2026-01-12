@@ -343,12 +343,19 @@ describe('SQLitNode', () => {
     })
 
     it('should throw for non-existent database', async () => {
-      await expect(
-        node.execute({
-          databaseId: 'non-existent',
-          sql: 'SELECT 1',
-        }),
-      ).rejects.toThrow('Database non-existent not found')
+      // Set production mode to disable auto-provisioning
+      const originalEnv = process.env.NODE_ENV
+      process.env.NODE_ENV = 'production'
+      try {
+        await expect(
+          node.execute({
+            databaseId: 'non-existent',
+            sql: 'SELECT 1',
+          }),
+        ).rejects.toThrow('Database non-existent not found')
+      } finally {
+        process.env.NODE_ENV = originalEnv
+      }
     })
 
     it('should throw for invalid SQL', async () => {

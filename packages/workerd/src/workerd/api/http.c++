@@ -180,8 +180,8 @@ Body::ExtractedBody Body::extractBody(jsg::Lock& js, Initializer init) {
     KJ_CASE_ONEOF(formData, jsg::Ref<FormData>) {
       // Make an array of characters containing random hexadecimal digits.
       //
-      // Note: Rather than use random hex digits, we could generate the hex digits by hashing the
-      //   form-data content itself! This would give us pleasing assurance that our boundary string
+      // Rather than use random hex digits, we could generate the hex digits by hashing the
+      // form-data content itself! This would give us pleasing assurance that our boundary string
       //   is not present in the content being divided. The downside is CPU usage if, say, a user
       //   uploads an enormous file.
       kj::FixedArray<kj::byte, 16> boundaryBuffer;
@@ -691,7 +691,7 @@ jsg::Optional<jsg::JsObject> Request::getCf(jsg::Lock& js) {
 // If signal is given, getThisSignal returns a reference to it.
 // Otherwise, we lazily create a new never-aborts AbortSignal that will not
 // be used for anything because the spec wills it so.
-// Note: To be pedantic, the spec actually calls for us to create a
+// To be pedantic, the spec actually calls for us to create a
 // second AbortSignal in addition to the one being passed in, but
 // that's a bit silly and unnecessary.
 // The name "thisSignal" is derived from the fetch spec, which draws a
@@ -1814,8 +1814,8 @@ jsg::Promise<jsg::Ref<Response>> handleHttpRedirectResponse(jsg::Lock& js,
     return js.rejectedPromise<jsg::Ref<Response>>(kj::mv(exception));
   }
 
-  // Note: RFC7231 says we should propagate fragments from the current request URL to the
-  //   redirected URL. The Fetch spec seems to take the position that that's the navigator's
+  // RFC7231 says we should propagate fragments from the current request URL to the
+  // redirected URL. The Fetch spec seems to take the position that that's the navigator's
   //   job -- i.e., that you should be using redirect manual mode and deciding what to do with
   //   fragments in Location headers yourself. We follow the spec, and don't do any explicit
   //   fragment propagation.

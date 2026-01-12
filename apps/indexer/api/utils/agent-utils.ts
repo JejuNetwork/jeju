@@ -7,7 +7,7 @@ import { query, type RegisteredAgent } from '../db'
 
 /**
  * Get agents by tag from SQLit
- * Note: SQLit stores tags as JSON string, so we search with LIKE
+ * SQLit stores tags as JSON string, so we search with LIKE
  */
 export async function getAgentsByTag(
   tag: string,

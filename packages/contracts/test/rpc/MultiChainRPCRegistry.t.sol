@@ -824,8 +824,8 @@ contract MultiChainRPCRegistryTest is Test {
     }
 
     function test_GetActiveProviders_IncludesFrozen() public {
-        // Note: getActiveProviders returns all registered nodes regardless of frozen state
-        // Frozen nodes are filtered out at selection time, not in getActiveProviders
+        // getActiveProviders returns all registered nodes regardless of frozen state.
+        // Frozen nodes are filtered out at selection time, not in getActiveProviders.
         vm.prank(node1);
         registry.registerNode{value: 1 ether}("us-east");
         vm.prank(node2);

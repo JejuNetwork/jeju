@@ -139,8 +139,7 @@ describe('Wallet & Signing (KMS-backed)', () => {
 
     const client = createSecureNodeClient(RPC_URL, CHAIN_ID, TEST_KEY_ID)
 
-    // Note: This will fail without a real KMS service running
-    // In production, the signer.signTransaction() calls KMS MPC
+    // Will fail without a real KMS service - in production, signer.signTransaction() calls KMS MPC
     const { hash } = await client.signer.signTransaction({
       to: TEST_ACCOUNTS[0].address,
       value: parseEther('0.001'),

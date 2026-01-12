@@ -173,7 +173,7 @@ function validateImageRef(imageRef: string): void {
     /[`$;|<>&]/, // Shell metacharacters
     /\.\./, // Path traversal
     /\\x[0-9a-f]{2}/i, // Hex escapes
-    /[\x00-\x1f]/, // Control characters
+    /[\u0000-\u001f]/, // Control characters
   ]
 
   for (const pattern of dangerousPatterns) {

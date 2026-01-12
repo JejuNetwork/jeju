@@ -649,7 +649,7 @@ const server = http.createServer((req, res) => {
           return;
         }
         
-        // Note: In production, verify signature with eth_ecrecover
+        // In production, verify signature with eth_ecrecover
         // For testnet demo, we accept any valid-looking signature
         if (!signature || !signature.startsWith('0x') || signature.length < 130) {
           res.setHeader('Content-Type', 'application/json');

@@ -324,9 +324,7 @@ describe('Security Validation', () => {
         'ENCRYPTION_KEY',
       ]
 
-      // Import the runtime to check SAFE_ENV_KEYS
-      // Note: This would require exporting SAFE_ENV_KEYS or using a different approach
-      // For now, we document the expectation
+      // Verify sensitive keys are not in the safe keys list
       for (const key of sensitiveKeys) {
         // SAFE_ENV_KEYS should NOT contain these
         expect(['PORT', 'NODE_ENV', 'NETWORK', 'KMS_URL'].includes(key)).toBe(

@@ -248,8 +248,8 @@ class StructWrapper<Self, T, TypeTuple<FieldWrappers...>, kj::_::Indexes<indices
     auto& fields = getFields(js.v8Isolate);
     auto in = handle.As<v8::Object>();
 
-    // Note: We unwrap struct members in the order in which the compiler evaluates the expressions
-    //   in `T { expressions... }`. This is technically a non-conformity from Web IDL's perspective:
+    // We unwrap struct members in the order in which the compiler evaluates the expressions
+    // in `T { expressions... }`. This is technically a non-conformity from Web IDL's perspective:
     //   it prescribes lexicographically-ordered member initialization, with base members ordered
     //   before derived members. Objects with mutating getters might be broken by this, but it
     //   doesn't seem worth fixing absent a compelling use case.

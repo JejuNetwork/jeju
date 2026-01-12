@@ -1,6 +1,6 @@
 # DWS Helm Values - GCP Testnet
-# GCP-specific configuration for DWS deployment
-# Note: Image repository is set via helmfile
+# GCP-specific configuration for DWS deployment.
+# Image repository is set via helmfile.
 
 replicaCount: 3
 

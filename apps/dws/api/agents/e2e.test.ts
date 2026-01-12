@@ -152,8 +152,7 @@ describe('Agent E2E (requires DWS)', () => {
       return
     }
 
-    // Note: This will fail if workerd isn't actually running
-    // In practice, the mock should handle it
+    // Will fail if workerd isn't running - mock should handle it
     const res = await fetch(`${DWS_URL}/agents/${createdAgentId}/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

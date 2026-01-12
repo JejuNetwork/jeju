@@ -167,9 +167,13 @@ export class InfrastructureService {
         // Ignore errors in exit monitoring
       })
 
-    // Wait for server to start
-    for (let i = 0; i < 20; i++) {
-      await this.sleep(250)
+    const startupTimeoutMs = 30000
+    const pollIntervalMs = 250
+    const maxPolls = Math.ceil(startupTimeoutMs / pollIntervalMs)
+
+    // Wait for server to start (SQLit can take a while to load many databases)
+    for (let i = 0; i < maxPolls; i++) {
+      await this.sleep(pollIntervalMs)
       if (await this.isSQLitRunning()) {
         logger.success(`SQLit server running on port ${SQLIT_PORT}`)
         logger.keyValue(
@@ -186,7 +190,7 @@ export class InfrastructureService {
       }
     }
 
-    logger.error('SQLit server failed to start within 5 seconds')
+    logger.error(`SQLit server failed to start within ${startupTimeoutMs}ms`)
     return false
   }
 

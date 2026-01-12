@@ -183,7 +183,7 @@ KJ_TEST("module import failure") {
 // The Rust Realm is stored in V8's embedder data. In fuzzers with incremental leak detection, this can cause false positive leak
 // reports because LSAN checks between iterations while the static TestFixture is still alive.
 //
-// Note: We use unique_ptr here because the test must properly clean up before V8System's
+// We use unique_ptr here because the test must properly clean up before V8System's
 // static destructor runs. Fuzzers typically use raw `new` and rely on _exit() to skip
 // static destructors, but tests must clean up properly.
 KJ_TEST("static fixture with multiple iterations") {

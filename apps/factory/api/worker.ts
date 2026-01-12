@@ -4,7 +4,7 @@
  * DWS-deployable worker using Elysia.
  * Compatible with workerd runtime and DWS infrastructure.
  *
- * Note: This worker excludes routes that depend on native modules
+ * This worker excludes routes that depend on native modules
  * which can't run in DWS. XMTP now uses @xmtp/browser-sdk (WASM-based).
  * For full functionality, use the server.ts entry point.
  */
@@ -270,6 +270,7 @@ if (isMainModule) {
   process.on('SIGINT', () => gracefulShutdown('SIGINT'))
 
   const PORT = CORE_PORTS.FACTORY.get()
+  const host = getLocalhostHost()
 
   const app = createFactoryApp({
     NETWORK: getCurrentNetwork(),
@@ -285,8 +286,12 @@ if (isMainModule) {
     SQLIT_PRIVATE_KEY: config.sqlitPrivateKey,
   })
 
-  const host = getLocalhostHost()
-  app.listen(PORT, () => {
-    console.log(`Factory API Worker running at http://${host}:${PORT}`)
+  console.log(`Factory API Worker running at http://${host}:${PORT}`)
+
+  // Use Bun.serve() directly to prevent Bun from auto-serving the default export
+  Bun.serve({
+    port: PORT,
+    hostname: host,
+    fetch: app.fetch,
   })
 }
