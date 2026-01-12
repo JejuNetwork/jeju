@@ -9,10 +9,114 @@ interface SimpleMarkdownProps {
 }
 
 export function SimpleMarkdown({ content, className = '' }: SimpleMarkdownProps) {
-  const lines = content.split('\n')
+  // First, extract code blocks before line-by-line processing
+  const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g
+  const parts: React.ReactNode[] = []
+  let lastEnd = 0
+  let key = 0
+  let match: RegExpExecArray | null
+
+  while ((match = codeBlockRegex.exec(content)) !== null) {
+    // Process text before code block
+    if (match.index > lastEnd) {
+      parts.push(
+        <span key={key++}>{processLines(content.slice(lastEnd, match.index), key)}</span>
+      )
+      key += 1000
+    }
+
+    const lang = match[1].toLowerCase()
+    const code = match[2].trim()
+
+    parts.push(
+      <pre
+        key={key++}
+        className="my-2 p-3 rounded text-xs font-mono overflow-x-auto"
+        style={{ backgroundColor: 'var(--bg-tertiary)' }}
+      >
+        <code>{lang === 'json' ? formatJson(code) : code}</code>
+      </pre>
+    )
+    lastEnd = match.index + match[0].length
+  }
+
+  // Process remaining text
+  if (lastEnd < content.length) {
+    parts.push(<span key={key++}>{processLines(content.slice(lastEnd), key)}</span>)
+  }
+
+  return <span className={className}>{parts.length > 0 ? parts : processLines(content, 0)}</span>
+}
+
+function formatJson(code: string): React.ReactNode {
+  try {
+    const parsed = JSON.parse(code)
+    const formatted = JSON.stringify(parsed, null, 2)
+    return highlightJson(formatted)
+  } catch {
+    return code
+  }
+}
+
+function highlightJson(json: string): React.ReactNode[] {
+  const result: React.ReactNode[] = []
+  // Simple regex-based highlighting for JSON
+  const tokenRegex = /("(?:\\.|[^"\\])*")\s*:|("(?:\\.|[^"\\])*")|(-?\d+\.?\d*)|(\btrue\b|\bfalse\b|\bnull\b)/g
+  let match: RegExpExecArray | null
+  let lastEnd = 0
   let key = 0
 
-  const elements = lines.map((line, lineIndex) => {
+  while ((match = tokenRegex.exec(json)) !== null) {
+    if (match.index > lastEnd) {
+      result.push(json.slice(lastEnd, match.index))
+    }
+
+    if (match[1]) {
+      // Key (with colon)
+      result.push(
+        <span key={key++} style={{ color: 'var(--color-primary)' }}>
+          {match[1]}
+        </span>
+      )
+      result.push(':')
+    } else if (match[2]) {
+      // String value
+      result.push(
+        <span key={key++} style={{ color: '#a8cc8c' }}>
+          {match[2]}
+        </span>
+      )
+    } else if (match[3]) {
+      // Number
+      result.push(
+        <span key={key++} style={{ color: '#dbab79' }}>
+          {match[3]}
+        </span>
+      )
+    } else if (match[4]) {
+      // Boolean/null
+      result.push(
+        <span key={key++} style={{ color: '#e88388' }}>
+          {match[4]}
+        </span>
+      )
+    }
+
+    lastEnd = match.index + match[0].length
+  }
+
+  if (lastEnd < json.length) {
+    result.push(json.slice(lastEnd))
+  }
+
+  return result
+}
+
+function processLines(content: string, baseKey: number): React.ReactNode[] {
+  const lines = content.split('\n')
+  let key = baseKey
+
+  return lines.map((line, lineIndex) => {
     // Check for headings at start of line
     const h3Match = line.match(/^###\s+(.+)$/)
     if (h3Match) {
@@ -57,8 +161,6 @@ export function SimpleMarkdown({ content, className = '' }: SimpleMarkdownProps)
 
     return <span key={`line-${lineIndex}`}>{inlineElements}</span>
   })
-
-  return <span className={className}>{elements}</span>
 }
 
 function parseInline(text: string, baseKey: number): React.ReactNode[] {
