@@ -28,7 +28,12 @@ import type {
 import { DEFAULT_AUTONOMOUS_CONFIG } from "./autonomous/types";
 import { BotInitializer } from "./bots/initializer";
 import type { TradingBot } from "./bots/trading-bot";
-import { characters, getCharacter, listCharacters } from "./characters";
+import {
+  AUTONOMOUS_AGENTS,
+  characters,
+  getCharacter,
+  listCharacters,
+} from "./characters";
 import { checkDWSHealth } from "./client/dws";
 import { configureCrucible, config as crucibleConfig } from "./config";
 import { cronRoutes } from "./cron";
@@ -136,7 +141,7 @@ function getContractSafe(
   }
   // Fall back to contracts.json via getContract
   try {
-    return getContract(category, name, network);
+    return getContract(category, name, network) as `0x${string}`;
   } catch {
     return undefined;
   }
@@ -374,7 +379,7 @@ async function getAgentPrivateKey(): Promise<`0x${string}` | undefined> {
 
   try {
     cachedAgentPrivateKey = await getPrivateKey(SERVER_ADDRESS);
-    return cachedAgentPrivateKey;
+    return cachedAgentPrivateKey ?? undefined;
   } catch (err) {
     log.error("Failed to get agent private key", {
       error: err instanceof Error ? err.message : String(err),
@@ -1241,7 +1246,7 @@ app.get("/api/v1/rooms", async ({ query }) => {
     stateCid: string;
     members: Array<{ agentId: string; role: string; joinedAt: number }>;
     roomType: string;
-    config: { maxMembers: number; turnBased: boolean; turnTimeout: number; visibility: string };
+    config: { maxMembers: number; turnBased: boolean; turnTimeout?: number; visibility: string };
     active: boolean;
     createdAt: number;
     source: "onchain";
@@ -1277,7 +1282,7 @@ app.get("/api/v1/rooms", async ({ query }) => {
     stateCid: string;
     members: Array<{ agentId: string; role: string; joinedAt: number }>;
     roomType: string;
-    config: { maxMembers: number; turnBased: boolean; turnTimeout: number; visibility: string };
+    config: { maxMembers: number; turnBased: boolean; turnTimeout?: number; visibility: string };
     active: boolean;
     createdAt: number;
     source: "offchain";
@@ -1721,16 +1726,7 @@ if (crucibleConfig.autonomousEnabled) {
         .then(async () => {
           log.info("Autonomous agent runner started");
 
-          // Auto-register key agents for autonomous operation
-          const autoStartAgents = [
-            "base-watcher",
-            "security-analyst",
-            "node-monitor",
-            "infra-analyzer",
-            "endpoint-prober",
-          ];
-
-          // Room configuration for agent coordination
+          // Room configuration for agent coordination - derived from AUTONOMOUS_AGENTS config
           const COORDINATION_ROOMS = [
             { id: "base-contract-reviews", name: "Base Contract Reviews" },
             { id: "infra-monitoring", name: "Infrastructure Monitoring" },
@@ -1758,55 +1754,33 @@ if (crucibleConfig.autonomousEnabled) {
             });
           }
 
-          for (const agentId of autoStartAgents) {
-            const character = getCharacter(agentId);
-            if (!character) continue;
+          // Register agents from AUTONOMOUS_AGENTS config (single source of truth)
+          for (const [characterId, overrides] of Object.entries(
+            AUTONOMOUS_AGENTS,
+          )) {
+            const character = getCharacter(characterId);
+            if (!character) {
+              log.warn("[autonomous] Character not found", { characterId });
+              continue;
+            }
 
             try {
               await autonomousRunner?.registerAgent({
-                agentId: `autonomous-${agentId}`,
+                ...DEFAULT_AUTONOMOUS_CONFIG,
+                agentId: `autonomous-${characterId}`,
                 character,
-                tickIntervalMs: crucibleConfig.defaultTickIntervalMs,
-                maxActionsPerTick: 3,
-                enabled: true,
+                ...overrides,
                 capabilities: {
-                  canChat: true,
-                  a2a: true,
-                  // security-analyst uses AUDIT_CONTRACT which calls runtime.useModel() internally
-                  // It doesn't need external compute actions (RUN_INFERENCE, RENT_GPU)
-                  compute: agentId !== "security-analyst",
-                  canTrade: agentId === "project-manager",
-                  // security-analyst and base-watcher don't vote - they have specialized roles
-                  canVote: agentId !== "security-analyst" && agentId !== "base-watcher",
-                  canPropose: agentId === "project-manager",
-                  canDelegate: false,
-                  canStake: false,
-                  canBridge: false,
-                  canModerate: agentId === "moderator",
+                  ...DEFAULT_AUTONOMOUS_CONFIG.capabilities,
+                  ...overrides.capabilities,
                 },
-                // Room configuration for agent pipeline
-                ...(agentId === "base-watcher" && {
-                  postToRoom: "base-contract-reviews",
-                }),
-                ...(agentId === "security-analyst" && {
-                  watchRoom: "base-contract-reviews",
-                  postToRoom: "base-contract-reviews",
-                }),
-                ...(agentId === "node-monitor" && {
-                  postToRoom: "infra-monitoring",
-                }),
-                ...(agentId === "infra-analyzer" && {
-                  watchRoom: "infra-monitoring",
-                  postToRoom: "infra-monitoring",
-                }),
-                ...(agentId === "endpoint-prober" && {
-                  postToRoom: "endpoint-monitoring",
-                }),
               });
-              log.info("Auto-registered autonomous agent", { agentId });
+              log.info("Auto-registered autonomous agent", {
+                agentId: characterId,
+              });
             } catch (err) {
               log.warn("Failed to auto-register agent", {
-                agentId,
+                agentId: characterId,
                 error: err instanceof Error ? err.message : String(err),
               });
             }

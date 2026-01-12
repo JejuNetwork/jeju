@@ -2,7 +2,6 @@ import { Elysia, t, type Static } from 'elysia'
 import { getCharacter } from '../characters'
 import { config } from '../config'
 import { type AutonomousAgentRunner, createAgentRunner } from './index'
-import { getMessageStore } from './message-store'
 import { DEFAULT_AUTONOMOUS_CONFIG } from './types'
 
 // Module-level runner instance
@@ -35,7 +34,6 @@ export async function initializeAutonomousRunner(options?: {
     privateKey: options?.privateKey,
     network: options?.network ?? config.network,
     enableTrajectoryRecording: true,
-    messageStore: getMessageStore(),
   })
 
   return autonomousRunner
@@ -45,6 +43,10 @@ export async function initializeAutonomousRunner(options?: {
 const RegisterAgentSchema = t.Object({
   characterId: t.String({ minLength: 1 }),
   tickIntervalMs: t.Optional(t.Number({ minimum: 1000 })),
+  /** Cron schedule pattern (e.g., "0 9 * * *" for daily at 9 AM UTC) */
+  schedule: t.Optional(t.String()),
+  /** Keywords that trigger immediate execution regardless of schedule */
+  urgencyTriggers: t.Optional(t.Array(t.String())),
   capabilities: t.Optional(
     t.Object({
       canChat: t.Optional(t.Boolean()),
@@ -162,7 +164,7 @@ export function createAutonomousRouter() {
       }
 
       const request = body as RegisterAgentBody
-      const { characterId, tickIntervalMs, capabilities, watchRoom, postToRoom } = request
+      const { characterId, tickIntervalMs, schedule, urgencyTriggers, capabilities, watchRoom, postToRoom } = request
 
       const character = getCharacter(characterId)
       if (!character) {
@@ -180,6 +182,8 @@ export function createAutonomousRouter() {
         agentId,
         character,
         tickIntervalMs: tickIntervalMs ?? config.defaultTickIntervalMs,
+        schedule,
+        urgencyTriggers,
         capabilities: capabilities
           ? {
               ...DEFAULT_AUTONOMOUS_CONFIG.capabilities,

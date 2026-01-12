@@ -1,3 +1,4 @@
+import { Cron } from 'croner'
 import { getCurrentNetwork } from '@jejunetwork/config'
 import type { Action, EnvironmentState, LLMCall } from '@jejunetwork/training'
 import {
@@ -57,6 +58,10 @@ interface RegisteredAgent {
   intervalId: ReturnType<typeof setInterval> | null
   recentActivity: ActivityEntry[]
   currentTrajectoryId: string | null
+  /** Timestamp of last scheduled execution (for cron-based agents) */
+  lastScheduledRun: number
+  /** Parsed cron job instance */
+  cronJob: Cron | null
 }
 
 interface ExtendedRunnerConfig extends AutonomousRunnerConfig {
@@ -165,6 +170,25 @@ export class AutonomousAgentRunner {
       )
     }
 
+    // Parse cron schedule if provided
+    let cronJob: Cron | null = null
+    if (config.schedule) {
+      try {
+        cronJob = new Cron(config.schedule, { timezone: 'UTC' })
+        log.info('Agent schedule configured', {
+          agentId: config.agentId,
+          schedule: config.schedule,
+          nextRun: cronJob.nextRun()?.toISOString() ?? null,
+        })
+      } catch (err) {
+        log.error('Invalid cron schedule', {
+          agentId: config.agentId,
+          schedule: config.schedule,
+          error: err instanceof Error ? err.message : String(err),
+        })
+      }
+    }
+
     const agent: RegisteredAgent = {
       config,
       runtime: null,
@@ -177,6 +201,8 @@ export class AutonomousAgentRunner {
       intervalId: null,
       recentActivity: [],
       currentTrajectoryId: null,
+      lastScheduledRun: 0,
+      cronJob,
     }
 
     this.agents.set(config.agentId, agent)
@@ -395,6 +421,33 @@ export class AutonomousAgentRunner {
         if (timeSinceLastTick < agent.backoffMs) {
           return
         }
+      }
+
+      // Check cron schedule if configured
+      if (agent.cronJob) {
+        const now = new Date()
+        const prevRun = agent.cronJob.previousRun()
+        const lastScheduled = prevRun?.getTime() ?? 0
+
+        // Only run if we haven't executed since the last scheduled time
+        if (agent.lastScheduledRun >= lastScheduled) {
+          // Already ran for this schedule window, skip
+          return
+        }
+
+        // Check if current time is within the schedule window (within tick interval)
+        const timeSinceScheduled = now.getTime() - lastScheduled
+        if (timeSinceScheduled > agent.config.tickIntervalMs * 2) {
+          // Missed the window, wait for next schedule
+          return
+        }
+
+        log.info('Schedule triggered', {
+          agentId,
+          schedule: agent.config.schedule ?? null,
+          scheduledTime: prevRun?.toISOString() ?? null,
+        })
+        agent.lastScheduledRun = now.getTime()
       }
 
       agent.previousTick = agent.lastTick
@@ -921,6 +974,45 @@ export class AutonomousAgentRunner {
         category: 'compute',
       })
     }
+
+    // Always available crucible actions for room communication and reporting
+    actions.push(
+      {
+        name: 'POST_TO_ROOM',
+        description: 'Post a message to a crucible room',
+        category: 'communication',
+        parameters: [
+          { name: 'room', type: 'string', description: 'Room name to post to', required: true },
+          { name: 'content', type: 'string', description: 'Message content', required: true },
+        ],
+      },
+      {
+        name: 'READ_ROOM_ALERTS',
+        description: 'Read recent messages from a crucible room',
+        category: 'communication',
+        parameters: [
+          { name: 'room', type: 'string', description: 'Room name to read from', required: true },
+          { name: 'hours', type: 'number', description: 'Hours to look back (default 24)', required: false },
+        ],
+      },
+      {
+        name: 'SEARCH_DISCUSSIONS',
+        description: 'Search GitHub Discussions for existing posts',
+        category: 'reporting',
+        parameters: [
+          { name: 'query', type: 'string', description: 'Search query', required: true },
+        ],
+      },
+      {
+        name: 'POST_GITHUB_DISCUSSION',
+        description: 'Create a GitHub Discussion (falls back to room if GitHub unavailable)',
+        category: 'reporting',
+        parameters: [
+          { name: 'title', type: 'string', description: 'Discussion title', required: true },
+          { name: 'body', type: 'string', description: 'Discussion body in markdown', required: true },
+        ],
+      },
+    )
 
     return actions
   }

@@ -733,15 +733,31 @@ export class CrucibleAgentRuntime {
     actionName: string,
     params: Record<string, string>,
   ): Promise<{ success: boolean; result?: JsonValue; error?: string }> {
+    const upperName = actionName.toUpperCase()
+
+    // Handle built-in crucible actions first
+    if (upperName === 'POST_TO_ROOM') {
+      return this.executePostToRoom(params)
+    }
+    if (upperName === 'READ_ROOM_ALERTS') {
+      return this.executeReadRoomAlerts(params)
+    }
+    if (upperName === 'SEARCH_DISCUSSIONS') {
+      return this.executeSearchDiscussions(params)
+    }
+    if (upperName === 'POST_GITHUB_DISCUSSION') {
+      return this.executePostGithubDiscussion(params)
+    }
+
     // Find the action in the loaded jeju actions
     const action = jejuActions.find(
-      (a) => a.name.toUpperCase() === actionName.toUpperCase(),
+      (a) => a.name.toUpperCase() === upperName,
     )
 
     if (!action) {
       this.log.warn('Action not found', {
         actionName,
-        availableActions: jejuActions.map((a) => a.name),
+        availableActions: [...jejuActions.map((a) => a.name), 'POST_TO_ROOM'],
       })
       return { success: false, error: `Action not found: ${actionName}` }
     }
@@ -830,15 +846,358 @@ export class CrucibleAgentRuntime {
 
   /** Check if a specific action has a handler */
   actionHasHandler(actionName: string): boolean {
+    const upperName = actionName.toUpperCase()
+    // Built-in actions
+    if (upperName === 'POST_TO_ROOM') return true
+
     const action = jejuActions.find(
-      (a) => a.name.toUpperCase() === actionName.toUpperCase(),
+      (a) => a.name.toUpperCase() === upperName,
     )
     return action?.hasHandler ?? false
   }
 
   /** Get all actions that have executable handlers */
   getExecutableActions(): string[] {
-    return jejuActions.filter((a) => a.hasHandler).map((a) => a.name)
+    const builtInActions = [
+      'POST_TO_ROOM',
+      'READ_ROOM_ALERTS',
+      'SEARCH_DISCUSSIONS',
+      'POST_GITHUB_DISCUSSION',
+    ]
+    return [...jejuActions.filter((a) => a.hasHandler).map((a) => a.name), ...builtInActions]
+  }
+
+  /**
+   * Execute POST_TO_ROOM action - posts a message to a room
+   */
+  private async executePostToRoom(
+    params: Record<string, string>,
+  ): Promise<{ success: boolean; result?: JsonValue; error?: string }> {
+    const { room, content } = params
+
+    if (!room) {
+      return { success: false, error: 'POST_TO_ROOM requires room parameter' }
+    }
+    if (!content) {
+      return { success: false, error: 'POST_TO_ROOM requires content parameter' }
+    }
+
+    this.log.info('Executing POST_TO_ROOM', { room, contentLength: content.length })
+
+    try {
+      // Import database and post message
+      const { getDatabase } = await import('./database')
+      const db = getDatabase()
+
+      await db.createMessage({
+        roomId: room,
+        agentId: this.config.agentId,
+        content,
+      })
+
+      this.log.info('Posted to room', { room, agentId: this.config.agentId })
+      return { success: true, result: { room, posted: true } }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err)
+      this.log.error('Failed to post to room', { room, error: errorMsg })
+      return { success: false, error: errorMsg }
+    }
+  }
+
+  /**
+   * Execute READ_ROOM_ALERTS action - reads messages from a room within time range
+   */
+  private async executeReadRoomAlerts(
+    params: Record<string, string>,
+  ): Promise<{ success: boolean; result?: JsonValue; error?: string }> {
+    const { room, hours } = params
+    const hoursNum = Number(hours) || 24
+
+    if (!room) {
+      return { success: false, error: 'READ_ROOM_ALERTS requires room parameter' }
+    }
+
+    this.log.info('Executing READ_ROOM_ALERTS', { room, hours: hoursNum })
+
+    try {
+      const { getDatabase } = await import('./database')
+      const db = getDatabase()
+
+      // Calculate timestamp for X hours ago
+      const sinceTimestamp = Math.floor(Date.now() / 1000) - (hoursNum * 60 * 60)
+
+      const messages = await db.getMessages(room, {
+        since: sinceTimestamp,
+        limit: 1000, // Get up to 1000 messages
+      })
+
+      this.log.info('Read room alerts', { room, messageCount: messages.length })
+
+      // Format messages for LLM consumption
+      const formattedMessages = messages.map((msg) => ({
+        timestamp: new Date(msg.created_at * 1000).toISOString(),
+        agent: msg.agent_id,
+        content: msg.content,
+      }))
+
+      return {
+        success: true,
+        result: {
+          room,
+          hours: hoursNum,
+          messageCount: messages.length,
+          messages: formattedMessages,
+        },
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err)
+      this.log.error('Failed to read room alerts', { room, error: errorMsg })
+      return { success: false, error: errorMsg }
+    }
+  }
+
+  /**
+   * Execute SEARCH_DISCUSSIONS action - search GitHub Discussions for duplicates
+   */
+  private async executeSearchDiscussions(
+    params: Record<string, string>,
+  ): Promise<{ success: boolean; result?: JsonValue; error?: string }> {
+    const { query } = params
+
+    if (!query) {
+      return { success: false, error: 'SEARCH_DISCUSSIONS requires query parameter' }
+    }
+
+    const token = process.env.GITHUB_TOKEN
+    const owner = process.env.GITHUB_REPO_OWNER
+    const repoName = process.env.GITHUB_REPO_NAME
+
+    if (!token || !owner || !repoName) {
+      this.log.warn('GitHub credentials not configured', { hasToken: !!token, hasOwner: !!owner, hasRepo: !!repoName })
+      return {
+        success: true,
+        result: { discussions: [], note: 'GitHub not configured - skipping search' },
+      }
+    }
+
+    this.log.info('Executing SEARCH_DISCUSSIONS', { query, owner, repoName })
+
+    try {
+
+      // GraphQL query to search discussions
+      const graphqlQuery = `
+        query SearchDiscussions($query: String!) {
+          search(query: $query, type: DISCUSSION, first: 10) {
+            nodes {
+              ... on Discussion {
+                title
+                url
+                createdAt
+                body
+              }
+            }
+          }
+        }
+      `
+
+      const response = await fetch('https://api.github.com/graphql', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: graphqlQuery,
+          variables: { query: `repo:${owner}/${repoName} ${query}` },
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`GitHub API error: ${response.status} ${response.statusText}`)
+      }
+
+      const data = await response.json() as {
+        data?: { search?: { nodes?: Array<{ title: string; url: string; createdAt: string }> } }
+        errors?: Array<{ message: string }>
+      }
+
+      if (data.errors) {
+        throw new Error(data.errors.map((e) => e.message).join(', '))
+      }
+
+      const discussions = data.data?.search?.nodes ?? []
+
+      this.log.info('Found discussions', { count: discussions.length })
+
+      return {
+        success: true,
+        result: {
+          query,
+          count: discussions.length,
+          discussions: discussions.map((d) => ({
+            title: d.title,
+            url: d.url,
+            createdAt: d.createdAt,
+          })),
+        },
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err)
+      this.log.error('Failed to search discussions', { error: errorMsg })
+      return { success: false, error: errorMsg }
+    }
+  }
+
+  /**
+   * Execute POST_GITHUB_DISCUSSION action - create a GitHub Discussion
+   * Falls back to posting to infra-monitoring room if GitHub fails
+   */
+  private async executePostGithubDiscussion(
+    params: Record<string, string>,
+  ): Promise<{ success: boolean; result?: JsonValue; error?: string }> {
+    const { title, body } = params
+
+    if (!title) {
+      return { success: false, error: 'POST_GITHUB_DISCUSSION requires title parameter' }
+    }
+    if (!body) {
+      return { success: false, error: 'POST_GITHUB_DISCUSSION requires body parameter' }
+    }
+
+    const token = process.env.GITHUB_TOKEN
+    const owner = process.env.GITHUB_REPO_OWNER
+    const repoName = process.env.GITHUB_REPO_NAME
+    const categoryId = process.env.GITHUB_CATEGORY_ID
+
+    if (!token || !owner || !repoName || !categoryId) {
+      this.log.warn('GitHub credentials not configured, falling back to room post', {
+        hasToken: !!token,
+        hasOwner: !!owner,
+        hasRepo: !!repoName,
+        hasCategoryId: !!categoryId,
+      })
+      // Fallback to posting to infra-monitoring room
+      return this.executePostToRoom({
+        room: 'infra-monitoring',
+        content: `# ${title}\n\n${body}\n\n---\n_Note: GitHub posting unavailable, posted to room instead_`,
+      })
+    }
+
+    this.log.info('Executing POST_GITHUB_DISCUSSION', { title, owner, repoName })
+
+    try {
+
+      // First, get the repository ID
+      const repoQuery = `
+        query GetRepoId($owner: String!, $name: String!) {
+          repository(owner: $owner, name: $name) {
+            id
+          }
+        }
+      `
+
+      const repoResponse = await fetch('https://api.github.com/graphql', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: repoQuery,
+          variables: { owner, name: repoName },
+        }),
+      })
+
+      if (!repoResponse.ok) {
+        throw new Error(`GitHub API error: ${repoResponse.status}`)
+      }
+
+      const repoData = await repoResponse.json() as {
+        data?: { repository?: { id: string } }
+        errors?: Array<{ message: string }>
+      }
+
+      if (repoData.errors) {
+        throw new Error(repoData.errors.map((e) => e.message).join(', '))
+      }
+
+      const repositoryId = repoData.data?.repository?.id
+      if (!repositoryId) {
+        throw new Error('Could not find repository ID')
+      }
+
+      // Create the discussion
+      const createMutation = `
+        mutation CreateDiscussion($repositoryId: ID!, $categoryId: ID!, $title: String!, $body: String!) {
+          createDiscussion(input: {
+            repositoryId: $repositoryId,
+            categoryId: $categoryId,
+            title: $title,
+            body: $body
+          }) {
+            discussion {
+              id
+              url
+            }
+          }
+        }
+      `
+
+      const createResponse = await fetch('https://api.github.com/graphql', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: createMutation,
+          variables: {
+            repositoryId,
+            categoryId,
+            title,
+            body,
+          },
+        }),
+      })
+
+      if (!createResponse.ok) {
+        throw new Error(`GitHub API error: ${createResponse.status}`)
+      }
+
+      const createData = await createResponse.json() as {
+        data?: { createDiscussion?: { discussion?: { id: string; url: string } } }
+        errors?: Array<{ message: string }>
+      }
+
+      if (createData.errors) {
+        throw new Error(createData.errors.map((e) => e.message).join(', '))
+      }
+
+      const discussion = createData.data?.createDiscussion?.discussion
+      if (!discussion) {
+        throw new Error('Failed to create discussion')
+      }
+
+      this.log.info('Created GitHub Discussion', { url: discussion.url })
+
+      return {
+        success: true,
+        result: {
+          posted: true,
+          url: discussion.url,
+          id: discussion.id,
+        },
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err)
+      this.log.error('Failed to post GitHub Discussion, falling back to room', { error: errorMsg })
+
+      // Fallback to posting to infra-monitoring room
+      return this.executePostToRoom({
+        room: 'infra-monitoring',
+        content: `# ${title}\n\n${body}\n\n---\n_Note: GitHub posting failed (${errorMsg}), posted to room instead_`,
+      })
+    }
   }
 }
 

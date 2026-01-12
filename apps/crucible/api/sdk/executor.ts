@@ -253,7 +253,7 @@ export class ExecutorSDK {
     if (request.input.roomId) {
       const message = await this.roomSdk.postMessage(
         BigInt(request.input.roomId),
-        request.agentId,
+        request.agentId.toString(),
         inferenceResult.content,
         actions[0].type,
       )
@@ -647,7 +647,7 @@ export class ExecutorSDK {
         if (roomId && action.params?.content) {
           await this.roomSdk.postMessage(
             BigInt(roomId),
-            agentId,
+            agentId.toString(),
             String(action.params.content),
           )
           return true

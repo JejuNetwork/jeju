@@ -43,7 +43,7 @@ async function getDbPersistence(): Promise<TrainingDbPersistence | null> {
 
   // Import dynamically to avoid circular deps
   const { SQLitClient } = await import('@jejunetwork/db')
-  const client = new SQLitClient({ blockProducerEndpoint: dbEndpoint, keyId })
+  const client = new SQLitClient({ endpoint: dbEndpoint, databaseId: keyId })
   dbPersistence = new TrainingDbPersistence(client)
   return dbPersistence
 }

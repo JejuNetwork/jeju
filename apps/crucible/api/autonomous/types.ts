@@ -13,6 +13,10 @@ export interface AutonomousAgentConfig {
   watchRoom?: string
   /** Room to post action results and messages to */
   postToRoom?: string
+  /** Cron schedule pattern (e.g., "0 9 * * *" for daily at 9 AM UTC) */
+  schedule?: string
+  /** Keywords that trigger immediate execution regardless of schedule */
+  urgencyTriggers?: string[]
 }
 
 export interface AutonomousCapabilities {
