@@ -40,7 +40,13 @@ export const callAgentAction: Action = {
     _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
-    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService | undefined
+    if (!service) {
+      callback?.({
+        text: 'A2A service not available. Agent-to-agent communication requires JejuService to be registered.',
+      })
+      return
+    }
     const client = service.getClient()
     const text = getMessageText(message)
 
@@ -121,7 +127,13 @@ export const discoverAgentsAction: Action = {
     _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
-    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService | undefined
+    if (!service) {
+      callback?.({
+        text: 'A2A service not available. Agent discovery requires JejuService to be registered.',
+      })
+      return
+    }
     const client = service.getClient()
     const text = getMessageText(message)
 

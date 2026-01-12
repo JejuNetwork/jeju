@@ -687,6 +687,38 @@ export class CrucibleAgentRuntime {
   }
 
   /**
+   * Get memories from a room (Eliza compatibility)
+   */
+  async getMemories(params: {
+    roomId: string
+    count?: number
+    tableName?: string
+  }): Promise<Array<{
+    id: string
+    entityId: string
+    agentId?: string
+    roomId: string
+    content: { text: string }
+    createdAt?: number
+  }>> {
+    const { getDatabase } = await import('./database')
+    const db = getDatabase()
+
+    const messages = await db.getMessages(params.roomId, {
+      limit: params.count ?? 10,
+    })
+
+    return messages.map((msg) => ({
+      id: String(msg.id),
+      entityId: msg.agent_id,
+      agentId: msg.agent_id,
+      roomId: msg.room_id,
+      content: { text: msg.content },
+      createdAt: msg.created_at * 1000,
+    }))
+  }
+
+  /**
    * Get the Jeju SDK client directly
    */
   getJejuClient(): JejuClient | null {

@@ -12,11 +12,15 @@ import type {
   IAgentRuntime,
   Memory,
   State,
+  UUID,
 } from '@elizaos/core'
+import { getDWSUrl } from '@jejunetwork/config'
 import { z } from 'zod'
 import { fetchWithTimeout } from '../validation'
 
-const DWS_BASE_URL = 'http://localhost:4030'
+function getDWSBaseUrl(): string {
+  return getDWSUrl()
+}
 
 // Schemas
 const healthResponseSchema = z.object({
@@ -26,9 +30,22 @@ const healthResponseSchema = z.object({
 })
 
 const nodeStatsResponseSchema = z.object({
-  total: z.number(),
-  active: z.number(),
-  byType: z.record(z.number()).optional(),
+  inference: z.object({
+    totalNodes: z.number(),
+    activeNodes: z.number(),
+    totalCapacity: z.number().optional(),
+    currentLoad: z.number().optional(),
+    providers: z.array(z.string()).optional(),
+    models: z.array(z.string()).optional(),
+  }),
+  training: z
+    .object({
+      totalNodes: z.number(),
+      activeNodes: z.number(),
+      totalRuns: z.number().optional(),
+      activeRuns: z.number().optional(),
+    })
+    .optional(),
 })
 
 // Types
@@ -68,7 +85,7 @@ async function fetchDwsHealth(): Promise<{ healthy: boolean; latencyMs: number }
   try {
     const { result, latencyMs } = await measureLatency(async () => {
       const response = await fetchWithTimeout(
-        `${DWS_BASE_URL}/health`,
+        `${getDWSBaseUrl()}/health`,
         { headers: { Accept: 'application/json' } },
         10000,
       )
@@ -90,20 +107,29 @@ async function fetchInferenceStats(): Promise<{ count: number; latencyMs: number
   try {
     const { result, latencyMs } = await measureLatency(async () => {
       const response = await fetchWithTimeout(
-        `${DWS_BASE_URL}/compute/nodes/stats`,
+        `${getDWSBaseUrl()}/compute/nodes/stats`,
         { headers: { Accept: 'application/json' } },
         10000,
       )
-      if (!response.ok) return null
+      if (!response.ok) {
+        console.error(`[Infra] Failed to fetch node stats: HTTP ${response.status}`)
+        return null
+      }
       const json = await response.json()
-      return nodeStatsResponseSchema.safeParse(json)
+      const parsed = nodeStatsResponseSchema.safeParse(json)
+      if (!parsed.success) {
+        console.error('[Infra] Node stats schema validation failed:', parsed.error.message)
+        console.error('[Infra] Received:', JSON.stringify(json))
+      }
+      return parsed
     })
 
     if (!result || !result.success) {
       return { count: 0, latencyMs }
     }
-    return { count: result.data.active, latencyMs }
-  } catch {
+    return { count: result.data.inference.activeNodes, latencyMs }
+  } catch (error) {
+    console.error('[Infra] Error fetching inference stats:', error)
     return { count: 0, latencyMs: -1 }
   }
 }
@@ -115,7 +141,10 @@ function formatSnapshot(snapshot: NodeSnapshot): string {
 
   return `[NODE_SNAPSHOT | t=${snapshot.timestamp}]
 DWS: ${dwsStatus} (${dwsLatency})
-Inference: ${snapshot.inference.count} nodes (${inferenceLatency})`
+Inference: ${snapshot.inference.count} nodes (${inferenceLatency})
+\`\`\`json
+${JSON.stringify(snapshot)}
+\`\`\``
 }
 
 export const collectNodeStatsAction: Action = {
@@ -196,11 +225,27 @@ function parseSnapshot(text: string): NodeSnapshot | null {
 
 function parseSnapshotsFromText(text: string): NodeSnapshot[] {
   const snapshots: NodeSnapshot[] = []
-  const regex = /\[NODE_SNAPSHOT \| t=\d+\]\nDWS: (?:healthy|unhealthy) \(\d+(?:ms|timeout)\)\nInference: \d+ nodes \(\d+(?:ms|timeout)\)/g
 
-  for (const match of text.matchAll(regex)) {
-    const snapshot = parseSnapshot(match[0])
-    if (snapshot) snapshots.push(snapshot)
+  // Try JSON parsing first (more reliable)
+  const jsonPattern = /```json\n(\{[^`]+\})\n```/g
+  for (const match of text.matchAll(jsonPattern)) {
+    try {
+      const parsed = JSON.parse(match[1])
+      if (parsed.timestamp && parsed.dws && parsed.inference) {
+        snapshots.push(parsed)
+      }
+    } catch {
+      // Skip invalid JSON
+    }
+  }
+
+  // Fall back to regex parsing if no JSON found
+  if (snapshots.length === 0) {
+    const regex = /\[NODE_SNAPSHOT \| t=(\d+)\]\nDWS: (healthy|unhealthy) \((\d+|timeout)ms\)\nInference: (\d+) nodes \((\d+|timeout)ms\)/g
+    for (const match of text.matchAll(regex)) {
+      const snapshot = parseSnapshot(match[0])
+      if (snapshot) snapshots.push(snapshot)
+    }
   }
 
   return snapshots.sort((a, b) => a.timestamp - b.timestamp)
@@ -329,17 +374,28 @@ export const analyzeInfraHealthAction: Action = {
   validate: async (_runtime: IAgentRuntime): Promise<boolean> => true,
 
   handler: async (
-    _runtime: IAgentRuntime,
-    message: Memory,
+    runtime: IAgentRuntime,
+    _message: Memory,
     _state: State | undefined,
     _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
-    const text = (message.content.text as string) ?? ''
-
     callback?.({ text: 'Analyzing infrastructure snapshots...' })
 
-    const snapshots = parseSnapshotsFromText(text)
+    // Fetch recent messages from infra-monitoring room
+    const memories = await runtime.getMemories({
+      roomId: 'infra-monitoring' as UUID,
+      count: 20,
+      tableName: 'messages',
+    })
+
+    // Extract snapshot text from memories
+    const snapshotTexts = memories
+      .map((m) => (m.content as { text?: string })?.text ?? '')
+      .filter((t) => t.includes('[NODE_SNAPSHOT'))
+
+    const allText = snapshotTexts.join('\n')
+    const snapshots = parseSnapshotsFromText(allText)
     const result = analyzeSnapshots(snapshots)
 
     callback?.({

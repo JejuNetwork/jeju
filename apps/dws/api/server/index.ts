@@ -1650,10 +1650,13 @@ if (import.meta.main) {
       const isInternalIp = hostname.match(
         /^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|127\.)/,
       )
+      // Extract hostname without port for comparison
+      const hostnameWithoutPort = hostname.split(':')[0]
       if (
         !hostname.startsWith('dws.') &&
         !isInternalIp &&
-        hostname !== 'localhost'
+        hostnameWithoutPort !== 'localhost' &&
+        hostnameWithoutPort !== '127.0.0.1'
       ) {
         const appName = hostname.split('.')[0]
         const deployedApp = getDeployedApp(appName)

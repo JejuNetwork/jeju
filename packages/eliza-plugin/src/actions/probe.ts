@@ -1,7 +1,8 @@
 /**
- * PROBE_ENDPOINTS Action
+ * PROBE_ENDPOINT_PATHS Action
  *
- * Probes hardcoded list of endpoints to measure health and latency.
+ * Probes service endpoints to measure health and latency.
+ * Uses @jejunetwork/config for service URLs to support all networks.
  */
 
 import type {
@@ -12,27 +13,41 @@ import type {
   Memory,
   State,
 } from '@elizaos/core'
+import { getDWSUrl, getServicesConfig, getServiceUrl } from '@jejunetwork/config'
 
 interface Endpoint {
   app: string
-  port: number
   method: string
   path: string
 }
 
-const ENDPOINTS: Endpoint[] = [
-  // Crucible (port 4021)
-  { app: 'crucible', port: 4021, method: 'GET', path: '/health' },
-  { app: 'crucible', port: 4021, method: 'GET', path: '/api/v1/autonomous/status' },
-  { app: 'crucible', port: 4021, method: 'GET', path: '/api/v1/bots' },
+// Endpoint paths to probe (base URLs resolved from config)
+const ENDPOINT_PATHS: Endpoint[] = [
+  // Crucible API
+  { app: 'crucible', method: 'GET', path: '/health' },
+  { app: 'crucible', method: 'GET', path: '/api/v1/autonomous/status' },
+  { app: 'crucible', method: 'GET', path: '/api/v1/bots' },
 
-  // DWS (port 4030)
-  { app: 'dws', port: 4030, method: 'GET', path: '/health' },
-  { app: 'dws', port: 4030, method: 'GET', path: '/compute/nodes/stats' },
+  // DWS
+  { app: 'dws', method: 'GET', path: '/health' },
+  { app: 'dws', method: 'GET', path: '/compute/nodes/stats' },
 
-  // Indexer (port 4355)
-  { app: 'indexer', port: 4355, method: 'GET', path: '/health' },
+  // Indexer
+  { app: 'indexer', method: 'GET', path: '/health' },
 ]
+
+function getBaseUrl(app: string): string {
+  switch (app) {
+    case 'crucible':
+      return getServicesConfig().crucible.executor
+    case 'dws':
+      return getDWSUrl()
+    case 'indexer':
+      return getServiceUrl('indexer', 'api')
+    default:
+      throw new Error(`Unknown app: ${app}`)
+  }
+}
 
 interface ProbeResult {
   endpoint: Endpoint
@@ -50,7 +65,8 @@ interface ProbeReport {
 }
 
 async function probeEndpoint(endpoint: Endpoint): Promise<ProbeResult> {
-  const url = `http://127.0.0.1:${endpoint.port}${endpoint.path}`
+  const baseUrl = getBaseUrl(endpoint.app)
+  const url = `${baseUrl}${endpoint.path}`
   const start = performance.now()
 
   try {
@@ -92,13 +108,13 @@ async function probeEndpoint(endpoint: Endpoint): Promise<ProbeResult> {
 }
 
 async function probeAllEndpoints(): Promise<ProbeReport> {
-  const results = await Promise.allSettled(ENDPOINTS.map(probeEndpoint))
+  const results = await Promise.allSettled(ENDPOINT_PATHS.map(probeEndpoint))
 
   const probeResults = results.map((result) =>
     result.status === 'fulfilled'
       ? result.value
       : {
-          endpoint: ENDPOINTS[0],
+          endpoint: ENDPOINT_PATHS[0],
           healthy: false,
           latencyMs: null,
           status: null,
@@ -111,7 +127,7 @@ async function probeAllEndpoints(): Promise<ProbeReport> {
   return {
     timestamp: new Date().toISOString(),
     healthy,
-    total: ENDPOINTS.length,
+    total: ENDPOINT_PATHS.length,
     results: probeResults,
   }
 }
@@ -143,7 +159,7 @@ function formatProbeReport(report: ProbeReport): string {
 }
 
 export const probeEndpointsAction: Action = {
-  name: 'PROBE_ENDPOINTS',
+  name: 'PROBE_ENDPOINT_PATHS',
   description: 'Probe all monitored endpoints to check health and measure latency',
   similes: [
     'probe endpoints',
