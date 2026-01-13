@@ -63,8 +63,6 @@ interface RegisteredAgent {
   lastScheduledRun: number
   /** Parsed cron job instance */
   cronJob: Cron | null
-  /** Watermarks for room message tracking (roomId -> lastProcessedTimestampMs) */
-  roomWatermarks: Map<string, number>
 }
 
 interface ExtendedRunnerConfig extends AutonomousRunnerConfig {
@@ -206,7 +204,6 @@ export class AutonomousAgentRunner {
       currentTrajectoryId: null,
       lastScheduledRun: 0,
       cronJob,
-      roomWatermarks: new Map(),
     }
 
     this.agents.set(config.agentId, agent)
@@ -1467,19 +1464,9 @@ Output ONLY the formatted alert message. Do not include any action syntax or ins
   ): Promise<{ success: boolean; error?: string; result?: unknown }> {
     const upperName = actionName.toUpperCase()
 
-    // Inject watermark for READ_ROOM_ALERTS to avoid duplicate processing
-    if (upperName === 'READ_ROOM_ALERTS' && params.room) {
-      const roomId = params.room
-      const watermark = agent.roomWatermarks.get(roomId)
-      if (watermark && !params.after) {
-        // Inject the watermark if not already specified
-        params.after = String(watermark)
-        log.debug('Injected room watermark', {
-          agentId: agent.config.agentId,
-          room: roomId,
-          watermark,
-        })
-      }
+    // Use previousTick for READ_ROOM_ALERTS to avoid duplicate processing
+    if (upperName === 'READ_ROOM_ALERTS' && !params.after && agent.previousTick > 0) {
+      params.after = String(agent.previousTick)
     }
 
     log.info('Executing action', {
@@ -1530,19 +1517,6 @@ Output ONLY the formatted alert message. Do not include any action syntax or ins
           Object.entries(params).map(([k, v]) => [k, v] as const),
         ),
         result: result.result ?? null,
-      }
-
-      // Update watermark for READ_ROOM_ALERTS if result contains latestTimestamp
-      if (upperName === 'READ_ROOM_ALERTS' && params.room) {
-        const resultData = result.result as { latestTimestamp?: number } | undefined
-        if (resultData?.latestTimestamp) {
-          agent.roomWatermarks.set(params.room, resultData.latestTimestamp)
-          log.debug('Updated room watermark', {
-            agentId: agent.config.agentId,
-            room: params.room,
-            newWatermark: resultData.latestTimestamp,
-          })
-        }
       }
     } else {
       activity.result = { error: result.error ?? 'Unknown error' }
