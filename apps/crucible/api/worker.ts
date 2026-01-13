@@ -67,6 +67,9 @@ export function createCrucibleApp(env?: Partial<CrucibleEnv>) {
     return app
   })
 
+  // Note: Cron routes are in api/cron/index.ts (used by server.ts)
+  // Worker deployments use DWS cron triggers directly
+
   return app
 }
 

@@ -10,8 +10,8 @@ export interface CodeFirstConfig {
   primaryAction: string
   /** Condition to invoke LLM - if result.status matches these values, call LLM */
   llmTriggerStatuses: string[]
-  /** Template for health message when status is good (no LLM) */
-  healthyTemplate: string
+  /** Template for health message when status is good (no LLM). Optional for actions that handle their own output. */
+  healthyTemplate?: string
 }
 
 export interface AutonomousAgentConfig {

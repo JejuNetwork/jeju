@@ -54,6 +54,11 @@ export const AUTONOMOUS_AGENTS: Record<string, AutonomousAgentOverrides> = {
     schedule: '0 9 * * *', // 9 AM daily
     watchRoom: 'infra-monitoring',
     postToRoom: 'infra-monitoring',
+    executionMode: 'code-first',
+    codeFirstConfig: {
+      primaryAction: 'GENERATE_DAILY_DIGEST',
+      llmTriggerStatuses: [], // Fully deterministic - no LLM needed
+    },
     capabilities: { canChat: true, a2a: false, canTrade: false, canPropose: false, canVote: false, canDelegate: false, canStake: false, canBridge: false, compute: true },
   },
 }

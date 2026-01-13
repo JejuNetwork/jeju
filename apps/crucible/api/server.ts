@@ -1906,18 +1906,21 @@ app.post("/api/v1/autonomous/agents", async ({ body, set }) => {
     return { error: `Character not found: ${characterId}` };
   }
 
+  // Get overrides from AUTONOMOUS_AGENTS config (includes executionMode, codeFirstConfig, etc.)
+  const overrides = AUTONOMOUS_AGENTS[characterId] ?? {};
+
   await autonomousRunner.registerAgent({
     ...DEFAULT_AUTONOMOUS_CONFIG,
     agentId: `autonomous-${characterId}`,
     character,
+    ...overrides,
     tickIntervalMs:
-      parsedBody.tickIntervalMs ?? DEFAULT_AUTONOMOUS_CONFIG.tickIntervalMs,
-    capabilities: parsedBody.capabilities
-      ? {
-          ...DEFAULT_AUTONOMOUS_CONFIG.capabilities,
-          ...parsedBody.capabilities,
-        }
-      : DEFAULT_AUTONOMOUS_CONFIG.capabilities,
+      parsedBody.tickIntervalMs ?? overrides.tickIntervalMs ?? DEFAULT_AUTONOMOUS_CONFIG.tickIntervalMs,
+    capabilities: {
+      ...DEFAULT_AUTONOMOUS_CONFIG.capabilities,
+      ...overrides.capabilities,
+      ...parsedBody.capabilities,
+    },
   });
 
   return { success: true, agentId: `autonomous-${characterId}` };

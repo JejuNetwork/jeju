@@ -241,6 +241,75 @@ export const cronRoutes = new Elysia({ prefix: '/api/cron' })
     },
   )
 
+  // One-shot agent tick - executes once WITHOUT starting interval loops
+  .post(
+    '/agent-tick-once',
+    async ({ set }) => {
+      if (!autonomousRunner) {
+        set.status = 503
+        return { error: 'Autonomous runner not initialized', message: 'Server not ready' }
+      }
+
+      const timestamp = new Date().toISOString()
+      const startTime = Date.now()
+
+      log.info('One-shot agent tick started', { timestamp })
+
+      // Check if agents are registered
+      const status = autonomousRunner.getStatus()
+      if (status.agentCount === 0) {
+        set.status = 400
+        return {
+          error: 'No agents registered',
+          message: 'Register agents first via POST /api/v1/autonomous/agents',
+          timestamp,
+        }
+      }
+
+      // NOTE: We intentionally do NOT call autonomousRunner.start() here
+      // This executes agents once without starting interval loops
+      log.info('Executing one-shot tick', {
+        agentCount: status.agentCount,
+        runnerRunning: status.running,
+      })
+
+      const tickResults = await autonomousRunner.executeAllAgentsTick()
+      const duration = Date.now() - startTime
+
+      log.info('One-shot agent tick completed', {
+        executed: tickResults.executed,
+        succeeded: tickResults.succeeded,
+        failed: tickResults.failed,
+        durationMs: duration,
+      })
+
+      return {
+        success: tickResults.failed === 0,
+        executed: tickResults.executed,
+        succeeded: tickResults.succeeded,
+        failed: tickResults.failed,
+        results: tickResults.results.map((r) => ({
+          agentId: r.agentId,
+          success: r.success,
+          reward: r.reward,
+          latencyMs: r.latencyMs,
+          error: r.error,
+        })),
+        durationMs: duration,
+        timestamp,
+        note: 'One-shot execution - interval loops NOT started',
+      }
+    },
+    {
+      detail: {
+        tags: ['Cron'],
+        summary: 'Execute agent tick once (no intervals)',
+        description:
+          'Triggers a single tick for all registered agents WITHOUT starting interval loops. Use for manual testing.',
+      },
+    },
+  )
+
   // Flush trajectories to storage
   .post(
     '/flush-trajectories',

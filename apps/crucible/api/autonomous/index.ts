@@ -424,31 +424,15 @@ export class AutonomousAgentRunner {
         }
       }
 
-      // Check cron schedule if configured
+      // Agents with cron schedules should NOT run in the interval loop
+      // They are triggered externally via /api/cron/agent-tick or /api/cron/agent-tick-once
       if (agent.cronJob) {
-        const now = new Date()
-        const prevRun = agent.cronJob.previousRun()
-        const lastScheduled = prevRun?.getTime() ?? 0
-
-        // Only run if we haven't executed since the last scheduled time
-        if (agent.lastScheduledRun >= lastScheduled) {
-          // Already ran for this schedule window, skip
-          return
-        }
-
-        // Check if current time is within the schedule window (within tick interval)
-        const timeSinceScheduled = now.getTime() - lastScheduled
-        if (timeSinceScheduled > agent.config.tickIntervalMs * 2) {
-          // Missed the window, wait for next schedule
-          return
-        }
-
-        log.info('Schedule triggered', {
+        log.debug('Schedule skip: agent has cron schedule, use /api/cron/agent-tick-once to trigger', {
           agentId,
           schedule: agent.config.schedule ?? null,
-          scheduledTime: prevRun?.toISOString() ?? null,
+          nextRun: agent.cronJob.nextRun()?.toISOString() ?? 'none',
         })
-        agent.lastScheduledRun = now.getTime()
+        return
       }
 
       agent.previousTick = agent.lastTick
@@ -813,20 +797,43 @@ export class AutonomousAgentRunner {
       return this.executeAlertFormattingTick(agent, result)
     }
 
-    // 3. Status is HEALTHY - post templated message (no LLM)
-    await this.postHealthSnapshot(agent, result)
+    // 3. Status not in trigger list - either post health snapshot or action handled its own output
+    if (codeFirstConfig.healthyTemplate) {
+      // Agent has a healthy template - post templated message (e.g., infra-monitor)
+      await this.postHealthSnapshot(agent, result)
 
-    // Complete trajectory step for healthy status
-    if (trajectoryId) {
-      const action: Action = {
-        timestamp: Date.now(),
-        actionType: 'HEALTH_SNAPSHOT',
-        actionName: 'health-snapshot',
-        parameters: {},
-        success: true,
-        result: { status, postedSnapshot: true },
+      // Complete trajectory step for healthy status
+      if (trajectoryId) {
+        const action: Action = {
+          timestamp: Date.now(),
+          actionType: 'HEALTH_SNAPSHOT',
+          actionName: 'health-snapshot',
+          parameters: {},
+          success: true,
+          result: { status, postedSnapshot: true },
+        }
+        this.trajectoryRecorder.completeStep(trajectoryId, action, 0.1)
       }
-      this.trajectoryRecorder.completeStep(trajectoryId, action, 0.1)
+    } else {
+      // No healthy template - action handles its own output (e.g., daily-digest)
+      log.info('Action completed without health snapshot (action handles output)', {
+        agentId: config.agentId,
+        status,
+        primaryAction: codeFirstConfig.primaryAction,
+      })
+
+      // Complete trajectory step
+      if (trajectoryId) {
+        const action: Action = {
+          timestamp: Date.now(),
+          actionType: codeFirstConfig.primaryAction,
+          actionName: codeFirstConfig.primaryAction,
+          parameters: {},
+          success: true,
+          result: { status },
+        }
+        this.trajectoryRecorder.completeStep(trajectoryId, action, 0.3)
+      }
     }
 
     return { reward: 0.1 }
@@ -1341,7 +1348,7 @@ Output ONLY the formatted alert message. Do not include any action syntax or ins
         parameters: [
           { name: 'room', type: 'string', description: 'Room name to read from', required: true },
           { name: 'hours', type: 'number', description: 'Hours to look back (default 24)', required: false },
-          { name: 'after', type: 'number', description: 'Only return messages after this timestamp (ms). Used for watermark-based deduplication.', required: false },
+          { name: 'after', type: 'number', description: 'Only return messages after this timestamp (ms). Auto-set from previousTick for deduplication.', required: false },
         ],
       },
       {
@@ -1371,6 +1378,12 @@ Output ONLY the formatted alert message. Do not include any action syntax or ins
         name: 'GET_INFRA_STATUS',
         description: 'Probe all infrastructure endpoints AND evaluate thresholds. Returns status (HEALTHY/DEGRADED/CRITICAL) with alerts.',
         category: 'monitoring',
+        parameters: [],
+      },
+      {
+        name: 'GENERATE_DAILY_DIGEST',
+        description: 'Read room alerts, calculate trends, and post daily health digest to GitHub Discussions. Returns POSTED, SKIPPED_DUPLICATE, or NO_DATA.',
+        category: 'reporting',
         parameters: [],
       },
     )

@@ -754,6 +754,9 @@ export class CrucibleAgentRuntime {
     if (upperName === 'GET_INFRA_STATUS') {
       return this.executeGetInfraStatus(params)
     }
+    if (upperName === 'GENERATE_DAILY_DIGEST') {
+      return this.executeGenerateDailyDigest(params)
+    }
 
     // Find the action in the loaded jeju actions
     const action = jejuActions.find(
@@ -871,6 +874,7 @@ export class CrucibleAgentRuntime {
       'POST_GITHUB_DISCUSSION',
       'GET_INFRA_HEALTH',
       'GET_INFRA_STATUS',
+      'GENERATE_DAILY_DIGEST',
     ]
     return [...jejuActions.filter((a) => a.hasHandler).map((a) => a.name), ...builtInActions]
   }
@@ -1447,6 +1451,233 @@ export class CrucibleAgentRuntime {
           p0Count: alerts.filter((a) => a.severity === 'P0').length,
           p1Count: alerts.filter((a) => a.severity === 'P1').length,
           p2Count: alerts.filter((a) => a.severity === 'P2').length,
+        },
+      },
+    }
+  }
+
+  /**
+   * Execute GENERATE_DAILY_DIGEST action - reads room alerts, calculates trends, and posts digest
+   * Returns status: POSTED, SKIPPED_DUPLICATE, NO_DATA
+   */
+  private async executeGenerateDailyDigest(
+    _params: Record<string, string>,
+  ): Promise<{ success: boolean; result?: JsonValue; error?: string }> {
+    this.log.info('Executing GENERATE_DAILY_DIGEST')
+
+    const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD
+    const room = 'infra-monitoring'
+    const hours = 24
+
+    // 1. Read room alerts for last 24 hours
+    const alertsResult = await this.executeReadRoomAlerts({ room, hours: String(hours) })
+    if (!alertsResult.success || !alertsResult.result) {
+      return { success: false, error: `Failed to read room alerts: ${alertsResult.error}` }
+    }
+
+    const alertData = alertsResult.result as {
+      messages: Array<{ content: string; timestamp: string; agent: string }>
+      messageCount: number
+    }
+
+    if (alertData.messageCount === 0) {
+      this.log.info('No messages to digest')
+      return {
+        success: true,
+        result: { status: 'NO_DATA', message: 'No messages in the last 24 hours' },
+      }
+    }
+
+    // 2. Parse health data from messages
+    const healthMessages: Array<{
+      timestamp: number
+      status: string
+      dws: number
+      crucible: number
+      indexer: number
+      oracle: number
+      jns: number
+      sqlit: number
+      inference: number
+    }> = []
+    const alertMessages: Array<{
+      timestamp: string
+      status: string
+      severity: string
+      content: string
+    }> = []
+
+    for (const msg of alertData.messages) {
+      const content = msg.content
+
+      // Parse [HEALTH | t=... | status=...] messages
+      const healthMatch = content.match(/\[HEALTH \| t=(\d+) \| status=(\w+)\](.*)/)
+      if (healthMatch) {
+        const [, timestamp, status, rest] = healthMatch
+        const dwsMatch = rest.match(/dws=(\d+)ms/)
+        const crucibleMatch = rest.match(/crucible=(\d+)ms/)
+        const indexerMatch = rest.match(/indexer=(\d+)ms/)
+        const oracleMatch = rest.match(/oracle=(\d+)ms/)
+        const jnsMatch = rest.match(/jns=(\d+)ms/)
+        const sqlitMatch = rest.match(/sqlit=(\d+)ms/)
+        const inferenceMatch = rest.match(/inference=(\d+)/)
+
+        healthMessages.push({
+          timestamp: Number(timestamp),
+          status,
+          dws: dwsMatch ? Number(dwsMatch[1]) : 0,
+          crucible: crucibleMatch ? Number(crucibleMatch[1]) : 0,
+          indexer: indexerMatch ? Number(indexerMatch[1]) : 0,
+          oracle: oracleMatch ? Number(oracleMatch[1]) : 0,
+          jns: jnsMatch ? Number(jnsMatch[1]) : 0,
+          sqlit: sqlitMatch ? Number(sqlitMatch[1]) : 0,
+          inference: inferenceMatch ? Number(inferenceMatch[1]) : 0,
+        })
+        continue
+      }
+
+      // Parse [INFRA_ALERT | status=...] messages
+      const alertMatch = content.match(/\[INFRA_ALERT \| status=(\w+)/)
+      if (alertMatch) {
+        const p0Count = (content.match(/\[P0\]/g) || []).length
+        const p1Count = (content.match(/\[P1\]/g) || []).length
+        const severity = p0Count > 0 ? 'P0' : p1Count > 0 ? 'P1' : 'P2'
+        alertMessages.push({
+          timestamp: msg.timestamp,
+          status: alertMatch[1],
+          severity,
+          content: content.substring(0, 500), // Truncate for digest
+        })
+      }
+    }
+
+    this.log.info('Parsed messages', {
+      healthCount: healthMessages.length,
+      alertCount: alertMessages.length,
+    })
+
+    // 3. Calculate trends
+    const healthyCount = healthMessages.filter((m) => m.status === 'HEALTHY').length
+    const totalHealth = healthMessages.length
+    const uptimePercent = totalHealth > 0 ? Math.round((healthyCount / totalHealth) * 100 * 10) / 10 : 0
+
+    // Calculate latency stats
+    const calcStats = (values: number[]) => {
+      if (values.length === 0) return { avg: 0, peak: 0, trend: 'N/A' }
+      const avg = Math.round(values.reduce((a, b) => a + b, 0) / values.length)
+      const peak = Math.max(...values)
+      const firstHalf = values.slice(0, Math.floor(values.length / 2))
+      const secondHalf = values.slice(Math.floor(values.length / 2))
+      const firstAvg = firstHalf.length > 0 ? firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length : 0
+      const secondAvg = secondHalf.length > 0 ? secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length : 0
+      const trend = secondAvg > firstAvg * 1.2 ? 'DEGRADING' : secondAvg < firstAvg * 0.8 ? 'IMPROVING' : 'STABLE'
+      return { avg, peak, trend }
+    }
+
+    const dwsStats = calcStats(healthMessages.map((m) => m.dws))
+    const crucibleStats = calcStats(healthMessages.map((m) => m.crucible))
+    const indexerStats = calcStats(healthMessages.map((m) => m.indexer))
+    const inferenceValues = healthMessages.map((m) => m.inference)
+    const avgInference = inferenceValues.length > 0 ? Math.round(inferenceValues.reduce((a, b) => a + b, 0) / inferenceValues.length) : 0
+
+    // Count alerts by severity
+    const p0Alerts = alertMessages.filter((a) => a.severity === 'P0')
+    const p1Alerts = alertMessages.filter((a) => a.severity === 'P1')
+    const p2Alerts = alertMessages.filter((a) => a.severity === 'P2')
+
+    // Determine overall status
+    const overallStatus = p0Alerts.length > 0 ? 'CRITICAL' : p1Alerts.length > 0 ? 'DEGRADED' : 'HEALTHY'
+
+    // 4. Check for existing same-day digest
+    const searchResult = await this.executeSearchDiscussions({ query: `[Alert] System Health Digest - ${today}` })
+    if (searchResult.success) {
+      const searchData = searchResult.result as { discussions: Array<{ title: string; url: string }> }
+      const existingDigest = searchData.discussions.find((d) => d.title.includes(today))
+      if (existingDigest) {
+        this.log.info('Same-day digest already exists', { url: existingDigest.url })
+        return {
+          success: true,
+          result: {
+            status: 'SKIPPED_DUPLICATE',
+            message: `Digest for ${today} already exists`,
+            existingUrl: existingDigest.url,
+          },
+        }
+      }
+    }
+
+    // 5. Generate digest markdown
+    const now = new Date()
+    const periodStart = new Date(now.getTime() - hours * 60 * 60 * 1000)
+    const title = `[Alert] System Health Digest - ${today}`
+    const body = `## Summary
+- **Status**: ${overallStatus}
+- **Period**: ${periodStart.toISOString()} - ${now.toISOString()}
+- **Uptime**: ${uptimePercent}% (${healthyCount}/${totalHealth} health checks passed)
+- **Total Alerts**: ${alertMessages.length}
+
+## Trend Analysis
+
+### Uptime Trend
+- Current period: ${uptimePercent}%
+- Health checks: ${totalHealth} total
+
+### Latency Trends
+| Service | Avg Latency | Peak | Trend |
+|---------|-------------|------|-------|
+| DWS | ${dwsStats.avg}ms | ${dwsStats.peak}ms | ${dwsStats.trend} |
+| Crucible | ${crucibleStats.avg}ms | ${crucibleStats.peak}ms | ${crucibleStats.trend} |
+| Indexer | ${indexerStats.avg}ms | ${indexerStats.peak}ms | ${indexerStats.trend} |
+| Inference | ${avgInference} nodes | - | - |
+
+### Alert Frequency
+- P0 (Critical): ${p0Alerts.length} alerts
+- P1 (High): ${p1Alerts.length} alerts
+- P2 (Medium): ${p2Alerts.length} alerts
+
+## Severity Breakdown
+
+### P0 - Critical (${p0Alerts.length})
+${p0Alerts.length > 0 ? p0Alerts.map((a) => `- ${a.timestamp}: ${a.status}`).join('\n') : 'No critical alerts'}
+
+### P1 - High (${p1Alerts.length})
+${p1Alerts.length > 0 ? p1Alerts.map((a) => `- ${a.timestamp}: ${a.status}`).join('\n') : 'No high-priority alerts'}
+
+### P2 - Medium (${p2Alerts.length})
+${p2Alerts.length > 0 ? p2Alerts.map((a) => `- ${a.timestamp}: ${a.status}`).join('\n') : 'No medium-priority alerts'}
+
+## Actionable Items
+${overallStatus === 'HEALTHY' ? '- [ ] No immediate actions required - system healthy' : ''}
+${dwsStats.trend === 'DEGRADING' ? '- [ ] Investigate DWS latency increase' : ''}
+${crucibleStats.trend === 'DEGRADING' ? '- [ ] Investigate Crucible latency increase' : ''}
+${indexerStats.trend === 'DEGRADING' ? '- [ ] Investigate Indexer latency increase' : ''}
+${p0Alerts.length > 0 ? '- [ ] Review and address P0 critical alerts' : ''}
+${p1Alerts.length > 0 ? '- [ ] Review and address P1 high-priority alerts' : ''}
+${uptimePercent < 95 ? '- [ ] Investigate uptime degradation (below 95%)' : ''}
+
+---
+_Generated by daily-digest agent at ${now.toISOString()}_`
+
+    // 6. Post the digest
+    const postResult = await this.executePostGithubDiscussion({ title, body })
+    if (!postResult.success) {
+      return { success: false, error: `Failed to post digest: ${postResult.error}` }
+    }
+
+    const postData = postResult.result as { posted: boolean; url?: string }
+    this.log.info('Daily digest posted', { url: postData.url ?? null })
+
+    return {
+      success: true,
+      result: {
+        status: 'POSTED',
+        title,
+        url: postData.url ?? null,
+        stats: {
+          uptimePercent,
+          healthCheckCount: totalHealth,
+          alertCount: alertMessages.length,
+          overallStatus,
         },
       },
     }
