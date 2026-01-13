@@ -52,36 +52,67 @@ GITHUB_CATEGORY_ID=DIC_...     # Discussion category ID
 - LLM now sees `POST_TO_ROOM`, `READ_ROOM_ALERTS`, `SEARCH_DISCUSSIONS`, `POST_GITHUB_DISCUSSION` in "## Available Actions"
 - Previously LLM only saw DeFi/governance actions and used those instead
 
-### 8. Added GET_INFRA_HEALTH Action
-- New action that actually probes DWS and inference node endpoints
-- Returns real health data: `{ dws: { status, latencyMs }, inference: { nodeCount, latencyMs } }`
-- Node-monitor character updated to use GET_INFRA_HEALTH instead of generating fictional data
-- Workflow: GET_INFRA_HEALTH → format as NODE_SNAPSHOT → POST_TO_ROOM
+### 8. Consolidated to Single infra-monitor Agent
+Replaced 3 agents (node-monitor, infra-analyzer, endpoint-prober) with single `infra-monitor`:
+
+**New action: `GET_INFRA_STATUS`**
+- Probes DWS, Crucible, Indexer, inference nodes
+- Evaluates thresholds in code (not LLM)
+- Returns: `{ status: 'HEALTHY'|'DEGRADED'|'CRITICAL', alerts: [...], metrics: {...} }`
+
+**Thresholds (evaluated in code):**
+- P0: Service unhealthy, unreachable, or 0 inference nodes
+- P1: Latency > 5000ms
+- P2: Latency > 2000ms
+
+**LLM role (minimal):**
+- Only runs if status != HEALTHY
+- Formats alert message with context
+- Adds recommendations
+- Posts to room
+
+**AUTONOMOUS_AGENTS simplified:**
+```typescript
+{
+  'infra-monitor': { postToRoom: 'infra-monitoring', tickIntervalMs: 60000 },
+  'daily-digest': { schedule: '0 9 * * *', watchRoom: 'infra-monitoring' },
+}
+```
 
 ---
 
-## The Agent Pipeline
+## The Agent Pipeline (Simplified)
 
 ```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│  node-monitor   │     │ infra-analyzer  │     │  daily-digest   │
-│                 │     │                 │     │                 │
-│ Checks DWS/     │     │ Reads snapshots │     │ Reads alerts    │
-│ inference nodes │────▶│ posts ALERTS    │────▶│ posts to GitHub │
-│ posts snapshots │     │ if issues found │     │ Discussions     │
-└────────┬────────┘     └────────┬────────┘     └─────────────────┘
-         │                       │
-         ▼                       ▼
-    ┌─────────────────────────────────┐
-    │     infra-monitoring room       │
-    └─────────────────────────────────┘
-
-┌─────────────────┐
-│ endpoint-prober │
-│                 │
-│ Probes HTTP     │────▶ endpoint-monitoring room
-│ endpoints       │
-└─────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                      infra-monitor                           │
+│                                                              │
+│  CODE: GET_INFRA_STATUS                                     │
+│    - Probes DWS, Crucible, Indexer, inference               │
+│    - Evaluates thresholds                                   │
+│    - Returns HEALTHY/DEGRADED/CRITICAL                      │
+│                                                              │
+│  LLM (only if not HEALTHY):                                 │
+│    - Formats alert with context                             │
+│    - Adds recommendations                                   │
+│    - POST_TO_ROOM                                           │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+                         ▼
+              ┌─────────────────────┐
+              │ infra-monitoring    │
+              │       room          │
+              └──────────┬──────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      daily-digest                            │
+│                   (scheduled: 9 AM daily)                    │
+│                                                              │
+│  1. READ_ROOM_ALERTS (last 24h)                             │
+│  2. SEARCH_DISCUSSIONS (dedup check)                        │
+│  3. POST_GITHUB_DISCUSSION                                  │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---

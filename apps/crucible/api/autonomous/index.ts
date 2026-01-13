@@ -1018,6 +1018,12 @@ export class AutonomousAgentRunner {
         category: 'monitoring',
         parameters: [],
       },
+      {
+        name: 'GET_INFRA_STATUS',
+        description: 'Probe all infrastructure endpoints AND evaluate thresholds. Returns status (HEALTHY/DEGRADED/CRITICAL) with alerts.',
+        category: 'monitoring',
+        parameters: [],
+      },
     )
 
     return actions

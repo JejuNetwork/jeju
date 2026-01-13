@@ -4,11 +4,9 @@ import { baseWatcherCharacter } from './base-watcher'
 import { communityManagerCharacter } from './community-manager'
 import { dailyDigestCharacter } from './daily-digest'
 import { devRelCharacter } from './devrel'
-import { endpointProberCharacter } from './endpoint-prober'
-import { infraAnalyzerCharacter } from './infra-analyzer'
+import { infraMonitorCharacter } from './infra-monitor'
 import { liaisonCharacter } from './liaison'
 import { moderatorCharacter } from './moderator'
-import { nodeMonitorCharacter } from './node-monitor'
 import { projectManagerCharacter } from './project-manager'
 import { securityAnalystCharacter } from './security-analyst'
 import { socialMediaManagerCharacter } from './social-media-manager'
@@ -23,9 +21,7 @@ export const characters: Record<string, AgentCharacter> = {
   moderator: moderatorCharacter,
   'security-analyst': securityAnalystCharacter,
   'base-watcher': baseWatcherCharacter,
-  'node-monitor': nodeMonitorCharacter,
-  'infra-analyzer': infraAnalyzerCharacter,
-  'endpoint-prober': endpointProberCharacter,
+  'infra-monitor': infraMonitorCharacter,
 }
 
 // Partial config - agentId and character are derived from the key
@@ -41,33 +37,18 @@ type AutonomousAgentOverrides = Partial<
  * Keys must match character IDs in the `characters` record above.
  */
 export const AUTONOMOUS_AGENTS: Record<string, AutonomousAgentOverrides> = {
-  // 'base-watcher': {
-  //   postToRoom: 'base-contract-reviews',
-  //   capabilities: { canChat: true, a2a: true, canTrade: false, canPropose: false, canVote: false, canDelegate: false, canStake: false, canBridge: false, compute: true },
-  // },
-  // 'security-analyst': {
-  //   watchRoom: 'base-contract-reviews',
-  //   postToRoom: 'base-contract-reviews',
-  //   capabilities: { canChat: true, a2a: true, canTrade: false, canPropose: false, canVote: false, canDelegate: false, canStake: false, canBridge: false, compute: false },
-  // },
-  'node-monitor': {
+  // Real-time infrastructure monitoring - probes + alerts when issues detected
+  'infra-monitor': {
     postToRoom: 'infra-monitoring',
-    capabilities: { canChat: true, a2a: true, canTrade: false, canPropose: false, canVote: true, canDelegate: true, canStake: true, canBridge: false, compute: true },
+    tickIntervalMs: 60000, // Check every minute
+    capabilities: { canChat: true, a2a: false, canTrade: false, canPropose: false, canVote: false, canDelegate: false, canStake: false, canBridge: false, compute: true },
   },
-  'infra-analyzer': {
-    watchRoom: 'infra-monitoring',
-    postToRoom: 'infra-monitoring',
-    capabilities: { canChat: true, a2a: true, canTrade: false, canPropose: false, canVote: true, canDelegate: true, canStake: true, canBridge: false, compute: true },
-  },
-  'endpoint-prober': {
-    postToRoom: 'endpoint-monitoring',
-    capabilities: { canChat: true, a2a: true, canTrade: false, canPropose: false, canVote: true, canDelegate: true, canStake: true, canBridge: false, compute: true },
-  },
+  // Daily digest - summarizes alerts and posts to GitHub
   'daily-digest': {
-    schedule: '* * * * *',
+    schedule: '0 9 * * *', // 9 AM daily
     watchRoom: 'infra-monitoring',
     postToRoom: 'infra-monitoring',
-    capabilities: { canChat: true, a2a: true, canTrade: false, canPropose: false, canVote: true, canDelegate: true, canStake: true, canBridge: false, compute: true },
+    capabilities: { canChat: true, a2a: false, canTrade: false, canPropose: false, canVote: false, canDelegate: false, canStake: false, canBridge: false, compute: true },
   },
 }
 
@@ -84,11 +65,9 @@ export { baseWatcherCharacter } from './base-watcher'
 export { communityManagerCharacter } from './community-manager'
 export { dailyDigestCharacter } from './daily-digest'
 export { devRelCharacter } from './devrel'
-export { endpointProberCharacter } from './endpoint-prober'
-export { infraAnalyzerCharacter } from './infra-analyzer'
+export { infraMonitorCharacter } from './infra-monitor'
 export { liaisonCharacter } from './liaison'
 export { moderatorCharacter } from './moderator'
-export { nodeMonitorCharacter } from './node-monitor'
 export { projectManagerCharacter } from './project-manager'
 export { securityAnalystCharacter } from './security-analyst'
 export { socialMediaManagerCharacter } from './social-media-manager'

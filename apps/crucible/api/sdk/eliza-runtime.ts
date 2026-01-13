@@ -751,6 +751,9 @@ export class CrucibleAgentRuntime {
     if (upperName === 'GET_INFRA_HEALTH') {
       return this.executeGetInfraHealth(params)
     }
+    if (upperName === 'GET_INFRA_STATUS') {
+      return this.executeGetInfraStatus(params)
+    }
 
     // Find the action in the loaded jeju actions
     const action = jejuActions.find(
@@ -867,6 +870,7 @@ export class CrucibleAgentRuntime {
       'SEARCH_DISCUSSIONS',
       'POST_GITHUB_DISCUSSION',
       'GET_INFRA_HEALTH',
+      'GET_INFRA_STATUS',
     ]
     return [...jejuActions.filter((a) => a.hasHandler).map((a) => a.name), ...builtInActions]
   }
@@ -1270,6 +1274,158 @@ export class CrucibleAgentRuntime {
     return {
       success: true,
       result: results,
+    }
+  }
+
+  /**
+   * Execute GET_INFRA_STATUS action - probe infrastructure AND evaluate thresholds
+   * Returns evaluated status with alerts, ready for LLM to format
+   */
+  private async executeGetInfraStatus(
+    _params: Record<string, string>,
+  ): Promise<{ success: boolean; result?: JsonValue; error?: string }> {
+    this.log.info('Executing GET_INFRA_STATUS - probing and evaluating infrastructure')
+
+    const timestamp = Date.now()
+    const alerts: Array<{
+      severity: 'P0' | 'P1' | 'P2' | 'P3'
+      source: string
+      message: string
+      metric?: string
+      value?: number | string
+    }> = []
+
+    // Endpoint configurations
+    const endpoints = {
+      dws: { url: process.env.DWS_URL || 'http://localhost:4030', paths: ['/health'] },
+      crucible: { url: 'http://localhost:4021', paths: ['/health'] },
+      indexer: { url: 'http://localhost:4355', paths: ['/health'] },
+    }
+
+    const metrics: Record<string, { status: string; latencyMs: number; error?: string }> = {}
+
+    // Probe each endpoint
+    for (const [name, config] of Object.entries(endpoints)) {
+      for (const path of config.paths) {
+        const key = `${name}${path.replace('/', '_')}`
+        try {
+          const start = Date.now()
+          const response = await fetch(`${config.url}${path}`, {
+            method: 'GET',
+            signal: AbortSignal.timeout(5000),
+          })
+          const latency = Date.now() - start
+
+          metrics[key] = {
+            status: response.ok ? 'healthy' : 'unhealthy',
+            latencyMs: latency,
+          }
+
+          // Threshold checks
+          if (!response.ok) {
+            alerts.push({
+              severity: 'P0',
+              source: name,
+              message: `${name} service is unhealthy`,
+              metric: 'status',
+              value: response.status,
+            })
+          } else if (latency > 5000) {
+            alerts.push({
+              severity: 'P1',
+              source: name,
+              message: `${name} latency critically high`,
+              metric: 'latency_ms',
+              value: latency,
+            })
+          } else if (latency > 2000) {
+            alerts.push({
+              severity: 'P2',
+              source: name,
+              message: `${name} latency elevated`,
+              metric: 'latency_ms',
+              value: latency,
+            })
+          }
+        } catch (err) {
+          const errorMsg = err instanceof Error ? err.message : 'Connection failed'
+          metrics[key] = { status: 'unreachable', latencyMs: 0, error: errorMsg }
+          alerts.push({
+            severity: 'P0',
+            source: name,
+            message: `${name} is unreachable: ${errorMsg}`,
+            metric: 'connectivity',
+            value: 'failed',
+          })
+        }
+      }
+    }
+
+    // Probe inference nodes separately
+    const dwsUrl = process.env.DWS_URL || 'http://localhost:4030'
+    let inferenceNodeCount = 0
+    try {
+      const start = Date.now()
+      const response = await fetch(`${dwsUrl}/compute/nodes/inference`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5000),
+      })
+      const latency = Date.now() - start
+
+      if (response.ok) {
+        const data = await response.json() as { nodes?: Array<{ id: string; status: string }> }
+        inferenceNodeCount = data.nodes?.length ?? 0
+        metrics['inference_nodes'] = { status: 'available', latencyMs: latency }
+
+        if (inferenceNodeCount === 0) {
+          alerts.push({
+            severity: 'P0',
+            source: 'inference',
+            message: 'No inference nodes available',
+            metric: 'node_count',
+            value: 0,
+          })
+        }
+      } else {
+        metrics['inference_nodes'] = { status: 'error', latencyMs: latency, error: `HTTP ${response.status}` }
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Connection failed'
+      metrics['inference_nodes'] = { status: 'unreachable', latencyMs: 0, error: errorMsg }
+      alerts.push({
+        severity: 'P1',
+        source: 'inference',
+        message: `Cannot query inference nodes: ${errorMsg}`,
+        metric: 'connectivity',
+        value: 'failed',
+      })
+    }
+
+    // Determine overall status
+    const hasP0 = alerts.some((a) => a.severity === 'P0')
+    const hasP1 = alerts.some((a) => a.severity === 'P1')
+    const overallStatus = hasP0 ? 'CRITICAL' : hasP1 ? 'DEGRADED' : 'HEALTHY'
+
+    this.log.info('Infrastructure status evaluated', {
+      status: overallStatus,
+      alertCount: alerts.length,
+      inferenceNodes: inferenceNodeCount,
+    })
+
+    return {
+      success: true,
+      result: {
+        timestamp,
+        status: overallStatus,
+        alerts,
+        metrics,
+        summary: {
+          inferenceNodeCount,
+          p0Count: alerts.filter((a) => a.severity === 'P0').length,
+          p1Count: alerts.filter((a) => a.severity === 'P1').length,
+          p2Count: alerts.filter((a) => a.severity === 'P2').length,
+        },
+      },
     }
   }
 }
