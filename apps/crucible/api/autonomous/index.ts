@@ -15,6 +15,7 @@ import {
 import { getDatabase, type Message } from '../sdk/database'
 import { createLogger } from '../sdk/logger'
 import { getAlertService } from './alert-service'
+import { formatHealthMessage, infraStatusToSnapshot } from './health-format'
 import type {
   ActivityEntry,
   AgentTickContext,
@@ -537,8 +538,15 @@ export class AutonomousAgentRunner {
       agentId: config.agentId,
       tickCount: agent.tickCount,
       trajectoryId,
+      executionMode: config.executionMode ?? 'llm-driven',
     })
 
+    // Check execution mode
+    if (config.executionMode === 'code-first') {
+      return this.executeCodeFirstTick(agent)
+    }
+
+    // Default: LLM-driven execution
     // Build tick context
     const context = await this.buildTickContext(agent)
 
@@ -699,6 +707,346 @@ export class AutonomousAgentRunner {
     }
 
     return { reward: tickReward }
+  }
+
+  /**
+   * Code-first execution: execute action directly, only invoke LLM if status triggers it
+   */
+  private async executeCodeFirstTick(
+    agent: RegisteredAgent,
+  ): Promise<{ reward: number }> {
+    const config = agent.config
+    const codeFirstConfig = config.codeFirstConfig
+    const trajectoryId = agent.currentTrajectoryId
+
+    if (!codeFirstConfig) {
+      log.error('codeFirstConfig required for code-first mode', {
+        agentId: config.agentId,
+      })
+      return { reward: 0 }
+    }
+
+    log.info('Executing code-first tick', {
+      agentId: config.agentId,
+      primaryAction: codeFirstConfig.primaryAction,
+    })
+
+    // Start trajectory step for code-first execution (required for logging)
+    if (trajectoryId) {
+      const recentSuccesses = agent.recentActivity.filter((a) => a.success).length
+      const successRate =
+        agent.recentActivity.length > 0
+          ? recentSuccesses / agent.recentActivity.length
+          : 0
+
+      const envState: EnvironmentState = {
+        timestamp: Date.now(),
+        tickCount: agent.tickCount,
+        successfulActions: recentSuccesses,
+        successRatePercent: Math.round(successRate * 100),
+        recentActivityCount: agent.recentActivity.length,
+        errorCount: agent.errorCount,
+        archetype: agent.config.archetype,
+        executionMode: 'code-first',
+      }
+      this.trajectoryRecorder.startStep(trajectoryId, envState)
+    }
+
+    // 1. Execute primary action directly (no LLM)
+    const actionResult = await this.executeAction(
+      agent,
+      codeFirstConfig.primaryAction,
+      {},
+      trajectoryId,
+    )
+
+    if (!actionResult.success) {
+      log.error('Primary action failed', {
+        agentId: config.agentId,
+        action: codeFirstConfig.primaryAction,
+        error: actionResult.error ?? null,
+      })
+      // Complete step with failure
+      if (trajectoryId) {
+        const action: Action = {
+          timestamp: Date.now(),
+          actionType: codeFirstConfig.primaryAction,
+          actionName: codeFirstConfig.primaryAction,
+          parameters: {},
+          success: false,
+          error: actionResult.error,
+        }
+        this.trajectoryRecorder.completeStep(trajectoryId, action, 0)
+      }
+      return { reward: 0 }
+    }
+
+    const result = actionResult.result as Record<string, unknown>
+    const status = (result.status as string) ?? 'UNKNOWN'
+
+    log.info('Primary action completed', {
+      agentId: config.agentId,
+      status,
+      hasAlerts: Boolean(result.alerts),
+    })
+
+    // 2. Check if LLM should be invoked based on status
+    if (codeFirstConfig.llmTriggerStatuses.includes(status)) {
+      // Status is DEGRADED or CRITICAL - invoke LLM for alert formatting
+      log.info('Status triggers LLM invocation', {
+        agentId: config.agentId,
+        status,
+        triggerStatuses: codeFirstConfig.llmTriggerStatuses,
+      })
+      // Complete current step before LLM tick starts its own step
+      if (trajectoryId) {
+        const action: Action = {
+          timestamp: Date.now(),
+          actionType: codeFirstConfig.primaryAction,
+          actionName: codeFirstConfig.primaryAction,
+          parameters: {},
+          success: true,
+          result: { status, triggeredLLM: true },
+        }
+        this.trajectoryRecorder.completeStep(trajectoryId, action, 0.2)
+      }
+      return this.executeAlertFormattingTick(agent, result)
+    }
+
+    // 3. Status is HEALTHY - post templated message (no LLM)
+    await this.postHealthSnapshot(agent, result)
+
+    // Complete trajectory step for healthy status
+    if (trajectoryId) {
+      const action: Action = {
+        timestamp: Date.now(),
+        actionType: 'HEALTH_SNAPSHOT',
+        actionName: 'health-snapshot',
+        parameters: {},
+        success: true,
+        result: { status, postedSnapshot: true },
+      }
+      this.trajectoryRecorder.completeStep(trajectoryId, action, 0.1)
+    }
+
+    return { reward: 0.1 }
+  }
+
+  /**
+   * Post a health snapshot to the configured room without LLM involvement
+   */
+  private async postHealthSnapshot(
+    agent: RegisteredAgent,
+    infraStatus: Record<string, unknown>,
+  ): Promise<void> {
+    const snapshot = infraStatusToSnapshot(infraStatus)
+    const message = formatHealthMessage(snapshot)
+
+    const postRoom = agent.config.postToRoom
+    if (!postRoom) {
+      log.warn('No postToRoom configured for agent', {
+        agentId: agent.config.agentId,
+      })
+      return
+    }
+
+    // Post to room via database (consistent with existing postToRoom method)
+    await this.postToRoom(agent.config.agentId, postRoom, message, 'HEALTH_SNAPSHOT')
+
+    log.info('Posted health snapshot', {
+      agentId: agent.config.agentId,
+      room: postRoom,
+      status: snapshot.status,
+    })
+
+    // Record activity
+    agent.recentActivity.push({
+      action: 'HEALTH_SNAPSHOT',
+      timestamp: Date.now(),
+      success: true,
+      result: { status: snapshot.status, message: message.slice(0, 100) },
+    })
+  }
+
+  /**
+   * Invoke LLM to format an alert message when status is degraded/critical
+   */
+  private async executeAlertFormattingTick(
+    agent: RegisteredAgent,
+    infraStatus: Record<string, unknown>,
+  ): Promise<{ reward: number }> {
+    const config = agent.config
+    const postRoom = config.postToRoom
+
+    // Build a prompt with the infra status data for LLM to format
+    const alertPrompt = `Infrastructure status: ${infraStatus.status}
+
+Current infrastructure status data:
+${JSON.stringify(infraStatus, null, 2)}
+
+Format this as an alert message for the operations team. Include:
+1. A clear summary of what is wrong
+2. Which services are affected
+3. Any P0/P1/P2 alerts detected
+4. Recommended immediate actions
+
+Output ONLY the formatted alert message. Do not include any action syntax or instructions.`
+
+    return this.executeLLMTick(agent, alertPrompt)
+  }
+
+  /**
+   * Execute a tick using LLM with a custom prompt
+   * Wraps the standard LLM execution path for reuse
+   */
+  private async executeLLMTick(
+    agent: RegisteredAgent,
+    customPrompt: string,
+  ): Promise<{ reward: number }> {
+    const config = agent.config
+    const trajectoryId = agent.currentTrajectoryId
+
+    if (!agent.runtime) {
+      throw new Error('Agent runtime not initialized')
+    }
+
+    // Start trajectory step with environment state if recording
+    if (trajectoryId) {
+      const recentSuccesses = agent.recentActivity.filter((a) => a.success).length
+      const successRate =
+        agent.recentActivity.length > 0
+          ? recentSuccesses / agent.recentActivity.length
+          : 0
+
+      const envState: EnvironmentState = {
+        timestamp: Date.now(),
+        tickCount: agent.tickCount,
+        successfulActions: recentSuccesses,
+        successRatePercent: Math.round(successRate * 100),
+        recentActivityCount: agent.recentActivity.length,
+        errorCount: agent.errorCount,
+        archetype: agent.config.archetype,
+        executionMode: 'code-first-alert',
+      }
+      this.trajectoryRecorder.startStep(trajectoryId, envState)
+    }
+
+    const llmCallStart = Date.now()
+    const response = await agent.runtime.processMessage({
+      id: crypto.randomUUID(),
+      userId: 'autonomous-runner',
+      roomId: `autonomous-${config.agentId}`,
+      content: { text: customPrompt, source: 'autonomous-alert' },
+      createdAt: Date.now(),
+    })
+    const llmCallLatency = Date.now() - llmCallStart
+
+    // Log LLM call to trajectory
+    if (trajectoryId) {
+      const modelPrefs = config.character.modelPreferences
+      const network = getCurrentNetwork()
+      const modelName =
+        network === 'mainnet'
+          ? (modelPrefs?.large ?? 'llama-3.3-70b-versatile')
+          : (modelPrefs?.small ?? 'llama-3.1-8b-instant')
+
+      const llmCall: LLMCall = {
+        timestamp: llmCallStart,
+        model: `dws/${modelName}`,
+        systemPrompt: this.buildSystemPrompt(config),
+        userPrompt: customPrompt,
+        response: response.text,
+        temperature: 0.7,
+        maxTokens: 1024,
+        latencyMs: llmCallLatency,
+        purpose: 'action',
+        actionType: response.action ?? 'respond',
+      }
+      this.trajectoryRecorder.logLLMCall(trajectoryId, llmCall)
+    }
+
+    log.info('LLM tick completed', {
+      agentId: config.agentId,
+      responseLength: response.text.length,
+      action: response.action ?? null,
+      latencyMs: llmCallLatency,
+    })
+
+    // Record activity
+    agent.recentActivity.push({
+      action: response.action ?? 'ALERT_FORMAT',
+      timestamp: Date.now(),
+      success: true,
+      result: { text: response.text.slice(0, 200) },
+    })
+
+    // Keep only last 50 activities
+    if (agent.recentActivity.length > 50) {
+      agent.recentActivity = agent.recentActivity.slice(-50)
+    }
+
+    // Auto-post LLM response to configured room (don't rely on LLM to call action)
+    if (config.postToRoom && response.text) {
+      await this.postToRoom(config.agentId, config.postToRoom, response.text, 'ALERT')
+      log.info('Auto-posted alert to room', {
+        agentId: config.agentId,
+        room: config.postToRoom,
+      })
+    }
+
+    // Calculate reward and execute any parsed actions
+    let tickReward = 0
+    const actionsExecuted: string[] = []
+    const actionResults: Array<{ action: string; response: string }> = []
+
+    if (response.actions && response.actions.length > 0) {
+      for (const action of response.actions.slice(0, config.maxActionsPerTick)) {
+        const actionResult = await this.executeAction(
+          agent,
+          action.type,
+          action.params,
+          trajectoryId,
+        )
+        actionsExecuted.push(action.type)
+        if (actionResult.success) {
+          tickReward += this.calculateActionReward(action.type)
+          const resultResponse = (actionResult.result as { response?: string })?.response
+          if (resultResponse) {
+            actionResults.push({ action: action.type, response: resultResponse })
+          }
+        }
+      }
+    }
+
+    // Post results to room if configured
+    if (config.postToRoom && actionResults.length > 0) {
+      for (const result of actionResults) {
+        const contentToPost = this.extractPostableContent(result.response, config.agentId)
+        if (contentToPost) {
+          await this.postToRoom(config.agentId, config.postToRoom, contentToPost, result.action)
+        }
+      }
+    }
+
+    // Complete trajectory step
+    if (trajectoryId) {
+      const action: Action = {
+        timestamp: Date.now(),
+        actionType: response.action ?? 'ALERT_FORMAT',
+        actionName: response.action ?? 'alert-format',
+        parameters: {},
+        reasoning: response.text.slice(0, 500),
+        success: true,
+        result: {
+          actionsExecuted,
+          responseLength: response.text.length,
+        },
+      }
+      this.trajectoryRecorder.completeStep(trajectoryId, action, tickReward)
+    }
+
+    // Alert ticks get higher reward since they indicate action taken on issues
+    return { reward: tickReward + 0.5 }
   }
 
   private buildSystemPrompt(config: ExtendedAgentConfig): string {

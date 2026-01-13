@@ -111,9 +111,14 @@ import { auditContractAction } from './actions/audit-contract'
 import { pollBlockscoutAction } from './actions/blockscout'
 import { fetchContractAction } from './actions/contract'
 import {
+  postGithubDiscussionAction,
+  searchDiscussionsAction,
+} from './actions/github'
+import {
   analyzeInfraHealthAction,
   collectNodeStatsAction,
 } from './actions/infra'
+import { readRoomAlertsAction } from './actions/room-alerts'
 import { probeEndpointsAction } from './actions/probe'
 import { retrieveFileAction, uploadFileAction } from './actions/storage'
 // Extended Actions - Storage
@@ -279,6 +284,13 @@ export const jejuPlugin: Plugin = {
 
     // Alert actions
     postAlertAction,
+
+    // GitHub actions
+    postGithubDiscussionAction,
+    searchDiscussionsAction,
+
+    // Room alerts
+    readRoomAlertsAction,
   ],
 }
 

@@ -49,6 +49,9 @@ export interface IndexerConfig {
 
   // IPFS
   ipfsGateway: string
+
+  // DWS
+  dwsUrl: string
 }
 
 const { config, configure: setIndexerConfig } = createAppConfig<IndexerConfig>({
@@ -94,6 +97,9 @@ const { config, configure: setIndexerConfig } = createAppConfig<IndexerConfig>({
 
   // IPFS - use gateway URL from config, fallback to localhost for local dev
   ipfsGateway: getEnvVar('IPFS_GATEWAY') ?? getIpfsGatewayUrl() ?? 'http://127.0.0.1:4030/cdn',
+
+  // DWS - use env var or default to localhost
+  dwsUrl: getEnvVar('DWS_URL') ?? 'http://127.0.0.1:4030',
 })
 
 export { config }

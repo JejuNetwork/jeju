@@ -28,7 +28,7 @@ export const characters: Record<string, AgentCharacter> = {
 type AutonomousAgentOverrides = Partial<
   Pick<
     AutonomousAgentConfig,
-    'schedule' | 'urgencyTriggers' | 'capabilities' | 'watchRoom' | 'postToRoom' | 'tickIntervalMs'
+    'schedule' | 'urgencyTriggers' | 'capabilities' | 'watchRoom' | 'postToRoom' | 'tickIntervalMs' | 'executionMode' | 'codeFirstConfig'
   >
 >
 
@@ -40,7 +40,13 @@ export const AUTONOMOUS_AGENTS: Record<string, AutonomousAgentOverrides> = {
   // Real-time infrastructure monitoring - probes + alerts when issues detected
   'infra-monitor': {
     postToRoom: 'infra-monitoring',
-    tickIntervalMs: 60000, // Check every minute
+    tickIntervalMs: 60000,
+    executionMode: 'code-first',
+    codeFirstConfig: {
+      primaryAction: 'GET_INFRA_STATUS',
+      llmTriggerStatuses: ['DEGRADED', 'CRITICAL'],
+      healthyTemplate: '[HEALTH | t={timestamp} | status={status}] dws={dws_latency}ms crucible={crucible_latency}ms indexer={indexer_latency}ms inference={inference_nodes}',
+    },
     capabilities: { canChat: true, a2a: false, canTrade: false, canPropose: false, canVote: false, canDelegate: false, canStake: false, canBridge: false, compute: true },
   },
   // Daily digest - summarizes alerts and posts to GitHub

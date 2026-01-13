@@ -1,6 +1,19 @@
 import type { JsonValue } from '@jejunetwork/types'
 import type { AgentCharacter } from '../../lib/types'
 
+export type ExecutionMode =
+  | 'llm-driven' // Current: LLM decides everything
+  | 'code-first' // Execute action first, LLM only if condition met
+
+export interface CodeFirstConfig {
+  /** Action to execute automatically (no LLM) */
+  primaryAction: string
+  /** Condition to invoke LLM - if result.status matches these values, call LLM */
+  llmTriggerStatuses: string[]
+  /** Template for health message when status is good (no LLM) */
+  healthyTemplate: string
+}
+
 export interface AutonomousAgentConfig {
   agentId: string
   character: AgentCharacter
@@ -17,6 +30,10 @@ export interface AutonomousAgentConfig {
   schedule?: string
   /** Keywords that trigger immediate execution regardless of schedule */
   urgencyTriggers?: string[]
+  /** Execution mode - determines how actions are decided */
+  executionMode?: ExecutionMode
+  /** Configuration for code-first execution mode */
+  codeFirstConfig?: CodeFirstConfig
 }
 
 export interface AutonomousCapabilities {

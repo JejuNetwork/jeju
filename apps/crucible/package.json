@@ -15,6 +15,7 @@
     "@jejunetwork/eliza-plugin": "workspace:*",
     "@tanstack/react-query": "5.90.12",
     "concurrently": "^9.1.2",
+    "croner": "^9.0.0",
     "elysia": "^1.4.19",
     "react": "19.1.0",
     "react-dom": "19.1.0",
