@@ -1012,6 +1012,12 @@ export class AutonomousAgentRunner {
           { name: 'body', type: 'string', description: 'Discussion body in markdown', required: true },
         ],
       },
+      {
+        name: 'GET_INFRA_HEALTH',
+        description: 'Probe DWS and inference node endpoints to get real infrastructure health data',
+        category: 'monitoring',
+        parameters: [],
+      },
     )
 
     return actions

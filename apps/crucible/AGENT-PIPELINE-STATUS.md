@@ -52,6 +52,12 @@ GITHUB_CATEGORY_ID=DIC_...     # Discussion category ID
 - LLM now sees `POST_TO_ROOM`, `READ_ROOM_ALERTS`, `SEARCH_DISCUSSIONS`, `POST_GITHUB_DISCUSSION` in "## Available Actions"
 - Previously LLM only saw DeFi/governance actions and used those instead
 
+### 8. Added GET_INFRA_HEALTH Action
+- New action that actually probes DWS and inference node endpoints
+- Returns real health data: `{ dws: { status, latencyMs }, inference: { nodeCount, latencyMs } }`
+- Node-monitor character updated to use GET_INFRA_HEALTH instead of generating fictional data
+- Workflow: GET_INFRA_HEALTH → format as NODE_SNAPSHOT → POST_TO_ROOM
+
 ---
 
 ## The Agent Pipeline

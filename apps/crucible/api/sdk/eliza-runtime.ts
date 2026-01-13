@@ -748,6 +748,9 @@ export class CrucibleAgentRuntime {
     if (upperName === 'POST_GITHUB_DISCUSSION') {
       return this.executePostGithubDiscussion(params)
     }
+    if (upperName === 'GET_INFRA_HEALTH') {
+      return this.executeGetInfraHealth(params)
+    }
 
     // Find the action in the loaded jeju actions
     const action = jejuActions.find(
@@ -863,6 +866,7 @@ export class CrucibleAgentRuntime {
       'READ_ROOM_ALERTS',
       'SEARCH_DISCUSSIONS',
       'POST_GITHUB_DISCUSSION',
+      'GET_INFRA_HEALTH',
     ]
     return [...jejuActions.filter((a) => a.hasHandler).map((a) => a.name), ...builtInActions]
   }
@@ -1197,6 +1201,75 @@ export class CrucibleAgentRuntime {
         room: 'infra-monitoring',
         content: `# ${title}\n\n${body}\n\n---\n_Note: GitHub posting failed (${errorMsg}), posted to room instead_`,
       })
+    }
+  }
+
+  /**
+   * Execute GET_INFRA_HEALTH action - probe DWS and inference node endpoints
+   * Returns real infrastructure health data
+   */
+  private async executeGetInfraHealth(
+    _params: Record<string, string>,
+  ): Promise<{ success: boolean; result?: JsonValue; error?: string }> {
+    this.log.info('Executing GET_INFRA_HEALTH - probing infrastructure endpoints')
+
+    const timestamp = Date.now()
+    const results: {
+      timestamp: number
+      dws: { status: string; latencyMs: number; error?: string }
+      inference: { nodeCount: number; latencyMs: number; nodes?: Array<{ id: string; status: string }>; error?: string }
+    } = {
+      timestamp,
+      dws: { status: 'unknown', latencyMs: 0 },
+      inference: { nodeCount: 0, latencyMs: 0 },
+    }
+
+    // Probe DWS health endpoint
+    const dwsUrl = process.env.DWS_URL || 'http://localhost:4030'
+    try {
+      const dwsStart = Date.now()
+      const dwsResponse = await fetch(`${dwsUrl}/health`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5000),
+      })
+      results.dws.latencyMs = Date.now() - dwsStart
+      results.dws.status = dwsResponse.ok ? 'healthy' : 'unhealthy'
+    } catch (err) {
+      results.dws.status = 'unhealthy'
+      results.dws.error = err instanceof Error ? err.message : 'Connection failed'
+      this.log.warn('DWS health check failed', { error: results.dws.error })
+    }
+
+    // Probe inference nodes endpoint
+    try {
+      const inferenceStart = Date.now()
+      const inferenceResponse = await fetch(`${dwsUrl}/compute/nodes/inference`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5000),
+      })
+      results.inference.latencyMs = Date.now() - inferenceStart
+
+      if (inferenceResponse.ok) {
+        const data = await inferenceResponse.json() as { nodes?: Array<{ id: string; status: string }> }
+        const nodes = data.nodes ?? []
+        results.inference.nodeCount = nodes.length
+        results.inference.nodes = nodes.slice(0, 10) // Limit to first 10 for brevity
+      } else {
+        results.inference.error = `HTTP ${inferenceResponse.status}`
+      }
+    } catch (err) {
+      results.inference.error = err instanceof Error ? err.message : 'Connection failed'
+      this.log.warn('Inference nodes check failed', { error: results.inference.error })
+    }
+
+    this.log.info('Infrastructure health check complete', {
+      dwsStatus: results.dws.status,
+      inferenceNodes: results.inference.nodeCount,
+    })
+
+    return {
+      success: true,
+      result: results,
     }
   }
 }
