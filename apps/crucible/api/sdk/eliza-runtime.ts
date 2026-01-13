@@ -914,39 +914,56 @@ export class CrucibleAgentRuntime {
 
   /**
    * Execute READ_ROOM_ALERTS action - reads messages from a room within time range
+   * Supports 'after' parameter for watermark-based duplicate avoidance
    */
   private async executeReadRoomAlerts(
     params: Record<string, string>,
   ): Promise<{ success: boolean; result?: JsonValue; error?: string }> {
-    const { room, hours } = params
+    const { room, hours, after } = params
     const hoursNum = Number(hours) || 24
+    const afterTimestamp = after ? Number(after) : undefined
 
     if (!room) {
       return { success: false, error: 'READ_ROOM_ALERTS requires room parameter' }
     }
 
-    this.log.info('Executing READ_ROOM_ALERTS', { room, hours: hoursNum })
+    this.log.info('Executing READ_ROOM_ALERTS', { room, hours: hoursNum, after: afterTimestamp ?? null })
 
     try {
       const { getDatabase } = await import('./database')
       const db = getDatabase()
 
-      // Calculate timestamp for X hours ago
-      const sinceTimestamp = Math.floor(Date.now() / 1000) - (hoursNum * 60 * 60)
+      // Use 'after' watermark if provided, otherwise use hours-based calculation
+      let sinceTimestamp: number
+      if (afterTimestamp && afterTimestamp > 0) {
+        // Add 1 second to avoid re-processing the exact same message
+        sinceTimestamp = Math.floor(afterTimestamp / 1000) + 1
+        this.log.debug('Using watermark-based filtering', { afterTimestamp, sinceSeconds: sinceTimestamp })
+      } else {
+        // Fallback to hours-based calculation
+        sinceTimestamp = Math.floor(Date.now() / 1000) - (hoursNum * 60 * 60)
+      }
 
       const messages = await db.getMessages(room, {
         since: sinceTimestamp,
         limit: 1000, // Get up to 1000 messages
       })
 
-      this.log.info('Read room alerts', { room, messageCount: messages.length })
+      this.log.info('Read room alerts', { room, messageCount: messages.length, usedWatermark: !!afterTimestamp })
 
       // Format messages for LLM consumption
       const formattedMessages = messages.map((msg) => ({
+        id: String(msg.id),
         timestamp: new Date(msg.created_at * 1000).toISOString(),
+        timestampMs: msg.created_at * 1000,
         agent: msg.agent_id,
         content: msg.content,
       }))
+
+      // Calculate latest timestamp for watermark update
+      const latestTimestamp = messages.length > 0
+        ? Math.max(...messages.map((m) => m.created_at * 1000))
+        : afterTimestamp ?? Date.now()
 
       return {
         success: true,
@@ -955,6 +972,8 @@ export class CrucibleAgentRuntime {
           hours: hoursNum,
           messageCount: messages.length,
           messages: formattedMessages,
+          latestTimestamp, // Return for watermark tracking
+          usedWatermark: !!afterTimestamp,
         },
       }
     } catch (err) {
