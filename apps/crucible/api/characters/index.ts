@@ -5,6 +5,7 @@ import { communityManagerCharacter } from './community-manager'
 import { dailyDigestCharacter } from './daily-digest'
 import { devRelCharacter } from './devrel'
 import { infraMonitorCharacter } from './infra-monitor'
+import { registrationWatcherCharacter } from './registration-watcher'
 import { liaisonCharacter } from './liaison'
 import { moderatorCharacter } from './moderator'
 import { projectManagerCharacter } from './project-manager'
@@ -22,6 +23,7 @@ export const characters: Record<string, AgentCharacter> = {
   'security-analyst': securityAnalystCharacter,
   'base-watcher': baseWatcherCharacter,
   'infra-monitor': infraMonitorCharacter,
+  'registration-watcher': registrationWatcherCharacter,
 }
 
 // Partial config - agentId and character are derived from the key
@@ -61,6 +63,18 @@ export const AUTONOMOUS_AGENTS: Record<string, AutonomousAgentOverrides> = {
     },
     capabilities: { canChat: true, a2a: false, canTrade: false, canPropose: false, canVote: false, canDelegate: false, canStake: false, canBridge: false, compute: true },
   },
+  // Registration watcher - announces new agent registrations
+  'registration-watcher': {
+    postToRoom: 'infra-monitoring',
+    tickIntervalMs: 120000, // 2 minutes
+    executionMode: 'code-first',
+    codeFirstConfig: {
+      primaryAction: 'CHECK_NEW_REGISTRATIONS',
+      llmTriggerStatuses: [], // Fully deterministic - no LLM needed
+      healthyTemplate: '[REGISTRATION_CHECK | t={timestamp}] No new registrations',
+    },
+    capabilities: { canChat: true, a2a: false, canTrade: false, canPropose: false, canVote: false, canDelegate: false, canStake: false, canBridge: false, compute: true },
+  },
 }
 
 export function getCharacter(id: string): AgentCharacter | null {
@@ -82,3 +96,4 @@ export { moderatorCharacter } from './moderator'
 export { projectManagerCharacter } from './project-manager'
 export { securityAnalystCharacter } from './security-analyst'
 export { socialMediaManagerCharacter } from './social-media-manager'
+export { registrationWatcherCharacter } from './registration-watcher'
