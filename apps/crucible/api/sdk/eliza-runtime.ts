@@ -1314,11 +1314,14 @@ export class CrucibleAgentRuntime {
       value?: number | string
     }> = []
 
-    // Endpoint configurations
+    // Endpoint configurations for infrastructure health monitoring
     const endpoints = {
       dws: { url: process.env.DWS_URL || 'http://localhost:4030', paths: ['/health'] },
       crucible: { url: 'http://localhost:4021', paths: ['/health'] },
-      indexer: { url: 'http://localhost:4355', paths: ['/health'] },
+      indexer: { url: 'http://localhost:4004', paths: ['/health'] },
+      oracle: { url: 'http://localhost:4301', paths: ['/health'] },
+      jns: { url: 'http://localhost:4302', paths: ['/health'] },
+      sqlit: { url: 'http://localhost:4661', paths: ['/health'] },
     }
 
     const metrics: Record<string, { status: string; latencyMs: number; error?: string }> = {}
@@ -1392,8 +1395,9 @@ export class CrucibleAgentRuntime {
       const latency = Date.now() - start
 
       if (response.ok) {
-        const data = await response.json() as { nodes?: Array<{ id: string; status: string }> }
-        inferenceNodeCount = data.nodes?.length ?? 0
+        // Endpoint returns array directly, not { nodes: [...] }
+        const data = await response.json() as Array<{ address: string; isActive: boolean }>
+        inferenceNodeCount = Array.isArray(data) ? data.length : 0
         metrics['inference_nodes'] = { status: 'available', latencyMs: latency }
 
         if (inferenceNodeCount === 0) {

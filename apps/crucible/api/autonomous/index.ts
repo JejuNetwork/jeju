@@ -864,7 +864,7 @@ export class AutonomousAgentRunner {
       action: 'HEALTH_SNAPSHOT',
       timestamp: Date.now(),
       success: true,
-      result: { status: snapshot.status, message: message.slice(0, 100) },
+      result: { status: snapshot.status, message: message.slice(0, 250) },
     })
   }
 

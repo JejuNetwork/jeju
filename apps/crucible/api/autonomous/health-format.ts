@@ -8,17 +8,28 @@ export interface HealthSnapshot {
   dws: { latencyMs: number; status: string }
   crucible: { latencyMs: number; status: string }
   indexer: { latencyMs: number; status: string }
+  oracle: { latencyMs: number; status: string }
+  jns: { latencyMs: number; status: string }
+  sqlit: { latencyMs: number; status: string }
   inference: { nodeCount: number; latencyMs: number }
   alerts: { p0: number; p1: number; p2: number }
 }
 
 /**
  * Format a health snapshot as a compact room message
- * Output: [HEALTH | t=1704672000 | status=HEALTHY] dws=45ms crucible=12ms indexer=8ms inference=3
+ * Output: [HEALTH | t=1704672000 | status=HEALTHY] dws=45ms crucible=12ms indexer=8ms oracle=5ms jns=3ms sqlit=2ms inference=3
  */
 export function formatHealthMessage(data: HealthSnapshot): string {
   const header = `[HEALTH | t=${data.timestamp} | status=${data.status}]`
-  const metrics = `dws=${data.dws.latencyMs}ms crucible=${data.crucible.latencyMs}ms indexer=${data.indexer.latencyMs}ms inference=${data.inference.nodeCount}`
+  const metrics = [
+    `dws=${data.dws.latencyMs}ms`,
+    `crucible=${data.crucible.latencyMs}ms`,
+    `indexer=${data.indexer.latencyMs}ms`,
+    `oracle=${data.oracle.latencyMs}ms`,
+    `jns=${data.jns.latencyMs}ms`,
+    `sqlit=${data.sqlit.latencyMs}ms`,
+    `inference=${data.inference.nodeCount}`,
+  ].join(' ')
 
   if (data.alerts.p0 > 0 || data.alerts.p1 > 0 || data.alerts.p2 > 0) {
     return `${header} ${metrics} alerts=P0:${data.alerts.p0},P1:${data.alerts.p1},P2:${data.alerts.p2}`
@@ -87,6 +98,9 @@ export function infraStatusToSnapshot(result: Record<string, unknown>): HealthSn
   const dwsMetric = metrics['dws_health'] ?? { status: 'unknown', latencyMs: 0 }
   const crucibleMetric = metrics['crucible_health'] ?? { status: 'unknown', latencyMs: 0 }
   const indexerMetric = metrics['indexer_health'] ?? { status: 'unknown', latencyMs: 0 }
+  const oracleMetric = metrics['oracle_health'] ?? { status: 'unknown', latencyMs: 0 }
+  const jnsMetric = metrics['jns_health'] ?? { status: 'unknown', latencyMs: 0 }
+  const sqlitMetric = metrics['sqlit_health'] ?? { status: 'unknown', latencyMs: 0 }
   const inferenceMetric = metrics['inference_nodes'] ?? { status: 'unknown', latencyMs: 0 }
 
   // Status is already computed by GET_INFRA_STATUS
@@ -98,6 +112,9 @@ export function infraStatusToSnapshot(result: Record<string, unknown>): HealthSn
     dws: { latencyMs: dwsMetric.latencyMs, status: dwsMetric.status },
     crucible: { latencyMs: crucibleMetric.latencyMs, status: crucibleMetric.status },
     indexer: { latencyMs: indexerMetric.latencyMs, status: indexerMetric.status },
+    oracle: { latencyMs: oracleMetric.latencyMs, status: oracleMetric.status },
+    jns: { latencyMs: jnsMetric.latencyMs, status: jnsMetric.status },
+    sqlit: { latencyMs: sqlitMetric.latencyMs, status: sqlitMetric.status },
     inference: {
       nodeCount: summary.inferenceNodeCount ?? 0,
       latencyMs: inferenceMetric.latencyMs ?? 0,
