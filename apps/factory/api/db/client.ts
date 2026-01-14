@@ -1247,6 +1247,20 @@ export async function createContainer(container: {
   return ContainerRowSchema.parse(result.rows[0])
 }
 
+export async function getContainerInstance(
+  id: string,
+): Promise<ContainerInstanceRow | null> {
+  const database = getDB()
+  const result = await database.query<ContainerInstanceRow>(
+    'SELECT * FROM container_instances WHERE id = ?',
+    [id],
+  )
+  if (result.rows.length === 0) {
+    return null
+  }
+  return ContainerInstanceRowSchema.parse(result.rows[0])
+}
+
 export async function listContainerInstances(filter?: {
   owner?: string
   status?: string

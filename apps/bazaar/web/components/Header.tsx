@@ -1,6 +1,7 @@
 import { useJejuAuth } from '@jejunetwork/auth/react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { useDisconnect } from 'wagmi'
 
 const NAV_ITEMS = [
   { href: '/', label: 'Home', icon: '🏠' },
@@ -21,6 +22,7 @@ export function Header() {
     loginWithWallet,
     logout,
   } = useJejuAuth()
+  const { disconnect } = useDisconnect()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [accountDropdownOpen, setAccountDropdownOpen] = useState(false)
   const [isDark, setIsDark] = useState(true)
@@ -84,9 +86,28 @@ export function Header() {
   }, [loginWithWallet])
 
   const handleDisconnect = useCallback(async () => {
+    // Disconnect wagmi first to clear connection
+    disconnect()
+    // Clear wagmi storage
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const keys = Object.keys(window.localStorage)
+      keys.forEach((key) => {
+        if (
+          key.startsWith('wagmi') ||
+          key.startsWith('wc@') ||
+          key.includes('connector') ||
+          key.includes('wallet')
+        ) {
+          window.localStorage.removeItem(key)
+        }
+      })
+    }
+    // Logout from OAuth3
     await logout()
     setAccountDropdownOpen(false)
-  }, [logout])
+    // Reload to ensure clean state
+    window.location.reload()
+  }, [logout, disconnect])
 
   if (!mounted) return null
 

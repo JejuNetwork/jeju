@@ -7,6 +7,7 @@
  * - Frontend: Minified browser bundle
  */
 
+import { existsSync } from 'node:fs'
 import { copyFile, mkdir, rm } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { reportBundleSizes } from '@jejunetwork/shared'
@@ -44,25 +45,30 @@ async function build() {
   console.log('[OAuth3] API built successfully')
 
   // Build worker entrypoint (for DWS deployment)
-  console.log('[OAuth3] Building worker...')
-  const workerResult = await Bun.build({
-    entrypoints: [resolve(APP_DIR, 'api/worker.ts')],
-    outdir: resolve(APP_DIR, 'dist/api'),
-    target: 'bun',
-    minify: true,
-    sourcemap: 'external',
-    drop: ['debugger'],
-  })
+  const workerEntry = resolve(APP_DIR, 'api/worker.ts')
+  if (existsSync(workerEntry)) {
+    console.log('[OAuth3] Building worker...')
+    const workerResult = await Bun.build({
+      entrypoints: [workerEntry],
+      outdir: resolve(APP_DIR, 'dist/api'),
+      target: 'bun',
+      minify: true,
+      sourcemap: 'external',
+      drop: ['debugger'],
+    })
 
-  if (!workerResult.success) {
-    console.error('[OAuth3] Worker build failed:')
-    for (const log of workerResult.logs) {
-      console.error(log)
+    if (!workerResult.success) {
+      console.error('[OAuth3] Worker build failed:')
+      for (const log of workerResult.logs) {
+        console.error(log)
+      }
+      // Non-fatal - worker is optional for DWS
+      console.warn('[OAuth3] Worker build failed, continuing...')
+    } else {
+      console.log('[OAuth3] Worker built successfully')
     }
-    // Non-fatal - worker is optional for DWS
-    console.warn('[OAuth3] Worker build failed, continuing...')
   } else {
-    console.log('[OAuth3] Worker built successfully')
+    console.log('[OAuth3] No worker.ts found, skipping worker build')
   }
 
   // Build frontend

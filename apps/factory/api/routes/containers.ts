@@ -191,7 +191,7 @@ export const containersRoutes = new Elysia({ prefix: '/api/containers' })
       }
 
       // Verify ownership before stopping
-      const instance = getContainerInstance(params.instanceId)
+      const instance = await getContainerInstance(params.instanceId)
       if (!instance) {
         set.status = 404
         return {
@@ -228,7 +228,7 @@ export const containersRoutes = new Elysia({ prefix: '/api/containers' })
       }
 
       // Verify ownership before deleting
-      const instance = getContainerInstance(params.instanceId)
+      const instance = await getContainerInstance(params.instanceId)
       if (!instance) {
         set.status = 404
         return {

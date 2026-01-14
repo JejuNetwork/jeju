@@ -219,6 +219,34 @@ async function build() {
       build.onResolve({ filter: /^ioredis/ }, () => ({
         path: emptyStub,
       }))
+      // Resolve workspace packages
+      build.onResolve({ filter: /^@jejunetwork\/shared$/ }, () => ({
+        path: resolve(APP_DIR, '../../packages/shared/src/index.ts'),
+      }))
+      build.onResolve({ filter: /^@jejunetwork\/types$/ }, () => ({
+        path: resolve(APP_DIR, '../../packages/types/src/index.ts'),
+      }))
+      build.onResolve({ filter: /^@jejunetwork\/sdk$/ }, () => ({
+        path: resolve(APP_DIR, '../../packages/sdk/src/index.ts'),
+      }))
+      build.onResolve({ filter: /^@jejunetwork\/config$/ }, () => ({
+        path: resolve(APP_DIR, '../../packages/config/index.ts'),
+      }))
+      build.onResolve({ filter: /^@jejunetwork\/auth\/react$/ }, () => ({
+        path: resolve(APP_DIR, '../../packages/auth/src/react/index.ts'),
+      }))
+      build.onResolve({ filter: /^@jejunetwork\/auth\/types$/ }, () => ({
+        path: resolve(APP_DIR, '../../packages/auth/src/types.ts'),
+      }))
+      build.onResolve({ filter: /^@jejunetwork\/auth$/ }, () => ({
+        path: resolve(APP_DIR, '../../packages/auth/src/index.ts'),
+      }))
+      build.onResolve({ filter: /^@jejunetwork\/ui\/auth$/ }, () => ({
+        path: resolve(APP_DIR, '../../packages/ui/src/auth/index.ts'),
+      }))
+      build.onResolve({ filter: /^@jejunetwork\/ui$/ }, () => ({
+        path: resolve(APP_DIR, '../../packages/ui/src/index.ts'),
+      }))
     },
   }
 

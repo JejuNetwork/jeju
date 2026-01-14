@@ -141,7 +141,7 @@ export const wagmiConfig = createConfig({
   chains: allChains,
   connectors: [
     injected({
-      shimDisconnect: true, // Enable shim disconnect to prevent caching issues
+      shimDisconnect: false, // Disable shim disconnect to ensure proper disconnection
     }),
   ],
   transports: {

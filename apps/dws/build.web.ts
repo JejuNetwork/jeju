@@ -37,6 +37,19 @@ const browserShimPlugin: BunPlugin = {
     build.onResolve({ filter: /^@jejunetwork\/token$/ }, () => ({
       path: resolve('../../packages/token/src/index.ts'),
     }))
+    build.onResolve({ filter: /^@jejunetwork\/auth$/ }, () => ({
+      path: resolve('../../packages/auth/src/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/auth\/react$/ }, () => ({
+      path: resolve('../../packages/auth/src/react/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/auth\/types$/ }, () => ({
+      path: resolve('../../packages/auth/src/types.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/auth\/(.*)$/ }, (args) => {
+      const subpath = args.path.replace('@jejunetwork/auth/', '')
+      return { path: resolve(`../../packages/auth/src/${subpath}.ts`) }
+    })
 
     // Dedupe React - ensure all React imports resolve to the same package
     const reactPath = require.resolve('react')

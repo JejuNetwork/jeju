@@ -107,6 +107,36 @@ const browserPlugin: BunPlugin = {
       path: require.resolve(args.path),
     }))
 
+    // Resolve workspace packages
+    build.onResolve({ filter: /^@jejunetwork\/shared$/ }, () => ({
+      path: resolve(APP_DIR, '../../packages/shared/src/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/types$/ }, () => ({
+      path: resolve(APP_DIR, '../../packages/types/src/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/sdk$/ }, () => ({
+      path: resolve(APP_DIR, '../../packages/sdk/src/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/config$/ }, () => ({
+      path: resolve(APP_DIR, '../../packages/config/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/ui$/ }, () => ({
+      path: resolve(APP_DIR, '../../packages/ui/src/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/auth$/ }, () => ({
+      path: resolve(APP_DIR, '../../packages/auth/src/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/auth\/react$/ }, () => ({
+      path: resolve(APP_DIR, '../../packages/auth/src/react/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/auth\/types$/ }, () => ({
+      path: resolve(APP_DIR, '../../packages/auth/src/types.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/auth\/(.*)$/ }, (args) => {
+      const subpath = args.path.replace('@jejunetwork/auth/', '')
+      return { path: resolve(APP_DIR, `../../packages/auth/src/${subpath}.ts`) }
+    })
+
     // Handle Node.js crypto for browser - return empty module
     build.onResolve({ filter: /^node:crypto$/ }, () => ({
       path: 'crypto-empty',

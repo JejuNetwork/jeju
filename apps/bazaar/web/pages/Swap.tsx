@@ -27,6 +27,7 @@ import {
   parseEther,
   parseUnits,
 } from 'viem'
+import { useJejuAuth } from '@jejunetwork/auth/react'
 import {
   useAccount,
   useBalance,
@@ -70,6 +71,7 @@ export default function SwapPage() {
   const { address, isConnected, chain, isConnecting } = useAccount()
   const publicClient = usePublicClient()
   const { switchChain } = useSwitchChain()
+  const { authenticated } = useJejuAuth()
   // Check chain ID - only show warning if connected and chain is definitely wrong
   // Don't show warning during initial connection or if chain is still loading
   const isCorrectChain = chain?.id === CHAIN_ID
@@ -90,9 +92,12 @@ export default function SwapPage() {
   const [recipient, setRecipient] = useState('')
   const [showRecipient, setShowRecipient] = useState(false)
 
-  // Balance tracking
+  // Balance tracking - only fetch when address is connected AND authenticated
   const { data: ethBalance, refetch: refetchEthBalance } = useBalance({
-    address,
+    address: address ?? undefined,
+    query: {
+      enabled: !!address && !!authenticated && isConnected, // Only fetch when authenticated and connected
+    },
   })
   const [tokenBalance, setTokenBalance] = useState<bigint>(0n)
 
@@ -167,10 +172,19 @@ export default function SwapPage() {
     hash: txHash,
   })
 
-  // Fetch token balance
+  // Reset balances on logout (when address becomes undefined or not authenticated)
+  useEffect(() => {
+    if (!address || !authenticated || !isConnected) {
+      setTokenBalance(0n)
+      // Force refetch ethBalance to clear cached value
+      refetchEthBalance()
+    }
+  }, [address, authenticated, isConnected, refetchEthBalance])
+
+  // Fetch token balance - only when authenticated and connected
   useEffect(() => {
     async function fetchBalance() {
-      if (!address || !publicClient || inputToken.address === ZERO_ADDRESS) {
+      if (!address || !authenticated || !isConnected || !publicClient || inputToken.address === ZERO_ADDRESS) {
         setTokenBalance(0n)
         return
       }
@@ -192,7 +206,7 @@ export default function SwapPage() {
       }
     }
     fetchBalance()
-  }, [address, inputToken, publicClient])
+  }, [address, authenticated, isConnected, inputToken, publicClient])
 
   // Update quote when input changes
   useEffect(() => {
@@ -229,10 +243,13 @@ export default function SwapPage() {
     }
   }, [isSuccess, txHash, resetSwap, refetchEthBalance])
 
+  // Only show balance if address is connected (prevent showing cached deployer balance)
   const currentBalance =
-    inputToken.address === ZERO_ADDRESS
-      ? (ethBalance?.value ?? 0n)
-      : tokenBalance
+    !address
+      ? 0n
+      : inputToken.address === ZERO_ADDRESS
+        ? (ethBalance?.value ?? 0n)
+        : tokenBalance
 
   const parsedAmount = inputAmount
     ? parseUnits(inputAmount, inputToken.decimals)

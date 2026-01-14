@@ -389,41 +389,26 @@ export function createOAuth3Router() {
 }
 
 /**
- * Create a router for /auth/* routes (without /oauth3 prefix)
- * This provides backward compatibility for frontends calling /auth/* directly
+ * Create a router for /auth/* and /session/* routes (without /oauth3 prefix)
+ * This provides backward compatibility for frontends calling /auth/* and /session/* directly
  * 
- * On localnet, OAUTH3_AGENT_URL points to the DWS API server itself,
- * so we proxy to /oauth3/auth/* on the same server instead of creating a loop
+ * The OAuth3 agent runs as a separate service (typically on port 4200),
+ * so we always proxy to the OAUTH3_AGENT_URL
  */
 export function createAuthRouter() {
-  // Check if OAUTH3_AGENT_URL points to localhost (same server)
-  const isLocalProxy = OAUTH3_AGENT_URL.includes('localhost') || 
-                       OAUTH3_AGENT_URL.includes('127.0.0.1') ||
-                       OAUTH3_AGENT_URL.includes('0.0.0.0')
-  
-  // If proxying to same server, use /oauth3/auth/* routes directly
-  // Otherwise, proxy to the external OAuth3 agent
-  const getProxyUrl = (path: string) => {
-    if (isLocalProxy) {
-      // Proxy to /oauth3/auth/* on same server
-      return `/oauth3/auth${path}`
-    }
-    // Proxy to external OAuth3 agent
-    return `${OAUTH3_AGENT_URL}/auth${path}`
+  // Always proxy to the OAuth3 agent URL (separate service)
+  const getProxyUrl = (path: string, basePath: string = '/auth') => {
+    return `${OAUTH3_AGENT_URL}${basePath}${path}`
   }
 
-  return new Elysia({ name: 'auth', prefix: '/auth' })
+  return new Elysia({ name: 'auth' })
+    // /auth/* routes
     .post(
-      '/wallet',
-      async ({ body, set, request }) => {
+      '/auth/wallet',
+      async ({ body, set }) => {
         try {
           const proxyUrl = getProxyUrl('/wallet')
-          const baseUrl = isLocalProxy 
-            ? `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host') || 'localhost:4200'}`
-            : ''
-          const fullUrl = isLocalProxy ? `${baseUrl}${proxyUrl}` : proxyUrl
-          
-          const response = await fetch(fullUrl, {
+          const response = await fetch(proxyUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
@@ -441,7 +426,7 @@ export function createAuthRouter() {
             console.error('[DWS Auth] Wallet auth failed:', {
               status: response.status,
               error: data.error || data.message,
-              proxyUrl: fullUrl,
+              proxyUrl,
             })
           }
           return data
@@ -463,16 +448,11 @@ export function createAuthRouter() {
       },
     )
     .post(
-      '/init',
-      async ({ body, set, request }) => {
+      '/auth/init',
+      async ({ body, set }) => {
         try {
           const proxyUrl = getProxyUrl('/init')
-          const baseUrl = isLocalProxy 
-            ? `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host') || 'localhost:4200'}`
-            : ''
-          const fullUrl = isLocalProxy ? `${baseUrl}${proxyUrl}` : proxyUrl
-          
-          const response = await fetch(fullUrl, {
+          const response = await fetch(proxyUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
@@ -507,16 +487,11 @@ export function createAuthRouter() {
       },
     )
     .post(
-      '/callback',
-      async ({ body, set, request }) => {
+      '/auth/callback',
+      async ({ body, set }) => {
         try {
           const proxyUrl = getProxyUrl('/callback')
-          const baseUrl = isLocalProxy 
-            ? `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host') || 'localhost:4200'}`
-            : ''
-          const fullUrl = isLocalProxy ? `${baseUrl}${proxyUrl}` : proxyUrl
-          
-          const response = await fetch(fullUrl, {
+          const response = await fetch(proxyUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
@@ -548,6 +523,130 @@ export function createAuthRouter() {
       },
       {
         body: t.Record(t.String(), t.Unknown()),
+      },
+    )
+    // /session/* routes
+    .get(
+      '/session/:sessionId',
+      async ({ params, set }) => {
+        try {
+          const proxyUrl = getProxyUrl(`/${params.sessionId}`, '/session')
+          const response = await fetch(proxyUrl, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+          })
+          const data = await response.json()
+          if (!response.ok) {
+            set.status = response.status as
+              | 400
+              | 401
+              | 403
+              | 404
+              | 500
+              | 502
+              | 503
+          }
+          return data
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error)
+          console.error('[DWS Auth] Get session request failed:', {
+            error: errorMsg,
+            sessionId: params.sessionId,
+            proxyUrl: getProxyUrl(`/${params.sessionId}`, '/session'),
+          })
+          set.status = 502
+          return {
+            error: 'oauth3_agent_unavailable',
+            message: `OAuth3 agent is not responding`,
+          }
+        }
+      },
+      {
+        params: t.Object({
+          sessionId: t.String(),
+        }),
+      },
+    )
+    .delete(
+      '/session/:sessionId',
+      async ({ params, set }) => {
+        try {
+          const proxyUrl = getProxyUrl(`/${params.sessionId}`, '/session')
+          const response = await fetch(proxyUrl, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+          })
+          const data = await response.json()
+          if (!response.ok) {
+            set.status = response.status as
+              | 400
+              | 401
+              | 403
+              | 404
+              | 500
+              | 502
+              | 503
+          }
+          return data
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error)
+          console.error('[DWS Auth] Delete session request failed:', {
+            error: errorMsg,
+            sessionId: params.sessionId,
+            proxyUrl: getProxyUrl(`/${params.sessionId}`, '/session'),
+          })
+          set.status = 502
+          return {
+            error: 'oauth3_agent_unavailable',
+            message: `OAuth3 agent is not responding`,
+          }
+        }
+      },
+      {
+        params: t.Object({
+          sessionId: t.String(),
+        }),
+      },
+    )
+    .post(
+      '/session/:sessionId/refresh',
+      async ({ params, set }) => {
+        try {
+          const proxyUrl = getProxyUrl(`/${params.sessionId}/refresh`, '/session')
+          const response = await fetch(proxyUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+          })
+          const data = await response.json()
+          if (!response.ok) {
+            set.status = response.status as
+              | 400
+              | 401
+              | 403
+              | 404
+              | 500
+              | 502
+              | 503
+          }
+          return data
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error)
+          console.error('[DWS Auth] Refresh session request failed:', {
+            error: errorMsg,
+            sessionId: params.sessionId,
+            proxyUrl: getProxyUrl(`/${params.sessionId}/refresh`, '/session'),
+          })
+          set.status = 502
+          return {
+            error: 'oauth3_agent_unavailable',
+            message: `OAuth3 agent is not responding`,
+          }
+        }
+      },
+      {
+        params: t.Object({
+          sessionId: t.String(),
+        }),
       },
     )
 }
