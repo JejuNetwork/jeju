@@ -52,6 +52,9 @@ export function parseHealthMessage(message: string): HealthSnapshot | null {
   const dwsMatch = message.match(/dws=(\d+)ms/)
   const crucibleMatch = message.match(/crucible=(\d+)ms/)
   const indexerMatch = message.match(/indexer=(\d+)ms/)
+  const oracleMatch = message.match(/oracle=(\d+)ms/)
+  const jnsMatch = message.match(/jns=(\d+)ms/)
+  const sqlitMatch = message.match(/sqlit=(\d+)ms/)
   const inferenceMatch = message.match(/inference=(\d+)/)
   const alertsMatch = message.match(/alerts=P0:(\d+),P1:(\d+),P2:(\d+)/)
 
@@ -63,6 +66,9 @@ export function parseHealthMessage(message: string): HealthSnapshot | null {
     dws: { latencyMs: parseInt(dwsMatch[1], 10), status: 'ok' },
     crucible: { latencyMs: parseInt(crucibleMatch[1], 10), status: 'ok' },
     indexer: { latencyMs: parseInt(indexerMatch[1], 10), status: 'ok' },
+    oracle: { latencyMs: oracleMatch ? parseInt(oracleMatch[1], 10) : 0, status: 'ok' },
+    jns: { latencyMs: jnsMatch ? parseInt(jnsMatch[1], 10) : 0, status: 'ok' },
+    sqlit: { latencyMs: sqlitMatch ? parseInt(sqlitMatch[1], 10) : 0, status: 'ok' },
     inference: {
       nodeCount: parseInt(inferenceMatch[1], 10),
       latencyMs: 0,

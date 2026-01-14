@@ -147,6 +147,7 @@ export interface AutonomousRunnerStatus {
     character: string
     lastTick: number
     tickCount: number
+    tickIntervalMs: number
     recentActivity: ActivityEntry[]
   }>
 }

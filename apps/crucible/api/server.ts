@@ -56,6 +56,7 @@ import {
   RegisterAgentRequestSchema,
   RoomIdParamSchema,
   SetPhaseRequestSchema,
+  ToggleAutonomousRequestSchema,
 } from "./schemas";
 import { createAgentSDK } from "./sdk/agent";
 import { createCompute } from "./sdk/compute";
@@ -497,7 +498,7 @@ const compute = createCompute({
   defaultModel: "llama-3.1-8b",
 });
 
-const agentSdk = createAgentSDK({
+export const agentSdk = createAgentSDK({
   crucibleConfig: config,
   storage,
   compute,
@@ -533,11 +534,7 @@ async function seedDefaultAgents(): Promise<void> {
 
   // Get default characters to seed
   const coreAgentIds = [
-    "project-manager",
     "community-manager",
-    "devrel",
-    "liaison",
-    "moderator",
   ];
 
   log.info("Seeding default agents", { count: coreAgentIds.length });
@@ -1053,17 +1050,17 @@ app.post("/api/v1/agents", async ({ body }) => {
     body,
     "Register agent request",
   );
-  // Create minimal AgentCharacter from registration data
+  // Create AgentCharacter from registration data (use full template data if provided)
   const character: AgentCharacter = {
     id: crypto.randomUUID(),
     name: parsedBody.character?.name ?? parsedBody.name,
     description: parsedBody.character?.description ?? "",
-    system: "",
-    bio: [],
-    messageExamples: [],
-    topics: [],
-    adjectives: [],
-    style: { all: [], chat: [], post: [] },
+    system: parsedBody.character?.system ?? "",
+    bio: parsedBody.character?.bio ?? [],
+    messageExamples: parsedBody.character?.messageExamples ?? [],
+    topics: parsedBody.character?.topics ?? [],
+    adjectives: parsedBody.character?.adjectives ?? [],
+    style: parsedBody.character?.style ?? { all: [], chat: [], post: [] },
     capabilities: parsedBody.capabilities,
   };
   log.info("Registering agent", { name: character.name });
@@ -1083,11 +1080,59 @@ app.post("/api/v1/agents", async ({ body }) => {
     metadata: { agentId: result.agentId.toString() },
   });
 
+  // Register with autonomous runner if requested and available
+  let autonomousEnabled = false;
+  if (parsedBody.autonomous?.enabled) {
+    if (autonomousRunner) {
+      try {
+        const autonomousAgentId = `onchain-agent-${result.agentId}`;
+
+        // Load the full character from IPFS (it was just stored during registration)
+        const fullCharacter = await agentSdk.loadCharacter(result.agentId);
+
+        await autonomousRunner.registerAgent({
+          ...DEFAULT_AUTONOMOUS_CONFIG,
+          agentId: autonomousAgentId,
+          character: fullCharacter,
+          tickIntervalMs:
+            parsedBody.autonomous.tickIntervalMs ??
+            DEFAULT_AUTONOMOUS_CONFIG.tickIntervalMs,
+          capabilities: {
+            ...DEFAULT_AUTONOMOUS_CONFIG.capabilities,
+            ...fullCharacter.capabilities,
+            ...parsedBody.capabilities,
+          },
+        });
+
+        autonomousEnabled = true;
+        log.info("Agent registered for autonomous mode during creation", {
+          agentId: result.agentId.toString(),
+          autonomousAgentId,
+          tickIntervalMs:
+            parsedBody.autonomous.tickIntervalMs ??
+            DEFAULT_AUTONOMOUS_CONFIG.tickIntervalMs,
+        });
+      } catch (err) {
+        // Log error but don't fail the registration - agent is already on-chain
+        log.error("Failed to register agent for autonomous mode", {
+          agentId: result.agentId.toString(),
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    } else {
+      log.warn("Autonomous mode requested but runner not available", {
+        agentId: result.agentId.toString(),
+        hint: "Set AUTONOMOUS_ENABLED=true to enable autonomous mode",
+      });
+    }
+  }
+
   return {
     agentId: result.agentId.toString(),
     vaultAddress: result.vaultAddress,
     characterCid: result.characterCid,
     stateCid: result.stateCid,
+    autonomousEnabled,
   };
 });
 
@@ -1112,11 +1157,22 @@ app.get("/api/v1/agents/:agentId", async ({ params }) => {
     }
   }
 
+  // Check if agent is running in autonomous mode
+  const autonomousAgentId = `onchain-agent-${parsedParams.agentId}`;
+  const autonomousStatus = autonomousRunner?.getStatus();
+  const autonomousAgent = autonomousStatus?.agents.find(
+    (a) => a.id === autonomousAgentId,
+  );
+  const isAutonomous = !!autonomousAgent;
+  const tickIntervalMs = autonomousAgent?.tickIntervalMs;
+
   return {
     agent: {
       ...validAgent,
       agentId: validAgent.agentId.toString(),
       capabilities,
+      isAutonomous,
+      tickIntervalMs,
     },
   };
 });
@@ -1212,6 +1268,99 @@ app.post(
       userId: parsedBody.userId ?? undefined,
     });
     return { memory };
+  },
+);
+
+// Toggle autonomous mode for an on-chain registered agent
+app.post(
+  "/api/v1/agents/:agentId/autonomous",
+  async ({ params, body, set }) => {
+    const parsedParams = parseOrThrow(
+      AgentIdParamSchema,
+      params,
+      "Agent ID parameter",
+    );
+    const parsedBody = parseOrThrow(
+      ToggleAutonomousRequestSchema,
+      body,
+      "Toggle autonomous request",
+    );
+    const agentId = BigInt(parsedParams.agentId);
+
+    // Verify autonomous runner is available
+    if (!autonomousRunner) {
+      set.status = 503;
+      return {
+        error: "Autonomous mode not enabled. Set AUTONOMOUS_ENABLED=true to enable.",
+      };
+    }
+
+    // Verify agent exists on-chain
+    const agent = await agentSdk.getAgent(agentId);
+    if (!agent) {
+      set.status = 404;
+      return { error: `Agent not found: ${parsedParams.agentId}` };
+    }
+
+    const autonomousAgentId = `onchain-agent-${parsedParams.agentId}`;
+
+    if (parsedBody.enabled) {
+      // Load character from IPFS
+      let character;
+      try {
+        character = await agentSdk.loadCharacter(agentId);
+      } catch (err) {
+        set.status = 400;
+        return {
+          error: `Failed to load agent character from IPFS: ${err instanceof Error ? err.message : String(err)}`,
+        };
+      }
+
+      // Register agent with autonomous runner
+      try {
+        await autonomousRunner.registerAgent({
+          ...DEFAULT_AUTONOMOUS_CONFIG,
+          agentId: autonomousAgentId,
+          character,
+          tickIntervalMs: parsedBody.tickIntervalMs ?? DEFAULT_AUTONOMOUS_CONFIG.tickIntervalMs,
+          capabilities: {
+            ...DEFAULT_AUTONOMOUS_CONFIG.capabilities,
+            ...character.capabilities,
+            ...parsedBody.capabilities,
+          },
+        });
+
+        log.info("On-chain agent registered for autonomous mode", {
+          agentId: parsedParams.agentId,
+          autonomousAgentId,
+          characterName: character.name,
+        });
+
+        return {
+          success: true,
+          agentId: autonomousAgentId,
+          message: `Agent ${agent.name} is now running in autonomous mode`,
+        };
+      } catch (err) {
+        set.status = 500;
+        return {
+          error: `Failed to register agent for autonomous mode: ${err instanceof Error ? err.message : String(err)}`,
+        };
+      }
+    } else {
+      // Unregister agent from autonomous runner
+      autonomousRunner.unregisterAgent(autonomousAgentId);
+
+      log.info("On-chain agent unregistered from autonomous mode", {
+        agentId: parsedParams.agentId,
+        autonomousAgentId,
+      });
+
+      return {
+        success: true,
+        message: `Agent ${agent.name} autonomous mode disabled`,
+      };
+    }
   },
 );
 
@@ -1707,9 +1856,16 @@ app.post("/api/v1/bots/:botId/start", async ({ params, request, set }) => {
 import { type AutonomousAgentRunner, createAgentRunner } from "./autonomous";
 
 // Global autonomous runner (started if AUTONOMOUS_ENABLED=true)
-export let autonomousRunner: AutonomousAgentRunner | null = null;
+// Use globalThis to survive hot reloads in dev mode (bun --watch)
+declare global {
+  // eslint-disable-next-line no-var
+  var __crucible_autonomous_runner__: AutonomousAgentRunner | null;
+}
+export let autonomousRunner: AutonomousAgentRunner | null =
+  globalThis.__crucible_autonomous_runner__ ?? null;
 
-if (crucibleConfig.autonomousEnabled) {
+// Only initialize if not already running (survives hot reloads)
+if (crucibleConfig.autonomousEnabled && !autonomousRunner) {
   // Initialize autonomous runner with async private key loading
   getAgentPrivateKey()
     .then((agentPrivateKey) => {
@@ -1721,6 +1877,8 @@ if (crucibleConfig.autonomousEnabled) {
         network: config.network,
         enableTrajectoryRecording: true,
       });
+      // Store in globalThis to survive hot reloads
+      globalThis.__crucible_autonomous_runner__ = autonomousRunner;
       autonomousRunner
         .start()
         .then(async () => {
@@ -1815,7 +1973,7 @@ app.get("/api/v1/autonomous/status", () => {
 });
 
 // Get detailed autonomous agent activity
-app.get("/api/v1/autonomous/activity", () => {
+app.get("/api/v1/autonomous/activity", ({ query }) => {
   if (!autonomousRunner) {
     return {
       enabled: false,
@@ -1832,20 +1990,36 @@ app.get("/api/v1/autonomous/activity", () => {
   const status = autonomousRunner.getStatus();
   const uptimeMs = Date.now() - metrics.startTime;
 
+  // Optional filter by agentId
+  // Supports: "5" -> "onchain-agent-5", "onchain-agent-5", "autonomous-infra-monitor", "infra-monitor" -> "autonomous-infra-monitor"
+  const agentIdFilter = query.agentId as string | undefined;
+  let filteredAgents = status.agents;
+  if (agentIdFilter) {
+    filteredAgents = status.agents.filter((a) => {
+      // Exact match
+      if (a.id === agentIdFilter) return true;
+      // Match with onchain-agent- prefix (for numeric IDs)
+      if (a.id === `onchain-agent-${agentIdFilter}`) return true;
+      // Match with autonomous- prefix (for built-in agents)
+      if (a.id === `autonomous-${agentIdFilter}`) return true;
+      return false;
+    });
+  }
+
   return {
     enabled: true,
     summary: {
-      totalAgents: status.agentCount,
-      totalTicks: status.agents.reduce((sum, a) => sum + a.tickCount, 0),
+      totalAgents: filteredAgents.length,
+      totalTicks: filteredAgents.reduce((sum, a) => sum + a.tickCount, 0),
       avgTicksPerAgent:
-        status.agentCount > 0
-          ? status.agents.reduce((sum, a) => sum + a.tickCount, 0) /
-            status.agentCount
+        filteredAgents.length > 0
+          ? filteredAgents.reduce((sum, a) => sum + a.tickCount, 0) /
+            filteredAgents.length
           : 0,
       uptimeMs,
       uptimeHours: Math.round((uptimeMs / (1000 * 60 * 60)) * 100) / 100,
     },
-    agents: status.agents.map((agent) => ({
+    agents: filteredAgents.map((agent) => ({
       ...agent,
       lastTickAgo: agent.lastTick > 0 ? Date.now() - agent.lastTick : null,
       tickRate:

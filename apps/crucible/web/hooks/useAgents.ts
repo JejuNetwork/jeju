@@ -23,6 +23,7 @@ interface Agent {
   lastExecutedAt: number
   executionCount: number
   tickIntervalMs?: number
+  isAutonomous?: boolean
   capabilities?: {
     canChat?: boolean
     canTrade?: boolean
@@ -67,6 +68,10 @@ interface RegisterAgentRequest {
     a2a?: boolean
     compute?: boolean
   }
+  autonomous?: {
+    enabled: boolean
+    tickIntervalMs?: number
+  }
 }
 
 interface RegisterAgentResponse {
@@ -74,6 +79,7 @@ interface RegisterAgentResponse {
   vaultAddress: string
   characterCid: string
   stateCid: string
+  autonomousEnabled?: boolean
 }
 
 interface ExecuteAgentRequest {
@@ -205,6 +211,56 @@ export function useAgentBalance(agentId: string) {
   })
 }
 
+interface ActivityEntry {
+  action: string
+  timestamp: number
+  success: boolean
+  result?: unknown
+}
+
+interface AgentActivityInfo {
+  id: string
+  character: string
+  lastTick: number
+  tickCount: number
+  tickIntervalMs?: number
+  lastTickAgo: number | null
+  tickRate: number
+  recentActivity: ActivityEntry[]
+}
+
+interface AgentActivityResponse {
+  enabled: boolean
+  summary: {
+    totalAgents: number
+    totalTicks: number
+    avgTicksPerAgent: number
+    uptimeMs: number
+    uptimeHours: number
+  }
+  agents: AgentActivityInfo[]
+  network: string
+  actionsToday: number
+}
+
+export function useAgentActivity(agentId: string) {
+  return useQuery({
+    queryKey: ['agent-activity', agentId],
+    queryFn: async (): Promise<AgentActivityInfo | null> => {
+      const response = await fetch(
+        `${API_URL}/api/v1/autonomous/activity?agentId=${agentId}`,
+      )
+      if (!response.ok) return null
+      const data: AgentActivityResponse = await response.json()
+      return data.agents[0] ?? null
+    },
+    enabled: !!agentId,
+    refetchInterval: 5000,
+  })
+}
+
+export type { ActivityEntry, AgentActivityInfo }
+
 export function useRegisterAgent() {
   const queryClient = useQueryClient()
   const { getHeaders, isAuthenticated } = useAuthHeaders()
@@ -297,6 +353,47 @@ export function useFundVault() {
       queryClient.invalidateQueries({
         queryKey: ['agent-balance', variables.agentId],
       })
+    },
+  })
+}
+
+interface TriggerTickResponse {
+  success: boolean
+  executed: number
+  succeeded: number
+  failed: number
+  results: Array<{
+    agentId: string
+    success: boolean
+    reward: number
+    latencyMs: number
+    error: string | null
+  }>
+  durationMs: number
+  timestamp: string
+}
+
+export function useTriggerAgentTick() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (agentId: string): Promise<TriggerTickResponse> => {
+      const response = await fetch(
+        `${API_URL}/api/cron/agent-tick-once?agentId=${agentId}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        },
+      )
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error ?? 'Failed to trigger tick')
+      }
+      return response.json()
+    },
+    onSuccess: (_, agentId) => {
+      queryClient.invalidateQueries({ queryKey: ['agent', agentId] })
+      queryClient.invalidateQueries({ queryKey: ['agent-activity', agentId] })
     },
   })
 }

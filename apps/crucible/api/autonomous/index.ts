@@ -241,6 +241,7 @@ export class AutonomousAgentRunner {
         character: agent.config.character.name,
         lastTick: agent.lastTick,
         tickCount: agent.tickCount,
+        tickIntervalMs: agent.config.tickIntervalMs,
         recentActivity: agent.recentActivity.slice(-10),
       })),
     }
@@ -329,6 +330,68 @@ export class AutonomousAgentRunner {
       succeeded: results.filter((r) => r.success).length,
       failed: results.filter((r) => !r.success).length,
       results,
+    }
+  }
+
+  /**
+   * Execute a tick for a specific agent by ID.
+   * Used by cron to trigger immediate execution for a single agent.
+   */
+  async executeAgentTickById(agentId: string): Promise<{
+    success: boolean
+    reward: number
+    error: string | null
+    latencyMs: number
+  }> {
+    // Try to find the agent with various ID formats
+    let agent = this.agents.get(agentId)
+    if (!agent) {
+      agent = this.agents.get(`onchain-agent-${agentId}`)
+    }
+    if (!agent) {
+      agent = this.agents.get(`autonomous-${agentId}`)
+    }
+
+    if (!agent) {
+      return {
+        success: false,
+        reward: 0,
+        error: `Agent not found: ${agentId}`,
+        latencyMs: 0,
+      }
+    }
+
+    if (!agent.config.enabled) {
+      return {
+        success: false,
+        reward: 0,
+        error: `Agent is disabled: ${agentId}`,
+        latencyMs: 0,
+      }
+    }
+
+    const startTime = Date.now()
+
+    // Initialize runtime if needed
+    if (!agent.runtime) {
+      await this.initializeAgentRuntime(agent)
+    }
+
+    try {
+      const result = await this.executeSingleAgentTick(agent)
+      return {
+        success: true,
+        reward: result.reward,
+        error: null,
+        latencyMs: Date.now() - startTime,
+      }
+    } catch (err) {
+      return {
+        success: false,
+        reward: 0,
+        error: err instanceof Error ? err.message : String(err),
+        latencyMs: Date.now() - startTime,
+      }
     }
   }
 

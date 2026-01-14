@@ -6,9 +6,10 @@ import {
   type TrajectoryBatchReference,
 } from '@jejunetwork/training'
 import { Elysia } from 'elysia'
-import { autonomousRunner } from '../server'
+import { agentSdk, autonomousRunner } from '../server'
 import { createLogger } from '../sdk/logger'
 import { getCronSecret } from '../sdk/secrets'
+import { DEFAULT_AUTONOMOUS_CONFIG } from '../autonomous/types'
 
 const log = createLogger('CronRoutes')
 
@@ -244,7 +245,7 @@ export const cronRoutes = new Elysia({ prefix: '/api/cron' })
   // One-shot agent tick - executes once WITHOUT starting interval loops
   .post(
     '/agent-tick-once',
-    async ({ set }) => {
+    async ({ set, query, body }) => {
       if (!autonomousRunner) {
         set.status = 503
         return { error: 'Autonomous runner not initialized', message: 'Server not ready' }
@@ -253,22 +254,123 @@ export const cronRoutes = new Elysia({ prefix: '/api/cron' })
       const timestamp = new Date().toISOString()
       const startTime = Date.now()
 
-      log.info('One-shot agent tick started', { timestamp })
+      // Accept agentId from query string or body
+      const agentId = (query as { agentId?: string }).agentId ??
+                      (body as { agentId?: string } | null)?.agentId
 
-      // Check if agents are registered
+      log.info('One-shot agent tick started', { timestamp, agentId: agentId ?? 'all' })
+
       const status = autonomousRunner.getStatus()
+
+      // NOTE: We intentionally do NOT call autonomousRunner.start() here
+      // This executes agents once without starting interval loops
+
+      // If agentId is provided, tick only that agent (can auto-register from chain)
+      if (agentId) {
+        log.info('Executing one-shot tick for single agent', { agentId })
+
+        // Validate agentId format
+        if (!/^\d+$/.test(agentId)) {
+          return {
+            success: false,
+            executed: 0,
+            succeeded: 0,
+            failed: 1,
+            results: [{ agentId, success: false, reward: 0, latencyMs: 0, error: 'Invalid agent ID format' }],
+            durationMs: Date.now() - startTime,
+            timestamp,
+            note: 'Agent ID must be numeric',
+          }
+        }
+
+        let result = await autonomousRunner.executeAgentTickById(agentId)
+
+        // If agent not found in runner, try to load from on-chain and register
+        // Note: Agent stays registered for this session (until process restart)
+        if (!result.success && result.error?.startsWith('Agent not found')) {
+          log.info('Agent not in runner, attempting to load from chain', { agentId })
+
+          try {
+            const numericId = BigInt(agentId)
+            const onChainAgent = await agentSdk.getAgent(numericId)
+
+            if (onChainAgent && onChainAgent.characterCid) {
+              const character = await agentSdk.loadCharacter(numericId)
+              const autonomousAgentId = `onchain-agent-${agentId}`
+
+              // Register for this session (persists until process restart)
+              await autonomousRunner.registerAgent({
+                ...DEFAULT_AUTONOMOUS_CONFIG,
+                agentId: autonomousAgentId,
+                character,
+                tickIntervalMs: 60_000,
+                capabilities: {
+                  ...DEFAULT_AUTONOMOUS_CONFIG.capabilities,
+                  ...character.capabilities,
+                },
+              })
+
+              log.info('Agent registered, executing tick', { agentId, autonomousAgentId })
+              result = await autonomousRunner.executeAgentTickById(autonomousAgentId)
+            } else {
+              result = {
+                success: false,
+                reward: 0,
+                error: `Agent ${agentId} not found on-chain`,
+                latencyMs: Date.now() - startTime,
+              }
+            }
+          } catch (err) {
+            log.error('Failed to load agent from chain', {
+              agentId,
+              error: err instanceof Error ? err.message : String(err),
+            })
+            result = {
+              success: false,
+              reward: 0,
+              error: `Failed to load agent: ${err instanceof Error ? err.message : String(err)}`,
+              latencyMs: Date.now() - startTime,
+            }
+          }
+        }
+
+        const duration = Date.now() - startTime
+
+        log.info('One-shot single agent tick completed', {
+          agentId,
+          success: result.success,
+          durationMs: duration,
+        })
+
+        return {
+          success: result.success,
+          executed: 1,
+          succeeded: result.success ? 1 : 0,
+          failed: result.success ? 0 : 1,
+          results: [{
+            agentId,
+            success: result.success,
+            reward: result.reward,
+            latencyMs: result.latencyMs,
+            error: result.error,
+          }],
+          durationMs: duration,
+          timestamp,
+          note: 'One-shot execution for single agent - interval loops NOT started',
+        }
+      }
+
+      // No agentId - tick all agents (requires at least one registered)
       if (status.agentCount === 0) {
         set.status = 400
         return {
           error: 'No agents registered',
-          message: 'Register agents first via POST /api/v1/autonomous/agents',
+          message: 'Register agents first or provide agentId to auto-register from chain',
           timestamp,
         }
       }
 
-      // NOTE: We intentionally do NOT call autonomousRunner.start() here
-      // This executes agents once without starting interval loops
-      log.info('Executing one-shot tick', {
+      log.info('Executing one-shot tick for all agents', {
         agentCount: status.agentCount,
         runnerRunning: status.running,
       })
@@ -305,7 +407,7 @@ export const cronRoutes = new Elysia({ prefix: '/api/cron' })
         tags: ['Cron'],
         summary: 'Execute agent tick once (no intervals)',
         description:
-          'Triggers a single tick for all registered agents WITHOUT starting interval loops. Use for manual testing.',
+          'Triggers a single tick for registered agents WITHOUT starting interval loops. Pass agentId as query param or body to tick a specific agent, otherwise ticks all agents.',
       },
     },
   )

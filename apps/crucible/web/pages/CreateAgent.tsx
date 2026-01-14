@@ -124,7 +124,7 @@ export default function CreateAgentPage() {
 
     try {
       const agentName = customName || selectedCharacter.name
-      await registerAgent.mutateAsync({
+      const result = await registerAgent.mutateAsync({
         name: agentName,
         character: {
           id: selectedCharacter.id,
@@ -141,9 +141,23 @@ export default function CreateAgentPage() {
           ? (Number(initialFunding) * 1e18).toString()
           : undefined,
         capabilities,
+        autonomous: autonomousSettings.enabled
+          ? {
+              enabled: true,
+              tickIntervalMs: autonomousSettings.tickIntervalMs,
+            }
+          : undefined,
       })
 
-      toast.success('Agent deployed successfully')
+      if (result.autonomousEnabled) {
+        toast.success('Agent deployed with autonomous mode enabled')
+      } else if (autonomousSettings.enabled) {
+        toast.success(
+          'Agent deployed (autonomous mode requires AUTONOMOUS_ENABLED=true on server)',
+        )
+      } else {
+        toast.success('Agent deployed successfully')
+      }
       navigate('/agents')
     } catch (error) {
       toast.error(
