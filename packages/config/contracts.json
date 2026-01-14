@@ -73,12 +73,12 @@
       "workerRegistry": "0xD8a5a9b31c3C0232E196d518E89Fd8bF83AcAd43",
       "cdnRegistry": "0xDC11f7E700A4c898AE5CAddB1082cFfa76512aDD",
       "repoRegistry": "0x0dcd1bf9a1b36ce34237eeafef220932846bcd82",
-      "packageRegistry": "0x8ac87219a0f5639bc01b470f87ba2b26356cb2b9",
-      "managedDatabaseRegistry": "0xf5c4a909455c00b99a90d93b48736f3196db5621",
-      "gitRegistry": "0xcd7c00ac6dc51e8dcc773971ac9221cc582f3b1b",
-      "cacheManager": "0x94ffa1c7330845646ce9128450f8e6c3b5e44f86",
-      "cronOrchestrator": "0xca1d199b6f53af7387ac543af8e8a34455bbe5e0",
-      "containerRegistry": "0xdf46e54aaadc1d55198a4a8b4674d7a4c927097a",
+      "packageRegistry": "0x9338ca7d556248055f5751d85cda7ad6ef254433",
+      "managedDatabaseRegistry": "0x0c626fc4a447b01554518550e30600136864640b",
+      "gitRegistry": "0x4000f8820522ac96c4221b299876e3e53bcc8525",
+      "cacheManager": "0x9c65f85425c619a6cb6d29ff8d57ef696323d188",
+      "cronOrchestrator": "0x7cf4be31f546c04787886358b9486ca3d62b9acf",
+      "containerRegistry": "0x33e45b187da34826abceda1039231be46f1b05af",
       "storageProviderRegistry": "0xdc64a140aa3e981100a9beca4e685f962f0cf6c9",
       "identityRegistry": "0x5fc8d32690cc91d4c39d9d3abcbd16989f875707"
     },
@@ -109,7 +109,7 @@
       "inferenceServing": "0x08A90aF9A6eBBe11c322AD9930CC58E122231B5A",
       "staking": "0x7bdd3b028C4796eF0EAf07d11394d0d9d8c24139",
       "workerRegistry": "",
-      "cronTriggerRegistry": "0xca1d199b6f53af7387ac543af8e8a34455bbe5e0"
+      "cronTriggerRegistry": "0x7cf4be31f546c04787886358b9486ca3d62b9acf"
     },
     "sequencer": {
       "registry": "0x22753E4264FDDc6181dc7cce468904A80a363E44",

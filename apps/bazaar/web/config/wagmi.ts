@@ -28,6 +28,11 @@ function detectNetworkRuntime(): NetworkType {
       return 'localnet'
     }
 
+    // Check for localnet subdomain FIRST (before mainnet check)
+    if (hostname.includes('.local.jejunetwork.org')) {
+      return 'localnet'
+    }
+
     // Check for testnet subdomain
     if (
       hostname.includes('.testnet.jejunetwork.org') ||
@@ -36,7 +41,7 @@ function detectNetworkRuntime(): NetworkType {
       return 'testnet'
     }
 
-    // Production jejunetwork.org domains → mainnet
+    // Production jejunetwork.org domains → mainnet (only if not localnet/testnet)
     if (hostname.endsWith('.jejunetwork.org')) {
       return 'mainnet'
     }

@@ -35,10 +35,10 @@ export type { NetworkType }
 export type TEEMode = 'dstack' | 'phala' | 'simulated' | 'auto'
 
 export const CHAIN_IDS = {
-  localnet: 420691,
+  localnet: 31337, // Standard anvil/hardhat chain ID (was incorrectly 420691)
   localnetAnvil: 31337, // Standard anvil/hardhat chain ID
   testnet: 420690,
-  mainnet: 420692,
+  mainnet: 420691, // Fixed: was 420692, should be 420691
 } as const
 
 // RPC URLs per network - browser-safe
