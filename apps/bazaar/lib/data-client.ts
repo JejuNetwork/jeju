@@ -566,13 +566,12 @@ export async function fetchPredictionMarkets(options: {
           resolved: boolean
           outcome: boolean | null
           createdAt: string
-          resolutionTime?: string
         }>
       }>(
         `
         query($limit: Int!, $offset: Int!) {
           predictionMarkets(${whereClause} limit: $limit offset: $offset orderBy: createdAt_DESC) {
-            id question yesShares noShares liquidityB totalVolume resolved outcome createdAt resolutionTime
+            id question yesShares noShares liquidityB totalVolume resolved outcome createdAt
           }
         }
       `,
@@ -595,9 +594,7 @@ export async function fetchPredictionMarkets(options: {
             resolved: m.resolved,
             outcome: m.outcome ?? undefined,
             createdAt: new Date(m.createdAt),
-            resolutionTime: m.resolutionTime
-              ? new Date(m.resolutionTime)
-              : undefined,
+            resolutionTime: undefined, // Field not in indexer schema
           }
         })
       }

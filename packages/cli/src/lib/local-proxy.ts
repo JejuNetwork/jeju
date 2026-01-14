@@ -428,6 +428,14 @@ const HYBRID_SERVICES: Record<string, { port: number; apiPaths: string[] }> = {
       '/ws/*',
     ],
   },
+  bazaar: {
+    port: 4007,
+    apiPaths: [
+      '/api/*',
+      '/health',
+      '/.well-known/*',
+    ],
+  },
 }
 
 export function generateCaddyfile(config: ProxyConfig = {}): string {

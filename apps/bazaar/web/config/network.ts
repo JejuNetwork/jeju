@@ -26,6 +26,14 @@ function detectNetworkRuntime(): NetworkType {
       return 'localnet'
     }
 
+    // Check for local JNS domains (*.local.jejunetwork.org)
+    if (
+      hostname.includes('.local.jejunetwork.org') ||
+      hostname === 'local.jejunetwork.org'
+    ) {
+      return 'localnet'
+    }
+
     // Check for testnet subdomain
     if (
       hostname.includes('.testnet.jejunetwork.org') ||

@@ -134,18 +134,23 @@ async function initializeDatabase(db: SQLitClient): Promise<void> {
 export function createBazaarApp(env?: Partial<BazaarEnv>) {
   const isDev = env?.NETWORK === 'localnet'
 
-  const app = new Elysia().use(
-    cors({
-      origin: isDev
-        ? true
-        : [
-            'https://bazaar.jejunetwork.org',
-            'https://jejunetwork.org',
-            getCoreAppUrl('BAZAAR'),
-          ],
-      credentials: true,
-    }),
-  )
+  const app = new Elysia()
+    .onError(({ code, error, path }) => {
+      // Log all errors for debugging
+      console.error(`[Bazaar] Error on ${path}:`, code, error?.message || error)
+    })
+    .use(
+      cors({
+        origin: isDev
+          ? true
+          : [
+              'https://bazaar.jejunetwork.org',
+              'https://jejunetwork.org',
+              getCoreAppUrl('BAZAAR'),
+            ],
+        credentials: true,
+      }),
+    )
 
   // Health check (includes TEE info for clients)
   app.get('/health', () => ({
@@ -156,6 +161,21 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
     teeRegion: env?.TEE_REGION ?? 'local',
     network: env?.NETWORK ?? 'localnet',
   }))
+
+  // Debug endpoint - echo back request info (remove in production)
+  app.post('/api/debug-echo', async ({ body, request }) => {
+    const headers: Record<string, string> = {}
+    request.headers.forEach((v, k) => { headers[k] = v })
+    console.log('[Debug] Request headers:', headers)
+    console.log('[Debug] Body type:', typeof body)
+    console.log('[Debug] Body:', body)
+    return {
+      received: true,
+      bodyType: typeof body,
+      body,
+      headers,
+    }
+  })
 
   // Seed state endpoint - must be registered early to avoid conflicts
   app.get('/api/seed-state', async ({ set }) => {
@@ -327,8 +347,15 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
   )
 
   // GraphQL Proxy - proxies indexer requests from browser to avoid CORS issues
-  app.post('/api/graphql', async ({ body }) => {
+  app.post('/api/graphql', async ({ body, request }) => {
     const indexerUrl = env?.INDEXER_URL || getIndexerGraphqlUrl()
+
+    // Debug logging for 400 errors
+    console.log('[Bazaar GraphQL] Request received:', {
+      contentType: request.headers.get('content-type'),
+      bodyType: typeof body,
+      bodyPreview: typeof body === 'string' ? body.slice(0, 200) : JSON.stringify(body).slice(0, 200),
+    })
 
     try {
       const response = await fetch(indexerUrl, {
@@ -848,40 +875,7 @@ export default {
   },
 }
 
-// Standalone Server (for local dev)
-
-const isMainModule = typeof Bun !== 'undefined' && import.meta.path === Bun.main
-
-if (isMainModule) {
-  // Initialize config - secrets retrieved through secrets module
-  configureBazaar({
-    bazaarApiUrl: getEnvVar('BAZAAR_API_URL'),
-    farcasterHubUrl: getEnvVar('FARCASTER_HUB_URL'),
-    sqlitDatabaseId: getEnvVar('SQLIT_DATABASE_ID'),
-    // SQLit private key retrieved through secrets module (not raw env var)
-    sqlitPrivateKey: getSqlitPrivateKey(),
-  })
-
-  const PORT = CORE_PORTS.BAZAAR_API.get()
-
-  const app = createBazaarApp({
-    NETWORK: getCurrentNetwork(),
-    TEE_MODE: 'simulated',
-    TEE_PLATFORM: 'local',
-    TEE_REGION: 'local',
-    RPC_URL: getL2RpcUrl(),
-    DWS_URL: getCoreAppUrl('DWS_API'),
-    GATEWAY_URL: getCoreAppUrl('NODE_EXPLORER_API'),
-    INDEXER_URL: getIndexerGraphqlUrl(),
-    SQLIT_NODES: getSQLitBlockProducerUrl(),
-    SQLIT_DATABASE_ID: config.sqlitDatabaseId,
-    SQLIT_PRIVATE_KEY: config.sqlitPrivateKey || '',
-  })
-
-  const host = getLocalhostHost()
-  app.listen(PORT, () => {
-    console.log(`Bazaar API Worker running at http://${host}:${PORT}`)
-  })
-}
+// For local development, use api/server.ts instead of running this file directly.
+// This file's default export is for workerd/Cloudflare Workers deployment.
 
 export { initializeDatabase, getDatabase }

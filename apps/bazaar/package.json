@@ -48,6 +48,7 @@
     "dev": "bun run scripts/dev.ts",
     "build": "bun run scripts/build.ts",
     "start": "bun run scripts/serve.ts",
+    "start:worker": "bun api/server.ts",
     "test": "bun test tests/unit/ api/__tests__/ web/**/__tests__/",
     "test:integration": "bun test tests/integration/",
     "test:e2e": "bunx playwright test tests/e2e/",

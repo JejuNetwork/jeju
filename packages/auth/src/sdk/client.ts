@@ -58,6 +58,7 @@ import {
   createOAuth3StorageService,
   type OAuth3StorageService,
 } from '../infrastructure/storage-integration.js'
+import { deriveLocalEncryptionKey } from '../infrastructure/threshold-encryption.js'
 import { generateFarcasterSignInMessage } from '../providers/farcaster-utils.js'
 import {
   AuthProvider,
@@ -387,6 +388,13 @@ export class OAuth3Client {
 
     // Store session in decentralized storage
     if (this.storage) {
+      // Derive encryption key from session's signing public key
+      // This provides deterministic encryption per session for IPFS storage
+      const encryptionKey = deriveLocalEncryptionKey(
+        session.signingPublicKey,
+        `oauth3-session-${session.sessionId}`,
+      )
+      this.storage.setEncryptionKey(encryptionKey)
       await this.storage.storeSession(session)
     }
 
@@ -970,6 +978,12 @@ export class OAuth3Client {
 
     // Update in decentralized storage
     if (this.storage) {
+      // Derive encryption key from session's signing public key
+      const encryptionKey = deriveLocalEncryptionKey(
+        newSession.signingPublicKey,
+        `oauth3-session-${newSession.sessionId}`,
+      )
+      this.storage.setEncryptionKey(encryptionKey)
       await this.storage.storeSession(newSession)
     }
 
