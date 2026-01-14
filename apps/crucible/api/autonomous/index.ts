@@ -719,7 +719,10 @@ export class AutonomousAgentRunner {
         // Reward for successful actions
         if (actionResult.success) {
           tickReward += this.calculateActionReward(action.type)
-          const resultResponse = (actionResult.result as { response?: string })?.response
+          const resultResponse = this.formatActionResult(
+            action.type,
+            actionResult.result,
+          )
           if (resultResponse) {
             actionResults.push({ action: action.type, response: resultResponse })
           }
@@ -728,8 +731,11 @@ export class AutonomousAgentRunner {
     }
 
     if (config.postToRoom && actionResults.length > 0) {
+      const postAllResults = config.postToRoom === 'capability-demos'
       for (const result of actionResults) {
-        const contentToPost = this.extractPostableContent(result.response, config.agentId)
+        const contentToPost = postAllResults
+          ? this.formatDemoPost(result.response)
+          : this.extractPostableContent(result.response, config.agentId)
         if (contentToPost) {
           await this.postToRoom(config.agentId, config.postToRoom, contentToPost, result.action)
         }
@@ -1265,11 +1271,45 @@ Output ONLY the formatted alert message. Do not include any action syntax or ins
       }
     }
 
+    if (responseText.includes('[ACTION_RESULT')) return responseText
+
     const lower = responseText.toLowerCase()
     if (lower.includes('no new') || lower.includes('nothing to')) return null
     if (responseText.includes('[ACTION:') || responseText.length > 200) return responseText
 
     return null
+  }
+
+  private formatActionResult(
+    actionName: string,
+    result: unknown,
+  ): string | null {
+    if (!result) return null
+    if (typeof result === 'string') return result
+    if (typeof result === 'object' && result !== null) {
+      const obj = result as Record<string, unknown>
+      const response = obj.response ?? obj.text ?? obj.message
+      if (typeof response === 'string' && response.trim().length > 0) {
+        return response
+      }
+      const payload = JSON.stringify(result, null, 2)
+      if (!payload) return null
+      const capped =
+        payload.length > 2000 ? `${payload.slice(0, 2000)}...` : payload
+      return `[ACTION_RESULT | action=${actionName.toUpperCase()}]\n${capped}`
+    }
+    return String(result)
+  }
+
+  private formatDemoPost(responseText: string): string | null {
+    const trimmed = responseText.trim()
+    if (!trimmed) return null
+    const lower = trimmed.toLowerCase()
+    if (lower.includes('no new') || lower.includes('nothing to')) return null
+    if (trimmed.length > 4000) {
+      return `${trimmed.slice(0, 4000)}...`
+    }
+    return trimmed
   }
 
   private async getNetworkState(): Promise<NetworkState> {

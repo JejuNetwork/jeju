@@ -71,6 +71,8 @@ interface RegisterAgentRequest {
   autonomous?: {
     enabled: boolean
     tickIntervalMs?: number
+    watchRoom?: string
+    postToRoom?: string
   }
 }
 

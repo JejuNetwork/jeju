@@ -1248,7 +1248,7 @@ export class CrucibleAgentRuntime {
     const results: {
       timestamp: number
       dws: { status: string; latencyMs: number; error?: string }
-      inference: { nodeCount: number; latencyMs: number; nodes?: Array<{ id: string; status: string }>; error?: string }
+      inference: { nodeCount: number; latencyMs: number; nodes?: Array<Record<string, unknown>>; error?: string }
     } = {
       timestamp,
       dws: { status: 'unknown', latencyMs: 0 },
@@ -1281,10 +1281,15 @@ export class CrucibleAgentRuntime {
       results.inference.latencyMs = Date.now() - inferenceStart
 
       if (inferenceResponse.ok) {
-        const data = await inferenceResponse.json() as { nodes?: Array<{ id: string; status: string }> }
-        const nodes = data.nodes ?? []
+        const data = await inferenceResponse.json() as unknown
+        // DWS may return nodes as a raw array or wrapped in { nodes: [...] }.
+        const nodes = Array.isArray(data)
+          ? data
+          : (data && typeof data === 'object' && Array.isArray((data as { nodes?: unknown[] }).nodes))
+            ? (data as { nodes?: unknown[] }).nodes ?? []
+            : []
         results.inference.nodeCount = nodes.length
-        results.inference.nodes = nodes.slice(0, 10) // Limit to first 10 for brevity
+        results.inference.nodes = nodes.slice(0, 10) as Array<Record<string, unknown>> // Limit to first 10 for brevity
       } else {
         results.inference.error = `HTTP ${inferenceResponse.status}`
       }

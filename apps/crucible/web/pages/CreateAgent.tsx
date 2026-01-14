@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { LoadingSpinner } from '../components/LoadingSpinner'
-import { useCharacter, useCharacters, useRegisterAgent } from '../hooks'
+import { useCharacter, useCharacters, useRegisterAgent, useRooms } from '../hooks'
 
 interface Capabilities {
   canChat: boolean
@@ -18,6 +18,8 @@ interface Capabilities {
 interface AutonomousSettings {
   enabled: boolean
   tickIntervalMs: number
+  watchRoom?: string
+  postToRoom?: string
 }
 
 const CAPABILITY_CONFIG: Record<
@@ -108,10 +110,13 @@ export default function CreateAgentPage() {
     useState<AutonomousSettings>({
       enabled: false,
       tickIntervalMs: 60000,
+      watchRoom: '',
+      postToRoom: '',
     })
 
   const { data: characters, isLoading: loadingCharacters } = useCharacters()
   const { data: selectedCharacter } = useCharacter(selectedCharacterId ?? '')
+  const { data: roomsData } = useRooms({ limit: 50 })
   const registerAgent = useRegisterAgent()
 
   const handleCreate = async () => {
@@ -124,6 +129,9 @@ export default function CreateAgentPage() {
 
     try {
       const agentName = customName || selectedCharacter.name
+      const watchRoom = autonomousSettings.watchRoom?.trim()
+      const postToRoom = autonomousSettings.postToRoom?.trim()
+
       const result = await registerAgent.mutateAsync({
         name: agentName,
         character: {
@@ -145,6 +153,8 @@ export default function CreateAgentPage() {
           ? {
               enabled: true,
               tickIntervalMs: autonomousSettings.tickIntervalMs,
+              watchRoom: watchRoom || undefined,
+              postToRoom: postToRoom || undefined,
             }
           : undefined,
       })
@@ -516,6 +526,86 @@ export default function CreateAgentPage() {
                 >
                   How often the agent will wake up and check for actions to take
                 </p>
+
+                <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label
+                      htmlFor="watch-room"
+                      className="block text-sm font-medium mb-2"
+                      style={{ color: 'var(--text-secondary)' }}
+                    >
+                      Watch Room
+                      <span
+                        className="ml-2 font-normal"
+                        style={{ color: 'var(--text-tertiary)' }}
+                      >
+                        (optional)
+                      </span>
+                    </label>
+                    <input
+                      id="watch-room"
+                      type="text"
+                      list="autonomous-room-options"
+                      value={autonomousSettings.watchRoom ?? ''}
+                      onChange={(e) =>
+                        setAutonomousSettings((prev) => ({
+                          ...prev,
+                          watchRoom: e.target.value,
+                        }))
+                      }
+                      placeholder="capability-demos"
+                      className="input"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="post-room"
+                      className="block text-sm font-medium mb-2"
+                      style={{ color: 'var(--text-secondary)' }}
+                    >
+                      Post To Room
+                      <span
+                        className="ml-2 font-normal"
+                        style={{ color: 'var(--text-tertiary)' }}
+                      >
+                        (optional)
+                      </span>
+                    </label>
+                    <input
+                      id="post-room"
+                      type="text"
+                      list="autonomous-room-options"
+                      value={autonomousSettings.postToRoom ?? ''}
+                      onChange={(e) =>
+                        setAutonomousSettings((prev) => ({
+                          ...prev,
+                          postToRoom: e.target.value,
+                        }))
+                      }
+                      placeholder="capability-demos"
+                      className="input"
+                    />
+                  </div>
+                </div>
+                <p
+                  className="text-xs mt-2"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
+                  Use a room ID (string for off-chain rooms). Leave blank to
+                  skip watching or posting.
+                </p>
+
+                {roomsData?.rooms && roomsData.rooms.length > 0 && (
+                  <datalist id="autonomous-room-options">
+                    {roomsData.rooms.map((room) => (
+                      <option
+                        key={room.roomId}
+                        value={room.roomId}
+                        label={room.name}
+                      />
+                    ))}
+                  </datalist>
+                )}
               </div>
             )}
           </div>
@@ -630,6 +720,22 @@ export default function CreateAgentPage() {
                     (t) => t.value === autonomousSettings.tickIntervalMs,
                   )?.label ?? '1 minute'}
                 </span>
+                {autonomousSettings.watchRoom && (
+                  <p
+                    className="text-xs mt-2"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  >
+                    Watch: {autonomousSettings.watchRoom}
+                  </p>
+                )}
+                {autonomousSettings.postToRoom && (
+                  <p
+                    className="text-xs"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  >
+                    Post: {autonomousSettings.postToRoom}
+                  </p>
+                )}
               </div>
             )}
 

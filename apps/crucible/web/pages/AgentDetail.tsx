@@ -9,6 +9,7 @@ import {
   useAgentActivity,
   useAgentBalance,
   useFundVault,
+  useRooms,
   useTriggerAgentTick,
 } from "../hooks";
 import { getBotTypeConfig } from "../lib/constants";
@@ -21,16 +22,20 @@ function useToggleAutonomous() {
     mutationFn: async ({
       agentId,
       enabled,
+      watchRoom,
+      postToRoom,
     }: {
       agentId: string;
       enabled: boolean;
+      watchRoom?: string;
+      postToRoom?: string;
     }) => {
       const response = await fetch(
         `${API_URL}/api/v1/agents/${agentId}/autonomous`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ enabled }),
+          body: JSON.stringify({ enabled, watchRoom, postToRoom }),
         },
       );
       if (!response.ok) {
@@ -83,6 +88,7 @@ export default function AgentDetailPage() {
   const triggerTick = useTriggerAgentTick();
   const fundVault = useFundVault();
   const toggleAutonomous = useToggleAutonomous();
+  const { data: roomsData } = useRooms({ limit: 50 });
   const [showFundModal, setShowFundModal] = useState(false);
   const [fundAmount, setFundAmount] = useState("");
   const [activeTab, setActiveTab] = useState<
@@ -91,6 +97,10 @@ export default function AgentDetailPage() {
   const [expandedActivities, setExpandedActivities] = useState<Set<string>>(
     new Set(),
   );
+  const [autonomousRooms, setAutonomousRooms] = useState({
+    watchRoom: "",
+    postToRoom: "",
+  });
 
   const toggleActivityExpanded = (key: string) => {
     setExpandedActivities((prev) => {
@@ -166,10 +176,14 @@ export default function AgentDetailPage() {
     if (!id || !agent) return;
     const isCurrentlyAutonomous =
       agent.tickIntervalMs && agent.tickIntervalMs > 0;
+    const watchRoom = autonomousRooms.watchRoom.trim();
+    const postToRoom = autonomousRooms.postToRoom.trim();
     try {
       await toggleAutonomous.mutateAsync({
         agentId: id,
         enabled: !isCurrentlyAutonomous,
+        watchRoom: !isCurrentlyAutonomous && watchRoom ? watchRoom : undefined,
+        postToRoom: !isCurrentlyAutonomous && postToRoom ? postToRoom : undefined,
       });
       toast.success(
         isCurrentlyAutonomous
@@ -772,6 +786,72 @@ export default function AgentDetailPage() {
                   />
                 </button>
               </div>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="autonomous-watch-room"
+                    className="block text-xs font-medium mb-2"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    Watch Room (optional)
+                  </label>
+                  <input
+                    id="autonomous-watch-room"
+                    type="text"
+                    list="autonomous-room-options-detail"
+                    value={autonomousRooms.watchRoom}
+                    onChange={(e) =>
+                      setAutonomousRooms((prev) => ({
+                        ...prev,
+                        watchRoom: e.target.value,
+                      }))
+                    }
+                    placeholder="capability-demos"
+                    className="input"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="autonomous-post-room"
+                    className="block text-xs font-medium mb-2"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    Post To Room (optional)
+                  </label>
+                  <input
+                    id="autonomous-post-room"
+                    type="text"
+                    list="autonomous-room-options-detail"
+                    value={autonomousRooms.postToRoom}
+                    onChange={(e) =>
+                      setAutonomousRooms((prev) => ({
+                        ...prev,
+                        postToRoom: e.target.value,
+                      }))
+                    }
+                    placeholder="capability-demos"
+                    className="input"
+                  />
+                </div>
+              </div>
+              <p
+                className="text-xs mt-2"
+                style={{ color: "var(--text-tertiary)" }}
+              >
+                Room settings apply when enabling. Disable and re-enable to
+                update.
+              </p>
+              {roomsData?.rooms && roomsData.rooms.length > 0 && (
+                <datalist id="autonomous-room-options-detail">
+                  {roomsData.rooms.map((room) => (
+                    <option
+                      key={room.roomId}
+                      value={room.roomId}
+                      label={room.name}
+                    />
+                  ))}
+                </datalist>
+              )}
             </div>
 
             {/* Danger Zone */}

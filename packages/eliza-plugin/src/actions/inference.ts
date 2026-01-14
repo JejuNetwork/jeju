@@ -10,6 +10,7 @@ import type {
   Memory,
   State,
 } from '@elizaos/core'
+import { getDWSUrl, getLocalhostHost } from '@jejunetwork/config'
 import { JEJU_SERVICE_NAME, type JejuService } from '../service'
 import {
   expect,
@@ -44,17 +45,79 @@ export const runInferenceAction: Action = {
     const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
     const client = service.getClient()
 
+    // Use the prompt from the message (sanitized with length limit)
+    const rawPrompt = getMessageText(message)
+    const prompt = sanitizeText(rawPrompt.slice(0, MAX_MESSAGE_LENGTH))
+
     // List available models
     const models = await client.compute.listModels()
 
     if (models.length === 0) {
+      if (client.network === 'localnet') {
+        const dwsUrl = getDWSUrl() ?? `http://${getLocalhostHost()}:4030`
+        const fallbackModel = 'llama-3.1-8b-instant'
+
+        callback?.({
+          text: `No on-chain models found. Running inference via DWS (${fallbackModel})...`,
+        })
+
+        try {
+          const response = await fetch(`${dwsUrl}/compute/chat/completions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: fallbackModel,
+              messages: [{ role: 'user', content: prompt }],
+            }),
+          })
+
+          if (!response.ok) {
+            const errorText = await response.text()
+            callback?.({
+              text: `DWS inference failed: ${errorText || response.statusText}`,
+            })
+            return
+          }
+
+          const data = (await response.json()) as {
+            model?: string
+            choices?: Array<{ message?: { content?: string } }>
+            usage?: {
+              prompt_tokens?: number
+              completion_tokens?: number
+              total_tokens?: number
+            }
+          }
+
+          const responseText =
+            data.choices?.[0]?.message?.content ?? ''
+          const responseContent = truncateOutput(responseText, 20000)
+          const usage = data.usage ?? {}
+          const totalTokens = usage.total_tokens ?? 0
+
+          callback?.({
+            text: `Inference result:\n\n${responseContent}\n\n---\nModel: ${data.model ?? fallbackModel}\nTokens: ${totalTokens}`,
+            content: {
+              model: data.model ?? fallbackModel,
+              response: responseContent,
+              usage: {
+                promptTokens: usage.prompt_tokens ?? 0,
+                completionTokens: usage.completion_tokens ?? 0,
+                totalTokens,
+              },
+            },
+          })
+        } catch (err) {
+          callback?.({
+            text: `DWS inference failed: ${err instanceof Error ? err.message : String(err)}`,
+          })
+        }
+        return
+      }
+
       callback?.({ text: 'No inference models available on the network.' })
       return
     }
-
-    // Use the prompt from the message (sanitized with length limit)
-    const rawPrompt = getMessageText(message)
-    const prompt = sanitizeText(rawPrompt.slice(0, MAX_MESSAGE_LENGTH))
 
     // Find a suitable model (prefer llama or gpt)
     const preferredModel = models.find((m: { model: string }) =>

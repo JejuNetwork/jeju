@@ -100,6 +100,8 @@ export const RegisterAgentRequestSchema = z.object({
     .object({
       enabled: z.boolean(),
       tickIntervalMs: z.number().int().positive().optional(),
+      watchRoom: NonEmptyStringSchema.optional(),
+      postToRoom: NonEmptyStringSchema.optional(),
     })
     .optional(),
 })
@@ -179,6 +181,8 @@ export const AddMemoryRequestSchema = z.object({
 export const ToggleAutonomousRequestSchema = z.object({
   enabled: z.boolean(),
   tickIntervalMs: z.number().int().positive().optional(),
+  watchRoom: NonEmptyStringSchema.optional(),
+  postToRoom: NonEmptyStringSchema.optional(),
   capabilities: z
     .object({
       canTrade: z.boolean().optional(),
