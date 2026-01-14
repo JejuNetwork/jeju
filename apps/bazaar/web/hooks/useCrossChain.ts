@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Address, Hex } from 'viem'
 import { useAccount } from 'wagmi'
-import { OIF_AGGREGATOR_URL } from '../config'
+import { NETWORK, OIF_AGGREGATOR_URL } from '../config'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types (matching SDK's crosschain module)
@@ -435,17 +435,41 @@ export function useOIFAvailable() {
 
   useEffect(() => {
     async function check() {
+      // Skip OIF check on localnet - aggregator is not available
+      if (NETWORK === 'localnet') {
+        setIsAvailable(false)
+        return
+      }
+
       if (!OIF_AGGREGATOR_URL) {
         setIsAvailable(false)
         return
       }
 
+      // Only check OIF aggregator on testnet/mainnet
       try {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 2000) // 2s timeout
+        
+        // Use fetch with proper error handling - don't let errors bubble to console
         const response = await fetch(`${OIF_AGGREGATOR_URL}/health`, {
           method: 'GET',
+          signal: controller.signal,
+          // Suppress error logging by catching all errors
+        }).catch(() => {
+          // Return null on any error (network, timeout, etc.)
+          return null
         })
-        setIsAvailable(response.ok)
+        
+        clearTimeout(timeoutId)
+        
+        if (response && response.ok) {
+          setIsAvailable(true)
+        } else {
+          setIsAvailable(false)
+        }
       } catch {
+        // Silently fail - OIF aggregator is optional
         setIsAvailable(false)
       }
     }

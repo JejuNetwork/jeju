@@ -67,10 +67,13 @@ const SUPPORTED_CHAINS = [
 ]
 
 export default function SwapPage() {
-  const { address, isConnected, chain } = useAccount()
+  const { address, isConnected, chain, isConnecting } = useAccount()
   const publicClient = usePublicClient()
   const { switchChain } = useSwitchChain()
+  // Check chain ID - only show warning if connected and chain is definitely wrong
+  // Don't show warning during initial connection or if chain is still loading
   const isCorrectChain = chain?.id === CHAIN_ID
+  const shouldShowNetworkWarning = isConnected && !isConnecting && chain && !isCorrectChain
 
   // Token selection
   const { tokens: availableTokens, isLoading: tokensLoading } = useSwapTokens()
@@ -172,13 +175,21 @@ export default function SwapPage() {
         return
       }
 
-      const balance = await publicClient.readContract({
-        address: inputToken.address,
-        abi: erc20Abi,
-        functionName: 'balanceOf',
-        args: [address],
-      })
-      setTokenBalance(balance)
+      try {
+        const balance = await publicClient.readContract({
+          address: inputToken.address,
+          abi: erc20Abi,
+          functionName: 'balanceOf',
+          args: [address],
+        })
+        setTokenBalance(balance as bigint)
+      } catch (error) {
+        // Token balance fetch failed - set to 0 and log in dev mode
+        if (process.env.NODE_ENV === 'development') {
+          console.debug(`[Swap] Failed to fetch balance for ${inputToken.symbol}:`, error)
+        }
+        setTokenBalance(0n)
+      }
     }
     fetchBalance()
   }, [address, inputToken, publicClient])
@@ -489,12 +500,12 @@ export default function SwapPage() {
         description="Swap tokens or bridge across chains"
       />
 
-      {/* Network Warning */}
-      {isConnected && !isCorrectChain && !isCrossChain && (
+      {/* Network Warning - only show if connected, chain is loaded, and definitely wrong */}
+      {shouldShowNetworkWarning && !isCrossChain && (
         <div className="mb-6">
           <InfoCard variant="error">
             <div className="flex items-center justify-between gap-4">
-              <span>Switch to the correct network to swap</span>
+              <span>Switch to the correct network to swap (Current: {chain.id}, Expected: {CHAIN_ID})</span>
               <button
                 type="button"
                 onClick={handleSwitchNetwork}
