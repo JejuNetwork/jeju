@@ -2,6 +2,21 @@
  * IPFS Storage Integration for OAuth3
  */
 
+/**
+ * Check if WebCrypto API is available
+ * crypto.subtle requires a secure context (HTTPS or localhost)
+ */
+function isWebCryptoAvailable(): boolean {
+  if (typeof crypto === 'undefined') return false
+  if (typeof crypto.subtle === 'undefined') return false
+  // Verify we can actually use the API
+  try {
+    return typeof crypto.subtle.importKey === 'function'
+  } catch {
+    return false
+  }
+}
+
 import { getIpfsApiEndpointEnv, getIpfsGatewayEnv } from '@jejunetwork/config'
 import type { StorageTier } from '@jejunetwork/shared'
 import { type Address, type Hex, toBytes } from 'viem'
@@ -358,6 +373,13 @@ export class OAuth3StorageService {
   private async encrypt(data: string): Promise<Uint8Array> {
     if (!this.encryptionKey) throw new Error('No encryption key')
 
+    if (!isWebCryptoAvailable()) {
+      throw new Error(
+        'WebCrypto API not available. Session storage requires a secure context (HTTPS or localhost). ' +
+          'If running on HTTP, use HTTPS or localhost instead.',
+      )
+    }
+
     const iv = crypto.getRandomValues(new Uint8Array(12))
     const keyBuffer = new ArrayBuffer(this.encryptionKey.length)
     new Uint8Array(keyBuffer).set(this.encryptionKey)
@@ -385,6 +407,12 @@ export class OAuth3StorageService {
 
   private async decrypt(data: Uint8Array): Promise<string> {
     if (!this.encryptionKey) throw new Error('No encryption key')
+
+    if (!isWebCryptoAvailable()) {
+      throw new Error(
+        'WebCrypto API not available. Session decryption requires a secure context (HTTPS or localhost).',
+      )
+    }
 
     const keyBuffer = new ArrayBuffer(this.encryptionKey.length)
     new Uint8Array(keyBuffer).set(this.encryptionKey)

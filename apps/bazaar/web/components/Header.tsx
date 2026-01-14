@@ -1,6 +1,7 @@
-import { useJejuAuth } from '@jejunetwork/auth/react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { useUnifiedAuth } from '../hooks/useUnifiedAuth'
+import { AuthButton } from './auth/AuthButton'
 
 const NAV_ITEMS = [
   { href: '/', label: 'Home', icon: '🏠' },
@@ -14,13 +15,7 @@ const NAV_ITEMS = [
 
 export function Header() {
   const { pathname } = useLocation()
-  const {
-    authenticated,
-    loading: authLoading,
-    walletAddress,
-    loginWithWallet,
-    logout,
-  } = useJejuAuth()
+  const { address: walletAddress, isAuthenticated, disconnect } = useUnifiedAuth()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [accountDropdownOpen, setAccountDropdownOpen] = useState(false)
   const [isDark, setIsDark] = useState(true)
@@ -79,14 +74,15 @@ export function Header() {
     [pathname],
   )
 
-  const handleConnect = useCallback(async () => {
-    await loginWithWallet()
-  }, [loginWithWallet])
-
   const handleDisconnect = useCallback(async () => {
-    await logout()
-    setAccountDropdownOpen(false)
-  }, [logout])
+    try {
+      await disconnect()
+      localStorage.removeItem('bazaar_session')
+      setAccountDropdownOpen(false)
+    } catch (err) {
+      console.error('Disconnect error:', err)
+    }
+  }, [disconnect])
 
   if (!mounted) return null
 
@@ -109,12 +105,12 @@ export function Header() {
               className="flex items-center gap-2 md:gap-3 group focus-ring rounded-xl"
               aria-label="Bazaar - Go to home page"
             >
-              <span
-                className="text-2xl md:text-3xl group-hover:animate-bounce-subtle"
+              <img
+                src="/logo.svg"
+                alt=""
                 aria-hidden="true"
-              >
-                🏝️
-              </span>
+                className="w-8 h-8 md:w-10 md:h-10 group-hover:animate-bounce-subtle"
+              />
               <span className="text-xl md:text-2xl font-bold text-gradient">
                 Bazaar
               </span>
@@ -163,15 +159,8 @@ export function Header() {
 
               {/* Auth Button - Desktop */}
               <div className="relative hidden md:block">
-                {!authenticated || !walletAddress ? (
-                  <button
-                    type="button"
-                    onClick={handleConnect}
-                    disabled={authLoading}
-                    className="btn-primary px-4 md:px-6"
-                  >
-                    {authLoading ? 'Connecting...' : 'Sign In'}
-                  </button>
+                {!isAuthenticated || !walletAddress ? (
+                  <AuthButton className="px-4 md:px-6" />
                 ) : (
                   <>
                     <button
@@ -403,15 +392,8 @@ export function Header() {
             className="p-4 border-t"
             style={{ borderColor: 'var(--border)' }}
           >
-            {!authenticated || !walletAddress ? (
-              <button
-                type="button"
-                onClick={handleConnect}
-                disabled={authLoading}
-                className="btn-primary w-full"
-              >
-                {authLoading ? 'Connecting...' : 'Sign In'}
-              </button>
+            {!isAuthenticated || !walletAddress ? (
+              <AuthButton className="w-full" />
             ) : (
               <div className="space-y-3">
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-surface-secondary">

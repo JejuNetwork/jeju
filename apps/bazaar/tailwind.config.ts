@@ -1,32 +1,43 @@
 import type { Config } from 'tailwindcss'
 
+/**
+ * Tailwind CSS Configuration for Nocturne Bazaar Theme
+ *
+ * Design System:
+ * - Deep indigo background (#070816)
+ * - Amber glow accents (#ffb43a)
+ * - Cyan neon secondary (#00f2ff)
+ * - Nebula purple depth (#1e1140)
+ * - Outfit + JetBrains Mono fonts
+ */
 const config: Config = {
   darkMode: 'class',
   content: [
     './app/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
+    './web/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
     extend: {
       fontFamily: {
-        sans: ['var(--font-outfit)', 'system-ui', 'sans-serif'],
-        display: ['var(--font-display)', 'system-ui', 'sans-serif'],
-        mono: ['var(--font-mono)', 'monospace'],
+        sans: ['var(--font-sans)', 'Outfit', 'system-ui', 'sans-serif'],
+        display: ['var(--font-display)', 'Outfit', 'system-ui', 'sans-serif'],
+        mono: ['var(--font-mono)', 'JetBrains Mono', 'monospace'],
       },
       colors: {
         bazaar: {
-          // Warm sunset orange - primary brand
-          primary: '#FF6B35',
-          'primary-dark': '#E85A2A',
-          'primary-light': '#FF8F66',
-          // Tropical teal - accent
-          accent: '#00D9C0',
-          'accent-dark': '#00B8A3',
-          'accent-light': '#4AEADB',
-          // Rich purple for contrast
-          purple: '#7C3AED',
-          'purple-dark': '#6D28D9',
-          'purple-light': '#A78BFA',
+          // Amber glow - primary brand
+          primary: '#ffb43a',
+          'primary-dark': '#e59a20',
+          'primary-light': '#ffc566',
+          // Cyan neon - accent
+          accent: '#00f2ff',
+          'accent-dark': '#00c4cf',
+          'accent-light': '#4df7ff',
+          // Silk violet - tertiary
+          violet: '#4c1d95',
+          'violet-dark': '#3b1578',
+          'violet-light': '#6d28d9',
           // Status colors
           success: '#10B981',
           error: '#EF4444',
@@ -35,61 +46,56 @@ const config: Config = {
         },
         // Light mode surfaces
         light: {
-          bg: '#FFFBF7',
-          'bg-secondary': '#FFF5ED',
-          'bg-tertiary': '#FFEDE0',
-          surface: '#FFFFFF',
-          'surface-elevated': '#FFFFFF',
-          border: '#FFE4D4',
-          'border-strong': '#FFD0B8',
-          text: '#1A1523',
-          'text-secondary': '#635E69',
-          'text-tertiary': '#9D97A5',
+          bg: '#f8f7fc',
+          'bg-secondary': '#efedf5',
+          'bg-tertiary': '#e6e3ef',
+          surface: '#ffffff',
+          'surface-elevated': '#ffffff',
+          border: 'rgba(76, 29, 149, 0.15)',
+          'border-strong': 'rgba(76, 29, 149, 0.25)',
+          text: '#070816',
+          'text-secondary': '#4a4a5a',
+          'text-tertiary': '#71717a',
         },
-        // Dark mode surfaces
+        // Dark mode surfaces - Nocturne Bazaar
         dark: {
-          bg: '#0D0B14',
-          'bg-secondary': '#161222',
-          'bg-tertiary': '#1E1830',
-          surface: '#1E1830',
-          'surface-elevated': '#2A2440',
-          border: '#3D3558',
-          'border-strong': '#4D4570',
-          text: '#FAFAFA',
-          'text-secondary': '#B8B4C0',
-          'text-tertiary': '#7D7888',
+          bg: '#070816',
+          'bg-secondary': '#0f0c29',
+          'bg-tertiary': '#1e1140',
+          surface: 'rgba(15, 12, 41, 0.6)',
+          'surface-elevated': 'rgba(30, 17, 64, 0.7)',
+          border: 'rgba(255, 255, 255, 0.1)',
+          'border-strong': 'rgba(255, 255, 255, 0.15)',
+          text: '#d4d4d8',
+          'text-secondary': '#a1a1aa',
+          'text-tertiary': '#71717a',
         },
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
         'gradient-bazaar': 'linear-gradient(135deg, var(--tw-gradient-stops))',
+        'gradient-nocturne':
+          'linear-gradient(135deg, #070816 0%, #0f0c29 50%, #1e1140 100%)',
+        'gradient-amber': 'linear-gradient(135deg, #ffb43a 0%, #e59a20 100%)',
+        'gradient-cyan': 'linear-gradient(135deg, #00f2ff 0%, #00c4cf 100%)',
+        // Compatibility gradients for UI components
+        'gradient-warm': 'linear-gradient(135deg, #ffb43a 0%, #e59a20 100%)',
+        'gradient-cool': 'linear-gradient(135deg, #00f2ff 0%, #4c1d95 100%)',
         'gradient-sunset':
-          'linear-gradient(135deg, #FF6B35 0%, #7C3AED 50%, #00D9C0 100%)',
-        'gradient-warm': 'linear-gradient(135deg, #FF6B35 0%, #E85A2A 100%)',
-        'gradient-cool': 'linear-gradient(135deg, #7C3AED 0%, #00D9C0 100%)',
-        'mesh-light': `
-          radial-gradient(at 40% 20%, rgba(255, 107, 53, 0.15) 0px, transparent 50%),
-          radial-gradient(at 80% 0%, rgba(124, 58, 237, 0.1) 0px, transparent 50%),
-          radial-gradient(at 0% 50%, rgba(0, 217, 192, 0.1) 0px, transparent 50%),
-          radial-gradient(at 80% 50%, rgba(255, 107, 53, 0.08) 0px, transparent 50%),
-          radial-gradient(at 0% 100%, rgba(124, 58, 237, 0.08) 0px, transparent 50%)
-        `,
-        'mesh-dark': `
-          radial-gradient(at 40% 20%, rgba(255, 107, 53, 0.2) 0px, transparent 50%),
-          radial-gradient(at 80% 0%, rgba(124, 58, 237, 0.15) 0px, transparent 50%),
-          radial-gradient(at 0% 50%, rgba(0, 217, 192, 0.12) 0px, transparent 50%),
-          radial-gradient(at 80% 50%, rgba(255, 107, 53, 0.1) 0px, transparent 50%),
-          radial-gradient(at 0% 100%, rgba(124, 58, 237, 0.1) 0px, transparent 50%)
-        `,
+          'linear-gradient(135deg, #ffb43a 0%, #4c1d95 50%, #00f2ff 100%)',
+        // Nebula background gradients
+        'nebula-purple': 'radial-gradient(circle, rgba(76, 29, 149, 0.15) 0%, transparent 40%)',
+        'nebula-amber': 'radial-gradient(circle, rgba(255, 180, 58, 0.05) 0%, transparent 40%)',
       },
       boxShadow: {
-        'glow-primary': '0 0 20px rgba(255, 107, 53, 0.3)',
-        'glow-accent': '0 0 20px rgba(0, 217, 192, 0.3)',
-        'glow-purple': '0 0 20px rgba(124, 58, 237, 0.3)',
-        'card-light': '0 4px 20px rgba(0, 0, 0, 0.08)',
-        'card-dark': '0 4px 20px rgba(0, 0, 0, 0.4)',
-        'card-hover-light': '0 8px 30px rgba(255, 107, 53, 0.15)',
-        'card-hover-dark': '0 8px 30px rgba(255, 107, 53, 0.2)',
+        'glow-primary': '0 0 20px rgba(255, 180, 58, 0.3)',
+        'glow-accent': '0 0 20px rgba(0, 242, 255, 0.3)',
+        'glow-violet': '0 0 20px rgba(76, 29, 149, 0.3)',
+        'glow-sm': '0 0 15px rgba(255, 180, 58, 0.3)',
+        'card-light': '0 20px 40px rgba(0, 0, 0, 0.15)',
+        'card-dark': '0 20px 40px rgba(0, 0, 0, 0.4)',
+        'card-hover-light': '0 30px 60px rgba(0, 0, 0, 0.2), 0 0 20px rgba(255, 180, 58, 0.1)',
+        'card-hover-dark': '0 30px 60px rgba(0, 0, 0, 0.6), 0 0 20px rgba(255, 180, 58, 0.1)',
       },
       borderRadius: {
         '2xl': '1rem',
@@ -100,15 +106,17 @@ const config: Config = {
         'pulse-glow': 'pulse-glow 2s ease-in-out infinite',
         shimmer: 'shimmer 2s linear infinite',
         'bounce-subtle': 'bounce-subtle 2s ease-in-out infinite',
+        pulse: 'pulse 2s infinite',
+        flicker: 'flicker 3s infinite',
       },
       keyframes: {
         float: {
-          '0%, 100%': { transform: 'translateY(0)' },
-          '50%': { transform: 'translateY(-10px)' },
+          '0%, 100%': { transform: 'translateY(0) rotate(0deg)' },
+          '50%': { transform: 'translateY(-20px) rotate(5deg)' },
         },
         'pulse-glow': {
-          '0%, 100%': { opacity: '1' },
-          '50%': { opacity: '0.7' },
+          '0%, 100%': { boxShadow: '0 0 12px rgba(255, 180, 58, 0.3)' },
+          '50%': { boxShadow: '0 0 24px rgba(255, 180, 58, 0.6)' },
         },
         shimmer: {
           '0%': { backgroundPosition: '-200% 0' },
@@ -117,6 +125,14 @@ const config: Config = {
         'bounce-subtle': {
           '0%, 100%': { transform: 'translateY(0)' },
           '50%': { transform: 'translateY(-4px)' },
+        },
+        pulse: {
+          '0%, 100%': { opacity: '1', transform: 'scale(1)' },
+          '50%': { opacity: '0.4', transform: 'scale(1.2)' },
+        },
+        flicker: {
+          '0%, 100%': { opacity: '1', filter: 'blur(0px)' },
+          '50%': { opacity: '0.7', filter: 'blur(2px)' },
         },
       },
     },

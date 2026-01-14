@@ -13,6 +13,7 @@ import { WagmiProvider } from 'wagmi'
 import { BanCheckWrapper } from './components/BanCheckWrapper'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { Header } from './components/Header'
+import { Stars } from './components/Stars'
 import { OAUTH3_AGENT_URL } from './config'
 import { chainId, rpcUrl, wagmiConfig } from './config/wagmi'
 import AuthCallbackPage from './pages/AuthCallback'
@@ -90,7 +91,18 @@ const FOOTER_LINKS = [
 
 function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col relative">
+      {/* Decorative overlays - Nocturne Bazaar theme */}
+      <img
+        src="/landing-bg.svg"
+        alt=""
+        aria-hidden="true"
+        className="landing-bg-img"
+      />
+      <Stars />
+      <div className="nebula-glow" aria-hidden="true" />
+      <div className="grain" aria-hidden="true" />
+
       <Header />
       <main
         id="main-content"
@@ -106,12 +118,12 @@ function Layout({ children }: { children: React.ReactNode }) {
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             {/* Brand */}
             <Link to="/" className="flex items-center gap-2 group">
-              <span
-                className="text-2xl group-hover:animate-bounce-subtle"
+              <img
+                src="/logo.svg"
+                alt=""
                 aria-hidden="true"
-              >
-                🏝️
-              </span>
+                className="w-7 h-7 group-hover:animate-bounce-subtle"
+              />
               <span className="font-bold text-gradient">Bazaar</span>
             </Link>
             {/* Links */}

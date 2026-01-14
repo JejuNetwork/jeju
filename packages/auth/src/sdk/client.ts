@@ -356,33 +356,40 @@ export class OAuth3Client {
   }
 
   async login(options: LoginOptions): Promise<OAuth3Session> {
+    console.log('[OAuth3] login: Starting login with provider:', options.provider)
     this.emit('login', { provider: options.provider, status: 'started' })
 
     // If decentralized mode and not initialized, try auto-initialization
     // If discovery fails (missing contracts, unregistered app), fall back to centralized mode
     if (this.discovery && !this.currentNode && !this.config.teeAgentUrl) {
+      console.log('[OAuth3] login: Attempting decentralized discovery...')
       try {
         await this.initialize()
       } catch (err) {
         console.debug(
-          '[OAuth3] Decentralized discovery failed, falling back to centralized mode:',
+          '[OAuth3] login: Decentralized discovery failed, falling back to centralized mode:',
           err instanceof Error ? err.message : String(err),
         )
         // Disable discovery to prevent retry
         this.discovery = null
       }
+    } else {
+      console.log('[OAuth3] login: Using TEE agent URL:', this.config.teeAgentUrl || 'from currentNode')
     }
 
     let session: OAuth3Session
 
     switch (options.provider) {
       case AuthProvider.WALLET:
+        console.log('[OAuth3] login: Calling loginWithWallet...')
         session = await this.loginWithWallet()
         break
       case AuthProvider.FARCASTER:
+        console.log('[OAuth3] login: Calling loginWithFarcaster...')
         session = await this.loginWithFarcaster()
         break
       default:
+        console.log('[OAuth3] login: Calling loginWithOAuth...')
         session = await this.loginWithOAuth(options)
     }
 
@@ -488,7 +495,10 @@ export class OAuth3Client {
   }
 
   private async loginWithWallet(): Promise<OAuth3Session> {
+    console.log('[OAuth3] loginWithWallet: Starting wallet login flow')
+
     const provider = this.getEVMProvider()
+    console.log('[OAuth3] loginWithWallet: Got EVM provider')
 
     const accounts = (await provider.request({
       method: 'eth_requestAccounts',
@@ -499,16 +509,24 @@ export class OAuth3Client {
     }
     const address = accounts[0]
     const nonce = generateUUID()
+    console.log('[OAuth3] loginWithWallet: Got address:', address.slice(0, 10) + '...')
 
     const message = this.createSignInMessage(address, nonce)
+    console.log('[OAuth3] loginWithWallet: Created sign-in message for domain:', new URL(this.config.redirectUri).hostname)
 
     const signature = (await provider.request({
       method: 'personal_sign',
       params: [message, address],
     })) as Hex
+    console.log('[OAuth3] loginWithWallet: Got signature from wallet')
 
     const teeAgentUrl = this.getTeeAgentUrl()
     const appId = this.discoveredApp?.appId ?? this.config.appId
+    console.log('[OAuth3] loginWithWallet: Sending to TEE agent:', {
+      url: `${teeAgentUrl}/auth/wallet`,
+      appId,
+      address: address.slice(0, 10) + '...',
+    })
 
     const response = await fetch(`${teeAgentUrl}/auth/wallet`, {
       method: 'POST',
@@ -522,14 +540,24 @@ export class OAuth3Client {
     })
 
     if (!response.ok) {
-      throw new Error(`Wallet login failed: ${response.status}`)
+      const errorText = await response.text().catch(() => 'Unknown error')
+      console.error('[OAuth3] loginWithWallet: Server error:', response.status, errorText)
+      throw new Error(`Wallet login failed: ${response.status} - ${errorText}`)
     }
+
+    console.log('[OAuth3] loginWithWallet: Got successful response from server')
 
     const session = validateResponse(
       OAuth3SessionSchema,
       await response.json(),
       'wallet login session',
     )
+    console.log('[OAuth3] loginWithWallet: Session created:', {
+      sessionId: session.sessionId.slice(0, 10) + '...',
+      smartAccount: session.smartAccount.slice(0, 10) + '...',
+      expiresAt: new Date(session.expiresAt).toISOString(),
+    })
+
     this.setSession(session)
     this.emit('login', { provider: 'wallet', session })
 
@@ -679,15 +707,32 @@ export class OAuth3Client {
   async logout(): Promise<void> {
     if (!this.session) return
 
-    const teeAgentUrl = this.getTeeAgentUrl()
+    const sessionId = this.session.sessionId
 
-    await fetch(`${teeAgentUrl}/session/${this.session.sessionId}`, {
-      method: 'DELETE',
-    })
+    // Try to delete session from server (ignore errors - session may already be gone)
+    try {
+      const teeAgentUrl = this.getTeeAgentUrl()
+      const response = await fetch(`${teeAgentUrl}/session/${sessionId}`, {
+        method: 'DELETE',
+      })
+      // 401/404 are fine - session may not exist on server
+      if (!response.ok && response.status !== 401 && response.status !== 404) {
+        console.warn(
+          `[OAuth3] Session delete returned ${response.status}, continuing with local logout`,
+        )
+      }
+    } catch (err) {
+      // Network errors are fine - we still want to clear local session
+      console.warn('[OAuth3] Failed to delete session from server:', err)
+    }
 
-    // Remove from decentralized storage
+    // Remove from decentralized storage (ignore errors)
     if (this.storage) {
-      await this.storage.deleteSession(this.session.sessionId)
+      try {
+        await this.storage.deleteSession(sessionId)
+      } catch (err) {
+        console.warn('[OAuth3] Failed to delete session from storage:', err)
+      }
     }
 
     this.clearSession()

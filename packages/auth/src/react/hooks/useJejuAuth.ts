@@ -131,7 +131,14 @@ export function useJejuAuth(): UseJejuAuthReturn {
 
   // Login with wallet
   const loginWithWallet = useCallback(async () => {
-    await oauth3.login('wallet' as AuthProvider)
+    console.log('[useJejuAuth] loginWithWallet: Starting...')
+    try {
+      await oauth3.login('wallet' as AuthProvider)
+      console.log('[useJejuAuth] loginWithWallet: Success!')
+    } catch (err) {
+      console.error('[useJejuAuth] loginWithWallet: Failed:', err instanceof Error ? err.message : err)
+      throw err
+    }
   }, [oauth3.login])
 
   // Login with Farcaster

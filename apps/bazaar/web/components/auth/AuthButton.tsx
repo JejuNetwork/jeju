@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useAccount, useConnect, useDisconnect, useSignMessage } from 'wagmi'
 import { injected, walletConnect } from 'wagmi/connectors'
+import { useUnifiedAuth } from '../../hooks/useUnifiedAuth'
 
 // Note: Window.ethereum type is provided by wagmi
 
@@ -141,6 +142,7 @@ export function AuthButton({
   const { connectAsync } = useConnect()
   const { disconnectAsync } = useDisconnect()
   const { signMessageAsync } = useSignMessage()
+  const { loginWithOAuth3, hasOAuth3Session } = useUnifiedAuth()
 
   useState(() => {
     isPlatformAuthenticatorAvailable().then(setHasPasskeys)
@@ -498,6 +500,16 @@ But wallet returned: ${expectedAccount.slice(0, 6)}...${expectedAccount.slice(-4
         expiresAt: Date.now() + 24 * 60 * 60 * 1000,
       }
 
+      // Also trigger OAuth3 login for TEE-backed session (non-blocking)
+      // This syncs the OAuth3 provider with the wagmi connection
+      if (!hasOAuth3Session) {
+        console.log('[AuthButton] Triggering OAuth3 login for TEE session...')
+        loginWithOAuth3().catch((err) => {
+          // Log but don't fail - wagmi connection is still valid
+          console.warn('[AuthButton] OAuth3 login failed (wagmi still connected):', err)
+        })
+      }
+
       onAuthSuccess?.(session)
       setShowModal(false)
     } catch (err) {
@@ -711,7 +723,7 @@ But wallet returned: ${expectedAccount.slice(0, 6)}...${expectedAccount.slice(-4
                 style={{ borderColor: 'var(--border)' }}
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">🏝️</span>
+                  <img src="/logo.svg" alt="" className="w-8 h-8" />
                   <div>
                     <h2 className="text-lg font-semibold">Sign In</h2>
                     <p

@@ -3,20 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
-  <meta name="theme-color" content="#0D0B14" media="(prefers-color-scheme: dark)">
-  <meta name="theme-color" content="#FFFBF7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#070816" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f8f7fc" media="(prefers-color-scheme: light)">
   <title>Bazaar - Agent Marketplace on the network</title>
   <meta name="description" content="The fun, light-hearted marketplace for tokens, collectibles, prediction markets, and more. Trade, swap, and discover on the network.">
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="icon" type="image/svg+xml" href="/logo.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script>
     (function() {
       try {
         const savedTheme = localStorage.getItem('bazaar-theme');
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const shouldBeDark = savedTheme ? savedTheme === 'dark' : prefersDark;
+        // Default to dark mode for Nocturne Bazaar theme
+        const shouldBeDark = savedTheme ? savedTheme === 'dark' : true;
         if (shouldBeDark) {
           document.documentElement.classList.add('dark');
         }
@@ -27,6 +28,13 @@
   <script type="module" src="./web/client.tsx"></script>
 </head>
 <body class="font-sans antialiased">
+  <!-- SVG Filter for grain effect -->
+  <svg style="display: none;">
+    <filter id="grainy">
+      <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" />
+      <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.15 0" />
+    </filter>
+  </svg>
   <div id="root"></div>
 </body>
 </html>

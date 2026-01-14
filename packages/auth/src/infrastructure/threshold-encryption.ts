@@ -12,6 +12,20 @@
  * 3. Decryption requires threshold of nodes to participate
  */
 
+/**
+ * Check if WebCrypto API is available
+ * crypto.subtle requires a secure context (HTTPS or localhost)
+ */
+function isWebCryptoAvailable(): boolean {
+  if (typeof crypto === 'undefined') return false
+  if (typeof crypto.subtle === 'undefined') return false
+  try {
+    return typeof crypto.subtle.generateKey === 'function'
+  } catch {
+    return false
+  }
+}
+
 import { type Hex, keccak256, toBytes, toHex } from 'viem'
 import {
   ThresholdClusterInfoResponseSchema,
@@ -75,6 +89,12 @@ export class ThresholdEncryptionService {
    * Any threshold of nodes can collaborate to decrypt.
    */
   async encrypt(data: string): Promise<EncryptedPayload> {
+    if (!isWebCryptoAvailable()) {
+      throw new Error(
+        'WebCrypto API not available. Threshold encryption requires a secure context (HTTPS or localhost).',
+      )
+    }
+
     const dataBytes = new TextEncoder().encode(data)
 
     // Generate ephemeral key pair
