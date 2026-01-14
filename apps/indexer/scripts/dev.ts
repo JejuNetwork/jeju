@@ -6,6 +6,7 @@
 import { watch } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { getLocalhostHost } from '@jejunetwork/config'
 import { $ } from 'bun'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -110,9 +111,18 @@ const server = Bun.serve({
     const url = new URL(req.url)
     const path = url.pathname
 
-    // Proxy /api requests to REST server
-    if (path.startsWith('/api')) {
-      const restUrl = `http://localhost:${REST_PORT}${path}${url.search}`
+    // Proxy requests that are owned by the REST server:
+    // - /api: REST JSON endpoints
+    // - /playground: GraphiQL HTML
+    // - /graphql: GraphQL proxy endpoint (POST)
+    if (
+      path.startsWith('/api') ||
+      path === '/playground' ||
+      path === '/graphql' ||
+      path.startsWith('/vendor/')
+    ) {
+      const restHost = getLocalhostHost()
+      const restUrl = `http://${restHost}:${REST_PORT}${path}${url.search}`
       try {
         const response = await fetch(restUrl, {
           method: req.method,

@@ -1,0 +1,7 @@
+{
+  "name": "mime",
+  "version": "1.6.0",
+  "description": "A comprehensive library for mime-type mapping (patched for bun compatibility)",
+  "main": "mime.js",
+  "license": "MIT"
+}

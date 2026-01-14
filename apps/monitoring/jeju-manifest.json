@@ -150,8 +150,12 @@
   },
   "testing": {
     "unit": {
-      "command": "bun test test/a2a.test.ts test/monitoring.test.ts test/on-chain-validation.test.ts",
+      "command": "bun run test",
       "timeout": 120000
+    },
+    "integration": {
+      "command": "bun run test:integration",
+      "timeout": 300000
     }
   }
 }

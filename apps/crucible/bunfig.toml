@@ -8,3 +8,6 @@ timeout = 60000
 
 # Retry flaky tests once
 retry = 1
+
+# Only run Bun tests. Playwright/Synpress suites run via `jeju test --mode e2e`.
+root = ["api/", "tests/unit", "tests/integration"]

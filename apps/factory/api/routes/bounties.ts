@@ -6,7 +6,7 @@ import {
   getBountyStats as dbGetBountyStats,
   listBounties as dbListBounties,
   getBounty,
-} from '../db/client'
+} from '../db/sqlit-client'
 import {
   BountiesQuerySchema,
   BountyIdParamSchema,
@@ -69,7 +69,7 @@ export const bountiesRoutes = new Elysia({ prefix: '/api/bounties' })
       const page = parseInt(validated.page ?? '1', 10)
       const limit = parseInt(validated.limit ?? '20', 10)
 
-      const result = dbListBounties({
+      const result = await dbListBounties({
         status: validated.status,
         skill: validated.skill,
         search: validated.q,
@@ -97,8 +97,8 @@ export const bountiesRoutes = new Elysia({ prefix: '/api/bounties' })
   )
   .get(
     '/stats',
-    () => {
-      const stats = dbGetBountyStats()
+    async () => {
+      const stats = await dbGetBountyStats()
       return {
         openBounties: stats.openBounties,
         totalValue: `${stats.totalValue.toFixed(2)} ETH`,
@@ -129,7 +129,7 @@ export const bountiesRoutes = new Elysia({ prefix: '/api/bounties' })
         'request body',
       )
 
-      const row = dbCreateBounty({
+      const row = await dbCreateBounty({
         title: validated.title,
         description: validated.description,
         reward: validated.reward,
@@ -155,7 +155,7 @@ export const bountiesRoutes = new Elysia({ prefix: '/api/bounties' })
     '/:id',
     async ({ params, set }) => {
       const validated = expectValid(BountyIdParamSchema, params, 'params')
-      const row = getBounty(validated.id)
+      const row = await getBounty(validated.id)
       if (!row) {
         set.status = 404
         return {

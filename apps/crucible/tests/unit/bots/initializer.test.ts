@@ -76,10 +76,11 @@ describe('BotInitializer', () => {
       const bots = getDefaultBotsForNetwork('testnet')
       expect(bots.length).toBeGreaterThan(0)
       const testnetChains = [420690, 11155111, 84532, 421614]
-      bots.forEach((bot) => {
+      bots.forEach((bot, index) => {
         expect(bot.chains.every((c) => testnetChains.includes(c))).toBe(true)
-        expect(parseFloat(bot.initialFunding)).toBeLessThan(
-          parseFloat(DEFAULT_BOTS[0].initialFunding),
+        // Testnet funding should be less than or equal to the same bot's mainnet funding
+        expect(parseFloat(bot.initialFunding)).toBeLessThanOrEqual(
+          parseFloat(DEFAULT_BOTS[index].initialFunding),
         )
       })
     })

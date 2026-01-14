@@ -2363,26 +2363,7 @@ export const SCHEMA_DDL = [
 
   // Token Approval Event table - DUPLICATE REMOVED (using earlier definition at line 2141)
   // NFT Approval Event table - DUPLICATE REMOVED (using earlier definition at line 1062)
-
-  // Registered Agent table
-  `CREATE TABLE IF NOT EXISTS registered_agent (
-    id TEXT PRIMARY KEY,
-    agent_id INTEGER NOT NULL UNIQUE,
-    owner_id TEXT,
-    endpoint TEXT,
-    metadata_uri TEXT,
-    metadata TEXT,
-    tags TEXT,
-    active INTEGER NOT NULL DEFAULT 1,
-    stake_amount TEXT NOT NULL DEFAULT '0',
-    reputation_score INTEGER NOT NULL DEFAULT 100,
-    total_reports INTEGER NOT NULL DEFAULT 0,
-    successful_reports INTEGER NOT NULL DEFAULT 0,
-    last_updated_block INTEGER,
-    registered_at TEXT,
-    is_banned INTEGER NOT NULL DEFAULT 0,
-    ban_reason TEXT
-  )`,
+  // Registered Agent table - DUPLICATE REMOVED (using earlier definition at line 1826)
 
   // Tag Index table
   `CREATE TABLE IF NOT EXISTS tag_index (

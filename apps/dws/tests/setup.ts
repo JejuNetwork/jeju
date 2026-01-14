@@ -319,12 +319,16 @@ export async function dwsRequest(
   options: RequestInit = {},
 ): Promise<Response> {
   const url = `${DWS_URL}${path.startsWith('/') ? path : `/${path}`}`
+
+  // Don't set Content-Type for FormData (browser will set multipart/form-data with boundary)
+  const isFormData = options.body instanceof FormData
+  const headers: HeadersInit = isFormData
+    ? { ...options.headers }
+    : { 'Content-Type': 'application/json', ...options.headers }
+
   const response = await fetch(url, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
+    headers,
   })
   return response
 }

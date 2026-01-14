@@ -21,7 +21,7 @@ import {
 } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import { configureFactory, getFactoryConfig } from './config'
-import { closeDB, initDB } from './db/client'
+import { closeDB, initDB } from './db/sqlit-client'
 import { a2aRoutes } from './routes/a2a'
 import { agentsRoutes } from './routes/agents'
 import { bountiesRoutes } from './routes/bounties'

@@ -9,8 +9,8 @@ import { dirname, join } from 'node:path'
 
 // Get the directory where this test file is located
 const TEST_DIR = dirname(__filename)
-// Navigate to bazaar root
-const BAZAAR_DIR = join(TEST_DIR, '..')
+// Navigate to bazaar root (tests/unit -> tests -> bazaar root)
+const BAZAAR_DIR = join(TEST_DIR, '..', '..')
 const HOOKS_DIR = join(BAZAAR_DIR, 'web/hooks')
 
 describe('Marketplace Validation - Code Analysis', () => {

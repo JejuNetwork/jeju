@@ -20,7 +20,11 @@ import { resetStorage } from '../../../../web/platform/storage'
 import { messagingService, WalletMessagingService } from '../index'
 
 const HUB_URL = 'https://hub.pinata.cloud'
-const TEST_ADDRESS = '0x1234567890123456789012345678901234567890' as Address
+const TEST_WALLET_ADDRESS = process.env.TEST_WALLET_ADDRESS
+if (!TEST_WALLET_ADDRESS) {
+  throw new Error('TEST_WALLET_ADDRESS must be set by test harness')
+}
+const TEST_ADDRESS = TEST_WALLET_ADDRESS as Address
 const ALTERNATE_ADDRESS =
   '0xAbCdEf0123456789AbCdEf0123456789AbCdEf01' as Address
 

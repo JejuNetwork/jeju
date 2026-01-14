@@ -26,6 +26,7 @@ import {
   getSQLitBlockProducerUrl,
   getStorageApiEndpoint,
   INFRA_PORTS,
+  TEST_ACCOUNTS,
 } from '@jejunetwork/config'
 import type { Subprocess } from 'bun'
 import { execa } from 'execa'
@@ -532,6 +533,10 @@ function setEnvVars(status: InfraStatus): void {
   process.env.JEJU_RPC_URL = status.rpcUrl
   process.env.JEJU_L1_RPC_URL = `http://${host}:${L1_PORT}`
   process.env.DWS_URL = status.dwsUrl
+
+  // Standard localnet test wallet (Anvil default)
+  process.env.DEPLOYER_PRIVATE_KEY = TEST_ACCOUNTS.DEPLOYER.privateKey
+  process.env.TEST_WALLET_ADDRESS = TEST_ACCOUNTS.DEPLOYER.address
 
   // Use config helpers for service URLs
   process.env.STORAGE_API_URL =

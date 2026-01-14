@@ -10,3 +10,6 @@ coverage = true
 coverageDir = "./test-results/coverage"
 timeout = 60000
 # Unit tests are co-located with source files in api/, lib/, web/
+
+# Only run Bun tests. E2E/Synpress are Playwright-based and run via `jeju test --mode e2e`.
+root = ["api/", "lib/", "web/", "tests/integration/"]

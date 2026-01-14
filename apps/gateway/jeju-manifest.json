@@ -242,8 +242,13 @@
   },
   "testing": {
     "unit": {
-      "command": "bun test tests/",
+      "command": "bun run test:unit",
       "timeout": 120000
+    },
+    "integration": {
+      "command": "bun run test:integration",
+      "timeout": 300000,
+      "requiresChain": true
     },
     "e2e": {
       "command": "bunx playwright test tests/synpress/",

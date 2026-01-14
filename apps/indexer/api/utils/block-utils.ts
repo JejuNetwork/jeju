@@ -3,7 +3,7 @@
  * Shared business logic for block-related operations
  */
 
-import { HashSchema, validateOrThrow } from '@jejunetwork/types'
+import { HashSchema } from '@jejunetwork/types'
 import { blockNumberSchema } from './validation'
 
 export type BlockIdentifier =
@@ -12,29 +12,32 @@ export type BlockIdentifier =
 
 /**
  * Parse and validate a block identifier (number or hash)
+ * Returns null for invalid formats - caller should return 404
  */
-export function parseBlockIdentifier(numberOrHash: string): BlockIdentifier {
+export function parseBlockIdentifier(
+  numberOrHash: string,
+): BlockIdentifier | null {
   if (!numberOrHash) {
-    throw new Error('Block identifier is required')
+    return null
   }
 
   if (numberOrHash.startsWith('0x')) {
-    // It's a hash
-    validateOrThrow(HashSchema, numberOrHash, 'parseBlockIdentifier hash')
+    // It's a hash - validate format
+    const hashResult = HashSchema.safeParse(numberOrHash)
+    if (!hashResult.success) {
+      return null
+    }
     return { type: 'hash', value: numberOrHash }
   } else {
     // It's a block number
     const blockNumber = parseInt(numberOrHash, 10)
     if (Number.isNaN(blockNumber) || blockNumber <= 0) {
-      throw new Error(
-        `Invalid block number: ${numberOrHash}. Must be a positive integer.`,
-      )
+      return null
     }
-    validateOrThrow(
-      blockNumberSchema,
-      blockNumber,
-      'parseBlockIdentifier blockNumber',
-    )
+    const result = blockNumberSchema.safeParse(blockNumber)
+    if (!result.success) {
+      return null
+    }
     return { type: 'number', value: blockNumber }
   }
 }

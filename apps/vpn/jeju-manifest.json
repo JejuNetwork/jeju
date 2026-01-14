@@ -138,7 +138,7 @@
   },
   "testing": {
     "unit": {
-      "command": "bun test src",
+      "command": "bun run test",
       "timeout": 60000
     },
     "e2e": {

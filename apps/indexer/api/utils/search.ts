@@ -297,17 +297,17 @@ export async function search(
 
 /**
  * Get agent by ID
+ * Returns null for invalid ID formats (non-numeric) - caller should return 404
  */
 export async function getAgentById(
   agentId: string,
 ): Promise<AgentSearchResult | null> {
   if (!agentId) {
-    throw new Error('agentId must be a non-empty string')
+    return null
   }
+  // Return null for invalid ID formats - caller should return 404
   if (!/^\d+$/.test(agentId)) {
-    throw new Error(
-      `Invalid agentId format: ${agentId}. Must be a numeric string.`,
-    )
+    return null
   }
 
   const agents = await find<RegisteredAgent>('RegisteredAgent', {

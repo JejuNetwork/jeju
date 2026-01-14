@@ -152,14 +152,10 @@ processor.run(db, async (ctx: ProcessorContext<Store>) => {
         transferCount: 0,
         lastUpdated: timestamp,
       })
-      // Store block number for last_updated_block column
-      ;(balance as unknown as { blockNumber?: number }).blockNumber =
-        block.number
       tokenBalances.set(id, balance)
     } else {
-      // Update block number when balance is updated
-      ;(balance as unknown as { blockNumber?: number }).blockNumber =
-        block.number
+      // Update timestamp when balance is modified
+      balance.lastUpdated = timestamp
     }
     return balance
   }

@@ -12,7 +12,7 @@
  * - Proper KMS secrets configuration
  */
 
-import { isProductionEnv } from '@jejunetwork/config'
+import { isLocalnet, isProductionEnv } from '@jejunetwork/config'
 import { isHSMAvailable } from './hsm-kdf'
 import { validateNoEnvSecrets } from './kms-secrets'
 import { isKMSAvailable } from './kms-wallet'
@@ -324,7 +324,8 @@ export async function enforceSecurityAtStartup(
       console.error(`  ❌ ${err}`)
     }
 
-    if (isProduction) {
+    // Allow localnet to bypass production security requirements
+    if (isProduction && !isLocalnet()) {
       console.error(
         `[${serviceName}] Cannot start in production with security violations.`,
       )
@@ -332,6 +333,10 @@ export async function enforceSecurityAtStartup(
         `[${serviceName}] Fix the above errors or set NODE_ENV=development for testing.`,
       )
       process.exit(1)
+    } else if (isLocalnet()) {
+      console.warn(
+        `[${serviceName}] ⚠️  Security errors ignored on localnet. These would be fatal in production.`,
+      )
     }
   }
 

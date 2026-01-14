@@ -706,19 +706,24 @@ class ServicesOrchestrator {
       },
     })
 
-    // Start API server separately
-    const apiProc = spawn(['bun', 'run', 'dev:api'], {
+    // Start API server separately with REST API on port 4352
+    const apiProc = spawn(['bun', 'run', 'api/api-server.ts'], {
       cwd: indexerPath,
       stdout: 'inherit',
       stderr: 'inherit',
       env: {
         ...process.env,
+        // Local dev mode - use directly provisioned PostgreSQL
+        INDEXER_MODE: 'postgres',
         DB_HOST: 'localhost',
         DB_PORT: '23798',
         DB_NAME: 'indexer',
         DB_USER: 'postgres',
         DB_PASS: 'postgres',
+        REST_PORT: '4352',
+        GQL_PORT: String(SERVICE_PORTS.indexer),
         SQLIT_DATABASE_ID: 'indexer-sync',
+        SQLIT_URL: `http://${getLocalhostHost()}:${SERVICE_PORTS.sqlit}`,
         SQLIT_PRIVATE_KEY: WELL_KNOWN_KEYS.dev[0].privateKey,
       },
     })
@@ -730,6 +735,8 @@ class ServicesOrchestrator {
       stderr: 'inherit',
       env: {
         ...process.env,
+        // Local dev mode - use directly provisioned PostgreSQL
+        INDEXER_MODE: 'postgres',
         DB_HOST: 'localhost',
         DB_PORT: '23798',
         DB_NAME: 'indexer',
@@ -742,6 +749,7 @@ class ServicesOrchestrator {
         NODE_ENV: 'development',
         SQLIT_SYNC_ENABLED: this.services.has('sqlit') ? 'true' : 'false',
         SQLIT_DATABASE_ID: 'indexer-sync',
+        SQLIT_URL: `http://${getLocalhostHost()}:${SERVICE_PORTS.sqlit}`,
         SQLIT_SYNC_INTERVAL: '30000',
         SQLIT_PRIVATE_KEY: WELL_KNOWN_KEYS.dev[0].privateKey,
       },
@@ -1018,6 +1026,7 @@ class ServicesOrchestrator {
           SQLIT_SYNC_ENABLED: 'false', // Don't sync, just read
           SQLIT_READ_ENABLED: sqlitAvailable ? 'true' : 'false',
           SQLIT_DATABASE_ID: 'indexer-sync',
+          SQLIT_URL: `http://${getLocalhostHost()}:${SERVICE_PORTS.sqlit}`,
           // SQLit requires a private key for local development
           SQLIT_PRIVATE_KEY: WELL_KNOWN_KEYS.dev[0].privateKey,
         },

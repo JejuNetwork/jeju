@@ -7,3 +7,6 @@ coverageDir = "./test-results/coverage"
 timeout = 300000
 # Exclude E2E tests (run with playwright, not bun test)
 # Bun test runs *.test.ts files, playwright runs *.spec.ts files
+
+# Only run Bun tests. E2E/Synpress are Playwright-based and run via `jeju test --mode e2e`.
+root = ["tests/unit", "tests/integration"]

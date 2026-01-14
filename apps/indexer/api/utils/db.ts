@@ -119,8 +119,8 @@ export async function verifySQLitSchema(): Promise<boolean> {
       // Try to query the table - if it doesn't exist, this will fail
       // Use a simple SELECT 1 to check table existence without sqlite_master
       try {
-        await sqlitQuery<{ exists: number }>(
-          `SELECT 1 as exists FROM "${table}" LIMIT 1`,
+        await sqlitQuery<{ ok: number }>(
+          `SELECT 1 as ok FROM "${table}" LIMIT 1`,
           [],
         )
       } catch (err) {

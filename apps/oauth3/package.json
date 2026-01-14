@@ -28,7 +28,7 @@
     "build": "bun run scripts/build.ts",
     "start": "bun run scripts/serve.ts",
     "deploy": "bun run scripts/deploy.ts",
-    "test": "echo 'No unit tests - use test:e2e for Playwright tests'",
+    "test": "bun test tests/api.test.ts",
     "test:e2e": "bunx playwright test",
     "lint": "biome check .",
     "typecheck": "tsc --noEmit"

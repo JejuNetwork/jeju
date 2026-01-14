@@ -220,7 +220,8 @@ export interface ServiceInstance {
 function getServicePassword(envVar: string, serviceName: string): string {
   const password = process.env[envVar]
   if (!password) {
-    if (isProductionEnv()) {
+    // Allow default passwords on localnet even if NODE_ENV=production
+    if (isProductionEnv() && !isLocalnet()) {
       throw new Error(
         `CRITICAL: ${envVar} must be set in production. ${serviceName} cannot be deployed with default credentials.`,
       )

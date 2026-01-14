@@ -60,16 +60,17 @@ interface StatConfig {
 // CONSTANTS
 // ============================================
 
-import { getLocalhostHost } from '@jejunetwork/config'
+const LOCALHOST_HOST =
+  typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1'
 
 const API_BASE =
   typeof window !== 'undefined' && window.location.port === '4355'
-    ? `http://${getLocalhostHost()}:4352`
+    ? `http://${LOCALHOST_HOST}:4352`
     : '/api'
 
 const GRAPHQL_URL =
   typeof window !== 'undefined' && window.location.port === '4355'
-    ? `http://${getLocalhostHost()}:4350/graphql`
+    ? `http://${LOCALHOST_HOST}:4350/graphql`
     : '/graphql'
 
 const TABS: TabConfig[] = [

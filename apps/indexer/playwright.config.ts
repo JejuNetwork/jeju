@@ -29,12 +29,12 @@ export default defineConfig({
     },
   ],
 
-  // Use 'bun run start' for production-like testing
-  // When testing against remote (testnet/mainnet), no webserver is started
+  // Start the local Indexer frontend dev server (PORT=4355).
+  // When testing against remote (testnet/mainnet), no webserver is started.
   webServer: config.skipWebServer
     ? undefined
     : {
-        command: 'bun run start',
+        command: 'bun run dev',
         url: config.baseURL,
         reuseExistingServer: true,
         timeout: 180000,

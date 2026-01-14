@@ -8,7 +8,7 @@
     "build": "bun run scripts/build.ts",
     "start": "bun run scripts/serve.ts",
     "deploy": "bun run scripts/deploy.ts",
-    "test": "bun test api/services/ web/platform/index.test.ts",
+    "test": "bun test api/services/ api/sdk/ web/platform/",
     "test:e2e": "playwright test --project=live",
     "test:synpress": "playwright test --project=metamask",
     "typecheck": "tsc --noEmit",
@@ -95,6 +95,7 @@
     "tailwindcss": "^3.4.7",
     "typescript": "^5.5.4",
     "vite": "^5.3.5",
+    "vite-plugin-node-polyfills": "^0.24.0",
     "webextension-polyfill": "^0.12.0"
   }
 }

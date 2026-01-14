@@ -311,16 +311,43 @@ export class KMSSigner {
    * Sign locally for development mode
    */
   private async signLocal(messageHash: Hash): Promise<SignResult> {
-    // Generate the same deterministic key as getLocalDevKey
+    // In allowLocalDev mode, require an explicit local dev key (set by test harness / jeju cli).
+    if (this.allowLocalDev) {
+      const privateKey = process.env.DEPLOYER_PRIVATE_KEY as Hex | undefined
+      if (
+        !privateKey ||
+        !privateKey.startsWith('0x') ||
+        privateKey.length !== 66
+      ) {
+        throw new Error(
+          'DEPLOYER_PRIVATE_KEY must be set for allowLocalDev local signing',
+        )
+      }
+      const account = privateKeyToAccount(privateKey)
+      const signature = await account.sign({ hash: messageHash })
+
+      const r = `0x${signature.slice(2, 66)}` as Hex
+      const s = `0x${signature.slice(66, 130)}` as Hex
+      const v = parseInt(signature.slice(130, 132), 16)
+
+      return {
+        signature,
+        r,
+        s,
+        v,
+        mode: 'local-dev',
+        keyId: this.keyId ?? `local-dev-${this.serviceId}`,
+        signedAt: Date.now(),
+      }
+    }
+
+    // Default local-dev mode: deterministic key per serviceId (useful for non-address-bound services)
     const seed = keccak256(
       toHex(`jeju-dev-${this.serviceId}-${this.network}`),
     ) as Hex
     const account = privateKeyToAccount(seed)
 
-    // Sign the message hash
-    const signature = await account.signMessage({
-      message: { raw: messageHash as Hex },
-    })
+    const signature = await account.sign({ hash: messageHash })
 
     // Parse signature components (r, s, v)
     const r = `0x${signature.slice(2, 66)}` as Hex
@@ -600,8 +627,44 @@ export class KMSSigner {
    * Uses serviceId to generate a consistent key per service
    */
   private getLocalDevKey(): KMSKeyInfo {
-    // Generate deterministic private key from serviceId
-    // Use a well-known mnemonic + service derivation for consistency
+    // In allowLocalDev mode, require an explicit local dev key (set by test harness / jeju cli).
+    if (this.allowLocalDev) {
+      const privateKey = process.env.DEPLOYER_PRIVATE_KEY as Hex | undefined
+      if (
+        !privateKey ||
+        !privateKey.startsWith('0x') ||
+        privateKey.length !== 66
+      ) {
+        throw new Error(
+          'DEPLOYER_PRIVATE_KEY must be set for allowLocalDev local signing',
+        )
+      }
+      const account = privateKeyToAccount(privateKey)
+      const expectedAddress = process.env.TEST_WALLET_ADDRESS
+      if (
+        expectedAddress &&
+        account.address.toLowerCase() !== expectedAddress.toLowerCase()
+      ) {
+        throw new Error(
+          `DEPLOYER_PRIVATE_KEY does not match TEST_WALLET_ADDRESS (${account.address} != ${expectedAddress})`,
+        )
+      }
+
+      console.warn(
+        `[KMSSigner] Using LOCAL DEV deployer key for ${this.serviceId}. NOT secure for production.`,
+      )
+
+      return {
+        keyId: `local-dev-${this.serviceId}`,
+        publicKey: '0x' as Hex,
+        address: account.address,
+        threshold: 1,
+        totalParties: 1,
+        createdAt: Date.now(),
+      }
+    }
+
+    // Default local-dev key: deterministic private key from serviceId
     const seed = keccak256(toHex(`jeju-dev-${this.serviceId}-${this.network}`))
     const account = privateKeyToAccount(seed as Hex)
 

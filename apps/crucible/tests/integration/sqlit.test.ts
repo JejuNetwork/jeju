@@ -6,7 +6,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
-import { CrucibleDatabase } from '../api/sdk/database'
+import { CrucibleDatabase } from '../../api/sdk/database'
 
 // Try embedded SQLit (port 8546) first, then standalone (port 4661)
 const SQLIT_URL = process.env.SQLIT_URL ?? 'http://127.0.0.1:8546'

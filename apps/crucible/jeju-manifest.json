@@ -168,7 +168,7 @@
       "timeout": 120000
     },
     "integration": {
-      "command": "bun test src/tests/integration.test.ts",
+      "command": "bun run test:integration",
       "timeout": 300000,
       "requiresServices": true
     },

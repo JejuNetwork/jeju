@@ -268,11 +268,19 @@ const DEFAULT_CORS_ORIGINS = [
   'https://jejunetwork.org',
 ]
 
+// In development, allow localhost origins
+const isDevMode = process.env.NODE_ENV !== 'production'
+const devOrigins = isDevMode
+  ? [/^http:\/\/localhost(:\d+)?$/, /^http:\/\/127\.0\.0\.1(:\d+)?$/]
+  : []
+
 const effectiveCorsOrigins =
-  CORS_ORIGINS.length > 0 ? CORS_ORIGINS : DEFAULT_CORS_ORIGINS
+  CORS_ORIGINS.length > 0
+    ? CORS_ORIGINS
+    : [...DEFAULT_CORS_ORIGINS, ...devOrigins]
 
 const corsOptions = {
-  origin: effectiveCorsOrigins,
+  origin: isDevMode ? true : effectiveCorsOrigins, // Allow all origins in dev mode
   credentials: true,
   methods: ['GET', 'POST', 'OPTIONS'] as ('GET' | 'POST' | 'OPTIONS')[],
   allowedHeaders: [
@@ -282,6 +290,7 @@ const corsOptions = {
     'X-Wallet-Address',
     'X-Agent-Id',
   ],
+  exposeHeaders: ['host', 'user-agent', 'accept'],
 }
 
 const app = new Elysia()
@@ -900,6 +909,58 @@ const app = new Elysia()
     // Fallback: redirect to /graphql
     return Response.redirect('/graphql', 302)
   })
+  // Vendor assets for /playground (CSP requires script-src/style-src 'self')
+  .get('/vendor/react.production.min.js', async () => {
+    const file = Bun.file(
+      `${import.meta.dir}/../public/vendor/react.production.min.js`,
+    )
+    if (!(await file.exists())) {
+      return new Response('Not Found', { status: 404 })
+    }
+    return new Response(file, {
+      headers: { 'Content-Type': 'application/javascript' },
+    })
+  })
+  .get('/vendor/react-dom.production.min.js', async () => {
+    const file = Bun.file(
+      `${import.meta.dir}/../public/vendor/react-dom.production.min.js`,
+    )
+    if (!(await file.exists())) {
+      return new Response('Not Found', { status: 404 })
+    }
+    return new Response(file, {
+      headers: { 'Content-Type': 'application/javascript' },
+    })
+  })
+  .get('/vendor/graphiql.min.js', async () => {
+    const file = Bun.file(`${import.meta.dir}/../public/vendor/graphiql.min.js`)
+    if (!(await file.exists())) {
+      return new Response('Not Found', { status: 404 })
+    }
+    return new Response(file, {
+      headers: { 'Content-Type': 'application/javascript' },
+    })
+  })
+  .get('/vendor/graphiql.min.css', async () => {
+    const file = Bun.file(
+      `${import.meta.dir}/../public/vendor/graphiql.min.css`,
+    )
+    if (!(await file.exists())) {
+      return new Response('Not Found', { status: 404 })
+    }
+    return new Response(file, {
+      headers: { 'Content-Type': 'text/css' },
+    })
+  })
+  .get('/vendor/playground.js', async () => {
+    const file = Bun.file(`${import.meta.dir}/../public/vendor/playground.js`)
+    if (!(await file.exists())) {
+      return new Response('Not Found', { status: 404 })
+    }
+    return new Response(file, {
+      headers: { 'Content-Type': 'application/javascript' },
+    })
+  })
   // GraphQL proxy with CORS - forwards to Subsquid GraphQL server
   .post('/graphql', async (ctx: Context) => {
     // Validate request body structure
@@ -953,6 +1014,11 @@ const app = new Elysia()
       errors: Array.isArray(data.errors) ? data.errors : undefined,
     }
   })
+  // Catch-all for unknown API routes - return 404
+  .all('/api/*', (ctx: Context) => {
+    ctx.set.status = 404
+    return { error: 'Not found', path: ctx.path }
+  })
   .onError(({ error, set }) => {
     if (error instanceof Error) {
       // Only log stack traces in non-production for security
@@ -962,10 +1028,31 @@ const app = new Elysia()
         console.error('[REST] Error:', error.message, error.stack)
       }
 
+      // Handle validation errors from Zod/validateParams
+      // For path parameter validation errors, return 404 (resource not found)
+      // For query parameter validation errors, return 400 (bad request)
       if (
         error.name === 'ValidationError' ||
-        error.message.includes('Validation error')
+        error.message.includes('Validation error') ||
+        error.message.includes('Validation failed') ||
+        error.message.includes('Invalid') ||
+        error.message.includes('Must be')
       ) {
+        // Return 404 for path params (e.g., /api/agents/:id) or 400 for query params
+        // Path params contain errors about specific ID/hash/address format
+        const isPathParamError =
+          error.message.includes(':id') ||
+          error.message.includes(':numberOrHash') ||
+          error.message.includes(':hash') ||
+          error.message.includes(':address') ||
+          error.message.includes(':cid') ||
+          error.message.includes(':feedId')
+
+        if (isPathParamError) {
+          set.status = 404
+          return { error: 'Not found', message: error.message }
+        }
+
         set.status = 400
         // Don't expose internal validation details in production
         return {

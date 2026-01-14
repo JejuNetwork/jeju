@@ -4,3 +4,6 @@ preload = ["@jejunetwork/tests/bun-global-setup"]
 coverage = true
 coverageDir = "./test-results/coverage"
 timeout = 60000
+
+# Only run Bun tests. E2E is Playwright-based and run via `jeju test --mode e2e`.
+root = "tests/unit"

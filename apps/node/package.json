@@ -51,7 +51,7 @@
     "build": "bun run scripts/build.ts",
     "start": "bun run scripts/serve.ts",
     "deploy": "bun run scripts/deploy.ts",
-    "test": "bun test api/ lib/ web/ --timeout 30000",
+    "test": "bun test api/ lib/ web/ tests/integration/ --timeout 30000",
     "test:e2e": "bunx playwright test",
     "typecheck": "tsc --noEmit",
     "dev:app": "cd app/src-tauri && tauri dev",

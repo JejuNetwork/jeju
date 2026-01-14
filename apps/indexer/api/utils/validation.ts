@@ -13,9 +13,24 @@ export type { JsonValue }
 
 import { z } from 'zod'
 
+// Helper for graceful limit capping
+const gracefulLimitSchema = (defaultValue = 50, maxValue = 100) =>
+  z.coerce
+    .number()
+    .int()
+    .transform((v) => Math.min(Math.max(v, 1), maxValue))
+    .default(defaultValue)
+
+// Helper for graceful offset handling (non-negative)
+const gracefulOffsetSchema = z.coerce
+  .number()
+  .int()
+  .transform((v) => Math.max(v, 0))
+  .default(0)
+
 export const paginationSchema = z.object({
-  limit: z.coerce.number().int().min(1).max(100).default(50),
-  offset: z.coerce.number().int().min(0).max(10000).default(0),
+  limit: gracefulLimitSchema(50, 100),
+  offset: gracefulOffsetSchema,
 })
 
 export const blockNumberSchema = z.number().int().positive()
@@ -70,8 +85,16 @@ export const restSearchParamsSchema = z.object({
   minTier: z.coerce.number().int().min(0).max(10).optional(),
   verified: z.coerce.boolean().optional(),
   active: z.coerce.boolean().optional(),
-  limit: z.coerce.number().int().min(1).max(100).optional(),
-  offset: z.coerce.number().int().min(0).max(10000).optional(),
+  limit: z.coerce
+    .number()
+    .int()
+    .transform((v) => Math.min(Math.max(v, 1), 100))
+    .optional(),
+  offset: z.coerce
+    .number()
+    .int()
+    .transform((v) => Math.max(v, 0))
+    .optional(),
 })
 
 // Internal search params (normalized format)
@@ -83,8 +106,8 @@ export const searchParamsSchema = z.object({
   minStakeTier: z.number().int().min(0).optional(),
   verified: z.boolean().optional(),
   active: z.boolean().optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(50),
-  offset: z.coerce.number().int().min(0).default(0),
+  limit: gracefulLimitSchema(50, 100),
+  offset: gracefulOffsetSchema,
 })
 
 export type SearchParams = z.infer<typeof searchParamsSchema>
@@ -115,7 +138,7 @@ export const blockNumberOrHashParamSchema = z.object({
 })
 
 export const blocksQuerySchema = paginationSchema.extend({
-  limit: z.coerce.number().int().min(1).max(100).default(20),
+  limit: gracefulLimitSchema(20, 100),
 })
 
 export const transactionHashParamSchema = z.object({
@@ -123,7 +146,7 @@ export const transactionHashParamSchema = z.object({
 })
 
 export const transactionsQuerySchema = paginationSchema.extend({
-  limit: z.coerce.number().int().min(1).max(100).default(20),
+  limit: gracefulLimitSchema(20, 100),
 })
 
 export const accountAddressParamSchema = z.object({
@@ -148,7 +171,7 @@ export const contractTypeSchema = z.enum([
 export const contractsQuerySchema = paginationSchema.extend({
   type: contractTypeSchema.optional(),
   name: z.string().optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
+  limit: gracefulLimitSchema(20, 100),
 })
 
 export const tokenTransfersQuerySchema = paginationSchema.extend({
@@ -156,7 +179,7 @@ export const tokenTransfersQuerySchema = paginationSchema.extend({
   from: AddressSchema.optional(),
   to: AddressSchema.optional(),
   transactionHash: z.string().optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
+  limit: gracefulLimitSchema(20, 100),
 })
 
 export const nodesQuerySchema = paginationSchema.extend({
@@ -190,6 +213,9 @@ export const crossServiceRequestTypeSchema = z.enum([
   'TRANSFER',
   'COPY',
   'MIGRATE',
+  'COMPUTE',
+  'STORAGE',
+  'INFERENCE',
 ])
 
 export const crossServiceRequestsQuerySchema = paginationSchema.extend({
@@ -200,6 +226,9 @@ export const crossServiceRequestsQuerySchema = paginationSchema.extend({
 
 export const oracleFeedCategorySchema = z.enum([
   'PRICE',
+  'SPOT_PRICE',
+  'TWAP',
+  'FX',
   'VOLUME',
   'LIQUIDITY',
   'METRICS',
