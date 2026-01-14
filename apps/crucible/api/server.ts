@@ -1097,6 +1097,8 @@ app.post("/api/v1/agents", async ({ body }) => {
           tickIntervalMs:
             parsedBody.autonomous.tickIntervalMs ??
             DEFAULT_AUTONOMOUS_CONFIG.tickIntervalMs,
+          watchRoom: parsedBody.autonomous.watchRoom,
+          postToRoom: parsedBody.autonomous.postToRoom,
           capabilities: {
             ...DEFAULT_AUTONOMOUS_CONFIG.capabilities,
             ...fullCharacter.capabilities,
@@ -1323,6 +1325,8 @@ app.post(
           agentId: autonomousAgentId,
           character,
           tickIntervalMs: parsedBody.tickIntervalMs ?? DEFAULT_AUTONOMOUS_CONFIG.tickIntervalMs,
+          watchRoom: parsedBody.watchRoom,
+          postToRoom: parsedBody.postToRoom,
           capabilities: {
             ...DEFAULT_AUTONOMOUS_CONFIG.capabilities,
             ...character.capabilities,
@@ -1889,6 +1893,7 @@ if (crucibleConfig.autonomousEnabled && !autonomousRunner) {
             { id: "base-contract-reviews", name: "Base Contract Reviews" },
             { id: "infra-monitoring", name: "Infrastructure Monitoring" },
             { id: "endpoint-monitoring", name: "Endpoint Monitoring" },
+            { id: "capability-demos", name: "Capability Demos" },
           ];
 
           // Ensure coordination rooms exist for agent communication

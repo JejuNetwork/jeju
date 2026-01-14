@@ -3,27 +3,25 @@ import type { AutonomousAgentConfig } from '../autonomous/types'
 import { baseWatcherCharacter } from './base-watcher'
 import { communityManagerCharacter } from './community-manager'
 import { dailyDigestCharacter } from './daily-digest'
-import { devRelCharacter } from './devrel'
 import { infraMonitorCharacter } from './infra-monitor'
 import { registrationWatcherCharacter } from './registration-watcher'
-import { liaisonCharacter } from './liaison'
-import { moderatorCharacter } from './moderator'
-import { projectManagerCharacter } from './project-manager'
 import { securityAnalystCharacter } from './security-analyst'
-import { socialMediaManagerCharacter } from './social-media-manager'
+import { testComputerCharacter } from './test-computer'
+import { testCoordinatorCharacter } from './test-coordinator'
+import { testTraderCharacter } from './test-trader'
+import { testVoterCharacter } from './test-voter'
 
 export const characters: Record<string, AgentCharacter> = {
-  'project-manager': projectManagerCharacter,
   'community-manager': communityManagerCharacter,
   'daily-digest': dailyDigestCharacter,
-  devrel: devRelCharacter,
-  liaison: liaisonCharacter,
-  'social-media-manager': socialMediaManagerCharacter,
-  moderator: moderatorCharacter,
   'security-analyst': securityAnalystCharacter,
   'base-watcher': baseWatcherCharacter,
   'infra-monitor': infraMonitorCharacter,
   'registration-watcher': registrationWatcherCharacter,
+  'test-trader': testTraderCharacter,
+  'test-coordinator': testCoordinatorCharacter,
+  'test-voter': testVoterCharacter,
+  'test-computer': testComputerCharacter,
 }
 
 // Partial config - agentId and character are derived from the key
@@ -89,11 +87,10 @@ export function listCharacters(): string[] {
 export { baseWatcherCharacter } from './base-watcher'
 export { communityManagerCharacter } from './community-manager'
 export { dailyDigestCharacter } from './daily-digest'
-export { devRelCharacter } from './devrel'
 export { infraMonitorCharacter } from './infra-monitor'
-export { liaisonCharacter } from './liaison'
-export { moderatorCharacter } from './moderator'
-export { projectManagerCharacter } from './project-manager'
 export { securityAnalystCharacter } from './security-analyst'
-export { socialMediaManagerCharacter } from './social-media-manager'
 export { registrationWatcherCharacter } from './registration-watcher'
+export { testComputerCharacter } from './test-computer'
+export { testCoordinatorCharacter } from './test-coordinator'
+export { testTraderCharacter } from './test-trader'
+export { testVoterCharacter } from './test-voter'

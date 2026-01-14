@@ -1,15 +1,9 @@
 import { describe, expect, it } from 'bun:test'
 import {
-  blueTeamCharacter,
   characters,
   communityManagerCharacter,
-  devRelCharacter,
   getCharacter,
-  liaisonCharacter,
   listCharacters,
-  projectManagerCharacter,
-  redTeamCharacter,
-  socialMediaManagerCharacter,
 } from '../../api/characters'
 import type { AgentCharacter } from '../../lib/types'
 
@@ -18,22 +12,25 @@ describe('Character Definitions', () => {
     it('should list all available characters', () => {
       const ids = listCharacters()
 
-      // Core team
-      expect(ids).toContain('project-manager')
+      // Active characters
       expect(ids).toContain('community-manager')
-      expect(ids).toContain('devrel')
-      expect(ids).toContain('liaison')
-      expect(ids).toContain('social-media-manager')
-      expect(ids).toContain('red-team')
-      expect(ids).toContain('blue-team')
-      expect(ids.length).toBe(14)
+      expect(ids).toContain('daily-digest')
+      expect(ids).toContain('infra-monitor')
+      expect(ids).toContain('registration-watcher')
+      expect(ids).toContain('security-analyst')
+      expect(ids).toContain('base-watcher')
+      expect(ids).toContain('test-trader')
+      expect(ids).toContain('test-coordinator')
+      expect(ids).toContain('test-voter')
+      expect(ids).toContain('test-computer')
+      expect(ids.length).toBe(10)
     })
 
     it('should get character by ID', () => {
-      const character = getCharacter('project-manager')
+      const character = getCharacter('community-manager')
 
       expect(character).toBeDefined()
-      expect(character?.name).toBe('Jimmy')
+      expect(character?.name).toBe('Eli5')
     })
 
     it('should return null for unknown character', () => {
@@ -42,73 +39,50 @@ describe('Character Definitions', () => {
     })
 
     it('should have all characters in registry', () => {
-      expect(Object.keys(characters).length).toBe(14)
+      expect(Object.keys(characters).length).toBe(10)
     })
   })
 
   describe('Character Structure Validation', () => {
-    const allCharacters: AgentCharacter[] = [
-      projectManagerCharacter,
-      communityManagerCharacter,
-      devRelCharacter,
-      liaisonCharacter,
-      socialMediaManagerCharacter,
-      redTeamCharacter,
-      blueTeamCharacter,
-    ]
+    it('all characters should have required fields', () => {
+      const ids = listCharacters()
 
-    it.each(
-      allCharacters,
-    )('character %s should have required fields', (character) => {
-      expect(character.id).toBeDefined()
-      expect(typeof character.id).toBe('string')
-      expect(character.id.length).toBeGreaterThan(0)
+      for (const id of ids) {
+        const character = getCharacter(id)
+        expect(character).toBeDefined()
+        if (!character) continue
 
-      expect(character.name).toBeDefined()
-      expect(typeof character.name).toBe('string')
-      expect(character.name.length).toBeGreaterThan(0)
+        expect(character.id).toBeDefined()
+        expect(typeof character.id).toBe('string')
+        expect(character.id.length).toBeGreaterThan(0)
 
-      expect(character.description).toBeDefined()
-      expect(typeof character.description).toBe('string')
+        expect(character.name).toBeDefined()
+        expect(typeof character.name).toBe('string')
+        expect(character.name.length).toBeGreaterThan(0)
 
-      expect(character.system).toBeDefined()
-      expect(typeof character.system).toBe('string')
-      expect(character.system.length).toBeGreaterThan(50)
+        expect(character.description).toBeDefined()
+        expect(typeof character.description).toBe('string')
 
-      expect(Array.isArray(character.bio)).toBe(true)
-      expect(character.bio.length).toBeGreaterThan(0)
+        expect(character.system).toBeDefined()
+        expect(typeof character.system).toBe('string')
+        expect(character.system.length).toBeGreaterThan(50)
 
-      expect(Array.isArray(character.messageExamples)).toBe(true)
+        expect(Array.isArray(character.bio)).toBe(true)
+        expect(character.bio.length).toBeGreaterThan(0)
 
-      expect(Array.isArray(character.topics)).toBe(true)
-      expect(character.topics.length).toBeGreaterThan(0)
+        expect(Array.isArray(character.messageExamples)).toBe(true)
 
-      expect(Array.isArray(character.adjectives)).toBe(true)
-      expect(character.adjectives.length).toBeGreaterThan(0)
+        expect(Array.isArray(character.topics)).toBe(true)
+        expect(character.topics.length).toBeGreaterThan(0)
 
-      expect(character.style).toBeDefined()
-      expect(Array.isArray(character.style.all)).toBe(true)
-      expect(Array.isArray(character.style.chat)).toBe(true)
-      expect(Array.isArray(character.style.post)).toBe(true)
-    })
-  })
+        expect(Array.isArray(character.adjectives)).toBe(true)
+        expect(character.adjectives.length).toBeGreaterThan(0)
 
-  describe('Project Manager (Jimmy)', () => {
-    it('should have correct identity', () => {
-      expect(projectManagerCharacter.id).toBe('project-manager')
-      expect(projectManagerCharacter.name).toBe('Jimmy')
-    })
-
-    it('should focus on project management topics', () => {
-      const topics = projectManagerCharacter.topics
-
-      expect(topics).toContain('project management')
-      expect(topics).toContain('todo tracking')
-      expect(topics).toContain('check-ins and standups')
-    })
-
-    it('should have MCP servers configured', () => {
-      expect(projectManagerCharacter.mcpServers).toContain('org-tools')
+        expect(character.style).toBeDefined()
+        expect(Array.isArray(character.style.all)).toBe(true)
+        expect(Array.isArray(character.style.chat)).toBe(true)
+        expect(Array.isArray(character.style.post)).toBe(true)
+      }
     })
   })
 
@@ -124,46 +98,6 @@ describe('Character Definitions', () => {
       expect(adjectives).toContain('warm')
       expect(adjectives).toContain('approachable')
       expect(adjectives).toContain('empathetic')
-    })
-  })
-
-  describe('Red Team (Phoenix)', () => {
-    it('should have correct identity', () => {
-      expect(redTeamCharacter.id).toBe('red-team')
-      expect(redTeamCharacter.name).toBe('Phoenix')
-    })
-
-    it('should focus on security topics', () => {
-      const topics = redTeamCharacter.topics
-
-      expect(topics).toContain('security testing')
-      expect(topics).toContain('vulnerability assessment')
-      expect(topics).toContain('adversarial thinking')
-    })
-
-    it('should have adversarial adjectives', () => {
-      expect(redTeamCharacter.adjectives).toContain('adversarial')
-      expect(redTeamCharacter.adjectives).toContain('relentless')
-    })
-  })
-
-  describe('Blue Team (Shield)', () => {
-    it('should have correct identity', () => {
-      expect(blueTeamCharacter.id).toBe('blue-team')
-      expect(blueTeamCharacter.name).toBe('Shield')
-    })
-
-    it('should focus on security and moderation topics', () => {
-      const topics = blueTeamCharacter.topics
-
-      expect(topics).toContain('moderation cases')
-      expect(topics).toContain('threat investigation')
-      expect(topics).toContain('security monitoring')
-    })
-
-    it('should have defensive adjectives', () => {
-      expect(blueTeamCharacter.adjectives).toContain('vigilant')
-      expect(blueTeamCharacter.adjectives).toContain('investigative')
     })
   })
 
