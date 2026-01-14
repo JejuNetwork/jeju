@@ -136,23 +136,41 @@ export function createOAuth3Router() {
       .post(
         '/auth/wallet',
         async ({ body, set }) => {
-          const response = await fetch(`${OAUTH3_AGENT_URL}/auth/wallet`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-          })
-          const data = await response.json()
-          if (!response.ok) {
-            set.status = response.status as
-              | 400
-              | 401
-              | 403
-              | 404
-              | 500
-              | 502
-              | 503
+          try {
+            const response = await fetch(`${OAUTH3_AGENT_URL}/auth/wallet`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body),
+            })
+            const data = await response.json()
+            if (!response.ok) {
+              set.status = response.status as
+                | 400
+                | 401
+                | 403
+                | 404
+                | 500
+                | 502
+                | 503
+              console.error('[DWS OAuth3] Wallet auth failed:', {
+                status: response.status,
+                error: data.error || data.message,
+                agentUrl: OAUTH3_AGENT_URL,
+              })
+            }
+            return data
+          } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error)
+            console.error('[DWS OAuth3] Wallet auth request failed:', {
+              error: errorMsg,
+              agentUrl: OAUTH3_AGENT_URL,
+            })
+            set.status = 502
+            return {
+              error: 'oauth3_agent_unavailable',
+              message: `OAuth3 agent at ${OAUTH3_AGENT_URL} is not responding`,
+            }
           }
-          return data
         },
         {
           body: t.Record(t.String(), t.Unknown()),

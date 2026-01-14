@@ -13,9 +13,9 @@ import { z } from 'zod'
 import {
   getPriceAggregator,
   type TokenPrice,
-} from '../../solver/external/price-aggregator'
-import type { SolanaTokenPrice } from '../../solver/external/solana-price-aggregator'
-import { getSolanaPriceAggregator as createSolanaPriceAggregator } from '../../solver/external/solana-price-aggregator'
+} from '../../solver/external/price-aggregator.js'
+import type { SolanaTokenPrice } from '../../solver/external/solana-price-aggregator.js'
+import { getSolanaPriceAggregator as createSolanaPriceAggregator } from '../../solver/external/solana-price-aggregator.js'
 
 let _solanaAggregator:
   | ReturnType<typeof createSolanaPriceAggregator>
