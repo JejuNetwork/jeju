@@ -4,6 +4,7 @@ pragma solidity ^0.8.33;
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
+import {IStakeManager} from "account-abstraction/interfaces/IStakeManager.sol";
 import {IPaymaster} from "account-abstraction/interfaces/IPaymaster.sol";
 import {PackedUserOperation} from "account-abstraction/interfaces/PackedUserOperation.sol";
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
@@ -592,12 +593,12 @@ contract CrossChainPaymasterUpgradeable is Initializable, OwnableUpgradeable, Pa
 
     /// @notice Deposit ETH to EntryPoint for gas
     function depositToEntryPoint() external payable onlyOwner {
-        entryPoint.depositTo{value: msg.value}(address(this));
+        IStakeManager(address(entryPoint)).depositTo{value: msg.value}(address(this));
     }
 
     /// @notice Get paymaster deposit on EntryPoint
     function getEntryPointDeposit() external view returns (uint256) {
-        return entryPoint.balanceOf(address(this));
+        return IStakeManager(address(entryPoint)).balanceOf(address(this));
     }
 
     // ============ View Functions ============
