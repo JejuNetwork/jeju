@@ -722,6 +722,9 @@ class ServicesOrchestrator {
         DB_PASS: 'postgres',
         REST_PORT: '4352',
         GQL_PORT: String(SERVICE_PORTS.indexer),
+        CHAIN_ID: '31337',
+        JEJU_NETWORK: 'localnet',
+        RPC_ETH_HTTP: this.rpcUrl,
         SQLIT_DATABASE_ID: 'indexer-sync',
         SQLIT_URL: `http://${getLocalhostHost()}:${SERVICE_PORTS.sqlit}`,
         SQLIT_PRIVATE_KEY: WELL_KNOWN_KEYS.dev[0].privateKey,
@@ -729,7 +732,8 @@ class ServicesOrchestrator {
     })
 
     // Start processor separately (can crash without killing GraphQL/API)
-    const processorProc = spawn(['bun', 'run', 'dev:processor'], {
+    // Run TypeScript file directly instead of requiring build
+    const processorProc = spawn(['bun', 'run', 'api/main.ts'], {
       cwd: indexerPath,
       stdout: 'inherit',
       stderr: 'inherit',

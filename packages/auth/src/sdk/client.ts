@@ -261,8 +261,9 @@ export class OAuth3Client {
     const rpcUrl = config.rpcUrl ?? DEFAULT_RPC
     const chainId = config.chainId ?? CHAIN_IDS.localnet
 
-    // Initialize decentralized services if enabled
-    if (config.decentralized !== false) {
+    // Initialize decentralized services only if explicitly enabled
+    // If decentralized is undefined or false, skip decentralized discovery
+    if (config.decentralized === true) {
       this.discovery = createDecentralizedDiscovery({
         rpcUrl,
         chainId,
@@ -359,7 +360,13 @@ export class OAuth3Client {
 
     // If decentralized mode and not initialized, try auto-initialization
     // If discovery fails (missing contracts, unregistered app), fall back to centralized mode
-    if (this.discovery && !this.currentNode && !this.config.teeAgentUrl) {
+    // Only try if decentralized is explicitly enabled AND teeAgentUrl is not provided
+    if (
+      this.config.decentralized === true &&
+      this.discovery &&
+      !this.currentNode &&
+      !this.config.teeAgentUrl
+    ) {
       try {
         await this.initialize()
       } catch (err) {

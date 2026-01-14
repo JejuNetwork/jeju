@@ -323,20 +323,23 @@ async function deployAppsOnchain(
   logger.step('Registering apps on-chain...')
   await localDeployOrchestrator.deployAllApps(appsWithDirs)
 
-  // Start vendor app backend workers in parallel
-  logger.step('Starting vendor app backends in parallel...')
-  const vendorAppsWithBackend = appsWithDirs.filter(
+  // Start app backend workers in parallel (both core and vendor apps)
+  logger.step('Starting app backend workers in parallel...')
+  const appsWithBackend = appsWithDirs.filter(
     ({ manifest }) =>
-      manifest.type === 'vendor' && manifest.architecture?.backend,
+      (manifest.type === 'vendor' || manifest.type === 'core') &&
+      manifest.architecture?.backend,
   )
 
-  const backendStartTasks = vendorAppsWithBackend.map(({ dir, manifest }) => {
+  const backendStartTasks = appsWithBackend.map(({ dir, manifest }) => {
     const backend = manifest.architecture?.backend
     const commands = manifest.commands as Record<string, string> | undefined
+    // Prefer dev:api command for core apps, fall back to start:worker or startCmd
     const startCmd =
-      typeof backend === 'object' && 'startCmd' in backend
+      commands?.['dev:api'] ||
+      (typeof backend === 'object' && 'startCmd' in backend
         ? (backend.startCmd as string)
-        : commands?.['start:worker']
+        : commands?.['start:worker'])
 
     if (!startCmd) {
       logger.debug(`  ${manifest.name}: No backend start command found`)
@@ -348,7 +351,21 @@ async function deployAppsOnchain(
 
     logger.debug(`  Starting ${manifest.name} backend on port ${apiPort}...`)
 
-    const workerProc = execa('bun', ['run', startCmd.replace('bun run ', '')], {
+    // Parse command - handle both "bun run ..." and "bun --watch ..." formats
+    let cmd: string
+    let args: string[]
+    if (startCmd.startsWith('bun ')) {
+      // Command already starts with bun, parse it directly
+      const parts = startCmd.split(' ').filter(Boolean)
+      cmd = parts[0] || 'bun'
+      args = parts.slice(1)
+    } else {
+      // Command doesn't start with bun, use bun run
+      cmd = 'bun'
+      args = ['run', startCmd]
+    }
+
+    const workerProc = execa(cmd, args, {
       cwd: dir,
       env: {
         ...process.env,

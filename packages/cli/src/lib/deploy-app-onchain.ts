@@ -34,6 +34,13 @@ const STORAGE_MANAGER_ABI = [
     outputs: [{ name: 'uploadId', type: 'bytes32' }],
     stateMutability: 'payable',
   },
+  {
+    name: 'cidToUploadId',
+    type: 'function',
+    inputs: [{ name: 'cid', type: 'string' }],
+    outputs: [{ name: 'uploadId', type: 'bytes32' }],
+    stateMutability: 'view',
+  },
 ] as const
 
 const WORKER_REGISTRY_ABI = [
@@ -293,7 +300,29 @@ async function deployFrontend(
 
   // Record in StorageManager
   const contentHash = keccak256(stringToBytes(cid))
+  
+  // Check if CID already exists before attempting upload
   try {
+    const existingUploadId = await client.readContract({
+      address: config.contracts.storageManager,
+      abi: STORAGE_MANAGER_ABI,
+      functionName: 'cidToUploadId',
+      args: [cid],
+    })
+    
+    if (existingUploadId && existingUploadId !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
+      logger.debug(`  CID ${cid} already registered (uploadId: ${existingUploadId}), skipping recordUpload`)
+      return { cid, uploadId: existingUploadId }
+    }
+  } catch {
+    // If read fails, continue with upload attempt
+  }
+  
+  try {
+    // Calculate fee: round up to MB, then multiply by 0.001 ETH per MB
+    const feeMB = Math.ceil(size / (1024 * 1024))
+    const feeWei = BigInt(feeMB) * BigInt(1e15) // 0.001 ETH = 1e15 wei
+    
     const hash = await client.writeContract({
       chain: localnetChain,
       account,
@@ -307,21 +336,55 @@ async function deployFrontend(
         0, // IPFS backend
         true, // permanent
       ],
-      value: BigInt(Math.ceil(size / (1024 * 1024))) * BigInt(1e15), // 0.001 ETH per MB
+      value: feeWei,
     })
 
     await client.waitForTransactionReceipt({ hash })
     return { cid, uploadId: hash }
   } catch (error) {
-    // Check if CID already exists (0xb8bd85b1 = CIDAlreadyExists)
+    // Check for various error conditions
     const errorStr = String(error)
+    const errorMessage = error instanceof Error ? error.message : errorStr
+    
+    // CID already exists
     if (
       errorStr.includes('0xb8bd85b1') ||
-      errorStr.includes('CIDAlreadyExists')
+      errorStr.includes('CIDAlreadyExists') ||
+      errorMessage.includes('CIDAlreadyExists')
     ) {
       logger.debug(`  CID ${cid} already registered, skipping recordUpload`)
       return { cid, uploadId: '0x' as Hex }
     }
+    
+    // Quota exceeded
+    if (
+      errorStr.includes('QuotaExceeded') ||
+      errorMessage.includes('QuotaExceeded')
+    ) {
+      logger.warn(`  Quota exceeded for CID ${cid}, skipping recordUpload`)
+      return { cid, uploadId: '0x' as Hex }
+    }
+    
+    // Insufficient payment
+    if (
+      errorStr.includes('InsufficientPayment') ||
+      errorMessage.includes('InsufficientPayment')
+    ) {
+      const feeMB = Math.ceil(size / (1024 * 1024))
+      logger.warn(`  Insufficient payment for CID ${cid} (${feeMB} MB), skipping recordUpload`)
+      return { cid, uploadId: '0x' as Hex }
+    }
+    
+    // Contract reverted (generic)
+    if (
+      errorStr.includes('reverted') ||
+      errorMessage.includes('reverted') ||
+      errorStr.includes('execution reverted')
+    ) {
+      logger.warn(`  Contract reverted for CID ${cid}, skipping recordUpload: ${errorMessage}`)
+      return { cid, uploadId: '0x' as Hex }
+    }
+    
     throw error
   }
 }
@@ -373,17 +436,32 @@ async function deployWorker(
     await client.waitForTransactionReceipt({ hash })
     return { cid, workerId: hash }
   } catch (error) {
-    // Check if route already registered (0xfa0dec64 = RouteAlreadyRegistered)
+    // Check for various error conditions
     const errorStr = String(error)
+    const errorMessage = error instanceof Error ? error.message : errorStr
+    
+    // Route already registered
     if (
       errorStr.includes('0xfa0dec64') ||
-      errorStr.includes('RouteAlreadyRegistered')
+      errorStr.includes('RouteAlreadyRegistered') ||
+      errorMessage.includes('RouteAlreadyRegistered')
     ) {
       logger.debug(
         `  Worker route for ${manifest.name} already registered, skipping`,
       )
       return { cid, workerId: '0x' as Hex }
     }
+    
+    // Contract reverted (generic)
+    if (
+      errorStr.includes('reverted') ||
+      errorMessage.includes('reverted') ||
+      errorStr.includes('execution reverted')
+    ) {
+      logger.warn(`  Worker deployment reverted for ${manifest.name}, skipping: ${errorMessage}`)
+      return { cid, workerId: '0x' as Hex }
+    }
+    
     throw error
   }
 }

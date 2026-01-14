@@ -329,9 +329,9 @@ export const CORE_PORTS = {
 
   /** Wallet Frontend - Multi-chain agentic wallet */
   WALLET: {
-    DEFAULT: 4015,
+    DEFAULT: 4018,
     ENV_VAR: 'WALLET_PORT',
-    get: () => safeParsePort(process.env.WALLET_PORT, 4015),
+    get: () => safeParsePort(process.env.WALLET_PORT, 4018),
   },
 
   /** Wallet WebSocket - Wallet real-time updates */
