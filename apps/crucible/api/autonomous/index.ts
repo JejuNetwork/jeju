@@ -1532,6 +1532,17 @@ Output ONLY the formatted alert message. Do not include any action syntax or ins
       parts.push('')
     }
 
+    if (config.watchRoom || config.postToRoom) {
+      parts.push('## Room Configuration')
+      if (config.watchRoom) {
+        parts.push(`- Watch room: ${config.watchRoom}`)
+      }
+      if (config.postToRoom) {
+        parts.push(`- Post room: ${config.postToRoom}`)
+      }
+      parts.push('')
+    }
+
     // Available actions
     parts.push('## Available Actions')
     for (const action of context.availableActions) {
@@ -1579,6 +1590,13 @@ Output ONLY the formatted alert message. Do not include any action syntax or ins
     trajectoryId: string | null,
   ): Promise<{ success: boolean; error?: string; result?: unknown }> {
     const upperName = actionName.toUpperCase()
+
+    if (upperName === 'READ_ROOM_ALERTS' && !params.room) {
+      const defaultRoom = agent.config.watchRoom ?? agent.config.postToRoom
+      if (defaultRoom) {
+        params.room = defaultRoom
+      }
+    }
 
     // Use previousTick for READ_ROOM_ALERTS to avoid duplicate processing
     if (upperName === 'READ_ROOM_ALERTS' && !params.after && agent.previousTick > 0) {
