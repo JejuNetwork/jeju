@@ -388,4 +388,168 @@ export function createOAuth3Router() {
   )
 }
 
+/**
+ * Create a router for /auth/* routes (without /oauth3 prefix)
+ * This provides backward compatibility for frontends calling /auth/* directly
+ * 
+ * On localnet, OAUTH3_AGENT_URL points to the DWS API server itself,
+ * so we proxy to /oauth3/auth/* on the same server instead of creating a loop
+ */
+export function createAuthRouter() {
+  // Check if OAUTH3_AGENT_URL points to localhost (same server)
+  const isLocalProxy = OAUTH3_AGENT_URL.includes('localhost') || 
+                       OAUTH3_AGENT_URL.includes('127.0.0.1') ||
+                       OAUTH3_AGENT_URL.includes('0.0.0.0')
+  
+  // If proxying to same server, use /oauth3/auth/* routes directly
+  // Otherwise, proxy to the external OAuth3 agent
+  const getProxyUrl = (path: string) => {
+    if (isLocalProxy) {
+      // Proxy to /oauth3/auth/* on same server
+      return `/oauth3/auth${path}`
+    }
+    // Proxy to external OAuth3 agent
+    return `${OAUTH3_AGENT_URL}/auth${path}`
+  }
+
+  return new Elysia({ name: 'auth', prefix: '/auth' })
+    .post(
+      '/wallet',
+      async ({ body, set, request }) => {
+        try {
+          const proxyUrl = getProxyUrl('/wallet')
+          const baseUrl = isLocalProxy 
+            ? `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host') || 'localhost:4200'}`
+            : ''
+          const fullUrl = isLocalProxy ? `${baseUrl}${proxyUrl}` : proxyUrl
+          
+          const response = await fetch(fullUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          })
+          const data = await response.json()
+          if (!response.ok) {
+            set.status = response.status as
+              | 400
+              | 401
+              | 403
+              | 404
+              | 500
+              | 502
+              | 503
+            console.error('[DWS Auth] Wallet auth failed:', {
+              status: response.status,
+              error: data.error || data.message,
+              proxyUrl: fullUrl,
+            })
+          }
+          return data
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error)
+          console.error('[DWS Auth] Wallet auth request failed:', {
+            error: errorMsg,
+            proxyUrl: getProxyUrl('/wallet'),
+          })
+          set.status = 502
+          return {
+            error: 'oauth3_agent_unavailable',
+            message: `OAuth3 agent is not responding`,
+          }
+        }
+      },
+      {
+        body: t.Record(t.String(), t.Unknown()),
+      },
+    )
+    .post(
+      '/init',
+      async ({ body, set, request }) => {
+        try {
+          const proxyUrl = getProxyUrl('/init')
+          const baseUrl = isLocalProxy 
+            ? `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host') || 'localhost:4200'}`
+            : ''
+          const fullUrl = isLocalProxy ? `${baseUrl}${proxyUrl}` : proxyUrl
+          
+          const response = await fetch(fullUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          })
+          const data = await response.json()
+          if (!response.ok) {
+            set.status = response.status as
+              | 400
+              | 401
+              | 403
+              | 404
+              | 500
+              | 502
+              | 503
+          }
+          return data
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error)
+          console.error('[DWS Auth] Auth init request failed:', {
+            error: errorMsg,
+            proxyUrl: getProxyUrl('/init'),
+          })
+          set.status = 502
+          return {
+            error: 'oauth3_agent_unavailable',
+            message: `OAuth3 agent is not responding`,
+          }
+        }
+      },
+      {
+        body: t.Record(t.String(), t.Unknown()),
+      },
+    )
+    .post(
+      '/callback',
+      async ({ body, set, request }) => {
+        try {
+          const proxyUrl = getProxyUrl('/callback')
+          const baseUrl = isLocalProxy 
+            ? `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host') || 'localhost:4200'}`
+            : ''
+          const fullUrl = isLocalProxy ? `${baseUrl}${proxyUrl}` : proxyUrl
+          
+          const response = await fetch(fullUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          })
+          const data = await response.json()
+          if (!response.ok) {
+            set.status = response.status as
+              | 400
+              | 401
+              | 403
+              | 404
+              | 500
+              | 502
+              | 503
+          }
+          return data
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error)
+          console.error('[DWS Auth] Auth callback request failed:', {
+            error: errorMsg,
+            proxyUrl: getProxyUrl('/callback'),
+          })
+          set.status = 502
+          return {
+            error: 'oauth3_agent_unavailable',
+            message: `OAuth3 agent is not responding`,
+          }
+        }
+      },
+      {
+        body: t.Record(t.String(), t.Unknown()),
+      },
+    )
+}
+
 export type OAuth3Routes = ReturnType<typeof createOAuth3Router>
