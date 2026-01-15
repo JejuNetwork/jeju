@@ -251,6 +251,7 @@ export function createSecureSQLitRouter() {
       })
 
       .get('/health', () => ({
+        success: true,
         service: 'dws-secure-sqlit',
         status: 'healthy',
       }))
