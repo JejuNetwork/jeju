@@ -550,6 +550,16 @@ async function deploy(): Promise<void> {
     console.log('\nJeju DAO:')
     console.log(`   Dashboard: https://${frontendDomain}/dao/jeju`)
   }
+
+  // Verify deployment - FAIL if verification fails
+  console.log('\n[Autocrat] Verifying deployment...')
+  const { verifyDeploymentOrFail, createVerificationConfig } = await import(
+    '@jejunetwork/deployment/scripts/verify-deployment'
+  )
+  const verifyConfig = createVerificationConfig('autocrat', config.network, {
+    expectedService: 'jeju-board',
+  })
+  await verifyDeploymentOrFail(verifyConfig)
 }
 
 // Run deployment

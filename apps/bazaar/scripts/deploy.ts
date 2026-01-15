@@ -406,16 +406,49 @@ async function deploy(): Promise<void> {
         ? 'bazaar.jejunetwork.org'
         : 'bazaar.local.jejunetwork.org'
 
+  const appUrl = `https://${frontendDomain}`
+
   console.log('\nDeployment complete.')
   console.log('\nEndpoints:')
-  console.log(`   Frontend: https://${frontendDomain}`)
+  console.log(`   Frontend: ${appUrl}`)
   console.log(`   IPFS: ipfs://${indexCid}`)
   console.log(`   API: ${config.dwsUrl}/workers/${workerId}`)
-  console.log(`   Health: ${config.dwsUrl}/workers/${workerId}/health`)
+  console.log(`   Health: ${appUrl}/health`)
+
+  // Verify deployment by actually hitting the endpoints
+  console.log('\nVerifying deployment endpoints...')
+  const { verifyDeployment } = await import('@jejunetwork/shared/deploy')
+
+  const staticFiles: Record<string, string> = {}
+  for (const [path, result] of staticAssets.entries()) {
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`
+    staticFiles[normalizedPath] = result.cid
+  }
+
+  const verifyResult = await verifyDeployment(
+    {
+      name: 'bazaar',
+      jnsName: 'bazaar.jeju',
+      frontendCid: indexCid ?? '',
+      staticFiles,
+      backendWorkerId: workerId,
+      appUrl,
+      healthUrl: `${appUrl}/health`,
+    },
+    { timeout: 15000, retries: 5 },
+  )
+
+  if (!verifyResult.success) {
+    throw new Error(
+      `Deployment verification failed: frontend=${verifyResult.checks.frontend.ok}, health=${verifyResult.checks.health.ok}`,
+    )
+  }
+
+  console.log('\nDeployment verified successfully!')
 }
 
 // Run deployment
 deploy().catch((error) => {
-  console.error('❌ Deployment failed:', error)
+  console.error('Deployment failed:', error)
   process.exit(1)
 })

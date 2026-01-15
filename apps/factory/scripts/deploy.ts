@@ -21,7 +21,47 @@ import {
   getL2RpcUrl,
   isProductionEnv,
 } from '@jejunetwork/config'
-import { foundry, jeju, jejuTestnet } from '@jejunetwork/config/chains'
+import { defineChain } from 'viem'
+
+// Chain definitions
+const jejuTestnet = defineChain({
+  id: 420690,
+  name: 'Jeju Testnet',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://testnet-rpc.jejunetwork.org'] },
+  },
+  blockExplorers: {
+    default: {
+      name: 'Jeju Explorer',
+      url: 'https://testnet-explorer.jejunetwork.org',
+    },
+  },
+  testnet: true,
+})
+
+const jejuMainnet = defineChain({
+  id: 420691,
+  name: 'Jeju',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://rpc.jejunetwork.org'] },
+  },
+  blockExplorers: {
+    default: { name: 'Jeju Explorer', url: 'https://explorer.jejunetwork.org' },
+  },
+})
+
+const foundry = defineChain({
+  id: 31337,
+  name: 'Foundry',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['http://127.0.0.1:6546'] },
+  },
+  testnet: true,
+})
+
 import bs58 from 'bs58'
 import {
   type Address,
@@ -176,7 +216,11 @@ async function registerOnJNS(
 
   const rpcUrl = getL2RpcUrl()
   const chain =
-    NETWORK === 'mainnet' ? jeju : NETWORK === 'testnet' ? jejuTestnet : foundry
+    NETWORK === 'mainnet'
+      ? jejuMainnet
+      : NETWORK === 'testnet'
+        ? jejuTestnet
+        : foundry
 
   const account = privateKeyToAccount(DEPLOYER_PRIVATE_KEY)
   const client = createWalletClient({
@@ -438,9 +482,32 @@ async function deploy(): Promise<DeployResult> {
       `  JNS: ${result.jns.name} -> ${result.jns.contenthash.slice(0, 20)}...`,
     )
   }
-  console.log(
-    `  App URL: https://factory.${NETWORK === 'mainnet' ? '' : 'testnet.'}jejunetwork.org`,
+  const appUrl = `https://factory.${NETWORK === 'mainnet' ? '' : 'testnet.'}jejunetwork.org`
+  console.log(`  App URL: ${appUrl}`)
+
+  // Verify deployment by actually hitting the endpoints
+  console.log('\nVerifying deployment endpoints...')
+  const { verifyDeployment } = await import('@jejunetwork/shared/deploy')
+  const verifyResult = await verifyDeployment(
+    {
+      name: 'factory',
+      jnsName: 'factory.jeju',
+      frontendCid,
+      staticFiles,
+      backendWorkerId: workerCid,
+      appUrl,
+      healthUrl: `${appUrl}/health`,
+    },
+    { timeout: 15000, retries: 5 },
   )
+
+  if (!verifyResult.success) {
+    throw new Error(
+      `Deployment verification failed: frontend=${verifyResult.checks.frontend.ok}, health=${verifyResult.checks.health.ok}`,
+    )
+  }
+
+  console.log('\nDeployment verified successfully!')
 
   return result
 }

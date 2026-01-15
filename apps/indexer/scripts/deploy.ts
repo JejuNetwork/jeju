@@ -344,7 +344,18 @@ async function registerApp(
     staticFiles: staticFilesRecord, // Map of all file paths to CIDs
     backendWorkerId, // Use CID for decentralized routing
     backendEndpoint, // CID-based endpoint
-    apiPaths: ['/api', '/health', '/a2a', '/mcp', '/graphql'], // No trailing slashes - isApiPath checks pathname.startsWith(prefix + '/')
+    apiPaths: [
+      '/stats',
+      '/agents',
+      '/agents/*',
+      '/blocks',
+      '/transactions',
+      '/search',
+      '/health',
+      '/a2a/*',
+      '/mcp/*',
+      '/graphql',
+    ],
     spa: true, // Single-page application
     enabled: true,
   }
@@ -508,6 +519,36 @@ async function deploy(): Promise<void> {
     `${`║  IPFS:     ipfs://${staticResult.rootCid.slice(0, 20)}...`.padEnd(61)}║`,
   )
   console.log('╚════════════════════════════════════════════════════════════╝')
+
+  // Verify deployment by actually hitting the endpoints
+  console.log('\nVerifying deployment endpoints...')
+  const { verifyDeployment } = await import('@jejunetwork/shared/deploy')
+
+  const staticFilesRecord: Record<string, string> = {}
+  for (const [path, cid] of staticResult.files) {
+    staticFilesRecord[path] = cid
+  }
+
+  const verifyResult = await verifyDeployment(
+    {
+      name: 'indexer',
+      jnsName: 'indexer.jeju',
+      frontendCid: staticResult.rootCid,
+      staticFiles: staticFilesRecord,
+      backendWorkerId: workerInfo.codeCid,
+      appUrl: domain,
+      healthUrl: `${domain}/health`,
+    },
+    { timeout: 15000, retries: 5 },
+  )
+
+  if (!verifyResult.success) {
+    throw new Error(
+      `Deployment verification failed: frontend=${verifyResult.checks.frontend.ok}, health=${verifyResult.checks.health.ok}`,
+    )
+  }
+
+  console.log('\nDeployment verified successfully!')
 }
 
 deploy().catch((error: Error) => {

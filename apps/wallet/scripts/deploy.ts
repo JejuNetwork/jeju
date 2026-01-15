@@ -275,17 +275,54 @@ async function deploy(): Promise<void> {
     await registerApp(config, staticAssets)
   }
 
+  const domain = `https://wallet.${config.network === 'mainnet' ? '' : 'testnet.'}jejunetwork.org`
+
   console.log('')
   console.log('╔════════════════════════════════════════════════════════════╗')
   console.log('║                  Deployment Complete                        ║')
   console.log('╠════════════════════════════════════════════════════════════╣')
-  console.log(
-    `║  Frontend: https://wallet.${config.network === 'mainnet' ? '' : 'testnet.'}jejunetwork.org ║`,
-  )
+  console.log(`║  Frontend: ${domain.padEnd(44)}║`)
   console.log(
     `║  IPFS:     ipfs://${indexCid?.slice(0, 20)}...                  ║`,
   )
   console.log('╚════════════════════════════════════════════════════════════╝')
+
+  // Verify deployment by hitting the frontend endpoint
+  console.log('\nVerifying deployment...')
+
+  const maxRetries = 5
+  const timeout = 15000
+  let frontendOk = false
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(domain, {
+        signal: AbortSignal.timeout(timeout),
+      })
+
+      if (response.ok) {
+        const text = await response.text()
+        if (text.includes('<!DOCTYPE html') || text.includes('<html')) {
+          console.log('   Frontend: OK (HTML served)')
+          frontendOk = true
+          break
+        }
+      }
+      console.log(`   Frontend: Retry ${attempt}/${maxRetries}...`)
+      await new Promise((r) => setTimeout(r, 2000 * attempt))
+    } catch (error) {
+      console.log(
+        `   Frontend: Retry ${attempt}/${maxRetries} - ${error instanceof Error ? error.message : 'timeout'}`,
+      )
+      await new Promise((r) => setTimeout(r, 2000 * attempt))
+    }
+  }
+
+  if (!frontendOk) {
+    throw new Error('Deployment verification failed: frontend not serving HTML')
+  }
+
+  console.log('\nDeployment verified successfully!')
 }
 
 deploy().catch((error) => {
