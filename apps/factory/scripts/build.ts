@@ -121,6 +121,13 @@ const browserPlugin: BunPlugin = {
     build.onResolve({ filter: /^@jejunetwork\/auth\/react$/ }, () => ({
       path: resolve('../../packages/auth/src/react/index.ts'),
     }))
+    build.onResolve({ filter: /^@jejunetwork\/auth\/types$/ }, () => ({
+      path: resolve('../../packages/auth/src/types.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/auth\/(.*)$/ }, (args) => {
+      const subpath = args.path.replace('@jejunetwork/auth/', '')
+      return { path: resolve(`../../packages/auth/src/${subpath}.ts`) }
+    })
     // SDK needs to be resolved to source for browser builds
     build.onResolve({ filter: /^@jejunetwork\/sdk$/ }, () => ({
       path: resolve('../../packages/sdk/src/index.ts'),

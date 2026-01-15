@@ -128,7 +128,7 @@ import {
 import { createMCPRouter } from './routes/mcp'
 import { createModerationRouter } from './routes/moderation'
 import { createNitroDatabaseRouter } from './routes/nitro-database'
-import { createOAuth3Router } from './routes/oauth3'
+import { createOAuth3Router, createAuthRouter } from './routes/oauth3'
 import { createOCIRegistryRouter } from './routes/oci-registry'
 import { createPkgRouter } from './routes/pkg'
 import { createPkgRegistryProxyRouter } from './routes/pkg-registry-proxy'
@@ -831,6 +831,7 @@ app.use(
   createCIRouter({ workflowEngine, repoManager, backend: backendManager }),
 )
 app.use(createOAuth3Router())
+app.use(createAuthRouter()) // Backward compatibility: /auth/* routes proxy to OAuth3 agent
 app.use(createAPIMarketplaceRouter())
 app.use(createContainerRouter())
 app.use(createOCIRegistryRouter()) // Docker Registry v2 API for container pulls

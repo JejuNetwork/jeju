@@ -216,6 +216,9 @@ class CompleteBootstrapper {
     // Check prerequisites
     await this.checkPrerequisites()
 
+    // Ensure Foundry dependencies are installed
+    await this.ensureFoundryDependencies()
+
     const result: BootstrapResult = {
       network: 'jeju-localnet',
       rpcUrl: this.rpcUrl,
@@ -497,6 +500,62 @@ class CompleteBootstrapper {
     this.printSummary(result)
 
     return result
+  }
+
+  private async ensureFoundryDependencies(): Promise<void> {
+    const contractsDir = join(process.cwd(), 'packages/contracts')
+    const entryPointPath = join(
+      contractsDir,
+      'lib/account-abstraction/contracts/core/EntryPoint.sol',
+    )
+
+    // Check if EntryPoint exists (indicates dependencies are installed)
+    if (!existsSync(entryPointPath)) {
+      console.log('📦 Foundry dependencies missing, installing...')
+      try {
+        // Install dependencies explicitly (matching CI workflow)
+        // These are git submodules, but forge install works even if submodules aren't initialized
+        const dependencies = [
+          'foundry-rs/forge-std',
+          'OpenZeppelin/openzeppelin-contracts@v5.3.0',
+          'eth-infinitism/account-abstraction',
+        ]
+
+        for (const dep of dependencies) {
+          try {
+            execSync(`forge install ${dep} --no-git`, {
+              cwd: contractsDir,
+              stdio: 'pipe',
+            })
+          } catch (err) {
+            // Some dependencies might already be installed, continue
+            const errorMsg = err instanceof Error ? err.message : String(err)
+            if (!errorMsg.includes('already exists')) {
+              console.log(`   ⚠️  Failed to install ${dep}, continuing...`)
+            }
+          }
+        }
+        
+        // Verify the file exists after installation
+        if (!existsSync(entryPointPath)) {
+          throw new Error(
+            'EntryPoint.sol still not found after forge install. ' +
+            'Please ensure Foundry dependencies are properly configured.'
+          )
+        }
+        
+        console.log('✅ Foundry dependencies installed')
+      } catch (error) {
+        const errorMsg =
+          error instanceof Error ? error.message : String(error)
+        throw new Error(
+          `Failed to install Foundry dependencies: ${errorMsg}\n` +
+            `The EntryPoint contract is required for bootstrap.\n` +
+            `Please run manually: cd packages/contracts && forge install eth-infinitism/account-abstraction --no-git\n` +
+            `Or check that the postinstall script ran correctly during 'bun install'`
+        )
+      }
+    }
   }
 
   private async checkPrerequisites(): Promise<void> {

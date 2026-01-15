@@ -28,6 +28,11 @@ function detectNetworkRuntime(): NetworkType {
       return 'localnet'
     }
 
+    // Check for localnet subdomain FIRST (before mainnet check)
+    if (hostname.includes('.local.jejunetwork.org')) {
+      return 'localnet'
+    }
+
     // Check for testnet subdomain
     if (
       hostname.includes('.testnet.jejunetwork.org') ||
@@ -36,7 +41,7 @@ function detectNetworkRuntime(): NetworkType {
       return 'testnet'
     }
 
-    // Production jejunetwork.org domains → mainnet
+    // Production jejunetwork.org domains → mainnet (only if not localnet/testnet)
     if (hostname.endsWith('.jejunetwork.org')) {
       return 'mainnet'
     }
@@ -128,15 +133,29 @@ const activeChain =
       ? testnet
       : localnet
 
+// Include all chains so wagmi can properly detect the connected chain
+// This ensures chain detection works correctly even when MetaMask is on a different chain initially
+const allChains = [localnet, testnet, mainnet]
+
 export const wagmiConfig = createConfig({
-  chains: [activeChain],
+  chains: allChains,
   connectors: [
     injected({
-      shimDisconnect: true, // Enable shim disconnect to prevent caching issues
+      shimDisconnect: false, // Disable shim disconnect to ensure proper disconnection
     }),
   ],
   transports: {
-    [activeChain.id]: http(RUNTIME_RPC_URL, {
+    [localnet.id]: http(getRpcUrl('localnet'), {
+      batch: true,
+      retryCount: 3,
+      retryDelay: 1000,
+    }),
+    [testnet.id]: http(getRpcUrl('testnet'), {
+      batch: true,
+      retryCount: 3,
+      retryDelay: 1000,
+    }),
+    [mainnet.id]: http(getRpcUrl('mainnet'), {
       batch: true,
       retryCount: 3,
       retryDelay: 1000,

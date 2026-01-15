@@ -136,23 +136,41 @@ export function createOAuth3Router() {
       .post(
         '/auth/wallet',
         async ({ body, set }) => {
-          const response = await fetch(`${OAUTH3_AGENT_URL}/auth/wallet`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-          })
-          const data = await response.json()
-          if (!response.ok) {
-            set.status = response.status as
-              | 400
-              | 401
-              | 403
-              | 404
-              | 500
-              | 502
-              | 503
+          try {
+            const response = await fetch(`${OAUTH3_AGENT_URL}/auth/wallet`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body),
+            })
+            const data = await response.json()
+            if (!response.ok) {
+              set.status = response.status as
+                | 400
+                | 401
+                | 403
+                | 404
+                | 500
+                | 502
+                | 503
+              console.error('[DWS OAuth3] Wallet auth failed:', {
+                status: response.status,
+                error: data.error || data.message,
+                agentUrl: OAUTH3_AGENT_URL,
+              })
+            }
+            return data
+          } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error)
+            console.error('[DWS OAuth3] Wallet auth request failed:', {
+              error: errorMsg,
+              agentUrl: OAUTH3_AGENT_URL,
+            })
+            set.status = 502
+            return {
+              error: 'oauth3_agent_unavailable',
+              message: `OAuth3 agent at ${OAUTH3_AGENT_URL} is not responding`,
+            }
           }
-          return data
         },
         {
           body: t.Record(t.String(), t.Unknown()),
@@ -368,6 +386,269 @@ export function createOAuth3Router() {
         return response.json()
       })
   )
+}
+
+/**
+ * Create a router for /auth/* and /session/* routes (without /oauth3 prefix)
+ * This provides backward compatibility for frontends calling /auth/* and /session/* directly
+ * 
+ * The OAuth3 agent runs as a separate service (typically on port 4200),
+ * so we always proxy to the OAUTH3_AGENT_URL
+ */
+export function createAuthRouter() {
+  // Always proxy to the OAuth3 agent URL (separate service)
+  const getProxyUrl = (path: string, basePath: string = '/auth') => {
+    return `${OAUTH3_AGENT_URL}${basePath}${path}`
+  }
+
+  return new Elysia({ name: 'auth' })
+    // /auth/* routes
+    .post(
+      '/auth/wallet',
+      async ({ body, set }) => {
+        try {
+          const proxyUrl = getProxyUrl('/wallet')
+          const response = await fetch(proxyUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          })
+          const data = await response.json()
+          if (!response.ok) {
+            set.status = response.status as
+              | 400
+              | 401
+              | 403
+              | 404
+              | 500
+              | 502
+              | 503
+            console.error('[DWS Auth] Wallet auth failed:', {
+              status: response.status,
+              error: data.error || data.message,
+              proxyUrl,
+            })
+          }
+          return data
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error)
+          console.error('[DWS Auth] Wallet auth request failed:', {
+            error: errorMsg,
+            proxyUrl: getProxyUrl('/wallet'),
+          })
+          set.status = 502
+          return {
+            error: 'oauth3_agent_unavailable',
+            message: `OAuth3 agent is not responding`,
+          }
+        }
+      },
+      {
+        body: t.Record(t.String(), t.Unknown()),
+      },
+    )
+    .post(
+      '/auth/init',
+      async ({ body, set }) => {
+        try {
+          const proxyUrl = getProxyUrl('/init')
+          const response = await fetch(proxyUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          })
+          const data = await response.json()
+          if (!response.ok) {
+            set.status = response.status as
+              | 400
+              | 401
+              | 403
+              | 404
+              | 500
+              | 502
+              | 503
+          }
+          return data
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error)
+          console.error('[DWS Auth] Auth init request failed:', {
+            error: errorMsg,
+            proxyUrl: getProxyUrl('/init'),
+          })
+          set.status = 502
+          return {
+            error: 'oauth3_agent_unavailable',
+            message: `OAuth3 agent is not responding`,
+          }
+        }
+      },
+      {
+        body: t.Record(t.String(), t.Unknown()),
+      },
+    )
+    .post(
+      '/auth/callback',
+      async ({ body, set }) => {
+        try {
+          const proxyUrl = getProxyUrl('/callback')
+          const response = await fetch(proxyUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          })
+          const data = await response.json()
+          if (!response.ok) {
+            set.status = response.status as
+              | 400
+              | 401
+              | 403
+              | 404
+              | 500
+              | 502
+              | 503
+          }
+          return data
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error)
+          console.error('[DWS Auth] Auth callback request failed:', {
+            error: errorMsg,
+            proxyUrl: getProxyUrl('/callback'),
+          })
+          set.status = 502
+          return {
+            error: 'oauth3_agent_unavailable',
+            message: `OAuth3 agent is not responding`,
+          }
+        }
+      },
+      {
+        body: t.Record(t.String(), t.Unknown()),
+      },
+    )
+    // /session/* routes
+    .get(
+      '/session/:sessionId',
+      async ({ params, set }) => {
+        try {
+          const proxyUrl = getProxyUrl(`/${params.sessionId}`, '/session')
+          const response = await fetch(proxyUrl, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+          })
+          const data = await response.json()
+          if (!response.ok) {
+            set.status = response.status as
+              | 400
+              | 401
+              | 403
+              | 404
+              | 500
+              | 502
+              | 503
+          }
+          return data
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error)
+          console.error('[DWS Auth] Get session request failed:', {
+            error: errorMsg,
+            sessionId: params.sessionId,
+            proxyUrl: getProxyUrl(`/${params.sessionId}`, '/session'),
+          })
+          set.status = 502
+          return {
+            error: 'oauth3_agent_unavailable',
+            message: `OAuth3 agent is not responding`,
+          }
+        }
+      },
+      {
+        params: t.Object({
+          sessionId: t.String(),
+        }),
+      },
+    )
+    .delete(
+      '/session/:sessionId',
+      async ({ params, set }) => {
+        try {
+          const proxyUrl = getProxyUrl(`/${params.sessionId}`, '/session')
+          const response = await fetch(proxyUrl, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+          })
+          const data = await response.json()
+          if (!response.ok) {
+            set.status = response.status as
+              | 400
+              | 401
+              | 403
+              | 404
+              | 500
+              | 502
+              | 503
+          }
+          return data
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error)
+          console.error('[DWS Auth] Delete session request failed:', {
+            error: errorMsg,
+            sessionId: params.sessionId,
+            proxyUrl: getProxyUrl(`/${params.sessionId}`, '/session'),
+          })
+          set.status = 502
+          return {
+            error: 'oauth3_agent_unavailable',
+            message: `OAuth3 agent is not responding`,
+          }
+        }
+      },
+      {
+        params: t.Object({
+          sessionId: t.String(),
+        }),
+      },
+    )
+    .post(
+      '/session/:sessionId/refresh',
+      async ({ params, set }) => {
+        try {
+          const proxyUrl = getProxyUrl(`/${params.sessionId}/refresh`, '/session')
+          const response = await fetch(proxyUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+          })
+          const data = await response.json()
+          if (!response.ok) {
+            set.status = response.status as
+              | 400
+              | 401
+              | 403
+              | 404
+              | 500
+              | 502
+              | 503
+          }
+          return data
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error)
+          console.error('[DWS Auth] Refresh session request failed:', {
+            error: errorMsg,
+            sessionId: params.sessionId,
+            proxyUrl: getProxyUrl(`/${params.sessionId}/refresh`, '/session'),
+          })
+          set.status = 502
+          return {
+            error: 'oauth3_agent_unavailable',
+            message: `OAuth3 agent is not responding`,
+          }
+        }
+      },
+      {
+        params: t.Object({
+          sessionId: t.String(),
+        }),
+      },
+    )
 }
 
 export type OAuth3Routes = ReturnType<typeof createOAuth3Router>

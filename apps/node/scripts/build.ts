@@ -11,6 +11,7 @@
 import { existsSync } from 'node:fs'
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import type { BunPlugin } from 'bun'
 import { reportBundleSizes } from '@jejunetwork/shared'
 
 const APP_DIR = resolve(import.meta.dir, '..')
@@ -22,6 +23,45 @@ const LANDER_DIR = `${DIST_DIR}/lander`
 async function buildFrontend(): Promise<void> {
   console.log('[Node] Building static frontend...')
 
+  // Plugin to resolve mime/lite.js for webtorrent dependency and stub webtorrent
+  const mimePlugin: BunPlugin = {
+    name: 'mime-resolver',
+    setup(build) {
+      // Stub webtorrent entirely (not needed in browser)
+      build.onResolve({ filter: /^webtorrent$/ }, () => ({
+        path: resolve(APP_DIR, 'web/stubs/webtorrent.ts'),
+      }))
+      // Handle mime/lite.js imports - intercept webtorrent's file.js at load time
+      build.onLoad({ filter: /file\.js$/ }, (args) => {
+        // Check if this is webtorrent's file.js trying to import mime/lite.js
+        if (args.path.includes('webtorrent') && args.path.includes('lib')) {
+          // Read the original file and replace the mime/lite.js import
+          const fs = require('fs')
+          const original = fs.readFileSync(args.path, 'utf-8')
+          const replaced = original.replace("import mime from 'mime/lite.js'", "import mime from 'mime'")
+          return {
+            contents: replaced,
+            loader: 'js',
+          }
+        }
+        return undefined
+      })
+      // Handle mime/lite.js imports (from webtorrent)
+      build.onResolve({ filter: /mime\/lite\.js$/ }, () => {
+        try {
+          return { path: require.resolve('mime/lite') }
+        } catch {
+          // Fallback to main mime if lite doesn't exist
+          return { path: require.resolve('mime') }
+        }
+      })
+      // Handle mime imports
+      build.onResolve({ filter: /^mime$/ }, () => ({
+        path: require.resolve('mime'),
+      }))
+    },
+  }
+
   const result = await Bun.build({
     entrypoints: [resolve(APP_DIR, 'web/main.tsx')],
     outdir: STATIC_DIR,
@@ -31,8 +71,9 @@ async function buildFrontend(): Promise<void> {
     packages: 'bundle',
     splitting: false,
     naming: '[name].[hash].[ext]',
-    external: ['bun:sqlite', 'node:*', '@tauri-apps/*', 'pino', 'pino-*'],
+    external: ['bun:sqlite', 'node:*', '@tauri-apps/*', 'pino', 'pino-*', 'webtorrent', 'mime', 'mime/lite', 'mime/lite.js'],
     drop: ['debugger'],
+    plugins: [mimePlugin],
     define: {
       'process.env.NODE_ENV': JSON.stringify('production'),
       'process.browser': JSON.stringify(true),

@@ -354,52 +354,162 @@ export function useSwapTokens() {
   useEffect(() => {
     async function loadTokens() {
       setIsLoading(true)
+      const loadedTokens: SwapToken[] = [ETH_TOKEN]
+      const tokenAddresses = new Set<string>([ZERO_ADDRESS]) // Track addresses to avoid duplicates
 
-      // Try to fetch tokens from indexer
-      const response = await fetch('/api/graphql', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: `
-            query GetSwapTokens {
-              tokens(limit: 20, orderBy: volumeUSD24h_DESC) {
-                address
-                name
-                symbol
-                decimals
-                logoUrl
-                liquidityUSD
-              }
-            }
-          `,
-        }),
-      })
+      // Always add JEJU token from CONTRACTS if available (same as Coins page)
+      try {
+        const { CONTRACTS } = await import('../config')
+        if (CONTRACTS.jeju && CONTRACTS.jeju !== '0x0000000000000000000000000000000000000000') {
+          const { createPublicClient, http } = await import('viem')
+          const { erc20Abi } = await import('viem')
+          const { RPC_URL } = await import('../config')
+          const rpcUrl = typeof window !== 'undefined' ? '/api/rpc' : RPC_URL
+          const client = createPublicClient({ transport: http(rpcUrl) })
 
-      if (response.ok) {
-        const json = await response.json()
-        const indexerTokens = (json.data?.tokens ?? []) as Array<{
-          address: string
-          name: string
-          symbol: string
-          decimals: number
-          logoUrl?: string
-          liquidityUSD?: number
-        }>
+          try {
+            const [name, symbol, decimals] = await Promise.all([
+              client.readContract({
+                address: CONTRACTS.jeju,
+                abi: erc20Abi,
+                functionName: 'name',
+              }),
+              client.readContract({
+                address: CONTRACTS.jeju,
+                abi: erc20Abi,
+                functionName: 'symbol',
+              }),
+              client.readContract({
+                address: CONTRACTS.jeju,
+                abi: erc20Abi,
+                functionName: 'decimals',
+              }),
+            ])
 
-        // Filter to tokens with liquidity and map to SwapToken format
-        const tradableTokens = indexerTokens
-          .filter((t) => (t.liquidityUSD ?? 0) > 0)
-          .map((t) => ({
-            symbol: t.symbol,
-            name: t.name,
-            address: t.address as Address,
-            decimals: t.decimals,
-            logoUrl: t.logoUrl,
-          }))
-
-        setTokens([ETH_TOKEN, ...tradableTokens])
+            loadedTokens.push({
+              symbol: symbol as string,
+              name: name as string,
+              address: CONTRACTS.jeju,
+              decimals: decimals as number,
+            })
+            tokenAddresses.add(CONTRACTS.jeju.toLowerCase())
+          } catch {
+            // JEJU token contract error - skip
+          }
+        }
+      } catch {
+        // CONTRACTS import failed - continue
       }
 
+      // Try to fetch tokens from indexer
+      try {
+        const response = await fetch('/api/graphql', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: `
+              query GetSwapTokens {
+                tokens(limit: 50, orderBy: createdAt_DESC) {
+                  address
+                  name
+                  symbol
+                  decimals
+                  logoUrl
+                  liquidityUSD
+                }
+              }
+            `,
+          }),
+        })
+
+        if (response.ok) {
+          const json = await response.json()
+          const indexerTokens = (json.data?.tokens ?? []) as Array<{
+            address: string
+            name: string
+            symbol: string
+            decimals: number
+            logoUrl?: string
+            liquidityUSD?: number
+          }>
+
+          // Include all tokens from indexer (avoid duplicates)
+          for (const t of indexerTokens) {
+            const addr = t.address.toLowerCase()
+            if (!tokenAddresses.has(addr)) {
+              loadedTokens.push({
+                symbol: t.symbol,
+                name: t.name,
+                address: t.address as Address,
+                decimals: t.decimals,
+                logoUrl: t.logoUrl,
+              })
+              tokenAddresses.add(addr)
+            }
+          }
+        }
+      } catch (error) {
+        // Indexer failed, will try seed-state fallback
+        console.debug('[Swap] Indexer query failed, trying seed-state fallback')
+      }
+
+      // Always try seed-state to get BZRT, MEME, DEGEN (even if indexer returned tokens)
+      try {
+        const seedResponse = await fetch('/api/seed-state')
+        if (seedResponse.ok) {
+          const seedState = await seedResponse.json()
+          if (seedState.coins && Array.isArray(seedState.coins)) {
+            // Load token details from RPC for each seeded token
+            const { createPublicClient, http } = await import('viem')
+            const { erc20Abi } = await import('viem')
+            const { RPC_URL } = await import('../config')
+            const rpcUrl = typeof window !== 'undefined' ? '/api/rpc' : RPC_URL
+            const client = createPublicClient({ transport: http(rpcUrl) })
+
+            for (const coin of seedState.coins) {
+              if (coin.address && coin.address !== '0x0000000000000000000000000000000000000000') {
+                const addr = coin.address.toLowerCase()
+                // Skip if already added
+                if (tokenAddresses.has(addr)) continue
+
+                try {
+                  const [name, symbol, decimals] = await Promise.all([
+                    client.readContract({
+                      address: coin.address as Address,
+                      abi: erc20Abi,
+                      functionName: 'name',
+                    }),
+                    client.readContract({
+                      address: coin.address as Address,
+                      abi: erc20Abi,
+                      functionName: 'symbol',
+                    }),
+                    client.readContract({
+                      address: coin.address as Address,
+                      abi: erc20Abi,
+                      functionName: 'decimals',
+                    }),
+                  ])
+
+                  loadedTokens.push({
+                    symbol: symbol as string,
+                    name: name as string,
+                    address: coin.address as Address,
+                    decimals: decimals as number,
+                  })
+                  tokenAddresses.add(addr)
+                } catch {
+                  // Token contract error - skip
+                }
+              }
+            }
+          }
+        }
+      } catch {
+        // Seed-state fetch failed - continue with what we have
+      }
+
+      setTokens(loadedTokens)
       setIsLoading(false)
     }
 

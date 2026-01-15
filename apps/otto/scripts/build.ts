@@ -123,26 +123,29 @@ async function build() {
   console.log('[Otto] Index built successfully')
 
   // Build worker
-  console.log('[Otto] Building worker...')
-  const workerResult = await Bun.build({
-    entrypoints: [resolve(APP_DIR, 'api/worker.ts')],
-    outdir: workerOutdir,
-    target: 'bun',
-    minify: true,
-    sourcemap: 'external',
-    drop: ['debugger'],
-    naming: 'worker.js',
-  })
+  const workerEntry = resolve(APP_DIR, 'api/worker.ts')
+  if (existsSync(workerEntry)) {
+    console.log('[Otto] Building worker...')
+    const workerResult = await Bun.build({
+      entrypoints: [workerEntry],
+      outdir: workerOutdir,
+      target: 'bun',
+      minify: true,
+      sourcemap: 'external',
+      drop: ['debugger'],
+      naming: 'worker.js',
+    })
 
-  if (!workerResult.success) {
-    console.error('[Otto] Worker build failed:')
-    for (const log of workerResult.logs) {
-      console.error(log)
+    if (!workerResult.success) {
+      console.error('[Otto] Worker build failed:')
+      for (const log of workerResult.logs) {
+        console.error(log)
+      }
+      process.exit(1)
     }
-    process.exit(1)
+  } else {
+    console.log('[Otto] No worker.ts found, skipping worker build')
   }
-
-  reportBundleSizes(workerResult, 'Otto Worker')
 
   // Create worker metadata
   const metadata = {

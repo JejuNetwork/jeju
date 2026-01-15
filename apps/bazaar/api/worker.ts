@@ -228,18 +228,35 @@ async function initializeDatabase(db: SQLitClient): Promise<void> {
 export function createBazaarApp(env?: Partial<BazaarEnv>) {
   const isDev = env?.NETWORK === 'localnet'
 
-  const app = new Elysia().use(
-    cors({
-      origin: isDev
-        ? true
-        : [
-            'https://bazaar.jejunetwork.org',
-            'https://jejunetwork.org',
-            getCoreAppUrl('BAZAAR'),
-          ],
-      credentials: true,
-    }),
-  )
+  const app = new Elysia()
+    .use(
+      cors({
+        origin: isDev
+          ? true
+          : [
+              'https://bazaar.jejunetwork.org',
+              'https://jejunetwork.org',
+              getCoreAppUrl('BAZAAR'),
+            ],
+        credentials: true,
+      }),
+    )
+    .onError(({ error, set }) => {
+      const message = error instanceof Error ? error.message : String(error)
+      console.error('[Bazaar] Route error:', message)
+      
+      // Don't log stack traces in production
+      if (isDev && error instanceof Error && error.stack) {
+        console.error('[Bazaar] Stack:', error.stack)
+      }
+      
+      // Return proper error response
+      set.status = 500
+      return {
+        error: isDev ? message : 'Internal server error',
+        ...(isDev && error instanceof Error && { stack: error.stack }),
+      }
+    })
 
   // Health check - minimal info only (no internal config exposure)
   app.get('/health', () => ({
@@ -290,6 +307,7 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
       possiblePaths.push(join(workspaceRoot, '.seed-state.json'))
 
       set.headers['Content-Type'] = 'application/json'
+      set.status = 200
 
       for (const seedStatePath of possiblePaths) {
         if (existsSync(seedStatePath)) {
@@ -309,8 +327,14 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
       console.warn(`[Bazaar]   Current working directory: ${process.cwd()}`)
       return { coins: [], nfts: [] }
     } catch (error) {
-      console.error('[Bazaar] ✗ Failed to load seed state:', error)
-      set.status = 500
+      const message = error instanceof Error ? error.message : String(error)
+      const stack = error instanceof Error ? error.stack : undefined
+      console.error('[Bazaar] ✗ Failed to load seed state:', message)
+      if (stack && isDev) {
+        console.error('[Bazaar] Stack:', stack)
+      }
+      set.headers['Content-Type'] = 'application/json'
+      set.status = 200
       return { error: 'Failed to load seed state', coins: [], nfts: [] }
     }
   })
@@ -403,83 +427,130 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
 
   // GraphQL Proxy - proxies indexer requests from browser to avoid CORS issues
   // Security: Rate limited and query complexity validated
-  app.post('/api/graphql', async ({ body, request }) => {
-    const clientId = getClientId(request)
-
-    // Rate limiting
-    if (!checkRateLimit(clientId, 'graphql')) {
-      return new Response(
-        JSON.stringify({ errors: [{ message: 'Rate limit exceeded' }] }),
-        { status: 429, headers: { 'Content-Type': 'application/json' } },
-      )
-    }
-
-    // Validate query structure
-    const bodyObj = body as { query?: string }
-    if (!bodyObj.query || typeof bodyObj.query !== 'string') {
-      return new Response(
-        JSON.stringify({ errors: [{ message: 'Missing or invalid query' }] }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } },
-      )
-    }
-
-    // Validate query complexity
-    const validation = validateGraphQLQuery(bodyObj.query, isDev)
-    if (!validation.valid) {
-      return new Response(
-        JSON.stringify({ errors: [{ message: validation.error }] }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } },
-      )
-    }
-
-    const indexerUrl = env?.INDEXER_URL || getIndexerGraphqlUrl()
-
+  app.post('/api/graphql', async ({ body, request, set }) => {
     try {
+      const clientId = getClientId(request)
+
+      // Rate limiting
+      if (!checkRateLimit(clientId, 'graphql')) {
+        set.status = 200 // GraphQL spec: HTTP 200 with errors in body
+        set.headers['Content-Type'] = 'application/json'
+        return {
+          errors: [{ message: 'Rate limit exceeded' }],
+        }
+      }
+
+      // Parse body - handle both string and object
+      let bodyObj: { query?: string; variables?: Record<string, unknown> }
+      if (typeof body === 'string') {
+        try {
+          bodyObj = JSON.parse(body)
+        } catch {
+          set.status = 200 // GraphQL spec: HTTP 200 with errors in body
+          set.headers['Content-Type'] = 'application/json'
+          return {
+            errors: [{ message: 'Invalid JSON body' }],
+          }
+        }
+      } else if (typeof body === 'object' && body !== null) {
+        bodyObj = body as { query?: string; variables?: Record<string, unknown> }
+      } else {
+        set.status = 200 // GraphQL spec: HTTP 200 with errors in body
+        set.headers['Content-Type'] = 'application/json'
+        return {
+          errors: [{ message: 'Invalid request body' }],
+        }
+      }
+
+      // Validate query structure
+      if (!bodyObj.query || typeof bodyObj.query !== 'string') {
+        set.status = 200 // GraphQL spec: HTTP 200 with errors in body
+        set.headers['Content-Type'] = 'application/json'
+        return {
+          errors: [{ message: 'Missing or invalid query' }],
+        }
+      }
+
+      // Validate query complexity
+      const validation = validateGraphQLQuery(bodyObj.query, isDev)
+      if (!validation.valid) {
+        set.status = 200 // GraphQL spec: HTTP 200 with errors in body
+        set.headers['Content-Type'] = 'application/json'
+        return {
+          errors: [{ message: validation.error }],
+        }
+      }
+
+      const indexerUrl = env?.INDEXER_URL || getIndexerGraphqlUrl()
+      
+      if (!indexerUrl) {
+        console.error('[Bazaar] No indexer URL configured')
+        set.status = 200 // GraphQL spec: HTTP 200 with errors in body
+        set.headers['Content-Type'] = 'application/json'
+        return {
+          errors: [{ message: 'Indexer not configured' }],
+        }
+      }
+
+      console.log(`[Bazaar] Proxying GraphQL request to ${indexerUrl}`)
+
       const response = await fetch(indexerUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          query: bodyObj.query,
+          variables: bodyObj.variables,
+        }),
         signal: AbortSignal.timeout(30000),
       })
 
-      if (response.ok) {
-        const data: unknown = await response.json()
-        return data
-      }
-
-      // Return the error from the indexer (sanitize internal URLs)
-      const errorText = await response.text().catch(() => '')
-      console.error(`[Bazaar] Indexer error: ${response.status} - ${errorText}`)
-
-      return new Response(
-        JSON.stringify({
+      // GraphQL spec: Always return HTTP 200, errors go in response body
+      let data: unknown
+      try {
+        data = await response.json()
+      } catch {
+        // If response is not JSON, create error response
+        const errorText = await response.text().catch(() => '')
+        console.error(`[Bazaar] Indexer returned non-JSON: ${response.status} - ${errorText.substring(0, 200)}`)
+        set.status = 200
+        set.headers['Content-Type'] = 'application/json'
+        return {
           errors: [
             {
               message: `Indexer error: ${response.status} ${response.statusText}`,
             },
           ],
-        }),
-        {
-          status: response.status,
-          headers: { 'Content-Type': 'application/json' },
-        },
-      )
+        }
+      }
+      
+      set.status = 200
+      set.headers['Content-Type'] = 'application/json'
+      
+      // If indexer returned errors, log them but still return HTTP 200
+      if (!response.ok || (typeof data === 'object' && data !== null && 'errors' in data)) {
+        const errorText = response.ok 
+          ? JSON.stringify((data as { errors?: unknown[] })?.errors || [])
+          : `HTTP ${response.status}`
+        console.error(`[Bazaar] Indexer error: ${response.status} - ${errorText.substring(0, 200)}`)
+      }
+      
+      return data
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      console.error(`[Bazaar] Indexer connection failed: ${message}`)
-
-      return new Response(
-        JSON.stringify({
-          errors: [{ message: 'Indexer temporarily unavailable' }],
-        }),
-        {
-          status: 503,
-          headers: { 'Content-Type': 'application/json' },
-        },
-      )
+      const stack = error instanceof Error ? error.stack : undefined
+      console.error(`[Bazaar] GraphQL proxy error: ${message}`)
+      if (stack && isDev) {
+        console.error(`[Bazaar] Stack:`, stack)
+      }
+      
+      set.status = 503
+      set.headers['Content-Type'] = 'application/json'
+      return {
+        errors: [{ message: 'Indexer temporarily unavailable' }],
+      }
     }
   })
 

@@ -5,6 +5,7 @@ import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {PackedUserOperation} from "account-abstraction/interfaces/PackedUserOperation.sol";
 import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
+import {IStakeManager} from "account-abstraction/interfaces/IStakeManager.sol";
 import {BasePaymaster} from "account-abstraction/core/BasePaymaster.sol";
 import {IPriceOracle} from "../interfaces/IPriceOracle.sol";
 import {ICreditManager, IServiceRegistry, ICloudServiceRegistry} from "../interfaces/IServices.sol";
@@ -134,7 +135,7 @@ contract MultiTokenPaymaster is BasePaymaster {
         address _priceOracle,
         address _revenueWallet,
         address _owner
-    ) BasePaymaster(_entryPoint) {
+    ) BasePaymaster(_entryPoint, _owner == address(0) ? msg.sender : _owner) {
         require(_usdc != address(0), "Invalid USDC");
         require(_jeju != address(0), "Invalid JEJU");
         require(_creditManager != address(0), "Invalid credit manager");
@@ -148,11 +149,6 @@ contract MultiTokenPaymaster is BasePaymaster {
         serviceRegistry = IServiceRegistry(_serviceRegistry);
         priceOracle = IPriceOracle(_priceOracle);
         revenueWallet = _revenueWallet;
-
-        address resolvedOwner = _owner == address(0) ? msg.sender : _owner;
-        if (resolvedOwner != msg.sender) {
-            _transferOwnership(resolvedOwner);
-        }
     }
 
     // ============ Core Paymaster Logic ============
@@ -340,13 +336,20 @@ contract MultiTokenPaymaster is BasePaymaster {
         maxGasCost = newMaxGasCost;
     }
 
+    /**
+     * @notice Override getDeposit to use IStakeManager for compatibility
+     */
+    function getDeposit() public view override returns (uint256) {
+        return IStakeManager(address(entryPoint())).balanceOf(address(this));
+    }
+
     function depositToEntryPoint() external payable onlyOwner {
-        entryPoint.depositTo{value: msg.value}(address(this));
+        IStakeManager(address(entryPoint())).depositTo{value: msg.value}(address(this));
         emit EntryPointFunded(msg.value);
     }
 
     function withdrawFromEntryPoint(address payable to, uint256 amount) external onlyOwner {
-        entryPoint.withdrawTo(to, amount);
+        IStakeManager(address(entryPoint())).withdrawTo(to, amount);
     }
 
     function pause() external onlyOwner {

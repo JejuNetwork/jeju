@@ -143,8 +143,8 @@ export function OAuth3Provider({
       setIsLoading(true)
       setError(null)
 
-      // Initialize decentralized discovery if enabled
-      if (config.decentralized !== false) {
+      // Initialize decentralized discovery only if explicitly enabled
+      if (config.decentralized === true) {
         await client.initialize().catch((err: Error) => {
           console.debug('OAuth3 decentralized init failed:', err.message)
         })

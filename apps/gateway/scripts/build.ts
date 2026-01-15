@@ -5,6 +5,7 @@
  * Builds frontend for production deployment with hashed filenames.
  */
 
+import { existsSync } from 'node:fs'
 import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -83,6 +84,19 @@ async function build() {
       build.onResolve({ filter: /^@jejunetwork\/token$/ }, () => ({
         path: resolve(APP_DIR, '../../packages/token/src/index.ts'),
       }))
+      build.onResolve({ filter: /^@jejunetwork\/auth$/ }, () => ({
+        path: resolve(APP_DIR, '../../packages/auth/src/index.ts'),
+      }))
+      build.onResolve({ filter: /^@jejunetwork\/auth\/react$/ }, () => ({
+        path: resolve(APP_DIR, '../../packages/auth/src/react/index.ts'),
+      }))
+      build.onResolve({ filter: /^@jejunetwork\/auth\/types$/ }, () => ({
+        path: resolve(APP_DIR, '../../packages/auth/src/types.ts'),
+      }))
+      build.onResolve({ filter: /^@jejunetwork\/auth\/(.*)$/ }, (args) => {
+        const subpath = args.path.replace('@jejunetwork/auth/', '')
+        return { path: resolve(APP_DIR, `../../packages/auth/src/${subpath}.ts`) }
+      })
     },
   }
 
@@ -191,48 +205,53 @@ async function build() {
   console.log('[Gateway] API servers built')
 
   // Build worker for workerd deployment
-  console.log('[Gateway] Building worker for DWS deployment...')
-  mkdirSync(join(outdir, 'worker'), { recursive: true })
-  const workerResult = await Bun.build({
-    entrypoints: [resolve(APP_DIR, 'api/worker.ts')],
-    outdir: join(outdir, 'worker'),
-    target: 'bun',
-    minify: true,
-    sourcemap: 'external',
-    drop: ['debugger'],
-    external: [
-      'bun:sqlite',
-      'child_process',
-      'node:child_process',
-      'node:fs',
-      'node:path',
-      'node:crypto',
-    ],
-    define: { 'process.env.NODE_ENV': JSON.stringify('production') },
-  })
+  const workerEntry = resolve(APP_DIR, 'api/worker.ts')
+  if (existsSync(workerEntry)) {
+    console.log('[Gateway] Building worker for DWS deployment...')
+    mkdirSync(join(outdir, 'worker'), { recursive: true })
+    const workerResult = await Bun.build({
+      entrypoints: [workerEntry],
+      outdir: join(outdir, 'worker'),
+      target: 'bun',
+      minify: true,
+      sourcemap: 'external',
+      drop: ['debugger'],
+      external: [
+        'bun:sqlite',
+        'child_process',
+        'node:child_process',
+        'node:fs',
+        'node:path',
+        'node:crypto',
+      ],
+      define: { 'process.env.NODE_ENV': JSON.stringify('production') },
+    })
 
-  if (!workerResult.success) {
-    console.error('[Gateway] Worker build failed:')
-    for (const log of workerResult.logs) console.error(log)
-    throw new Error('Worker build failed')
+    if (!workerResult.success) {
+      console.error('[Gateway] Worker build failed:')
+      for (const log of workerResult.logs) console.error(log)
+      throw new Error('Worker build failed')
+    }
+
+    reportBundleSizes(workerResult, 'Gateway Worker')
+
+    // Write worker metadata
+    const metadata = {
+      name: 'gateway-api',
+      version: '1.0.0',
+      entrypoint: 'worker.js',
+      compatibilityDate: '2024-01-01',
+      buildTime: new Date().toISOString(),
+      runtime: 'workerd',
+    }
+    writeFileSync(
+      join(outdir, 'worker', 'metadata.json'),
+      JSON.stringify(metadata, null, 2),
+    )
+    console.log('[Gateway] Worker built successfully')
+  } else {
+    console.log('[Gateway] No worker.ts found, skipping worker build')
   }
-
-  reportBundleSizes(workerResult, 'Gateway Worker')
-
-  // Write worker metadata
-  const metadata = {
-    name: 'gateway-api',
-    version: '1.0.0',
-    entrypoint: 'worker.js',
-    compatibilityDate: '2024-01-01',
-    buildTime: new Date().toISOString(),
-    runtime: 'workerd',
-  }
-  writeFileSync(
-    join(outdir, 'worker', 'metadata.json'),
-    JSON.stringify(metadata, null, 2),
-  )
-  console.log('[Gateway] Worker built successfully')
 
   // Find the main entry file with hash
   const mainEntry = frontendResult.outputs.find(
