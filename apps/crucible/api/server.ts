@@ -1085,7 +1085,7 @@ app.post("/api/v1/agents", async ({ body }) => {
   if (parsedBody.autonomous?.enabled) {
     if (autonomousRunner) {
       try {
-        const autonomousAgentId = `onchain-agent-${result.agentId}`;
+        const autonomousAgentId = result.agentId.toString();
 
         // Load the full character from IPFS (it was just stored during registration)
         const fullCharacter = await agentSdk.loadCharacter(result.agentId);
@@ -1101,7 +1101,7 @@ app.post("/api/v1/agents", async ({ body }) => {
           postToRoom: parsedBody.autonomous.postToRoom,
           capabilities: {
             ...DEFAULT_AUTONOMOUS_CONFIG.capabilities,
-            ...fullCharacter.capabilities,
+            ...(fullCharacter.capabilities ?? {}),
             ...parsedBody.capabilities,
           },
         });
@@ -1114,6 +1114,44 @@ app.post("/api/v1/agents", async ({ body }) => {
             parsedBody.autonomous.tickIntervalMs ??
             DEFAULT_AUTONOMOUS_CONFIG.tickIntervalMs,
         });
+
+        // Persist to database
+        try {
+          const db = getDatabase();
+          const owner = kmsSigner.isInitialized() ? kmsSigner.getAddress() : result.vaultAddress;
+          await db.createAgent({
+            agentId: autonomousAgentId,
+            name: fullCharacter.name,
+            owner,
+            characterCid: result.characterCid,
+            autonomousConfig: {
+              tickIntervalMs:
+                parsedBody.autonomous.tickIntervalMs ??
+                DEFAULT_AUTONOMOUS_CONFIG.tickIntervalMs,
+              capabilities: {
+                ...DEFAULT_AUTONOMOUS_CONFIG.capabilities,
+                ...(fullCharacter.capabilities ?? {}),
+                ...parsedBody.capabilities,
+              },
+              maxActionsPerTick: DEFAULT_AUTONOMOUS_CONFIG.maxActionsPerTick,
+              watchRoom: parsedBody.autonomous.watchRoom,
+              postToRoom: parsedBody.autonomous.postToRoom,
+            },
+            runtimeState: {
+              previous_tick: 0,
+              last_tick: 0,
+              last_scheduled_run: 0,
+            },
+            enabled: true,
+          });
+          log.info("Persisted autonomous agent to database", { agentId: autonomousAgentId });
+        } catch (err) {
+          log.error("Failed to persist autonomous agent to database", {
+            agentId: autonomousAgentId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+          // Continue - agent runs in-memory only
+        }
       } catch (err) {
         // Log error but don't fail the registration - agent is already on-chain
         log.error("Failed to register agent for autonomous mode", {
@@ -1138,82 +1176,187 @@ app.post("/api/v1/agents", async ({ body }) => {
   };
 });
 
-app.get("/api/v1/agents/:agentId", async ({ params }) => {
-  const parsedParams = parseOrThrow(
-    AgentIdParamSchema,
-    params,
-    "Agent ID parameter",
-  );
-  const agentId = BigInt(parsedParams.agentId);
-  const agent = await agentSdk.getAgent(agentId);
-  const validAgent = expect(agent, `Agent not found: ${parsedParams.agentId}`);
+app.get("/api/v1/agents/:agentId", async ({ params, set }) => {
+  const agentIdParam = params.agentId;
 
-  // Load capabilities from character if available
-  let capabilities = validAgent.capabilities;
-  if (validAgent.characterCid && !capabilities) {
+  // Check if this is a numeric (on-chain) or string (autonomous) agent ID
+  const isNumeric = /^\d+$/.test(agentIdParam);
+
+  if (isNumeric) {
+    // On-chain agent - include persisted autonomous config if present
+    const parsedParams = parseOrThrow(
+      AgentIdParamSchema,
+      params,
+      "Agent ID parameter",
+    );
+    const agentId = BigInt(parsedParams.agentId);
+    const agent = await agentSdk.getAgent(agentId);
+    const validAgent = expect(agent, `Agent not found: ${parsedParams.agentId}`);
+
+    const db = getDatabase();
+    const dbAgent = await db.getAgent(parsedParams.agentId);
+    const autonomousConfig = JSON.parse(dbAgent?.autonomous_config ?? "{}");
+    const runtimeState = JSON.parse(dbAgent?.runtime_state ?? "{}");
+
+    let character: AgentCharacter | null = null;
     try {
-      const character = await agentSdk.loadCharacter(agentId);
-      capabilities = character.capabilities ?? undefined;
+      character = await agentSdk.loadCharacter(agentId);
     } catch {
-      // Character load failed, continue without capabilities
+      // Character load failed, continue without character metadata
     }
+
+    const resolvedCapabilities =
+      autonomousConfig.capabilities ??
+      character?.capabilities ??
+      validAgent.capabilities ??
+      undefined;
+
+    // Check if agent is running in autonomous mode
+    const autonomousStatus = autonomousRunner?.getStatus();
+    const autonomousAgent = autonomousStatus?.agents.find(
+      (a) =>
+        a.id === parsedParams.agentId ||
+        a.id === `onchain-agent-${parsedParams.agentId}`,
+    );
+    const isAutonomous = dbAgent ? dbAgent.enabled === 1 : !!autonomousAgent;
+    const tickIntervalMs =
+      autonomousAgent?.tickIntervalMs ?? autonomousConfig.tickIntervalMs;
+    const tickCount =
+      autonomousAgent?.tickCount ?? runtimeState.tick_count ?? 0;
+
+    return {
+      agent: {
+        ...validAgent,
+        agentId: validAgent.agentId.toString(),
+        capabilities: resolvedCapabilities,
+        isAutonomous,
+        tickIntervalMs,
+        tickCount,
+      },
+    };
+  } else {
+    // Autonomous agent - fetch from database
+    const db = getDatabase();
+    const dbAgent = await db.getAgent(agentIdParam);
+
+    if (!dbAgent) {
+      set.status = 404;
+      return { error: `Agent not found: ${agentIdParam}` };
+    }
+
+    // Parse autonomous config
+    const autonomousConfig = JSON.parse(dbAgent.autonomous_config ?? '{}');
+    const runtimeState = JSON.parse(dbAgent.runtime_state ?? '{}');
+
+    // Load character
+    const characterId = dbAgent.character_cid;
+    const character = characterId ? getCharacter(characterId) : null;
+
+    // Check autonomous status
+    const autonomousStatus = autonomousRunner?.getStatus();
+    const autonomousAgent = autonomousStatus?.agents.find(
+      (a) => a.id === agentIdParam,
+    );
+    const isAutonomous = dbAgent.enabled === 1;
+
+    return {
+      agent: {
+        agentId: dbAgent.agent_id,
+        name: dbAgent.name,
+        owner: dbAgent.owner,
+        characterCid: dbAgent.character_cid,
+        capabilities: autonomousConfig.capabilities ?? {},
+        isAutonomous,
+        tickIntervalMs: autonomousConfig.tickIntervalMs,
+        tickCount: runtimeState.tick_count ?? 0,
+        botType: 'ai_agent' as const,
+        character: character ? {
+          id: character.id,
+          name: character.name,
+          description: character.description,
+          system: character.system,
+        } : undefined,
+      },
+    };
   }
-
-  // Check if agent is running in autonomous mode
-  const autonomousAgentId = `onchain-agent-${parsedParams.agentId}`;
-  const autonomousStatus = autonomousRunner?.getStatus();
-  const autonomousAgent = autonomousStatus?.agents.find(
-    (a) => a.id === autonomousAgentId,
-  );
-  const isAutonomous = !!autonomousAgent;
-  const tickIntervalMs = autonomousAgent?.tickIntervalMs;
-
-  return {
-    agent: {
-      ...validAgent,
-      agentId: validAgent.agentId.toString(),
-      capabilities,
-      isAutonomous,
-      tickIntervalMs,
-    },
-  };
 });
 
 app.get("/api/v1/agents/:agentId/character", async ({ params, set }) => {
-  const parsedParams = parseOrThrow(
-    AgentIdParamSchema,
-    params,
-    "Agent ID parameter",
-  );
-  try {
-    const character = await agentSdk.loadCharacter(
-      BigInt(parsedParams.agentId),
+  const agentIdParam = params.agentId;
+  const isNumeric = /^\d+$/.test(agentIdParam);
+
+  if (isNumeric) {
+    // On-chain agent - load from chain
+    const parsedParams = parseOrThrow(
+      AgentIdParamSchema,
+      params,
+      "Agent ID parameter",
     );
+    try {
+      const character = await agentSdk.loadCharacter(
+        BigInt(parsedParams.agentId),
+      );
+      return { character };
+    } catch (error) {
+      set.status = 404;
+      return { error: String(error) };
+    }
+  } else {
+    // Autonomous agent - load from character registry
+    const db = getDatabase();
+    const dbAgent = await db.getAgent(agentIdParam);
+
+    if (!dbAgent || !dbAgent.character_cid) {
+      set.status = 404;
+      return { error: `Character not found for agent: ${agentIdParam}` };
+    }
+
+    const character = getCharacter(dbAgent.character_cid);
+    if (!character) {
+      set.status = 404;
+      return { error: `Character not found: ${dbAgent.character_cid}` };
+    }
+
     return { character };
-  } catch (error) {
-    set.status = 404;
-    return { error: String(error) };
   }
 });
 
-app.get("/api/v1/agents/:agentId/state", async ({ params }) => {
-  const parsedParams = parseOrThrow(
-    AgentIdParamSchema,
-    params,
-    "Agent ID parameter",
-  );
-  const state = await agentSdk.loadState(BigInt(parsedParams.agentId));
-  return { state };
+app.get("/api/v1/agents/:agentId/state", async ({ params, set }) => {
+  const agentIdParam = params.agentId;
+  const isNumeric = /^\d+$/.test(agentIdParam);
+
+  if (isNumeric) {
+    // On-chain agent - load state from chain
+    const parsedParams = parseOrThrow(
+      AgentIdParamSchema,
+      params,
+      "Agent ID parameter",
+    );
+    const state = await agentSdk.loadState(BigInt(parsedParams.agentId));
+    return { state };
+  } else {
+    // Autonomous agent - no on-chain state
+    return { state: null };
+  }
 });
 
 app.get("/api/v1/agents/:agentId/balance", async ({ params }) => {
-  const parsedParams = parseOrThrow(
-    AgentIdParamSchema,
-    params,
-    "Agent ID parameter",
-  );
-  const balance = await agentSdk.getVaultBalance(BigInt(parsedParams.agentId));
-  return { balance: balance.toString() };
+  const agentIdParam = params.agentId;
+  const isNumeric = /^\d+$/.test(agentIdParam);
+
+  if (isNumeric) {
+    // On-chain agent - get vault balance
+    const parsedParams = parseOrThrow(
+      AgentIdParamSchema,
+      params,
+      "Agent ID parameter",
+    );
+    const balance = await agentSdk.getVaultBalance(BigInt(parsedParams.agentId));
+    return { balance: balance.toString() };
+  } else {
+    // Autonomous agent - no on-chain vault
+    return { balance: "0" };
+  }
 });
 
 app.post("/api/v1/agents/:agentId/fund", async ({ params, body, set }) => {
@@ -1304,7 +1447,7 @@ app.post(
       return { error: `Agent not found: ${parsedParams.agentId}` };
     }
 
-    const autonomousAgentId = `onchain-agent-${parsedParams.agentId}`;
+    const autonomousAgentId = parsedParams.agentId;
 
     if (parsedBody.enabled) {
       // Load character from IPFS
@@ -1318,20 +1461,39 @@ app.post(
         };
       }
 
+      const db = getDatabase();
+      const existing = await db.getAgent(autonomousAgentId);
+      const persistedConfig = JSON.parse(
+        existing?.autonomous_config ?? "{}",
+      );
+      const { enabled: _ignored, ...defaultConfig } = DEFAULT_AUTONOMOUS_CONFIG;
+      const baseConfig = {
+        ...defaultConfig,
+        ...persistedConfig,
+      };
+      const mergedCapabilities = {
+        ...defaultConfig.capabilities,
+        ...(character.capabilities ?? {}),
+        ...(baseConfig.capabilities ?? {}),
+        ...(parsedBody.capabilities ?? {}),
+      };
+      const autonomousConfig = {
+        ...baseConfig,
+        tickIntervalMs:
+          parsedBody.tickIntervalMs ?? baseConfig.tickIntervalMs,
+        watchRoom: parsedBody.watchRoom ?? baseConfig.watchRoom,
+        postToRoom: parsedBody.postToRoom ?? baseConfig.postToRoom,
+        capabilities: mergedCapabilities,
+      };
+
       // Register agent with autonomous runner
       try {
         await autonomousRunner.registerAgent({
           ...DEFAULT_AUTONOMOUS_CONFIG,
           agentId: autonomousAgentId,
           character,
-          tickIntervalMs: parsedBody.tickIntervalMs ?? DEFAULT_AUTONOMOUS_CONFIG.tickIntervalMs,
-          watchRoom: parsedBody.watchRoom,
-          postToRoom: parsedBody.postToRoom,
-          capabilities: {
-            ...DEFAULT_AUTONOMOUS_CONFIG.capabilities,
-            ...character.capabilities,
-            ...parsedBody.capabilities,
-          },
+          ...autonomousConfig,
+          enabled: true,
         });
 
         log.info("On-chain agent registered for autonomous mode", {
@@ -1339,6 +1501,36 @@ app.post(
           autonomousAgentId,
           characterName: character.name,
         });
+
+        // Persist to database
+        try {
+          if (!existing) {
+            await db.createAgent({
+              agentId: autonomousAgentId,
+              name: character.name,
+              owner: agent.owner,
+              characterCid: agent.characterCid,
+              autonomousConfig,
+              runtimeState: {
+                previous_tick: 0,
+                last_tick: 0,
+                last_scheduled_run: 0,
+              },
+              enabled: true,
+            });
+          } else {
+            await db.updateAgent(autonomousAgentId, {
+              autonomousConfig,
+              enabled: true,
+            });
+          }
+          log.info("Persisted autonomous toggle to database", { agentId: autonomousAgentId, enabled: true });
+        } catch (err) {
+          log.error("Failed to persist autonomous toggle", {
+            agentId: autonomousAgentId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
 
         return {
           success: true,
@@ -1359,6 +1551,18 @@ app.post(
         agentId: parsedParams.agentId,
         autonomousAgentId,
       });
+
+      // Persist to database
+      try {
+        const db = getDatabase();
+        await db.updateAgent(autonomousAgentId, { enabled: false });
+        log.info("Persisted autonomous disable to database", { agentId: autonomousAgentId });
+      } catch (err) {
+        log.error("Failed to persist autonomous disable", {
+          agentId: autonomousAgentId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
 
       return {
         success: true,
@@ -1898,7 +2102,6 @@ if (crucibleConfig.autonomousEnabled && !autonomousRunner) {
 
           // Ensure coordination rooms exist for agent communication
           try {
-            const { getDatabase } = await import("./sdk/database");
             const db = getDatabase();
             for (const room of COORDINATION_ROOMS) {
               const existingRoom = await db.getRoom(room.id);
@@ -1917,33 +2120,75 @@ if (crucibleConfig.autonomousEnabled && !autonomousRunner) {
             });
           }
 
-          // Register agents from AUTONOMOUS_AGENTS config (single source of truth)
-          for (const [characterId, overrides] of Object.entries(
-            AUTONOMOUS_AGENTS,
-          )) {
-            const character = getCharacter(characterId);
+          // Load enabled agents from DB and register
+          const db = getDatabase();
+          const enabledAgents = await db.listAgents({ enabled: 1 });
+
+          log.info("Loading autonomous agents from database", {
+            count: enabledAgents.length,
+          });
+
+          for (const dbAgent of enabledAgents) {
+            const agentId = dbAgent.agent_id;
+            let character = null;
+
+            if (/^\d+$/.test(agentId)) {
+              try {
+                character = await agentSdk.loadCharacter(BigInt(agentId));
+              } catch (err) {
+                log.warn("Failed to load on-chain character", {
+                  agentId,
+                  error: err instanceof Error ? err.message : String(err),
+                });
+              }
+            } else {
+              const characterId = dbAgent.character_cid;
+              character = characterId ? getCharacter(characterId) : null;
+            }
+
             if (!character) {
-              log.warn("[autonomous] Character not found", { characterId });
+              log.warn("Character not found for agent", {
+                agentId,
+                characterId: dbAgent.character_cid,
+              });
               continue;
             }
 
             try {
+              const config = JSON.parse(dbAgent.autonomous_config ?? "{}");
+              const runtime = JSON.parse(dbAgent.runtime_state ?? "{}");
+
               await autonomousRunner?.registerAgent({
-                ...DEFAULT_AUTONOMOUS_CONFIG,
-                agentId: `autonomous-${characterId}`,
+                agentId,
                 character,
-                ...overrides,
-                capabilities: {
-                  ...DEFAULT_AUTONOMOUS_CONFIG.capabilities,
-                  ...overrides.capabilities,
-                },
+                tickIntervalMs:
+                  config.tickIntervalMs ??
+                  DEFAULT_AUTONOMOUS_CONFIG.tickIntervalMs,
+                capabilities:
+                  config.capabilities ?? DEFAULT_AUTONOMOUS_CONFIG.capabilities,
+                maxActionsPerTick:
+                  config.maxActionsPerTick ??
+                  DEFAULT_AUTONOMOUS_CONFIG.maxActionsPerTick,
+                enabled: dbAgent.enabled === 1,
+                watchRoom: config.watchRoom,
+                postToRoom: config.postToRoom,
+                schedule: config.schedule,
+                urgencyTriggers: config.urgencyTriggers,
+                executionMode: config.executionMode,
+                codeFirstConfig: config.codeFirstConfig,
+                // Restore runtime state
+                lastTick: runtime.last_tick ?? 0,
+                previousTick: runtime.previous_tick ?? 0,
+                lastScheduledRun: runtime.last_scheduled_run ?? 0,
               });
-              log.info("Auto-registered autonomous agent", {
-                agentId: characterId,
+
+              log.info("Restored autonomous agent from DB", {
+                agentId,
+                character: character.name,
               });
             } catch (err) {
-              log.warn("Failed to auto-register agent", {
-                agentId: characterId,
+              log.warn("Failed to restore agent from DB", {
+                agentId,
                 error: err instanceof Error ? err.message : String(err),
               });
             }
@@ -1996,14 +2241,14 @@ app.get("/api/v1/autonomous/activity", ({ query }) => {
   const uptimeMs = Date.now() - metrics.startTime;
 
   // Optional filter by agentId
-  // Supports: "5" -> "onchain-agent-5", "onchain-agent-5", "autonomous-infra-monitor", "infra-monitor" -> "autonomous-infra-monitor"
+  // Supports: "5" -> "5", "onchain-agent-5" (legacy), "autonomous-infra-monitor", "infra-monitor" -> "autonomous-infra-monitor"
   const agentIdFilter = query.agentId as string | undefined;
   let filteredAgents = status.agents;
   if (agentIdFilter) {
     filteredAgents = status.agents.filter((a) => {
       // Exact match
       if (a.id === agentIdFilter) return true;
-      // Match with onchain-agent- prefix (for numeric IDs)
+      // Match with onchain-agent- prefix (legacy)
       if (a.id === `onchain-agent-${agentIdFilter}`) return true;
       // Match with autonomous- prefix (for built-in agents)
       if (a.id === `autonomous-${agentIdFilter}`) return true;

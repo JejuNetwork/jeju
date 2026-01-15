@@ -43,6 +43,9 @@ export interface Agent {
   owner: string
   character_cid: string | null
   state_cid: string | null
+  autonomous_config: string | null
+  runtime_state: string | null
+  enabled: number
   created_at: number
   updated_at: number
 }
@@ -215,6 +218,38 @@ export class CrucibleDatabase {
       'exec',
       `CREATE INDEX IF NOT EXISTS idx_triggers_agent ON triggers(agent_id)`,
     )
+
+    // Try to add Phase 2 columns (may already exist)
+    try {
+      await this.fetchQuery(
+        'exec',
+        `ALTER TABLE agents ADD COLUMN autonomous_config TEXT`,
+      )
+    } catch (err) {
+      // Column may already exist, ignore
+    }
+    try {
+      await this.fetchQuery(
+        'exec',
+        `ALTER TABLE agents ADD COLUMN runtime_state TEXT`,
+      )
+    } catch (err) {
+      // Column may already exist, ignore
+    }
+    try {
+      await this.fetchQuery(
+        'exec',
+        `ALTER TABLE agents ADD COLUMN enabled INTEGER DEFAULT 0`,
+      )
+    } catch (err) {
+      // Column may already exist, ignore
+    }
+
+    // Create index for enabled agents
+    await this.fetchQuery(
+      'exec',
+      `CREATE INDEX IF NOT EXISTS idx_agents_enabled ON agents(enabled)`,
+    )
   }
 
   /**
@@ -332,15 +367,21 @@ export class CrucibleDatabase {
     owner: string
     characterCid?: string
     stateCid?: string
+    autonomousConfig?: object
+    runtimeState?: object
+    enabled?: boolean
   }): Promise<Agent | null> {
     await this.exec(
-      `INSERT INTO agents (agent_id, name, owner, character_cid, state_cid) VALUES (?, ?, ?, ?, ?)`,
+      `INSERT INTO agents (agent_id, name, owner, character_cid, state_cid, autonomous_config, runtime_state, enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         data.agentId,
         data.name,
         data.owner,
         data.characterCid ?? null,
         data.stateCid ?? null,
+        data.autonomousConfig ? JSON.stringify(data.autonomousConfig) : null,
+        data.runtimeState ? JSON.stringify(data.runtimeState) : null,
+        data.enabled ? 1 : 0,
       ],
     )
 
@@ -365,6 +406,9 @@ export class CrucibleDatabase {
       name: string
       characterCid: string
       stateCid: string
+      autonomousConfig: object
+      runtimeState: object
+      enabled: boolean
     }>,
   ): Promise<void> {
     const sets: string[] = []
@@ -382,6 +426,18 @@ export class CrucibleDatabase {
       sets.push('state_cid = ?')
       values.push(updates.stateCid)
     }
+    if (updates.autonomousConfig !== undefined) {
+      sets.push('autonomous_config = ?')
+      values.push(JSON.stringify(updates.autonomousConfig))
+    }
+    if (updates.runtimeState !== undefined) {
+      sets.push('runtime_state = ?')
+      values.push(JSON.stringify(updates.runtimeState))
+    }
+    if (updates.enabled !== undefined) {
+      sets.push('enabled = ?')
+      values.push(updates.enabled ? 1 : 0)
+    }
 
     if (sets.length > 0) {
       sets.push("updated_at = strftime('%s', 'now')")
@@ -394,14 +450,28 @@ export class CrucibleDatabase {
   }
 
   async listAgents(
-    options: { owner?: string; limit?: number; offset?: number } = {},
+    options: {
+      owner?: string
+      enabled?: number
+      limit?: number
+      offset?: number
+    } = {},
   ): Promise<Agent[]> {
     let sql = 'SELECT * FROM agents'
     const values: unknown[] = []
+    const conditions: string[] = []
 
     if (options.owner) {
-      sql += ' WHERE owner = ?'
+      conditions.push('owner = ?')
       values.push(options.owner)
+    }
+    if (options.enabled !== undefined) {
+      conditions.push('enabled = ?')
+      values.push(options.enabled)
+    }
+
+    if (conditions.length > 0) {
+      sql += ' WHERE ' + conditions.join(' AND ')
     }
 
     sql += ' ORDER BY created_at DESC'

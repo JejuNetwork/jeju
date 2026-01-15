@@ -73,6 +73,31 @@ export const AUTONOMOUS_AGENTS: Record<string, AutonomousAgentOverrides> = {
     },
     capabilities: { canChat: true, a2a: false, canTrade: false, canPropose: false, canVote: false, canDelegate: false, canStake: false, canBridge: false, compute: true },
   },
+  // Test agents for capability showcase (localnet bootstrap)
+  'test-trader': {
+    postToRoom: 'capability-demos',
+    tickIntervalMs: 300000, // 5 minutes (infrequent for demo)
+    executionMode: 'llm-driven',
+    capabilities: { canChat: true, canTrade: true, a2a: false, compute: false, canVote: false, canPropose: false, canDelegate: false, canStake: false, canBridge: false },
+  },
+  'test-coordinator': {
+    postToRoom: 'capability-demos',
+    tickIntervalMs: 300000, // 5 minutes
+    executionMode: 'llm-driven',
+    capabilities: { canChat: true, canTrade: false, a2a: true, compute: false, canVote: false, canPropose: false, canDelegate: false, canStake: false, canBridge: false },
+  },
+  'test-voter': {
+    postToRoom: 'capability-demos',
+    tickIntervalMs: 300000, // 5 minutes
+    executionMode: 'llm-driven',
+    capabilities: { canChat: true, canTrade: false, a2a: false, compute: false, canVote: true, canPropose: false, canDelegate: false, canStake: false, canBridge: false },
+  },
+  'test-computer': {
+    postToRoom: 'capability-demos',
+    schedule: '*/2 * * * *', // Every 2 minutes (cron-based for testing)
+    executionMode: 'llm-driven',
+    capabilities: { canChat: true, canTrade: false, a2a: false, compute: true, canVote: false, canPropose: false, canDelegate: false, canStake: false, canBridge: false },
+  },
 }
 
 export function getCharacter(id: string): AgentCharacter | null {

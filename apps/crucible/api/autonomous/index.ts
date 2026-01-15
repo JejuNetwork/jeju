@@ -45,6 +45,14 @@ export interface ExtendedAgentConfig extends AutonomousAgentConfig {
   archetype?: string
   /** Enable trajectory recording for this agent */
   recordTrajectories?: boolean
+  /** Initial runtime state from DB */
+  initialTickCount?: number
+  lastTick?: number
+  previousTick?: number
+  errorCount?: number
+  backoffMs?: number
+  lastScheduledRun?: number
+  lastError?: string | null
 }
 
 interface RegisteredAgent {
@@ -193,16 +201,17 @@ export class AutonomousAgentRunner {
     const agent: RegisteredAgent = {
       config,
       runtime: null,
-      lastTick: 0,
-      previousTick: 0,
-      tickCount: 0,
-      errorCount: 0,
-      lastError: null,
-      backoffMs: 0,
+      // Restore runtime state from DB if provided, otherwise use defaults
+      lastTick: config.lastTick ?? 0,
+      previousTick: config.previousTick ?? 0,
+      tickCount: config.initialTickCount ?? 0,
+      errorCount: config.errorCount ?? 0,
+      lastError: config.lastError ?? null,
+      backoffMs: config.backoffMs ?? 0,
       intervalId: null,
       recentActivity: [],
       currentTrajectoryId: null,
-      lastScheduledRun: 0,
+      lastScheduledRun: config.lastScheduledRun ?? 0,
       cronJob,
     }
 
@@ -212,6 +221,10 @@ export class AutonomousAgentRunner {
       character: config.character.name,
       archetype: config.archetype ?? 'default',
       recordTrajectories: config.recordTrajectories ?? true,
+      restoredTickCount: agent.tickCount,
+      restoredLastTick: agent.lastTick,
+      restoredPreviousTick: agent.previousTick,
+      restoredLastScheduledRun: agent.lastScheduledRun,
     })
 
     if (this.running) {
@@ -271,10 +284,43 @@ export class AutonomousAgentRunner {
   }
 
   /**
-   * Execute a single tick for all enabled agents.
-   * Used by cron to trigger immediate execution.
+   * Persist agent runtime state to database (best effort).
+   * Failures are logged but don't fail the tick.
    */
-  async executeAllAgentsTick(): Promise<{
+  private async persistAgentState(
+    agentId: string,
+    agent: RegisteredAgent,
+  ): Promise<void> {
+    try {
+      const db = getDatabase()
+      await db.updateAgent(agentId, {
+        runtimeState: {
+          previous_tick: agent.previousTick,
+          last_tick: agent.lastTick,
+          last_scheduled_run: agent.lastScheduledRun,
+        },
+      })
+      log.debug('Persisted agent state to DB', {
+        agentId,
+        lastTick: agent.lastTick,
+        previousTick: agent.previousTick,
+        lastScheduledRun: agent.lastScheduledRun,
+      })
+    } catch (error) {
+      log.error('Failed to persist agent state - continuing with in-memory only', {
+        agentId,
+        error: error instanceof Error ? error.message : String(error),
+      })
+      // Don't throw - agent continues running with in-memory state
+    }
+  }
+
+  /**
+   * Execute a single tick for enabled agents.
+   * mode=cron runs only scheduled agents that are due.
+   * mode=manual runs all enabled agents without schedule checks.
+   */
+  async executeAllAgentsTick(options: { mode?: 'cron' | 'manual' } = {}): Promise<{
     executed: number
     succeeded: number
     failed: number
@@ -286,6 +332,7 @@ export class AutonomousAgentRunner {
       latencyMs: number
     }>
   }> {
+    const mode = options.mode ?? 'cron'
     const results: Array<{
       agentId: string
       success: boolean
@@ -296,6 +343,15 @@ export class AutonomousAgentRunner {
 
     for (const [agentId, agent] of this.agents) {
       if (!agent.config.enabled) continue
+
+      if (mode === 'cron') {
+        if (!agent.cronJob) continue
+        const previousRun = agent.cronJob.previousRun()
+        if (!previousRun) continue
+        const previousRunMs = previousRun.getTime()
+        if (previousRunMs <= agent.lastScheduledRun) continue
+        agent.lastScheduledRun = previousRunMs
+      }
 
       const startTime = Date.now()
 
@@ -402,6 +458,7 @@ export class AutonomousAgentRunner {
     agent: RegisteredAgent,
   ): Promise<{ reward: number }> {
     const agentId = agent.config.agentId
+
     agent.previousTick = agent.lastTick
     agent.lastTick = Date.now()
     agent.tickCount++
@@ -454,6 +511,9 @@ export class AutonomousAgentRunner {
         })
         agent.currentTrajectoryId = null
       }
+
+      // Persist runtime state to DB (best effort)
+      await this.persistAgentState(agentId, agent)
     }
 
     return { reward: totalReward }
@@ -490,7 +550,7 @@ export class AutonomousAgentRunner {
       // Agents with cron schedules should NOT run in the interval loop
       // They are triggered externally via /api/cron/agent-tick or /api/cron/agent-tick-once
       if (agent.cronJob) {
-        log.debug('Schedule skip: agent has cron schedule, use /api/cron/agent-tick-once to trigger', {
+        log.debug('Schedule skip: agent has cron schedule, use /api/cron/agent-tick or /api/cron/agent-tick-once to trigger', {
           agentId,
           schedule: agent.config.schedule ?? null,
           nextRun: agent.cronJob.nextRun()?.toISOString() ?? 'none',
@@ -562,6 +622,9 @@ export class AutonomousAgentRunner {
         })
         agent.currentTrajectoryId = null
       }
+
+      // Persist runtime state to DB (best effort)
+      await this.persistAgentState(agentId, agent)
     }
 
     // Run first tick immediately

@@ -197,8 +197,10 @@ export const cronRoutes = new Elysia({ prefix: '/api/cron' })
         await autonomousRunner.start()
       }
 
-      // Execute ticks for all agents immediately
-      const tickResults = await autonomousRunner.executeAllAgentsTick()
+      // Execute ticks for scheduled agents
+      const tickResults = await autonomousRunner.executeAllAgentsTick({
+        mode: 'cron',
+      })
 
       const trajStats = autonomousRunner.getTrajectoryStats()
       const duration = Date.now() - startTime
@@ -296,22 +298,20 @@ export const cronRoutes = new Elysia({ prefix: '/api/cron' })
 
             if (onChainAgent && onChainAgent.characterCid) {
               const character = await agentSdk.loadCharacter(numericId)
-              const autonomousAgentId = `onchain-agent-${agentId}`
-
               // Register for this session (persists until process restart)
               await autonomousRunner.registerAgent({
                 ...DEFAULT_AUTONOMOUS_CONFIG,
-                agentId: autonomousAgentId,
+                agentId,
                 character,
                 tickIntervalMs: 60_000,
                 capabilities: {
                   ...DEFAULT_AUTONOMOUS_CONFIG.capabilities,
-                  ...character.capabilities,
+                  ...(character.capabilities ?? {}),
                 },
               })
 
-              log.info('Agent registered, executing tick', { agentId, autonomousAgentId })
-              result = await autonomousRunner.executeAgentTickById(autonomousAgentId)
+              log.info('Agent registered, executing tick', { agentId })
+              result = await autonomousRunner.executeAgentTickById(agentId)
             } else {
               result = {
                 success: false,
@@ -375,7 +375,9 @@ export const cronRoutes = new Elysia({ prefix: '/api/cron' })
         runnerRunning: status.running,
       })
 
-      const tickResults = await autonomousRunner.executeAllAgentsTick()
+      const tickResults = await autonomousRunner.executeAllAgentsTick({
+        mode: 'manual',
+      })
       const duration = Date.now() - startTime
 
       log.info('One-shot agent tick completed', {
