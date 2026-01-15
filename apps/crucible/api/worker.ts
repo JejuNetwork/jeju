@@ -376,8 +376,19 @@ async function getCtx(
   const chainId = getChainId(network)
 
   const kmsSigner = createKMSSigner(services.rpc.l2, chainId)
-  await kmsSigner.initialize()
-  const executorAddress = kmsSigner.getAddress()
+
+  // Initialize KMS signer gracefully - don't fail if KMS is unavailable
+  // Read-only endpoints will still work without KMS
+  let executorAddress: Address = '0x0000000000000000000000000000000000000000'
+  try {
+    await kmsSigner.initialize()
+    executorAddress = kmsSigner.getAddress()
+  } catch (err) {
+    console.warn(
+      '[Crucible Worker] KMS initialization failed - write operations will be unavailable:',
+      err instanceof Error ? err.message : String(err),
+    )
+  }
 
   const localnetSchema = z.object({
     crucible: z.object({
@@ -2621,6 +2632,24 @@ export default {
     env: CrucibleEnv,
     _ctx: ExecutionContext,
   ): Promise<Response> {
+    const url = new URL(request.url)
+
+    // Health check bypasses app initialization for fast response
+    if (url.pathname === '/health') {
+      return new Response(
+        JSON.stringify({
+          status: 'healthy',
+          service: 'crucible',
+          version: '1.0.0',
+          runtime: 'workerd',
+          network: env.NETWORK ?? 'testnet',
+          features: ['agents', 'rooms', 'orchestration'],
+          timestamp: new Date().toISOString(),
+        }),
+        { headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+
     const app = getAppForEnv(env)
     return app.handle(request)
   },

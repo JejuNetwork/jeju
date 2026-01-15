@@ -190,9 +190,23 @@ export function createOttoApp(env?: Partial<OttoEnv>) {
   const app = new Elysia()
     .use(corsPlugin)
 
-    // Health check - fast response with optional service status
-    .get('/health', async () => {
-      // Return immediately with basic health, check services with timeout
+    // Health check - instant response, no service initialization
+    .get('/health', () => ({
+      status: 'ok',
+      service: 'otto-agent',
+      agent: 'otto',
+      version: '1.0.0',
+      runtime: 'workerd',
+      network,
+      jns: {
+        name: 'otto.jeju',
+        routing: 'active',
+      },
+      timestamp: new Date().toISOString(),
+    }))
+
+    // Detailed health check with service status (use /health/detailed for diagnostics)
+    .get('/health/detailed', async () => {
       const timeout = <T>(promise: Promise<T>, ms: number): Promise<T | null> =>
         Promise.race([
           promise,

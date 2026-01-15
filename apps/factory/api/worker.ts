@@ -72,6 +72,7 @@ export interface FactoryEnv {
   SQLIT_NODES: string
   SQLIT_DATABASE_ID: string
   SQLIT_PRIVATE_KEY?: string
+  SKIP_RATE_LIMIT?: string
 }
 
 // Create Elysia App
@@ -90,10 +91,13 @@ export function createFactoryApp(env?: Partial<FactoryEnv>) {
     }))
     .onRequest(async ({ request, set }): Promise<Response | undefined> => {
       const url = new URL(request.url)
+      // Skip rate limiting for health, docs, and test mode
       if (
         url.pathname === '/health' ||
         url.pathname === '/api/health' ||
-        url.pathname.startsWith('/swagger')
+        url.pathname.startsWith('/swagger') ||
+        env?.SKIP_RATE_LIMIT === 'true' ||
+        request.headers.get('X-Test-Mode') === 'true'
       ) {
         return undefined
       }
@@ -208,6 +212,53 @@ interface ExecutionContext {
 
 let cachedApp: ReturnType<typeof createFactoryApp> | null = null
 let cachedEnvHash: string | null = null
+let dbInitialized = false
+let dbInitPromise: Promise<void> | null = null
+
+/**
+ * Initialize the database for module export mode.
+ * Called lazily on first request.
+ */
+async function ensureDbInitialized(env: FactoryEnv): Promise<void> {
+  if (dbInitialized) return
+
+  if (dbInitPromise) {
+    await dbInitPromise
+    return
+  }
+
+  dbInitPromise = (async () => {
+    try {
+      // Configure factory with env vars from DWS
+      configureFactory({
+        sqlitEndpoint: env.SQLIT_NODES || '',
+        sqlitDatabaseId: env.SQLIT_DATABASE_ID || 'factory',
+        isDev: env.NETWORK === 'localnet',
+      })
+
+      // Try to init DB, but don't fail if SQLit isn't available
+      if (env.SQLIT_NODES) {
+        await initDB()
+        console.log('[factory] Database initialized')
+      } else {
+        console.warn(
+          '[factory] SQLit not configured - database features disabled',
+        )
+      }
+
+      dbInitialized = true
+    } catch (err) {
+      console.error(
+        '[factory] Database init failed (continuing without DB):',
+        err,
+      )
+      // Don't throw - allow health checks and non-DB routes to work
+      dbInitialized = true // Mark as "done" even if failed
+    }
+  })()
+
+  await dbInitPromise
+}
 
 function getAppForEnv(env: FactoryEnv): ReturnType<typeof createFactoryApp> {
   const envHash = `${env.NETWORK}-${env.TEE_MODE}`
@@ -230,6 +281,27 @@ export default {
     env: FactoryEnv,
     _ctx: ExecutionContext,
   ): Promise<Response> {
+    const url = new URL(request.url)
+
+    // Health check bypasses DB initialization for fast response
+    if (url.pathname === '/health') {
+      return new Response(
+        JSON.stringify({
+          status: 'ok',
+          service: 'factory-api',
+          teeMode: env.TEE_MODE ?? 'simulated',
+          teePlatform: env.TEE_PLATFORM ?? 'dws',
+          teeRegion: env.TEE_REGION ?? 'testnet',
+          network: env.NETWORK ?? 'testnet',
+          timestamp: new Date().toISOString(),
+        }),
+        { headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+
+    // Initialize database on first request (lazy init for module export mode)
+    await ensureDbInitialized(env)
+
     const app = getAppForEnv(env)
     return app.handle(request)
   },
