@@ -43,9 +43,9 @@
       "ui": "http://127.0.0.1:4005"
     },
     "monitoring": {
-      "api": "http://127.0.0.1:4060",
+      "api": "http://127.0.0.1:3002",
       "prometheus": "http://127.0.0.1:9090",
-      "grafana": "http://127.0.0.1:3000"
+      "grafana": "http://127.0.0.1:4010"
     },
     "crucible": {
       "api": "http://127.0.0.1:4020",
@@ -241,8 +241,8 @@
       "psyche": "https://psyche.testnet.jejunetwork.org"
     },
     "ipfs": {
-      "api": "https://dws.testnet.jejunetwork.org/storage/api/v0",
-      "gateway": "https://dws.testnet.jejunetwork.org/storage/ipfs"
+      "api": "https://api.nft.storage",
+      "gateway": "https://w3s.link/ipfs"
     },
     "agents": {
       "api": "https://agents.testnet.jejunetwork.org",
