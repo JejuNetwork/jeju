@@ -107,17 +107,53 @@ class IPFSBackend implements StorageBackend {
   }
 
   async download(cid: string): Promise<Buffer> {
-    const response = await fetch(`${this.gatewayUrl}/ipfs/${cid}`)
-    if (!response.ok)
-      throw new Error(`IPFS download failed: ${response.statusText}`)
-    return Buffer.from(await response.arrayBuffer())
+    // Try primary gateway first
+    const primaryResponse = await fetch(`${this.gatewayUrl}/ipfs/${cid}`, {
+      signal: AbortSignal.timeout(10000), // 10 second timeout
+    }).catch(() => null)
+
+    if (primaryResponse?.ok) {
+      return Buffer.from(await primaryResponse.arrayBuffer())
+    }
+
+    // Fallback to public IPFS gateways for decentralized content availability
+    // These gateways connect to the global IPFS DHT
+    const publicGateways = [
+      'https://ipfs.io/ipfs',
+      'https://gateway.pinata.cloud/ipfs',
+      'https://w3s.link/ipfs',
+    ]
+
+    for (const gateway of publicGateways) {
+      const response = await fetch(`${gateway}/${cid}`, {
+        signal: AbortSignal.timeout(15000), // 15 second timeout for public gateways
+      }).catch(() => null)
+
+      if (response?.ok) {
+        console.log(`[IPFS Backend] Downloaded ${cid} from fallback gateway: ${gateway}`)
+        return Buffer.from(await response.arrayBuffer())
+      }
+    }
+
+    throw new Error(`IPFS download failed: content not found at any gateway`)
   }
 
   async exists(cid: string): Promise<boolean> {
-    const response = await fetch(`${this.gatewayUrl}/ipfs/${cid}`, {
+    // Try primary gateway first
+    const primaryResponse = await fetch(`${this.gatewayUrl}/ipfs/${cid}`, {
       method: 'HEAD',
-    })
-    return response.ok
+      signal: AbortSignal.timeout(5000),
+    }).catch(() => null)
+
+    if (primaryResponse?.ok) return true
+
+    // Fallback to public gateway for existence check
+    const fallbackResponse = await fetch(`https://ipfs.io/ipfs/${cid}`, {
+      method: 'HEAD',
+      signal: AbortSignal.timeout(10000),
+    }).catch(() => null)
+
+    return fallbackResponse?.ok ?? false
   }
 
   async healthCheck(): Promise<boolean> {
