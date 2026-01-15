@@ -1,6 +1,6 @@
 import type { AgentCharacter } from '../../lib/types'
 import type { AutonomousAgentConfig } from '../autonomous/types'
-import { baseWatcherCharacter } from './base-watcher'
+import { blockscoutWatcherCharacter } from './blockscout-watcher'
 import { communityManagerCharacter } from './community-manager'
 import { dailyDigestCharacter } from './daily-digest'
 import { infraMonitorCharacter } from './infra-monitor'
@@ -15,7 +15,7 @@ export const characters: Record<string, AgentCharacter> = {
   'community-manager': communityManagerCharacter,
   'daily-digest': dailyDigestCharacter,
   'security-analyst': securityAnalystCharacter,
-  'base-watcher': baseWatcherCharacter,
+  'blockscout-watcher': blockscoutWatcherCharacter,
   'infra-monitor': infraMonitorCharacter,
   'registration-watcher': registrationWatcherCharacter,
   'test-trader': testTraderCharacter,
@@ -28,7 +28,7 @@ export const characters: Record<string, AgentCharacter> = {
 type AutonomousAgentOverrides = Partial<
   Pick<
     AutonomousAgentConfig,
-    'schedule' | 'urgencyTriggers' | 'capabilities' | 'watchRoom' | 'postToRoom' | 'tickIntervalMs' | 'executionMode' | 'codeFirstConfig'
+    'schedule' | 'urgencyTriggers' | 'capabilities' | 'watchRoom' | 'postToRoom' | 'tickIntervalMs' | 'executionMode' | 'codeFirstConfig' | 'chainId'
   >
 >
 
@@ -73,7 +73,13 @@ export const AUTONOMOUS_AGENTS: Record<string, AutonomousAgentOverrides> = {
     },
     capabilities: { canChat: true, a2a: false, canTrade: false, canPropose: false, canVote: false, canDelegate: false, canStake: false, canBridge: false, compute: true },
   },
-  // Test agents for capability showcase (localnet bootstrap)
+  // ChainWatch default: Base mainnet example (localnet bootstrap)
+  'blockscout-watcher': {
+    chainId: 8453, // Base mainnet
+    postToRoom: 'base-contract-reviews',
+    tickIntervalMs: 600000, // 10 minutes
+    capabilities: { canChat: true, a2a: true, compute: true, canTrade: false, canVote: false, canPropose: false, canDelegate: false, canStake: false, canBridge: false },
+  },
   'test-trader': {
     postToRoom: 'capability-demos',
     tickIntervalMs: 300000, // 5 minutes (infrequent for demo)
@@ -109,7 +115,7 @@ export function listCharacters(): string[] {
   return Object.keys(characters)
 }
 
-export { baseWatcherCharacter } from './base-watcher'
+export { blockscoutWatcherCharacter } from './blockscout-watcher'
 export { communityManagerCharacter } from './community-manager'
 export { dailyDigestCharacter } from './daily-digest'
 export { infraMonitorCharacter } from './infra-monitor'

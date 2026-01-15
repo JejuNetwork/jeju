@@ -49,6 +49,7 @@ function buildAutonomousConfig(overrides: AutonomousOverrides) {
     maxActionsPerTick: DEFAULT_AUTONOMOUS_CONFIG.maxActionsPerTick,
     watchRoom: overrides.watchRoom,
     postToRoom: overrides.postToRoom,
+    chainId: overrides.chainId,
     schedule: overrides.schedule,
     urgencyTriggers: overrides.urgencyTriggers,
     executionMode: overrides.executionMode,

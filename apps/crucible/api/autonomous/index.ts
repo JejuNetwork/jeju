@@ -16,6 +16,7 @@ import { getDatabase, type Message } from '../sdk/database'
 import { createLogger } from '../sdk/logger'
 import { getAlertService } from './alert-service'
 import { formatHealthMessage, infraStatusToSnapshot } from './health-format'
+import { getChainConfig } from '../../lib/chain-registry'
 import type {
   ActivityEntry,
   AgentTickContext,
@@ -1568,13 +1569,19 @@ Output ONLY the formatted alert message. Do not include any action syntax or ins
     )
     parts.push('')
 
-    // Archetype-specific instructions
-    // Reserved for future archetype-specific prompts (watcher, auditor, etc.)
-    if (config.archetype) {
-      // Placeholder for future archetype prompts
+    if (config.chainId) {
+      const chain = getChainConfig(config.chainId)
+      if (chain) {
+        parts.push('## Your Configuration')
+        parts.push(`Chain: ${chain.displayName} (ID: ${chain.chainId})`)
+        parts.push(`Explorer: ${chain.explorerUrl}`)
+        if (config.postToRoom) {
+          parts.push(`Post discoveries to: ${config.postToRoom}`)
+        }
+        parts.push('')
+      }
     }
 
-    // Goals
     if (context.pendingGoals.length > 0) {
       parts.push('## Current Goals')
       for (const goal of context.pendingGoals) {
@@ -1664,6 +1671,32 @@ Output ONLY the formatted alert message. Do not include any action syntax or ins
     // Use previousTick for READ_ROOM_ALERTS to avoid duplicate processing
     if (upperName === 'READ_ROOM_ALERTS' && !params.after && agent.previousTick > 0) {
       params.after = String(agent.previousTick)
+    }
+
+    // Inject chain config into POLL_BLOCKSCOUT params
+    if (upperName === 'POLL_BLOCKSCOUT') {
+      log.info('POLL_BLOCKSCOUT action called', {
+        agentId: agent.config.agentId,
+        hasChainId: !!agent.config.chainId,
+        chainId: agent.config.chainId,
+      })
+      if (agent.config.chainId) {
+        const chain = getChainConfig(agent.config.chainId)
+        if (chain) {
+          log.info('Injecting chain config', {
+            chainId: agent.config.chainId,
+            chain: chain.displayName,
+            explorerUrl: chain.explorerUrl,
+          })
+          params.blockscoutUrl = chain.explorerUrl
+          params.chainName = chain.displayName
+          params.explorerType = chain.explorerType
+        }
+      } else {
+        log.warn('POLL_BLOCKSCOUT called but agent has no chainId configured', {
+          agentId: agent.config.agentId,
+        })
+      }
     }
 
     log.info('Executing action', {

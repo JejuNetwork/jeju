@@ -18,7 +18,7 @@ describe('Character Definitions', () => {
       expect(ids).toContain('infra-monitor')
       expect(ids).toContain('registration-watcher')
       expect(ids).toContain('security-analyst')
-      expect(ids).toContain('base-watcher')
+      expect(ids).toContain('blockscout-watcher')
       expect(ids).toContain('test-trader')
       expect(ids).toContain('test-coordinator')
       expect(ids).toContain('test-voter')

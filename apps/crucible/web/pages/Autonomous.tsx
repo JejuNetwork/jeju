@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 import { API_URL } from '../config'
 
@@ -89,6 +89,7 @@ function useUnregisterAgent() {
 }
 
 export default function AutonomousPage() {
+  const navigate = useNavigate()
   const { data: status, isLoading, error } = useAutonomousStatus()
   const startRunner = useStartRunner()
   const stopRunner = useStopRunner()
@@ -323,7 +324,17 @@ export default function AutonomousPage() {
                   <div key={agent.id} className="card-static overflow-hidden">
                     {/* Agent Header */}
                     <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="flex items-center gap-4">
+                      <div
+                        className="flex items-center gap-4 cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => navigate(`/agents/${agent.id}`)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            navigate(`/agents/${agent.id}`)
+                          }
+                        }}
+                      >
                         <div
                           className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl"
                           style={{ backgroundColor: 'var(--bg-secondary)' }}

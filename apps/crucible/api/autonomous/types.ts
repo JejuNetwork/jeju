@@ -34,6 +34,8 @@ export interface AutonomousAgentConfig {
   executionMode?: ExecutionMode
   /** Configuration for code-first execution mode */
   codeFirstConfig?: CodeFirstConfig
+  /** Chain ID for multi-chain watchers */
+  chainId?: number
 }
 
 export interface AutonomousCapabilities {

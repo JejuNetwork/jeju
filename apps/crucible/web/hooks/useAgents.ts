@@ -24,6 +24,9 @@ interface Agent {
   executionCount: number
   tickIntervalMs?: number
   isAutonomous?: boolean
+  watchRoom?: string
+  postToRoom?: string
+  chainId?: number
   capabilities?: {
     canChat?: boolean
     canTrade?: boolean
@@ -73,6 +76,7 @@ interface RegisterAgentRequest {
     tickIntervalMs?: number
     watchRoom?: string
     postToRoom?: string
+    chainId?: number
   }
 }
 

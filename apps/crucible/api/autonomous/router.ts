@@ -63,6 +63,7 @@ const RegisterAgentSchema = t.Object({
   ),
   watchRoom: t.Optional(t.String()),
   postToRoom: t.Optional(t.String()),
+  chainId: t.Optional(t.Number()),
 })
 
 type RegisterAgentBody = Static<typeof RegisterAgentSchema>
@@ -164,7 +165,7 @@ export function createAutonomousRouter() {
       }
 
       const request = body as RegisterAgentBody
-      const { characterId, tickIntervalMs, schedule, urgencyTriggers, capabilities, watchRoom, postToRoom } = request
+      const { characterId, tickIntervalMs, schedule, urgencyTriggers, capabilities, watchRoom, postToRoom, chainId } = request
 
       const character = getCharacter(characterId)
       if (!character) {
@@ -192,6 +193,7 @@ export function createAutonomousRouter() {
           : DEFAULT_AUTONOMOUS_CONFIG.capabilities,
         watchRoom,
         postToRoom,
+        chainId,
       })
 
       return {

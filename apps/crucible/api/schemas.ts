@@ -102,6 +102,7 @@ export const RegisterAgentRequestSchema = z.object({
       tickIntervalMs: z.number().int().positive().optional(),
       watchRoom: NonEmptyStringSchema.optional(),
       postToRoom: NonEmptyStringSchema.optional(),
+      chainId: z.number().int().positive().optional(),
     })
     .optional(),
 })
@@ -183,6 +184,7 @@ export const ToggleAutonomousRequestSchema = z.object({
   tickIntervalMs: z.number().int().positive().optional(),
   watchRoom: NonEmptyStringSchema.optional(),
   postToRoom: NonEmptyStringSchema.optional(),
+  chainId: z.number().int().positive().optional(),
   capabilities: z
     .object({
       canTrade: z.boolean().optional(),

@@ -16,10 +16,6 @@ import type {
 import { z } from 'zod'
 import { fetchWithTimeout, isUrlSafeToFetch } from '../validation'
 
-// Blockscout API base URL for Base chain
-const BLOCKSCOUT_BASE_URL = 'https://base.blockscout.com'
-
-// Schema for address object in Blockscout response
 const blockscoutAddressSchema = z.object({
   hash: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
   name: z.string().nullable(),
@@ -27,7 +23,6 @@ const blockscoutAddressSchema = z.object({
   is_contract: z.boolean().optional(),
 })
 
-// Schema for individual contract item in list response
 const blockscoutContractItemSchema = z.object({
   address: blockscoutAddressSchema,
   compiler_version: z.string().optional(),
@@ -37,7 +32,6 @@ const blockscoutContractItemSchema = z.object({
   license_type: z.string().optional(),
 })
 
-// Schema for pagination params
 const blockscoutNextPageParamsSchema = z
   .object({
     items_count: z.number(),
@@ -46,13 +40,11 @@ const blockscoutNextPageParamsSchema = z
   .nullable()
   .optional()
 
-// Schema for the full API response
 const blockscoutContractsResponseSchema = z.object({
   items: z.array(blockscoutContractItemSchema),
   next_page_params: blockscoutNextPageParamsSchema,
 })
 
-// Schema for RPC API response (different from v2 API)
 const blockscoutRpcContractSchema = z.object({
   Address: z.string(),
   ContractName: z.string().nullable(),
@@ -67,7 +59,6 @@ const blockscoutRpcResponseSchema = z.object({
   result: z.array(blockscoutRpcContractSchema),
 })
 
-// Type exports
 export type BlockscoutContractItem = z.infer<
   typeof blockscoutContractItemSchema
 >
@@ -75,7 +66,6 @@ export type BlockscoutContractsResponse = z.infer<
   typeof blockscoutContractsResponseSchema
 >
 
-// Parsed contract info for output
 export interface VerifiedContract {
   address: string
   name: string
@@ -85,44 +75,31 @@ export interface VerifiedContract {
   blockscoutUrl: string
 }
 
-// Cursor for pagination
 export interface BlockscoutCursor {
   itemsCount: number
   smartContractId: number
 }
 
-// Action result
 export interface PollBlockscoutResult {
   contracts: VerifiedContract[]
   nextCursor: BlockscoutCursor | null
   totalReturned: number
 }
 
-/**
- * Build the v2 API URL for verified contracts
- * The v2 API returns actual verification timestamps
- */
-function buildContractsApiUrl(): string {
-  // Use v2 API which returns verified_at timestamps
-  return `${BLOCKSCOUT_BASE_URL}/api/v2/smart-contracts`
+function buildContractsApiUrl(blockscoutUrl: string): string {
+  return `${blockscoutUrl}/api/v2/smart-contracts`
 }
 
-/**
- * Build the user-facing Blockscout URL for a contract
- */
-function buildContractViewUrl(address: string): string {
-  return `${BLOCKSCOUT_BASE_URL}/address/${address}`
+function buildContractViewUrl(blockscoutUrl: string, address: string): string {
+  return `${blockscoutUrl}/address/${address}`
 }
 
-/**
- * Fetch verified contracts from Blockscout v2 API
- * Filters by sinceTimestamp to only return contracts verified after that time
- */
 async function fetchVerifiedContracts(
+  blockscoutUrl: string,
   sinceTimestamp?: number,
   limit = 10,
 ): Promise<PollBlockscoutResult> {
-  const apiUrl = buildContractsApiUrl()
+  const apiUrl = buildContractsApiUrl(blockscoutUrl)
 
   if (!isUrlSafeToFetch(apiUrl)) {
     throw new Error('URL failed security validation')
@@ -145,8 +122,6 @@ async function fetchVerifiedContracts(
     throw new Error(`Invalid Blockscout response: ${parsed.error.message}`)
   }
 
-  // Filter by sinceTimestamp (only contracts verified after that time)
-  // If no sinceTimestamp provided, default to last 24 hours to avoid old contracts
   const effectiveTimestamp = sinceTimestamp ?? Math.floor(Date.now() / 1000) - 86400
   const sinceDate = new Date(effectiveTimestamp * 1000)
   const filteredItems = parsed.data.items.filter((item) => {
@@ -160,10 +135,9 @@ async function fetchVerifiedContracts(
     verifiedAt: item.verified_at,
     compilerVersion: item.compiler_version ?? 'unknown',
     language: item.language ?? 'solidity',
-    blockscoutUrl: buildContractViewUrl(item.address.hash),
+    blockscoutUrl: buildContractViewUrl(blockscoutUrl, item.address.hash),
   }))
 
-  // Build cursor from API response
   const nextCursor = parsed.data.next_page_params
     ? {
         itemsCount: parsed.data.next_page_params.items_count,
@@ -178,23 +152,17 @@ async function fetchVerifiedContracts(
   }
 }
 
-/**
- * Parse sinceTimestamp from message text or content
- */
 function parseSinceTimestamp(message: Memory): number | undefined {
   const content = message.content
 
-  // Check structured content for sinceTimestamp
   if (typeof content.sinceTimestamp === 'number') {
     return content.sinceTimestamp
   }
 
-  // Check for lastTick (from autonomous runner) - convert ms to seconds
   if (typeof content.lastTick === 'number') {
     return Math.floor(content.lastTick / 1000)
   }
 
-  // Check text for timestamp
   const text = (content.text as string) ?? ''
   const timestampMatch = text.match(/sinceTimestamp[=:\s]*(\d+)/i)
   if (timestampMatch) {
@@ -204,18 +172,13 @@ function parseSinceTimestamp(message: Memory): number | undefined {
   return undefined
 }
 
-/**
- * Parse limit from message
- */
 function parseLimit(message: Memory): number {
   const content = message.content
 
-  // Check structured content
   if (typeof content.limit === 'number') {
-    return Math.min(Math.max(content.limit, 1), 50) // Clamp to 1-50
+    return Math.min(Math.max(content.limit, 1), 50)
   }
 
-  // Check text
   const text = (content.text as string) ?? ''
   const limitMatch = text.match(/limit[:\s]*(\d+)/i)
   if (limitMatch) {
@@ -223,19 +186,16 @@ function parseLimit(message: Memory): number {
     return Math.min(Math.max(limit, 1), 50)
   }
 
-  return 10 // Default
+  return 10
 }
 
-/**
- * Format contracts list for display
- */
-function formatContractsOutput(result: PollBlockscoutResult): string {
+function formatContractsOutput(result: PollBlockscoutResult, chainName: string): string {
   if (result.contracts.length === 0) {
     return 'No verified contracts found.'
   }
 
   const lines: string[] = [
-    `**Recently Verified Contracts on Base**\n`,
+    `**Recently Verified Contracts on ${chainName}**\n`,
     `Found ${result.totalReturned} contract(s):\n`,
   ]
 
@@ -276,10 +236,18 @@ export const pollBlockscoutAction: Action = {
     _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
+    const content = message.content
+
+    const blockscoutUrl =
+      (typeof content.blockscoutUrl === 'string' ? content.blockscoutUrl : undefined) ??
+      'https://base.blockscout.com'
+
+    const chainName =
+      (typeof content.chainName === 'string' ? content.chainName : undefined) ?? 'Base'
+
     const sinceTimestamp = parseSinceTimestamp(message)
     const limit = parseLimit(message)
 
-    // Default to 24h ago if no timestamp provided
     const effectiveTimestamp = sinceTimestamp ?? Math.floor(Date.now() / 1000) - 86400
     const sinceDate = new Date(effectiveTimestamp * 1000)
 
@@ -288,10 +256,10 @@ export const pollBlockscoutAction: Action = {
     })
 
     try {
-      const result = await fetchVerifiedContracts(sinceTimestamp, limit)
+      const result = await fetchVerifiedContracts(blockscoutUrl, sinceTimestamp, limit)
 
       callback?.({
-        text: formatContractsOutput(result),
+        text: formatContractsOutput(result, chainName),
         content: {
           type: 'blockscout_contracts',
           ...result,

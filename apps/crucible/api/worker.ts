@@ -7,6 +7,7 @@
 
 import { cors } from '@elysiajs/cors'
 import { Elysia } from 'elysia'
+import { a2aRoutes } from './a2a'
 import { createAutonomousRouter } from './autonomous'
 import { createBotsRouter } from './bots'
 import { config } from './config'
@@ -55,6 +56,12 @@ export function createCrucibleApp(env?: Partial<CrucibleEnv>) {
     network: env?.NETWORK ?? config.network,
     teeMode: env?.TEE_MODE ?? 'simulated',
   }))
+
+  // A2A agent card redirect + routes
+  app.get('/.well-known/agent-card.json', ({ redirect }) =>
+    redirect('/a2a/.well-known/agent-card.json'),
+  )
+  app.use(a2aRoutes)
 
   // API v1 routes
   app.group('/api/v1', (app) => {

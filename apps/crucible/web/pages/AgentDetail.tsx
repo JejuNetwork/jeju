@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { LoadingSpinner } from "../components/LoadingSpinner";
@@ -12,6 +12,7 @@ import {
   useRooms,
   useTriggerAgentTick,
 } from "../hooks";
+import { getSupportedChains } from "../../lib/chain-registry";
 import { getBotTypeConfig } from "../lib/constants";
 import { formatDistanceToNow } from "../lib/utils";
 
@@ -24,18 +25,20 @@ function useToggleAutonomous() {
       enabled,
       watchRoom,
       postToRoom,
+      chainId,
     }: {
       agentId: string;
       enabled: boolean;
       watchRoom?: string;
       postToRoom?: string;
+      chainId?: number;
     }) => {
       const response = await fetch(
         `${API_URL}/api/v1/agents/${agentId}/autonomous`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ enabled, watchRoom, postToRoom }),
+          body: JSON.stringify({ enabled, watchRoom, postToRoom, chainId }),
         },
       );
       if (!response.ok) {
@@ -101,6 +104,16 @@ export default function AgentDetailPage() {
     watchRoom: "",
     postToRoom: "",
   });
+  const [selectedChainId, setSelectedChainId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!agent) return;
+    setAutonomousRooms({
+      watchRoom: agent.watchRoom ?? "",
+      postToRoom: agent.postToRoom ?? "",
+    });
+    setSelectedChainId(agent.chainId ?? null);
+  }, [agent?.agentId, agent?.watchRoom, agent?.postToRoom, agent?.chainId]);
 
   const toggleActivityExpanded = (key: string) => {
     setExpandedActivities((prev) => {
@@ -184,6 +197,7 @@ export default function AgentDetailPage() {
         enabled: !isCurrentlyAutonomous,
         watchRoom: !isCurrentlyAutonomous && watchRoom ? watchRoom : undefined,
         postToRoom: !isCurrentlyAutonomous && postToRoom ? postToRoom : undefined,
+        chainId: !isCurrentlyAutonomous && selectedChainId ? selectedChainId : undefined,
       });
       toast.success(
         isCurrentlyAutonomous
@@ -834,6 +848,35 @@ export default function AgentDetailPage() {
                   />
                 </div>
               </div>
+              {selectedChainId !== null && (
+                <div className="mt-4">
+                  <label
+                    htmlFor="autonomous-chain"
+                    className="block text-xs font-medium mb-2"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    Monitor Chain (optional)
+                  </label>
+                  <select
+                    id="autonomous-chain"
+                    value={selectedChainId}
+                    onChange={(e) => setSelectedChainId(Number(e.target.value))}
+                    className="input w-full"
+                  >
+                    {getSupportedChains().map((chain) => (
+                      <option key={chain.chainId} value={chain.chainId}>
+                        {chain.displayName} ({chain.chainId})
+                      </option>
+                    ))}
+                  </select>
+                  <p
+                    className="text-xs mt-2"
+                    style={{ color: "var(--text-tertiary)" }}
+                  >
+                    Chain configuration is applied when enabling autonomous mode.
+                  </p>
+                </div>
+              )}
               <p
                 className="text-xs mt-2"
                 style={{ color: "var(--text-tertiary)" }}

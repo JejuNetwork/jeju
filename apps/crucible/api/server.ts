@@ -36,6 +36,7 @@ import {
 } from "./characters";
 import { checkDWSHealth } from "./client/dws";
 import { configureCrucible, config as crucibleConfig } from "./config";
+import { a2aRoutes } from "./a2a";
 import { cronRoutes } from "./cron";
 import { banCheckMiddleware } from "./middleware/ban-check";
 import {
@@ -286,7 +287,7 @@ async function getApiKeyValue(): Promise<string | null> {
 }
 
 // Paths that don't require authentication
-const PUBLIC_PATHS = ["/health", "/metrics", "/.well-known"];
+const PUBLIC_PATHS = ["/health", "/metrics", "/.well-known", "/a2a"];
 
 // Paths that don't require rate limiting
 const RATE_LIMIT_EXEMPT_PATHS = ["/health", "/metrics"];
@@ -777,6 +778,12 @@ app.onError(({ error, set, request }) => {
   };
 });
 
+// A2A Protocol
+app.get("/.well-known/agent-card.json", ({ redirect }) =>
+  redirect("/a2a/.well-known/agent-card.json"),
+);
+app.use(a2aRoutes);
+
 // Root endpoint - API info
 app.get("/", () => ({
   service: "crucible",
@@ -1081,29 +1088,48 @@ app.post("/api/v1/agents", async ({ body }) => {
   });
 
   // Register with autonomous runner if requested and available
+  const autonomousRequest = parsedBody.autonomous;
+  const autonomousAgentId = result.agentId.toString();
+  const baseCapabilities = {
+    ...DEFAULT_AUTONOMOUS_CONFIG.capabilities,
+    ...parsedBody.capabilities,
+  };
   let autonomousEnabled = false;
-  if (parsedBody.autonomous?.enabled) {
+  let autonomousConfig =
+    autonomousRequest
+      ? {
+          tickIntervalMs:
+            autonomousRequest.tickIntervalMs ??
+            DEFAULT_AUTONOMOUS_CONFIG.tickIntervalMs,
+          capabilities: baseCapabilities,
+          maxActionsPerTick: DEFAULT_AUTONOMOUS_CONFIG.maxActionsPerTick,
+          watchRoom: autonomousRequest.watchRoom,
+          postToRoom: autonomousRequest.postToRoom,
+          chainId: autonomousRequest.chainId,
+        }
+      : null;
+
+  if (autonomousRequest?.enabled) {
     if (autonomousRunner) {
       try {
-        const autonomousAgentId = result.agentId.toString();
-
         // Load the full character from IPFS (it was just stored during registration)
         const fullCharacter = await agentSdk.loadCharacter(result.agentId);
+        const mergedCapabilities = {
+          ...baseCapabilities,
+          ...(fullCharacter.capabilities ?? {}),
+        };
 
         await autonomousRunner.registerAgent({
           ...DEFAULT_AUTONOMOUS_CONFIG,
           agentId: autonomousAgentId,
           character: fullCharacter,
           tickIntervalMs:
-            parsedBody.autonomous.tickIntervalMs ??
+            autonomousRequest.tickIntervalMs ??
             DEFAULT_AUTONOMOUS_CONFIG.tickIntervalMs,
-          watchRoom: parsedBody.autonomous.watchRoom,
-          postToRoom: parsedBody.autonomous.postToRoom,
-          capabilities: {
-            ...DEFAULT_AUTONOMOUS_CONFIG.capabilities,
-            ...(fullCharacter.capabilities ?? {}),
-            ...parsedBody.capabilities,
-          },
+          watchRoom: autonomousRequest.watchRoom,
+          postToRoom: autonomousRequest.postToRoom,
+          chainId: autonomousRequest.chainId,
+          capabilities: mergedCapabilities,
         });
 
         autonomousEnabled = true;
@@ -1111,46 +1137,15 @@ app.post("/api/v1/agents", async ({ body }) => {
           agentId: result.agentId.toString(),
           autonomousAgentId,
           tickIntervalMs:
-            parsedBody.autonomous.tickIntervalMs ??
+            autonomousRequest.tickIntervalMs ??
             DEFAULT_AUTONOMOUS_CONFIG.tickIntervalMs,
         });
 
-        // Persist to database
-        try {
-          const db = getDatabase();
-          const owner = kmsSigner.isInitialized() ? kmsSigner.getAddress() : result.vaultAddress;
-          await db.createAgent({
-            agentId: autonomousAgentId,
-            name: fullCharacter.name,
-            owner,
-            characterCid: result.characterCid,
-            autonomousConfig: {
-              tickIntervalMs:
-                parsedBody.autonomous.tickIntervalMs ??
-                DEFAULT_AUTONOMOUS_CONFIG.tickIntervalMs,
-              capabilities: {
-                ...DEFAULT_AUTONOMOUS_CONFIG.capabilities,
-                ...(fullCharacter.capabilities ?? {}),
-                ...parsedBody.capabilities,
-              },
-              maxActionsPerTick: DEFAULT_AUTONOMOUS_CONFIG.maxActionsPerTick,
-              watchRoom: parsedBody.autonomous.watchRoom,
-              postToRoom: parsedBody.autonomous.postToRoom,
-            },
-            runtimeState: {
-              previous_tick: 0,
-              last_tick: 0,
-              last_scheduled_run: 0,
-            },
-            enabled: true,
-          });
-          log.info("Persisted autonomous agent to database", { agentId: autonomousAgentId });
-        } catch (err) {
-          log.error("Failed to persist autonomous agent to database", {
-            agentId: autonomousAgentId,
-            error: err instanceof Error ? err.message : String(err),
-          });
-          // Continue - agent runs in-memory only
+        if (autonomousConfig) {
+          autonomousConfig = {
+            ...autonomousConfig,
+            capabilities: mergedCapabilities,
+          };
         }
       } catch (err) {
         // Log error but don't fail the registration - agent is already on-chain
@@ -1163,6 +1158,46 @@ app.post("/api/v1/agents", async ({ body }) => {
       log.warn("Autonomous mode requested but runner not available", {
         agentId: result.agentId.toString(),
         hint: "Set AUTONOMOUS_ENABLED=true to enable autonomous mode",
+      });
+    }
+  }
+
+  if (autonomousConfig) {
+    try {
+      const db = getDatabase();
+      const owner = kmsSigner.isInitialized()
+        ? kmsSigner.getAddress()
+        : result.vaultAddress;
+      const existing = await db.getAgent(autonomousAgentId);
+
+      if (existing) {
+        await db.updateAgent(autonomousAgentId, {
+          autonomousConfig,
+          enabled: autonomousEnabled,
+        });
+      } else {
+        await db.createAgent({
+          agentId: autonomousAgentId,
+          name: character.name,
+          owner,
+          characterCid: result.characterCid,
+          autonomousConfig,
+          runtimeState: {
+            previous_tick: 0,
+            last_tick: 0,
+            last_scheduled_run: 0,
+          },
+          enabled: autonomousEnabled,
+        });
+      }
+      log.info("Persisted autonomous config to database", {
+        agentId: autonomousAgentId,
+        enabled: autonomousEnabled,
+      });
+    } catch (err) {
+      log.error("Failed to persist autonomous config to database", {
+        agentId: autonomousAgentId,
+        error: err instanceof Error ? err.message : String(err),
       });
     }
   }
@@ -1223,6 +1258,9 @@ app.get("/api/v1/agents/:agentId", async ({ params, set }) => {
       autonomousAgent?.tickIntervalMs ?? autonomousConfig.tickIntervalMs;
     const tickCount =
       autonomousAgent?.tickCount ?? runtimeState.tick_count ?? 0;
+    const watchRoom = autonomousConfig.watchRoom;
+    const postToRoom = autonomousConfig.postToRoom;
+    const chainId = autonomousConfig.chainId;
 
     return {
       agent: {
@@ -1232,6 +1270,9 @@ app.get("/api/v1/agents/:agentId", async ({ params, set }) => {
         isAutonomous,
         tickIntervalMs,
         tickCount,
+        watchRoom,
+        postToRoom,
+        chainId,
       },
     };
   } else {
@@ -1269,6 +1310,9 @@ app.get("/api/v1/agents/:agentId", async ({ params, set }) => {
         isAutonomous,
         tickIntervalMs: autonomousConfig.tickIntervalMs,
         tickCount: runtimeState.tick_count ?? 0,
+        watchRoom: autonomousConfig.watchRoom,
+        postToRoom: autonomousConfig.postToRoom,
+        chainId: autonomousConfig.chainId,
         botType: 'ai_agent' as const,
         character: character ? {
           id: character.id,
@@ -1483,6 +1527,7 @@ app.post(
           parsedBody.tickIntervalMs ?? baseConfig.tickIntervalMs,
         watchRoom: parsedBody.watchRoom ?? baseConfig.watchRoom,
         postToRoom: parsedBody.postToRoom ?? baseConfig.postToRoom,
+        chainId: parsedBody.chainId ?? baseConfig.chainId,
         capabilities: mergedCapabilities,
       };
 
@@ -2172,6 +2217,7 @@ if (crucibleConfig.autonomousEnabled && !autonomousRunner) {
                 enabled: dbAgent.enabled === 1,
                 watchRoom: config.watchRoom,
                 postToRoom: config.postToRoom,
+                chainId: config.chainId,
                 schedule: config.schedule,
                 urgencyTriggers: config.urgencyTriggers,
                 executionMode: config.executionMode,
