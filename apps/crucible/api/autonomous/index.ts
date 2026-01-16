@@ -1416,6 +1416,17 @@ Output ONLY the formatted alert message. Do not include any action syntax or ins
   ): AvailableAction[] {
     const actions: AvailableAction[] = []
 
+    // DEBUG: Log capabilities to verify what's being passed in
+    log.debug('[ACTION_FILTER] Capabilities passed to getAvailableActions', {
+      canTrade: capabilities.canTrade,
+      canStore: capabilities.canStore,
+      compute: capabilities.compute,
+      a2a: capabilities.a2a,
+      canVote: capabilities.canVote,
+      canPropose: capabilities.canPropose,
+      canChat: capabilities.canChat,
+    })
+
     if (capabilities.canTrade) {
       actions.push(
         {
@@ -1579,6 +1590,16 @@ Output ONLY the formatted alert message. Do not include any action syntax or ins
       },
     )
 
+    // DEBUG: Log final actions list to verify capability gating worked
+    log.debug('[ACTION_FILTER] Final available actions', {
+      count: actions.length,
+      actions: actions.map(a => a.name),
+      byCategory: actions.reduce((acc, a) => {
+        acc[a.category] = (acc[a.category] || 0) + 1
+        return acc
+      }, {} as Record<string, number>),
+    })
+
     return actions
   }
 
@@ -1638,6 +1659,12 @@ Output ONLY the formatted alert message. Do not include any action syntax or ins
     }
 
     // Available actions
+    // DEBUG: Log actions being added to prompt
+    log.debug('[PROMPT_BUILD] Adding actions to prompt', {
+      actionCount: context.availableActions.length,
+      actionNames: context.availableActions.map(a => a.name),
+    })
+
     parts.push('## Available Actions')
     for (const action of context.availableActions) {
       parts.push(`- ${action.name}: ${action.description}`)
