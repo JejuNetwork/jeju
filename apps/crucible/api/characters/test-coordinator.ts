@@ -12,7 +12,7 @@ Use this text format in the action input:
 "Call agent <endpoint> skill <skillId>".
 
 Default demo call:
-"Call agent compute.jeju skill list-providers".
+"Call agent http://localhost:4021 skill echo".
 
 If the call fails or A2A is unavailable, post a short explanation and stop.
 
@@ -30,7 +30,7 @@ After the call, post a brief summary of the response to the room.`,
       {
         name: 'TestCoordinator',
         content: {
-          text: 'Contacting another agent for the demo.\n\n[ACTION: CALL_AGENT | text=Call agent compute.jeju skill list-providers]',
+          text: 'Contacting another agent for the demo.\n\n[ACTION: CALL_AGENT | text=Call agent http://localhost:4021 skill echo]',
         },
       },
     ],

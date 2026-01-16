@@ -8,6 +8,7 @@ import { registrationWatcherCharacter } from './registration-watcher'
 import { securityAnalystCharacter } from './security-analyst'
 import { testComputerCharacter } from './test-computer'
 import { testCoordinatorCharacter } from './test-coordinator'
+import { testStorageCharacter } from './test-storage'
 import { testTraderCharacter } from './test-trader'
 import { testVoterCharacter } from './test-voter'
 
@@ -22,6 +23,7 @@ export const characters: Record<string, AgentCharacter> = {
   'test-coordinator': testCoordinatorCharacter,
   'test-voter': testVoterCharacter,
   'test-computer': testComputerCharacter,
+  'test-storage': testStorageCharacter,
 }
 
 // Partial config - agentId and character are derived from the key
@@ -104,6 +106,12 @@ export const AUTONOMOUS_AGENTS: Record<string, AutonomousAgentOverrides> = {
     executionMode: 'llm-driven',
     capabilities: { canChat: true, canTrade: false, a2a: false, compute: true, canVote: false, canPropose: false, canDelegate: false, canStake: false, canBridge: false },
   },
+  'test-storage': {
+    postToRoom: 'capability-demos',
+    tickIntervalMs: 300000, // 5 minutes
+    executionMode: 'llm-driven',
+    capabilities: { canChat: true, canTrade: false, a2a: false, compute: false, canVote: false, canPropose: false, canDelegate: false, canStake: false, canBridge: false, canStore: true },
+  },
 }
 
 export function getCharacter(id: string): AgentCharacter | null {
@@ -123,5 +131,6 @@ export { securityAnalystCharacter } from './security-analyst'
 export { registrationWatcherCharacter } from './registration-watcher'
 export { testComputerCharacter } from './test-computer'
 export { testCoordinatorCharacter } from './test-coordinator'
+export { testStorageCharacter } from './test-storage'
 export { testTraderCharacter } from './test-trader'
 export { testVoterCharacter } from './test-voter'

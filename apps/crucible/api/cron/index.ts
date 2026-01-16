@@ -9,7 +9,7 @@ import { Elysia } from 'elysia'
 import { agentSdk, autonomousRunner } from '../server'
 import { createLogger } from '../sdk/logger'
 import { getCronSecret } from '../sdk/secrets'
-import { DEFAULT_AUTONOMOUS_CONFIG } from '../autonomous/types'
+import { DEFAULT_AUTONOMOUS_CONFIG, type CodeFirstConfig } from '../autonomous/types'
 
 const log = createLogger('CronRoutes')
 
@@ -298,16 +298,82 @@ export const cronRoutes = new Elysia({ prefix: '/api/cron' })
 
             if (onChainAgent && onChainAgent.characterCid) {
               const character = await agentSdk.loadCharacter(numericId)
+              let dbConfig: Record<string, unknown> = {}
+              let runtimeState: Record<string, unknown> = {}
+
+              try {
+                const { getDatabase } = await import('../sdk/database')
+                const db = getDatabase()
+                const dbAgent = await db.getAgent(agentId)
+                if (dbAgent?.autonomous_config) {
+                  dbConfig = JSON.parse(dbAgent.autonomous_config)
+                }
+                if (dbAgent?.runtime_state) {
+                  runtimeState = JSON.parse(dbAgent.runtime_state)
+                }
+              } catch (dbError) {
+                log.warn('Failed to load autonomous config from DB', {
+                  agentId,
+                  error: dbError instanceof Error ? dbError.message : String(dbError),
+                })
+              }
+
+              const dbCapabilities =
+                typeof dbConfig.capabilities === 'object' && dbConfig.capabilities !== null
+                  ? (dbConfig.capabilities as Record<string, boolean>)
+                  : {}
+
+              const mergedCapabilities = {
+                ...DEFAULT_AUTONOMOUS_CONFIG.capabilities,
+                ...dbCapabilities,
+                ...(character.capabilities ?? {}),
+              }
               // Register for this session (persists until process restart)
               await autonomousRunner.registerAgent({
                 ...DEFAULT_AUTONOMOUS_CONFIG,
                 agentId,
                 character,
-                tickIntervalMs: 60_000,
-                capabilities: {
-                  ...DEFAULT_AUTONOMOUS_CONFIG.capabilities,
-                  ...(character.capabilities ?? {}),
-                },
+                tickIntervalMs:
+                  typeof dbConfig.tickIntervalMs === 'number'
+                    ? dbConfig.tickIntervalMs
+                    : DEFAULT_AUTONOMOUS_CONFIG.tickIntervalMs,
+                maxActionsPerTick:
+                  typeof dbConfig.maxActionsPerTick === 'number'
+                    ? dbConfig.maxActionsPerTick
+                    : DEFAULT_AUTONOMOUS_CONFIG.maxActionsPerTick,
+                watchRoom:
+                  typeof dbConfig.watchRoom === 'string' ? dbConfig.watchRoom : undefined,
+                postToRoom:
+                  typeof dbConfig.postToRoom === 'string' ? dbConfig.postToRoom : undefined,
+                chainId:
+                  typeof dbConfig.chainId === 'number' ? dbConfig.chainId : undefined,
+                schedule:
+                  typeof dbConfig.schedule === 'string' ? dbConfig.schedule : undefined,
+                urgencyTriggers: Array.isArray(dbConfig.urgencyTriggers)
+                  ? (dbConfig.urgencyTriggers as string[])
+                  : undefined,
+                executionMode:
+                  typeof dbConfig.executionMode === 'string'
+                    ? (dbConfig.executionMode as 'llm-driven' | 'code-first')
+                    : undefined,
+                codeFirstConfig:
+                  typeof dbConfig.codeFirstConfig === 'object' &&
+                  dbConfig.codeFirstConfig !== null
+                    ? (dbConfig.codeFirstConfig as CodeFirstConfig)
+                    : undefined,
+                capabilities: mergedCapabilities,
+                lastTick:
+                  typeof runtimeState.last_tick === 'number'
+                    ? runtimeState.last_tick
+                    : 0,
+                previousTick:
+                  typeof runtimeState.previous_tick === 'number'
+                    ? runtimeState.previous_tick
+                    : 0,
+                lastScheduledRun:
+                  typeof runtimeState.last_scheduled_run === 'number'
+                    ? runtimeState.last_scheduled_run
+                    : 0,
               })
 
               log.info('Agent registered, executing tick', { agentId })

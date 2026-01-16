@@ -468,14 +468,18 @@ export class AutonomousAgentRunner {
       this.config.enableTrajectoryRecording &&
       (agent.config.recordTrajectories ?? true)
 
+    // Capture trajectory ID locally to avoid race conditions with concurrent ticks
+    let localTrajectoryId: string | null = null
+
     if (shouldRecord) {
-      agent.currentTrajectoryId = await this.trajectoryRecorder.startTrajectory(
+      localTrajectoryId = await this.trajectoryRecorder.startTrajectory(
         {
           agentId,
           archetype: agent.config.archetype,
           scenarioId: `autonomous-tick-${agent.tickCount}`,
         },
       )
+      agent.currentTrajectoryId = localTrajectoryId
     }
 
     let tickSuccess = false
@@ -499,9 +503,9 @@ export class AutonomousAgentRunner {
       )
       throw err // Re-throw for caller to handle
     } finally {
-      // End trajectory recording
-      if (agent.currentTrajectoryId) {
-        await this.trajectoryRecorder.endTrajectory(agent.currentTrajectoryId, {
+      // End trajectory recording using local ID to prevent race conditions
+      if (localTrajectoryId) {
+        await this.trajectoryRecorder.endTrajectory(localTrajectoryId, {
           finalPnL: totalReward,
           gameKnowledge: {
             actualOutcomes: {
@@ -510,7 +514,10 @@ export class AutonomousAgentRunner {
             },
           },
         })
-        agent.currentTrajectoryId = null
+        // Only clear if it's still our trajectory
+        if (agent.currentTrajectoryId === localTrajectoryId) {
+          agent.currentTrajectoryId = null
+        }
       }
 
       // Persist runtime state to DB (best effort)
@@ -567,8 +574,11 @@ export class AutonomousAgentRunner {
         this.config.enableTrajectoryRecording &&
         (agent.config.recordTrajectories ?? true)
 
+      // Capture trajectory ID locally to avoid race conditions with concurrent ticks
+      let localTrajectoryId: string | null = null
+
       if (shouldRecord) {
-        const trajectoryId = await this.trajectoryRecorder.startTrajectory({
+        localTrajectoryId = await this.trajectoryRecorder.startTrajectory({
           agentId: agent.config.agentId,
           archetype: agent.config.archetype,
           scenarioId: `tick-${agent.tickCount}`,
@@ -577,7 +587,7 @@ export class AutonomousAgentRunner {
             characterName: agent.config.character.name,
           },
         })
-        agent.currentTrajectoryId = trajectoryId
+        agent.currentTrajectoryId = localTrajectoryId
       }
 
       const _tickStartTime = Date.now()
@@ -609,9 +619,9 @@ export class AutonomousAgentRunner {
         })
       }
 
-      // End trajectory recording
-      if (agent.currentTrajectoryId) {
-        await this.trajectoryRecorder.endTrajectory(agent.currentTrajectoryId, {
+      // End trajectory recording using local ID to prevent race conditions
+      if (localTrajectoryId) {
+        await this.trajectoryRecorder.endTrajectory(localTrajectoryId, {
           finalBalance: undefined, // Could add wallet balance tracking
           finalPnL: totalReward,
           gameKnowledge: {
@@ -621,7 +631,10 @@ export class AutonomousAgentRunner {
             },
           },
         })
-        agent.currentTrajectoryId = null
+        // Only clear if it's still our trajectory
+        if (agent.currentTrajectoryId === localTrajectoryId) {
+          agent.currentTrajectoryId = null
+        }
       }
 
       // Persist runtime state to DB (best effort)
@@ -1497,6 +1510,17 @@ Output ONLY the formatted alert message. Do not include any action syntax or ins
       })
     }
 
+    if (capabilities.canStore) {
+      actions.push({
+        name: 'UPLOAD_FILE',
+        description: 'Upload text or JSON to decentralized storage (IPFS)',
+        category: 'storage',
+        parameters: [
+          { name: 'text', type: 'string', description: 'Text or JSON content to upload', required: true },
+        ],
+      })
+    }
+
     // Always available crucible actions for room communication and reporting
     actions.push(
       {
@@ -1814,6 +1838,13 @@ Output ONLY the formatted alert message. Do not include any action syntax or ins
     ) {
       return 'compute'
     }
+    if (
+      upperName.includes('UPLOAD') ||
+      upperName.includes('RETRIEVE') ||
+      upperName.includes('PIN')
+    ) {
+      return 'storage'
+    }
     return 'general'
   }
 
@@ -1832,6 +1863,8 @@ Output ONLY the formatted alert message. Do not include any action syntax or ins
         return capabilities.a2a === true
       case 'compute':
         return capabilities.compute === true
+      case 'storage':
+        return capabilities.canStore === true
       default:
         return capabilities.canChat === true
     }
