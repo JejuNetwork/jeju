@@ -20,8 +20,8 @@ export const cleanupCommand = new Command('cleanup')
 
     // Stop Docker containers
     logger.step('Stopping Docker containers...')
-    await $`cd ${rootDir}/apps/indexer && npm run db:down`.nothrow().quiet()
-    await $`cd ${rootDir}/apps/monitoring && docker-compose down`
+    await $`cd ${rootDir}/apps/indexer && bun run db:down`.nothrow().quiet()
+    await $`cd ${rootDir}/packages/monitoring && docker compose down`
       .nothrow()
       .quiet()
     logger.success('Docker containers stopped')

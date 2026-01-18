@@ -2279,7 +2279,7 @@ class SqliteDatabase::Vfs::DefaultLockManager final: public SqliteDatabase::Lock
   kj::MutexGuarded<LockMap> lockMap;
 
   struct LockState: public kj::Refcounted {
-    // Note: The refcount of this object is protected by `lockMap`'s mutex.
+    // The refcount of this object is protected by `lockMap`'s mutex.
 
     struct Guarded {
       kj::Vector<kj::Array<byte>> regions;

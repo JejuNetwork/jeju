@@ -70,8 +70,8 @@ export function useTokenRegistry(): UseTokenRegistryResult {
     functionName: 'getAllTokens',
   })
 
-  // Note: registrationFee may not exist in minimal ABI
-  const registrationFee = 0n // Default to 0 if not available
+  // registrationFee may not exist in minimal ABI - default to 0
+  const registrationFee = 0n
 
   const {
     writeContract: _writeContract,

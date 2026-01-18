@@ -347,7 +347,7 @@ export const ProposalInfoSchema = z.object({
   status: z.number(),
   qualityScore: z.number(),
   createdAt: z.number(),
-  councilVoteEnd: z.number(),
+  boardVoteEnd: z.number(),
   gracePeriodEnd: z.number(),
   contentHash: z.string(),
   targetContract: AddressSchema,
@@ -356,7 +356,7 @@ export const ProposalInfoSchema = z.object({
   totalStaked: BigIntStringSchema,
   backerCount: z.number(),
   hasResearch: z.boolean(),
-  ceoApproved: z.boolean(),
+  directorApproved: z.boolean(),
 })
 
 export const DelegateInfoSchema = z.object({
@@ -1111,7 +1111,7 @@ export const GitRepositorySchema = z.object({
   updatedAt: z.string(),
   pushedAt: z.string().optional(),
   reputationScore: z.number().optional(),
-  councilProposalId: z.string().optional(),
+  boardProposalId: z.string().optional(),
   verified: z.boolean(),
   headCid: z.string(),
 })

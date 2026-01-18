@@ -7,7 +7,7 @@
 
 import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex } from 'viem'
-import { requireContract } from '../config'
+import { safeGetContract } from '../config'
 import type { BaseWallet } from '../wallet'
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -575,22 +575,53 @@ export function createWorkModule(
   wallet: BaseWallet,
   network: NetworkType,
 ): WorkModule {
-  const bountyRegistryAddress = requireContract(
+  // Use safe getters - contracts may not be deployed on all networks
+  const bountyRegistryAddressOpt = safeGetContract(
     'work',
     'BountyRegistry',
     network,
   )
-  const projectBoardAddress = requireContract('work', 'ProjectBoard', network)
-  const guardianRegistryAddress = requireContract(
+  const projectBoardAddressOpt = safeGetContract(
+    'work',
+    'ProjectBoard',
+    network,
+  )
+  const guardianRegistryAddressOpt = safeGetContract(
     'work',
     'GuardianRegistry',
     network,
   )
 
+  // Lazy-load contract addresses - throw on method call if not deployed
+  const getBountyRegistryAddress = () => {
+    if (!bountyRegistryAddressOpt) {
+      throw new Error(
+        'Work BountyRegistry contract not deployed on this network',
+      )
+    }
+    return bountyRegistryAddressOpt
+  }
+
+  const getProjectBoardAddress = () => {
+    if (!projectBoardAddressOpt) {
+      throw new Error('Work ProjectBoard contract not deployed on this network')
+    }
+    return projectBoardAddressOpt
+  }
+
+  const getGuardianRegistryAddress = () => {
+    if (!guardianRegistryAddressOpt) {
+      throw new Error(
+        'Work GuardianRegistry contract not deployed on this network',
+      )
+    }
+    return guardianRegistryAddressOpt
+  }
+
   // Helper to read bounty
   async function readBounty(bountyId: Hex): Promise<Bounty | null> {
     const result = await wallet.publicClient.readContract({
-      address: bountyRegistryAddress,
+      address: getBountyRegistryAddress(),
       abi: BOUNTY_REGISTRY_ABI,
       functionName: 'getBounty',
       args: [bountyId],
@@ -621,7 +652,7 @@ export function createWorkModule(
   // Helper to read project
   async function readProject(projectId: Hex): Promise<Project | null> {
     const result = await wallet.publicClient.readContract({
-      address: projectBoardAddress,
+      address: getProjectBoardAddress(),
       abi: PROJECT_BOARD_ABI,
       functionName: 'getProject',
       args: [projectId],
@@ -663,7 +694,7 @@ export function createWorkModule(
       })
 
       const txHash = await wallet.sendTransaction({
-        to: bountyRegistryAddress,
+        to: getBountyRegistryAddress(),
         data,
         value: params.reward,
       })
@@ -680,7 +711,7 @@ export function createWorkModule(
       const statusFilter = status ?? BountyStatus.OPEN
 
       const ids = await wallet.publicClient.readContract({
-        address: bountyRegistryAddress,
+        address: getBountyRegistryAddress(),
         abi: BOUNTY_REGISTRY_ABI,
         functionName: 'getBountiesByStatus',
         args: [statusFilter],
@@ -696,7 +727,7 @@ export function createWorkModule(
 
     async listMyBounties() {
       const ids = await wallet.publicClient.readContract({
-        address: bountyRegistryAddress,
+        address: getBountyRegistryAddress(),
         abi: BOUNTY_REGISTRY_ABI,
         functionName: 'getBountiesByCreator',
         args: [wallet.address],
@@ -712,7 +743,7 @@ export function createWorkModule(
 
     async listMyHunts() {
       const ids = await wallet.publicClient.readContract({
-        address: bountyRegistryAddress,
+        address: getBountyRegistryAddress(),
         abi: BOUNTY_REGISTRY_ABI,
         functionName: 'getBountiesByHunter',
         args: [wallet.address],
@@ -734,7 +765,7 @@ export function createWorkModule(
       })
 
       return wallet.sendTransaction({
-        to: bountyRegistryAddress,
+        to: getBountyRegistryAddress(),
         data,
       })
     },
@@ -747,7 +778,7 @@ export function createWorkModule(
       })
 
       return wallet.sendTransaction({
-        to: bountyRegistryAddress,
+        to: getBountyRegistryAddress(),
         data,
       })
     },
@@ -760,7 +791,7 @@ export function createWorkModule(
       })
 
       return wallet.sendTransaction({
-        to: bountyRegistryAddress,
+        to: getBountyRegistryAddress(),
         data,
       })
     },
@@ -773,7 +804,7 @@ export function createWorkModule(
       })
 
       return wallet.sendTransaction({
-        to: bountyRegistryAddress,
+        to: getBountyRegistryAddress(),
         data,
       })
     },
@@ -786,14 +817,14 @@ export function createWorkModule(
       })
 
       return wallet.sendTransaction({
-        to: bountyRegistryAddress,
+        to: getBountyRegistryAddress(),
         data,
       })
     },
 
     async getSubmissions(bountyId) {
       const result = await wallet.publicClient.readContract({
-        address: bountyRegistryAddress,
+        address: getBountyRegistryAddress(),
         abi: BOUNTY_REGISTRY_ABI,
         functionName: 'getSubmissions',
         args: [bountyId],
@@ -820,7 +851,7 @@ export function createWorkModule(
       })
 
       return wallet.sendTransaction({
-        to: bountyRegistryAddress,
+        to: getBountyRegistryAddress(),
         data,
       })
     },
@@ -833,7 +864,7 @@ export function createWorkModule(
       })
 
       return wallet.sendTransaction({
-        to: bountyRegistryAddress,
+        to: getBountyRegistryAddress(),
         data,
         value: amount,
       })
@@ -851,7 +882,7 @@ export function createWorkModule(
       })
 
       const txHash = await wallet.sendTransaction({
-        to: projectBoardAddress,
+        to: getProjectBoardAddress(),
         data,
         value: params.budget ?? 0n,
       })
@@ -866,7 +897,7 @@ export function createWorkModule(
 
     async listProjects() {
       const ids = await wallet.publicClient.readContract({
-        address: projectBoardAddress,
+        address: getProjectBoardAddress(),
         abi: PROJECT_BOARD_ABI,
         functionName: 'getAllProjects',
         args: [],
@@ -882,7 +913,7 @@ export function createWorkModule(
 
     async listMyProjects() {
       const ids = await wallet.publicClient.readContract({
-        address: projectBoardAddress,
+        address: getProjectBoardAddress(),
         abi: PROJECT_BOARD_ABI,
         functionName: 'getProjectsByOwner',
         args: [wallet.address],
@@ -904,7 +935,7 @@ export function createWorkModule(
       })
 
       return wallet.sendTransaction({
-        to: projectBoardAddress,
+        to: getProjectBoardAddress(),
         data,
       })
     },
@@ -917,7 +948,7 @@ export function createWorkModule(
       })
 
       return wallet.sendTransaction({
-        to: projectBoardAddress,
+        to: getProjectBoardAddress(),
         data,
       })
     },
@@ -936,14 +967,14 @@ export function createWorkModule(
       })
 
       return wallet.sendTransaction({
-        to: projectBoardAddress,
+        to: getProjectBoardAddress(),
         data,
       })
     },
 
     async getTasks(projectId) {
       const result = await wallet.publicClient.readContract({
-        address: projectBoardAddress,
+        address: getProjectBoardAddress(),
         abi: PROJECT_BOARD_ABI,
         functionName: 'getTasks',
         args: [projectId],
@@ -974,7 +1005,7 @@ export function createWorkModule(
       })
 
       return wallet.sendTransaction({
-        to: projectBoardAddress,
+        to: getProjectBoardAddress(),
         data,
       })
     },
@@ -987,7 +1018,7 @@ export function createWorkModule(
       })
 
       return wallet.sendTransaction({
-        to: projectBoardAddress,
+        to: getProjectBoardAddress(),
         data,
       })
     },
@@ -1004,7 +1035,7 @@ export function createWorkModule(
       })
 
       return wallet.sendTransaction({
-        to: guardianRegistryAddress,
+        to: getGuardianRegistryAddress(),
         data,
         value: stake,
       })
@@ -1012,7 +1043,7 @@ export function createWorkModule(
 
     async getGuardian(address) {
       const result = await wallet.publicClient.readContract({
-        address: guardianRegistryAddress,
+        address: getGuardianRegistryAddress(),
         abi: GUARDIAN_REGISTRY_ABI,
         functionName: 'getGuardian',
         args: [address],
@@ -1037,7 +1068,7 @@ export function createWorkModule(
 
     async listGuardians() {
       const addresses = await wallet.publicClient.readContract({
-        address: guardianRegistryAddress,
+        address: getGuardianRegistryAddress(),
         abi: GUARDIAN_REGISTRY_ABI,
         functionName: 'getActiveGuardians',
         args: [],
@@ -1059,7 +1090,7 @@ export function createWorkModule(
       })
 
       return wallet.sendTransaction({
-        to: guardianRegistryAddress,
+        to: getGuardianRegistryAddress(),
         data,
         value: amount,
       })
@@ -1073,7 +1104,7 @@ export function createWorkModule(
       })
 
       return wallet.sendTransaction({
-        to: guardianRegistryAddress,
+        to: getGuardianRegistryAddress(),
         data,
       })
     },
@@ -1086,7 +1117,7 @@ export function createWorkModule(
       })
 
       return wallet.sendTransaction({
-        to: guardianRegistryAddress,
+        to: getGuardianRegistryAddress(),
         data,
       })
     },

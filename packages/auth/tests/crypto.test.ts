@@ -555,7 +555,7 @@ describe('TOTP - Code Generation and Verification', () => {
     const code1 = await totp.getCurrentCode('timetest')
     expect(code1).not.toBeNull()
 
-    // Note: Same period should return same code
+    // Same period should return same code
     const code2 = await totp.getCurrentCode('timetest')
     expect(code2).toBe(code1)
   })
@@ -1035,7 +1035,7 @@ describe('Passkeys - Challenge Management', () => {
     })
 
     // Simulate registration by verifying with mock data
-    // Note: In real test would need mock WebAuthn response
+    // In real test would need mock WebAuthn response
 
     // Second registration should exclude the first
     const regOptions2 = await manager.generateRegistrationOptions({

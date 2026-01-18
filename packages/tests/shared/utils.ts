@@ -30,7 +30,23 @@ export const PASSWORD = 'Tester@1234'
 export const TEST_WALLET_ADDRESS =
   '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as const
 
-export const JEJU_CHAIN_ID = 31337
+const getDefaultChainId = (): number => {
+  const envChainId = process.env.CHAIN_ID
+  if (envChainId) {
+    const parsed = Number(envChainId)
+    if (!Number.isNaN(parsed)) {
+      return parsed
+    }
+  }
+
+  try {
+    return getConfigChainId()
+  } catch {
+    return 31337
+  }
+}
+
+export const JEJU_CHAIN_ID = getDefaultChainId()
 // Use config helper for RPC URL, fallback to localhost default
 const getDefaultRpcUrl = () => {
   try {
@@ -382,12 +398,18 @@ export function getRpcUrl(): string {
  * Uses config package with fallback to test defaults
  */
 export function getChainId(): number {
+  const envChainId =
+    typeof process !== 'undefined' ? process.env.CHAIN_ID : undefined
+  if (envChainId) {
+    const parsed = parseInt(envChainId, 10)
+    if (!Number.isNaN(parsed)) {
+      return parsed
+    }
+  }
   try {
     return getConfigChainId()
   } catch {
-    const envChainId =
-      typeof process !== 'undefined' ? process.env.CHAIN_ID : undefined
-    return envChainId ? parseInt(envChainId, 10) : JEJU_CHAIN_ID
+    return JEJU_CHAIN_ID
   }
 }
 

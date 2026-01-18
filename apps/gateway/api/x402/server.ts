@@ -18,10 +18,25 @@ const MAX_BODY_SIZE = 256 * 1024
 const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',').filter(Boolean)
 const isProduction = isProductionEnv()
 
+/**
+ * SECURITY: In production, if CORS_ORIGINS is empty, reject cross-origin requests
+ */
+function getX402CorsOrigin(): boolean | string[] {
+  if (!isProduction) {
+    return true
+  }
+  if (CORS_ORIGINS?.length) {
+    return CORS_ORIGINS
+  }
+  // SECURITY: In production with no configured origins, return empty array
+  // which effectively blocks cross-origin requests
+  return []
+}
+
 const app = new Elysia()
   .use(
     cors({
-      origin: isProduction && CORS_ORIGINS?.length ? CORS_ORIGINS : true,
+      origin: getX402CorsOrigin(),
       methods: ['GET', 'POST', 'OPTIONS'],
       allowedHeaders: [
         'Content-Type',
@@ -42,10 +57,19 @@ const app = new Elysia()
     return undefined
   })
   .onAfterHandle(({ set }) => {
+    // SECURITY: Comprehensive security headers
     set.headers['X-Content-Type-Options'] = 'nosniff'
     set.headers['X-Frame-Options'] = 'DENY'
     set.headers['X-XSS-Protection'] = '1; mode=block'
     set.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    // SECURITY: CSP to prevent XSS and injection attacks
+    set.headers['Content-Security-Policy'] =
+      "default-src 'none'; frame-ancestors 'none'"
+    // SECURITY: Prevent MIME sniffing
+    set.headers['X-Download-Options'] = 'noopen'
+    // SECURITY: Permissions policy to restrict browser features
+    set.headers['Permissions-Policy'] =
+      'geolocation=(), microphone=(), camera=()'
   })
   // Mount routes
   .use(healthRoutes)

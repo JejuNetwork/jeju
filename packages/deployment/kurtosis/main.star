@@ -83,7 +83,11 @@ def run(plan, args={}):
     
     print_endpoints(plan, real, enable_sqlit, enable_solana)
     
-    return {"status": "success", "services": services, **result}
+    # Build final result without spread operator (Starlark doesn't support **)
+    final_result = {"status": "success", "services": services}
+    for key in result:
+        final_result[key] = result[key]
+    return final_result
 
 
 def run_simple(plan, args):

@@ -9,6 +9,7 @@ import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { getCurrentNetwork } from '@jejunetwork/config'
+import { reportBundleSizes } from '@jejunetwork/shared'
 import type { BunPlugin } from 'bun'
 
 const APP_DIR = resolve(import.meta.dir, '..')
@@ -34,6 +35,10 @@ async function build() {
       }))
       build.onResolve({ filter: /^pino(-pretty)?$/ }, () => ({
         path: resolve(APP_DIR, 'web/shims/pino.ts'),
+      }))
+      // Shim server-only packages for browser
+      build.onResolve({ filter: /^@jejunetwork\/cache$/ }, () => ({
+        path: resolve(APP_DIR, 'web/shims/cache.ts'),
       }))
       const reactPath = require.resolve('react')
       const reactDomPath = require.resolve('react-dom')
@@ -93,6 +98,7 @@ async function build() {
     packages: 'bundle',
     plugins: [browserPlugin],
     naming: '[name].[hash].[ext]',
+    drop: ['debugger'],
     external: [
       '@google-cloud/*',
       '@grpc/*',
@@ -104,9 +110,7 @@ async function build() {
       '@opentelemetry/*',
       'bun:sqlite',
       'node:*',
-      'crypto',
       'typeorm',
-      '@jejunetwork/cache',
       '@jejunetwork/db',
       '@jejunetwork/dws',
       '@jejunetwork/kms',
@@ -160,16 +164,12 @@ async function build() {
     }
     process.exit(1)
   }
+  reportBundleSizes(frontendResult, 'Gateway Frontend')
   console.log('[Gateway] Frontend built successfully')
 
-  // Build API servers
+  // Build standalone API servers (used in dev mode)
   console.log('[Gateway] Building API servers...')
-  const apiFiles = [
-    'server.ts',
-    'rpc-server.ts',
-    'x402-server.ts',
-    'a2a-server.ts',
-  ]
+  const apiFiles = ['rpc-server.ts', 'x402-server.ts']
   for (const apiFile of apiFiles) {
     const result = await Bun.build({
       entrypoints: [resolve(APP_DIR, `api/${apiFile}`)],
@@ -177,6 +177,7 @@ async function build() {
       target: 'bun',
       minify: true,
       sourcemap: 'external',
+      drop: ['debugger'],
     })
     if (!result.success) {
       console.warn(`[Gateway] Warning: ${apiFile} build failed`)
@@ -185,14 +186,16 @@ async function build() {
   console.log('[Gateway] API servers built')
 
   // Build worker for workerd deployment
+  // Uses worker-entry.ts which exports the handler as default (required for workerd)
   console.log('[Gateway] Building worker for DWS deployment...')
   mkdirSync(join(outdir, 'worker'), { recursive: true })
   const workerResult = await Bun.build({
-    entrypoints: [resolve(APP_DIR, 'api/worker.ts')],
+    entrypoints: [resolve(APP_DIR, 'api/worker-entry.ts')],
     outdir: join(outdir, 'worker'),
     target: 'bun',
     minify: true,
     sourcemap: 'external',
+    drop: ['debugger'],
     external: [
       'bun:sqlite',
       'child_process',
@@ -209,6 +212,8 @@ async function build() {
     for (const log of workerResult.logs) console.error(log)
     throw new Error('Worker build failed')
   }
+
+  reportBundleSizes(workerResult, 'Gateway Worker')
 
   // Write worker metadata
   const metadata = {
@@ -255,6 +260,7 @@ async function build() {
   console.log(`  dist/web/${mainFileName} - Frontend bundle`)
   console.log('  dist/api/                - API servers')
   console.log('  dist/index.html          - Entry HTML')
+  process.exit(0)
 }
 
 build().catch((err) => {

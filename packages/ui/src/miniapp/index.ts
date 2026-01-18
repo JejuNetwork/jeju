@@ -27,7 +27,11 @@ export interface TelegramWebApp {
     onClick: (callback: () => void) => void
     offClick: (callback: () => void) => void
     setText: (text: string) => void
-    setParams: (params: { text?: string; color?: string; text_color?: string }) => void
+    setParams: (params: {
+      text?: string
+      color?: string
+      text_color?: string
+    }) => void
   }
   BackButton: {
     isVisible: boolean
@@ -87,30 +91,68 @@ export interface TelegramWebApp {
   backgroundColor: string
   isExpanded: boolean
   HapticFeedback: {
-    impactOccurred: (style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft') => void
+    impactOccurred: (
+      style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft',
+    ) => void
     notificationOccurred: (type: 'error' | 'success' | 'warning') => void
     selectionChanged: () => void
   }
   CloudStorage: {
-    setItem: (key: string, value: string, callback?: (error: Error | null, success?: boolean) => void) => void
-    getItem: (key: string, callback: (error: Error | null, value?: string) => void) => void
-    getItems: (keys: string[], callback: (error: Error | null, values?: Record<string, string>) => void) => void
-    removeItem: (key: string, callback?: (error: Error | null, success?: boolean) => void) => void
-    removeItems: (keys: string[], callback?: (error: Error | null, success?: boolean) => void) => void
+    setItem: (
+      key: string,
+      value: string,
+      callback?: (error: Error | null, success?: boolean) => void,
+    ) => void
+    getItem: (
+      key: string,
+      callback: (error: Error | null, value?: string) => void,
+    ) => void
+    getItems: (
+      keys: string[],
+      callback: (error: Error | null, values?: Record<string, string>) => void,
+    ) => void
+    removeItem: (
+      key: string,
+      callback?: (error: Error | null, success?: boolean) => void,
+    ) => void
+    removeItems: (
+      keys: string[],
+      callback?: (error: Error | null, success?: boolean) => void,
+    ) => void
     getKeys: (callback: (error: Error | null, keys?: string[]) => void) => void
   }
   sendData: (data: string) => void
   openLink: (url: string, options?: { try_instant_view?: boolean }) => void
   openTelegramLink: (url: string) => void
-  showPopup: (params: { title?: string; message: string; buttons?: Array<{ id?: string; type?: 'default' | 'ok' | 'close' | 'cancel' | 'destructive'; text?: string }> }, callback?: (buttonId: string) => void) => void
+  showPopup: (
+    params: {
+      title?: string
+      message: string
+      buttons?: Array<{
+        id?: string
+        type?: 'default' | 'ok' | 'close' | 'cancel' | 'destructive'
+        text?: string
+      }>
+    },
+    callback?: (buttonId: string) => void,
+  ) => void
   showAlert: (message: string, callback?: () => void) => void
-  showConfirm: (message: string, callback?: (confirmed: boolean) => void) => void
-  showScanQrPopup: (params?: { text?: string }, callback?: (text: string) => boolean | void) => void
+  showConfirm: (
+    message: string,
+    callback?: (confirmed: boolean) => void,
+  ) => void
+  showScanQrPopup: (
+    params?: { text?: string },
+    callback?: (text: string) => boolean | undefined,
+  ) => void
   closeScanQrPopup: () => void
   readTextFromClipboard: (callback?: (text: string | null) => void) => void
   requestWriteAccess: (callback?: (granted: boolean) => void) => void
   requestContact: (callback?: (granted: boolean) => void) => void
-  switchInlineQuery: (query: string, chat_types?: Array<'users' | 'bots' | 'groups' | 'channels'>) => void
+  switchInlineQuery: (
+    query: string,
+    chat_types?: Array<'users' | 'bots' | 'groups' | 'channels'>,
+  ) => void
   onEvent: (eventType: string, callback: (...args: unknown[]) => void) => void
   offEvent: (eventType: string, callback: (...args: unknown[]) => void) => void
 }
@@ -155,7 +197,9 @@ export function initTelegram(): TelegramWebApp | null {
   return webapp
 }
 
-export function haptic(type: 'light' | 'medium' | 'heavy' | 'success' | 'error' | 'warning'): void {
+export function haptic(
+  type: 'light' | 'medium' | 'heavy' | 'success' | 'error' | 'warning',
+): void {
   if (typeof window === 'undefined') return
   if (!window.Telegram?.WebApp?.HapticFeedback) return
 
@@ -167,7 +211,9 @@ export function haptic(type: 'light' | 'medium' | 'heavy' | 'success' | 'error' 
   }
 }
 
-export function getTelegramUser(): TelegramWebApp['initDataUnsafe']['user'] | null {
+export function getTelegramUser():
+  | TelegramWebApp['initDataUnsafe']['user']
+  | null {
   if (typeof window === 'undefined') return null
   return window.Telegram?.WebApp?.initDataUnsafe?.user ?? null
 }
@@ -232,18 +278,26 @@ export function generateFrameMetaTags(frame: FrameMetadata): string {
   ]
 
   if (frame.input) {
-    tags.push(`<meta property="fc:frame:input:text" content="${frame.input.placeholder}">`)
+    tags.push(
+      `<meta property="fc:frame:input:text" content="${frame.input.placeholder}">`,
+    )
   }
 
   if (frame.buttons) {
     frame.buttons.forEach((button, index) => {
       const idx = index + 1
-      tags.push(`<meta property="fc:frame:button:${idx}" content="${button.label}">`)
+      tags.push(
+        `<meta property="fc:frame:button:${idx}" content="${button.label}">`,
+      )
       if (button.action) {
-        tags.push(`<meta property="fc:frame:button:${idx}:action" content="${button.action}">`)
+        tags.push(
+          `<meta property="fc:frame:button:${idx}:action" content="${button.action}">`,
+        )
       }
       if (button.target) {
-        tags.push(`<meta property="fc:frame:button:${idx}:target" content="${button.target}">`)
+        tags.push(
+          `<meta property="fc:frame:button:${idx}:target" content="${button.target}">`,
+        )
       }
     })
   }
@@ -310,7 +364,8 @@ export function createMiniappStorage(): MiniappStorage {
   // Fallback to localStorage
   return {
     get: async (key: string) => localStorage.getItem(`miniapp:${key}`),
-    set: async (key: string, value: string) => localStorage.setItem(`miniapp:${key}`, value),
+    set: async (key: string, value: string) =>
+      localStorage.setItem(`miniapp:${key}`, value),
     remove: async (key: string) => localStorage.removeItem(`miniapp:${key}`),
     getKeys: async () => {
       const keys: string[] = []
@@ -363,4 +418,3 @@ export function applyMiniappTheme(): void {
     root.style.setProperty(key, value)
   }
 }
-

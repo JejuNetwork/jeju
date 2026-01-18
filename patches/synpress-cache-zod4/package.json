@@ -1,0 +1,39 @@
+{
+  "name": "@synthetixio/synpress-cache",
+  "version": "0.0.13-zod4",
+  "homepage": "https://synpress.io",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Synthetixio/synpress.git"
+  },
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    "types": "./src/index.ts",
+    "default": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./src/index.ts",
+  "bin": "./dist/cli/index.js",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "dependencies": {
+    "axios": "1.6.7",
+    "chalk": "5.3.0",
+    "commander": "12.0.0",
+    "esbuild": "0.20.0",
+    "fs-extra": "11.2.0",
+    "glob": "10.3.10",
+    "gradient-string": "2.0.2",
+    "progress": "2.0.3",
+    "tsup": "8.0.2",
+    "unzip-crx-3": "0.2.0",
+    "unzipper": "0.10.14"
+  },
+  "peerDependencies": {
+    "playwright-core": ">=1.48.0",
+    "zod": ">=4.0.0"
+  }
+}

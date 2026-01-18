@@ -1,0 +1,161 @@
+{
+  "$schema": "../../packages/config/jeju-manifest.schema.json",
+  "name": "monitoring",
+  "displayName": "Network Monitoring",
+  "version": "1.0.0",
+  "type": "core",
+  "description": "Query blockchain metrics and system health via Prometheus. Exposes PromQL queries, active alerts, and scrape target status via A2A protocol.",
+  "commands": {
+    "dev": "bun run dev",
+    "start": "bun run api/a2a.ts",
+    "build": "bun run build"
+  },
+  "ports": {
+    "main": 3002,
+    "api": 3003,
+    "prometheus": 9090,
+    "grafana": 4010
+  },
+  "dependencies": [],
+  "optional": true,
+  "enabled": true,
+  "autoStart": false,
+  "tags": ["monitoring", "prometheus", "grafana", "metrics", "alerts", "observability"],
+  "jns": {
+    "name": "monitoring.jeju",
+    "description": "Network Monitoring Dashboard",
+    "url": "https://monitoring.jejunetwork.org"
+  },
+  "healthCheck": {
+    "url": "http://localhost:3003/a2a/.well-known/agent-card.json",
+    "interval": 30000
+  },
+  "agent": {
+    "enabled": true,
+    "a2aEndpoint": "/a2a",
+    "mcpEndpoint": "/mcp",
+    "tags": ["jeju-app", "monitoring", "metrics", "alerts"],
+    "metadata": {
+      "category": "observability",
+      "provider": "jeju-network",
+      "features": ["prometheus", "grafana", "alerts"]
+    },
+    "trustModels": ["open"],
+    "x402Support": false,
+    "jnsName": "monitoring.jeju"
+  },
+  "dws": {
+    "backend": {
+      "enabled": true,
+      "runtime": "workerd",
+      "entrypoint": "api/worker.ts",
+      "memory": 512,
+      "timeout": 30000,
+      "minInstances": 1,
+      "maxInstances": 3,
+      "teeRequired": false,
+      "regions": ["global"],
+      "env": {
+        "PROMETHEUS_URL": "http://localhost:9090",
+        "PROMETHEUS_INTERNAL_URL": "http://prometheus:9090"
+      }
+    },
+    "sidecars": [
+      {
+        "name": "prometheus",
+        "image": "prom/prometheus:v2.53.0",
+        "port": 9090,
+        "memory": 512,
+        "volumes": [
+          { "name": "prometheus-config", "mountPath": "/etc/prometheus" },
+          { "name": "prometheus-data", "mountPath": "/prometheus", "persistent": true }
+        ],
+        "args": [
+          "--config.file=/etc/prometheus/prometheus.yml",
+          "--storage.tsdb.path=/prometheus",
+          "--storage.tsdb.retention.time=15d",
+          "--web.enable-lifecycle"
+        ]
+      }
+    ],
+    "configMaps": [
+      {
+        "name": "prometheus-config",
+        "files": [
+          "config/prometheus/prometheus.yml",
+          "config/prometheus/alerts/*.yaml"
+        ]
+      }
+    ],
+    "cdn": {
+      "enabled": true,
+      "regions": ["global"],
+      "staticDir": "dist",
+      "cacheRules": [
+        { "pattern": "/assets/**", "ttl": 31536000, "immutable": true },
+        { "pattern": "/*.js", "ttl": 86400 },
+        { "pattern": "/*.css", "ttl": 86400 },
+        { "pattern": "/**/*.html", "ttl": 60, "staleWhileRevalidate": 3600 }
+      ]
+    },
+    "proxy": {
+      "enabled": true,
+      "upstream": "monitoring",
+      "pathPrefix": "/monitoring",
+      "rateLimit": {
+        "requestsPerMinute": 500,
+        "burstSize": 50
+      }
+    }
+  },
+  "decentralization": {
+    "worker": {
+      "name": "monitoring-api",
+      "entrypoint": "api/worker.ts",
+      "runtime": "workerd",
+      "memory": 512,
+      "timeout": 30000,
+      "compatibilityDate": "2025-06-01",
+      "routes": [
+        { "pattern": "/a2a/*" },
+        { "pattern": "/mcp/*" },
+        { "pattern": "/health" }
+      ]
+    },
+    "cdn": {
+      "enabled": true,
+      "regions": ["global"],
+      "cacheRules": [
+        { "pattern": "/assets/**", "ttl": 31536000, "immutable": true },
+        { "pattern": "/api/metrics/**", "ttl": 5 },
+        { "pattern": "/api/**", "ttl": 0 },
+        { "pattern": "/**/*.html", "ttl": 60, "staleWhileRevalidate": 3600 }
+      ],
+      "serviceWorker": true
+    },
+    "frontend": {
+      "ipfs": true,
+      "arweave": true,
+      "jnsName": "monitoring.jeju",
+      "buildDir": "dist",
+      "spa": true,
+      "fallbackOrigins": ["https://monitoring.jejunetwork.org"]
+    },
+    "robustness": {
+      "multiOrigin": true,
+      "offlineSupport": true,
+      "p2pFallback": true,
+      "contentAddressed": true
+    }
+  },
+  "testing": {
+    "unit": {
+      "command": "bun run test",
+      "timeout": 120000
+    },
+    "integration": {
+      "command": "bun run test:integration",
+      "timeout": 300000
+    }
+  }
+}

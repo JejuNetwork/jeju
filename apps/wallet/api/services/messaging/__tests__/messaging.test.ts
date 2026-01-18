@@ -20,7 +20,11 @@ import { resetStorage } from '../../../../web/platform/storage'
 import { messagingService, WalletMessagingService } from '../index'
 
 const HUB_URL = 'https://hub.pinata.cloud'
-const TEST_ADDRESS = '0x1234567890123456789012345678901234567890' as Address
+const TEST_WALLET_ADDRESS = process.env.TEST_WALLET_ADDRESS
+if (!TEST_WALLET_ADDRESS) {
+  throw new Error('TEST_WALLET_ADDRESS must be set by test harness')
+}
+const TEST_ADDRESS = TEST_WALLET_ADDRESS as Address
 const ALTERNATE_ADDRESS =
   '0xAbCdEf0123456789AbCdEf0123456789AbCdEf01' as Address
 
@@ -653,8 +657,7 @@ describe('Integration - Real Data Verification', () => {
 
     expect(response.messages.length).toBeGreaterThan(0)
 
-    // Note: Farcaster timestamps are NOT Unix timestamps - they are
-    // "Farcaster timestamps" which are seconds since Jan 1, 2021 UTC
+    // Farcaster timestamps are seconds since Jan 1, 2021 UTC (not Unix timestamps)
     // So they will be smaller numbers than Unix timestamps
     for (const cast of response.messages) {
       expect(cast.timestamp).toBeGreaterThan(0)
@@ -679,7 +682,7 @@ describe('Integration - Real Data Verification', () => {
     })
 
     // The Hub returns casts for the channel
-    // Note: parentUrl may be set differently depending on Hub implementation
+    // parentUrl may be set differently depending on Hub implementation
     expect(response.messages).toBeDefined()
     expect(Array.isArray(response.messages)).toBe(true)
 

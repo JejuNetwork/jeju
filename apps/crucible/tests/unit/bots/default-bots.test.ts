@@ -148,29 +148,24 @@ describe('Default Bots Configuration', () => {
     }
 
     test('should create valid options', () => {
+      const treasuryAddr = `0x${'2'.repeat(40)}` as `0x${string}`
       const options = createTradingBotOptions(
         testBotConfig,
         1n,
-        `0x${'1'.repeat(64)}`,
         'mainnet',
-        `0x${'2'.repeat(40)}`,
+        treasuryAddr,
       )
 
       expect(options.agentId).toBe(1n)
       expect(options.name).toBe('Test Bot')
       expect(options.strategies).toEqual(testBotConfig.strategies)
       expect(options.chains.length).toBe(2)
-      expect(options.privateKey).toBe(`0x${'1'.repeat(64)}`)
       expect(options.maxConcurrentExecutions).toBe(5)
+      expect(options.treasuryAddress).toBe(treasuryAddr)
     })
 
     test('should disable Flashbots for localnet', () => {
-      const options = createTradingBotOptions(
-        testBotConfig,
-        1n,
-        `0x${'1'.repeat(64)}`,
-        'localnet',
-      )
+      const options = createTradingBotOptions(testBotConfig, 1n, 'localnet')
       expect(options.useFlashbots).toBe(false)
     })
 
@@ -179,7 +174,6 @@ describe('Default Bots Configuration', () => {
         const options = createTradingBotOptions(
           testBotConfig,
           1n,
-          `0x${'1'.repeat(64)}`,
           network as 'localnet' | 'testnet' | 'mainnet',
         )
         expect(options.useFlashbots).toBe(true)
@@ -193,35 +187,20 @@ describe('Default Bots Configuration', () => {
         ...testBotConfig,
         chains: [TEST_CHAIN_IDS.UNCONFIGURED],
       }
-      const options = createTradingBotOptions(
-        config,
-        1n,
-        `0x${'1'.repeat(64)}`,
-        'mainnet',
-      )
+      const options = createTradingBotOptions(config, 1n, 'mainnet')
       expect(options.chains.length).toBe(0)
     })
 
     test('should handle empty chains array', () => {
       const config = { ...testBotConfig, chains: [] }
-      const options = createTradingBotOptions(
-        config,
-        1n,
-        `0x${'1'.repeat(64)}`,
-        'mainnet',
-      )
+      const options = createTradingBotOptions(config, 1n, 'mainnet')
       expect(options.chains).toEqual([])
     })
 
     test('should map chain IDs to chain configs correctly', () => {
       // These are all valid ChainIds (positive integers) that exist in DEFAULT_CHAINS
       const config = { ...testBotConfig, chains: [1, 42161, 10, 8453] }
-      const options = createTradingBotOptions(
-        config,
-        1n,
-        `0x${'1'.repeat(64)}`,
-        'mainnet',
-      )
+      const options = createTradingBotOptions(config, 1n, 'mainnet')
 
       expect(options.chains.length).toBe(4)
       expect(options.chains[0].chainId).toBe(1)
@@ -229,12 +208,7 @@ describe('Default Bots Configuration', () => {
     })
 
     test('should handle missing treasury address', () => {
-      const options = createTradingBotOptions(
-        testBotConfig,
-        1n,
-        `0x${'1'.repeat(64)}`,
-        'mainnet',
-      )
+      const options = createTradingBotOptions(testBotConfig, 1n, 'mainnet')
       expect(options.treasuryAddress).toBeUndefined()
     })
 
@@ -243,7 +217,6 @@ describe('Default Bots Configuration', () => {
       const options = createTradingBotOptions(
         testBotConfig,
         1n,
-        `0x${'1'.repeat(64)}`,
         'mainnet',
         treasuryAddr,
       )
@@ -287,8 +260,8 @@ describe('Default Bots Configuration', () => {
       const options = createTradingBotOptions(
         config,
         1n,
-        `0x${'1'.repeat(64)}`,
         'mainnet',
+        `0x${'1'.repeat(40)}` as `0x${string}`,
       )
       expect(options).toBeDefined()
     })
@@ -298,8 +271,8 @@ describe('Default Bots Configuration', () => {
       const options = createTradingBotOptions(
         config,
         1n,
-        `0x${'1'.repeat(64)}`,
         'mainnet',
+        `0x${'1'.repeat(40)}` as `0x${string}`,
       )
       expect(options).toBeDefined()
     })
@@ -309,8 +282,8 @@ describe('Default Bots Configuration', () => {
       const options = createTradingBotOptions(
         config,
         1n,
-        `0x${'1'.repeat(64)}`,
         'mainnet',
+        `0x${'1'.repeat(40)}` as `0x${string}`,
       )
 
       expect(options.strategies).toEqual(config.strategies)

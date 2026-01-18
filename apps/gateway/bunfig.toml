@@ -4,6 +4,29 @@ coverageDir = "./test-results/coverage"
 # Use shared test infrastructure for setup/teardown
 preload = ["@jejunetwork/tests/bun-global-setup"]
 
+# Timeout for tests (60 seconds for integration tests)
+timeout = 60000
+
+# Integration tests require Jeju CLI infrastructure
+# Run with: jeju test --mode integration --app gateway
+# Default: only run unit tests (tests/unit/)
+# To include integration: bun test tests/integration tests/unit
+
+# Only run Bun tests. Playwright/Synpress suites run via `jeju test --mode e2e`.
+root = [
+  "tests/a2a",
+  "tests/contracts",
+  "tests/integration",
+  "tests/leaderboard",
+  "tests/load",
+  "tests/node-system",
+  "tests/oracle",
+  "tests/rpc",
+  "tests/solver",
+  "tests/unit",
+  "tests/x402",
+]
+
 # Mark server-only packages as external for browser builds
 [serve.static]
 external = [

@@ -8,20 +8,24 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "bun": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     },
     "./indexer": {
-      "import": "./dist/indexer.js",
-      "types": "./dist/indexer.d.ts"
+      "bun": "./src/indexer.ts",
+      "types": "./dist/indexer.d.ts",
+      "import": "./dist/indexer.js"
     },
     "./names": {
-      "import": "./dist/names.js",
-      "types": "./dist/names.d.ts"
+      "bun": "./src/names.ts",
+      "types": "./dist/names.d.ts",
+      "import": "./dist/names.js"
     },
     "./rpc": {
-      "import": "./dist/rpc.js",
-      "types": "./dist/rpc.d.ts"
+      "bun": "./src/rpc.ts",
+      "types": "./dist/rpc.d.ts",
+      "import": "./dist/rpc.js"
     }
   },
   "files": [
@@ -47,6 +51,7 @@
     "eil"
   ],
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "typescript": "5.9.3",
     "viem": "2.43.3"
   },

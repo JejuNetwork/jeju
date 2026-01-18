@@ -8,6 +8,7 @@ import {
   getDWSUrl,
   getLocalhostHost,
   getRpcUrl,
+  isProductionEnv,
   tryGetContract,
 } from '@jejunetwork/config'
 import {
@@ -54,6 +55,7 @@ async function verifySignature(
   }
 }
 
+import { type DWSWorkerdWorker, dwsWorkerdWorkerState } from '../../state'
 import type { BackendManager } from '../../storage/backends'
 import {
   DEFAULT_ROUTER_CONFIG,
@@ -146,6 +148,123 @@ export function createWorkerdRouter(options: WorkerdRouterOptions) {
 
   // Initialize executor
   const executor = new WorkerdExecutor(backend, workerdConfig)
+
+  function isStringRecord(value: unknown): value is Record<string, string> {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return false
+    }
+    return Object.values(value).every((item) => typeof item === 'string')
+  }
+
+  function toPersistedWorkerdWorker(
+    worker: WorkerdWorkerDefinition,
+  ): DWSWorkerdWorker {
+    const storedBindings = worker.bindings.map((binding) => {
+      if (
+        binding.type !== 'text' &&
+        binding.type !== 'json' &&
+        binding.type !== 'data' &&
+        binding.type !== 'service'
+      ) {
+        throw new Error(
+          `Unsupported workerd binding type for persistence: ${binding.type}`,
+        )
+      }
+
+      const value =
+        typeof binding.value === 'string'
+          ? binding.value
+          : isStringRecord(binding.value)
+            ? binding.value
+            : undefined
+
+      if (
+        binding.value !== undefined &&
+        typeof binding.value !== 'string' &&
+        !isStringRecord(binding.value)
+      ) {
+        throw new Error(
+          `Unsupported workerd binding value for ${binding.name}: ${binding.type}`,
+        )
+      }
+
+      return {
+        name: binding.name,
+        type: binding.type,
+        value,
+        service: binding.service,
+      }
+    })
+
+    return {
+      id: worker.id,
+      name: worker.name,
+      owner: worker.owner,
+      codeCid: worker.codeCid,
+      mainModule: worker.mainModule,
+      memoryMb: worker.memoryMb,
+      timeoutMs: worker.timeoutMs,
+      cpuTimeMs: worker.cpuTimeMs,
+      compatibilityDate: worker.compatibilityDate,
+      compatibilityFlags: worker.compatibilityFlags ?? [],
+      bindings: storedBindings,
+      status:
+        worker.status === 'pending' || worker.status === 'deploying'
+          ? 'active'
+          : worker.status,
+      version: worker.version,
+      createdAt: worker.createdAt,
+      updatedAt: worker.updatedAt,
+    }
+  }
+
+  function toWorkerdDefinition(
+    worker: DWSWorkerdWorker,
+  ): WorkerdWorkerDefinition {
+    return {
+      id: worker.id,
+      name: worker.name,
+      owner: worker.owner,
+      modules: [],
+      bindings: worker.bindings.map((binding) => ({
+        name: binding.name,
+        type: binding.type,
+        value: binding.value,
+        service: binding.service,
+      })),
+      compatibilityDate: worker.compatibilityDate,
+      compatibilityFlags: worker.compatibilityFlags,
+      mainModule: worker.mainModule,
+      memoryMb: worker.memoryMb,
+      cpuTimeMs: worker.cpuTimeMs,
+      timeoutMs: worker.timeoutMs,
+      codeCid: worker.codeCid,
+      version: worker.version,
+      status: worker.status,
+      createdAt: worker.createdAt,
+      updatedAt: worker.updatedAt,
+    }
+  }
+
+  async function getOrLoadWorkerdWorker(
+    workerId: string,
+  ): Promise<WorkerdWorkerDefinition | null> {
+    const existing = executor.getWorker(workerId)
+    if (existing) {
+      return existing
+    }
+
+    const persisted = await dwsWorkerdWorkerState.get(workerId)
+    if (!persisted) {
+      return null
+    }
+
+    const definition = toWorkerdDefinition(persisted)
+    await executor.deployWorker(definition)
+    await dwsWorkerdWorkerState.save(toPersistedWorkerdWorker(definition))
+
+    return executor.getWorker(workerId)
+  }
 
   // Initialize decentralized components if configured
   let registry: WorkerRegistry | null = null
@@ -362,6 +481,7 @@ export function createWorkerdRouter(options: WorkerdRouterOptions) {
           console.log(
             `[Workerd] Deployment completed for worker: ${worker.name}`,
           )
+          await dwsWorkerdWorkerState.save(toPersistedWorkerdWorker(worker))
         } catch (deployError) {
           console.error(`[Workerd] Deployment failed:`, deployError)
           throw deployError
@@ -438,13 +558,13 @@ export function createWorkerdRouter(options: WorkerdRouterOptions) {
     // Get worker
     .get(
       '/:workerId',
-      ({ params, set }) => {
+      async ({ params, set }) => {
         if (!isValidUUID(params.workerId)) {
           set.status = 400
           return { error: 'Invalid worker ID format' }
         }
 
-        const worker = executor.getWorker(params.workerId)
+        const worker = await getOrLoadWorkerdWorker(params.workerId)
 
         if (!worker) {
           set.status = 404
@@ -487,7 +607,7 @@ export function createWorkerdRouter(options: WorkerdRouterOptions) {
         }
         const owner = ownerHeader as Address
 
-        const worker = executor.getWorker(params.workerId)
+        const worker = await getOrLoadWorkerdWorker(params.workerId)
         if (!worker) {
           set.status = 404
           return { error: 'Worker not found' }
@@ -536,6 +656,8 @@ export function createWorkerdRouter(options: WorkerdRouterOptions) {
         await executor.undeployWorker(params.workerId)
         await executor.deployWorker(worker)
 
+        await dwsWorkerdWorkerState.save(toPersistedWorkerdWorker(worker))
+
         return { success: true, version: worker.version }
       },
       {
@@ -583,7 +705,7 @@ export function createWorkerdRouter(options: WorkerdRouterOptions) {
         }
         const owner = ownerHeader as Address
 
-        const worker = executor.getWorker(params.workerId)
+        const worker = await getOrLoadWorkerdWorker(params.workerId)
         if (!worker) {
           set.status = 404
           return { error: 'Worker not found' }
@@ -595,6 +717,7 @@ export function createWorkerdRouter(options: WorkerdRouterOptions) {
         }
 
         await executor.undeployWorker(params.workerId)
+        await dwsWorkerdWorkerState.updateStatus(params.workerId, 'inactive')
         return { success: true }
       },
       {
@@ -619,27 +742,12 @@ export function createWorkerdRouter(options: WorkerdRouterOptions) {
           'Invoke worker body',
         )
 
-        // Use decentralized router if enabled (it checks local executor first)
-        if (workerRouter && enableDecentralized) {
-          const response = await workerRouter.route(params.workerId, {
-            method: request.method ?? 'POST',
-            url: request.path ?? '/',
-            headers: request.headers ?? {},
-            body: request.body,
-          })
-
-          return {
-            status: response.status,
-            headers: response.headers,
-            body:
-              typeof response.body === 'string'
-                ? response.body
-                : response.body.toString(),
-          }
+        const worker = await getOrLoadWorkerdWorker(params.workerId)
+        if (!worker) {
+          return { status: 404, headers: {}, body: 'Worker not found' }
         }
 
-        // Direct invocation when decentralized mode is disabled
-        const response = await executor.invoke(params.workerId, {
+        const response = await executor.invoke(worker.id, {
           method: request.method ?? 'POST',
           url: request.path ?? '/',
           headers: request.headers ?? {},
@@ -676,7 +784,7 @@ export function createWorkerdRouter(options: WorkerdRouterOptions) {
     .all(
       '/:workerId/http/*',
       async ({ params, request, set }) => {
-        const worker = executor.getWorker(params.workerId)
+        const worker = await getOrLoadWorkerdWorker(params.workerId)
 
         if (!worker) {
           set.status = 404
@@ -697,7 +805,7 @@ export function createWorkerdRouter(options: WorkerdRouterOptions) {
             ? await request.text()
             : undefined
 
-        const response = await executor.invoke(params.workerId, {
+        const response = await executor.invoke(worker.id, {
           method: request.method,
           url: `${path}${url.search}`,
           headers: requestHeaders,
@@ -889,7 +997,7 @@ function getChainForNetwork(network: NetworkType) {
 }
 
 // Default contract addresses per network
-// Note: For localnet, contracts are deployed fresh on each chain restart
+// For localnet, contracts are deployed fresh on each chain restart
 // The identityRegistry address should come from config or env vars
 const NETWORK_DEFAULTS: Record<
   NetworkType,
@@ -922,11 +1030,42 @@ export function createDefaultWorkerdRouter(backend: BackendManager) {
   const network = getNetworkType()
   const defaults = NETWORK_DEFAULTS[network]
   const chain = getChainForNetwork(network)
+  const isProduction = isProductionEnv()
 
   const rpcUrl = getRpcUrl(network) || defaults.rpcUrl
   const registryAddress = (tryGetContract('registry', 'identity', network) ||
     defaults.identityRegistry) as Address
-  const privateKey = process.env.PRIVATE_KEY as `0x${string}` | undefined
+
+  // Private key handling: In production, must use KMS, not PRIVATE_KEY
+  const kmsKeyId = process.env.WORKERD_KMS_KEY_ID
+  const directKey = process.env.PRIVATE_KEY as `0x${string}` | undefined
+
+  let privateKey: `0x${string}` | undefined
+
+  if (isProduction) {
+    if (directKey) {
+      console.error(
+        '[Workerd] SECURITY: PRIVATE_KEY env var detected in production. ' +
+          'Use WORKERD_KMS_KEY_ID for KMS-backed signing.',
+      )
+      // Don't use the direct key in production
+      privateKey = undefined
+    }
+    if (!kmsKeyId) {
+      console.warn(
+        '[Workerd] KMS not configured. Decentralized mode may be limited.',
+      )
+    }
+    // In production, privateKey is undefined - KMS signing handled differently
+  } else {
+    // Development: allow direct key with warning
+    if (directKey) {
+      console.warn(
+        '[Workerd] WARNING: Using direct PRIVATE_KEY. Use KMS in production.',
+      )
+      privateKey = directKey
+    }
+  }
 
   // Enable decentralized mode if we have a valid registry address
   const enableDecentralized =
@@ -947,6 +1086,7 @@ export function createDefaultWorkerdRouter(backend: BackendManager) {
   console.log(`[Workerd] RPC URL: ${rpcUrl}`)
   console.log(`[Workerd] Identity Registry: ${registryAddress}`)
   console.log(`[Workerd] Decentralized: ${enableDecentralized}`)
+  console.log(`[Workerd] KMS: ${kmsKeyId ? 'configured' : 'not configured'}`)
 
   return createWorkerdRouter({
     backend,
@@ -970,7 +1110,8 @@ export function createDefaultWorkerdRouter(backend: BackendManager) {
           rpcUrl,
           chain,
           identityRegistryAddress: registryAddress,
-          privateKey,
+          privateKey, // Only defined in development
+          kmsKeyId, // KMS key ID for production
         }
       : undefined,
     enableDecentralized,

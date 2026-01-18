@@ -187,7 +187,7 @@ export interface DAOSafeInfo {
 export const DAOSafeRole = {
   TREASURY: 'treasury',
   GOVERNANCE: 'governance',
-  SECURITY_COUNCIL: 'security_council',
+  SECURITY_BOARD: 'security_board',
   OPERATOR: 'operator',
 } as const
 export type DAOSafeRole = (typeof DAOSafeRole)[keyof typeof DAOSafeRole]

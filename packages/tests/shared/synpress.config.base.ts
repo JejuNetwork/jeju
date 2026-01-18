@@ -45,6 +45,7 @@
  * ```
  */
 
+import { readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
@@ -54,6 +55,7 @@ import {
 } from '@playwright/test'
 
 // Import canonical constants from utils
+import jejuWalletSetup from './wallet-setup/jeju.setup'
 import {
   findJejuWorkspaceRoot,
   JEJU_CHAIN,
@@ -67,10 +69,36 @@ import {
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
-/** Synpress cache directory - uses env var or finds monorepo root */
-export const SYNPRESS_CACHE_DIR =
-  process.env.SYNPRESS_CACHE_DIR ??
-  join(findJejuWorkspaceRoot(), '.jeju', '.synpress-cache')
+/** Synpress cache directory - uses env var or monorepo cache */
+const defaultSynpressCacheDir = join(
+  findJejuWorkspaceRoot(),
+  'packages',
+  'tests',
+  '.cache-synpress',
+)
+export const SYNPRESS_CACHE_DIR = process.env.SYNPRESS_CACHE_DIR
+  ? process.env.SYNPRESS_CACHE_DIR
+  : defaultSynpressCacheDir
+
+if (!process.env.SYNPRESS_CACHE_DIR) {
+  process.env.SYNPRESS_CACHE_DIR = SYNPRESS_CACHE_DIR
+}
+
+function resolveMetaMaskExtensionPath(cacheDir: string): string | null {
+  const entries = readdirSync(cacheDir, { withFileTypes: true })
+  const extensionDir = entries.find(
+    (entry) =>
+      entry.isDirectory() && entry.name.startsWith('metamask-chrome-'),
+  )
+  return extensionDir ? join(cacheDir, extensionDir.name) : null
+}
+
+if (!process.env.SYNPRESS_EXTENSION_PATH) {
+  const extensionPath = resolveMetaMaskExtensionPath(SYNPRESS_CACHE_DIR)
+  if (extensionPath) {
+    process.env.SYNPRESS_EXTENSION_PATH = extensionPath
+  }
+}
 
 /** Global setup path */
 export const GLOBAL_SETUP_PATH = join(__dirname, 'global-setup.ts')
@@ -203,9 +231,8 @@ export interface WalletSetupOptions {
   switchToNetwork?: boolean
 }
 
-export interface WalletSetupResult {
+export type WalletSetupResult = typeof jejuWalletSetup & {
   seedPhrase: string
-  walletPassword: string
   addNetwork: boolean
   switchToNetwork: boolean
   chain: typeof JEJU_CHAIN
@@ -236,18 +263,15 @@ export interface WalletSetupResult {
 export function createWalletSetup(
   options: WalletSetupOptions = {},
 ): WalletSetupResult {
-  const {
-    seedPhrase = SEED_PHRASE,
-    password = PASSWORD,
-    addNetwork = true,
-    switchToNetwork = true,
-  } = options
+  void options
+
+  const walletSetup = jejuWalletSetup
 
   return {
-    seedPhrase,
-    walletPassword: password,
-    addNetwork,
-    switchToNetwork,
+    ...walletSetup,
+    seedPhrase: SEED_PHRASE,
+    addNetwork: true,
+    switchToNetwork: true,
     chain: JEJU_CHAIN,
     testAccounts: TEST_ACCOUNTS,
     testWalletAddress: TEST_WALLET_ADDRESS,

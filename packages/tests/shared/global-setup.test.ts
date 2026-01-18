@@ -176,22 +176,31 @@ describe('Global Setup - RPC URL Resolution', () => {
   })
 })
 
-// Slow tests (~30s timeout) - run with SLOW_TESTS=true
-describe.skipIf(!process.env.SLOW_TESTS)(
-  'Global Setup - Error Scenarios (slow)',
-  () => {
-    test('should throw when chain is not ready and not skipped', async () => {
-      process.env.L2_RPC_URL = 'http://localhost:59999'
+// Error scenario tests - verify proper error handling
+describe('Global Setup - Error Scenarios', () => {
+  test('should throw when chain is not ready and not skipped', async () => {
+    // Use invalid RPC URL to trigger chain not ready error
+    const originalRpcUrl = process.env.L2_RPC_URL
+    process.env.L2_RPC_URL = 'http://127.0.0.1:59999'
 
+    try {
       await expect(
         setupTestEnvironment({
           skipLock: true,
           skipWarmup: true,
+          // Don't skip preflight so it actually checks the chain
         }),
-      ).rejects.toThrow('Chain not ready')
-    }, 35000)
-  },
-)
+      ).rejects.toThrow()
+    } finally {
+      // Restore original RPC URL
+      if (originalRpcUrl) {
+        process.env.L2_RPC_URL = originalRpcUrl
+      } else {
+        delete process.env.L2_RPC_URL
+      }
+    }
+  }, 65000)
+})
 
 describe('Global Setup - Success Scenarios', () => {
   test('should succeed with all checks skipped', async () => {

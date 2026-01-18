@@ -10,7 +10,7 @@
 
 import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex } from 'viem'
-import { requireContract } from '../config'
+import { safeGetContract } from '../config'
 import { parseIdFromLogs } from '../shared/api'
 import type { BaseWallet } from '../wallet'
 
@@ -323,30 +323,68 @@ export function createDistributorModule(
   wallet: BaseWallet,
   network: NetworkType,
 ): DistributorModule {
-  const airdropManagerAddress = requireContract(
+  // Use safe getters - contracts may not be deployed on all networks
+  const airdropManagerAddressOpt = safeGetContract(
     'distributor',
     'AirdropManager',
     network,
   )
-  const tokenVestingAddress = requireContract(
+  const tokenVestingAddressOpt = safeGetContract(
     'distributor',
     'TokenVesting',
     network,
   )
-  const feeDistributorAddress = requireContract(
+  const feeDistributorAddressOpt = safeGetContract(
     'distributor',
     'FeeDistributor',
     network,
   )
-  const stakingRewardAddress = requireContract(
+  const stakingRewardAddressOpt = safeGetContract(
     'distributor',
     'StakingRewardDistributor',
     network,
   )
 
+  // Lazy-load contract addresses - throw on method call if not deployed
+  const getAirdropManagerAddress = () => {
+    if (!airdropManagerAddressOpt) {
+      throw new Error(
+        'Distributor AirdropManager contract not deployed on this network',
+      )
+    }
+    return airdropManagerAddressOpt
+  }
+
+  const getTokenVestingAddress = () => {
+    if (!tokenVestingAddressOpt) {
+      throw new Error(
+        'Distributor TokenVesting contract not deployed on this network',
+      )
+    }
+    return tokenVestingAddressOpt
+  }
+
+  const getFeeDistributorAddress = () => {
+    if (!feeDistributorAddressOpt) {
+      throw new Error(
+        'Distributor FeeDistributor contract not deployed on this network',
+      )
+    }
+    return feeDistributorAddressOpt
+  }
+
+  const getStakingRewardAddress = () => {
+    if (!stakingRewardAddressOpt) {
+      throw new Error(
+        'Distributor StakingRewardDistributor contract not deployed on this network',
+      )
+    }
+    return stakingRewardAddressOpt
+  }
+
   async function readAirdrop(airdropId: Hex): Promise<Airdrop | null> {
     const result = await wallet.publicClient.readContract({
-      address: airdropManagerAddress,
+      address: getAirdropManagerAddress(),
       abi: AIRDROP_MANAGER_ABI,
       functionName: 'airdrops',
       args: [airdropId],
@@ -371,7 +409,7 @@ export function createDistributorModule(
     scheduleId: Hex,
   ): Promise<VestingSchedule | null> {
     const result = await wallet.publicClient.readContract({
-      address: tokenVestingAddress,
+      address: getTokenVestingAddress(),
       abi: TOKEN_VESTING_ABI,
       functionName: 'vestingSchedules',
       args: [scheduleId],
@@ -413,7 +451,7 @@ export function createDistributorModule(
       })
 
       const txHash = await wallet.sendTransaction({
-        to: airdropManagerAddress,
+        to: getAirdropManagerAddress(),
         data,
       })
 
@@ -424,7 +462,7 @@ export function createDistributorModule(
 
     async listActiveAirdrops() {
       const ids = await wallet.publicClient.readContract({
-        address: airdropManagerAddress,
+        address: getAirdropManagerAddress(),
         abi: AIRDROP_MANAGER_ABI,
         functionName: 'getActiveAirdrops',
         args: [],
@@ -444,12 +482,12 @@ export function createDistributorModule(
         functionName: 'claim',
         args: [airdropId, amount, merkleProof],
       })
-      return wallet.sendTransaction({ to: airdropManagerAddress, data })
+      return wallet.sendTransaction({ to: getAirdropManagerAddress(), data })
     },
 
     async hasClaimed(airdropId, address) {
       return wallet.publicClient.readContract({
-        address: airdropManagerAddress,
+        address: getAirdropManagerAddress(),
         abi: AIRDROP_MANAGER_ABI,
         functionName: 'hasClaimed',
         args: [airdropId, address ?? wallet.address],
@@ -460,7 +498,7 @@ export function createDistributorModule(
       // Verify merkle proof and return claimable amount
       // If already claimed, returns 0
       const hasClaimed = await wallet.publicClient.readContract({
-        address: airdropManagerAddress,
+        address: getAirdropManagerAddress(),
         abi: AIRDROP_MANAGER_ABI,
         functionName: 'hasClaimed',
         args: [airdropId, address ?? wallet.address],
@@ -470,7 +508,7 @@ export function createDistributorModule(
 
       // Verify the proof is valid by checking against the contract
       return wallet.publicClient.readContract({
-        address: airdropManagerAddress,
+        address: getAirdropManagerAddress(),
         abi: AIRDROP_MANAGER_ABI,
         functionName: 'getClaimableAmount',
         args: [airdropId, address ?? wallet.address, amount, merkleProof],
@@ -497,7 +535,7 @@ export function createDistributorModule(
       })
 
       const txHash = await wallet.sendTransaction({
-        to: tokenVestingAddress,
+        to: getTokenVestingAddress(),
         data,
       })
 
@@ -516,7 +554,7 @@ export function createDistributorModule(
 
     async listMyVestingSchedules() {
       const ids = await wallet.publicClient.readContract({
-        address: tokenVestingAddress,
+        address: getTokenVestingAddress(),
         abi: TOKEN_VESTING_ABI,
         functionName: 'getBeneficiarySchedules',
         args: [wallet.address],
@@ -532,7 +570,7 @@ export function createDistributorModule(
 
     async getVestedAmount(scheduleId) {
       return wallet.publicClient.readContract({
-        address: tokenVestingAddress,
+        address: getTokenVestingAddress(),
         abi: TOKEN_VESTING_ABI,
         functionName: 'getVestedAmount',
         args: [scheduleId],
@@ -541,7 +579,7 @@ export function createDistributorModule(
 
     async getReleasableAmount(scheduleId) {
       return wallet.publicClient.readContract({
-        address: tokenVestingAddress,
+        address: getTokenVestingAddress(),
         abi: TOKEN_VESTING_ABI,
         functionName: 'getReleasableAmount',
         args: [scheduleId],
@@ -554,7 +592,7 @@ export function createDistributorModule(
         functionName: 'release',
         args: [scheduleId],
       })
-      return wallet.sendTransaction({ to: tokenVestingAddress, data })
+      return wallet.sendTransaction({ to: getTokenVestingAddress(), data })
     },
 
     async revokeVesting(scheduleId) {
@@ -563,13 +601,13 @@ export function createDistributorModule(
         functionName: 'revoke',
         args: [scheduleId],
       })
-      return wallet.sendTransaction({ to: tokenVestingAddress, data })
+      return wallet.sendTransaction({ to: getTokenVestingAddress(), data })
     },
 
     // Fee Distribution
     async getFeePool(token) {
       const result = await wallet.publicClient.readContract({
-        address: feeDistributorAddress,
+        address: getFeeDistributorAddress(),
         abi: FEE_DISTRIBUTOR_ABI,
         functionName: 'pools',
         args: [token],
@@ -591,12 +629,12 @@ export function createDistributorModule(
         functionName: 'claim',
         args: [],
       })
-      return wallet.sendTransaction({ to: feeDistributorAddress, data })
+      return wallet.sendTransaction({ to: getFeeDistributorAddress(), data })
     },
 
     async getMyFeeShare() {
       return wallet.publicClient.readContract({
-        address: feeDistributorAddress,
+        address: getFeeDistributorAddress(),
         abi: FEE_DISTRIBUTOR_ABI,
         functionName: 'claimable',
         args: [wallet.address],
@@ -609,13 +647,13 @@ export function createDistributorModule(
         functionName: 'distribute',
         args: [token],
       })
-      return wallet.sendTransaction({ to: feeDistributorAddress, data })
+      return wallet.sendTransaction({ to: getFeeDistributorAddress(), data })
     },
 
     // Staking Rewards
     async getStakingRewards(staker) {
       return wallet.publicClient.readContract({
-        address: stakingRewardAddress,
+        address: getStakingRewardAddress(),
         abi: STAKING_REWARD_DISTRIBUTOR_ABI,
         functionName: 'earned',
         args: [staker ?? wallet.address],
@@ -628,12 +666,12 @@ export function createDistributorModule(
         functionName: 'getReward',
         args: [],
       })
-      return wallet.sendTransaction({ to: stakingRewardAddress, data })
+      return wallet.sendTransaction({ to: getStakingRewardAddress(), data })
     },
 
     async getRewardRate() {
       return wallet.publicClient.readContract({
-        address: stakingRewardAddress,
+        address: getStakingRewardAddress(),
         abi: STAKING_REWARD_DISTRIBUTOR_ABI,
         functionName: 'rewardRate',
         args: [],

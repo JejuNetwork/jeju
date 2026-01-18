@@ -110,7 +110,7 @@ class AsyncLocalStorage final: public jsg::Object {
   kj::Maybe<kj::String> name;
 };
 
-// Note: The AsyncResource class is provided for Node.js backwards compatibility.
+// The AsyncResource class is provided for Node.js backwards compatibility.
 // The class can be replaced entirely for async context tracking using the
 // AsyncLocalStorage.bind() and AsyncLocalStorage.snapshot() APIs.
 //

@@ -81,6 +81,11 @@ export async function initializeSQLitWithRetry(
   maxRetries = 3,
   retryDelayMs = 2000,
 ): Promise<boolean> {
+  if (process.env.SKIP_SQLIT === 'true') {
+    console.log('[DB] SKIP_SQLIT=true, skipping SQLit initialization')
+    return true
+  }
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     const success = await initializeSQLit()
     if (success) return true
@@ -111,13 +116,25 @@ export async function verifySQLitSchema(): Promise<boolean> {
 
   try {
     for (const table of requiredTables) {
-      const result = await sqlitQuery<{ name: string }>(
-        `SELECT name FROM sqlite_master WHERE type='table' AND name = ?`,
-        [table],
-      )
-      if (result.rows.length === 0) {
-        console.warn(`[DB] Required table missing: ${table}`)
-        return false
+      // Try to query the table - if it doesn't exist, this will fail
+      // Use a simple SELECT 1 to check table existence without sqlite_master
+      try {
+        await sqlitQuery<{ ok: number }>(
+          `SELECT 1 as ok FROM "${table}" LIMIT 1`,
+          [],
+        )
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        // If error mentions table doesn't exist, schema is incomplete
+        if (
+          message.includes('no such table') ||
+          message.includes('does not exist') ||
+          message.includes('syntax error')
+        ) {
+          console.warn(`[DB] Required table missing or invalid: ${table}`)
+          return false
+        }
+        // Other errors might be OK (e.g., empty table)
       }
     }
     console.log('[DB] Database schema verified')

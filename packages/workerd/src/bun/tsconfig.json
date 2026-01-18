@@ -1,25 +1,12 @@
 {
+  "extends": "../../tools/base.tsconfig.json",
   "compilerOptions": {
-    "target": "esnext",
-    "module": "esnext",
-    "lib": ["esnext", "dom", "dom.iterable"],
-    "strict": true,
-    "moduleResolution": "bundler",
-    "skipLibCheck": true,
-    "allowJs": true,
-    "noEmit": false,
+    "lib": ["ESNext", "dom", "Webworker.Iterable"],
     "declaration": true,
     "declarationMap": false,
     "sourceMap": false,
-    "isolatedModules": true,
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "allowSyntheticDefaultImports": true,
-    "resolveJsonModule": false,
-    "types": [],
-    "paths": {
-      "bun-internal:*": ["./internal/*"]
-    }
+    "noEmit": false,
+    "types": ["node"]
   },
   "include": ["*.ts", "internal/*.ts"],
   "exclude": ["node_modules"]

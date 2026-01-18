@@ -236,7 +236,8 @@ test.describe('Full Proposal Flow with Wallet', () => {
 
     // Connect wallet first
     await connectAndVerify(page, metamask, {
-      connectButtonText: 'Connect',
+      connectButtonText: 'Sign In',
+      walletOptionText: 'Connect Wallet',
     })
 
     // Step 1: Draft

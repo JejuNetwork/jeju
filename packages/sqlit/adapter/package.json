@@ -1,12 +1,12 @@
 {
   "name": "@jejunetwork/sqlit-adapter",
-  "version": "1.0.0",
+  "version": "0.1.0",
+  "dependencies": {
+    "elysia": "^1.1.25"
+  },
   "type": "module",
   "scripts": {
     "start": "bun run server.ts",
     "dev": "bun --watch run server.ts"
-  },
-  "dependencies": {
-    "elysia": "^1.4.19"
   }
 }

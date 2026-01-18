@@ -108,17 +108,17 @@ export const repoSettingsRoutes = new Elysia({
     async ({ params }) => {
       const validated = expectValid(RepoSettingsParamsSchema, params, 'params')
 
-      let row = getRepoSettings(validated.owner, validated.repo)
+      let row = await getRepoSettings(validated.owner, validated.repo)
       if (!row) {
         // Create default settings for new repo
-        row = upsertRepoSettings(validated.owner, validated.repo, {})
+        row = await upsertRepoSettings(validated.owner, validated.repo, {})
       }
 
-      const collaborators = getRepoCollaborators(
+      const collaborators = await getRepoCollaborators(
         validated.owner,
         validated.repo,
       )
-      const webhooks = getRepoWebhooks(validated.owner, validated.repo)
+      const webhooks = await getRepoWebhooks(validated.owner, validated.repo)
 
       return transformSettings(row, collaborators, webhooks)
     },
@@ -144,13 +144,27 @@ export const repoSettingsRoutes = new Elysia({
         params,
         'params',
       )
+
+      // Verify the authenticated user is the repo owner
+      if (
+        validatedParams.owner.toLowerCase() !== authResult.address.toLowerCase()
+      ) {
+        set.status = 403
+        return {
+          error: {
+            code: 'FORBIDDEN',
+            message: 'Only the repository owner can modify settings',
+          },
+        }
+      }
+
       const validatedBody = expectValid(
         UpdateRepoSettingsBodySchema,
         body,
         'request body',
       )
 
-      upsertRepoSettings(validatedParams.owner, validatedParams.repo, {
+      await upsertRepoSettings(validatedParams.owner, validatedParams.repo, {
         description: validatedBody.description,
         visibility: validatedBody.visibility,
         defaultBranch: validatedBody.defaultBranch,
@@ -188,13 +202,27 @@ export const repoSettingsRoutes = new Elysia({
         params,
         'params',
       )
+
+      // Verify the authenticated user is the repo owner
+      if (
+        validatedParams.owner.toLowerCase() !== authResult.address.toLowerCase()
+      ) {
+        set.status = 403
+        return {
+          error: {
+            code: 'FORBIDDEN',
+            message: 'Only the repository owner can manage collaborators',
+          },
+        }
+      }
+
       const validated = expectValid(
         AddCollaboratorBodySchema,
         body,
         'request body',
       )
 
-      const row = addRepoCollaborator(
+      const row = await addRepoCollaborator(
         validatedParams.owner,
         validatedParams.repo,
         {
@@ -237,7 +265,20 @@ export const repoSettingsRoutes = new Elysia({
         'params',
       )
 
-      const success = removeRepoCollaborator(
+      // Verify the authenticated user is the repo owner
+      if (
+        validatedParams.owner.toLowerCase() !== authResult.address.toLowerCase()
+      ) {
+        set.status = 403
+        return {
+          error: {
+            code: 'FORBIDDEN',
+            message: 'Only the repository owner can manage collaborators',
+          },
+        }
+      }
+
+      const success = await removeRepoCollaborator(
         validatedParams.owner,
         validatedParams.repo,
         params.login,
@@ -273,12 +314,30 @@ export const repoSettingsRoutes = new Elysia({
         params,
         'params',
       )
+
+      // Verify the authenticated user is the repo owner
+      if (
+        validatedParams.owner.toLowerCase() !== authResult.address.toLowerCase()
+      ) {
+        set.status = 403
+        return {
+          error: {
+            code: 'FORBIDDEN',
+            message: 'Only the repository owner can manage webhooks',
+          },
+        }
+      }
+
       const validated = expectValid(AddWebhookBodySchema, body, 'request body')
 
-      const row = addRepoWebhook(validatedParams.owner, validatedParams.repo, {
-        url: validated.url,
-        events: validated.events,
-      })
+      const row = await addRepoWebhook(
+        validatedParams.owner,
+        validatedParams.repo,
+        {
+          url: validated.url,
+          events: validated.events,
+        },
+      )
 
       set.status = 201
       return {
@@ -306,7 +365,19 @@ export const repoSettingsRoutes = new Elysia({
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
 
-      const success = removeRepoWebhook(params.webhookId)
+      // Verify the authenticated user is the repo owner
+      // The webhook is under /api/git/:owner/:repo/settings/webhooks/:webhookId
+      if (params.owner.toLowerCase() !== authResult.address.toLowerCase()) {
+        set.status = 403
+        return {
+          error: {
+            code: 'FORBIDDEN',
+            message: 'Only the repository owner can delete webhooks',
+          },
+        }
+      }
+
+      const success = await removeRepoWebhook(params.webhookId)
       if (!success) {
         set.status = 404
         return { error: { code: 'NOT_FOUND', message: 'Webhook not found' } }
@@ -332,11 +403,23 @@ export const repoSettingsRoutes = new Elysia({
       }
 
       const validated = expectValid(RepoSettingsParamsSchema, params, 'params')
+
+      // Verify the authenticated user is the repo owner
+      if (validated.owner.toLowerCase() !== authResult.address.toLowerCase()) {
+        set.status = 403
+        return {
+          error: {
+            code: 'FORBIDDEN',
+            message: 'Only the repository owner can transfer it',
+          },
+        }
+      }
+
       expectValid(TransferRepoBodySchema, body, 'request body')
 
       // Repository transfer must be performed via DWS API
       // This updates the local settings to mark the transfer as pending
-      upsertRepoSettings(validated.owner, validated.repo, {})
+      await upsertRepoSettings(validated.owner, validated.repo, {})
 
       return { success: true, message: 'Transfer request submitted' }
     },
@@ -359,9 +442,20 @@ export const repoSettingsRoutes = new Elysia({
 
       const validated = expectValid(RepoSettingsParamsSchema, params, 'params')
 
+      // Verify the authenticated user is the repo owner
+      if (validated.owner.toLowerCase() !== authResult.address.toLowerCase()) {
+        set.status = 403
+        return {
+          error: {
+            code: 'FORBIDDEN',
+            message: 'Only the repository owner can delete it',
+          },
+        }
+      }
+
       // Repository deletion must be performed via DWS API
       // Delete local settings as well
-      deleteRepoSettings(validated.owner, validated.repo)
+      await deleteRepoSettings(validated.owner, validated.repo)
 
       return { success: true, message: 'Repository deleted' }
     },

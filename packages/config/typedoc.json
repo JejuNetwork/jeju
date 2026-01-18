@@ -8,7 +8,7 @@
     "../../apps/gateway/src/hooks",
     "../../apps/gateway/src/leaderboard",
     "../../apps/indexer/src",
-    "../../apps/monitoring/server",
+    "../../packages/monitoring/api",
     "../../apps/dws/src"
   ],
   "entryPointStrategy": "expand",

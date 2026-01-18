@@ -24,7 +24,7 @@ contract GovernanceTimelockTest is Test {
 
     address public owner = makeAddr("owner");
     address public governance = makeAddr("governance");
-    address public securityCouncil = makeAddr("securityCouncil");
+    address public securityBoard = makeAddr("securityBoard");
     address public nonGovernance = makeAddr("nonGovernance");
 
     uint256 public constant STANDARD_DELAY = 30 days;
@@ -32,7 +32,7 @@ contract GovernanceTimelockTest is Test {
 
     function setUp() public {
         target = new MockTarget();
-        timelock = new GovernanceTimelock(governance, securityCouncil, owner, LOCALNET_DELAY);
+        timelock = new GovernanceTimelock(governance, securityBoard, owner, LOCALNET_DELAY);
     }
 
     // ============ Proposal Creation Tests ============
@@ -70,7 +70,7 @@ contract GovernanceTimelockTest is Test {
         bytes memory data = abi.encodeWithSelector(MockTarget.setValue.selector, 42);
         bytes32 bugProof = keccak256("bug proof");
 
-        vm.prank(securityCouncil);
+        vm.prank(securityBoard);
         bytes32 proposalId = timelock.proposeEmergencyBugfix(address(target), data, "Fix bug", bugProof);
 
         GovernanceTimelock.Proposal memory proposal = timelock.getProposal(proposalId);
@@ -78,10 +78,10 @@ contract GovernanceTimelockTest is Test {
         assertEq(uint256(proposal.proposalType), uint256(GovernanceTimelock.ProposalType.EMERGENCY_BUGFIX));
     }
 
-    function testProposeEmergencyBugfixOnlySecurityCouncil() public {
+    function testProposeEmergencyBugfixOnlySecurityBoard() public {
         bytes memory data = abi.encodeWithSelector(MockTarget.setValue.selector, 42);
         vm.prank(governance);
-        vm.expectRevert(GovernanceTimelock.NotSecurityCouncil.selector);
+        vm.expectRevert(GovernanceTimelock.NotSecurityBoard.selector);
         timelock.proposeEmergencyBugfix(address(target), data, "test", bytes32(0));
     }
 
@@ -303,7 +303,7 @@ contract GovernanceTimelockTest is Test {
         bytes memory data = abi.encodeWithSelector(MockTarget.setValue.selector, 42);
         bytes32 bugProof = keccak256("proof");
 
-        vm.prank(securityCouncil);
+        vm.prank(securityBoard);
         bytes32 proposalId = timelock.proposeEmergencyBugfix(address(target), data, "fix", bugProof);
 
         GovernanceTimelock.Proposal memory proposal = timelock.getProposal(proposalId);
@@ -317,7 +317,7 @@ contract GovernanceTimelockTest is Test {
         bytes memory data = abi.encodeWithSelector(MockTarget.setValue.selector, 42);
         bytes32 bugProof = keccak256("proof");
 
-        vm.prank(securityCouncil);
+        vm.prank(securityBoard);
         bytes32 proposalId = timelock.proposeEmergencyBugfix(address(target), data, "fix", bugProof);
 
         uint256 emergencyDelay = timelock.EMERGENCY_MIN_DELAY();
@@ -417,20 +417,20 @@ contract GovernanceTimelockTest is Test {
         assertEq(timelock.governance(), newGov);
     }
 
-    function testSetSecurityCouncil() public {
-        address newCouncil = makeAddr("newCouncil");
+    function testSetSecurityBoard() public {
+        address newBoard = makeAddr("newBoard");
 
         // Must go through proposal flow, not direct owner call
-        bytes memory callData = abi.encodeWithSelector(timelock.setSecurityCouncil.selector, newCouncil);
+        bytes memory callData = abi.encodeWithSelector(timelock.setSecurityBoard.selector, newBoard);
 
         vm.prank(governance);
-        bytes32 proposalId = timelock.proposeUpgrade(address(timelock), callData, "Change security council");
+        bytes32 proposalId = timelock.proposeUpgrade(address(timelock), callData, "Change security board");
 
         // Warp past timelock but within grace period (14 days)
         vm.warp(block.timestamp + LOCALNET_DELAY + 1);
         timelock.execute(proposalId);
 
-        assertEq(timelock.securityCouncil(), newCouncil);
+        assertEq(timelock.securityBoard(), newBoard);
     }
 
     // ============ Integration Tests ============

@@ -231,6 +231,156 @@ type NFTApprovalEvent @entity {
   chainId: Int! @index
 }
 
+# ============ TFMM (Temporal Function Market Maker) Entities ============
+
+"""
+TFMM Pool - Dynamic weight AMM pool for on-chain portfolio management.
+Supports time-varying weights based on strategy signals.
+"""
+type TFMMPool @entity {
+  id: ID! # chainId-poolAddress
+  address: String! @unique @index
+  chainId: Int! @index
+  name: String! @index
+  symbol: String!
+  
+  # Pool tokens (stored as JSON for array support)
+  tokens: JSON!          # string[]
+  tokenSymbols: JSON!    # string[]
+  
+  # Current state (stored as JSON - BigInt[] not supported)
+  balances: JSON!        # string[] (wei values)
+  currentWeights: JSON!  # string[] (wei values)
+  targetWeights: JSON!   # string[] (wei values)
+  weightDeltas: JSON!    # string[] (wei values)
+  lastUpdateBlock: Int!
+  blocksRemaining: Int!
+  
+  # Fees
+  swapFeeBps: Int!
+  protocolFeeBps: Int!
+  
+  # LP token
+  totalSupply: BigInt!
+  
+  # Governance
+  owner: String!
+  governance: String!
+  treasury: String
+  strategyRule: String
+  weightRunner: String
+  
+  # Guard rails
+  minWeight: BigInt!
+  maxWeight: BigInt!
+  maxWeightChangeBps: Int!
+  minUpdateInterval: Int!
+  
+  # TVL and stats
+  tvl: String!
+  tvlUSD: String!
+  volume24h: BigInt!
+  volumeUSD24h: String!
+  totalVolume: BigInt!
+  totalVolumeUSD: String!
+  txCount: Int!
+  lpProviderCount: Int!
+  
+  # Performance
+  apy: String
+  sharpeRatio: String
+  maxDrawdown: String
+  
+  isActive: Boolean! @index
+  createdAt: DateTime! @index
+  lastUpdated: DateTime! @index
+  createdTxHash: String!
+  
+  # Relations
+  swaps: [TFMMSwap!]! @derivedFrom(field: "pool")
+  liquidityEvents: [TFMMLiquidityEvent!]! @derivedFrom(field: "pool")
+  weightUpdates: [TFMMWeightUpdate!]! @derivedFrom(field: "pool")
+}
+
+"""
+TFMM Swap event
+"""
+type TFMMSwap @entity {
+  id: ID! # txHash-logIndex
+  pool: TFMMPool!
+  sender: Account!
+  tokenIn: String!
+  tokenOut: String!
+  amountIn: BigInt!
+  amountOut: BigInt!
+  feeAmount: BigInt!
+  amountInUSD: String
+  amountOutUSD: String
+  priceIn: String
+  priceOut: String
+  timestamp: DateTime! @index
+  blockNumber: Int! @index
+  txHash: String! @index
+  logIndex: Int!
+}
+
+"""
+TFMM Liquidity Add/Remove event
+"""
+type TFMMLiquidityEvent @entity {
+  id: ID! # txHash-logIndex
+  pool: TFMMPool!
+  provider: Account!
+  eventType: TFMMLiquidityEventType!
+  amounts: JSON!  # string[] (wei values)
+  lpTokens: BigInt!
+  timestamp: DateTime! @index
+  blockNumber: Int! @index
+  txHash: String! @index
+  logIndex: Int!
+}
+
+enum TFMMLiquidityEventType {
+  ADD
+  REMOVE
+}
+
+"""
+TFMM Weight Update event
+"""
+type TFMMWeightUpdate @entity {
+  id: ID! # txHash-logIndex
+  pool: TFMMPool!
+  oldWeights: JSON!  # string[] (wei values)
+  newWeights: JSON!  # string[] (wei values)
+  blocksToTarget: Int!
+  blockNumber: Int! @index
+  timestamp: DateTime! @index
+  txHash: String! @index
+}
+
+"""
+TFMM Global Stats
+"""
+type TFMMStats @entity {
+  id: ID! # "global" or date string
+  date: DateTime @index
+  chainId: Int @index
+  
+  totalPools: Int!
+  activePools: Int!
+  totalTvl: BigInt!
+  totalTvlUSD: String!
+  totalVolume24h: BigInt!
+  totalVolumeUSD24h: String!
+  totalSwaps24h: Int!
+  
+  # Top pools by TVL (stored as JSON)
+  topPoolsByTvl: JSON!  # string[]
+  
+  lastUpdated: DateTime!
+}
+
 # ============ DEX Trading & Token Market Data ============
 
 """
@@ -833,15 +983,15 @@ type GovernanceEvent @entity {
   transactionHash: String!
 }
 
-# ============ AI Council Governance ============
+# ============ AI Board Governance ============
 
-type CouncilProposal @entity {
+type BoardProposal @entity {
   id: ID! # proposalId bytes32
   proposalId: Bytes! @unique @index
   proposer: Account!
   proposerAgentId: BigInt
   proposalType: Int! # enum: PARAMETER_CHANGE, TREASURY_ALLOCATION, etc.
-  status: String! @index # SUBMITTED, COUNCIL_REVIEW, APPROVED, etc.
+  status: String! @index # SUBMITTED, BOARD_REVIEW, APPROVED, etc.
   qualityScore: Int!
   contentHash: Bytes!
   targetContract: String
@@ -852,21 +1002,21 @@ type CouncilProposal @entity {
   backerCount: Int!
   hasResearch: Boolean!
   researchHash: Bytes
-  ceoApproved: Boolean!
-  ceoDecisionHash: Bytes
+  directorApproved: Boolean!
+  directorDecisionHash: Bytes
   createdAt: DateTime! @index
-  councilVoteEnd: DateTime
+  boardVoteEnd: DateTime
   gracePeriodEnd: DateTime
   executedAt: DateTime
-  councilVotes: [CouncilVote!]! @derivedFrom(field: "proposal")
+  boardVotes: [BoardVote!]! @derivedFrom(field: "proposal")
   backers: [ProposalBacker!]! @derivedFrom(field: "proposal")
   vetoVotes: [VetoVote!]! @derivedFrom(field: "proposal")
 }
 
-type CouncilVote @entity {
+type BoardVote @entity {
   id: ID!
-  proposal: CouncilProposal!
-  councilAgent: Account!
+  proposal: BoardProposal!
+  boardAgent: Account!
   role: String! # TREASURY, CODE, COMMUNITY, SECURITY
   vote: String! # APPROVE, REJECT, ABSTAIN, REQUEST_CHANGES
   reasoningHash: Bytes!
@@ -878,7 +1028,7 @@ type CouncilVote @entity {
 
 type ProposalBacker @entity {
   id: ID!
-  proposal: CouncilProposal!
+  proposal: BoardProposal!
   backer: Account!
   agentId: BigInt
   stakedAmount: BigInt!
@@ -888,7 +1038,7 @@ type ProposalBacker @entity {
 
 type VetoVote @entity {
   id: ID!
-  proposal: CouncilProposal!
+  proposal: BoardProposal!
   voter: Account!
   agentId: BigInt
   category: String! # ALREADY_DONE, DUPLICATE, IMPOSSIBLE, HARMFUL, etc.
@@ -898,9 +1048,9 @@ type VetoVote @entity {
   votedAt: DateTime! @index
 }
 
-type CEODecision @entity {
+type DirectorDecision @entity {
   id: ID! # decisionId
-  proposal: CouncilProposal!
+  proposal: BoardProposal!
   modelId: String!
   approved: Boolean!
   decisionHash: Bytes!
@@ -927,7 +1077,7 @@ type Delegate @entity {
   totalDelegated: BigInt!
   delegatorCount: Int!
   isActive: Boolean!
-  isSecurityCouncil: Boolean! @index
+  isSecurityBoard: Boolean! @index
   proposalsVoted: Int!
   proposalsCreated: Int!
   registeredAt: DateTime! @index
@@ -945,7 +1095,7 @@ type Delegation @entity {
   active: Boolean! @index
 }
 
-type SecurityCouncilMember @entity {
+type SecurityBoardMember @entity {
   id: ID! # member address + election timestamp
   member: Account!
   agentId: BigInt
@@ -955,7 +1105,7 @@ type SecurityCouncilMember @entity {
   active: Boolean! @index
 }
 
-type SecurityCouncilUpdate @entity {
+type SecurityBoardUpdate @entity {
   id: ID!
   members: [String!]!
   memberCount: Int!
@@ -1082,7 +1232,7 @@ type TagIndex @entity {
   tag: String! @unique @index
   agentCount: Int!
   lastUpdated: DateTime! @index
-  # Note: agents are looked up via RegisteredAgent.tags array
+  # Agents are looked up via RegisteredAgent.tags array
 }
 
 type RegistryStake @entity {
@@ -2895,7 +3045,7 @@ type KeepaliveStats @entity {
   lastUpdated: DateTime!
 }
 
-# ============ Council Registry Integration Entities ============
+# ============ Board Registry Integration Entities ============
 
 type CompositeScoreCalculation @entity {
   id: ID! # agentId

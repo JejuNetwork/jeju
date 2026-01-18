@@ -34,10 +34,10 @@ export const ProposalTypeValue = {
 
 export const ProposalStatusSchema = z.enum([
   'SUBMITTED',
-  'COUNCIL_REVIEW',
+  'BOARD_REVIEW',
   'RESEARCH_PENDING',
-  'COUNCIL_FINAL',
-  'CEO_QUEUE',
+  'BOARD_FINAL',
+  'DIRECTOR_QUEUE',
   'APPROVED',
   'EXECUTING',
   'COMPLETED',
@@ -53,10 +53,10 @@ export type ProposalStatus = z.infer<typeof ProposalStatusSchema>
 
 export const ProposalStatusValue = {
   SUBMITTED: 0,
-  COUNCIL_REVIEW: 1,
+  BOARD_REVIEW: 1,
   RESEARCH_PENDING: 2,
-  COUNCIL_FINAL: 3,
-  CEO_QUEUE: 4,
+  BOARD_FINAL: 3,
+  DIRECTOR_QUEUE: 4,
   APPROVED: 5,
   EXECUTING: 6,
   COMPLETED: 7,
@@ -69,16 +69,16 @@ export const ProposalStatusValue = {
   SPAM: 14,
 } as const
 
-export const CouncilRoleSchema = z.enum([
+export const BoardRoleSchema = z.enum([
   'TREASURY',
   'CODE',
   'COMMUNITY',
   'SECURITY',
 ])
-export type CouncilRole = z.infer<typeof CouncilRoleSchema>
+export type BoardRole = z.infer<typeof BoardRoleSchema>
 
 /** Numeric enum for contract compatibility */
-export const CouncilRoleValue = {
+export const BoardRoleValue = {
   TREASURY: 0,
   CODE: 1,
   COMMUNITY: 2,
@@ -201,7 +201,7 @@ export const ProposalSchema = z.object({
   status: ProposalStatusSchema,
   qualityScore: z.number(),
   createdAt: z.number(),
-  councilVoteEnd: z.number(),
+  boardVoteEnd: z.number(),
   gracePeriodEnd: z.number(),
   contentHash: z.string(),
   targetContract: AddressSchema,
@@ -212,21 +212,21 @@ export const ProposalSchema = z.object({
   backerCount: z.number(),
   hasResearch: z.boolean(),
   researchHash: z.string(),
-  ceoApproved: z.boolean(),
-  ceoDecisionHash: z.string(),
+  directorApproved: z.boolean(),
+  directorDecisionHash: z.string(),
 })
 export type Proposal = z.infer<typeof ProposalSchema>
 
-export const CouncilVoteSchema = z.object({
+export const BoardVoteSchema = z.object({
   proposalId: z.string(),
-  councilAgent: AddressSchema,
-  role: CouncilRoleSchema,
+  boardAgent: AddressSchema,
+  role: BoardRoleSchema,
   vote: VoteTypeSchema,
   reasoningHash: z.string(),
   votedAt: z.number(),
   weight: z.number(),
 })
-export type CouncilVote = z.infer<typeof CouncilVoteSchema>
+export type BoardVote = z.infer<typeof BoardVoteSchema>
 
 export const BackerInfoSchema = z.object({
   backer: AddressSchema,
@@ -274,13 +274,13 @@ export const VoteDelegationSchema = z.object({
 })
 export type VoteDelegation = z.infer<typeof VoteDelegationSchema>
 
-export const SecurityCouncilMemberSchema = z.object({
+export const SecurityBoardMemberSchema = z.object({
   member: AddressSchema,
   agentId: z.string(),
   combinedScore: z.number(),
   electedAt: z.number(),
 })
-export type SecurityCouncilMember = z.infer<typeof SecurityCouncilMemberSchema>
+export type SecurityBoardMember = z.infer<typeof SecurityBoardMemberSchema>
 
 // Moderation Schemas (Governance-specific)
 
@@ -354,7 +354,7 @@ export type ModerationScore = z.infer<typeof ModerationScoreSchema>
 
 // API Schemas
 
-export const CouncilHealthSchema = z.object({
+export const BoardHealthSchema = z.object({
   status: z.string(),
   version: z.string(),
   orchestrator: z.boolean(),
@@ -364,7 +364,7 @@ export const CouncilHealthSchema = z.object({
     validation: z.boolean(),
   }),
   futarchy: z.object({
-    council: z.boolean(),
+    board: z.boolean(),
     predictionMarket: z.boolean(),
   }),
   registry: z.object({
@@ -372,7 +372,7 @@ export const CouncilHealthSchema = z.object({
     delegation: z.boolean(),
   }),
 })
-export type CouncilHealth = z.infer<typeof CouncilHealthSchema>
+export type BoardHealth = z.infer<typeof BoardHealthSchema>
 
 export const GovernanceStatsSchema = z.object({
   totalProposals: z.number(),
@@ -382,8 +382,8 @@ export const GovernanceStatsSchema = z.object({
   vetoedProposals: z.number(),
   totalStaked: z.string(),
   totalDelegated: z.string(),
-  councilAgentsActive: z.number(),
-  securityCouncilSize: z.number(),
+  boardAgentsActive: z.number(),
+  securityBoardSize: z.number(),
 })
 export type GovernanceStats = z.infer<typeof GovernanceStatsSchema>
 
@@ -419,8 +419,8 @@ export const GovernanceEventTypeSchema = z.enum([
   'proposal_executed',
   'delegate_registered',
   'delegation_changed',
-  'security_council_updated',
-  'ceo_decision',
+  'security_board_updated',
+  'director_decision',
 ])
 export type GovernanceEventType = z.infer<typeof GovernanceEventTypeSchema>
 
@@ -452,7 +452,7 @@ export const DelegationDataSchema = z.object({
   amount: z.string(),
 })
 
-export const CEODecisionDataSchema = z.object({
+export const DirectorDecisionDataSchema = z.object({
   proposalId: z.string(),
   approved: z.boolean(),
   decisionHash: z.string(),
@@ -466,7 +466,7 @@ export const GovernanceEventDataSchema = z.union([
   VoteCastDataSchema,
   ProposalDecisionDataSchema,
   DelegationDataSchema,
-  CEODecisionDataSchema,
+  DirectorDecisionDataSchema,
 ])
 export type GovernanceEventData = z.infer<typeof GovernanceEventDataSchema>
 

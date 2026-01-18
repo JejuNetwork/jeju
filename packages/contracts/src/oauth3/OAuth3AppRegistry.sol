@@ -6,7 +6,7 @@ import {IOAuth3AppRegistry, IOAuth3IdentityRegistry} from "./IOAuth3.sol";
 /**
  * @title OAuth3AppRegistry
  * @notice Multi-tenant OAuth3 application registry
- * @dev Allows anyone to register OAuth apps managed by their DAO/Council
+ * @dev Allows anyone to register OAuth apps managed by their DAO/Board
  */
 contract OAuth3AppRegistry is IOAuth3AppRegistry {
     address public identityRegistry;
@@ -18,7 +18,7 @@ contract OAuth3AppRegistry is IOAuth3AppRegistry {
     mapping(bytes32 => AppCredentials) private appCredentials;
     mapping(bytes32 => bytes32) private clientIdToApp;
     mapping(address => bytes32[]) private ownerApps;
-    mapping(address => bytes32[]) private councilApps;
+    mapping(address => bytes32[]) private boardApps;
 
     modifier onlyAppOwner(bytes32 appId) {
         require(apps[appId].owner == msg.sender, "Not app owner");
@@ -40,7 +40,7 @@ contract OAuth3AppRegistry is IOAuth3AppRegistry {
         teeVerifier = _teeVerifier;
     }
 
-    function registerApp(string calldata name, string calldata description, address council, AppConfig calldata config)
+    function registerApp(string calldata name, string calldata description, address board, AppConfig calldata config)
         external
         returns (bytes32 appId)
     {
@@ -54,7 +54,7 @@ contract OAuth3AppRegistry is IOAuth3AppRegistry {
             name: name,
             description: description,
             owner: msg.sender,
-            council: council,
+            board: board,
             createdAt: block.timestamp,
             active: true
         });
@@ -69,13 +69,13 @@ contract OAuth3AppRegistry is IOAuth3AppRegistry {
         clientIdToApp[clientId] = appId;
         ownerApps[msg.sender].push(appId);
 
-        if (council != address(0)) {
-            councilApps[council].push(appId);
+        if (board != address(0)) {
+            boardApps[board].push(appId);
         }
 
         totalApps++;
 
-        emit AppRegistered(appId, msg.sender, council, name, block.timestamp);
+        emit AppRegistered(appId, msg.sender, board, name, block.timestamp);
     }
 
     function updateApp(bytes32 appId, string calldata name, string calldata description, AppConfig calldata config)
@@ -134,18 +134,18 @@ contract OAuth3AppRegistry is IOAuth3AppRegistry {
         emit AppUpdated(appId, block.timestamp);
     }
 
-    function updateCouncil(bytes32 appId, address newCouncil) external appExists(appId) onlyAppOwner(appId) {
-        address previousCouncil = apps[appId].council;
+    function updateBoard(bytes32 appId, address newBoard) external appExists(appId) onlyAppOwner(appId) {
+        address previousBoard = apps[appId].board;
 
-        if (previousCouncil != address(0)) {
-            _removeFromCouncilApps(previousCouncil, appId);
+        if (previousBoard != address(0)) {
+            _removeFromBoardApps(previousBoard, appId);
         }
 
-        if (newCouncil != address(0)) {
-            councilApps[newCouncil].push(appId);
+        if (newBoard != address(0)) {
+            boardApps[newBoard].push(appId);
         }
 
-        apps[appId].council = newCouncil;
+        apps[appId].board = newBoard;
         emit AppUpdated(appId, block.timestamp);
     }
 
@@ -170,8 +170,8 @@ contract OAuth3AppRegistry is IOAuth3AppRegistry {
         return ownerApps[owner];
     }
 
-    function getAppsByCouncil(address council) external view returns (bytes32[] memory) {
-        return councilApps[council];
+    function getAppsByBoard(address board) external view returns (bytes32[] memory) {
+        return boardApps[board];
     }
 
     function validateRedirectUri(bytes32 appId, string calldata uri) external view returns (bool) {
@@ -228,8 +228,8 @@ contract OAuth3AppRegistry is IOAuth3AppRegistry {
         }
     }
 
-    function _removeFromCouncilApps(address council, bytes32 appId) internal {
-        bytes32[] storage appList = councilApps[council];
+    function _removeFromBoardApps(address board, bytes32 appId) internal {
+        bytes32[] storage appList = boardApps[board];
         for (uint256 i = 0; i < appList.length; i++) {
             if (appList[i] == appId) {
                 appList[i] = appList[appList.length - 1];

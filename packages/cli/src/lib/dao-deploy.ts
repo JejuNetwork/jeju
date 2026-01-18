@@ -2,7 +2,7 @@
  * DAO Deployment Library
  *
  * Core logic for deploying DAOs from jeju-manifest.json configuration.
- * Supports multi-DAO hierarchies, council auto-generation, and fee configuration.
+ * Supports multi-DAO hierarchies, board auto-generation, and fee configuration.
  */
 
 import {
@@ -40,14 +40,14 @@ import { base, baseSepolia, localhost } from 'viem/chains'
 import { z } from 'zod'
 import {
   type DAOManifest,
-  validateCouncilWeights,
+  validateBoardWeights,
   validateDAOManifest,
 } from '../schemas/dao-manifest'
 import {
   CHAIN_CONFIG,
   type DAODeploymentResult,
-  getDevCEOAddress,
-  getDevCouncilAddresses,
+  getDevBoardAddresses,
+  getDevDirectorAddress,
   type NetworkType,
   WELL_KNOWN_KEYS,
 } from '../types'
@@ -179,7 +179,7 @@ export interface DAODeployOptions {
   fundTreasury?: string
   fundMatching?: string
   dryRun: boolean
-  skipCouncil: boolean
+  skipBoard: boolean
   skipFundingConfig: boolean
   verbose: boolean
   ipfsApiUrl?: string
@@ -196,7 +196,7 @@ export async function deployDAO(
     fundTreasury,
     fundMatching,
     dryRun,
-    skipCouncil,
+    skipBoard,
     skipFundingConfig,
     verbose,
     ipfsApiUrl,
@@ -217,15 +217,15 @@ export async function deployDAO(
 
   logger.success(`Loaded: ${manifest.displayName ?? manifest.name}`)
   if (verbose) {
-    logger.keyValue('CEO', manifest.governance.ceo.name)
+    logger.keyValue('Director', manifest.governance.director.name)
     logger.keyValue(
-      'Council Members',
-      String(manifest.governance.council.members.length),
+      'Board Members',
+      String(manifest.governance.board.members.length),
     )
   }
 
-  const weightValidation = validateCouncilWeights(
-    manifest.governance.council.members,
+  const weightValidation = validateBoardWeights(
+    manifest.governance.board.members,
   )
   if (!weightValidation.valid) {
     logger.warn(weightValidation.message)
@@ -300,18 +300,18 @@ export async function deployDAO(
         treasuryAddress,
         manifestCid,
         {
-          name: manifest.governance.ceo.name,
-          pfpCid: manifest.governance.ceo.pfpCid ?? '',
-          description: manifest.governance.ceo.description,
-          personality: manifest.governance.ceo.personality,
-          traits: manifest.governance.ceo.traits,
+          name: manifest.governance.director.name,
+          pfpCid: manifest.governance.director.pfpCid ?? '',
+          description: manifest.governance.director.description,
+          personality: manifest.governance.director.personality,
+          traits: manifest.governance.director.traits,
         },
         {
           minQualityScore: BigInt(
             manifest.governance.parameters.minQualityScore,
           ),
-          councilVotingPeriod: BigInt(
-            manifest.governance.parameters.councilVotingPeriod,
+          boardVotingPeriod: BigInt(
+            manifest.governance.parameters.boardVotingPeriod,
           ),
           gracePeriod: BigInt(manifest.governance.parameters.gracePeriod),
           minProposalStake: BigInt(
@@ -347,7 +347,7 @@ export async function deployDAO(
             cooldownPeriod: BigInt(manifest.funding.cooldownPeriod),
             matchingMultiplier: BigInt(manifest.funding.matchingMultiplier),
             quadraticEnabled: manifest.funding.quadraticEnabled,
-            ceoWeightCap: BigInt(manifest.funding.ceoWeightCap),
+            directorWeightCap: BigInt(manifest.funding.directorWeightCap),
             minStakePerParticipant: BigInt(manifest.funding.minStake),
           },
         ],
@@ -357,14 +357,14 @@ export async function deployDAO(
     logger.success('Funding configured')
   }
 
-  const councilResult: DAODeploymentResult['council'] = { members: [] }
+  const boardResult: DAODeploymentResult['board'] = { members: [] }
 
-  if (!skipCouncil) {
-    logger.step('Setting up council...')
-    const devAddresses = network === 'localnet' ? getDevCouncilAddresses() : {}
+  if (!skipBoard) {
+    logger.step('Setting up board...')
+    const devAddresses = network === 'localnet' ? getDevBoardAddresses() : {}
 
-    for (let i = 0; i < manifest.governance.council.members.length; i++) {
-      const member = manifest.governance.council.members[i]
+    for (let i = 0; i < manifest.governance.board.members.length; i++) {
+      const member = manifest.governance.board.members[i]
 
       let memberAddress: Address = account.address
       if (member.address) {
@@ -379,7 +379,7 @@ export async function deployDAO(
         const memberHash = await walletClient.writeContract({
           address: contracts.DAORegistry,
           abi: daoRegistryAbi,
-          functionName: 'addCouncilMember',
+          functionName: 'addBoardMember',
           args: [
             daoId,
             memberAddress,
@@ -391,7 +391,7 @@ export async function deployDAO(
         await publicClient.waitForTransactionReceipt({ hash: memberHash })
       }
 
-      councilResult.members.push({
+      boardResult.members.push({
         role: member.role,
         address: memberAddress,
         agentId,
@@ -402,17 +402,17 @@ export async function deployDAO(
       )
     }
 
-    // Warn if all council members have the same address (likely misconfiguration)
-    const uniqueAddresses = new Set(councilResult.members.map((m) => m.address))
-    if (uniqueAddresses.size === 1 && councilResult.members.length > 1) {
+    // Warn if all board members have the same address (likely misconfiguration)
+    const uniqueAddresses = new Set(boardResult.members.map((m) => m.address))
+    if (uniqueAddresses.size === 1 && boardResult.members.length > 1) {
       logger.warn(
-        `All ${councilResult.members.length} council members have the same address. ` +
+        `All ${boardResult.members.length} board members have the same address. ` +
           `For production, set unique addresses in manifest or use TEE/MPC deployment.`,
       )
     }
 
     logger.success(
-      `Council configured with ${councilResult.members.length} members`,
+      `Board configured with ${boardResult.members.length} members`,
     )
   }
 
@@ -510,7 +510,7 @@ export async function deployDAO(
               const weightHash = await walletClient.writeContract({
                 address: contracts.DAOFunding,
                 abi: daoFundingAbi,
-                functionName: 'proposeCEOWeight',
+                functionName: 'proposeDirectorWeight',
                 args: [projectId, BigInt(pkg.fundingWeight)],
               })
               await publicClient.waitForTransactionReceipt({ hash: weightHash })
@@ -620,7 +620,7 @@ export async function deployDAO(
               const weightHash = await walletClient.writeContract({
                 address: contracts.DAOFunding,
                 abi: daoFundingAbi,
-                functionName: 'proposeCEOWeight',
+                functionName: 'proposeDirectorWeight',
                 args: [projectId, BigInt(repo.fundingWeight)],
               })
               await publicClient.waitForTransactionReceipt({ hash: weightHash })
@@ -685,12 +685,13 @@ export async function deployDAO(
     contracts: {
       daoRegistry: contracts.DAORegistry,
       daoFunding: contracts.DAOFunding,
-      council: null,
-      ceoAgent: network === 'localnet' ? getDevCEOAddress() : account.address,
+      board: null,
+      directorAgent:
+        network === 'localnet' ? getDevDirectorAddress() : account.address,
       treasury: treasuryAddress,
       feeConfig: contracts.FeeConfig,
     },
-    council: councilResult,
+    board: boardResult,
     packageIds,
     repoIds,
     timestamp: Date.now(),
@@ -706,10 +707,10 @@ export async function deployDAO(
   logger.newline()
   logger.header('DEPLOYMENT COMPLETE')
   logger.keyValue('DAO', manifest.displayName ?? manifest.name)
-  logger.keyValue('CEO', manifest.governance.ceo.name)
+  logger.keyValue('Director', manifest.governance.director.name)
   logger.keyValue('DAO ID', daoId)
   logger.keyValue('Network', network)
-  logger.keyValue('Council Members', String(councilResult.members.length))
+  logger.keyValue('Board Members', String(boardResult.members.length))
   logger.keyValue('Packages Seeded', String(packageIds.length))
   logger.keyValue('Repos Seeded', String(repoIds.length))
 
@@ -797,7 +798,7 @@ export async function deployMultipleDAOs(
   logger.info(`Found ${manifests.length} DAO manifest(s)`)
   for (const m of manifests) {
     logger.info(
-      `  - ${m.displayName ?? m.name} (CEO: ${m.governance.ceo.name})`,
+      `  - ${m.displayName ?? m.name} (Director: ${m.governance.director.name})`,
     )
   }
   logger.newline()

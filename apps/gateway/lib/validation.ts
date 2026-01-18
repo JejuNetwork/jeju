@@ -301,9 +301,9 @@ export const UsernameSchema = z.string().min(1).max(100)
 export type Username = z.infer<typeof UsernameSchema>
 
 export const GetAttestationQuerySchema = z.object({
-  wallet: AddressSchema.nullable(),
-  username: UsernameSchema.nullable(),
-  chainId: z.string().nullable(),
+  wallet: AddressSchema.nullish(),
+  username: UsernameSchema.nullish(),
+  chainId: z.string().nullish(),
 })
 export type GetAttestationQuery = z.infer<typeof GetAttestationQuerySchema>
 
@@ -392,11 +392,21 @@ export const GetContributorProfileSkillParamsSchema = z
 
 export const A2AMessagePartSchema = z.object({
   kind: z.string(),
-  text: z.string().nullable(),
-  data: JsonObjectSchema.nullable(),
+  text: z.string().nullish(),
+  data: JsonObjectSchema.nullish(),
 })
 export type A2AMessagePart = z.infer<typeof A2AMessagePartSchema>
 
+// Base JSON-RPC request schema - accepts any method for graceful error handling
+export const JsonRpcRequestSchema = z.object({
+  jsonrpc: z.literal('2.0'),
+  method: z.string(),
+  id: z.union([z.string(), z.number()]),
+  params: JsonObjectSchema.default({}),
+})
+export type JsonRpcRequest = z.infer<typeof JsonRpcRequestSchema>
+
+// A2A message/send request - strict schema for valid A2A requests
 export const A2ARequestSchema = z.object({
   jsonrpc: z.literal('2.0'),
   method: z.literal('message/send'),

@@ -1,16 +1,18 @@
 import {
   CHAINLINK_AGGREGATOR_ABI,
-  readContract,
   UNISWAP_V3_POOL_ABI,
 } from '@jejunetwork/shared'
 import type { PriceData, PriceSourceConfig } from '@jejunetwork/types'
 import {
+  type Chain,
   createPublicClient,
+  defineChain,
   encodePacked,
   type Hex,
   http,
   keccak256,
 } from 'viem'
+import { base, baseSepolia, foundry } from 'viem/chains'
 
 export type { PriceData }
 
@@ -21,11 +23,25 @@ export class PriceFetcher {
   private sources: PriceSourceConfig[]
   private priceCache = new Map<string, PriceData>()
 
-  constructor(rpcUrl: string, sources: PriceSourceConfig[]) {
+  constructor(rpcUrl: string, sources: PriceSourceConfig[], chainId?: number) {
+    const chain = chainId ? this.getChain(chainId, rpcUrl) : undefined
     this.client = createPublicClient({
+      chain,
       transport: http(rpcUrl),
     })
     this.sources = sources
+  }
+
+  private getChain(chainId: number, rpcUrl: string): Chain {
+    if (chainId === 8453) return base
+    if (chainId === 84532) return baseSepolia
+    if (chainId === 31337) return foundry
+    return defineChain({
+      id: chainId,
+      name: 'custom',
+      nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+      rpcUrls: { default: { http: [rpcUrl] } },
+    })
   }
 
   async fetchPrice(feedId: Hex): Promise<PriceData> {
@@ -64,14 +80,14 @@ export class PriceFetcher {
     source: PriceSourceConfig,
   ): Promise<PriceData> {
     const [slot0, liquidity] = await Promise.all([
-      readContract(this.client, {
+      this.client.readContract({
         address: source.address,
         abi: UNISWAP_V3_POOL_ABI,
         functionName: 'slot0',
       }) as Promise<
         readonly [bigint, number, number, number, number, number, boolean]
       >,
-      readContract(this.client, {
+      this.client.readContract({
         address: source.address,
         abi: UNISWAP_V3_POOL_ABI,
         functionName: 'liquidity',
@@ -104,12 +120,12 @@ export class PriceFetcher {
     source: PriceSourceConfig,
   ): Promise<PriceData> {
     const [roundData, decimals] = await Promise.all([
-      readContract(this.client, {
+      this.client.readContract({
         address: source.address,
         abi: CHAINLINK_AGGREGATOR_ABI,
         functionName: 'latestRoundData',
       }),
-      readContract(this.client, {
+      this.client.readContract({
         address: source.address,
         abi: CHAINLINK_AGGREGATOR_ABI,
         functionName: 'decimals',

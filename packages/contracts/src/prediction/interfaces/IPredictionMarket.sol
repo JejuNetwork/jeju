@@ -3,7 +3,7 @@ pragma solidity ^0.8.33;
 
 /**
  * @title IPredictionMarket
- * @notice Interface for Council to interact with PredictionMarket for futarchy escalation
+ * @notice Interface for Board to interact with PredictionMarket for futarchy escalation
  * @dev Part of Bazaar - the prediction market feature for governance and moderation
  */
 interface IPredictionMarket {

@@ -1,6 +1,6 @@
 /** Infrastructure service for Jeju development */
 
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { platform } from 'node:os'
 import { join } from 'node:path'
 import {
@@ -13,9 +13,12 @@ import {
   getSQLitBlockProducerUrl,
   INFRA_PORTS,
 } from '@jejunetwork/config'
+import { type Subprocess, spawn } from 'bun'
 import { execa, type ResultPromise } from 'execa'
 import { logger } from '../lib/logger'
 import { DEFAULT_PORTS } from '../types'
+
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 // ERC-4337 Bundler port
 const BUNDLER_PORT = 4337
@@ -67,7 +70,7 @@ const L2_PORT = DEFAULT_PORTS.l2Rpc // 6546
 const L1_CHAIN_ID = 1337
 const L2_CHAIN_ID = 31337
 
-let sqlitProcess: ResultPromise | null = null
+let sqlitProcess: Subprocess | null = null
 let bundlerProcess: ResultPromise | null = null
 let messageRelayProcess: ResultPromise | null = null
 
@@ -113,7 +116,7 @@ export class InfrastructureService {
         ['compose', '-f', composeFile, 'up', '-d'],
         {
           cwd: this.rootDir,
-          stdio: 'pipe',
+          stdio: 'inherit',
         },
       )
 
@@ -132,28 +135,48 @@ export class InfrastructureService {
       }
     }
 
-    // Fall back to SQLite-based SQLit server
+    // Fall back to SQLit server
     logger.step('Starting SQLit server...')
 
-    const serverPath = join(this.rootDir, 'packages/db/src/server.ts')
+    const serverPath = join(this.rootDir, 'packages/sqlit/src/server.ts')
     if (!existsSync(serverPath)) {
-      logger.error('SQLit server not found at packages/db/src/server.ts')
+      logger.error('SQLit server not found at packages/sqlit/src/server.ts')
       return false
     }
 
-    sqlitProcess = execa('bun', ['run', serverPath], {
+    sqlitProcess = spawn(['bun', 'run', serverPath], {
       cwd: this.rootDir,
       env: {
         ...process.env,
+        // Ensure SQLit always targets the Jeju localnet L2 RPC by default
+        L2_RPC_URL: process.env.L2_RPC_URL ?? getL2RpcUrl(),
+        JEJU_RPC_URL: process.env.JEJU_RPC_URL ?? getL2RpcUrl(),
         PORT: String(SQLIT_PORT),
         SQLIT_PORT: String(SQLIT_PORT),
       },
-      stdio: 'pipe',
+      stdout: 'inherit',
+      stderr: 'inherit',
     })
 
-    // Wait for server to start
-    for (let i = 0; i < 20; i++) {
-      await this.sleep(250)
+    // Monitor process exit to detect crashes
+    sqlitProcess.exited
+      .then((code) => {
+        if (code !== 0 && code !== null) {
+          logger.warn(`SQLit process exited with code ${code}`)
+        }
+        sqlitProcess = null
+      })
+      .catch(() => {
+        // Ignore errors in exit monitoring
+      })
+
+    const startupTimeoutMs = 30000
+    const pollIntervalMs = 250
+    const maxPolls = Math.ceil(startupTimeoutMs / pollIntervalMs)
+
+    // Wait for server to start (SQLit can take a while to load many databases)
+    for (let i = 0; i < maxPolls; i++) {
+      await this.sleep(pollIntervalMs)
       if (await this.isSQLitRunning()) {
         logger.success(`SQLit server running on port ${SQLIT_PORT}`)
         logger.keyValue(
@@ -163,16 +186,39 @@ export class InfrastructureService {
         logger.info('  Mode: SQLit-compatible (local development)')
         return true
       }
+      // Check if process died while waiting
+      if (sqlitProcess?.killed) {
+        logger.error('SQLit process died during startup')
+        return false
+      }
     }
 
-    logger.error('SQLit server failed to start within 5 seconds')
+    logger.error(`SQLit server failed to start within ${startupTimeoutMs}ms`)
     return false
   }
 
   async stopSQLit(): Promise<void> {
     // Stop SQLit server process if running
-    if (sqlitProcess) {
-      sqlitProcess.kill('SIGTERM')
+    if (sqlitProcess && !sqlitProcess.killed) {
+      const proc = sqlitProcess
+      proc.kill('SIGTERM')
+
+      // Wait for process to actually exit (with timeout)
+      const shutdownTimeout = 30000 // 30 seconds
+      try {
+        await Promise.race([
+          proc.exited,
+          new Promise((resolve) =>
+            setTimeout(() => resolve(null), shutdownTimeout),
+          ),
+        ])
+
+        // Don't send SIGKILL - let process exit naturally
+        // If it doesn't exit, the OS will clean it up when parent exits
+      } catch (error) {
+        logger.warn(`Error waiting for SQLit shutdown: ${error}`)
+        // Don't send SIGKILL - let process exit naturally
+      }
       sqlitProcess = null
     }
 
@@ -364,7 +410,7 @@ export class InfrastructureService {
         ['compose', '-f', composePath, 'up', '-d', 'ipfs'],
         {
           cwd: this.rootDir,
-          stdio: 'pipe',
+          stdio: 'inherit',
         },
       )
 
@@ -437,7 +483,7 @@ export class InfrastructureService {
     )
     await execa('docker', ['compose', '-f', composePath, 'down'], {
       cwd: this.rootDir,
-      stdio: 'pipe',
+      stdio: 'inherit',
       reject: false,
     })
     logger.success('Docker services stopped')
@@ -561,7 +607,7 @@ export class InfrastructureService {
           ? { ENTRY_POINT_ADDRESS: entryPointAddress }
           : {}),
       },
-      stdio: 'pipe',
+      stdio: 'inherit',
     })
 
     // Wait for bundler to start
@@ -691,7 +737,7 @@ export class InfrastructureService {
           L1_MESSENGER_ADDRESS: deployment.l1Messenger,
           L2_MESSENGER_ADDRESS: deployment.l2Messenger,
         },
-        stdio: 'pipe',
+        stdio: 'inherit',
       })
 
       // Give it a moment to start
@@ -775,19 +821,7 @@ export class InfrastructureService {
       return false
     }
 
-    // Start independent services in parallel
-    const startTasks: Promise<{ name: string; success: boolean }>[] = []
-
-    // SQLit can start independently
-    if (!sqlitRunning) {
-      startTasks.push(
-        this.startSQLit().then((success) => ({ name: 'SQLit', success })),
-      )
-    } else {
-      logger.success(`SQLit already running on port ${SQLIT_PORT}`)
-    }
-
-    // Docker + services need to be sequential, but can run parallel to SQLit
+    // Docker + services need to be sequential, but can run parallel to Localnet
     const dockerTask = async (): Promise<{
       name: string
       success: boolean
@@ -842,19 +876,40 @@ export class InfrastructureService {
       return { name: 'Docker', success: true }
     }
 
-    startTasks.push(dockerTask())
+    const dockerPromise = dockerTask()
 
-    // Localnet can start in parallel with everything else
+    // Localnet first (SQLit depends on L2 RPC for on-chain integration)
+    let localnetResult: { name: string; success: boolean }
     if (!localnetRunning) {
-      startTasks.push(
-        this.startLocalnet().then((success) => ({ name: 'Localnet', success })),
-      )
+      const success = await this.startLocalnet()
+      localnetResult = { name: 'Localnet', success }
     } else {
       logger.success('Localnet already running (L1 + L2)')
+      localnetResult = { name: 'Localnet', success: true }
     }
 
-    // Wait for all parallel tasks to complete
-    const results = await Promise.all(startTasks)
+    // Start SQLit after Localnet is ready
+    let sqlitPromise: Promise<{ name: string; success: boolean }>
+    if (!sqlitRunning) {
+      if (!localnetResult.success) {
+        sqlitPromise = Promise.resolve({ name: 'SQLit', success: false })
+      } else {
+        sqlitPromise = this.startSQLit().then((success) => ({
+          name: 'SQLit',
+          success,
+        }))
+      }
+    } else {
+      logger.success(`SQLit already running on port ${SQLIT_PORT}`)
+      sqlitPromise = Promise.resolve({ name: 'SQLit', success: true })
+    }
+
+    // Wait for Docker + Localnet + SQLit
+    const results = await Promise.all([
+      dockerPromise,
+      Promise.resolve(localnetResult),
+      sqlitPromise,
+    ])
 
     // Start bundler after localnet is up (needs chain connection)
     const bundlerRunning = await this.isBundlerRunning()
@@ -964,6 +1019,85 @@ export class InfrastructureService {
   }
 
   /**
+   * Verify contracts are deployed on-chain
+   * Returns { verified, error } - throws nothing, just reports status
+   */
+  async verifyContractsDeployed(): Promise<{
+    verified: boolean
+    error?: string
+    contracts?: Record<string, string>
+  }> {
+    const bootstrapFile = join(
+      this.rootDir,
+      'packages/contracts/deployments/localnet-complete.json',
+    )
+
+    // Check 1: Bootstrap file must exist
+    if (!existsSync(bootstrapFile)) {
+      return {
+        verified: false,
+        error: 'Bootstrap file not found. Run: bun run jeju dev',
+      }
+    }
+
+    // Check 2: Bootstrap file must have valid contracts
+    const data = JSON.parse(readFileSync(bootstrapFile, 'utf-8'))
+    const contracts = data?.contracts as Record<string, string>
+    if (
+      !contracts ||
+      !contracts.jnsRegistry ||
+      contracts.jnsRegistry === ZERO_ADDRESS
+    ) {
+      return {
+        verified: false,
+        error: 'JNS Registry not found in bootstrap file',
+      }
+    }
+
+    // Check 3: Verify contract is actually deployed on-chain
+    const rpcUrl = getL2RpcUrl()
+    const contractAddress = contracts.jnsRegistry
+
+    try {
+      const response = await fetch(rpcUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'eth_getCode',
+          params: [contractAddress, 'latest'],
+          id: 1,
+        }),
+        signal: AbortSignal.timeout(10000),
+      })
+
+      if (!response.ok) {
+        return {
+          verified: false,
+          error: `RPC request failed: ${response.status}`,
+        }
+      }
+
+      const result = await response.json()
+      const code = result.result as string
+
+      if (!code || code === '0x' || code.length < 4) {
+        return {
+          verified: false,
+          error: `JNS Registry at ${contractAddress} has no code on-chain (chain may have been reset)`,
+        }
+      }
+
+      return { verified: true, contracts }
+    } catch (error) {
+      return {
+        verified: false,
+        error: `Failed to verify: ${error instanceof Error ? error.message : String(error)}`,
+      }
+    }
+  }
+
+  /**
    * Get environment variables for running services
    */
   getEnvVars(): Record<string, string> {
@@ -974,6 +1108,10 @@ export class InfrastructureService {
       JEJU_RPC_URL: getL2RpcUrl(),
       SQLIT_URL: getSQLitBlockProducerUrl(),
       SQLIT_BLOCK_PRODUCER_ENDPOINT: getSQLitBlockProducerUrl(),
+      // Default SQLit private key for local development (standard Anvil account #0)
+      SQLIT_PRIVATE_KEY:
+        process.env.SQLIT_PRIVATE_KEY ??
+        '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
       IPFS_API_URL: getIpfsApiUrl(),
       // Cache and DA are now provided by DWS
       DA_URL: `${dwsUrl}/da`,

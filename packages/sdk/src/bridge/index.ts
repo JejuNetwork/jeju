@@ -19,7 +19,7 @@ import {
   parseEther,
   toBytes,
 } from 'viem'
-import { requireContract, safeGetContract } from '../config'
+import { safeGetContract } from '../config'
 import { parseIdFromLogs } from '../shared/api'
 import type { BaseWallet } from '../wallet'
 
@@ -579,32 +579,86 @@ export function createBridgeModule(
   wallet: BaseWallet,
   network: NetworkType,
 ): BridgeModule {
-  const optimismPortalAddress = requireContract(
+  // Use safe getters - contracts may not be deployed on all networks
+  const optimismPortalAddressOpt = safeGetContract(
     'bridge',
     'OptimismPortal',
     network,
   )
-  const l1StandardBridgeAddress = requireContract(
+  const l1StandardBridgeAddressOpt = safeGetContract(
     'bridge',
     'L1StandardBridge',
     network,
   )
-  const l2ToL1MessagePasserAddress = safeGetContract(
+  const l2ToL1MessagePasserAddressOpt = safeGetContract(
     'bridge',
     'L2ToL1MessagePasser',
     network,
   )
-  const hyperlaneMailboxAddress = requireContract(
+  const hyperlaneMailboxAddressOpt = safeGetContract(
     'bridge',
     'HyperlaneMailbox',
     network,
   )
-  const nftBridgeAddress = requireContract('bridge', 'NFTBridge', network)
-  const zkBridgeVerifierAddress = safeGetContract(
+  const nftBridgeAddressOpt = safeGetContract('bridge', 'NFTBridge', network)
+  const zkBridgeVerifierAddressOpt = safeGetContract(
     'bridge',
     'ZKBridgeVerifier',
     network,
   )
+
+  // Lazy-load contract addresses - throw on method call if not deployed
+  const getOptimismPortalAddress = () => {
+    if (!optimismPortalAddressOpt) {
+      throw new Error(
+        'Bridge OptimismPortal contract not deployed on this network',
+      )
+    }
+    return optimismPortalAddressOpt
+  }
+
+  const getL1StandardBridgeAddress = () => {
+    if (!l1StandardBridgeAddressOpt) {
+      throw new Error(
+        'Bridge L1StandardBridge contract not deployed on this network',
+      )
+    }
+    return l1StandardBridgeAddressOpt
+  }
+
+  const getL2ToL1MessagePasserAddress = () => {
+    if (!l2ToL1MessagePasserAddressOpt) {
+      throw new Error(
+        'Bridge L2ToL1MessagePasser contract not deployed on this network',
+      )
+    }
+    return l2ToL1MessagePasserAddressOpt
+  }
+
+  const getHyperlaneMailboxAddress = () => {
+    if (!hyperlaneMailboxAddressOpt) {
+      throw new Error(
+        'Bridge HyperlaneMailbox contract not deployed on this network',
+      )
+    }
+    return hyperlaneMailboxAddressOpt
+  }
+
+  const getNftBridgeAddress = () => {
+    if (!nftBridgeAddressOpt) {
+      throw new Error('Bridge NFTBridge contract not deployed on this network')
+    }
+    return nftBridgeAddressOpt
+  }
+
+  const getZkBridgeVerifierAddress = () => {
+    if (!zkBridgeVerifierAddressOpt) {
+      throw new Error(
+        'Bridge ZKBridgeVerifier contract not deployed on this network',
+      )
+    }
+    return zkBridgeVerifierAddressOpt
+  }
 
   const MIN_BRIDGE_AMOUNT = parseEther('0.0001')
   const FINALIZATION_PERIOD = 604800n // 7 days in seconds
@@ -640,7 +694,7 @@ export function createBridgeModule(
       })
 
       const txHash = await wallet.sendTransaction({
-        to: optimismPortalAddress,
+        to: getOptimismPortalAddress(),
         data,
         value: params.amount,
       })
@@ -671,7 +725,7 @@ export function createBridgeModule(
       })
 
       const txHash = await wallet.sendTransaction({
-        to: l1StandardBridgeAddress,
+        to: getL1StandardBridgeAddress(),
         data,
       })
 
@@ -682,7 +736,7 @@ export function createBridgeModule(
     async getDeposit(depositId) {
       // Query TransactionDeposited events for ETH deposits
       const depositLogs = await wallet.publicClient.getLogs({
-        address: optimismPortalAddress,
+        address: getOptimismPortalAddress(),
         event: DEPOSIT_EVENT,
         fromBlock: 'earliest',
         toBlock: 'latest',
@@ -713,7 +767,7 @@ export function createBridgeModule(
 
       // Also check ERC20 deposits on L1StandardBridge
       const erc20Logs = await wallet.publicClient.getLogs({
-        address: l1StandardBridgeAddress,
+        address: getL1StandardBridgeAddress(),
         event: ERC20_DEPOSIT_EVENT,
         fromBlock: 'earliest',
         toBlock: 'latest',
@@ -750,7 +804,7 @@ export function createBridgeModule(
 
       // Query ETH deposits
       const ethLogs = await wallet.publicClient.getLogs({
-        address: optimismPortalAddress,
+        address: getOptimismPortalAddress(),
         event: DEPOSIT_EVENT,
         args: { from: wallet.address },
         fromBlock: 'earliest',
@@ -779,7 +833,7 @@ export function createBridgeModule(
 
       // Query ERC20 deposits
       const erc20Logs = await wallet.publicClient.getLogs({
-        address: l1StandardBridgeAddress,
+        address: getL1StandardBridgeAddress(),
         event: ERC20_DEPOSIT_EVENT,
         args: { from: wallet.address },
         fromBlock: 'earliest',
@@ -811,7 +865,7 @@ export function createBridgeModule(
     },
 
     async initiateWithdrawal(params) {
-      if (!l2ToL1MessagePasserAddress) {
+      if (!getL2ToL1MessagePasserAddress()) {
         throw new Error('L2ToL1MessagePasser not deployed on this network')
       }
 
@@ -822,7 +876,7 @@ export function createBridgeModule(
       })
 
       const txHash = await wallet.sendTransaction({
-        to: l2ToL1MessagePasserAddress,
+        to: getL2ToL1MessagePasserAddress(),
         data,
         value: params.amount,
       })
@@ -871,7 +925,7 @@ export function createBridgeModule(
       })
 
       return wallet.sendTransaction({
-        to: optimismPortalAddress,
+        to: getOptimismPortalAddress(),
         data,
       })
     },
@@ -900,19 +954,19 @@ export function createBridgeModule(
       })
 
       return wallet.sendTransaction({
-        to: optimismPortalAddress,
+        to: getOptimismPortalAddress(),
         data,
       })
     },
 
     async getWithdrawal(withdrawalId) {
-      if (!l2ToL1MessagePasserAddress) {
+      if (!getL2ToL1MessagePasserAddress()) {
         return null
       }
 
       // Query MessagePassed events
       const logs = await wallet.publicClient.getLogs({
-        address: l2ToL1MessagePasserAddress,
+        address: getL2ToL1MessagePasserAddress(),
         event: MESSAGE_PASSED_EVENT,
         fromBlock: 'earliest',
         toBlock: 'latest',
@@ -957,7 +1011,7 @@ export function createBridgeModule(
     },
 
     async getMyWithdrawals() {
-      if (!l2ToL1MessagePasserAddress) {
+      if (!getL2ToL1MessagePasserAddress()) {
         return []
       }
 
@@ -966,7 +1020,7 @@ export function createBridgeModule(
 
       // Query MessagePassed events for this user
       const logs = await wallet.publicClient.getLogs({
-        address: l2ToL1MessagePasserAddress,
+        address: getL2ToL1MessagePasserAddress(),
         event: MESSAGE_PASSED_EVENT,
         args: { sender: wallet.address },
         fromBlock: 'earliest',
@@ -1014,7 +1068,7 @@ export function createBridgeModule(
     async getWithdrawalStatus(withdrawalId) {
       // Check if proven
       const provenData = await wallet.publicClient.readContract({
-        address: optimismPortalAddress,
+        address: getOptimismPortalAddress(),
         abi: OPTIMISM_PORTAL_ABI,
         functionName: 'provenWithdrawals',
         args: [withdrawalId],
@@ -1024,7 +1078,7 @@ export function createBridgeModule(
 
       // Check if finalized
       const finalized = await wallet.publicClient.readContract({
-        address: optimismPortalAddress,
+        address: getOptimismPortalAddress(),
         abi: OPTIMISM_PORTAL_ABI,
         functionName: 'finalizedWithdrawals',
         args: [withdrawalId],
@@ -1060,7 +1114,7 @@ export function createBridgeModule(
       })
 
       const txHash = await wallet.sendTransaction({
-        to: hyperlaneMailboxAddress,
+        to: getHyperlaneMailboxAddress(),
         data,
         value: fee,
       })
@@ -1083,7 +1137,7 @@ export function createBridgeModule(
       )
 
       const logs = await wallet.publicClient.getLogs({
-        address: hyperlaneMailboxAddress,
+        address: getHyperlaneMailboxAddress(),
         event: dispatchEvent,
         fromBlock: 'earliest',
         toBlock: 'latest',
@@ -1115,7 +1169,7 @@ export function createBridgeModule(
 
           // Check if delivered
           const delivered = await wallet.publicClient.readContract({
-            address: hyperlaneMailboxAddress,
+            address: getHyperlaneMailboxAddress(),
             abi: HYPERLANE_MAILBOX_ABI,
             functionName: 'delivered',
             args: [messageId],
@@ -1143,7 +1197,7 @@ export function createBridgeModule(
 
     async getMessageStatus(messageId) {
       const delivered = await wallet.publicClient.readContract({
-        address: hyperlaneMailboxAddress,
+        address: getHyperlaneMailboxAddress(),
         abi: HYPERLANE_MAILBOX_ABI,
         functionName: 'delivered',
         args: [messageId],
@@ -1175,7 +1229,7 @@ export function createBridgeModule(
       })
 
       const txHash = await wallet.sendTransaction({
-        to: nftBridgeAddress,
+        to: getNftBridgeAddress(),
         data,
       })
 
@@ -1192,7 +1246,7 @@ export function createBridgeModule(
 
     async getNFTTransfer(transferId) {
       const result = await wallet.publicClient.readContract({
-        address: nftBridgeAddress,
+        address: getNftBridgeAddress(),
         abi: NFT_BRIDGE_ABI,
         functionName: 'getTransfer',
         args: [transferId],
@@ -1210,7 +1264,7 @@ export function createBridgeModule(
 
       // Query NFTBridgeInitiated events for this user
       const logs = await wallet.publicClient.getLogs({
-        address: nftBridgeAddress,
+        address: getNftBridgeAddress(),
         event: NFT_BRIDGE_EVENT,
         fromBlock: 'earliest',
         toBlock: 'latest',
@@ -1228,7 +1282,7 @@ export function createBridgeModule(
 
         // Get the full transfer data from contract
         const result = await wallet.publicClient.readContract({
-          address: nftBridgeAddress,
+          address: getNftBridgeAddress(),
           abi: NFT_BRIDGE_ABI,
           functionName: 'getTransfer',
           args: [transferId],
@@ -1275,7 +1329,7 @@ export function createBridgeModule(
       })
 
       const txHash = await wallet.sendTransaction({
-        to: hyperlaneMailboxAddress,
+        to: getHyperlaneMailboxAddress(),
         data,
         value: fee,
       })
@@ -1296,7 +1350,7 @@ export function createBridgeModule(
         wallet.address.slice(2).padStart(64, '0')) as Hex
 
       return wallet.publicClient.readContract({
-        address: hyperlaneMailboxAddress,
+        address: getHyperlaneMailboxAddress(),
         abi: HYPERLANE_MAILBOX_ABI,
         functionName: 'quoteDispatch',
         args: [destDomain, recipientBytes32, message],
@@ -1305,7 +1359,7 @@ export function createBridgeModule(
 
     async getHyperlaneMessageStatus(messageId) {
       return wallet.publicClient.readContract({
-        address: hyperlaneMailboxAddress,
+        address: getHyperlaneMailboxAddress(),
         abi: HYPERLANE_MAILBOX_ABI,
         functionName: 'delivered',
         args: [messageId],
@@ -1313,7 +1367,7 @@ export function createBridgeModule(
     },
 
     async submitZKProof(proofData, publicInputs) {
-      if (!zkBridgeVerifierAddress) {
+      if (!getZkBridgeVerifierAddress()) {
         throw new Error('ZKBridgeVerifier not deployed on this network')
       }
 
@@ -1324,7 +1378,7 @@ export function createBridgeModule(
       })
 
       const txHash = await wallet.sendTransaction({
-        to: zkBridgeVerifierAddress,
+        to: getZkBridgeVerifierAddress(),
         data,
       })
 
@@ -1340,12 +1394,12 @@ export function createBridgeModule(
     },
 
     async verifyZKBridgeTransfer(transferId) {
-      if (!zkBridgeVerifierAddress) {
+      if (!getZkBridgeVerifierAddress()) {
         throw new Error('ZKBridgeVerifier not deployed on this network')
       }
 
       return wallet.publicClient.readContract({
-        address: zkBridgeVerifierAddress,
+        address: getZkBridgeVerifierAddress(),
         abi: ZK_BRIDGE_VERIFIER_ABI,
         functionName: 'verifyTransfer',
         args: [transferId],

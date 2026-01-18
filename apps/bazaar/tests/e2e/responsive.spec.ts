@@ -5,6 +5,10 @@
 
 import { expect, type Page, test } from '@playwright/test'
 
+const isRemote =
+  process.env.JEJU_NETWORK === 'testnet' ||
+  process.env.JEJU_NETWORK === 'mainnet'
+
 const DESKTOP_VIEWPORT = { width: 1280, height: 800 }
 const MOBILE_VIEWPORT = { width: 375, height: 812 }
 
@@ -22,6 +26,7 @@ async function expectButtonClickable(
 }
 
 test.describe('Desktop Viewport', () => {
+  test.skip(isRemote, 'Skipping on remote network')
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP_VIEWPORT)
   })
@@ -54,13 +59,13 @@ test.describe('Desktop Viewport', () => {
     await expectButtonClickable(themeToggle, 'Theme Toggle')
   })
 
-  test('connect wallet button is visible', async ({ page }) => {
+  test('sign in button is visible', async ({ page }) => {
     await navigateTo(page, '/')
 
     const connectWallet = page
-      .getByRole('button', { name: /connect wallet/i })
+      .getByRole('button', { name: /sign in/i })
       .first()
-    await expectButtonClickable(connectWallet, 'Connect Wallet')
+    await expectButtonClickable(connectWallet, 'Sign In')
   })
 
   test('buttons have hover states', async ({ page }) => {
@@ -92,6 +97,7 @@ test.describe('Desktop Viewport', () => {
 })
 
 test.describe('Mobile Viewport', () => {
+  test.skip(isRemote, 'Skipping on remote network')
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(MOBILE_VIEWPORT)
   })
@@ -191,6 +197,7 @@ test.describe('Mobile Viewport', () => {
 })
 
 test.describe('Mobile Page-Specific Tests', () => {
+  test.skip(isRemote, 'Skipping on remote network')
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(MOBILE_VIEWPORT)
   })
@@ -210,7 +217,7 @@ test.describe('Mobile Page-Specific Tests', () => {
     expect(selectCount).toBeGreaterThanOrEqual(2)
 
     const swapBtn = page
-      .getByRole('button', { name: /swap|connect wallet|enter amount/i })
+      .getByRole('button', { name: /swap|sign in|enter amount/i })
       .first()
     await expect(swapBtn).toBeVisible()
   })
@@ -259,6 +266,7 @@ test.describe('Mobile Page-Specific Tests', () => {
 })
 
 test.describe('Button Edge Cases', () => {
+  test.skip(isRemote, 'Skipping on remote network')
   test('disabled buttons not clickable on desktop', async ({ page }) => {
     await page.setViewportSize(DESKTOP_VIEWPORT)
     await navigateTo(page, '/coins/create')

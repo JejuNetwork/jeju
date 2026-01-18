@@ -381,7 +381,7 @@ export class CSAMReportingService {
    * 4. For UK operations, also consider NCA CSEA-IRP reporting
    *
    * IWF Member Portal: https://portal.iwf.org.uk/
-   * Note: IWF provides hash lists for detection, not a direct reporting API.
+   * IWF provides hash lists for detection, not a direct reporting API.
    * For reporting, use the IWF Portal or NCA CSEA Industry Reporting Portal.
    *
    * @see https://www.iwf.org.uk/
@@ -391,8 +391,7 @@ export class CSAMReportingService {
     const config = this.config.iwf
     if (!config) throw new Error('IWF not configured')
 
-    // IWF Portal API (member-only)
-    // Note: The exact API endpoint must be obtained from IWF upon membership
+    // IWF Portal API (member-only) - exact endpoint obtained from IWF upon membership
     const portalUrl = 'https://portal.iwf.org.uk/api/v1/reports'
 
     logger.info('[CSAMReporting] Submitting to IWF Portal', {

@@ -101,7 +101,7 @@ export const discussionsRoutes = new Elysia({ prefix: '/api/discussions' })
       )
       const page = Number.parseInt(validated.page ?? '1', 10)
 
-      const result = dbListDiscussions({
+      const result = await dbListDiscussions({
         category: validated.category,
         page,
       })
@@ -132,7 +132,7 @@ export const discussionsRoutes = new Elysia({ prefix: '/api/discussions' })
         'request body',
       )
 
-      const row = dbCreateDiscussion({
+      const row = await dbCreateDiscussion({
         title: validated.title,
         content: validated.content,
         category: validated.category,
@@ -157,7 +157,7 @@ export const discussionsRoutes = new Elysia({ prefix: '/api/discussions' })
     '/:discussionId',
     async ({ params, set }) => {
       const validated = expectValid(DiscussionIdParamSchema, params, 'params')
-      const row = getDiscussion(validated.discussionId)
+      const row = await getDiscussion(validated.discussionId)
       if (!row) {
         set.status = 404
         return {
@@ -192,7 +192,7 @@ export const discussionsRoutes = new Elysia({ prefix: '/api/discussions' })
         'params',
       )
 
-      const discussion = getDiscussion(validatedParams.discussionId)
+      const discussion = await getDiscussion(validatedParams.discussionId)
       if (!discussion) {
         set.status = 404
         return {
@@ -209,7 +209,7 @@ export const discussionsRoutes = new Elysia({ prefix: '/api/discussions' })
         'request body',
       )
 
-      const row = dbCreateReply({
+      const row = await dbCreateReply({
         discussionId: validatedParams.discussionId,
         author: authResult.address,
         authorName: authResult.address.slice(0, 8),
@@ -232,7 +232,7 @@ export const discussionsRoutes = new Elysia({ prefix: '/api/discussions' })
     '/:discussionId/replies',
     async ({ params, set }) => {
       const validated = expectValid(DiscussionIdParamSchema, params, 'params')
-      const discussion = getDiscussion(validated.discussionId)
+      const discussion = await getDiscussion(validated.discussionId)
       if (!discussion) {
         set.status = 404
         return {
@@ -243,7 +243,7 @@ export const discussionsRoutes = new Elysia({ prefix: '/api/discussions' })
         }
       }
 
-      const rows = getDiscussionReplies(validated.discussionId)
+      const rows = await getDiscussionReplies(validated.discussionId)
       return { replies: rows.map(transformReply), total: rows.length }
     },
     {

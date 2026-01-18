@@ -151,8 +151,7 @@ describe('status command', () => {
   })
 
   test('--check option is available', async () => {
-    // Note: Actually running --check requires services to be available
-    // This test just verifies the option is documented
+    // Running --check requires services - this verifies the option is documented
     const { stdout, exitCode } = await runCLI(['status', '--help'])
     expect(exitCode).toBe(0)
     expect(stdout).toContain('--check')

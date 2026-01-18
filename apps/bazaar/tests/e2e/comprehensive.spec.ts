@@ -8,6 +8,10 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
 
+const isRemote =
+  process.env.JEJU_NETWORK === 'testnet' ||
+  process.env.JEJU_NETWORK === 'mainnet'
+
 let verifyImage:
   | ((
       path: string,
@@ -206,6 +210,7 @@ test.beforeAll(async () => {
 })
 
 test.describe('Bazaar - All Pages', () => {
+  test.skip(isRemote, 'Skipping on remote network')
   for (const route of ROUTES) {
     test(`${route.name} (${route.path})`, async ({ page }) => {
       const errors: string[] = []
@@ -286,6 +291,7 @@ test.describe('Bazaar - All Pages', () => {
 })
 
 test.describe('Bazaar Mobile', () => {
+  test.skip(isRemote, 'Skipping on remote network')
   test('renders on mobile', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 })
     await page.goto('/')

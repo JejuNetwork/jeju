@@ -106,20 +106,37 @@ export class EdgeNodeServer {
     this.originFetcher = getOriginFetcher(config.origins)
 
     // Initialize wallet and contract
-    if (!config.privateKey.startsWith('0x')) {
-      throw new Error('privateKey must be a hex string starting with 0x')
-    }
-    this.account = privateKeyToAccount(config.privateKey as `0x${string}`)
     this.chain = inferChainFromRpcUrl(config.rpcUrl)
     this.publicClient = createPublicClient({
       chain: this.chain,
       transport: http(config.rpcUrl),
     })
-    this.walletClient = createWalletClient({
-      account: this.account,
-      chain: this.chain,
-      transport: http(config.rpcUrl),
-    })
+
+    // Use privateKey (development) or KMS (production)
+    if (config.privateKey) {
+      if (!config.privateKey.startsWith('0x')) {
+        throw new Error('privateKey must be a hex string starting with 0x')
+      }
+      this.account = privateKeyToAccount(config.privateKey as `0x${string}`)
+      this.walletClient = createWalletClient({
+        account: this.account,
+        chain: this.chain,
+        transport: http(config.rpcUrl),
+      })
+    } else if (config.kmsKeyId && config.ownerAddress) {
+      // KMS mode - account will be set up via KMS
+      // For now, we'll create a dummy account that delegates signing to KMS
+      // The actual signing happens via KMS in the coordinator
+      console.log('[CDN Edge] Using KMS-backed signing')
+      throw new Error(
+        'KMS integration for CDN Edge requires implementation. ' +
+          'Set up PRIVATE_KEY for development or implement KMS wallet client.',
+      )
+    } else {
+      throw new Error(
+        'CDN Edge requires either privateKey or kmsKeyId+ownerAddress configuration',
+      )
+    }
     this.registryAddress = config.registryAddress
 
     // Convert nodeId to bytes32

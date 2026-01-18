@@ -567,8 +567,8 @@ export class TreasuryPaymaster {
   }
 
   /**
-   * Get sponsorship statistics
-   * Note: With distributed cache, aggregate stats require separate tracking
+   * Get sponsorship statistics.
+   * With distributed cache, aggregate stats require separate tracking.
    */
   async getStats(): Promise<{
     totalUsers: number
@@ -628,8 +628,8 @@ export class TreasuryPaymaster {
   }
 
   /**
-   * Shutdown the paymaster - called when cleaning up
-   * Note: With distributed cache, no local cleanup needed
+   * Shutdown the paymaster - called when cleaning up.
+   * With distributed cache, no local cleanup needed.
    */
   shutdown(): void {
     // No local cleanup needed - cache handles TTL expiration

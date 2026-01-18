@@ -15,7 +15,7 @@
  * - Implement key rotation schedules to limit exposure window
  */
 
-import { getEnv, getEnvBoolean, requireEnv } from '@jejunetwork/shared'
+import { getEnv, requireEnv } from '@jejunetwork/shared'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes, toHex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -91,11 +91,6 @@ export class EncryptionProvider implements KMSProvider {
   private keyVersions = new Map<string, KeyVersionRecord[]>()
   private sessions = new Map<string, Session>()
   private initPromise: Promise<void> | null = null
-  private debug: boolean
-
-  constructor(config?: { debug?: boolean }) {
-    this.debug = config?.debug ?? false
-  }
 
   /**
    * Initialize master key using async derivation (PBKDF2)
@@ -577,11 +572,10 @@ export class EncryptionProvider implements KMSProvider {
 let encryptionProvider: EncryptionProvider | undefined
 
 export function getEncryptionProvider(
-  config?: Partial<EncryptionConfig>,
+  _config?: Partial<EncryptionConfig>,
 ): EncryptionProvider {
   if (!encryptionProvider) {
-    const debug = config?.debug ?? getEnvBoolean('KMS_DEBUG', false)
-    encryptionProvider = new EncryptionProvider({ debug })
+    encryptionProvider = new EncryptionProvider()
   }
   return encryptionProvider
 }

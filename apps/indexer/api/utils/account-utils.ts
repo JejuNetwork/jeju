@@ -7,12 +7,18 @@ import { type Account, find } from '../db'
 
 /**
  * Get account by address from SQLit
+ * Returns null for invalid formats - caller should return 404
  */
 export async function getAccountByAddress(
   address: string,
 ): Promise<Account | null> {
   if (!address || address.trim().length === 0) {
-    throw new Error('address is required and must be a non-empty string')
+    return null
+  }
+
+  // Validate address format (should be 0x followed by 40 hex chars)
+  if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+    return null
   }
 
   const normalizedAddress = address.toLowerCase()

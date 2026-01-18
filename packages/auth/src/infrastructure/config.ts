@@ -41,13 +41,34 @@ export const CHAIN_IDS = {
   mainnet: 420692,
 } as const
 
+// RPC URLs per network - browser-safe
+// localnet URL is only valid in Node.js; browser apps should detect via hostname
+function getLocalnetRpcUrl(): string {
+  // In browser, never return localhost URL - apps should use hostname detection
+  if (typeof window !== 'undefined') {
+    // If we're in a browser on localhost, still return the local RPC
+    const hostname = window.location?.hostname
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname?.startsWith('192.168.') ||
+      hostname?.startsWith('10.')
+    ) {
+      return getL2RpcUrl()
+    }
+    // In browser on production domain, don't use localhost RPC
+    return 'https://testnet-rpc.jejunetwork.org'
+  }
+  return getL2RpcUrl()
+}
+
 export const RPC_URLS: Record<NetworkType, string> = {
-  localnet: getL2RpcUrl(),
-  testnet: 'https://testnet.jejunetwork.org',
-  mainnet: 'https://mainnet.jejunetwork.org',
+  localnet: getLocalnetRpcUrl(),
+  testnet: 'https://testnet-rpc.jejunetwork.org',
+  mainnet: 'https://rpc.jejunetwork.org',
 } as const
 
-export const DEFAULT_RPC = getEnv('JEJU_RPC_URL') || RPC_URLS.localnet
+export const DEFAULT_RPC = getEnv('JEJU_RPC_URL') || RPC_URLS.testnet
 
 // DWS Storage endpoints - all environments use DWS for storage
 // DWS exposes IPFS-compatible API at /storage/api/v0/* and /storage/ipfs/*
@@ -160,9 +181,32 @@ export function getContracts(chainId: number) {
   return contracts
 }
 
-export function getRpcUrl(chainId: number): string {
-  const network = getNetworkType(chainId)
-  return getEnv('JEJU_RPC_URL') || RPC_URLS[network]
+export function getRpcUrl(chainId?: number): string {
+  // Check env override first
+  const envRpc = getEnv('JEJU_RPC_URL')
+  if (envRpc) return envRpc
+
+  // Determine network from chainId or detect from browser hostname
+  let network: NetworkType
+  if (chainId) {
+    network = getNetworkType(chainId)
+  } else if (typeof window !== 'undefined') {
+    const hostname = window.location?.hostname
+    if (
+      hostname?.includes('.testnet.jejunetwork.org') ||
+      hostname === 'testnet.jejunetwork.org'
+    ) {
+      network = 'testnet'
+    } else if (hostname?.endsWith('.jejunetwork.org')) {
+      network = 'mainnet'
+    } else {
+      network = 'localnet'
+    }
+  } else {
+    network = 'localnet'
+  }
+
+  return RPC_URLS[network]
 }
 
 export function getIPFSEndpoints(chainId: number) {

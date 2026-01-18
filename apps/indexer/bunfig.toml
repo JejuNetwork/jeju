@@ -1,3 +1,6 @@
 [test]
+# Preload shared test infrastructure - ensures jeju CLI is running
+preload = ["@jejunetwork/tests/bun-global-setup"]
 # Only run tests from the tests/unit directory, not tests/e2e (which are Playwright tests)
 root = "tests/unit"
+timeout = 60000

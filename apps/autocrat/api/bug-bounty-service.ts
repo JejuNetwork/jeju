@@ -16,6 +16,7 @@ import {
   isAddress,
   isHex,
   keccak256,
+  parseAbi,
   stringToHex,
 } from 'viem'
 import {
@@ -87,7 +88,7 @@ async function getSQLitClient(): Promise<SQLitClient> {
   if (!sqlitClient) {
     sqlitClient = getSQLit({
       databaseId: SQLIT_DATABASE_ID,
-      timeout: 30000,
+      timeoutMs: 30000,
       debug: !config.isProduction,
     })
   }
@@ -231,19 +232,18 @@ async function ensureTablesExist(): Promise<void> {
     SQLIT_DATABASE_ID,
   )
 }
-const SECURITY_BOUNTY_REGISTRY_ABI = [
+const SECURITY_BOUNTY_REGISTRY_ABI = parseAbi([
   'function submitVulnerability(uint8 severity, uint8 vulnType, bytes32 encryptedReportCid, bytes32 encryptionKeyId, bytes32 proofOfConceptHash) external payable returns (bytes32)',
-  'function completeValidation(bytes32 submissionId, uint8 result, string memory notes) external',
-  'function submitGuardianVote(bytes32 submissionId, bool approved, uint256 suggestedReward, string memory feedback) external',
-  'function ceoDecision(bytes32 submissionId, bool approved, uint256 rewardAmount, string memory reasoning) external',
+  'function completeValidation(bytes32 submissionId, uint8 result, string notes) external',
+  'function submitGuardianVote(bytes32 submissionId, bool approved, uint256 suggestedReward, string feedback) external',
+  'function directorDecision(bytes32 submissionId, bool approved, uint256 rewardAmount, string reasoning) external',
   'function payReward(bytes32 submissionId) external',
-  'function getSubmission(bytes32 submissionId) external view returns (tuple(bytes32 submissionId, address researcher, uint256 researcherAgentId, uint8 severity, uint8 vulnType, bytes32 encryptedReportCid, bytes32 encryptionKeyId, bytes32 proofOfConceptHash, uint256 stake, uint256 submittedAt, uint256 validatedAt, uint256 resolvedAt, uint8 status, uint8 validationResult, string validationNotes, uint256 rewardAmount, uint256 guardianApprovals, uint256 guardianRejections, bytes32 fixCommitHash, uint256 disclosureDate, bool researcherDisclosed))',
   'function getTotalPool() external view returns (uint256)',
   'function getGuardianCount() external view returns (uint256)',
   'event VulnerabilitySubmitted(bytes32 indexed submissionId, address indexed researcher, uint8 severity)',
   'event ValidationCompleted(bytes32 indexed submissionId, uint8 result)',
   'event RewardPaid(bytes32 indexed submissionId, address indexed researcher, uint256 amount)',
-] as const
+])
 
 function getPublicClient() {
   return createPublicClient({
@@ -885,7 +885,7 @@ export async function submitGuardianVote(
 
   await getCache().delete(`submission:${submissionId}`)
 
-  // Check if quorum reached and escalate to CEO
+  // Check if quorum reached and escalate to Director
   const submission = await getSubmission(submissionId)
   if (submission) {
     const severity = submission.severity
@@ -923,7 +923,7 @@ export async function getGuardianVotes(
   }))
 }
 
-export async function ceoDecision(
+export async function directorDecision(
   submissionId: string,
   approved: boolean,
   rewardAmount: bigint,
@@ -938,7 +938,7 @@ export async function ceoDecision(
 
   await client.exec(
     `UPDATE bounty_submissions
-     SET status = ?, reward_amount = ?, validation_notes = COALESCE(validation_notes, '') || '\nCEO: ' || ?, resolved_at = ?
+     SET status = ?, reward_amount = ?, validation_notes = COALESCE(validation_notes, '') || '\nDirector: ' || ?, resolved_at = ?
      WHERE submission_id = ?`,
     [newStatus, rewardAmount.toString(), reasoning, now, submissionId],
     SQLIT_DATABASE_ID,
@@ -953,15 +953,15 @@ export async function ceoDecision(
   if (!account) {
     throw new Error('Wallet account not available')
   }
-  const ceoHash = await writeContract(walletClient, {
+  const directorHash = await writeContract(walletClient, {
     address: contractAddr,
     abi: SECURITY_BOUNTY_REGISTRY_ABI,
-    functionName: 'ceoDecision',
+    functionName: 'directorDecision',
     args: [toHex(submissionId), approved, rewardAmount, reasoning],
     chain: getChain(),
   })
 
-  await publicClient.waitForTransactionReceipt({ hash: ceoHash })
+  await publicClient.waitForTransactionReceipt({ hash: directorHash })
 
   await getCache().delete(`submission:${submissionId}`)
 
@@ -1307,7 +1307,7 @@ export class BugBountyService {
   completeValidation = completeValidation
   guardianVote = submitGuardianVote
   getGuardianVotes = getGuardianVotes
-  ceoDecision = ceoDecision
+  directorDecision = directorDecision
   payReward = payReward
   recordFix = recordFix
   researcherDisclose = researcherDisclose

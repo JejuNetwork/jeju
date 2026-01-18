@@ -230,11 +230,18 @@ def test_mlx_backend() -> TestResult:
     result = TestResult("MLX Backend")
 
     try:
+        from importlib.metadata import PackageNotFoundError, version
+
         import mlx.core as mx  # type: ignore
         import mlx_lm  # type: ignore
 
         result.passed = True
-        result.message = f"MLX available (mlx-lm version: {mlx_lm.__version__})"
+        try:
+            mlx_lm_version = version("mlx-lm")
+        except PackageNotFoundError:
+            mlx_lm_version = "unknown"
+
+        result.message = f"MLX available (mlx-lm version: {mlx_lm_version})"
 
     except ImportError as e:
         result.message = f"MLX not available: {e}"

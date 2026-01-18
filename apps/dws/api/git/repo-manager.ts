@@ -544,7 +544,6 @@ export class GitRepoManager {
 
     this.inMemoryRepos.set(repoId, repo)
     this.inMemoryBranches.set(repoId, [])
-    this.inMemoryRepoCounter++
 
     const baseUrl =
       (typeof process !== 'undefined' ? process.env.DWS_BASE_URL : undefined) ||

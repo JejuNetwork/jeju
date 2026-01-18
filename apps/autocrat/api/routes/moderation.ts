@@ -1,13 +1,53 @@
 import { Elysia, t } from 'elysia'
 import { toAddress } from '../../lib'
 import { expectFlagType, getModerationSystem } from '../moderation'
+import { auditLog } from '../security'
 
 const moderation = getModerationSystem()
 
 export const moderationRoutes = new Elysia({ prefix: '/api/v1/moderation' })
+  .get(
+    '/',
+    async () => {
+      try {
+        return {
+          service: 'moderation',
+          status: 'available',
+          endpoints: {
+            flag: 'POST /api/v1/moderation/flag',
+            vote: 'POST /api/v1/moderation/vote',
+            resolve: 'POST /api/v1/moderation/resolve',
+            reports: 'GET /api/v1/moderation/reports/:proposalId',
+            flags: 'GET /api/v1/moderation/flags/:proposalId',
+            userFlags: 'GET /api/v1/moderation/user/:address/flags',
+            stats: 'GET /api/v1/moderation/stats',
+            pending: 'GET /api/v1/moderation/pending',
+          },
+        }
+      } catch (error) {
+        return {
+          service: 'moderation',
+          status: 'unavailable',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Moderation service unavailable',
+        }
+      }
+    },
+    {
+      detail: { tags: ['moderation'], summary: 'Get moderation service info' },
+    },
+  )
   .post(
     '/flag',
-    async ({ body }) => {
+    async ({ body, request }) => {
+      auditLog('moderation_flag_submit', body.flagger, request, true, {
+        proposalId: body.proposalId,
+        flagType: body.flagType,
+        stake: body.stake ?? 10,
+      })
+
       // Join evidence array into comma-separated string if provided
       const evidenceStr = body.evidence?.join(',')
       const flag = await moderation.submitFlag(
@@ -34,7 +74,12 @@ export const moderationRoutes = new Elysia({ prefix: '/api/v1/moderation' })
   )
   .post(
     '/vote',
-    async ({ body }) => {
+    async ({ body, request }) => {
+      auditLog('moderation_vote', body.voter, request, true, {
+        flagId: body.flagId,
+        upvote: body.upvote,
+      })
+
       await moderation.voteOnFlag(body.flagId, body.voter, body.upvote)
       return { success: true }
     },
@@ -49,7 +94,12 @@ export const moderationRoutes = new Elysia({ prefix: '/api/v1/moderation' })
   )
   .post(
     '/resolve',
-    async ({ body }) => {
+    async ({ body, request }) => {
+      auditLog('moderation_resolve', 'operator', request, true, {
+        flagId: body.flagId,
+        upheld: body.upheld,
+      })
+
       await moderation.resolveFlag(body.flagId, body.upheld)
       return { success: true }
     },

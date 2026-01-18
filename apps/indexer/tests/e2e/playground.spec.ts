@@ -1,5 +1,16 @@
 import { expect, test } from '@playwright/test'
 
+// These tests require the frontend to be running (bun run start or bun run dev)
+// They are skipped when SKIP_WEBSERVER=1 (API-only testing mode)
+test.beforeEach(async ({ page: _page }, testInfo) => {
+  if (process.env.SKIP_WEBSERVER === '1') {
+    testInfo.skip(
+      true,
+      'Frontend tests skipped in API-only mode (SKIP_WEBSERVER=1)',
+    )
+  }
+})
+
 test.describe('Playground Page Load', () => {
   test('should load the playground page', async ({ page }) => {
     await page.goto('/playground')
@@ -159,8 +170,8 @@ test.describe('GraphiQL Interface', () => {
 })
 
 test.describe('Mobile Responsiveness', () => {
-  test('header should be compact on mobile', async ({ page, isMobile }) => {
-    test.skip(!isMobile, 'Mobile only')
+  test('header should be compact on mobile', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 })
     await page.goto('/playground')
     const header = page.locator('.jeju-header')
     await expect(header).toBeVisible()
@@ -169,11 +180,8 @@ test.describe('Mobile Responsiveness', () => {
     expect(box?.width).toBeLessThanOrEqual(36)
   })
 
-  test('theme toggle should be accessible on mobile', async ({
-    page,
-    isMobile,
-  }) => {
-    test.skip(!isMobile, 'Mobile only')
+  test('theme toggle should be accessible on mobile', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 })
     await page.goto('/playground')
     const themeToggle = page.locator('#themeToggle')
     await expect(themeToggle).toBeVisible()
@@ -182,8 +190,8 @@ test.describe('Mobile Responsiveness', () => {
     expect(box?.height).toBeGreaterThanOrEqual(28)
   })
 
-  test('GraphiQL should be usable on mobile', async ({ page, isMobile }) => {
-    test.skip(!isMobile, 'Mobile only')
+  test('GraphiQL should be usable on mobile', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 })
     await page.goto('/playground')
     await page.waitForSelector('.graphiql-container', { timeout: 10000 })
     const executeButton = page.locator('button[aria-label*="Execute"]')
@@ -261,9 +269,14 @@ test.describe('Accessibility', () => {
 })
 
 test.describe('Navigation', () => {
-  test('root should redirect to playground', async ({ page }) => {
+  test('root should load the Indexer UI', async ({ page }) => {
     await page.goto('/')
-    await expect(page).toHaveURL(/\/playground/)
+    await page.waitForLoadState('domcontentloaded')
+
+    // Indexer UI should expose a link to the GraphQL playground (served by backend)
+    await expect(
+      page.locator('a[aria-label="Open GraphQL Playground"]'),
+    ).toBeVisible()
   })
 
   test('logo link should navigate to root', async ({ page }) => {

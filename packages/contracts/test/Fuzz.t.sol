@@ -39,7 +39,7 @@ contract DecentralizationFuzzTest is Test {
         sequencerRegistry = new SequencerRegistry(
             address(jejuToken), address(identityRegistry), address(reputationRegistry), treasury, owner
         );
-        timelock = new GovernanceTimelock(governance, makeAddr("council"), owner, 60);
+        timelock = new GovernanceTimelock(governance, makeAddr("board"), owner, 60);
         disputeFactory = new DisputeGameFactory(treasury, owner);
         vm.stopPrank();
 
@@ -141,7 +141,7 @@ contract DecentralizationFuzzTest is Test {
     }
 
     function testFuzzExecuteAfterDelay(uint256 delay) public {
-        // Note: GRACE_PERIOD is 14 days, so proposals expire after executeAfter + 14 days
+        // GRACE_PERIOD is 14 days, so proposals expire after executeAfter + 14 days
         vm.assume(delay >= 60 && delay <= 365 days);
 
         bytes memory data = abi.encodeWithSelector(bytes4(0x12345678));

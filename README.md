@@ -7,7 +7,7 @@ An Ethereum-based network for humans and agents.
 
 ```bash
 brew install --cask docker
-brew install kurtosis-tech/tap/kurtosis
+brew install kurtosis-tech/tap/kurtosis-cli
 curl -fsSL https://bun.sh/install | bash
 curl -L https://foundry.paradigm.xyz | bash && foundryup
 ```

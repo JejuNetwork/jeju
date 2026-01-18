@@ -40,7 +40,7 @@ import {
   // Validation
   validateBondingCurveLaunch,
   validateICOLaunch,
-} from '../launchpad'
+} from '../../lib/launchpad'
 
 // BONDING CURVE CALCULATION TESTS
 

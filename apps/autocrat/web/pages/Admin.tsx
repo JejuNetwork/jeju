@@ -16,7 +16,7 @@ import {
   createRLAIFRun,
   fetchActiveDAOs,
   fetchDAO,
-  fetchDAOCouncil,
+  fetchDAOBoard,
   fetchDAOPersona,
   fetchDAOs,
   fetchRLAIFHealth,
@@ -42,7 +42,7 @@ interface DAOPersona {
   tone: string
 }
 
-interface DAOCouncilMember {
+interface DAOBoardMember {
   address: string
   role: string
   addedAt: number
@@ -82,7 +82,7 @@ export default function AdminPage() {
   const [activeDAOs, setActiveDAOs] = useState<DAO[]>([])
   const [selectedDAO, setSelectedDAO] = useState<DAO | null>(null)
   const [persona, setPersona] = useState<DAOPersona | null>(null)
-  const [council, setCouncil] = useState<DAOCouncilMember[]>([])
+  const [board, setBoard] = useState<DAOBoardMember[]>([])
   const [daoLoading, setDaoLoading] = useState(true)
 
   // RLAIF state
@@ -142,14 +142,14 @@ export default function AdminPage() {
   // Load DAO details
   const loadDAODetails = async (daoId: string) => {
     setDaoLoading(true)
-    const [daoData, personaData, councilData] = await Promise.all([
+    const [daoData, personaData, boardData] = await Promise.all([
       fetchDAO(daoId).catch(() => null),
       fetchDAOPersona(daoId).catch(() => null),
-      fetchDAOCouncil(daoId).catch(() => ({ members: [] })),
+      fetchDAOBoard(daoId).catch(() => ({ members: [] })),
     ])
     setSelectedDAO(daoData as DAO | null)
     setPersona(personaData as DAOPersona | null)
-    setCouncil((councilData as { members: DAOCouncilMember[] }).members ?? [])
+    setBoard((boardData as { members: DAOBoardMember[] }).members ?? [])
     setDaoLoading(false)
   }
 
@@ -341,11 +341,11 @@ export default function AdminPage() {
                   </div>
                 )}
 
-                {council.length > 0 && (
+                {board.length > 0 && (
                   <div className="card-static p-4">
-                    <h3 className="font-semibold mb-3">Council</h3>
+                    <h3 className="font-semibold mb-3">Board</h3>
                     <div className="space-y-2">
-                      {council.map((member) => (
+                      {board.map((member) => (
                         <div
                           key={member.address}
                           className="flex items-center justify-between text-sm"

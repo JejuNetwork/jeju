@@ -3,7 +3,7 @@
 /**
  * Simple DAO Deployment Script
  *
- * Deploys Council + CEOAgent to local anvil.
+ * Deploys Board + DirectorAgent to local anvil.
  * Start anvil first: anvil --port 9545
  */
 
@@ -135,41 +135,41 @@ async function main() {
     [identityAddr],
   )
 
-  const { address: councilAddr, abi: councilAbi } = await deploy(
+  const { address: boardAddr, abi: boardAbi } = await deploy(
     walletClient,
     deployerAccount,
     client,
     chain,
-    'Council',
+    'Board',
     [tokenAddr, identityAddr, reputationAddr, deployerAccount.address],
   )
 
-  const { address: ceoAddr } = await deploy(
+  const { address: directorAddr } = await deploy(
     walletClient,
     deployerAccount,
     client,
     chain,
-    'CEOAgent',
-    [tokenAddr, councilAddr, 'claude-opus-4-5', deployerAccount.address],
+    'DirectorAgent',
+    [tokenAddr, boardAddr, 'claude-opus-4-5', deployerAccount.address],
   )
 
   console.log('\n--- Configuring ---\n')
 
-  // Set CEO
-  const setCEOHash = await walletClient.writeContract({
-    address: councilAddr,
-    abi: councilAbi,
-    functionName: 'setCEOAgent',
-    args: [ceoAddr, 1],
+  // Set Director
+  const setDirectorHash = await walletClient.writeContract({
+    address: boardAddr,
+    abi: boardAbi,
+    functionName: 'setDirectorAgent',
+    args: [directorAddr, 1],
     account: deployerAccount,
   })
-  await waitForTransactionReceipt(client, { hash: setCEOHash })
-  console.log('✓ CEO agent configured')
+  await waitForTransactionReceipt(client, { hash: setDirectorHash })
+  console.log('✓ Director agent configured')
 
   // Set research operator
   const setOpHash = await walletClient.writeContract({
-    address: councilAddr,
-    abi: councilAbi,
+    address: boardAddr,
+    abi: boardAbi,
     functionName: 'setResearchOperator',
     args: [deployerAccount.address, true],
     account: deployerAccount,
@@ -177,7 +177,7 @@ async function main() {
   await waitForTransactionReceipt(client, { hash: setOpHash })
   console.log('✓ Research operator configured')
 
-  // Register council agents
+  // Register board agents
   const roles = ['Treasury', 'Code', 'Community', 'Security']
   const agents: Record<string, { address: Address; agentId: number }> = {}
 
@@ -200,9 +200,9 @@ async function main() {
     },
   ] as const
 
-  const COUNCIL_SET_AGENT_ABI = [
+  const BOARD_SET_AGENT_ABI = [
     {
-      name: 'setCouncilAgent',
+      name: 'setBoardAgent',
       type: 'function',
       inputs: [
         { name: 'index', type: 'uint256' },
@@ -237,11 +237,11 @@ async function main() {
     )
     const agentId = evt?.topics[3] ? Number(BigInt(evt.topics[3])) : i + 1
 
-    // Set as council agent
+    // Set as board agent
     const setAgentHash = await walletClient.writeContract({
-      address: councilAddr,
-      abi: COUNCIL_SET_AGENT_ABI,
-      functionName: 'setCouncilAgent',
+      address: boardAddr,
+      abi: BOARD_SET_AGENT_ABI,
+      functionName: 'setBoardAgent',
       args: [BigInt(i), addr, BigInt(agentId), 100n],
       account: deployerAccount,
     })
@@ -263,12 +263,12 @@ async function main() {
       GovernanceToken: tokenAddr,
       IdentityRegistry: identityAddr,
       ReputationRegistry: reputationAddr,
-      Council: councilAddr,
-      CEOAgent: ceoAddr,
+      Board: boardAddr,
+      DirectorAgent: directorAddr,
     },
     agents: {
-      ceo: { modelId: 'claude-opus-4-5', contractAddress: ceoAddr },
-      council: agents,
+      director: { modelId: 'claude-opus-4-5', contractAddress: directorAddr },
+      board: agents,
     },
   }
 
@@ -280,8 +280,8 @@ async function main() {
 
   const env = `RPC_URL=http://127.0.0.1:6546
 CHAIN_ID=31337
-COUNCIL_ADDRESS=${councilAddr}
-CEO_AGENT_ADDRESS=${ceoAddr}
+BOARD_ADDRESS=${boardAddr}
+DIRECTOR_AGENT_ADDRESS=${directorAddr}
 GOVERNANCE_TOKEN_ADDRESS=${tokenAddr}
 IDENTITY_REGISTRY_ADDRESS=${identityAddr}
 REPUTATION_REGISTRY_ADDRESS=${reputationAddr}
@@ -291,8 +291,8 @@ OPERATOR_KEY=${KEYS[0]}
   console.log('✓ Saved .env.localnet')
 
   console.log('\n=== DONE ===\n')
-  console.log('Council:', councilAddr)
-  console.log('CEOAgent:', ceoAddr)
+  console.log('Board:', boardAddr)
+  console.log('DirectorAgent:', directorAddr)
   console.log('\nNext: cp apps/autocrat/.env.localnet apps/autocrat/.env')
 }
 

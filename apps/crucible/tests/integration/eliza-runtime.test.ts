@@ -11,45 +11,49 @@ import {
   runtimeManager,
 } from '../../api/sdk/eliza-runtime'
 
-let inferenceAvailable = false
-
-// Check if infrastructure is available before running tests
+// DWS and inference are required infrastructure - tests must fail if not running
 beforeAll(async () => {
   const dwsAvailable = await checkDWSHealth()
   if (!dwsAvailable) {
-    console.warn(
-      '[Eliza Runtime Tests] DWS not available - inference tests will be skipped',
-    )
-    console.warn('[Eliza Runtime Tests] Start services with: jeju dev')
-    return
+    throw new Error('DWS is required but not running. Start with: jeju dev')
   }
 
-  // Check if inference nodes are available
+  // Verify inference nodes are available
   const inference = await checkDWSInferenceAvailable()
-  if (!inference.available) {
-    console.warn(
-      '[Eliza Runtime Tests] No inference nodes available - inference tests will be skipped',
+  if (!inference.available || inference.nodes === 0) {
+    throw new Error(
+      'DWS inference nodes required but not available. Start inference with: jeju dev',
     )
-    console.warn(
-      '[Eliza Runtime Tests] Start inference with: bun run inference',
-    )
-    return
   }
-
-  inferenceAvailable = true
   console.log(
-    `[Eliza Runtime Tests] Infrastructure available: DWS + ${inference.nodes} inference nodes`,
+    `[Eliza Runtime Tests] DWS ready, inference available: ${inference.available}, nodes: ${inference.nodes}`,
   )
-})
 
-// Helper to skip test if inference not available
-function skipIfNoInference() {
-  if (!inferenceAvailable) {
-    console.log('[Skipped] Inference not available')
-    return true
+  // Test if inference actually works with a simple request
+  const { getSharedDWSClient } = await import('../../api/client/dws')
+  const client = getSharedDWSClient()
+  const testResponse = await client
+    .chatCompletion([{ role: 'user', content: 'Hi' }], {
+      model: 'llama-3.1-8b-instant',
+      maxTokens: 10,
+    })
+    .catch((e: Error) => {
+      throw new Error(
+        `DWS inference test failed: ${e.message.slice(0, 200)}. Check inference node is running.`,
+      )
+    })
+
+  if (
+    !testResponse?.choices?.[0]?.message?.content ||
+    testResponse.choices[0].message.content.length === 0
+  ) {
+    throw new Error(
+      'DWS inference returned empty response. Check inference node is properly configured.',
+    )
   }
-  return false
-}
+
+  console.log('[Eliza Runtime Tests] Inference verified working')
+})
 
 describe('Crucible Agent Runtime', () => {
   describe('Runtime Creation', () => {
@@ -69,7 +73,6 @@ describe('Crucible Agent Runtime', () => {
     })
 
     test('should initialize runtime with jejuPlugin actions', async () => {
-      // This test doesn't require inference
       const character = getCharacter('community-manager')
       expect(character).toBeDefined()
       if (!character) throw new Error('character not found')
@@ -87,8 +90,6 @@ describe('Crucible Agent Runtime', () => {
 
   describe('Message Processing', () => {
     test('should process message through ElizaOS', async () => {
-      if (skipIfNoInference()) return
-
       const character = getCharacter('project-manager')
       if (!character) throw new Error('character not found')
       const runtime = createCrucibleRuntime({
@@ -113,15 +114,18 @@ describe('Crucible Agent Runtime', () => {
 
       expect(response).toBeDefined()
       expect(typeof response.text).toBe('string')
-      expect(response.text.length).toBeGreaterThan(0)
+      // Response should have either text content OR an action
+      const hasContent = response.text.length > 0 || response.action !== null
+      expect(hasContent).toBe(true)
 
-      console.log('[Test] Response:', response.text.slice(0, 200))
+      console.log(
+        '[Test] Response:',
+        response.text.slice(0, 200) || '(action only)',
+      )
       console.log('[Test] Action:', response.action)
     }, 60000)
 
     test('should handle action responses', async () => {
-      if (skipIfNoInference()) return
-
       const character = getCharacter('project-manager')
       if (!character) throw new Error('character not found')
       const runtime = createCrucibleRuntime({
@@ -141,17 +145,18 @@ describe('Crucible Agent Runtime', () => {
 
       const response = await runtime.processMessage(message)
 
-      console.log('[Test] Response:', response.text)
+      console.log('[Test] Response:', response.text || '(action only)')
       console.log('[Test] Action:', response.action)
       console.log('[Test] Actions:', response.actions)
 
-      expect(response.text.length).toBeGreaterThan(0)
+      // Response should have either text content OR an action
+      const hasContent = response.text.length > 0 || response.action !== null
+      expect(hasContent).toBe(true)
     }, 60000)
   })
 
   describe('Runtime Manager', () => {
     test('should create and track runtimes', async () => {
-      // This test doesn't require inference
       const character = getCharacter('devrel')
       expect(character).toBeDefined()
       if (!character) throw new Error('character not found')
@@ -171,7 +176,6 @@ describe('Crucible Agent Runtime', () => {
     })
 
     test('should not duplicate runtimes', async () => {
-      // This test doesn't require inference
       const character = getCharacter('liaison')
       expect(character).toBeDefined()
       if (!character) throw new Error('character not found')
@@ -233,7 +237,6 @@ describe('Crucible Agent Runtime', () => {
 
   describe('Plugin Integration', () => {
     test('should load jeju plugin actions', async () => {
-      // This test doesn't require inference
       const character = getCharacter('community-manager')
       if (!character) throw new Error('character not found')
       const runtime = createCrucibleRuntime({

@@ -16,9 +16,9 @@ export default createSynpressConfig({
   appName: 'autocrat',
   port: AUTOCRAT_PORT,
   testDir: './tests/synpress',
-  testMatch: '**/*.synpress.ts',
   timeout: 120000,
   overrides: {
+    testMatch: '**/*.synpress.ts',
     use: {
       baseURL: BASE_URL,
     },

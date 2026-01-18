@@ -8,13 +8,13 @@ import {ITFMMPool} from "./ITFMMPool.sol";
  * @title TFMMFeeController
  * @author Jeju Network
  * @notice Governance-controlled fee management for TFMM pools
- * @dev Integrates with Jeju CEO/Council/Governor for fee changes
+ * @dev Integrates with Jeju Director/Board/Governor for fee changes
  *
  * Features:
  * - Tiered fee structure based on pool type
  * - Fee caps enforced on-chain
  * - Time-delayed fee changes for transparency
- * - Integration with governance (Governor, Council, CEO)
+ * - Integration with governance (Governor, Board, Director)
  */
 contract TFMMFeeController is Ownable {
     // ============ Enums ============
@@ -75,11 +75,11 @@ contract TFMMFeeController is Ownable {
     /// @notice Governor contract
     address public governor;
 
-    /// @notice Council contract (multi-sig)
-    address public council;
+    /// @notice Board contract (multi-sig)
+    address public board;
 
-    /// @notice CEO address (for emergency actions)
-    address public ceo;
+    /// @notice Director address (for emergency actions)
+    address public director;
 
     /// @notice Treasury address
     address public treasury;
@@ -93,7 +93,7 @@ contract TFMMFeeController is Ownable {
     event FeeChangeCancelled(address indexed pool);
     event TierFeesUpdated(PoolTier tier, FeeConfig config);
     event PoolTierSet(address indexed pool, PoolTier tier);
-    event GovernanceUpdated(address governor, address council, address ceo);
+    event GovernanceUpdated(address governor, address board, address director);
 
     // ============ Errors ============
 
@@ -105,10 +105,10 @@ contract TFMMFeeController is Ownable {
 
     // ============ Constructor ============
 
-    constructor(address governor_, address council_, address ceo_, address treasury_) Ownable(msg.sender) {
+    constructor(address governor_, address board_, address director_, address treasury_) Ownable(msg.sender) {
         governor = governor_;
-        council = council_;
-        ceo = ceo_;
+        board = board_;
+        director = director_;
         treasury = treasury_;
         feeChangeDelay = 2 days;
 
@@ -145,21 +145,21 @@ contract TFMMFeeController is Ownable {
     // ============ Modifiers ============
 
     modifier onlyGovernance() {
-        if (msg.sender != governor && msg.sender != council && msg.sender != ceo && msg.sender != owner()) {
+        if (msg.sender != governor && msg.sender != board && msg.sender != director && msg.sender != owner()) {
             revert NotAuthorized();
         }
         _;
     }
 
-    modifier onlyCouncilOrHigher() {
-        if (msg.sender != council && msg.sender != ceo && msg.sender != owner()) {
+    modifier onlyBoardOrHigher() {
+        if (msg.sender != board && msg.sender != director && msg.sender != owner()) {
             revert NotAuthorized();
         }
         _;
     }
 
-    modifier onlyCEO() {
-        if (msg.sender != ceo && msg.sender != owner()) {
+    modifier onlyDirector() {
+        if (msg.sender != director && msg.sender != owner()) {
             revert NotAuthorized();
         }
         _;
@@ -218,7 +218,7 @@ contract TFMMFeeController is Ownable {
      * @notice Cancel a pending fee change
      * @param pool Pool address
      */
-    function cancelFeeChange(address pool) external onlyCouncilOrHigher {
+    function cancelFeeChange(address pool) external onlyBoardOrHigher {
         if (!pendingChanges[pool].exists) revert NoPendingChange();
         delete pendingChanges[pool];
         emit FeeChangeCancelled(pool);
@@ -247,7 +247,7 @@ contract TFMMFeeController is Ownable {
      * @param tier Pool tier
      * @param config New fee config
      */
-    function setTierFees(PoolTier tier, FeeConfig calldata config) external onlyCouncilOrHigher {
+    function setTierFees(PoolTier tier, FeeConfig calldata config) external onlyBoardOrHigher {
         _validateFees(config.swapFeeBps, config.protocolFeeBps);
 
         if (config.managementFeeBps > MAX_MANAGEMENT_FEE_BPS) {
@@ -262,11 +262,11 @@ contract TFMMFeeController is Ownable {
     }
 
     /**
-     * @notice Emergency fee reduction (CEO only)
+     * @notice Emergency fee reduction (Director only)
      * @param pool Pool address
      * @param newSwapFeeBps New swap fee (must be lower)
      */
-    function emergencyFeeReduction(address pool, uint256 newSwapFeeBps) external onlyCEO {
+    function emergencyFeeReduction(address pool, uint256 newSwapFeeBps) external onlyDirector {
         FeeConfig storage config = poolFees[pool];
         require(newSwapFeeBps < config.swapFeeBps, "Must be reduction");
 
@@ -313,24 +313,24 @@ contract TFMMFeeController is Ownable {
 
     // ============ Admin Functions ============
 
-    function setGovernance(address governor_, address council_, address ceo_) external onlyCEO {
-        if (governor_ == address(0) || council_ == address(0) || ceo_ == address(0)) {
+    function setGovernance(address governor_, address board_, address director_) external onlyDirector {
+        if (governor_ == address(0) || board_ == address(0) || director_ == address(0)) {
             revert InvalidAddress();
         }
 
         governor = governor_;
-        council = council_;
-        ceo = ceo_;
+        board = board_;
+        director = director_;
 
-        emit GovernanceUpdated(governor_, council_, ceo_);
+        emit GovernanceUpdated(governor_, board_, director_);
     }
 
-    function setTreasury(address treasury_) external onlyCouncilOrHigher {
+    function setTreasury(address treasury_) external onlyBoardOrHigher {
         if (treasury_ == address(0)) revert InvalidAddress();
         treasury = treasury_;
     }
 
-    function setFeeChangeDelay(uint256 delay) external onlyCouncilOrHigher {
+    function setFeeChangeDelay(uint256 delay) external onlyBoardOrHigher {
         require(delay >= 1 hours && delay <= 7 days, "Invalid delay");
         feeChangeDelay = delay;
     }

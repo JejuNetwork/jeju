@@ -72,9 +72,9 @@ export class AutocratMCPServer {
         mimeType: 'application/json',
       },
       {
-        uri: 'autocrat://ceo/status',
-        name: 'CEO Status',
-        description: 'CEO model and stats',
+        uri: 'autocrat://director/status',
+        name: 'Director Status',
+        description: 'Director model and stats',
         mimeType: 'application/json',
       },
       {
@@ -130,8 +130,8 @@ export class AutocratMCPServer {
         },
       },
       {
-        name: 'get_council_votes',
-        description: 'Get council votes',
+        name: 'get_board_votes',
+        description: 'Get board votes',
         inputSchema: {
           type: 'object',
           properties: { proposalId: { type: 'string' } },
@@ -139,8 +139,8 @@ export class AutocratMCPServer {
         },
       },
       {
-        name: 'get_ceo_decision',
-        description: 'Get CEO decision',
+        name: 'get_director_decision',
+        description: 'Get Director decision',
         inputSchema: {
           type: 'object',
           properties: { proposalId: { type: 'string' } },
@@ -186,7 +186,7 @@ export class AutocratMCPServer {
 
   private setupRoutes(): void {
     this.app.get('/', () => ({
-      server: 'jeju-council',
+      server: 'jeju-board',
       version: '1.0.0',
       protocolVersion: '2024-11-05',
       resources: this.getResources(),
@@ -195,7 +195,7 @@ export class AutocratMCPServer {
 
     this.app.post('/initialize', () => ({
       protocolVersion: '2024-11-05',
-      serverInfo: { name: 'jeju-council', version: '1.0.0' },
+      serverInfo: { name: 'jeju-board', version: '1.0.0' },
       capabilities: { resources: true, tools: true, prompts: false },
     }))
 
@@ -257,11 +257,11 @@ export class AutocratMCPServer {
 
     this.app.get('/health', () => ({
       status: 'ok',
-      server: 'council-mcp',
+      server: 'board-mcp',
       version: '1.0.0',
       contracts: {
-        council: this.blockchain.councilDeployed,
-        ceoAgent: this.blockchain.ceoDeployed,
+        board: this.blockchain.boardDeployed,
+        directorAgent: this.blockchain.directorDeployed,
       },
     }))
   }
@@ -274,8 +274,8 @@ export class AutocratMCPServer {
         return this.blockchain.listProposals(true, 50)
       case 'autocrat://proposals/all':
         return this.blockchain.listProposals(false, 100)
-      case 'autocrat://ceo/status':
-        return this.blockchain.getCEOStatus()
+      case 'autocrat://director/status':
+        return this.blockchain.getDirectorStatus()
       case 'autocrat://governance/stats':
         return this.blockchain.getGovernanceStats()
       case 'autocrat://autocrat/agents':
@@ -296,10 +296,10 @@ export class AutocratMCPServer {
         return this.getProposal(args.proposalId)
       case 'list_proposals':
         return this.listProposals(args)
-      case 'get_council_votes':
+      case 'get_board_votes':
         return this.getAutocratVotes(args.proposalId)
-      case 'get_ceo_decision':
-        return this.getCEODecision(args.proposalId)
+      case 'get_director_decision':
+        return this.getDirectorDecision(args.proposalId)
       case 'prepare_proposal_submission':
         return { result: this.prepareSubmission(args), isError: false }
       case 'request_deep_research':
@@ -415,7 +415,7 @@ export class AutocratMCPServer {
     }
   }
 
-  private async getCEODecision(
+  private async getDirectorDecision(
     proposalId: string,
   ): Promise<{ result: Record<string, unknown>; isError: boolean }> {
     const validated = validateOrThrow(
@@ -476,7 +476,7 @@ export class AutocratMCPServer {
 
     return {
       transaction: {
-        to: this.config.contracts?.council ?? ZERO_ADDRESS,
+        to: this.config.contracts?.board ?? ZERO_ADDRESS,
         method: 'submitProposal',
         params: {
           proposalType: typeIndex,

@@ -305,7 +305,7 @@ Emojis: 🚀 💎 🔥 ✨`,
   test('chat with special characters', async ({ request }) => {
     const result = await sendA2A(request, 'chat', {
       message: `Hello! <script>alert('xss')</script> & "quotes" 'apostrophes' \n\t newlines`,
-      agent: 'ceo',
+      agent: 'director',
     })
 
     expect(result.result).toBeDefined()

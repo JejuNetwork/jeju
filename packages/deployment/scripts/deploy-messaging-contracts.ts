@@ -10,7 +10,7 @@
  *   bun run scripts/deploy-messaging-contracts.ts --network mainnet --verify
  */
 
-import { spawn } from 'node:child_process'
+import { type ChildProcess, spawn } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
@@ -86,22 +86,22 @@ async function runForgeCommand(args: string[], cwd: string): Promise<string> {
       cwd,
       stdio: ['inherit', 'pipe', 'pipe'],
       env: { ...process.env },
-    })
+    }) as ChildProcess
 
     let stdout = ''
     let stderr = ''
 
-    proc.stdout.on('data', (data: Buffer) => {
+    proc.stdout?.on('data', (data: Buffer) => {
       stdout += data.toString()
       process.stdout.write(data)
     })
 
-    proc.stderr.on('data', (data: Buffer) => {
+    proc.stderr?.on('data', (data: Buffer) => {
       stderr += data.toString()
       process.stderr.write(data)
     })
 
-    proc.on('close', (code) => {
+    proc.on('close', (code: number | null) => {
       if (code === 0) {
         resolve(stdout)
       } else {
@@ -255,16 +255,12 @@ async function main(): Promise<void> {
   Timestamp:         ${result.timestamp}
 
   Next Steps:
-  1. Update Terraform variables:
-     key_registry_address  = "${result.keyRegistry}"
-     node_registry_address = "${result.nodeRegistry}"
-
-  2. Update app .env:
+  1. Update app .env with contract addresses:
      KEY_REGISTRY_ADDRESS=${result.keyRegistry}
      NODE_REGISTRY_ADDRESS=${result.nodeRegistry}
 
-  3. Deploy messaging services:
-     cd packages/deployment && bun run scripts/helmfile.ts sync --only messaging
+  2. Deploy apps via DWS (permissionless):
+     NETWORK=testnet bun run packages/deployment/scripts/deploy/dws-bootstrap.ts
 `)
   console.log(
     '═══════════════════════════════════════════════════════════════════',

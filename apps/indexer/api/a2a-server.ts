@@ -519,7 +519,7 @@ async function executeSkill(
   }
 }
 
-import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
+import { type CacheClient, getCacheClient } from '@jejunetwork/cache'
 
 const MAX_BODY_SIZE = 1024 * 1024
 const A2A_RATE_LIMIT = 100
@@ -608,9 +608,15 @@ export function createIndexerA2AServer() {
       const cacheKey = `a2a-rl:${clientKey}`
 
       const cached = await cache.get(cacheKey)
-      let record: { count: number; resetAt: number } | null = cached
-        ? JSON.parse(cached)
-        : null
+      let record: { count: number; resetAt: number } | null = null
+
+      if (cached) {
+        try {
+          record = JSON.parse(cached) as { count: number; resetAt: number }
+        } catch {
+          // Cache corrupted - create new record
+        }
+      }
 
       if (!record || now > record.resetAt) {
         record = { count: 0, resetAt: now + A2A_RATE_WINDOW }

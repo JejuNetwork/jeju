@@ -86,8 +86,8 @@ function generateCID(content: string): string {
 }
 
 /**
- * Convert MessageEnvelope to SQLit StoredMessage format
- * Note: Addresses are normalized to lowercase for consistent querying
+ * Convert MessageEnvelope to SQLit StoredMessage format.
+ * Addresses are normalized to lowercase for consistent querying.
  */
 function envelopeToSQLitMessage(
   envelope: MessageEnvelope,
@@ -216,9 +216,7 @@ async function getMessage(id: string): Promise<StoredMessage | null> {
   const cached = messageCache.get(id)
   if (cached) return cached
 
-  // Try SQLit storage
-  // Note: SQLit doesn't have a getMessageById method, so we'd need to add it
-  // For now, return null if not in cache
+  // TODO: Add getMessageById method to SQLit for message lookup by ID
   return null
 }
 
@@ -327,16 +325,22 @@ export function createRelayServer(config: NodeConfig) {
 
   // CORS - restrict to known origins in production
   const allowedOrigins = getAllowedOrigins()
+  const corsOrigin: string[] | true = allowedOrigins.includes('*')
+    ? true
+    : allowedOrigins
 
+  // Note: Type assertion needed due to duplicate Elysia versions in monorepo deps
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const corsPlugin = cors({
+    origin: corsOrigin,
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    maxAge: 86400,
+  })
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const app = new Elysia()
-    .use(
-      cors({
-        origin: allowedOrigins.includes('*') ? true : allowedOrigins,
-        methods: ['GET', 'POST', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization'],
-        maxAge: 86400,
-      }),
-    )
+    .use(corsPlugin as any)
 
     .get('/health', () => ({
       status: 'healthy',

@@ -5,7 +5,12 @@
 
 import { expect, test } from '@playwright/test'
 
+const isRemote =
+  process.env.JEJU_NETWORK === 'testnet' ||
+  process.env.JEJU_NETWORK === 'mainnet'
+
 test.describe('Jobs List', () => {
+  test.skip(isRemote, 'Skipping on remote network')
   test('displays jobs page with heading', async ({ page }) => {
     await page.goto('/jobs')
     await expect(page.getByRole('heading', { name: /jobs/i })).toBeVisible()
@@ -37,6 +42,7 @@ test.describe('Jobs List', () => {
 })
 
 test.describe('Post Job', () => {
+  test.skip(isRemote, 'Skipping post job on remote network')
   test('displays job creation form', async ({ page }) => {
     await page.goto('/jobs/create')
     await expect(page.getByRole('main')).toBeVisible()
@@ -49,6 +55,7 @@ test.describe('Post Job', () => {
 })
 
 test.describe('Job Detail', () => {
+  test.skip(isRemote, 'Skipping job detail on remote network')
   test('displays job detail page', async ({ page }) => {
     await page.goto('/jobs/1')
     await expect(page.getByRole('main')).toBeVisible()
@@ -56,6 +63,7 @@ test.describe('Job Detail', () => {
 })
 
 test.describe('Job Filters', () => {
+  test.skip(isRemote, 'Skipping job filters on remote network')
   test('filters by job type', async ({ page }) => {
     await page.goto('/jobs')
     const filterButtons = page

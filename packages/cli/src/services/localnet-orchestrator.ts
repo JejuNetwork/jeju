@@ -5,11 +5,13 @@ import { join } from 'node:path'
 import {
   bootstrapContracts,
   checkRpcHealth,
+  getRpcChainId,
   loadPortsConfig,
   startLocalnet,
   stopLocalnet,
 } from '../lib/chain'
 import { logger } from '../lib/logger'
+import { DEFAULT_PORTS } from '../types'
 
 export interface LocalnetStatus {
   running: boolean
@@ -23,9 +25,19 @@ export class LocalnetOrchestrator {
   private rootDir: string
   private started: boolean = false
   private bootstrapped: boolean = false
+  private chainId: number = 31337
 
   constructor(rootDir: string) {
     this.rootDir = rootDir
+  }
+
+  private getPorts(): { l1Port: number; l2Port: number } {
+    return (
+      loadPortsConfig(this.rootDir) ?? {
+        l1Port: DEFAULT_PORTS.l1Rpc,
+        l2Port: DEFAULT_PORTS.l2Rpc,
+      }
+    )
   }
 
   async start(): Promise<void> {
@@ -37,6 +49,11 @@ export class LocalnetOrchestrator {
     logger.step('Starting localnet...')
 
     const ports = await startLocalnet(this.rootDir)
+    const l2RpcUrl = `http://127.0.0.1:${ports.l2Port}`
+    const detectedChainId = await getRpcChainId(l2RpcUrl, 2000)
+    if (detectedChainId !== null) {
+      this.chainId = detectedChainId
+    }
     this.started = true
 
     logger.success(
@@ -50,12 +67,13 @@ export class LocalnetOrchestrator {
       return
     }
 
-    const ports = loadPortsConfig(this.rootDir)
-    if (!ports) {
-      throw new Error('Localnet not running - cannot bootstrap')
-    }
+    const ports = this.getPorts()
 
     const l2RpcUrl = `http://127.0.0.1:${ports.l2Port}`
+    const healthy = await checkRpcHealth(l2RpcUrl, 2000)
+    if (!healthy) {
+      throw new Error('Localnet not running - cannot bootstrap')
+    }
 
     logger.step('Bootstrapping contracts...')
     await bootstrapContracts(this.rootDir, l2RpcUrl)
@@ -78,34 +96,25 @@ export class LocalnetOrchestrator {
   }
 
   async waitForReady(timeout = 60000): Promise<boolean> {
-    const ports = loadPortsConfig(this.rootDir)
-    if (!ports) {
-      return false
-    }
-
+    const ports = this.getPorts()
     const l2RpcUrl = `http://127.0.0.1:${ports.l2Port}`
     return await checkRpcHealth(l2RpcUrl, timeout)
   }
 
   getEnvVars(): Record<string, string> {
-    const ports = loadPortsConfig(this.rootDir)
-    if (!ports) {
-      return {}
-    }
+    const ports = this.getPorts()
+    const l2RpcUrl = `http://127.0.0.1:${ports.l2Port}`
 
     return {
       L1_RPC_URL: `http://127.0.0.1:${ports.l1Port}`,
-      L2_RPC_URL: `http://127.0.0.1:${ports.l2Port}`,
-      JEJU_RPC_URL: `http://127.0.0.1:${ports.l2Port}`,
-      CHAIN_ID: '31337',
+      L2_RPC_URL: l2RpcUrl,
+      JEJU_RPC_URL: l2RpcUrl,
+      CHAIN_ID: String(this.chainId),
     }
   }
 
   getStatus(): LocalnetStatus {
-    const ports = loadPortsConfig(this.rootDir)
-    if (!ports) {
-      return { running: false }
-    }
+    const ports = this.getPorts()
 
     const bootstrapFile = join(
       this.rootDir,
@@ -116,7 +125,7 @@ export class LocalnetOrchestrator {
       running: this.started,
       l1Rpc: `http://127.0.0.1:${ports.l1Port}`,
       l2Rpc: `http://127.0.0.1:${ports.l2Port}`,
-      chainId: 31337,
+      chainId: this.chainId,
       bootstrapped: existsSync(bootstrapFile),
     }
   }

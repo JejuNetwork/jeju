@@ -13,6 +13,7 @@ import {
   getChainId,
   getCurrentNetwork,
   getRpcUrl,
+  isProductionEnv,
   tryGetContract,
 } from '@jejunetwork/config'
 import { getContentModerationPipeline, moderateName } from '@jejunetwork/shared'
@@ -48,10 +49,37 @@ interface ModerationConfig {
   moderationMarketplaceAddress: Address
   banManagerAddress: Address
   operatorPrivateKey?: Hex
+  operatorKmsKeyId?: string
 }
 
 const getConfig = (): ModerationConfig => {
   const network = getCurrentNetwork()
+  const isProduction = isProductionEnv()
+  const directKey =
+    typeof process !== 'undefined'
+      ? (process.env.OPERATOR_PRIVATE_KEY as Hex | undefined)
+      : undefined
+  const kmsKeyId =
+    typeof process !== 'undefined'
+      ? process.env.MODERATION_OPERATOR_KMS_KEY_ID
+      : undefined
+
+  // SECURITY: Block direct keys in production
+  if (isProduction && directKey) {
+    console.error(
+      '[Moderation] SECURITY ERROR: OPERATOR_PRIVATE_KEY detected in production. ' +
+        'Use MODERATION_OPERATOR_KMS_KEY_ID for KMS-backed signing.',
+    )
+  }
+
+  let operatorPrivateKey: Hex | undefined
+  if (!isProduction && directKey) {
+    console.warn(
+      '[Moderation] WARNING: Using OPERATOR_PRIVATE_KEY for development. Use KMS in production.',
+    )
+    operatorPrivateKey = directKey
+  }
+
   return {
     rpcUrl: getRpcUrl(network),
     chainId: getChainId(network),
@@ -65,10 +93,8 @@ const getConfig = (): ModerationConfig => {
       : undefined) ??
       tryGetContract('moderation', 'banManager', network) ??
       '0x0') as Address,
-    operatorPrivateKey:
-      typeof process !== 'undefined'
-        ? (process.env.OPERATOR_PRIVATE_KEY as Hex | undefined)
-        : undefined,
+    operatorPrivateKey,
+    operatorKmsKeyId: kmsKeyId,
   }
 }
 const BAN_MANAGER_ABI = [

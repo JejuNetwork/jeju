@@ -97,7 +97,7 @@ export interface Repository {
   website?: string
   verified?: boolean
   reputationScore?: number
-  councilProposalId?: string
+  boardProposalId?: string
 }
 
 export interface Branch {

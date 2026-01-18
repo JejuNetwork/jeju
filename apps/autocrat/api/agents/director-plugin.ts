@@ -736,7 +736,4 @@ export const directorPlugin: Plugin = {
   ],
 }
 
-// Legacy export for backwards compatibility
-export const ceoPlugin = directorPlugin
-
 export default directorPlugin

@@ -61,8 +61,7 @@ export class CloudflareModerationProvider {
 
   async moderateImage(buf: Buffer): Promise<ModerationResult> {
     const start = Date.now()
-    const arr = new Uint8Array(buf.length)
-    for (let i = 0; i < buf.length; i++) arr[i] = buf[i]
+    const arr = new Uint8Array(buf)
 
     const res = await fetch(`${this.endpoint}/@cf/nsfw-image-classification`, {
       method: 'POST',

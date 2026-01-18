@@ -295,10 +295,15 @@ export function createModelsModule(
   network: NetworkType,
 ): ModelsModule {
   const contracts = getContractAddresses(network)
-  if (!contracts.modelRegistry) {
-    throw new Error(`ModelRegistry contract not deployed on ${network}`)
+  const modelRegistryAddressOpt = contracts.modelRegistry
+
+  // Lazy-load contract address - throw only when method is called
+  const getModelRegistryAddress = () => {
+    if (!modelRegistryAddressOpt) {
+      throw new Error(`ModelRegistry contract not deployed on ${network}`)
+    }
+    return modelRegistryAddressOpt
   }
-  const modelRegistryAddress = contracts.modelRegistry
 
   let cachedUploadFee: bigint | null = null
 
@@ -306,7 +311,7 @@ export function createModelsModule(
     if (cachedUploadFee !== null) return cachedUploadFee
 
     const fee = (await wallet.publicClient.readContract({
-      address: modelRegistryAddress,
+      address: getModelRegistryAddress(),
       abi: MODEL_REGISTRY_ABI,
       functionName: 'uploadFee',
       args: [],
@@ -328,7 +333,7 @@ export function createModelsModule(
 
     async getModel(modelId: Hex): Promise<Model | null> {
       const rawData = await wallet.publicClient.readContract({
-        address: modelRegistryAddress,
+        address: getModelRegistryAddress(),
         abi: MODEL_REGISTRY_ABI,
         functionName: 'getModel',
         args: [modelId],
@@ -358,7 +363,7 @@ export function createModelsModule(
 
     async listModels(offset = 0, limit = 100): Promise<Model[]> {
       const modelIds = (await wallet.publicClient.readContract({
-        address: modelRegistryAddress,
+        address: getModelRegistryAddress(),
         abi: MODEL_REGISTRY_ABI,
         functionName: 'getAllModelIds',
         args: [BigInt(offset), BigInt(limit)],
@@ -374,7 +379,7 @@ export function createModelsModule(
 
     async getOrganizationModels(organization: string): Promise<Model[]> {
       const modelIds = (await wallet.publicClient.readContract({
-        address: modelRegistryAddress,
+        address: getModelRegistryAddress(),
         abi: MODEL_REGISTRY_ABI,
         functionName: 'getOrganizationModels',
         args: [organization],
@@ -404,7 +409,7 @@ export function createModelsModule(
 
     async getTotalModels(): Promise<number> {
       const total = (await wallet.publicClient.readContract({
-        address: modelRegistryAddress,
+        address: getModelRegistryAddress(),
         abi: MODEL_REGISTRY_ABI,
         functionName: 'getTotalModels',
         args: [],
@@ -414,7 +419,7 @@ export function createModelsModule(
 
     async getVersions(modelId: Hex): Promise<ModelVersion[]> {
       const versions = (await wallet.publicClient.readContract({
-        address: modelRegistryAddress,
+        address: getModelRegistryAddress(),
         abi: MODEL_REGISTRY_ABI,
         functionName: 'getModelVersions',
         args: [modelId],
@@ -451,7 +456,7 @@ export function createModelsModule(
 
     async getLatestVersion(modelId: Hex): Promise<ModelVersion | null> {
       const rawVersion = await wallet.publicClient.readContract({
-        address: modelRegistryAddress,
+        address: getModelRegistryAddress(),
         abi: MODEL_REGISTRY_ABI,
         functionName: 'getLatestVersion',
         args: [modelId],
@@ -478,7 +483,7 @@ export function createModelsModule(
 
     async getProvenance(versionId: Hex): Promise<TrainingProvenance | null> {
       const rawProvenance = await wallet.publicClient.readContract({
-        address: modelRegistryAddress,
+        address: getModelRegistryAddress(),
         abi: MODEL_REGISTRY_ABI,
         functionName: 'getProvenance',
         args: [versionId],
@@ -506,7 +511,7 @@ export function createModelsModule(
 
     async getMetrics(modelId: Hex): Promise<ModelMetrics | null> {
       const rawMetrics = await wallet.publicClient.readContract({
-        address: modelRegistryAddress,
+        address: getModelRegistryAddress(),
         abi: MODEL_REGISTRY_ABI,
         functionName: 'getMetrics',
         args: [modelId],
@@ -526,7 +531,7 @@ export function createModelsModule(
 
     async getEndpoints(modelId: Hex): Promise<InferenceEndpoint[]> {
       const endpoints = (await wallet.publicClient.readContract({
-        address: modelRegistryAddress,
+        address: getModelRegistryAddress(),
         abi: MODEL_REGISTRY_ABI,
         functionName: 'getEndpoints',
         args: [modelId],
@@ -557,7 +562,7 @@ export function createModelsModule(
 
     async hasAccess(modelId: Hex, user?: Address): Promise<boolean> {
       const result = await wallet.publicClient.readContract({
-        address: modelRegistryAddress,
+        address: getModelRegistryAddress(),
         abi: MODEL_REGISTRY_ABI,
         functionName: 'hasAccess',
         args: [modelId, user ?? wallet.address],
@@ -567,7 +572,7 @@ export function createModelsModule(
 
     async hasStarred(modelId: Hex, user?: Address): Promise<boolean> {
       const result = await wallet.publicClient.readContract({
-        address: modelRegistryAddress,
+        address: getModelRegistryAddress(),
         abi: MODEL_REGISTRY_ABI,
         functionName: 'hasStarred',
         args: [modelId, user ?? wallet.address],
@@ -581,7 +586,7 @@ export function createModelsModule(
       const fee = await getUploadFee()
 
       const txHash = await wallet.sendTransaction({
-        to: modelRegistryAddress,
+        to: getModelRegistryAddress(),
         value: fee,
         data: encodeFunctionData({
           abi: MODEL_REGISTRY_ABI,
@@ -614,7 +619,7 @@ export function createModelsModule(
       params: PublishVersionParams,
     ): Promise<{ txHash: Hex; versionId: Hex }> {
       const txHash = await wallet.sendTransaction({
-        to: modelRegistryAddress,
+        to: getModelRegistryAddress(),
         data: encodeFunctionData({
           abi: MODEL_REGISTRY_ABI,
           functionName: 'publishVersion',
@@ -647,7 +652,7 @@ export function createModelsModule(
       params: RecordProvenanceParams,
     ): Promise<{ txHash: Hex }> {
       const txHash = await wallet.sendTransaction({
-        to: modelRegistryAddress,
+        to: getModelRegistryAddress(),
         data: encodeFunctionData({
           abi: MODEL_REGISTRY_ABI,
           functionName: 'recordProvenance',
@@ -672,7 +677,7 @@ export function createModelsModule(
 
     async downloadModel(modelId: Hex): Promise<{ txHash: Hex }> {
       const txHash = await wallet.sendTransaction({
-        to: modelRegistryAddress,
+        to: getModelRegistryAddress(),
         data: encodeFunctionData({
           abi: MODEL_REGISTRY_ABI,
           functionName: 'downloadModel',
@@ -685,7 +690,7 @@ export function createModelsModule(
 
     async grantAccess(modelId: Hex, user: Address): Promise<{ txHash: Hex }> {
       const txHash = await wallet.sendTransaction({
-        to: modelRegistryAddress,
+        to: getModelRegistryAddress(),
         data: encodeFunctionData({
           abi: MODEL_REGISTRY_ABI,
           functionName: 'grantAccess',
@@ -698,7 +703,7 @@ export function createModelsModule(
 
     async toggleStar(modelId: Hex): Promise<{ txHash: Hex }> {
       const txHash = await wallet.sendTransaction({
-        to: modelRegistryAddress,
+        to: getModelRegistryAddress(),
         data: encodeFunctionData({
           abi: MODEL_REGISTRY_ABI,
           functionName: 'toggleStar',
@@ -713,7 +718,7 @@ export function createModelsModule(
       params: CreateEndpointParams,
     ): Promise<{ txHash: Hex; endpointId: Hex }> {
       const txHash = await wallet.sendTransaction({
-        to: modelRegistryAddress,
+        to: getModelRegistryAddress(),
         data: encodeFunctionData({
           abi: MODEL_REGISTRY_ABI,
           functionName: 'createInferenceEndpoint',
@@ -744,7 +749,7 @@ export function createModelsModule(
       payment?: bigint,
     ): Promise<{ txHash: Hex }> {
       const txHash = await wallet.sendTransaction({
-        to: modelRegistryAddress,
+        to: getModelRegistryAddress(),
         value: payment ?? 0n,
         data: encodeFunctionData({
           abi: MODEL_REGISTRY_ABI,

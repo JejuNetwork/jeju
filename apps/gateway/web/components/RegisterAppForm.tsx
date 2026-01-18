@@ -2,6 +2,7 @@ import { formatTokenAmount } from '@jejunetwork/shared'
 import { AlertCircle, CheckCircle, Info, type LucideProps } from 'lucide-react'
 import { type ComponentType, useState } from 'react'
 import { useAccount } from 'wagmi'
+import { z } from 'zod'
 import { useProtocolTokens } from '../hooks/useProtocolTokens'
 import { useRegistry, useRequiredStake } from '../hooks/useRegistry'
 import TokenSelector, { type TokenOption } from './TokenSelector'
@@ -9,6 +10,31 @@ import TokenSelector, { type TokenOption } from './TokenSelector'
 const InfoIcon = Info as ComponentType<LucideProps>
 const AlertCircleIcon = AlertCircle as ComponentType<LucideProps>
 const CheckCircleIcon = CheckCircle as ComponentType<LucideProps>
+
+// Zod schema for registration form validation
+const RegistrationFormSchema = z.object({
+  name: z
+    .string()
+    .min(1, 'Name is required')
+    .max(100, 'Name must be 100 characters or less')
+    .regex(
+      /^[\w\s\-_.]+$/,
+      'Name can only contain letters, numbers, spaces, hyphens, underscores, and periods',
+    ),
+  description: z
+    .string()
+    .max(500, 'Description must be 500 characters or less')
+    .optional()
+    .default(''),
+  a2aEndpoint: z
+    .string()
+    .url('Must be a valid URL')
+    .or(z.literal(''))
+    .optional()
+    .default(''),
+  tags: z.array(z.string()).min(1, 'Please select at least one category'),
+  stakeToken: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid token address'),
+})
 
 const AVAILABLE_TAGS = [
   { value: 'developer', label: 'Developer', icon: '👨‍💻' },
@@ -56,18 +82,19 @@ export default function RegisterAppForm() {
       return
     }
 
-    if (!name.trim()) {
-      setError('App name is required')
-      return
+    // Validate form data with Zod
+    const formData = {
+      name: name.trim(),
+      description: description.trim(),
+      a2aEndpoint: a2aEndpoint.trim(),
+      tags: selectedTags,
+      stakeToken: selectedToken?.address ?? '',
     }
 
-    if (selectedTags.length === 0) {
-      setError('Please select at least one tag')
-      return
-    }
-
-    if (!selectedToken) {
-      setError('Please select a stake token')
+    const validation = RegistrationFormSchema.safeParse(formData)
+    if (!validation.success) {
+      const firstError = validation.error.issues[0]
+      setError(firstError.message)
       return
     }
 
@@ -79,17 +106,17 @@ export default function RegisterAppForm() {
     setIsSubmitting(true)
 
     const tokenURI = JSON.stringify({
-      name,
-      description,
+      name: validation.data.name,
+      description: validation.data.description,
       owner: address,
       registeredAt: new Date().toISOString(),
     })
 
     const result = await registerApp({
       tokenURI,
-      tags: selectedTags,
-      a2aEndpoint: a2aEndpoint.trim() ?? '',
-      stakeToken: selectedToken.address as `0x${string}`,
+      tags: validation.data.tags,
+      a2aEndpoint: validation.data.a2aEndpoint,
+      stakeToken: validation.data.stakeToken as `0x${string}`,
       stakeAmount: requiredStake,
     })
 

@@ -5,7 +5,7 @@
 import './init'
 
 import { ZERO_ADDRESS } from '@jejunetwork/types'
-import type { Store } from '@subsquid/typeorm-store'
+import { type Store, TypeormDatabase } from '@subsquid/typeorm-store'
 import {
   Account,
   Block as BlockEntity,
@@ -44,21 +44,19 @@ import { processOIFEvents } from './oif-processor'
 import { processOracleEvents } from './oracle-processor'
 import { type ProcessorContext, processor } from './processor'
 import { processRegistryEvents } from './registry-game-processor'
-import { SQLitDatabase } from './sqlit-database'
 import { processStorageEvents } from './storage-processor'
+import { processTFMMEvents } from './tfmm-processor'
 
-const SQLIT_DATABASE_ID = config.sqlitDatabaseId || 'indexer-testnet'
+if (config.indexerMode === 'sqlit') {
+  throw new Error(
+    "[Indexer] INDEXER_MODE='sqlit' is not supported yet for the Subsquid processor store. Use INDEXER_MODE='postgres'.",
+  )
+}
 
-console.log(`[Indexer] Using SQLit database: ${SQLIT_DATABASE_ID}`)
+const db = new TypeormDatabase({ supportHotBlocks: true })
 
-// SQLitDatabase implements all Store methods used by the indexer
-// Type assertion needed - SQLitDatabase provides compatible Store interface at runtime
-// The cast through unknown is needed because TypeORM Store has extra methods we don't use
-import type { FinalDatabase } from '@subsquid/util-internal-processor-tools'
+console.log('[Indexer] Using PostgreSQL (TypeORM) database')
 
-const db: FinalDatabase<Store> = new SQLitDatabase({
-  databaseId: SQLIT_DATABASE_ID,
-}) as unknown as FinalDatabase<Store>
 processor.run(db, async (ctx: ProcessorContext<Store>) => {
   const blocks: BlockEntity[] = []
   const transactions: TransactionEntity[] = []
@@ -155,6 +153,9 @@ processor.run(db, async (ctx: ProcessorContext<Store>) => {
         lastUpdated: timestamp,
       })
       tokenBalances.set(id, balance)
+    } else {
+      // Update timestamp when balance is modified
+      balance.lastUpdated = timestamp
     }
     return balance
   }
@@ -701,16 +702,7 @@ processor.run(db, async (ctx: ProcessorContext<Store>) => {
     }
   }
 
-  const startBlock = ctx.blocks[0].header.height
-  const endBlock = ctx.blocks[ctx.blocks.length - 1].header.height
-  ctx.log.info(
-    `Processed blocks ${startBlock}-${endBlock}: ` +
-      `${blocks.length} blocks, ${transactions.length} txs, ${logs.length} logs, ` +
-      `${tokenTransfers.length} transfers, ${tokenApprovals.length} token approvals, ` +
-      `${nftApprovals.length} NFT approvals, ${decodedEvents.length} decoded events, ` +
-      `${contracts.size} contracts, ${accounts.size} accounts, ${traces.length} traces, ` +
-      `${tokenBalances.size} balances`,
-  )
+  // Suppress verbose block processing logs - only log errors
 
   await ctx.store.upsert([...accounts.values()])
   await ctx.store.insert(blocks)
@@ -734,6 +726,7 @@ processor.run(db, async (ctx: ProcessorContext<Store>) => {
   await processCrossServiceEvents(ctx)
   await processOracleEvents(ctx)
   await processDEXEvents(ctx)
+  await processTFMMEvents(ctx)
 
   for (const block of ctx.blocks) {
     for (const log of block.logs) {

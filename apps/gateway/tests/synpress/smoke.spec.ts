@@ -6,14 +6,8 @@
  */
 
 import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config'
-// Must import zod-compat before synpress for Zod 4 compatibility
-import '@jejunetwork/tests/zod-compat'
 import { testWithSynpress } from '@synthetixio/synpress'
-// Must import zod-compat before synpress for Zod 4 compatibility
-import '@jejunetwork/tests/zod-compat'
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright'
-// Must import zod-compat before synpress for Zod 4 compatibility
-import '@jejunetwork/tests/zod-compat'
 import { basicSetup } from '../../synpress.config'
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup))
@@ -62,8 +56,12 @@ test.describe('Gateway Smoke Tests', () => {
     await page.goto(GATEWAY_URL)
     await page.waitForLoadState('networkidle')
 
-    await page.locator('button:has-text("Connect")').first().click()
+    await page.getByRole('button', { name: /sign in/i }).first().click()
     await page.waitForTimeout(1000)
+    const walletOption = page.getByRole('button', { name: /connect wallet/i })
+    if (await walletOption.isVisible().catch(() => false)) {
+      await walletOption.click()
+    }
     await metamask.connectToDapp()
 
     await expect(page.locator('button:has-text(/0x/)')).toBeVisible({
@@ -90,8 +88,12 @@ test.describe('Gateway Smoke Tests', () => {
     )
 
     await page.goto(GATEWAY_URL)
-    await page.locator('button:has-text("Connect")').first().click()
+    await page.getByRole('button', { name: /sign in/i }).first().click()
     await page.waitForTimeout(1000)
+    const walletOption = page.getByRole('button', { name: /connect wallet/i })
+    if (await walletOption.isVisible().catch(() => false)) {
+      await walletOption.click()
+    }
     await metamask.connectToDapp()
     await page.waitForTimeout(3000)
 
@@ -117,8 +119,12 @@ test.describe('Gateway Smoke Tests', () => {
     )
 
     await page.goto(GATEWAY_URL)
-    await page.locator('button:has-text("Connect")').first().click()
+    await page.getByRole('button', { name: /sign in/i }).first().click()
     await page.waitForTimeout(1000)
+    const walletOption = page.getByRole('button', { name: /connect wallet/i })
+    if (await walletOption.isVisible().catch(() => false)) {
+      await walletOption.click()
+    }
     await metamask.connectToDapp()
 
     const tabs = [
@@ -180,8 +186,12 @@ test.describe('Gateway Smoke Tests', () => {
     )
 
     await page.goto(GATEWAY_URL)
-    await page.locator('button:has-text("Connect")').first().click()
+    await page.getByRole('button', { name: /sign in/i }).first().click()
     await page.waitForTimeout(1000)
+    const walletOption = page.getByRole('button', { name: /connect wallet/i })
+    if (await walletOption.isVisible().catch(() => false)) {
+      await walletOption.click()
+    }
     await metamask.connectToDapp()
 
     await page.getByRole('button', { name: /Bridge from Ethereum/i }).click()

@@ -69,7 +69,11 @@ export interface RegistryConfig {
   chain: Chain
   identityRegistryAddress: Address
   workerRegistryAddress?: Address
+  // Direct key (development only - blocked in production)
   privateKey?: `0x${string}`
+  // KMS configuration (required in production)
+  kmsKeyId?: string
+  ownerAddress?: Address
 }
 
 // ABI Definitions

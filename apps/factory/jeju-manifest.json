@@ -9,10 +9,12 @@
   "repository": "https://github.com/jejunetwork/jeju",
   "commands": {
     "dev": "bun run dev",
+    "dev:worker": "bun --watch api/worker.ts",
     "build": "bun run build",
     "start": "bun run start",
+    "start:worker": "bun api/worker.ts",
     "test": "bun run test:e2e",
-    "deploy": "bun run scripts/deploy-cdn.ts"
+    "deploy": "bun run scripts/deploy.ts"
   },
   "ports": {
     "main": 4009
@@ -89,7 +91,7 @@
     "backend": {
       "enabled": true,
       "runtime": "workerd",
-      "entrypoint": "api/workerd-worker.ts",
+      "entrypoint": "api/worker.ts",
       "memory": 512,
       "timeout": 30000,
       "minInstances": 1,
@@ -128,16 +130,19 @@
     }
   },
   "contracts": {
-    "BountyRegistry": "0x0000000000000000000000000000000000000000",
-    "GuardianRegistry": "0x0000000000000000000000000000000000000000",
-    "ContainerRegistry": "0x0000000000000000000000000000000000000000",
-    "ModelRegistry": "0x0000000000000000000000000000000000000000",
-    "ProjectBoard": "0x0000000000000000000000000000000000000000",
-    "IdentityRegistry": "0x0000000000000000000000000000000000000000",
-    "ReputationRegistry": "0x0000000000000000000000000000000000000000",
-    "RepoRegistry": "0x0000000000000000000000000000000000000000",
-    "PackageRegistry": "0x0000000000000000000000000000000000000000",
-    "ModerationMarketplace": "0x0000000000000000000000000000000000000000"
+    "_comment": "Addresses from packages/config/contracts.json for localnet. Env overrides: VITE_{NAME}_ADDRESS",
+    "BountyRegistry": "0x0B36Ef2cb78859C20c8C1380CeAdB75043aA92b3",
+    "IdentityRegistry": "0x0165878a594ca255338adfa4d48449f69242eb8f",
+    "ReputationRegistry": "0x68B1D87F95878fE05B998F19b66F4baba5De1aed",
+    "RepoRegistry": "0x0dcd1bf9a1b36ce34237eeafef220932846bcd82",
+    "PackageRegistry": "0x9a9f2ccfde556a7e9ff0848998aa4a0cfd8863ae",
+    "ContainerRegistry": "0xc6e7df5e7b4f2a278906862b61205850344d4e7d",
+    "GitRegistry": "0x959922be3caee4b8cd9a407cc3ac1c251c2007b1",
+    "StorageManager": "0x610178da211fef7d417bc0e6fed39f05609ad788",
+    "WorkerRegistry": "0xb7f8bc63bbcad18155201308c8f3540b07f84f5e",
+    "ComputeRegistry": "0x53AAfBd184086d72fA233AE83e1a7B1339B5415C",
+    "InferenceServing": "0x08A90aF9A6eBBe11c322AD9930CC58E122231B5A",
+    "DAORegistry": "0x1291Be112d480055DaFd8a610b7d1e203891C274"
   },
   "capabilities": {
     "bounties": true,
@@ -167,7 +172,7 @@
       "enabled": true,
       "features": [
         "governance-proposals",
-        "ceo-feedback",
+        "director-feedback",
         "reputation",
         "disputes"
       ]
@@ -206,7 +211,7 @@
     "level": "full",
     "worker": {
       "name": "factory-api",
-      "entrypoint": "api/workerd-worker.ts",
+      "entrypoint": "api/worker.ts",
       "runtime": "workerd",
       "memory": 512,
       "timeout": 30000,
@@ -229,6 +234,35 @@
       "compute": "dws-compute",
       "storage": "ipfs",
       "database": "sqlit"
+    },
+    "database": {
+      "type": "sqlit",
+      "name": "factory",
+      "schema": "api/db/schema.ts",
+      "replication": {
+        "enabled": true,
+        "minReplicas": 2,
+        "maxReplicas": 5,
+        "syncMode": "async"
+      },
+      "backup": {
+        "enabled": true,
+        "storage": "ipfs",
+        "frequency": "hourly",
+        "retention": 7,
+        "onChainPointer": true
+      },
+      "recovery": {
+        "autoRestore": true,
+        "fromBackup": true,
+        "fromReplica": true,
+        "verifyIntegrity": true
+      },
+      "provisioning": {
+        "autoCreate": true,
+        "migrateOnStartup": true,
+        "encryptionMode": "none"
+      }
     },
     "nodeDiscovery": {
       "method": "on-chain",
@@ -297,6 +331,11 @@
       "builder": "bun",
       "entrypoint": "index.html",
       "outputDir": "dist/client"
+    },
+    "backend": {
+      "type": "worker",
+      "runtime": "bun",
+      "outputDir": "dist/worker"
     }
   }
 }

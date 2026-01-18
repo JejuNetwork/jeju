@@ -2,21 +2,73 @@
 /**
  * Wallet Production Build Script
  *
- * Builds the web lander and miniapp for deployment.
+ * Builds the web lander for deployment.
  * The full app is built separately via Tauri/Capacitor.
  */
 
 import { existsSync } from 'node:fs'
-import { mkdir, rm } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
+import { createBrowserPlugin, reportBundleSizes } from '@jejunetwork/shared'
+
+// Node.js built-ins that cannot run in browser - NOT React/browser libraries
+const LANDER_EXTERNALS = [
+  'bun:sqlite',
+  'node:*',
+  '@tauri-apps/*',
+  'pino',
+  'pino-pretty',
+]
 
 const APP_DIR = resolve(import.meta.dir, '..')
 const LANDER_DIR = resolve(APP_DIR, 'lander')
 const DIST_DIR = resolve(APP_DIR, 'dist')
 const MINIAPP_DIR = resolve(DIST_DIR, 'miniapp')
 
+/**
+ * Build Tailwind CSS with tree shaking - only includes used classes
+ */
+async function buildCSS(contentGlobs: string[]): Promise<string> {
+  const inputPath = resolve(APP_DIR, 'web/globals.css')
+  if (!existsSync(inputPath)) {
+    throw new Error(`CSS input file not found: ${inputPath}`)
+  }
+
+  const tempDir = await mkdtemp(join(tmpdir(), 'wallet-css-'))
+  const outputPath = join(tempDir, 'output.css')
+
+  const proc = Bun.spawn(
+    [
+      'bunx',
+      'tailwindcss',
+      '-i',
+      inputPath,
+      '-o',
+      outputPath,
+      '-c',
+      resolve(APP_DIR, 'tailwind.config.ts'),
+      '--content',
+      contentGlobs.join(','),
+      '--minify',
+    ],
+    { stdout: 'pipe', stderr: 'pipe', cwd: APP_DIR },
+  )
+
+  const exitCode = await proc.exited
+  if (exitCode !== 0) {
+    const stderr = await new Response(proc.stderr).text()
+    await rm(tempDir, { recursive: true })
+    throw new Error(`Tailwind CSS build failed: ${stderr}`)
+  }
+
+  const css = await readFile(outputPath, 'utf-8')
+  await rm(tempDir, { recursive: true })
+  return css
+}
+
 async function build() {
-  console.log('[Wallet] Building web lander and miniapp for production...')
+  console.log('[Wallet] Building web lander for production...')
   const startTime = Date.now()
 
   // Clean dist
@@ -26,7 +78,13 @@ async function build() {
   await mkdir(DIST_DIR, { recursive: true })
   await mkdir(MINIAPP_DIR, { recursive: true })
 
-  // Build the lander with Bun
+  // Build CSS for lander (tree-shaken to only lander classes)
+  console.log('[Wallet] Building lander CSS...')
+  const landerCss = await buildCSS([resolve(LANDER_DIR, '**/*.{ts,tsx}')])
+  await writeFile(resolve(DIST_DIR, 'styles.css'), landerCss)
+
+  // Build the lander with Bun - optimized for smallest bundle
+  console.log('[Wallet] Building lander bundle...')
   const result = await Bun.build({
     entrypoints: [resolve(LANDER_DIR, 'main.tsx')],
     outdir: DIST_DIR,
@@ -34,13 +92,17 @@ async function build() {
     minify: true,
     splitting: false,
     sourcemap: 'external',
+    packages: 'bundle',
+    external: LANDER_EXTERNALS,
+    plugins: [createBrowserPlugin({ appDir: APP_DIR })],
     define: {
       'process.env.NODE_ENV': JSON.stringify('production'),
+      'process.browser': 'true',
     },
-    external: [],
     naming: {
-      entry: 'main.[hash].js',
+      entry: 'main-[hash].js',
     },
+    drop: ['debugger'],
   })
 
   if (!result.success) {
@@ -51,11 +113,13 @@ async function build() {
     process.exit(1)
   }
 
+  reportBundleSizes(result, 'Lander')
+
   // Get the output filename
   const mainOutput = result.outputs.find((o) => o.kind === 'entry-point')
   const mainFileName = mainOutput ? mainOutput.path.split('/').pop() : 'main.js'
 
-  // Create HTML with the correct script reference
+  // Create HTML with compiled CSS (no Tailwind CDN)
   const html = `<!DOCTYPE html>
 <html lang="en" class="dark">
   <head>
@@ -67,21 +131,7 @@ async function build() {
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        darkMode: 'class',
-        theme: {
-          extend: {
-            colors: {
-              surface: { DEFAULT: '#0f0f0f', elevated: '#1a1a1a', hover: '#242424', border: '#2e2e2e' },
-              jeju: { 400: '#4ade80', 500: '#22c55e', 600: '#16a34a', 700: '#15803d' },
-            },
-            fontFamily: { sans: ['Space Grotesk', 'system-ui', 'sans-serif'] },
-          },
-        },
-      }
-    </script>
+    <link rel="stylesheet" href="/styles.css" />
   </head>
   <body class="bg-surface text-white antialiased min-h-screen">
     <div id="root"></div>
@@ -89,10 +139,15 @@ async function build() {
   </body>
 </html>`
 
-  await Bun.write(resolve(DIST_DIR, 'index.html'), html)
+  await writeFile(resolve(DIST_DIR, 'index.html'), html)
+
+  // Build miniapp CSS (separate tree-shaking for miniapp)
+  console.log('[Wallet] Building miniapp CSS...')
+  const miniappCss = await buildCSS([resolve(LANDER_DIR, 'miniapp.tsx')])
+  await writeFile(resolve(MINIAPP_DIR, 'styles.css'), miniappCss)
 
   // Build miniapp
-  console.log('[Wallet] Building miniapp...')
+  console.log('[Wallet] Building miniapp bundle...')
   const miniappResult = await Bun.build({
     entrypoints: [resolve(LANDER_DIR, 'miniapp.tsx')],
     outdir: MINIAPP_DIR,
@@ -100,13 +155,17 @@ async function build() {
     minify: true,
     splitting: false,
     sourcemap: 'external',
+    packages: 'bundle',
+    external: LANDER_EXTERNALS,
+    plugins: [createBrowserPlugin({ appDir: APP_DIR })],
     define: {
       'process.env.NODE_ENV': JSON.stringify('production'),
+      'process.browser': 'true',
     },
-    external: [],
     naming: {
-      entry: 'miniapp.[hash].js',
+      entry: 'miniapp-[hash].js',
     },
+    drop: ['debugger'],
   })
 
   if (!miniappResult.success) {
@@ -117,10 +176,16 @@ async function build() {
     process.exit(1)
   }
 
-  const miniappOutput = miniappResult.outputs.find((o) => o.kind === 'entry-point')
-  const miniappFileName = miniappOutput ? miniappOutput.path.split('/').pop() : 'miniapp.js'
+  reportBundleSizes(miniappResult, 'Miniapp')
 
-  // Create miniapp HTML with Telegram SDK
+  const miniappOutput = miniappResult.outputs.find(
+    (o) => o.kind === 'entry-point',
+  )
+  const miniappFileName = miniappOutput
+    ? miniappOutput.path.split('/').pop()
+    : 'miniapp.js'
+
+  // Create miniapp HTML with compiled CSS
   const miniappHtml = `<!DOCTYPE html>
 <html lang="en" class="dark">
   <head>
@@ -140,27 +205,27 @@ async function build() {
     <meta property="fc:frame:button:1:target" content="https://wallet.jejunetwork.org/miniapp">
     
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHJ4PSI2IiBmaWxsPSIjMTBCOTgxIi8+PHRleHQgeD0iMTYiIHk9IjIwIiBmb250LXNpemU9IjE2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSIgZm9udC1mYW1pbHk9InN5c3RlbS11aSIgZm9udC13ZWlnaHQ9ImJvbGQiPko8L3RleHQ+PC9zdmc+" />
-    <style>
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      html, body { background: #0f0f0f; color: #fff; font-family: system-ui, -apple-system, sans-serif; }
-    </style>
+    <link rel="stylesheet" href="/styles.css" />
   </head>
-  <body>
+  <body class="bg-surface text-white antialiased min-h-screen">
     <div id="root"></div>
     <script type="module" src="/${miniappFileName}"></script>
   </body>
 </html>`
 
-  await Bun.write(resolve(MINIAPP_DIR, 'index.html'), miniappHtml)
+  await writeFile(resolve(MINIAPP_DIR, 'index.html'), miniappHtml)
 
   const duration = Date.now() - startTime
   console.log('')
   console.log(`[Wallet] Build complete in ${duration}ms`)
   console.log('[Wallet] Output:')
   console.log(`  dist/index.html           - Landing page`)
+  console.log(`  dist/styles.css           - Compiled CSS (tree-shaken)`)
   console.log(`  dist/${mainFileName}      - Lander bundle`)
   console.log(`  dist/miniapp/index.html   - Miniapp page`)
+  console.log(`  dist/miniapp/styles.css   - Miniapp CSS (tree-shaken)`)
   console.log(`  dist/miniapp/${miniappFileName} - Miniapp bundle`)
+  process.exit(0)
 }
 
 build().catch((err) => {

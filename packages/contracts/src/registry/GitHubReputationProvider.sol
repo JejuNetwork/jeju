@@ -233,8 +233,8 @@ contract GitHubReputationProvider is Ownable {
         if (!attestation.isValid) revert ProfileNotLinked();
         if (attestation.score < MIN_SCORE_FOR_BOOST) revert ScoreTooLow();
 
-        // Submit validation response to ValidationRegistry
-        // Note: ValidationRegistry.validationResponse requires:
+        // Submit validation response to ValidationRegistry.
+        // ValidationRegistry.validationResponse requires:
         // - We are the designated validator
         // - Request exists and is pending
         // Parameters: requestHash, response (0-100), responseUri, responseHash, tag

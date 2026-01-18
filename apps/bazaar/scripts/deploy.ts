@@ -20,6 +20,7 @@ import { $ } from 'bun'
 import { type Address, keccak256 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
+import { getDeployerKey } from '../lib/secrets'
 
 // Inline schemas for deploy script
 const IPFSUploadResponseSchema = z.object({
@@ -69,16 +70,15 @@ function getConfig(): DeployConfig {
     },
   }
 
-  const privateKey = process.env.DEPLOYER_PRIVATE_KEY || process.env.PRIVATE_KEY
-  if (!privateKey) {
-    throw new Error(
-      'DEPLOYER_PRIVATE_KEY or PRIVATE_KEY environment variable required',
-    )
-  }
+  const networkConfig = configs[network]
+  const rpcUrl = networkConfig.rpcUrl ?? getL1RpcUrl()
+
+  // Use secure key retrieval - will validate localnet before using dev keys
+  const privateKey = getDeployerKey(rpcUrl)
 
   return {
     network,
-    ...configs[network],
+    ...networkConfig,
     privateKey: privateKey as `0x${string}`,
     cdnEnabled: process.env.CDN_ENABLED !== 'false',
   } as DeployConfig
@@ -121,7 +121,7 @@ async function uploadToIPFS(
   const hash = keccak256(content) as `0x${string}`
 
   const formData = new FormData()
-  formData.append('file', new Blob([content]), name)
+  formData.append('file', new Blob([new Uint8Array(content)]), name)
   formData.append('name', name)
 
   const response = await fetch(`${dwsUrl}/storage/upload`, {
@@ -319,6 +319,45 @@ function getContentType(path: string): string {
   return 'application/octet-stream'
 }
 
+// Register App with DWS
+
+async function registerApp(
+  config: DeployConfig,
+  staticAssets: Map<string, UploadResult>,
+  workerId: string,
+): Promise<void> {
+  const staticFiles: Record<string, string> = {}
+  for (const [path, result] of staticAssets.entries()) {
+    // Normalize path with leading slash
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`
+    staticFiles[normalizedPath] = result.cid
+  }
+
+  const appData = {
+    name: 'bazaar',
+    jnsName: 'bazaar.jeju',
+    frontendCid: staticAssets.get('index.html')?.cid ?? null,
+    staticFiles,
+    backendWorkerId: workerId,
+    backendEndpoint: null,
+    apiPaths: ['/api', '/health', '/.well-known'],
+    spa: true,
+    enabled: true,
+  }
+
+  const response = await fetch(`${config.dwsUrl}/apps/deployed`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(appData),
+  })
+
+  if (!response.ok) {
+    console.warn(`   ⚠️ App registration failed: ${await response.text()}`)
+  } else {
+    console.log('   ✅ App registered with static files')
+  }
+}
+
 // Main Deploy Function
 
 async function deploy(): Promise<void> {
@@ -350,8 +389,12 @@ async function deploy(): Promise<void> {
   const workerId = await deployWorker(config, workerBundle)
   console.log(`   Worker ID: ${workerId}\n`)
 
-  // Setup CDN
-  console.log('🌐 Configuring CDN...')
+  // Register app with static files
+  console.log('📝 Registering app...')
+  await registerApp(config, staticAssets, workerId)
+
+  // Setup CDN (optional)
+  console.log('\n🌐 Configuring CDN...')
   await setupCDN(config, staticAssets)
 
   // Print summary
@@ -363,16 +406,49 @@ async function deploy(): Promise<void> {
         ? 'bazaar.jejunetwork.org'
         : 'bazaar.local.jejunetwork.org'
 
+  const appUrl = `https://${frontendDomain}`
+
   console.log('\nDeployment complete.')
   console.log('\nEndpoints:')
-  console.log(`   Frontend: https://${frontendDomain}`)
+  console.log(`   Frontend: ${appUrl}`)
   console.log(`   IPFS: ipfs://${indexCid}`)
   console.log(`   API: ${config.dwsUrl}/workers/${workerId}`)
-  console.log(`   Health: ${config.dwsUrl}/workers/${workerId}/health`)
+  console.log(`   Health: ${appUrl}/health`)
+
+  // Verify deployment by actually hitting the endpoints
+  console.log('\nVerifying deployment endpoints...')
+  const { verifyDeployment } = await import('@jejunetwork/shared/deploy')
+
+  const staticFiles: Record<string, string> = {}
+  for (const [path, result] of staticAssets.entries()) {
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`
+    staticFiles[normalizedPath] = result.cid
+  }
+
+  const verifyResult = await verifyDeployment(
+    {
+      name: 'bazaar',
+      jnsName: 'bazaar.jeju',
+      frontendCid: indexCid ?? '',
+      staticFiles,
+      backendWorkerId: workerId,
+      appUrl,
+      healthUrl: `${appUrl}/health`,
+    },
+    { timeout: 15000, retries: 5 },
+  )
+
+  if (!verifyResult.success) {
+    throw new Error(
+      `Deployment verification failed: frontend=${verifyResult.checks.frontend.ok}, health=${verifyResult.checks.health.ok}`,
+    )
+  }
+
+  console.log('\nDeployment verified successfully!')
 }
 
 // Run deployment
 deploy().catch((error) => {
-  console.error('❌ Deployment failed:', error)
+  console.error('Deployment failed:', error)
   process.exit(1)
 })

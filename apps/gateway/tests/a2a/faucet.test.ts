@@ -320,7 +320,7 @@ describe('Faucet REST API', () => {
     expect(data.error).toBe('Address required in request body')
   })
 
-  // Note: Full claim test would require:
+  // Full claim test requires:
   // 1. A registered address in the Identity Registry
   // 2. FAUCET_PRIVATE_KEY configured with funded wallet
   // 3. Proper contract deployment

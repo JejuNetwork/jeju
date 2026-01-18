@@ -4,29 +4,15 @@
   "description": "Shared hooks, components, APIs, services, protocols, auth, and cryptography",
   "license": "MIT",
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
   "exports": {
-    ".": {
-      "bun": "./src/index.ts",
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    },
-    "./dev-server": {
-      "bun": "./src/dev-server/index.ts",
-      "types": "./dist/dev-server/index.d.ts",
-      "import": "./dist/dev-server/index.js"
-    },
-    "./protocols/middleware": {
-      "bun": "./src/protocols/middleware.ts",
-      "types": "./dist/protocols/middleware.d.ts",
-      "import": "./dist/protocols/middleware.js"
-    },
-    "./moderation": {
-      "bun": "./src/moderation/index.ts",
-      "types": "./dist/moderation/index.d.ts",
-      "import": "./dist/moderation/index.js"
-    }
+    ".": "./src/index.ts",
+    "./dev-server": "./src/dev-server/index.ts",
+    "./protocols/middleware": "./src/protocols/middleware.ts",
+    "./moderation": "./src/moderation/index.ts",
+    "./tokens": "./src/tokens/index.ts",
+    "./deploy": "./src/deploy/index.ts"
   },
   "files": ["dist", "src"],
   "sideEffects": false,

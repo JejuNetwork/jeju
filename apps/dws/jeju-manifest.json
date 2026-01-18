@@ -192,6 +192,25 @@
       "memory": 512,
       "timeout": 30000,
       "compatibilityDate": "2025-06-01",
+      "secrets": [
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "GROQ_API_KEY",
+        "TOGETHER_API_KEY",
+        "OPENROUTER_API_KEY",
+        "FIREWORKS_API_KEY",
+        "MISTRAL_API_KEY",
+        "DEEPSEEK_API_KEY",
+        "CEREBRAS_API_KEY",
+        "PERPLEXITY_API_KEY",
+        "SAMBANOVA_API_KEY",
+        "AI21_API_KEY",
+        "XAI_API_KEY",
+        "COHERE_API_KEY",
+        "GOOGLE_AI_API_KEY",
+        "FAL_API_KEY",
+        "REPLICATE_API_KEY"
+      ],
       "routes": [
         { "pattern": "/api/*" },
         { "pattern": "/storage/*" },
@@ -202,7 +221,13 @@
         { "pattern": "/apps/*" },
         { "pattern": "/a2a/*" },
         { "pattern": "/mcp/*" },
-        { "pattern": "/health" }
+        { "pattern": "/health" },
+        { "pattern": "/auth/*" },
+        { "pattern": "/account/*" },
+        { "pattern": "/secrets/*" },
+        { "pattern": "/logs/*" },
+        { "pattern": "/previews/*" },
+        { "pattern": "/vault/*" }
       ]
     },
     "frontend": {

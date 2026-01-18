@@ -208,7 +208,7 @@ const buildCommand = new Command('build')
     // App-specific build
     if (options.app) {
       await buildApp(rootDir, options.app)
-      return
+      process.exit(0)
     }
 
     if (options.contractsOnly) {
@@ -222,7 +222,7 @@ const buildCommand = new Command('build')
       const { synced, skipped } = await syncAbis(contractsDir)
       logger.info(`  ${synced} synced, ${skipped} skipped`)
       logger.success('Contracts built')
-      return
+      process.exit(0)
     }
 
     if (options.typesOnly) {
@@ -232,7 +232,7 @@ const buildCommand = new Command('build')
         stdio: 'inherit',
       })
       logger.success('Types built')
-      return
+      process.exit(0)
     }
 
     // Build types first
@@ -265,6 +265,7 @@ const buildCommand = new Command('build')
     }
 
     logger.success('Build complete')
+    process.exit(0)
   })
 
 /**
@@ -486,19 +487,19 @@ function createIndexHtml(title: string, mainScript: string): string {
 
 buildCommand
   .command('images')
-  .description('Build Docker images for apps')
+  .description('Build Docker images for infrastructure (DWS storage)')
   .option('--network <network>', 'Network: testnet | mainnet', 'testnet')
-  .option('--push', 'Push images to ECR after building')
+  .option('--push', 'Push images to DWS Storage (IPFS)')
   .action(async (options: { network: string; push?: boolean }) => {
     const rootDir = findMonorepoRoot()
     const scriptPath = join(
       rootDir,
-      'packages/deployment/scripts/build-images.ts',
+      'packages/deployment/scripts/build-images-dws.ts',
     )
 
     if (!existsSync(scriptPath)) {
       logger.error('Build images script not found')
-      return
+      process.exit(1)
     }
 
     const args: string[] = []
@@ -509,13 +510,14 @@ buildCommand
       env: { ...process.env, NETWORK: options.network },
       stdio: 'inherit',
     })
+    process.exit(0)
   })
 
 buildCommand
   .command('sqlit')
   .description('Build SQLit multi-arch Docker image')
   .option('--network <network>', 'Network: testnet | mainnet', 'testnet')
-  .option('--push', 'Push image to ECR after building')
+  .option('--push', 'Push image to DWS Storage')
   .option('--arm-only', 'Build ARM64 only')
   .option('--x86-only', 'Build x86_64 only')
   .action(
@@ -533,7 +535,7 @@ buildCommand
 
       if (!existsSync(scriptPath)) {
         logger.error('Build SQLit script not found')
-        return
+        process.exit(1)
       }
 
       const args: string[] = []
@@ -546,6 +548,7 @@ buildCommand
         env: { ...process.env, NETWORK: options.network },
         stdio: 'inherit',
       })
+      process.exit(0)
     },
   )
 
@@ -564,6 +567,7 @@ buildCommand
     logger.step('Syncing ABIs from forge out/ to abis/')
     const { synced, skipped } = await syncAbis(contractsDir)
     logger.success(`Done: ${synced} synced, ${skipped} skipped`)
+    process.exit(0)
   })
 
 buildCommand
@@ -612,6 +616,7 @@ buildCommand
 
     logger.newline()
     logger.success(`Built ${buildableApps.length} apps`)
+    process.exit(0)
   })
 
 buildCommand
@@ -671,6 +676,7 @@ buildCommand
     }
 
     logger.success(`Frontend built to ${outdir}`)
+    process.exit(0)
   })
 
 buildCommand
@@ -730,6 +736,7 @@ buildCommand
     }
 
     logger.success(`Worker built to ${outdir}`)
+    process.exit(0)
   })
 
 export { buildCommand }

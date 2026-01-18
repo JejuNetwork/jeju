@@ -86,13 +86,16 @@ export const packageSettingsRoutes = new Elysia({
         'params',
       )
 
-      let row = getPackageSettings(validated.scope, validated.name)
+      let row = await getPackageSettings(validated.scope, validated.name)
       if (!row) {
         // Create default settings for new package
-        row = upsertPackageSettings(validated.scope, validated.name, {})
+        row = await upsertPackageSettings(validated.scope, validated.name, {})
       }
 
-      const maintainers = getPackageMaintainers(validated.scope, validated.name)
+      const maintainers = await getPackageMaintainers(
+        validated.scope,
+        validated.name,
+      )
 
       return transformSettings(row, maintainers)
     },
@@ -124,7 +127,7 @@ export const packageSettingsRoutes = new Elysia({
         'request body',
       )
 
-      upsertPackageSettings(validatedParams.scope, validatedParams.name, {
+      await upsertPackageSettings(validatedParams.scope, validatedParams.name, {
         description: validatedBody.description,
         visibility: validatedBody.visibility,
         publishEnabled: validatedBody.publishEnabled,
@@ -160,7 +163,7 @@ export const packageSettingsRoutes = new Elysia({
         'request body',
       )
 
-      const row = addPackageMaintainer(
+      const row = await addPackageMaintainer(
         validatedParams.scope,
         validatedParams.name,
         {
@@ -203,7 +206,7 @@ export const packageSettingsRoutes = new Elysia({
         'params',
       )
 
-      const success = removePackageMaintainer(
+      const success = await removePackageMaintainer(
         validatedParams.scope,
         validatedParams.name,
         params.login,
@@ -243,7 +246,7 @@ export const packageSettingsRoutes = new Elysia({
         'request body',
       )
 
-      const { row, plainToken } = createPackageToken(
+      const { row, plainToken } = await createPackageToken(
         validatedParams.scope,
         validatedParams.name,
         {
@@ -282,7 +285,7 @@ export const packageSettingsRoutes = new Elysia({
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
 
-      const success = revokePackageToken(params.tokenId)
+      const success = await revokePackageToken(params.tokenId)
       if (!success) {
         set.status = 404
         return { error: { code: 'NOT_FOUND', message: 'Token not found' } }
@@ -318,7 +321,7 @@ export const packageSettingsRoutes = new Elysia({
         'request body',
       )
 
-      deprecatePackage(
+      await deprecatePackage(
         validatedParams.scope,
         validatedParams.name,
         validatedBody.message,
@@ -349,7 +352,7 @@ export const packageSettingsRoutes = new Elysia({
         'params',
       )
 
-      undeprecatePackage(validatedParams.scope, validatedParams.name)
+      await undeprecatePackage(validatedParams.scope, validatedParams.name)
 
       return { success: true }
     },

@@ -17,10 +17,10 @@ describe('Trading Bot Integration', () => {
         expect(bots.length).toBeGreaterThan(0)
 
         bots.forEach((bot) => {
+          // createTradingBotOptions uses KMS signing, no privateKey needed
           const options = createTradingBotOptions(
             bot,
             1n,
-            `0x${'1'.repeat(64)}`,
             network as 'localnet' | 'testnet' | 'mainnet',
           )
 
@@ -28,7 +28,6 @@ describe('Trading Bot Integration', () => {
           expect(options.name).toBe(bot.name)
           expect(options.strategies).toEqual(bot.strategies)
           expect(Array.isArray(options.chains)).toBe(true)
-          expect(options.privateKey).toBe(`0x${'1'.repeat(64)}`)
           expect(options.maxConcurrentExecutions).toBe(5)
         })
       })
@@ -192,12 +191,8 @@ describe('Data Flow Validation', () => {
     networks.forEach((network) => {
       const bots = getDefaultBotsForNetwork(network)
       bots.forEach((bot) => {
-        const options = createTradingBotOptions(
-          bot,
-          1n,
-          `0x${'1'.repeat(64)}`,
-          network,
-        )
+        // createTradingBotOptions: (config, agentId, network, treasuryAddress?)
+        const options = createTradingBotOptions(bot, 1n, network)
 
         // Verify transformation
         expect(options.useFlashbots).toBe(network !== 'localnet')

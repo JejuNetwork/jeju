@@ -1,0 +1,85 @@
+# Phala TEE Base Image
+# 
+# Base image for running services in Phala Cloud TEE environment.
+# Includes dstack SDK, health monitoring, and attestation services.
+#
+# Build:
+#   docker build -t ghcr.io/jejunetwork/phala-tee-base:latest -f Dockerfile.base .
+#
+# Features:
+# - Intel TDX/SGX attestation support
+# - Health check endpoint
+# - Metrics export
+# - Auto-attestation refresh
+
+FROM node:20-slim AS base
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    ca-certificates \
+    gnupg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install bun
+RUN curl -fsSL https://bun.sh/install | bash
+ENV PATH="/root/.bun/bin:$PATH"
+
+# Create app directory
+WORKDIR /app
+
+# Copy base package files
+COPY package.json bun.lock* ./
+
+# Install dependencies
+RUN bun install --production --frozen-lockfile
+
+# Copy source
+COPY . .
+
+# Build TypeScript
+RUN bun run build
+
+# ============================================================================
+# Production image
+# ============================================================================
+
+FROM node:20-slim AS runtime
+
+# Install minimal runtime dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install bun runtime
+RUN curl -fsSL https://bun.sh/install | bash
+ENV PATH="/root/.bun/bin:$PATH"
+
+# Create non-root user
+RUN useradd -m -s /bin/bash tee
+USER tee
+
+WORKDIR /app
+
+# Copy built application
+COPY --from=base --chown=tee:tee /app/dist ./dist
+COPY --from=base --chown=tee:tee /app/node_modules ./node_modules
+COPY --from=base --chown=tee:tee /app/package.json ./
+
+# Environment variables
+ENV NODE_ENV=production
+ENV TEE_ENABLED=true
+ENV HEALTH_PORT=8080
+ENV METRICS_PORT=9090
+ENV ATTESTATION_REFRESH_INTERVAL=43200000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:${HEALTH_PORT}/health || exit 1
+
+# Expose ports
+EXPOSE 8080 9090
+
+# Start the service
+CMD ["bun", "run", "dist/index.js"]

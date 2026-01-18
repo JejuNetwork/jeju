@@ -17,7 +17,7 @@ import {
   type SeverityLevel,
 } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, parseEther } from 'viem'
-import { requireContract } from '../config'
+import { safeGetContract } from '../config'
 import type { BaseWallet } from '../wallet'
 
 export interface BanRecord {
@@ -778,27 +778,78 @@ export function createModerationModule(
   wallet: BaseWallet,
   network: NetworkType,
 ): ModerationModule {
-  const evidenceRegistryAddress = requireContract(
+  // Use safe getters - contracts may not be deployed on all networks
+  const evidenceRegistryAddressOpt = safeGetContract(
     'moderation',
-    'EvidenceRegistry',
+    'evidenceRegistry',
     network,
   )
-  const moderationMarketplaceAddress = requireContract(
+  const moderationMarketplaceAddressOpt = safeGetContract(
     'moderation',
-    'ModerationMarketplace',
+    'moderationMarketplace',
     network,
   )
-  const reputationLabelManagerAddress = requireContract(
+  const reputationLabelManagerAddressOpt = safeGetContract(
     'moderation',
-    'ReputationLabelManager',
+    'reputationLabelManager',
     network,
   )
-  const banManagerAddress = requireContract('moderation', 'BanManager', network)
-  const reportingSystemAddress = requireContract(
+  const banManagerAddressOpt = safeGetContract(
     'moderation',
-    'ReportingSystem',
+    'banManager',
     network,
   )
+  const reportingSystemAddressOpt = safeGetContract(
+    'moderation',
+    'reportingSystem',
+    network,
+  )
+
+  // Lazy-load contract addresses - throw on method call if not deployed
+  const getEvidenceRegistryAddress = () => {
+    if (!evidenceRegistryAddressOpt) {
+      throw new Error(
+        'Moderation EvidenceRegistry contract not deployed on this network',
+      )
+    }
+    return evidenceRegistryAddressOpt
+  }
+
+  const getModerationMarketplaceAddress = () => {
+    if (!moderationMarketplaceAddressOpt) {
+      throw new Error(
+        'Moderation Marketplace contract not deployed on this network',
+      )
+    }
+    return moderationMarketplaceAddressOpt
+  }
+
+  const getReputationLabelManagerAddress = () => {
+    if (!reputationLabelManagerAddressOpt) {
+      throw new Error(
+        'Moderation ReputationLabelManager contract not deployed on this network',
+      )
+    }
+    return reputationLabelManagerAddressOpt
+  }
+
+  const getBanManagerAddress = () => {
+    if (!banManagerAddressOpt) {
+      throw new Error(
+        'Moderation BanManager contract not deployed on this network',
+      )
+    }
+    return banManagerAddressOpt
+  }
+
+  const getReportingSystemAddress = () => {
+    if (!reportingSystemAddressOpt) {
+      throw new Error(
+        'Moderation ReportingSystem contract not deployed on this network',
+      )
+    }
+    return reportingSystemAddressOpt
+  }
 
   const MIN_EVIDENCE_STAKE = parseEther('0.001')
   const MIN_SUPPORT_STAKE = parseEther('0.0005')
@@ -808,7 +859,7 @@ export function createModerationModule(
   // Helper to read evidence
   async function readEvidence(evidenceId: Hex): Promise<Evidence | null> {
     const result = await wallet.publicClient.readContract({
-      address: evidenceRegistryAddress,
+      address: getEvidenceRegistryAddress(),
       abi: EVIDENCE_REGISTRY_ABI,
       functionName: 'evidence',
       args: [evidenceId],
@@ -839,7 +890,7 @@ export function createModerationModule(
   // Helper to read case
   async function readCase(caseId: Hex): Promise<ModerationCase | null> {
     const result = await wallet.publicClient.readContract({
-      address: moderationMarketplaceAddress,
+      address: getModerationMarketplaceAddress(),
       abi: MODERATION_MARKETPLACE_ABI,
       functionName: 'getCase',
       args: [caseId],
@@ -867,7 +918,7 @@ export function createModerationModule(
   // Helper to read report
   async function readReport(reportId: Hex): Promise<Report | null> {
     const result = await wallet.publicClient.readContract({
-      address: reportingSystemAddress,
+      address: getReportingSystemAddress(),
       abi: REPORTING_SYSTEM_ABI,
       functionName: 'reports',
       args: [reportId],
@@ -915,7 +966,7 @@ export function createModerationModule(
       })
 
       const txHash = await wallet.sendTransaction({
-        to: evidenceRegistryAddress,
+        to: getEvidenceRegistryAddress(),
         data,
         value: stake,
       })
@@ -937,7 +988,7 @@ export function createModerationModule(
       })
 
       return wallet.sendTransaction({
-        to: evidenceRegistryAddress,
+        to: getEvidenceRegistryAddress(),
         data,
         value: stake,
       })
@@ -947,7 +998,7 @@ export function createModerationModule(
 
     async listCaseEvidence(caseId) {
       const ids = await wallet.publicClient.readContract({
-        address: evidenceRegistryAddress,
+        address: getEvidenceRegistryAddress(),
         abi: EVIDENCE_REGISTRY_ABI,
         functionName: 'getCaseEvidenceIds',
         args: [caseId],
@@ -963,7 +1014,7 @@ export function createModerationModule(
 
     async listMyEvidence() {
       const ids = await wallet.publicClient.readContract({
-        address: evidenceRegistryAddress,
+        address: getEvidenceRegistryAddress(),
         abi: EVIDENCE_REGISTRY_ABI,
         functionName: 'getSubmitterEvidence',
         args: [wallet.address],
@@ -985,14 +1036,14 @@ export function createModerationModule(
       })
 
       return wallet.sendTransaction({
-        to: evidenceRegistryAddress,
+        to: getEvidenceRegistryAddress(),
         data,
       })
     },
 
     async getUnclaimedRewards(address) {
       return wallet.publicClient.readContract({
-        address: evidenceRegistryAddress,
+        address: getEvidenceRegistryAddress(),
         abi: EVIDENCE_REGISTRY_ABI,
         functionName: 'getUnclaimedRewards',
         args: [address ?? wallet.address],
@@ -1018,7 +1069,7 @@ export function createModerationModule(
       })
 
       const txHash = await wallet.sendTransaction({
-        to: moderationMarketplaceAddress,
+        to: getModerationMarketplaceAddress(),
         data,
         value: stake,
       })
@@ -1039,7 +1090,7 @@ export function createModerationModule(
       }
 
       const ids = await wallet.publicClient.readContract({
-        address: moderationMarketplaceAddress,
+        address: getModerationMarketplaceAddress(),
         abi: MODERATION_MARKETPLACE_ABI,
         functionName: 'getCasesByStatus',
         args: [status],
@@ -1055,7 +1106,7 @@ export function createModerationModule(
 
     async listMyCases() {
       const ids = await wallet.publicClient.readContract({
-        address: moderationMarketplaceAddress,
+        address: getModerationMarketplaceAddress(),
         abi: MODERATION_MARKETPLACE_ABI,
         functionName: 'getCasesByReporter',
         args: [wallet.address],
@@ -1071,7 +1122,7 @@ export function createModerationModule(
 
     async listCasesAgainst(entity) {
       const ids = await wallet.publicClient.readContract({
-        address: moderationMarketplaceAddress,
+        address: getModerationMarketplaceAddress(),
         abi: MODERATION_MARKETPLACE_ABI,
         functionName: 'getCasesAgainst',
         args: [entity],
@@ -1095,7 +1146,7 @@ export function createModerationModule(
       })
 
       return wallet.sendTransaction({
-        to: moderationMarketplaceAddress,
+        to: getModerationMarketplaceAddress(),
         data,
         value: appealStake,
       })
@@ -1124,7 +1175,7 @@ export function createModerationModule(
       })
 
       return wallet.sendTransaction({
-        to: reputationLabelManagerAddress,
+        to: getReputationLabelManagerAddress(),
         data,
       })
     },
@@ -1137,14 +1188,14 @@ export function createModerationModule(
       })
 
       return wallet.sendTransaction({
-        to: reputationLabelManagerAddress,
+        to: getReputationLabelManagerAddress(),
         data,
       })
     },
 
     async getLabels(target) {
       const result = await wallet.publicClient.readContract({
-        address: reputationLabelManagerAddress,
+        address: getReputationLabelManagerAddress(),
         abi: REPUTATION_LABEL_MANAGER_ABI,
         functionName: 'getLabels',
         args: [target],
@@ -1164,7 +1215,7 @@ export function createModerationModule(
 
     async getMyIssuedLabels() {
       const labelIds = await wallet.publicClient.readContract({
-        address: reputationLabelManagerAddress,
+        address: getReputationLabelManagerAddress(),
         abi: REPUTATION_LABEL_MANAGER_ABI,
         functionName: 'getLabelsByIssuer',
         args: [wallet.address],
@@ -1176,7 +1227,7 @@ export function createModerationModule(
 
       for (const labelId of limitedIds) {
         const result = await wallet.publicClient.readContract({
-          address: reputationLabelManagerAddress,
+          address: getReputationLabelManagerAddress(),
           abi: REPUTATION_LABEL_MANAGER_ABI,
           functionName: 'getLabelById',
           args: [labelId],
@@ -1202,7 +1253,7 @@ export function createModerationModule(
 
     async isTrusted(target) {
       return wallet.publicClient.readContract({
-        address: reputationLabelManagerAddress,
+        address: getReputationLabelManagerAddress(),
         abi: REPUTATION_LABEL_MANAGER_ABI,
         functionName: 'isTrusted',
         args: [target],
@@ -1211,7 +1262,7 @@ export function createModerationModule(
 
     async isSuspicious(target) {
       return wallet.publicClient.readContract({
-        address: reputationLabelManagerAddress,
+        address: getReputationLabelManagerAddress(),
         abi: REPUTATION_LABEL_MANAGER_ABI,
         functionName: 'isSuspicious',
         args: [target],
@@ -1220,7 +1271,7 @@ export function createModerationModule(
 
     async getAggregateScore(target) {
       const score = await wallet.publicClient.readContract({
-        address: reputationLabelManagerAddress,
+        address: getReputationLabelManagerAddress(),
         abi: REPUTATION_LABEL_MANAGER_ABI,
         functionName: 'getAggregateScore',
         args: [target],
@@ -1235,7 +1286,7 @@ export function createModerationModule(
 
     async isNetworkBanned(agentId) {
       const result = await wallet.publicClient.readContract({
-        address: banManagerAddress,
+        address: getBanManagerAddress(),
         abi: BAN_MANAGER_ABI,
         functionName: 'networkBans',
         args: [agentId],
@@ -1246,7 +1297,7 @@ export function createModerationModule(
 
     async isAddressBanned(address) {
       const result = await wallet.publicClient.readContract({
-        address: banManagerAddress,
+        address: getBanManagerAddress(),
         abi: BAN_MANAGER_ABI,
         functionName: 'addressBans',
         args: [address],
@@ -1257,7 +1308,7 @@ export function createModerationModule(
 
     async getBanRecord(agentId) {
       const result = await wallet.publicClient.readContract({
-        address: banManagerAddress,
+        address: getBanManagerAddress(),
         abi: BAN_MANAGER_ABI,
         functionName: 'extendedBans',
         args: [agentId],
@@ -1291,7 +1342,7 @@ export function createModerationModule(
 
     async getAddressBan(address) {
       const result = await wallet.publicClient.readContract({
-        address: banManagerAddress,
+        address: getBanManagerAddress(),
         abi: BAN_MANAGER_ABI,
         functionName: 'addressBans',
         args: [address],
@@ -1325,7 +1376,7 @@ export function createModerationModule(
 
     async isAppBanned(agentId, appId) {
       const result = await wallet.publicClient.readContract({
-        address: banManagerAddress,
+        address: getBanManagerAddress(),
         abi: BAN_MANAGER_ABI,
         functionName: 'appBans',
         args: [agentId, appId],
@@ -1336,7 +1387,7 @@ export function createModerationModule(
 
     async getAppBans(agentId) {
       const result = await wallet.publicClient.readContract({
-        address: banManagerAddress,
+        address: getBanManagerAddress(),
         abi: BAN_MANAGER_ABI,
         functionName: 'getAgentAppBans',
         args: [agentId],
@@ -1387,7 +1438,7 @@ export function createModerationModule(
       }
 
       const txHash = await wallet.sendTransaction({
-        to: reportingSystemAddress,
+        to: getReportingSystemAddress(),
         data,
         value: stake,
       })
@@ -1405,7 +1456,7 @@ export function createModerationModule(
       }
 
       const ids = await wallet.publicClient.readContract({
-        address: reportingSystemAddress,
+        address: getReportingSystemAddress(),
         abi: REPORTING_SYSTEM_ABI,
         functionName: 'getReportsByStatus',
         args: [status],
@@ -1421,7 +1472,7 @@ export function createModerationModule(
 
     async listMyReports() {
       const ids = await wallet.publicClient.readContract({
-        address: reportingSystemAddress,
+        address: getReportingSystemAddress(),
         abi: REPORTING_SYSTEM_ABI,
         functionName: 'getReportsByReporter',
         args: [wallet.address],
@@ -1440,14 +1491,14 @@ export function createModerationModule(
 
       if (typeof target === 'bigint') {
         ids = await wallet.publicClient.readContract({
-          address: reportingSystemAddress,
+          address: getReportingSystemAddress(),
           abi: REPORTING_SYSTEM_ABI,
           functionName: 'getReportsAgainstAgent',
           args: [target],
         })
       } else {
         ids = await wallet.publicClient.readContract({
-          address: reportingSystemAddress,
+          address: getReportingSystemAddress(),
           abi: REPORTING_SYSTEM_ABI,
           functionName: 'getReportsAgainstAddress',
           args: [target],
@@ -1476,7 +1527,7 @@ export function createModerationModule(
       })
 
       return wallet.sendTransaction({
-        to: reportingSystemAddress,
+        to: getReportingSystemAddress(),
         data,
       })
     },
@@ -1489,7 +1540,7 @@ export function createModerationModule(
       })
 
       return wallet.sendTransaction({
-        to: reportingSystemAddress,
+        to: getReportingSystemAddress(),
         data,
       })
     },

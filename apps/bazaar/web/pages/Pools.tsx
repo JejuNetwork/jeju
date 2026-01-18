@@ -336,14 +336,14 @@ export default function PoolsPage() {
         </div>
       )}
 
-      {/* Connect Wallet CTA */}
+      {/* Sign In CTA */}
       {!isConnected && (
         <div className="card p-6 mt-6 text-center bg-gradient-to-br from-orange-500/5 to-purple-500/5 border-dashed">
           <h3 className="text-lg font-semibold text-primary mb-2">
-            Connect to View Your Positions
+            Sign In to View Your Positions
           </h3>
           <p className="text-sm text-secondary">
-            Connect your wallet to see your LP positions and manage liquidity
+            Sign in to see your LP positions and manage liquidity
           </p>
         </div>
       )}

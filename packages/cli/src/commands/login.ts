@@ -32,6 +32,12 @@ const CredentialsSchema = z.object({
 
 export type Credentials = z.infer<typeof CredentialsSchema>
 
+const OAuth3AuthSchema = z.object({
+  token: z.string().optional(),
+  sessionId: z.string().optional(),
+  expiresAt: z.number().optional(),
+})
+
 // Config directory
 const JEJU_CONFIG_DIR = join(homedir(), '.jeju')
 const CREDENTIALS_FILE = join(JEJU_CONFIG_DIR, 'credentials.json')
@@ -81,6 +87,35 @@ function clearCredentials(): void {
   }
 }
 
+function getAuthDomain(network: NetworkType): string {
+  if (network === 'localnet') return getLocalhostHost()
+  if (network === 'testnet') return 'auth.testnet.jejunetwork.org'
+  return 'auth.jejunetwork.org'
+}
+
+function buildWalletAuthMessage(
+  address: Address,
+  network: NetworkType,
+  nonce: string,
+  timestamp: number,
+): string {
+  const domain = getAuthDomain(network)
+  const uri =
+    network === 'localnet'
+      ? `http://${getLocalhostHost()}:4020`
+      : `https://${domain}`
+  const issuedAt = new Date(timestamp).toISOString()
+  return (
+    `${domain} wants you to sign in with your Ethereum account:\n` +
+    `${address}\n\n` +
+    `Sign in to Jeju Network.\n\n` +
+    `URI: ${uri}\n` +
+    `Version: 1\n` +
+    `Nonce: ${nonce}\n` +
+    `Issued At: ${issuedAt}`
+  )
+}
+
 /**
  * Get the current logged-in address
  */
@@ -126,21 +161,44 @@ async function authenticateWithDWS(
   network: NetworkType,
 ): Promise<{ token: string; expiresAt: number }> {
   const dwsUrl =
-    process.env.DWS_URL ?? getDWSUrl() ?? `http://${getLocalhostHost()}:4020`
+    process.env.DWS_URL ??
+    getDWSUrl(network) ??
+    `http://${getLocalhostHost()}:4020`
+  const payload = JSON.stringify({
+    address,
+    signature,
+    message,
+    network,
+  })
 
   const response = await fetch(`${dwsUrl}/auth/wallet`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      address,
-      signature,
-      message,
-      network,
-    }),
+    body: payload,
   })
 
   if (!response.ok) {
     const error = await response.text()
+    if (response.status === 404 || error.includes('NOT_FOUND')) {
+      const oauth3Response = await fetch(`${dwsUrl}/oauth3/auth/wallet`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload,
+      })
+      if (!oauth3Response.ok) {
+        const oauth3Error = await oauth3Response.text()
+        throw new Error(`Authentication failed: ${oauth3Error}`)
+      }
+      const result = OAuth3AuthSchema.parse(await oauth3Response.json())
+      const token = result.token ?? result.sessionId
+      if (!token) {
+        throw new Error('Authentication failed: missing auth token')
+      }
+      return {
+        token,
+        expiresAt: result.expiresAt ?? Date.now() + 30 * 24 * 60 * 60 * 1000,
+      }
+    }
     throw new Error(`Authentication failed: ${error}`)
   }
 
@@ -201,7 +259,12 @@ export const loginCommand = new Command('login')
       // External signing - output message for user to sign elsewhere
       const nonce = bytesToHex(randomBytes(32))
       const timestamp = Date.now()
-      const message = `Sign this message to authenticate with Jeju Network.\n\nNetwork: ${network}\nNonce: ${nonce}\nTimestamp: ${timestamp}`
+      const message = buildWalletAuthMessage(
+        address,
+        network,
+        nonce,
+        timestamp,
+      )
 
       logger.info('Sign the following message with your wallet:\n')
       console.log('---')
@@ -253,7 +316,7 @@ export const loginCommand = new Command('login')
     // Create auth message
     const nonce = bytesToHex(randomBytes(32))
     const timestamp = Date.now()
-    const message = `Sign this message to authenticate with Jeju Network.\n\nNetwork: ${network}\nNonce: ${nonce}\nTimestamp: ${timestamp}`
+    const message = buildWalletAuthMessage(address, network, nonce, timestamp)
 
     // Sign message
     const signature = await account.signMessage({ message })

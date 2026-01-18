@@ -2,11 +2,13 @@
  * Leaderboard API Tests
  *
  * These tests use a mock database implementation for unit testing.
- * For integration tests with real SQLit, run with docker-compose up.
+ * For integration tests with real SQLit, run: jeju test --mode integration
+ *
+ * IMPORTANT: The mock must be set up BEFORE importing the app.
  */
 
-import { describe, expect, mock, test } from 'bun:test'
-import { leaderboardApp } from '../../src/leaderboard/server'
+import { beforeAll, describe, expect, mock, test } from 'bun:test'
+import type { Elysia } from 'elysia'
 
 // Test response types
 interface StatusResponse {
@@ -42,7 +44,7 @@ interface JsonRpcErrorResponse {
   error: { code: number }
 }
 
-// Mock the database for unit tests
+// Mock the database for unit tests - MUST be before any imports that use db
 const mockDb = {
   query: mock(
     async <T>(
@@ -66,8 +68,8 @@ const mockDb = {
   }),
 }
 
-// Mock database module
-mock.module('../../src/leaderboard/db', () => ({
+// Mock database module BEFORE importing the server
+mock.module('../../api/leaderboard/db', () => ({
   getLeaderboardDB: () => mockDb,
   initLeaderboardDB: async () => {
     /* mock init */
@@ -79,9 +81,20 @@ mock.module('../../src/leaderboard/db', () => ({
   exec: mockDb.exec,
 }))
 
+// Now import the app AFTER mocks are set up
+let leaderboardApp: Elysia
+
+beforeAll(async () => {
+  // Dynamic import after mocks are set up
+  const module = await import('../../api/leaderboard/server')
+  leaderboardApp = module.leaderboardApp
+})
+
 describe('Leaderboard API', () => {
   test('GET /health should return ok', async () => {
-    const response = await leaderboardApp.request('/health')
+    const response = await leaderboardApp.handle(
+      new Request('http://localhost/health'),
+    )
     const data = (await response.json()) as StatusResponse
 
     expect(response.status).toBe(200)
@@ -92,7 +105,9 @@ describe('Leaderboard API', () => {
     // Mock query to return empty array
     mockDb.query.mockImplementationOnce(async () => [])
 
-    const response = await leaderboardApp.request('/api/leaderboard')
+    const response = await leaderboardApp.handle(
+      new Request('http://localhost/api/leaderboard'),
+    )
     const data = (await response.json()) as LeaderboardResponse
 
     expect(response.status).toBe(200)
@@ -101,41 +116,47 @@ describe('Leaderboard API', () => {
   })
 
   test('GET /api/attestation without params should return 400', async () => {
-    const response = await leaderboardApp.request('/api/attestation')
+    const response = await leaderboardApp.handle(
+      new Request('http://localhost/api/attestation'),
+    )
 
     expect(response.status).toBe(400)
   })
 
   test('POST /api/attestation without auth should return 401', async () => {
-    const response = await leaderboardApp.request('/api/attestation', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: 'test', walletAddress: '0x123' }),
-    })
+    const response = await leaderboardApp.handle(
+      new Request('http://localhost/api/attestation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'test', walletAddress: '0x123' }),
+      }),
+    )
 
     expect(response.status).toBe(401)
   })
 
   test('GET /api/wallet/verify without auth should return 401', async () => {
-    const response = await leaderboardApp.request(
-      '/api/wallet/verify?username=test',
+    const response = await leaderboardApp.handle(
+      new Request('http://localhost/api/wallet/verify?username=test'),
     )
 
     expect(response.status).toBe(401)
   })
 
   test('POST /api/wallet/verify without auth should return 401', async () => {
-    const response = await leaderboardApp.request('/api/wallet/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username: 'test',
-        walletAddress: '0x1234567890123456789012345678901234567890',
-        signature: '0x',
-        message: 'test',
-        timestamp: Date.now(),
+    const response = await leaderboardApp.handle(
+      new Request('http://localhost/api/wallet/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: 'test',
+          walletAddress: '0x1234567890123456789012345678901234567890',
+          signature: '0x',
+          message: 'test',
+          timestamp: Date.now(),
+        }),
       }),
-    })
+    )
 
     expect(response.status).toBe(401)
   })
@@ -150,23 +171,28 @@ describe('Leaderboard API', () => {
       },
     ])
 
-    const response = await leaderboardApp.request('/api/a2a', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'message/send',
-        id: 1,
-        params: {
-          message: {
-            messageId: 'test-123',
-            parts: [
-              { kind: 'data', data: { skillId: 'get-leaderboard', limit: 5 } },
-            ],
+    const response = await leaderboardApp.handle(
+      new Request('http://localhost/api/a2a', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'message/send',
+          id: 1,
+          params: {
+            message: {
+              messageId: 'test-123',
+              parts: [
+                {
+                  kind: 'data',
+                  data: { skillId: 'get-leaderboard', limit: 5 },
+                },
+              ],
+            },
           },
-        },
+        }),
       }),
-    })
+    )
 
     const data = (await response.json()) as A2AResultResponse
 
@@ -206,29 +232,31 @@ describe('Leaderboard API', () => {
       return []
     })
 
-    const response = await leaderboardApp.request('/api/a2a', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'message/send',
-        id: 2,
-        params: {
-          message: {
-            messageId: 'test-456',
-            parts: [
-              {
-                kind: 'data',
-                data: {
-                  skillId: 'get-contributor-profile',
-                  username: 'testuser',
+    const response = await leaderboardApp.handle(
+      new Request('http://localhost/api/a2a', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'message/send',
+          id: 2,
+          params: {
+            message: {
+              messageId: 'test-456',
+              parts: [
+                {
+                  kind: 'data',
+                  data: {
+                    skillId: 'get-contributor-profile',
+                    username: 'testuser',
+                  },
                 },
-              },
-            ],
+              ],
+            },
           },
-        },
+        }),
       }),
-    })
+    )
 
     const data = (await response.json()) as A2AProfileResponse
 
@@ -238,21 +266,23 @@ describe('Leaderboard API', () => {
   })
 
   test('POST /api/a2a should handle unknown skill', async () => {
-    const response = await leaderboardApp.request('/api/a2a', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'message/send',
-        id: 3,
-        params: {
-          message: {
-            messageId: 'test-789',
-            parts: [{ kind: 'data', data: { skillId: 'unknown-skill' } }],
+    const response = await leaderboardApp.handle(
+      new Request('http://localhost/api/a2a', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'message/send',
+          id: 3,
+          params: {
+            message: {
+              messageId: 'test-789',
+              parts: [{ kind: 'data', data: { skillId: 'unknown-skill' } }],
+            },
           },
-        },
+        }),
       }),
-    })
+    )
 
     const data = (await response.json()) as A2AErrorResponse
 
@@ -261,16 +291,18 @@ describe('Leaderboard API', () => {
   })
 
   test('POST /api/a2a should reject non-message/send methods', async () => {
-    const response = await leaderboardApp.request('/api/a2a', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'other/method',
-        id: 4,
-        params: {},
+    const response = await leaderboardApp.handle(
+      new Request('http://localhost/api/a2a', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'other/method',
+          id: 4,
+          params: {},
+        }),
       }),
-    })
+    )
 
     const data = (await response.json()) as JsonRpcErrorResponse
 
@@ -284,11 +316,15 @@ describe('Rate Limiting', () => {
   test('should track rate limits', async () => {
     // Make multiple requests
     for (let i = 0; i < 5; i++) {
-      await leaderboardApp.request('/api/leaderboard')
+      await leaderboardApp.handle(
+        new Request('http://localhost/api/leaderboard'),
+      )
     }
 
     // Should still succeed (under limit)
-    const response = await leaderboardApp.request('/api/leaderboard')
+    const response = await leaderboardApp.handle(
+      new Request('http://localhost/api/leaderboard'),
+    )
     expect(response.status).toBe(200)
   })
 })

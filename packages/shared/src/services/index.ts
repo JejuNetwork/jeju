@@ -74,6 +74,7 @@ export {
 export {
   createKMSService,
   type EncryptionPolicy,
+  getKMSServiceFromEnv,
   type KMSConfig,
   type KMSServiceClient,
   resetKMSService,

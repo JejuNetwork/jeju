@@ -722,7 +722,7 @@ export class StateFetcher {
     const receipt = await this.client.getTransactionReceipt({ hash: txHash })
 
     // Build receipt trie proof
-    // Note: This requires the full receipts trie which most nodes don't expose
+    // This requires the full receipts trie which most nodes don't expose
     // In production, use a specialized archive node or indexer
 
     return {

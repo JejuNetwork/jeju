@@ -4,14 +4,8 @@
  */
 
 import type { BrowserContext, Page } from '@playwright/test'
-// Must import zod-compat before synpress for Zod 4 compatibility
-import '@jejunetwork/tests/zod-compat'
 import { testWithSynpress } from '@synthetixio/synpress'
-// Must import zod-compat before synpress for Zod 4 compatibility
-import '@jejunetwork/tests/zod-compat'
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright'
-// Must import zod-compat before synpress for Zod 4 compatibility
-import '@jejunetwork/tests/zod-compat'
 import { basicSetup } from '../../synpress.config'
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup))
@@ -35,9 +29,15 @@ async function connectWallet(
   )
   await page.goto('/')
 
-  const connectButton = page.getByRole('button', { name: /Connect Wallet/i })
-  if (await connectButton.isVisible({ timeout: 5000 })) {
-    await connectButton.click()
+  const signInButton = page.getByRole('button', { name: /sign in/i })
+  if (await signInButton.isVisible({ timeout: 5000 })) {
+    await signInButton.click()
+    const walletOption = page.getByRole('button', {
+      name: /connect wallet/i,
+    })
+    if (await walletOption.isVisible().catch(() => false)) {
+      await walletOption.click()
+    }
     await page.waitForTimeout(1000)
     await metamask.connectToDapp()
     await expect(page.getByText(/0xf39F/i)).toBeVisible({
@@ -355,7 +355,8 @@ test.describe('Liquidity Page with Wallet', () => {
     expect(
       body?.includes('Position') ||
         body?.includes('No positions') ||
-        body?.includes('Connect wallet'),
+        body?.includes('Sign In') ||
+        body?.includes('Use wallet or passkey'),
     ).toBe(true)
   })
 })

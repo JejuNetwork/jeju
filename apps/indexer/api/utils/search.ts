@@ -3,7 +3,7 @@
  * SQLit-based search implementation
  */
 
-import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
+import { type CacheClient, getCacheClient } from '@jejunetwork/cache'
 import {
   type ComputeProvider,
   count,
@@ -117,8 +117,12 @@ export async function search(
   const cache = getSearchCache()
   const cached = await cache.get(cacheKey)
   if (cached) {
-    const data: SearchResult = JSON.parse(cached)
-    return { ...data, took: Date.now() - startTime }
+    try {
+      const data = JSON.parse(cached) as SearchResult
+      return { ...data, took: Date.now() - startTime }
+    } catch {
+      // Cache corrupted - refresh from DB
+    }
   }
 
   // Build where clause for agents
@@ -130,14 +134,17 @@ export async function search(
   const scores = new Map<string, number>()
 
   if (searchQuery?.trim()) {
-    // Search by name, description, or tags using LIKE
-    const searchPattern = `%${searchQuery}%`
+    // Sanitize search query - escape SQL LIKE special characters to prevent injection
+    const sanitizedQuery = searchQuery
+      .replace(/[%_\\]/g, (char) => `\\${char}`) // Escape LIKE wildcards
+      .slice(0, 100) // Limit length to prevent DoS
+    const searchPattern = `%${sanitizedQuery}%`
     const result = await query<RegisteredAgent>(
       `SELECT * FROM registered_agent 
        WHERE active = ? AND (
-         name LIKE ? OR 
-         description LIKE ? OR 
-         tags LIKE ?
+         name LIKE ? ESCAPE '\\' OR 
+         description LIKE ? ESCAPE '\\' OR 
+         tags LIKE ? ESCAPE '\\'
        )
        ORDER BY stake_amount DESC
        LIMIT ? OFFSET ?`,
@@ -290,17 +297,17 @@ export async function search(
 
 /**
  * Get agent by ID
+ * Returns null for invalid ID formats (non-numeric) - caller should return 404
  */
 export async function getAgentById(
   agentId: string,
 ): Promise<AgentSearchResult | null> {
   if (!agentId) {
-    throw new Error('agentId must be a non-empty string')
+    return null
   }
+  // Return null for invalid ID formats - caller should return 404
   if (!/^\d+$/.test(agentId)) {
-    throw new Error(
-      `Invalid agentId format: ${agentId}. Must be a numeric string.`,
-    )
+    return null
   }
 
   const agents = await find<RegisteredAgent>('RegisteredAgent', {

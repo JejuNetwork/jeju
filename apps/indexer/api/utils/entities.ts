@@ -2,7 +2,7 @@
  * Entity helpers for processors
  */
 
-import { Account } from '../model'
+import { Account } from '../../src/model'
 import type { Block, Log } from '../processor'
 
 export type BlockHeader = Block

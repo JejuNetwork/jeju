@@ -309,7 +309,7 @@ export class SignerRegistration {
     signature: Hex
   }): Hex {
     // ABI encode per Farcaster spec: (uint256 requestFid, address requestSigner, bytes signature, uint256 deadline)
-    // Note: requestSigner is derived from signature in the contract, so we pass zero address
+    // requestSigner is derived from signature in the contract, so we pass zero address
     return encodeAbiParameters(
       [
         { type: 'uint256' }, // requestFid

@@ -61,15 +61,52 @@ const JNS_RESOLVER_TEXT_ABI = [
 ] as const
 
 /**
- * Check if dev mode is enabled globally
+ * SECURITY: Check if dev mode is enabled globally
+ * Dev mode is ONLY allowed when explicitly enabled AND not in production
  */
 export function isDevModeEnabled(): boolean {
+  // SECURITY: Never allow dev mode in production environment
+  if (process.env.NODE_ENV === 'production') {
+    if (process.env.DEV_MODE === 'true' || process.env.JEJU_DEV === 'true') {
+      console.warn(
+        '[SECURITY] Dev mode explicitly disabled in production environment',
+      )
+    }
+    return false
+  }
   return (
     process.env.DEV_MODE === 'true' ||
     process.env.NODE_ENV === 'development' ||
     process.env.JEJU_DEV === 'true' ||
     process.env.JNS_DEV_PROXY === 'true'
   )
+}
+
+/**
+ * SECURITY: Validate that a proxy URL is safe (localhost only)
+ * Prevents SSRF attacks by restricting proxy targets
+ */
+function isAllowedProxyTarget(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    const host = parsed.hostname.toLowerCase()
+    // SECURITY: Only allow localhost and 127.0.0.1 as proxy targets
+    const allowedHosts = ['localhost', '127.0.0.1', '0.0.0.0', '::1']
+    if (!allowedHosts.includes(host)) {
+      console.warn(`[SECURITY] Blocked proxy to non-local host: ${host}`)
+      return false
+    }
+    // SECURITY: Only allow http for local dev
+    if (parsed.protocol !== 'http:') {
+      console.warn(
+        `[SECURITY] Blocked proxy with non-http protocol: ${parsed.protocol}`,
+      )
+      return false
+    }
+    return true
+  } catch {
+    return false
+  }
 }
 
 /**
@@ -169,18 +206,46 @@ export async function resolveDevProxy(
 /**
  * Proxy a request to a dev server
  * Handles both frontend and API requests
+ *
+ * SECURITY: This function should only be called when isDevModeEnabled() returns true.
+ * The proxyUrl is validated to ensure it only targets localhost.
  */
 export async function proxyToDevServer(
   proxyUrl: string,
   request: Request,
   path: string,
 ): Promise<Response> {
+  // SECURITY: Double-check dev mode is enabled
+  if (!isDevModeEnabled()) {
+    return new Response(JSON.stringify({ error: 'Dev proxy not enabled' }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  // SECURITY: Validate proxy target is localhost only
+  if (!isAllowedProxyTarget(proxyUrl)) {
+    return new Response(
+      JSON.stringify({
+        error: 'Invalid proxy target',
+        hint: 'Only localhost allowed',
+      }),
+      { status: 403, headers: { 'Content-Type': 'application/json' } },
+    )
+  }
+
   const url = new URL(request.url)
-  const targetUrl = `${proxyUrl}${path}${url.search}`
+  // SECURITY: Sanitize path to prevent injection
+  const sanitizedPath = path.replace(/\0/g, '').replace(/\.\./g, '')
+  const targetUrl = `${proxyUrl}${sanitizedPath}${url.search}`
 
   const proxyHeaders = new Headers(request.headers)
   proxyHeaders.set('X-Forwarded-Host', url.host)
   proxyHeaders.set('X-JNS-Dev-Proxy', 'true')
+
+  // SECURITY: Strip sensitive headers before forwarding
+  proxyHeaders.delete('Authorization')
+  proxyHeaders.delete('Cookie')
 
   const response = await fetch(targetUrl, {
     method: request.method,
@@ -189,7 +254,7 @@ export async function proxyToDevServer(
       request.method !== 'GET' && request.method !== 'HEAD'
         ? request.body
         : undefined,
-    signal: AbortSignal.timeout(30000),
+    signal: AbortSignal.timeout(10000), // SECURITY: Reduced timeout for dev proxy
   }).catch((error: Error): null => {
     console.error(
       `[JNS Dev Proxy] Failed to proxy to ${targetUrl}:`,

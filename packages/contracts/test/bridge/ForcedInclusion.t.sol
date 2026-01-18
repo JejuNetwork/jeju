@@ -38,7 +38,7 @@ contract ForcedInclusionTest is Test {
     MockBatchInbox public batchInbox;
 
     address public owner = makeAddr("owner");
-    address public securityCouncil = makeAddr("securityCouncil");
+    address public securityBoard = makeAddr("securityBoard");
     address public user = makeAddr("user");
     address public sequencer = makeAddr("sequencer");
     address public attacker = makeAddr("attacker");
@@ -50,7 +50,7 @@ contract ForcedInclusionTest is Test {
         forcedInclusion = new ForcedInclusion(
             address(batchInbox),
             address(registry),
-            securityCouncil,
+            securityBoard,
             owner,
             true // Skip contract check in tests
         );
@@ -65,13 +65,13 @@ contract ForcedInclusionTest is Test {
     function test_Constructor() public view {
         assertEq(forcedInclusion.batchInbox(), address(batchInbox));
         assertEq(forcedInclusion.sequencerRegistry(), address(registry));
-        assertEq(forcedInclusion.securityCouncil(), securityCouncil);
+        assertEq(forcedInclusion.securityBoard(), securityBoard);
         assertEq(forcedInclusion.owner(), owner);
     }
 
     function test_Constructor_RevertZeroBatchInbox() public {
         vm.expectRevert(ForcedInclusion.ZeroAddress.selector);
-        new ForcedInclusion(address(0), address(registry), securityCouncil, owner, true);
+        new ForcedInclusion(address(0), address(registry), securityBoard, owner, true);
     }
 
     // ============ Queue TX Tests ============
@@ -103,7 +103,7 @@ contract ForcedInclusionTest is Test {
     }
 
     function test_QueueTx_RevertsWhenPaused() public {
-        vm.prank(securityCouncil);
+        vm.prank(securityBoard);
         forcedInclusion.pause();
 
         vm.prank(user);
@@ -111,38 +111,38 @@ contract ForcedInclusionTest is Test {
         forcedInclusion.queueTx{value: 0.01 ether}("data", 100000);
     }
 
-    // ============ Pause Tests - Security Council Only ============
+    // ============ Pause Tests - Security Board Only ============
 
-    function test_Pause_OnlySecurityCouncil() public {
-        vm.prank(securityCouncil);
+    function test_Pause_OnlySecurityBoard() public {
+        vm.prank(securityBoard);
         forcedInclusion.pause();
         assertTrue(forcedInclusion.paused());
     }
 
-    function test_Pause_RevertWhenNotSecurityCouncil() public {
+    function test_Pause_RevertWhenNotSecurityBoard() public {
         vm.prank(owner);
-        vm.expectRevert(ForcedInclusion.NotSecurityCouncil.selector);
+        vm.expectRevert(ForcedInclusion.NotSecurityBoard.selector);
         forcedInclusion.pause();
     }
 
     function test_Pause_RevertWhenAttacker() public {
         vm.prank(attacker);
-        vm.expectRevert(ForcedInclusion.NotSecurityCouncil.selector);
+        vm.expectRevert(ForcedInclusion.NotSecurityBoard.selector);
         forcedInclusion.pause();
     }
 
     function test_Pause_EmitsEvent() public {
         vm.expectEmit(true, false, false, false);
-        emit ForcedInclusion.EmergencyPause(securityCouncil);
+        emit ForcedInclusion.EmergencyPause(securityBoard);
 
-        vm.prank(securityCouncil);
+        vm.prank(securityBoard);
         forcedInclusion.pause();
     }
 
     // ============ Unpause Timelock Tests ============
 
     function test_ProposeUnpause_OnlyOwner() public {
-        vm.prank(securityCouncil);
+        vm.prank(securityBoard);
         forcedInclusion.pause();
 
         vm.prank(owner);
@@ -152,7 +152,7 @@ contract ForcedInclusionTest is Test {
     }
 
     function test_ProposeUnpause_RevertWhenNotOwner() public {
-        vm.prank(securityCouncil);
+        vm.prank(securityBoard);
         forcedInclusion.pause();
 
         vm.prank(attacker);
@@ -161,7 +161,7 @@ contract ForcedInclusionTest is Test {
     }
 
     function test_ExecuteUnpause_AfterTimelock() public {
-        vm.prank(securityCouncil);
+        vm.prank(securityBoard);
         forcedInclusion.pause();
         assertTrue(forcedInclusion.paused());
 
@@ -176,7 +176,7 @@ contract ForcedInclusionTest is Test {
     }
 
     function test_ExecuteUnpause_RevertBeforeTimelock() public {
-        vm.prank(securityCouncil);
+        vm.prank(securityBoard);
         forcedInclusion.pause();
 
         vm.prank(owner);
@@ -208,8 +208,8 @@ contract ForcedInclusionTest is Test {
 
         bytes32 txId = keccak256(abi.encodePacked(user, data, gasLimit, block.number, block.timestamp));
 
-        // Security Council pauses
-        vm.prank(securityCouncil);
+        // Security Board pauses
+        vm.prank(securityBoard);
         forcedInclusion.pause();
         assertTrue(forcedInclusion.paused());
 
@@ -234,7 +234,7 @@ contract ForcedInclusionTest is Test {
         bytes32 txId = keccak256(abi.encodePacked(user, data, gasLimit, block.number, block.timestamp));
 
         // Pause the contract
-        vm.prank(securityCouncil);
+        vm.prank(securityBoard);
         forcedInclusion.pause();
 
         // Wait for window to expire
@@ -305,46 +305,46 @@ contract ForcedInclusionTest is Test {
         assertEq(forcedInclusion.REGISTRY_CHANGE_DELAY(), 2 days);
     }
 
-    // ============ Security Council Update Tests ============
+    // ============ Security Board Update Tests ============
 
-    function test_SetSecurityCouncil_OnlyOwner() public {
-        address newCouncil = makeAddr("newCouncil");
+    function test_SetSecurityBoard_OnlyOwner() public {
+        address newBoard = makeAddr("newBoard");
 
         vm.prank(owner);
-        forcedInclusion.setSecurityCouncil(newCouncil);
+        forcedInclusion.setSecurityBoard(newBoard);
 
-        assertEq(forcedInclusion.securityCouncil(), newCouncil);
+        assertEq(forcedInclusion.securityBoard(), newBoard);
     }
 
-    function test_SetSecurityCouncil_RevertWhenNotOwner() public {
+    function test_SetSecurityBoard_RevertWhenNotOwner() public {
         vm.prank(attacker);
         vm.expectRevert();
-        forcedInclusion.setSecurityCouncil(makeAddr("newCouncil"));
+        forcedInclusion.setSecurityBoard(makeAddr("newBoard"));
     }
 
-    function test_SetSecurityCouncil_EmitsEvent() public {
-        address newCouncil = makeAddr("newCouncil");
+    function test_SetSecurityBoard_EmitsEvent() public {
+        address newBoard = makeAddr("newBoard");
 
         vm.expectEmit(true, true, false, false);
-        emit ForcedInclusion.SecurityCouncilUpdated(securityCouncil, newCouncil);
+        emit ForcedInclusion.SecurityBoardUpdated(securityBoard, newBoard);
 
         vm.prank(owner);
-        forcedInclusion.setSecurityCouncil(newCouncil);
+        forcedInclusion.setSecurityBoard(newBoard);
     }
 
-    function test_NewSecurityCouncilCanPause() public {
-        address newCouncil = makeAddr("newCouncil");
+    function test_NewSecurityBoardCanPause() public {
+        address newBoard = makeAddr("newBoard");
 
         vm.prank(owner);
-        forcedInclusion.setSecurityCouncil(newCouncil);
+        forcedInclusion.setSecurityBoard(newBoard);
 
-        // Old council cannot pause
-        vm.prank(securityCouncil);
-        vm.expectRevert(ForcedInclusion.NotSecurityCouncil.selector);
+        // Old board cannot pause
+        vm.prank(securityBoard);
+        vm.expectRevert(ForcedInclusion.NotSecurityBoard.selector);
         forcedInclusion.pause();
 
-        // New council can pause
-        vm.prank(newCouncil);
+        // New board can pause
+        vm.prank(newBoard);
         forcedInclusion.pause();
         assertTrue(forcedInclusion.paused());
     }
@@ -546,8 +546,8 @@ contract ForcedInclusionTest is Test {
         vm.prank(user);
         forcedInclusion.queueTx{value: 0.01 ether}("data", 100000);
 
-        // 2. Security Council pauses due to emergency
-        vm.prank(securityCouncil);
+        // 2. Security Board pauses due to emergency
+        vm.prank(securityBoard);
         forcedInclusion.pause();
         assertTrue(forcedInclusion.paused());
 

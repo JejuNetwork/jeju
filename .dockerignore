@@ -1,0 +1,38 @@
+# Node modules - installed fresh in container
+node_modules
+**/node_modules
+
+# Git
+.git
+.gitignore
+
+# Build artifacts (keep dist for pre-built packages)
+.next
+.turbo
+.cache
+*.log
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Tests
+coverage
+test-results
+
+# Docs
+docs
+
+# Vendor directories with large files
+vendor
+
+# Temporary files
+tmp
+*.tmp
+
+# Local test ledgers and sockets
+test-ledger
+packages/bridge/test-ledger
+**/*.rpc

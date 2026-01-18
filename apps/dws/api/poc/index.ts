@@ -42,12 +42,12 @@ let verifierInstance: PoCVerifier | null = null
 let monitorInstance: PoCMonitor | null = null
 let metricsInstance: PoCMetrics | null = null
 
-export function initializePoCSystem(): void {
+export async function initializePoCSystem(): Promise<void> {
   if (!process.env.POC_SIGNER_KEY) {
     console.warn('[PoC] POC_SIGNER_KEY not set, PoC verification disabled')
     return
   }
-  verifierInstance = PoCVerifier.fromEnv()
+  verifierInstance = await PoCVerifier.fromEnvAsync()
   monitorInstance = PoCMonitor.fromEnv(verifierInstance)
 
   const metricsPort = Number(process.env.POC_METRICS_PORT) || 9091

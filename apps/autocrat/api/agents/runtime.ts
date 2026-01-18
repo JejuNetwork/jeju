@@ -6,6 +6,7 @@ import {
   type UUID,
 } from '@elizaos/core'
 import { getCurrentNetwork, getDWSComputeUrl } from '@jejunetwork/config'
+import { jejuPlugin } from '@jejunetwork/eliza-plugin'
 import { z } from 'zod'
 import type { DirectorPersona, GovernanceParams } from '../../lib'
 import { autocratPlugin } from './autocrat-plugin'
@@ -100,21 +101,38 @@ interface DirectorPersonaConfig {
   decisionStyle: string
 }
 
-// Legacy type aliases for backwards compatibility
-export type CEODecisionRequest = DirectorDecisionRequest
-export type CEODecision = DirectorDecision
-
 // DWS URL is resolved from network config (handles env overrides)
 function getDWSEndpoint(): string {
   return getDWSComputeUrl()
 }
 
 export async function checkDWSCompute(): Promise<boolean> {
-  const endpoint = getDWSEndpoint()
-  const r = await fetch(`${endpoint}/health`, {
-    signal: AbortSignal.timeout(2000),
-  })
-  return r.ok
+  try {
+    const endpoint = getDWSEndpoint()
+    // First check health - endpoint already includes /compute
+    const healthRes = await fetch(`${endpoint}/health`, {
+      signal: AbortSignal.timeout(2000),
+    })
+    if (!healthRes.ok) return false
+
+    // Then verify inference capability with a minimal test request
+    const testRes = await fetch(`${endpoint}/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'llama-3.1-8b-instant',
+        messages: [{ role: 'user', content: 'test' }],
+        max_tokens: 1,
+      }),
+      signal: AbortSignal.timeout(5000),
+    })
+
+    // 200 = working, 400 = parsing issue but endpoint works
+    // 500 NOT_FOUND = no inference nodes registered
+    return testRes.ok || testRes.status === 400
+  } catch {
+    return false
+  }
 }
 
 export async function dwsGenerate(
@@ -124,7 +142,7 @@ export async function dwsGenerate(
 ): Promise<string> {
   const endpoint = getDWSEndpoint()
   // Use OpenAI-compatible endpoint via DWS compute router
-  const r = await fetch(`${endpoint}/compute/chat/completions`, {
+  const r = await fetch(`${endpoint}/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -264,13 +282,15 @@ export class AutocratAgentRuntimeManager {
 
     this.dwsAvailable = await checkDWSCompute()
     if (!this.dwsAvailable) {
-      throw new Error(
-        'DWS compute is required for Autocrat agents. ' +
-          'Ensure DWS is running: cd apps/dws && bun run dev',
+      console.warn(
+        '[Autocrat] DWS compute/inference not available. ' +
+          'Agent deliberation will fail until inference nodes are running. ' +
+          'Start with: cd apps/crucible && bun run scripts/local-inference-node.ts',
       )
+      // Don't fail initialization - agents can be created but deliberation will fail on-demand
     }
 
-    // Initialize default council agents with character definitions
+    // Initialize default board agents with character definitions
     for (const template of autocratAgentTemplates) {
       const runtime = await this.createRuntime(template)
       this.runtimes.set(template.id, runtime)
@@ -354,9 +374,21 @@ export class AutocratAgentRuntimeManager {
     // Template character is already typed as Character from @elizaos/core (see templates.ts)
     const character: Character = { ...template.character }
 
-    // Plugins are properly typed - autocratPlugin and directorPlugin export Plugin types
-    const plugins: Plugin[] =
-      template.role === 'Director' ? [directorPlugin] : [autocratPlugin]
+    // All agents get full network access via jejuPlugin (compute, storage, DeFi, A2A, etc.)
+    // Plus their specialized governance plugin
+    const specializedPlugin: Plugin =
+      template.role === 'Director' ? directorPlugin : autocratPlugin
+
+    // jejuPlugin provides:
+    // - CALL_AGENT, DISCOVER_AGENTS (A2A communication)
+    // - Compute (rent GPU, inference, triggers)
+    // - Storage (upload, retrieve, pin)
+    // - DeFi (swap, add liquidity)
+    // - Identity (register agent)
+    // - Cross-chain, Launchpad, Moderation, Work, Training
+    // Type assertion needed due to elizaos version misalignment in monorepo deps
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const plugins: Plugin[] = [jejuPlugin, specializedPlugin] as any as Plugin[]
 
     // Create runtime - ElizaOS generates agentId from character.name via stringToUuid
     // This ensures the agentId is always a valid UUID format
@@ -562,13 +594,6 @@ Keep it concise (2-4 sentences) but impactful.`
     decision.personaResponse = personaResponse.trim()
 
     return decision
-  }
-
-  // Legacy method alias
-  async ceoDecision(
-    request: DirectorDecisionRequest,
-  ): Promise<DirectorDecision> {
-    return this.directorDecision(request)
   }
 
   private getDefaultPersona(): DirectorPersona {

@@ -3,11 +3,17 @@ import {
   getCurrentNetwork,
   getLocalhostHost,
   getServicesConfig,
+  type NetworkType,
 } from '@jejunetwork/config'
 
 export const NETWORK_NAME = 'Jeju Network'
 
-const NETWORK = getCurrentNetwork()
+// IMPORTANT: Do NOT call getCurrentNetwork() at module level!
+// In bundled apps, env vars may not be set when the module is first evaluated.
+// Use lazy getter function instead.
+function getNetwork(): NetworkType {
+  return getCurrentNetwork()
+}
 
 // Crucible API runs on the executor port (4021)
 export const CRUCIBLE_PORT = CORE_PORTS.CRUCIBLE_API.DEFAULT
@@ -59,24 +65,100 @@ function getRedirectUri(): string {
   return 'http://localhost:4020/auth/callback'
 }
 
+// Chain IDs for Jeju networks
+const CHAIN_IDS = {
+  localnet: 31337, // Anvil/Foundry default
+  testnet: 420690,
+  mainnet: 420691,
+} as const
+
+/**
+ * Get the OAuth3 TEE agent URL based on environment
+ * In browser on localnet, use the proxy domain to avoid CORS issues
+ */
+function getOAuth3TeeUrl(): string {
+  const services = getServicesConfig()
+  const network = getNetwork()
+
+  // In browser on localnet, use the proxy domain to avoid CORS
+  if (
+    typeof window !== 'undefined' &&
+    network === 'localnet' &&
+    window.location.hostname.endsWith('.local.jejunetwork.org')
+  ) {
+    // Use same port as the current page (proxy handles routing)
+    const port = window.location.port ? `:${window.location.port}` : ''
+    return `http://oauth3.local.jejunetwork.org${port}`
+  }
+
+  return services.oauth3.tee
+}
+
 /**
  * OAuth3 configuration for wallet authentication
+ * Called at runtime to ensure network is detected correctly
  */
 export function getOAuth3Config() {
   const services = getServicesConfig()
+  const network = getNetwork()
 
   return {
-    appId: 'crucible',
+    appId: 'crucible.apps.jeju',
     appName: 'Crucible',
     // Redirect URI for OAuth callbacks
     redirectUri: getRedirectUri(),
-    // OAuth3 TEE agent URL
-    teeAgentUrl: services.oauth3.tee,
+    // OAuth3 TEE agent URL - use proxy URL in browser to avoid CORS
+    teeAgentUrl: getOAuth3TeeUrl(),
+    // RPC URL for on-chain interactions - use network-appropriate URL
+    rpcUrl: services.rpc.l2,
+    // Chain ID for the current network - prevents defaulting to localnet
+    chainId: CHAIN_IDS[network],
     // Enable decentralized discovery via JNS
-    decentralized: NETWORK !== 'localnet',
+    decentralized: network !== 'localnet',
     // Network for chain interactions
-    network: NETWORK,
+    network,
   }
 }
 
-export { NETWORK }
+// Export getter function for network (lazy evaluation)
+export { getNetwork }
+
+/**
+ * Get the IPFS gateway URL based on current environment
+ * In local dev, uses DWS CDN at localhost:4030
+ * In production, uses Jeju-hosted IPFS gateway
+ */
+export function getIpfsGatewayUrl(): string {
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname
+
+    // Local development - use DWS CDN
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname.endsWith('.local.jejunetwork.org')
+    ) {
+      return `http://${getLocalhostHost()}:4030/cdn`
+    }
+
+    // Testnet
+    if (hostname.includes('testnet')) {
+      return 'https://ipfs.testnet.jejunetwork.org'
+    }
+
+    // Mainnet
+    if (hostname.endsWith('.jejunetwork.org')) {
+      return 'https://ipfs.jejunetwork.org'
+    }
+  }
+
+  // Fallback
+  return 'https://ipfs.io'
+}
+
+/**
+ * Get full IPFS URL for a CID
+ */
+export function getIpfsUrl(cid: string): string {
+  return `${getIpfsGatewayUrl()}/ipfs/${cid}`
+}

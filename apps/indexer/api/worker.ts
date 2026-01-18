@@ -1,101 +1,315 @@
 /**
- * Indexer API Worker
+ * Indexer Worker for DWS Deployment
  *
- * Blockchain indexer with GraphQL and REST APIs - workerd-compatible.
- * Proxies to SQLit for data storage and queries.
+ * Provides GraphQL and REST API access to the indexed blockchain data.
+ * Uses SQLit for decentralized, distributed storage.
  *
- * @see https://elysiajs.com/integrations/cloudflare-worker
+ * This worker handles:
+ * - GraphQL queries for registeredAgents, blocks, transactions, accounts
+ * - REST API endpoints for full functionality
+ * - Health checks
  */
 
 import { cors } from '@elysiajs/cors'
-import {
-  getCoreAppUrl,
-  getCurrentNetwork,
-  getLocalhostHost,
-} from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import { z } from 'zod'
+import {
+  type Account,
+  type Block,
+  count,
+  find,
+  findOne,
+  query,
+  type RegisteredAgent,
+  type Transaction,
+} from './db'
 
-/**
- * Worker Environment Types
- */
-export interface IndexerEnv {
-  // Network configuration
-  NETWORK: 'localnet' | 'testnet' | 'mainnet'
-  RPC_URL: string
+// GraphQL request schema
+const GraphQLRequestSchema = z.object({
+  query: z.string().min(1),
+  variables: z.record(z.string(), z.unknown()).optional(),
+  operationName: z.string().optional(),
+})
 
-  // Database
-  SQLIT_NODES: string
-  SQLIT_DATABASE_ID: string
-
-  // KV bindings (optional)
-  INDEXER_CACHE?: KVNamespace
+// Simple GraphQL query parser for common queries
+interface ParsedQuery {
+  type:
+    | 'registeredAgents'
+    | 'blocks'
+    | 'transactions'
+    | 'accounts'
+    | 'account'
+    | 'block'
+    | 'transaction'
+    | 'unknown'
+  args: {
+    limit?: number
+    offset?: number
+    orderBy?: string
+    where?: Record<string, unknown>
+    id?: string
+    address?: string
+    hash?: string
+    number?: number
+  }
+  fields: string[]
 }
 
-interface KVNamespace {
-  get(key: string): Promise<string | null>
-  put(
-    key: string,
-    value: string,
-    options?: { expirationTtl?: number },
-  ): Promise<void>
-  delete(key: string): Promise<void>
+function parseGraphQLQuery(queryStr: string): ParsedQuery {
+  // Normalize whitespace
+  const normalized = queryStr.replace(/\s+/g, ' ').trim()
+
+  // Default result
+  const result: ParsedQuery = {
+    type: 'unknown',
+    args: {},
+    fields: [],
+  }
+
+  // Match registeredAgents query
+  const registeredAgentsMatch = normalized.match(
+    /registeredAgents\s*\(\s*([^)]*)\s*\)\s*\{([^}]+)\}/i,
+  )
+  if (registeredAgentsMatch) {
+    result.type = 'registeredAgents'
+    const argsStr = registeredAgentsMatch[1]
+    const fieldsStr = registeredAgentsMatch[2]
+
+    // Parse limit
+    const limitMatch = argsStr.match(/limit:\s*(\d+)/i)
+    if (limitMatch) result.args.limit = parseInt(limitMatch[1], 10)
+
+    // Parse orderBy
+    const orderByMatch = argsStr.match(/orderBy:\s*(\w+)/i)
+    if (orderByMatch) result.args.orderBy = orderByMatch[1]
+
+    // Parse fields
+    result.fields = fieldsStr
+      .split(/\s+/)
+      .filter((f) => f && !f.includes('{') && !f.includes('}'))
+
+    return result
+  }
+
+  // Match blocks query
+  const blocksMatch = normalized.match(
+    /blocks\s*\(\s*([^)]*)\s*\)\s*\{([^}]+)\}/i,
+  )
+  if (blocksMatch) {
+    result.type = 'blocks'
+    const argsStr = blocksMatch[1]
+    const fieldsStr = blocksMatch[2]
+
+    const limitMatch = argsStr.match(/limit:\s*(\d+)/i)
+    if (limitMatch) result.args.limit = parseInt(limitMatch[1], 10)
+
+    const orderByMatch = argsStr.match(/orderBy:\s*(\w+)/i)
+    if (orderByMatch) result.args.orderBy = orderByMatch[1]
+
+    result.fields = fieldsStr
+      .split(/\s+/)
+      .filter((f) => f && !f.includes('{') && !f.includes('}'))
+
+    return result
+  }
+
+  // Match transactions query
+  const txMatch = normalized.match(
+    /transactions\s*\(\s*([^)]*)\s*\)\s*\{([^}]+)\}/i,
+  )
+  if (txMatch) {
+    result.type = 'transactions'
+    const argsStr = txMatch[1]
+    const fieldsStr = txMatch[2]
+
+    const limitMatch = argsStr.match(/limit:\s*(\d+)/i)
+    if (limitMatch) result.args.limit = parseInt(limitMatch[1], 10)
+
+    result.fields = fieldsStr
+      .split(/\s+/)
+      .filter((f) => f && !f.includes('{') && !f.includes('}'))
+
+    return result
+  }
+
+  // Match accounts query
+  const accountsMatch = normalized.match(
+    /accounts\s*\(\s*([^)]*)\s*\)\s*\{([^}]+)\}/i,
+  )
+  if (accountsMatch) {
+    result.type = 'accounts'
+    const argsStr = accountsMatch[1]
+    const fieldsStr = accountsMatch[2]
+
+    const limitMatch = argsStr.match(/limit:\s*(\d+)/i)
+    if (limitMatch) result.args.limit = parseInt(limitMatch[1], 10)
+
+    result.fields = fieldsStr
+      .split(/\s+/)
+      .filter((f) => f && !f.includes('{') && !f.includes('}'))
+
+    return result
+  }
+
+  // Introspection query
+  if (normalized.includes('__typename') || normalized.includes('__schema')) {
+    result.type = 'unknown'
+    return result
+  }
+
+  return result
 }
 
-/**
- * Create the Indexer Elysia app
- */
-export function createIndexerApp(env?: Partial<IndexerEnv>) {
-  const network = env?.NETWORK ?? getCurrentNetwork()
-  const isDev = network === 'localnet'
+// Execute a parsed GraphQL query against SQLit
+async function executeQuery(parsed: ParsedQuery): Promise<{
+  data: Record<string, unknown> | null
+  errors?: Array<{ message: string }>
+}> {
+  try {
+    switch (parsed.type) {
+      case 'registeredAgents': {
+        const limit = parsed.args.limit ?? 100
+        const agents = await find<RegisteredAgent>('RegisteredAgent', {
+          order: { registeredAt: 'DESC' },
+          take: limit,
+        })
 
-  const app = new Elysia()
-    .use(
-      cors({
-        origin: isDev
-          ? true
-          : [
-              'https://indexer.jejunetwork.org',
-              'https://indexer.testnet.jejunetwork.org',
-              'https://jejunetwork.org',
-              'https://gateway.testnet.jejunetwork.org',
-              'https://gateway.jejunetwork.org',
-              getCoreAppUrl('INDEXER_GRAPHQL'),
-            ],
-        methods: ['GET', 'POST', 'OPTIONS'],
-        allowedHeaders: [
-          'Content-Type',
-          'Authorization',
-          'X-API-Key',
-          'X-Jeju-Address',
-        ],
-        credentials: true,
-      }),
-    )
+        // Map to GraphQL format with owner nested object
+        const mapped = agents.map((agent) => ({
+          id: agent.id,
+          agentId: String(agent.agentId),
+          owner: { address: agent.ownerAddress },
+          name: agent.name,
+          description: agent.description,
+          tags:
+            typeof agent.tags === 'string'
+              ? JSON.parse(agent.tags)
+              : (agent.tags ?? []),
+          tokenURI: agent.metadataUri,
+          stakeToken: 'ETH',
+          stakeAmount: agent.stakeAmount,
+          stakeTier: agent.stakeTier,
+          registeredAt: agent.registeredAt,
+          lastActivityAt: null,
+          active: agent.active,
+          isBanned: agent.isBanned,
+          a2aEndpoint: agent.a2aEndpoint,
+          mcpEndpoint: agent.mcpEndpoint,
+          serviceType: agent.serviceType ?? 'agent',
+          category: agent.category,
+          x402Support: agent.x402Support,
+          mcpTools:
+            typeof agent.mcpTools === 'string'
+              ? JSON.parse(agent.mcpTools)
+              : (agent.mcpTools ?? []),
+          a2aSkills:
+            typeof agent.a2aSkills === 'string'
+              ? JSON.parse(agent.a2aSkills)
+              : (agent.a2aSkills ?? []),
+          image: null,
+        }))
 
-    // Health check
-    .get('/health', () => ({
-      status: 'ok',
-      service: 'indexer-api',
-      version: '2.0.0',
-      network,
-      runtime: 'workerd',
-      endpoints: {
-        graphql: '/graphql',
-        rest: '/api',
-        a2a: '/a2a',
-        mcp: '/mcp',
-      },
-    }))
+        return { data: { registeredAgents: mapped } }
+      }
 
-    // ============================================
-    // GraphQL Endpoint
-    // In workerd mode, GraphQL requires Subsquid which isn't available.
-    // Use REST API endpoints instead, or deploy with full indexer stack.
-    // ============================================
-    .get('/graphql', () => {
-      // Serve embedded GraphiQL playground pointing to this endpoint
-      const playgroundHtml = `<!DOCTYPE html>
+      case 'blocks': {
+        const limit = parsed.args.limit ?? 10
+        const blocks = await find<Block>('Block', {
+          order: { number: 'DESC' },
+          take: limit,
+        })
+        return { data: { blocks } }
+      }
+
+      case 'transactions': {
+        const limit = parsed.args.limit ?? 10
+        const txs = await find<Transaction>('Transaction', {
+          order: { blockNumber: 'DESC' },
+          take: limit,
+        })
+        return { data: { transactions: txs } }
+      }
+
+      case 'accounts': {
+        const limit = parsed.args.limit ?? 10
+        const accounts = await find<Account>('Account', {
+          order: { lastSeenAt: 'DESC' },
+          take: limit,
+        })
+        return { data: { accounts } }
+      }
+
+      case 'unknown':
+        // Return empty for introspection queries
+        if (parsed.fields.includes('__typename')) {
+          return { data: { __typename: 'Query' } }
+        }
+        return {
+          data: null,
+          errors: [
+            {
+              message:
+                'Unsupported query. Supported: registeredAgents, blocks, transactions, accounts. Use REST API at /api/* for full functionality.',
+            },
+          ],
+        }
+
+      default:
+        return {
+          data: null,
+          errors: [{ message: `Unknown query type: ${parsed.type}` }],
+        }
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    return {
+      data: null,
+      errors: [
+        {
+          message: `Database error: ${message}. The indexer database may not be available in this worker environment.`,
+        },
+      ],
+    }
+  }
+}
+
+// Create the Elysia app
+const app = new Elysia()
+  .use(
+    cors({
+      origin: [
+        'https://gateway.testnet.jejunetwork.org',
+        'https://gateway.jejunetwork.org',
+        'https://dws.testnet.jejunetwork.org',
+        'https://dws.jejunetwork.org',
+      ],
+      credentials: true,
+      methods: ['GET', 'POST', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
+    }),
+  )
+  // Health check
+  .get('/health', () => ({
+    status: 'ok',
+    service: 'indexer-worker',
+    timestamp: new Date().toISOString(),
+  }))
+  // Root
+  .get('/', () => ({
+    name: 'Indexer API',
+    version: '1.0.0',
+    endpoints: {
+      health: '/health',
+      graphql: '/graphql',
+      stats: '/stats',
+      agents: '/agents',
+      blocks: '/blocks',
+      transactions: '/transactions',
+    },
+  }))
+  // GraphQL playground (GET)
+  .get('/graphql', () => {
+    const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -105,20 +319,19 @@ export function createIndexerApp(env?: Partial<IndexerEnv>) {
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/graphiql@3/graphiql.min.js" crossorigin></script>
   <link href="https://unpkg.com/graphiql@3/graphiql.min.css" rel="stylesheet" />
-  <style>
-    body { margin: 0; height: 100vh; }
-    #graphiql { height: 100vh; }
-  </style>
+  <style>body { margin: 0; height: 100vh; } #graphiql { height: 100vh; }</style>
 </head>
 <body>
   <div id="graphiql"></div>
   <script>
     const fetcher = GraphiQL.createFetcher({ url: '/graphql' });
     const defaultQuery = \`query {
-  blocks(limit: 5, orderBy: number_DESC) {
-    number
-    hash
-    timestamp
+  registeredAgents(limit: 10, orderBy: registeredAt_DESC) {
+    agentId
+    name
+    description
+    owner { address }
+    active
   }
 }\`;
     ReactDOM.createRoot(document.getElementById('graphiql')).render(
@@ -127,226 +340,160 @@ export function createIndexerApp(env?: Partial<IndexerEnv>) {
   </script>
 </body>
 </html>`
-      return new Response(playgroundHtml, {
-        headers: { 'Content-Type': 'text/html' },
-      })
-    })
-    .get('/playground', () => {
-      return Response.redirect('/graphql', 302)
-    })
-    .post('/graphql', async ({ body }) => {
-      const parsed = z
-        .object({
-          query: z.string(),
-          variables: z.record(z.string(), z.unknown()).optional(),
-          operationName: z.string().optional(),
-        })
-        .safeParse(body)
-
-      if (!parsed.success) {
-        return { errors: [{ message: 'Invalid GraphQL request' }] }
-      }
-
-      // In workerd/DWS deployment, Subsquid GraphQL server is not available
-      // GraphQL queries should be routed to the full indexer deployment
-      // For now, return a helpful error directing to REST API
-      return {
-        data: null,
-        errors: [
-          {
-            message:
-              'GraphQL not available in workerd mode. Use REST API at /api/* or deploy full indexer stack.',
-            extensions: {
-              code: 'GRAPHQL_UNAVAILABLE',
-              restApiEndpoint: '/api',
-              fullIndexerUrl: 'https://indexer.testnet.jejunetwork.org/graphql',
-            },
-          },
-        ],
-      }
-    })
-
-    // ============================================
-    // REST API Routes
-    // ============================================
-    .group('/api', (api) =>
-      api
-        .get('/health', () => ({ status: 'ok' }))
-
-        // Blocks
-        .get('/blocks', () => ({ blocks: [], total: 0 }))
-        .get('/blocks/latest', () => ({ block: null }))
-        .get('/blocks/:blockNumber', ({ params }) => ({
-          blockNumber: params.blockNumber,
-          block: null,
-        }))
-
-        // Transactions
-        .get('/transactions', () => ({ transactions: [], total: 0 }))
-        .get('/transactions/:hash', ({ params }) => ({
-          hash: params.hash,
-          transaction: null,
-        }))
-
-        // Addresses
-        .get('/addresses/:address', ({ params }) => ({
-          address: params.address,
-          balance: '0',
-          transactions: [],
-        }))
-        .get('/addresses/:address/transactions', ({ params }) => ({
-          address: params.address,
-          transactions: [],
-        }))
-
-        // Tokens
-        .get('/tokens', () => ({ tokens: [], total: 0 }))
-        .get('/tokens/:address', ({ params }) => ({
-          address: params.address,
-          token: null,
-        }))
-
-        // Events
-        .get('/events', () => ({ events: [], total: 0 }))
-        .get('/events/:contractAddress', ({ params }) => ({
-          contractAddress: params.contractAddress,
-          events: [],
-        }))
-
-        // Stats
-        .get('/stats', () => ({
-          totalBlocks: 0,
-          totalTransactions: 0,
-          totalAddresses: 0,
-          lastBlockTime: null,
-        }))
-        .get('/stats/tps', () => ({
-          currentTPS: 0,
-          avgTPS: 0,
-          maxTPS: 0,
-        })),
-    )
-
-    // ============================================
-    // A2A Protocol
-    // ============================================
-    .group('/a2a', (a2a) =>
-      a2a
-        .get('/', () => ({
-          name: 'Indexer',
-          description: 'Blockchain Indexer with GraphQL API',
-          version: '2.0.0',
-          protocol: 'a2a',
-          capabilities: ['query', 'subscribe', 'historical-data'],
-        }))
-        .post('/invoke', async ({ body }) => {
-          const parsed = z
-            .object({
-              skill: z.string(),
-              params: z.record(z.string(), z.unknown()).optional(),
-            })
-            .safeParse(body)
-
-          if (!parsed.success) {
-            return {
-              error: 'Invalid A2A request',
-              details: parsed.error.issues,
-            }
-          }
-
-          return { skill: parsed.data.skill, result: 'Query executed' }
-        }),
-    )
-
-    // ============================================
-    // MCP Protocol
-    // ============================================
-    .group('/mcp', (mcp) =>
-      mcp
-        .get('/', () => ({
-          name: 'Indexer MCP Server',
-          version: '1.0.0',
-          tools: [
-            {
-              name: 'indexer_query_blocks',
-              description: 'Query recent blocks',
-              parameters: {
-                type: 'object',
-                properties: {
-                  limit: { type: 'number', default: 10 },
-                  offset: { type: 'number', default: 0 },
-                },
-              },
-            },
-            {
-              name: 'indexer_query_transactions',
-              description: 'Query transactions',
-              parameters: {
-                type: 'object',
-                properties: {
-                  address: { type: 'string' },
-                  limit: { type: 'number', default: 10 },
-                },
-              },
-            },
-            {
-              name: 'indexer_graphql',
-              description: 'Execute GraphQL query',
-              parameters: {
-                type: 'object',
-                properties: {
-                  query: { type: 'string' },
-                  variables: { type: 'object' },
-                },
-                required: ['query'],
-              },
-            },
-          ],
-        }))
-        .post('/invoke', async ({ body }) => {
-          const parsed = z
-            .object({
-              tool: z.string(),
-              arguments: z.record(z.string(), z.unknown()),
-            })
-            .safeParse(body)
-
-          if (!parsed.success) {
-            return {
-              error: 'Invalid MCP request',
-              details: parsed.error.issues,
-            }
-          }
-
-          return { tool: parsed.data.tool, result: 'Tool executed' }
-        }),
-    )
-
-  return app
-}
-
-/**
- * Default export for workerd
- */
-const app = createIndexerApp()
-
-export default {
-  fetch: app.fetch,
-}
-
-/**
- * Bun server entry point (for local development)
- */
-if (typeof Bun !== 'undefined') {
-  const port = process.env.PORT ?? process.env.INDEXER_PORT ?? 4352
-  const host = getLocalhostHost()
-
-  console.log(`[Indexer Worker] Starting on http://${host}:${port}`)
-  console.log(`[Indexer Worker] Network: ${getCurrentNetwork()}`)
-
-  Bun.serve({
-    port: Number(port),
-    hostname: host,
-    fetch: app.fetch,
+    return new Response(html, { headers: { 'Content-Type': 'text/html' } })
   })
+  // GraphQL endpoint (POST)
+  .post('/graphql', async ({ body, set }) => {
+    const parsed = GraphQLRequestSchema.safeParse(body)
+
+    if (!parsed.success) {
+      set.status = 400
+      return {
+        errors: [{ message: `Invalid request: ${parsed.error.message}` }],
+      }
+    }
+
+    const queryAst = parseGraphQLQuery(parsed.data.query)
+    return await executeQuery(queryAst)
+  })
+  // REST: Stats endpoint for frontend
+  .get('/stats', async () => {
+    // Return basic stats - database may not be available in worker
+    // TODO: Connect to SQLit when available in worker environment
+    return {
+      totalBlocks: 0,
+      totalTransactions: 0,
+      totalAccounts: 0,
+      totalContracts: 0,
+      totalTokenTransfers: 0,
+      totalAgents: 0,
+      latestBlockNumber: 0,
+      latestBlockTimestamp: new Date().toISOString(),
+      status: 'worker-mode',
+    }
+  })
+  // REST: List agents
+  .get('/agents', async ({ query: queryParams, set }) => {
+    try {
+      const limit = queryParams.limit
+        ? parseInt(queryParams.limit as string, 10)
+        : 100
+      const offset = queryParams.offset
+        ? parseInt(queryParams.offset as string, 10)
+        : 0
+
+      const agents = await find<RegisteredAgent>('RegisteredAgent', {
+        order: { registeredAt: 'DESC' },
+        take: limit,
+        skip: offset,
+      })
+      const total = await count('RegisteredAgent')
+
+      // Map to frontend-friendly format
+      const mapped = agents.map((agent) => ({
+        agentId: String(agent.agentId),
+        name: agent.name,
+        description: agent.description,
+        owner: agent.ownerAddress,
+        tags:
+          typeof agent.tags === 'string'
+            ? JSON.parse(agent.tags)
+            : (agent.tags ?? []),
+        stakeAmount: agent.stakeAmount,
+        stakeTier: agent.stakeTier,
+        registeredAt: agent.registeredAt,
+        active: agent.active,
+        a2aEndpoint: agent.a2aEndpoint,
+        mcpEndpoint: agent.mcpEndpoint,
+        serviceType: agent.serviceType ?? 'agent',
+        category: agent.category,
+        x402Support: agent.x402Support,
+      }))
+
+      return { agents: mapped, total, limit, offset }
+    } catch (error) {
+      set.status = 503
+      const message = error instanceof Error ? error.message : String(error)
+      return { error: `Database unavailable: ${message}`, agents: [], total: 0 }
+    }
+  })
+  // REST: Get agent by ID
+  .get('/agents/:id', async ({ params, set }) => {
+    try {
+      const agent = await findOne<RegisteredAgent>('RegisteredAgent', params.id)
+      if (!agent) {
+        set.status = 404
+        return { error: 'Agent not found' }
+      }
+      return agent
+    } catch (error) {
+      set.status = 503
+      const message = error instanceof Error ? error.message : String(error)
+      return { error: `Database unavailable: ${message}` }
+    }
+  })
+  // REST: List blocks
+  .get('/blocks', async ({ query: queryParams, set }) => {
+    try {
+      const limit = queryParams.limit
+        ? parseInt(queryParams.limit as string, 10)
+        : 10
+      const blocks = await find<Block>('Block', {
+        order: { number: 'DESC' },
+        take: limit,
+      })
+      return { blocks }
+    } catch (error) {
+      set.status = 503
+      const message = error instanceof Error ? error.message : String(error)
+      return { error: `Database unavailable: ${message}`, blocks: [] }
+    }
+  })
+  // REST: List transactions
+  .get('/transactions', async ({ query: queryParams, set }) => {
+    try {
+      const limit = queryParams.limit
+        ? parseInt(queryParams.limit as string, 10)
+        : 10
+      const txs = await find<Transaction>('Transaction', {
+        order: { blockNumber: 'DESC' },
+        take: limit,
+      })
+      return { transactions: txs }
+    } catch (error) {
+      set.status = 503
+      const message = error instanceof Error ? error.message : String(error)
+      return { error: `Database unavailable: ${message}`, transactions: [] }
+    }
+  })
+  // REST: Search
+  .get('/search', async ({ query: queryParams, set }) => {
+    try {
+      const q = (queryParams.q as string) || ''
+      const limit = queryParams.limit
+        ? parseInt(queryParams.limit as string, 10)
+        : 20
+
+      // Search agents by name
+      const result = await query<RegisteredAgent>(
+        `SELECT * FROM registered_agent WHERE name LIKE ? ORDER BY registered_at DESC LIMIT ?`,
+        [`%${q}%`, limit],
+      )
+
+      return { results: result.rows, query: q }
+    } catch (error) {
+      set.status = 503
+      const message = error instanceof Error ? error.message : String(error)
+      return { error: `Database unavailable: ${message}`, results: [] }
+    }
+  })
+
+// Export the fetch handler for DWS worker runtime
+export default {
+  async fetch(request: Request): Promise<Response> {
+    return app.handle(request)
+  },
 }
+
+// Also export the app for direct usage
+export { app }

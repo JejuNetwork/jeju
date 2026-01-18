@@ -125,8 +125,8 @@ describe('Agent Runtime', () => {
     }, 60000)
   })
 
-  describe('CEO Decision', () => {
-    test('should make CEO decision', async () => {
+  describe('Director Decision', () => {
+    test('should make Director decision', async () => {
       if (!dwsComputeWorking) {
         console.log('⏭️  Skipping: DWS compute not working')
         return
@@ -162,7 +162,7 @@ describe('Agent Runtime', () => {
         ],
       }
 
-      const decision = await autocratAgentRuntime.ceoDecision(request)
+      const decision = await autocratAgentRuntime.directorDecision(request)
 
       expect(decision).toBeDefined()
       expect(typeof decision.approved).toBe('boolean')
@@ -172,7 +172,7 @@ describe('Agent Runtime', () => {
       expect(typeof decision.personaResponse).toBe('string')
 
       console.log(
-        `[Test] CEO decision: ${decision.approved ? 'APPROVED' : 'REJECTED'} (${decision.confidence}%)`,
+        `[Test] Director decision: ${decision.approved ? 'APPROVED' : 'REJECTED'} (${decision.confidence}%)`,
       )
     }, 60000)
   })
@@ -186,9 +186,9 @@ describe('Agent Runtime', () => {
 
       const daoId = 'test-dao-001'
       const persona = {
-        name: 'Test CEO',
+        name: 'Test Director',
         pfpCid: '',
-        description: 'A test CEO for unit testing',
+        description: 'A test Director for unit testing',
         personality: 'Analytical and fair',
         traits: ['decisive', 'fair'],
         voiceStyle: 'Professional',
@@ -201,9 +201,9 @@ describe('Agent Runtime', () => {
       const registeredDAOs = autocratAgentRuntime.getRegisteredDAOs()
       expect(registeredDAOs).toContain(daoId)
 
-      const ceoPersona = autocratAgentRuntime.getCEOPersona(daoId)
-      expect(ceoPersona).toBeDefined()
-      expect(ceoPersona?.persona.name).toBe('Test CEO')
+      const directorPersona = autocratAgentRuntime.getDirectorPersona(daoId)
+      expect(directorPersona).toBeDefined()
+      expect(directorPersona?.persona.name).toBe('Test Director')
     })
 
     test('should get DAO-specific runtime', async () => {

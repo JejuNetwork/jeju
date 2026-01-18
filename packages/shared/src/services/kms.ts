@@ -4,7 +4,7 @@
  * Provides encryption/decryption via the network KMS with MPC.
  */
 
-import { getKmsEndpoint, isProductionEnv } from '@jejunetwork/config'
+import { getKmsEndpoint } from '@jejunetwork/config'
 import { expectValid } from '@jejunetwork/types'
 import { type Address, hashMessage, recoverAddress } from 'viem'
 import { z } from 'zod'
@@ -48,13 +48,10 @@ export interface EncryptionPolicy {
 class KMSServiceImpl implements KMSServiceClient {
   private endpoint: string
   private available = true
-  private isProduction: boolean
 
   constructor(config: KMSConfig) {
     const validated = KMSConfigSchema.parse(config)
     this.endpoint = validated.endpoint
-    // Determine if we're in production - insecure fallbacks are disabled in production
-    this.isProduction = isProductionEnv()
   }
 
   async encrypt(
@@ -67,26 +64,10 @@ class KMSServiceImpl implements KMSServiceClient {
       if (result) return result
     }
 
-    // SECURITY: In production, never use insecure fallback
-    if (this.isProduction) {
-      throw new Error(
-        'KMS encryption failed and insecure fallback is disabled in production',
-      )
-    }
-
-    // Development-only fallback to local base64 encoding
-    // WARNING: This is NOT encryption - only use for development
-    console.warn(
-      '[KMS] SECURITY WARNING: Using insecure local encoding fallback (development only)',
-    )
-    return `local:${Buffer.from(data).toString('base64')}`
+    throw new Error('KMS encryption failed')
   }
 
   async decrypt(encryptedData: string, owner: Address): Promise<string> {
-    if (encryptedData.startsWith('local:')) {
-      return Buffer.from(encryptedData.slice(6), 'base64').toString()
-    }
-
     if (this.available) {
       const result = await this.remoteDecrypt(encryptedData, owner)
       if (result) return result

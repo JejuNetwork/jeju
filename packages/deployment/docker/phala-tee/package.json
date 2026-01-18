@@ -1,0 +1,16 @@
+{
+  "name": "@jejunetwork/phala-tee-base",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "bun build src/health-service.ts --outdir=dist --target=bun",
+    "start": "bun run dist/health-service.js",
+    "dev": "bun run src/health-service.ts"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/bun": "^1.1.0",
+    "typescript": "^5.4.0"
+  }
+}

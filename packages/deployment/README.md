@@ -19,6 +19,7 @@ packages/deployment/
 ├── docker/              # Docker images
 │   ├── sqlit/    # SQLit multi-arch image
 │   └── ipfs/           # IPFS node configuration
+│   └── phala-tee/       # Phala Cloud TEE images (base + eliza)
 ├── kubernetes/          # Kubernetes deployment
 │   ├── helm/           # Helm charts for each service
 │   └── helmfile/       # Environment-specific values
@@ -268,8 +269,8 @@ Available charts in `kubernetes/helm/`:
    ```
 
 4. **Add to ECR/Artifact Registry:**
-   - AWS: Add to `terraform/modules/ecr/main.tf`
-   - GCP: Add to `terraform/modules/gcp-artifact-registry/main.tf`
+   - AWS: Add to `terraform/modules/aws/ecr/main.tf`
+   - GCP: Add to `terraform/modules/gcp/artifact-registry/main.tf`
 
 ## CI/CD Integration
 

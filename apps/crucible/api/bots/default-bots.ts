@@ -1,7 +1,10 @@
-import { getExternalRpc, getRpcUrl } from '@jejunetwork/config'
 import type { Address } from 'viem'
 import type { TradingBotChain, TradingBotStrategy } from '../../lib/types'
+import type { TradingBotOptions } from './trading-bot'
 
+/**
+ * Configuration for a default trading bot.
+ */
 export interface DefaultBotConfig {
   name: string
   description: string
@@ -10,216 +13,167 @@ export interface DefaultBotConfig {
   initialFunding: string
 }
 
-export interface TradingBotOptions {
-  agentId: bigint
-  name: string
-  strategies: TradingBotStrategy[]
-  chains: TradingBotChain[]
-  treasuryAddress?: Address
-  maxConcurrentExecutions: number
-  useFlashbots: boolean
-  contractAddresses?: Record<string, Address>
-}
-
-// Default chain configurations - uses centralized config
+/**
+ * Default chain configurations for various networks.
+ */
 export const DEFAULT_CHAINS: Record<string, TradingBotChain> = {
   mainnet: {
     chainId: 1,
     name: 'Ethereum',
-    rpcUrl: getExternalRpc('ethereum'),
+    rpcUrl: 'https://eth.llamarpc.com',
     blockTime: 12000,
     isL2: false,
     nativeSymbol: 'ETH',
-    explorerUrl: 'https://etherscan.io',
   },
   arbitrum: {
     chainId: 42161,
-    name: 'Arbitrum One',
-    rpcUrl: getExternalRpc('arbitrum'),
+    name: 'Arbitrum',
+    rpcUrl: 'https://arb1.arbitrum.io/rpc',
     blockTime: 250,
     isL2: true,
     nativeSymbol: 'ETH',
-    explorerUrl: 'https://arbiscan.io',
   },
   optimism: {
     chainId: 10,
     name: 'Optimism',
-    rpcUrl: getExternalRpc('optimism'),
+    rpcUrl: 'https://mainnet.optimism.io',
     blockTime: 2000,
     isL2: true,
     nativeSymbol: 'ETH',
-    explorerUrl: 'https://optimistic.etherscan.io',
   },
   base: {
     chainId: 8453,
     name: 'Base',
-    rpcUrl: getExternalRpc('base'),
+    rpcUrl: 'https://mainnet.base.org',
     blockTime: 2000,
     isL2: true,
     nativeSymbol: 'ETH',
-    explorerUrl: 'https://basescan.org',
   },
   bsc: {
     chainId: 56,
-    name: 'BNB Smart Chain',
-    rpcUrl: getExternalRpc('bsc'),
+    name: 'BNB Chain',
+    rpcUrl: 'https://bsc-dataseed.binance.org',
     blockTime: 3000,
     isL2: false,
     nativeSymbol: 'BNB',
-    explorerUrl: 'https://bscscan.com',
   },
   jeju: {
     chainId: 420691,
-    name: 'Network',
-    rpcUrl: getRpcUrl('mainnet'),
-    blockTime: 200,
+    name: 'Jeju Network',
+    rpcUrl: 'https://rpc.jejunetwork.org',
+    blockTime: 2000,
     isL2: true,
-    nativeSymbol: 'ETH',
-    explorerUrl: 'https://explorer.jejunetwork.org',
+    nativeSymbol: 'JEJU',
   },
   jejuTestnet: {
     chainId: 420690,
-    name: 'Testnet',
-    rpcUrl: getRpcUrl('testnet'),
-    blockTime: 200,
-    isL2: true,
-    nativeSymbol: 'ETH',
-    explorerUrl: 'https://testnet-explorer.jejunetwork.org',
-  },
-  sepolia: {
-    chainId: 11155111,
-    name: 'Sepolia',
-    rpcUrl: getExternalRpc('sepolia'),
-    blockTime: 12000,
-    isL2: false,
-    nativeSymbol: 'ETH',
-    explorerUrl: 'https://sepolia.etherscan.io',
-  },
-  baseSepolia: {
-    chainId: 84532,
-    name: 'Base Sepolia',
-    rpcUrl: getExternalRpc('baseSepolia'),
+    name: 'Jeju Testnet',
+    rpcUrl: 'https://rpc.testnet.jejunetwork.org',
     blockTime: 2000,
     isL2: true,
-    nativeSymbol: 'ETH',
-    explorerUrl: 'https://sepolia.basescan.org',
-  },
-  arbitrumSepolia: {
-    chainId: 421614,
-    name: 'Arbitrum Sepolia',
-    rpcUrl: getExternalRpc('arbitrumSepolia'),
-    blockTime: 250,
-    isL2: true,
-    nativeSymbol: 'ETH',
-    explorerUrl: 'https://sepolia.arbiscan.io',
-  },
-  localnet: {
-    chainId: 31337,
-    name: 'Localnet',
-    rpcUrl: getRpcUrl('localnet'),
-    blockTime: 1000,
-    isL2: false,
-    nativeSymbol: 'ETH',
+    nativeSymbol: 'JEJU',
   },
 }
 
-// Default bot configurations
+/**
+ * Default bot configurations for various trading strategies.
+ */
 export const DEFAULT_BOTS: DefaultBotConfig[] = [
   {
     name: 'DEX Arbitrage Bot',
-    description:
-      'Detects and executes DEX arbitrage opportunities across pools',
+    description: 'Arbitrage opportunities across DEXes',
     strategies: [
       {
         type: 'DEX_ARBITRAGE',
         enabled: true,
-        minProfitBps: 10,
+        minProfitBps: 50,
         maxGasGwei: 100,
-        maxSlippageBps: 50,
+        maxSlippageBps: 100,
       },
     ],
     chains: [1, 42161, 10, 8453, 56, 420691],
-    initialFunding: '0.1',
+    initialFunding: '1.0',
   },
   {
     name: 'Sandwich Bot',
-    description: 'Executes sandwich attacks on pending transactions',
+    description: 'MEV sandwich attacks',
     strategies: [
       {
         type: 'SANDWICH',
         enabled: true,
-        minProfitBps: 50,
+        minProfitBps: 100,
         maxGasGwei: 200,
-        maxSlippageBps: 100,
+        maxSlippageBps: 50,
       },
     ],
     chains: [1, 42161, 10, 8453],
-    initialFunding: '0.2',
+    initialFunding: '2.0',
   },
   {
     name: 'Cross-Chain Arbitrage Bot',
-    description: 'Arbitrages price differences across chains',
+    description: 'Arbitrage across different chains',
     strategies: [
       {
         type: 'CROSS_CHAIN_ARBITRAGE',
         enabled: true,
-        minProfitBps: 50,
-        maxGasGwei: 100,
-        maxSlippageBps: 100,
+        minProfitBps: 200,
+        maxGasGwei: 150,
+        maxSlippageBps: 150,
       },
     ],
-    chains: [1, 42161, 10, 8453, 56, 420691],
-    initialFunding: '0.5',
+    chains: [1, 42161, 10, 8453, 56],
+    initialFunding: '5.0',
   },
   {
     name: 'Liquidation Bot',
-    description: 'Liquidates undercollateralized positions',
+    description: 'Liquidation opportunities',
     strategies: [
       {
         type: 'LIQUIDATION',
         enabled: true,
-        minProfitBps: 100,
-        maxGasGwei: 150,
-        maxSlippageBps: 50,
+        minProfitBps: 300,
+        maxGasGwei: 300,
+        maxSlippageBps: 200,
       },
     ],
     chains: [420691, 420690],
-    initialFunding: '0.3',
+    initialFunding: '10.0',
   },
   {
     name: 'Oracle Keeper Bot',
-    description: 'Keeps price oracles updated',
+    description: 'Oracle price updates',
     strategies: [
       {
         type: 'ORACLE_KEEPER',
         enabled: true,
         minProfitBps: 0,
         maxGasGwei: 50,
-        maxSlippageBps: 10,
+        maxSlippageBps: 0,
       },
     ],
-    chains: [1, 42161, 10, 8453, 56, 420691],
-    initialFunding: '0.1',
+    chains: [1, 42161, 10, 8453, 420691],
+    initialFunding: '0.5',
   },
   {
-    name: 'OIF Solver Bot',
-    description: 'Solves Open Intents Framework intents',
+    name: 'Solver Bot',
+    description: 'Batch auction solving',
     strategies: [
       {
         type: 'SOLVER',
         enabled: true,
-        minProfitBps: 20,
+        minProfitBps: 25,
         maxGasGwei: 100,
         maxSlippageBps: 50,
       },
     ],
-    chains: [1, 42161, 10, 8453, 420691],
-    initialFunding: '0.2',
+    chains: [1, 42161, 10, 8453],
+    initialFunding: '3.0',
   },
 ]
 
-const TESTNET_CHAINS = new Set([420690, 11155111, 84532, 421614])
-
+/**
+ * Get default bots filtered and configured for a specific network.
+ */
 export function getDefaultBotsForNetwork(
   network: 'localnet' | 'testnet' | 'mainnet',
 ): DefaultBotConfig[] {
@@ -232,50 +186,46 @@ export function getDefaultBotsForNetwork(
   }
 
   if (network === 'testnet') {
+    const testnetChains = [420690, 11155111, 84532, 421614]
     return DEFAULT_BOTS.map((bot) => ({
       ...bot,
-      chains: bot.chains.filter((c) => TESTNET_CHAINS.has(c)),
-      initialFunding: (parseFloat(bot.initialFunding) * 0.1).toString(),
+      chains: bot.chains.filter((chainId) => testnetChains.includes(chainId)),
+      initialFunding: String(
+        Math.max(0.01, parseFloat(bot.initialFunding) * 0.1),
+      ),
     }))
   }
 
   return DEFAULT_BOTS
 }
 
-const CHAIN_ID_TO_KEY: Record<number, keyof typeof DEFAULT_CHAINS> = {
-  1: 'mainnet',
-  42161: 'arbitrum',
-  10: 'optimism',
-  8453: 'base',
-  56: 'bsc',
-  420691: 'jeju',
-  420690: 'jejuTestnet',
-  11155111: 'sepolia',
-  84532: 'baseSepolia',
-  421614: 'arbitrumSepolia',
-  31337: 'localnet',
-}
-
+/**
+ * Create trading bot options from a default bot configuration.
+ */
 export function createTradingBotOptions(
   config: DefaultBotConfig,
   agentId: bigint,
   network: 'localnet' | 'testnet' | 'mainnet',
   treasuryAddress?: Address,
 ): TradingBotOptions {
-  const chains = config.chains
-    .map((chainId) => {
-      const key = CHAIN_ID_TO_KEY[chainId]
-      return key ? DEFAULT_CHAINS[key] : undefined
-    })
-    .filter((c): c is TradingBotChain => c !== undefined)
+  const chains: TradingBotChain[] = []
+  for (const chainId of config.chains) {
+    const chainConfig = Object.values(DEFAULT_CHAINS).find(
+      (c) => c.chainId === chainId,
+    )
+    if (chainConfig) {
+      chains.push(chainConfig)
+    }
+  }
 
   return {
     agentId,
     name: config.name,
     strategies: config.strategies,
     chains,
-    treasuryAddress,
     maxConcurrentExecutions: 5,
+    // Enable Flashbots in non-local environments
     useFlashbots: network !== 'localnet',
+    treasuryAddress,
   }
 }

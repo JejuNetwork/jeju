@@ -7,14 +7,14 @@ import "../../src/distributor/FeeConfig.sol";
 contract FeeConfigTest is Test {
     FeeConfig public feeConfig;
 
-    address council = makeAddr("council");
-    address ceo = makeAddr("ceo");
+    address board = makeAddr("board");
+    address director = makeAddr("director");
     address treasury = makeAddr("treasury");
     address owner = makeAddr("owner");
 
     function setUp() public {
         vm.startPrank(owner);
-        feeConfig = new FeeConfig(council, ceo, treasury, owner);
+        feeConfig = new FeeConfig(board, director, treasury, owner);
         vm.stopPrank();
     }
 
@@ -95,10 +95,10 @@ contract FeeConfigTest is Test {
 
     // ============ Governance Proposal Flow ============
 
-    function test_ProposeFeeChange_Council() public {
+    function test_ProposeFeeChange_Board() public {
         bytes memory newValues = abi.encode(uint16(600), uint16(400), uint16(300));
 
-        vm.prank(council);
+        vm.prank(board);
         bytes32 changeId = feeConfig.proposeFeeChange(keccak256("compute"), newValues);
 
         assertTrue(changeId != bytes32(0));
@@ -108,7 +108,7 @@ contract FeeConfigTest is Test {
         assertEq(effectiveAt, proposedAt + 3 days);
     }
 
-    function test_ProposeFeeChange_NotCouncil() public {
+    function test_ProposeFeeChange_NotBoard() public {
         bytes memory newValues = abi.encode(uint16(600), uint16(400), uint16(300));
 
         address random = makeAddr("random");
@@ -121,14 +121,14 @@ contract FeeConfigTest is Test {
         // Propose a fee increase
         bytes memory newValues = abi.encode(uint16(600), uint16(400), uint16(300));
 
-        vm.prank(council);
+        vm.prank(board);
         bytes32 changeId = feeConfig.proposeFeeChange(keccak256("compute"), newValues);
 
         // Get the effective time for expectRevert
         (,,, uint256 effectiveAt,,) = feeConfig.pendingChanges(changeId);
 
         // Try to execute immediately - should fail with TimelockNotExpired
-        vm.prank(ceo);
+        vm.prank(director);
         vm.expectRevert(abi.encodeWithSelector(FeeConfig.TimelockNotExpired.selector, effectiveAt, block.timestamp));
         feeConfig.executeFeeChange(changeId);
 
@@ -136,7 +136,7 @@ contract FeeConfigTest is Test {
         vm.warp(block.timestamp + 3 days + 1);
 
         // Execute should succeed
-        vm.prank(ceo);
+        vm.prank(director);
         feeConfig.executeFeeChange(changeId);
 
         // Verify fees changed
@@ -152,7 +152,7 @@ contract FeeConfigTest is Test {
         // Propose a fee decrease
         bytes memory newValues = abi.encode(uint16(400), uint16(300), uint16(200));
 
-        vm.prank(council);
+        vm.prank(board);
         bytes32 changeId = feeConfig.proposeFeeChange(keccak256("compute"), newValues);
 
         // Decreases should have immediate effectiveAt
@@ -160,7 +160,7 @@ contract FeeConfigTest is Test {
         assertEq(effectiveAt, block.timestamp); // Instant
 
         // Execute immediately
-        vm.prank(ceo);
+        vm.prank(director);
         feeConfig.executeFeeChange(changeId);
 
         // Verify fees changed
@@ -171,16 +171,16 @@ contract FeeConfigTest is Test {
     function test_CancelFeeChange() public {
         bytes memory newValues = abi.encode(uint16(600), uint16(400), uint16(300));
 
-        vm.prank(council);
+        vm.prank(board);
         bytes32 changeId = feeConfig.proposeFeeChange(keccak256("compute"), newValues);
 
-        // Cancel by council
-        vm.prank(council);
+        // Cancel by board
+        vm.prank(board);
         feeConfig.cancelFeeChange(changeId);
 
         // Try to execute - should fail because it's marked as executed
         vm.warp(block.timestamp + 3 days + 1);
-        vm.prank(ceo);
+        vm.prank(director);
         vm.expectRevert(FeeConfig.AlreadyExecuted.selector);
         feeConfig.executeFeeChange(changeId);
     }
@@ -221,18 +221,18 @@ contract FeeConfigTest is Test {
 
     // ============ Admin Functions ============
 
-    function test_SetCouncil() public {
-        address newCouncil = makeAddr("newCouncil");
+    function test_SetBoard() public {
+        address newBoard = makeAddr("newBoard");
         vm.prank(owner);
-        feeConfig.setCouncil(newCouncil);
-        assertEq(feeConfig.council(), newCouncil);
+        feeConfig.setBoard(newBoard);
+        assertEq(feeConfig.board(), newBoard);
     }
 
-    function test_SetCEO() public {
-        address newCeo = makeAddr("newCeo");
+    function test_SetDirector() public {
+        address newDirector = makeAddr("newDirector");
         vm.prank(owner);
-        feeConfig.setCEO(newCeo);
-        assertEq(feeConfig.ceo(), newCeo);
+        feeConfig.setDirector(newDirector);
+        assertEq(feeConfig.director(), newDirector);
     }
 
     function test_SetTreasury() public {
@@ -264,7 +264,7 @@ contract FeeConfigTest is Test {
         bytes32 daoId = keccak256("test-dao");
         bytes32 feeKey = keccak256("compute.inference");
 
-        vm.prank(council);
+        vm.prank(board);
         feeConfig.setAppFeeOverride(daoId, feeKey, 800); // 8%
 
         // Verify override was set
@@ -294,7 +294,7 @@ contract FeeConfigTest is Test {
         bytes32 daoId = keccak256("test-dao");
         bytes32 feeKey = keccak256("compute.inference");
 
-        vm.prank(council);
+        vm.prank(board);
         feeConfig.setAppFeeOverride(daoId, feeKey, 300); // Lower fee
 
         assertEq(feeConfig.getEffectiveFee(daoId, feeKey, 500), 300);
@@ -305,12 +305,12 @@ contract FeeConfigTest is Test {
         bytes32 feeKey = keccak256("compute.inference");
 
         // Set override
-        vm.prank(council);
+        vm.prank(board);
         feeConfig.setAppFeeOverride(daoId, feeKey, 800);
         assertTrue(feeConfig.hasAppFeeOverride(daoId, feeKey));
 
         // Remove override
-        vm.prank(council);
+        vm.prank(board);
         feeConfig.removeAppFeeOverride(daoId, feeKey);
         assertFalse(feeConfig.hasAppFeeOverride(daoId, feeKey));
 
@@ -323,7 +323,7 @@ contract FeeConfigTest is Test {
         bytes32 feeKey = keccak256("invalid.key");
 
         // Try to remove non-existent override
-        vm.prank(council);
+        vm.prank(board);
         vm.expectRevert(FeeConfig.InvalidFeeKey.selector);
         feeConfig.removeAppFeeOverride(daoId, feeKey);
     }
@@ -334,7 +334,7 @@ contract FeeConfigTest is Test {
         bytes32 feeKey2 = keccak256("compute.rental");
 
         // Set multiple overrides
-        vm.startPrank(council);
+        vm.startPrank(board);
         feeConfig.setAppFeeOverride(daoId, feeKey1, 600);
         feeConfig.setAppFeeOverride(daoId, feeKey2, 400);
         vm.stopPrank();
@@ -343,7 +343,7 @@ contract FeeConfigTest is Test {
         assertTrue(feeConfig.hasAppFeeOverride(daoId, feeKey2));
 
         // Clear all
-        vm.prank(council);
+        vm.prank(board);
         feeConfig.clearAllAppFeeOverrides(daoId);
 
         assertFalse(feeConfig.hasAppFeeOverride(daoId, feeKey1));
@@ -356,7 +356,7 @@ contract FeeConfigTest is Test {
         bytes32 feeKey2 = keccak256("compute.rental");
 
         // Set overrides
-        vm.startPrank(council);
+        vm.startPrank(board);
         feeConfig.setAppFeeOverride(daoId, feeKey1, 600);
         feeConfig.setAppFeeOverride(daoId, feeKey2, 400);
         vm.stopPrank();
@@ -372,7 +372,7 @@ contract FeeConfigTest is Test {
         bytes32 daoId2 = keccak256("dao-2");
         bytes32 feeKey = keccak256("compute.inference");
 
-        vm.startPrank(council);
+        vm.startPrank(board);
         feeConfig.setAppFeeOverride(daoId1, feeKey, 600);
         feeConfig.setAppFeeOverride(daoId2, feeKey, 700);
         vm.stopPrank();
@@ -387,7 +387,7 @@ contract FeeConfigTest is Test {
         bytes32 feeKey = keccak256("compute.inference");
 
         // Set different overrides for different apps
-        vm.startPrank(council);
+        vm.startPrank(board);
         feeConfig.setAppFeeOverride(daoId1, feeKey, 600); // DWS: 6%
         feeConfig.setAppFeeOverride(daoId2, feeKey, 300); // Bazaar: 3%
         vm.stopPrank();
@@ -406,12 +406,12 @@ contract FeeConfigTest is Test {
         bytes32 feeKey = keccak256("compute.inference");
 
         // Set initial override
-        vm.prank(council);
+        vm.prank(board);
         feeConfig.setAppFeeOverride(daoId, feeKey, 600);
         assertEq(feeConfig.getEffectiveFee(daoId, feeKey, 500), 600);
 
         // Update override
-        vm.prank(council);
+        vm.prank(board);
         feeConfig.setAppFeeOverride(daoId, feeKey, 800);
         assertEq(feeConfig.getEffectiveFee(daoId, feeKey, 500), 800);
     }

@@ -29,14 +29,14 @@ export const MODEL_OPTIONS: ModelOption[] = [
     description: 'Balanced performance',
   },
   {
-    id: 'gpt-4o',
+    id: 'gpt-5',
     name: 'GPT-4o',
     provider: 'OpenAI',
     tier: 'standard',
     description: 'Fast multimodal',
   },
   {
-    id: 'gpt-4o-mini',
+    id: 'gpt-5-mini',
     name: 'GPT-4o Mini',
     provider: 'OpenAI',
     tier: 'lite',

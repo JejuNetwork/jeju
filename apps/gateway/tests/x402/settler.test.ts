@@ -45,8 +45,8 @@ describe('Retry Configuration', () => {
     // Clear module cache to pick up new env vars
     clearClientCache()
 
-    // Note: getRetryConfig reads from module-level constants set at import time
-    // This test documents the expected behavior - env vars must be set before import
+    // getRetryConfig reads from module-level constants set at import time
+    // env vars must be set before import
 
     // Restore
     if (originalMaxRetries)

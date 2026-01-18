@@ -1,4 +1,4 @@
-import { getContract, getRpcUrl } from '@jejunetwork/config'
+import { getRpcUrl, tryGetContract } from '@jejunetwork/config'
 import type { Address, Hex, PublicClient } from 'viem'
 import { createPublicClient, http, keccak256, toBytes } from 'viem'
 import { z } from 'zod'
@@ -187,6 +187,19 @@ const MODEL_PROVIDERS: Record<string, string[]> = {
   deepseek: ['together', 'local'],
 }
 
+export function getModelHintsForProvider(providerId: string): string[] {
+  const hints = new Set<string>()
+  for (const [modelPrefix, providers] of Object.entries(MODEL_PROVIDERS)) {
+    if (providers.includes(providerId)) {
+      hints.add(modelPrefix)
+    }
+  }
+  if (hints.size === 0) {
+    return ['*']
+  }
+  return Array.from(hints)
+}
+
 let publicClient: PublicClient | null = null
 let computeRegistryAddress: Address | null = null
 
@@ -198,19 +211,23 @@ function getClient(): PublicClient {
   return publicClient
 }
 
-function getComputeRegistryAddress(): Address {
+function getComputeRegistryAddress(): Address | null {
   if (!computeRegistryAddress) {
-    const address = getContract('compute', 'registry')
+    const address = tryGetContract('compute', 'registry')
     if (!address) {
-      throw new Error('ComputeRegistry address not configured')
+      return null
     }
     computeRegistryAddress = address as Address
   }
   return computeRegistryAddress
 }
 
+// Track nodes registered locally (not on-chain)
+const locallyRegisteredNodes = new Set<string>()
+
 /**
  * Sync inference nodes from on-chain ComputeRegistry
+ * Preserves nodes that were registered locally (for dev/testing)
  */
 export async function syncFromChain(): Promise<void> {
   const now = Date.now()
@@ -218,19 +235,49 @@ export async function syncFromChain(): Promise<void> {
     return // Already synced recently
   }
 
-  const client = getClient()
   const registryAddress = getComputeRegistryAddress()
+  if (!registryAddress) {
+    // No registry contract deployed - rely on locally registered nodes only
+    // This is expected for testnet where compute.registry may not be deployed
+    if (locallyRegisteredNodes.size === 0) {
+      console.log(
+        '[Inference] ComputeRegistry not configured for testnet. Set COMPUTE_REGISTRY env var or add compute.registry to contracts.json',
+      )
+    } else {
+      console.log(
+        `[Inference] ComputeRegistry not configured, using ${locallyRegisteredNodes.size} local nodes only`,
+      )
+    }
+    lastSyncTimestamp = now
+    return
+  }
 
-  // Get active inference providers
-  const activeAddresses = (await client.readContract({
-    address: registryAddress,
-    abi: COMPUTE_REGISTRY_ABI,
-    functionName: 'getActiveProvidersByService',
-    args: [SERVICE_INFERENCE],
-  })) as Address[]
+  const client = getClient()
 
-  // Clear stale nodes
-  inferenceNodes.clear()
+  // Get active inference providers from chain
+  let activeAddresses: Address[] = []
+  try {
+    activeAddresses = (await client.readContract({
+      address: registryAddress,
+      abi: COMPUTE_REGISTRY_ABI,
+      functionName: 'getActiveProvidersByService',
+      args: [SERVICE_INFERENCE],
+    })) as Address[]
+  } catch (_err) {
+    // Chain sync failed - preserve local nodes
+    console.log(
+      `[Inference] Chain sync failed, preserving ${locallyRegisteredNodes.size} local nodes`,
+    )
+    lastSyncTimestamp = now
+    return
+  }
+
+  // Remove only on-chain nodes (preserve locally registered ones)
+  for (const [address] of inferenceNodes) {
+    if (!locallyRegisteredNodes.has(address.toLowerCase())) {
+      inferenceNodes.delete(address)
+    }
+  }
 
   // Fetch each provider's details
   for (const address of activeAddresses) {
@@ -460,8 +507,13 @@ export async function forceSync(): Promise<void> {
  * Check if a specific address is registered as an inference provider
  */
 export async function isRegisteredProvider(address: Address): Promise<boolean> {
-  const client = getClient()
   const registryAddress = getComputeRegistryAddress()
+  if (!registryAddress) {
+    // No registry configured - check local nodes only
+    return locallyRegisteredNodes.has(address.toLowerCase())
+  }
+
+  const client = getClient()
 
   return (await client.readContract({
     address: registryAddress,
@@ -472,7 +524,7 @@ export async function isRegisteredProvider(address: Address): Promise<boolean> {
 }
 
 /**
- * Register a node directly (for testing only)
+ * Register a node directly (for local development/testing)
  * In production, nodes register on-chain via ComputeRegistry
  */
 export function registerNode(
@@ -495,9 +547,12 @@ export function registerNode(
     lastHeartbeat: Date.now(),
   }
 
-  inferenceNodes.set(node.address.toLowerCase(), fullNode)
+  const addressLower = node.address.toLowerCase()
+  inferenceNodes.set(addressLower, fullNode)
+  locallyRegisteredNodes.add(addressLower)
+
   console.log(
-    `[Inference] Node registered: ${node.address} (${node.provider}, ${node.models.length} models)`,
+    `[Inference] Node registered locally: ${node.address} (${node.provider}, ${node.models.length} models)`,
   )
 
   return fullNode
@@ -508,7 +563,9 @@ export function registerNode(
  * In production, nodes deactivate on-chain via ComputeRegistry
  */
 export function unregisterNode(address: string): boolean {
-  return inferenceNodes.delete(address.toLowerCase())
+  const addrLower = address.toLowerCase()
+  locallyRegisteredNodes.delete(addrLower)
+  return inferenceNodes.delete(addrLower)
 }
 
 // Export for testing

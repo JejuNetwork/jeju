@@ -16,7 +16,7 @@ export default defineConfig({
   timeout: 120000,
 
   use: {
-    baseURL: `http://localhost:${PORT}/jeju`,
+    baseURL: `http://localhost:${PORT}`,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -34,7 +34,7 @@ export default defineConfig({
     ? undefined
     : {
         command: 'bun run start',
-        url: `http://localhost:${PORT}/jeju`,
+        url: `http://localhost:${PORT}`,
         reuseExistingServer: true,
         timeout: 180000,
       },

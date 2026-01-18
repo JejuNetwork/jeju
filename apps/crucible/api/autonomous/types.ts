@@ -9,6 +9,10 @@ export interface AutonomousAgentConfig {
   maxActionsPerTick: number
   enabled: boolean
   goals?: AgentGoal[]
+  /** Room to watch for incoming messages during ticks */
+  watchRoom?: string
+  /** Room to post action results and messages to */
+  postToRoom?: string
 }
 
 export interface AutonomousCapabilities {
@@ -21,6 +25,7 @@ export interface AutonomousCapabilities {
   canBridge: boolean
   a2a?: boolean
   compute?: boolean
+  canModerate?: boolean
 }
 
 export interface AgentGoal {
@@ -96,6 +101,8 @@ export const DEFAULT_AUTONOMOUS_CONFIG: Omit<
     canDelegate: true,
     canStake: true,
     canBridge: false, // Require explicit opt-in
+    a2a: true, // Enable A2A communication by default
+    compute: true, // Enable compute actions by default
   },
   maxActionsPerTick: 3,
   enabled: true,
@@ -105,6 +112,10 @@ export interface AutonomousRunnerConfig {
   enableBuiltinCharacters?: boolean
   defaultTickIntervalMs?: number
   maxConcurrentAgents?: number
+  /** Private key for agent on-chain actions */
+  privateKey?: `0x${string}`
+  /** Network to connect to */
+  network?: 'localnet' | 'testnet' | 'mainnet'
 }
 
 export interface AutonomousRunnerStatus {
@@ -115,5 +126,6 @@ export interface AutonomousRunnerStatus {
     character: string
     lastTick: number
     tickCount: number
+    recentActivity: ActivityEntry[]
   }>
 }

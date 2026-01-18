@@ -232,9 +232,9 @@ const DEPENDENCIES: Dependency[] = [
     type: 'infrastructure',
     centralized: true,
     criticalPath: true,
-    decentralizedAlternative: 'Security Council multisig with 7-day minimum',
+    decentralizedAlternative: 'Security Board multisig with 7-day minimum',
     status: 'in-progress',
-    notes: 'Security Council contracts exist. Need to configure properly.',
+    notes: 'Security Board contracts exist. Need to configure properly.',
   },
 ]
 
@@ -428,7 +428,7 @@ function printAudit(result: AuditResult): void {
     { name: 'Fraud proofs deployed and tested', done: true },
     { name: 'Escape hatch (ForcedInclusion) working', done: true },
     { name: 'GovernanceTimelock with 30-day delay', done: true },
-    { name: 'Security Council can only pause', done: true },
+    { name: 'Security Board can only pause', done: true },
     { name: 'Contract ownership transferred to timelock', done: false },
     { name: 'Decentralized sequencer network', done: false },
     { name: 'Data availability verification on-chain', done: false },

@@ -101,7 +101,7 @@
   },
   "testing": {
     "unit": {
-      "command": "bun test",
+      "command": "bun run test",
       "timeout": 120000
     },
     "e2e": {
@@ -112,8 +112,5 @@
       "requiresWallet": true
     },
     "services": ["inference", "indexer"]
-  },
-  "architecture": {
-    "frontend": { "outputDir": "dist" }
   }
 }

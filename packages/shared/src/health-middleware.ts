@@ -321,7 +321,7 @@ export const healthChecks = {
 
     if (!response.ok) return false
 
-    const json = await response.json()
+    const json: { result?: string } = await response.json()
     return !!json.result
   },
 

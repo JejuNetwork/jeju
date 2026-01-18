@@ -5,14 +5,12 @@
  * threshold MPC signing, and W3C Verifiable Credentials.
  */
 
-import type { TEEAttestation } from '@jejunetwork/types'
+import type { JsonRecord, TEEAttestation } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
-
-/** Generic JSON record type for OAuth state */
-export type JsonRecord = Record<string, unknown>
 
 export const AuthProvider = {
   WALLET: 'wallet',
+  PASSKEY: 'passkey',
   FARCASTER: 'farcaster',
   GOOGLE: 'google',
   APPLE: 'apple',
@@ -188,7 +186,7 @@ export interface OAuth3App {
   name: string
   description: string
   owner: Address
-  council: Address
+  board: Address
   redirectUris: string[]
   allowedProviders: AuthProvider[]
   jnsName: string
@@ -305,21 +303,21 @@ export interface SessionPermission {
   rateLimit: number
 }
 
-export interface CouncilConfig {
-  councilId: Hex
+export interface BoardConfig {
+  boardId: Hex
   name: string
   treasury: Address
-  ceoAgent: Address
-  councilAgents: Address[]
+  directorAgent: Address
+  boardAgents: Address[]
   oauth3App: Hex
   jnsName: string
 }
 
-export const CouncilType = {
+export const BoardType = {
   JEJU: 'jeju',
   ELIZA: 'eliza',
 } as const
-export type CouncilType = (typeof CouncilType)[keyof typeof CouncilType]
+export type BoardType = (typeof BoardType)[keyof typeof BoardType]
 
 export interface CrossChainIdentity {
   identityId: Hex

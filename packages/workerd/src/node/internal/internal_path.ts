@@ -613,7 +613,7 @@ const win32 = {
   },
 
   toNamespacedPath(path: string): string {
-    // Note: this will *probably* throw somewhere.
+    // This will *probably* throw somewhere
     if (typeof path !== 'string' || path.length === 0) return path
 
     const resolvedPath = win32.resolve(path)

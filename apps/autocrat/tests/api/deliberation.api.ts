@@ -1,5 +1,5 @@
 /**
- * Deliberation Tests - Council deliberation flow
+ * Deliberation Tests - Board deliberation flow
  */
 
 import { CORE_PORTS } from '@jejunetwork/config'
@@ -94,7 +94,7 @@ Timeline: 3 months`,
     expect(score).toBeLessThanOrEqual(100)
   })
 
-  test('council members can submit independent votes', async ({ request }) => {
+  test('board members can submit independent votes', async ({ request }) => {
     const proposalId = `0x${'a'.repeat(64)}`
     const roles = ['TREASURY', 'CODE', 'COMMUNITY', 'SECURITY']
 
@@ -138,8 +138,8 @@ Timeline: 3 months`,
     expect(result.result).toBeDefined()
   })
 
-  test('CEO decision includes council consensus', async ({ request }) => {
-    const result = await sendA2AMessage(request, 'request-ceo-decision', {
+  test('Director decision includes board consensus', async ({ request }) => {
+    const result = await sendA2AMessage(request, 'request-director-decision', {
       proposalId: `0x${'c'.repeat(64)}`,
       autocratVotes: [
         {

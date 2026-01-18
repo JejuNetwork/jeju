@@ -18,7 +18,11 @@ import type { Address } from 'viem'
 
 export interface EdgeNodeConfig {
   nodeId: string
-  privateKey: string
+  // Direct key (development only - blocked in production)
+  privateKey?: string
+  // KMS configuration (required in production)
+  kmsKeyId?: string
+  ownerAddress?: Address
   endpoint: string
   port: number
   region: CDNRegion

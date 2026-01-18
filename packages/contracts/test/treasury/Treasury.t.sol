@@ -21,7 +21,7 @@ contract TreasuryTest is Test {
 
     address public admin;
     address public operator;
-    address public councilMember;
+    address public boardMember;
     address public recipient;
     address public user;
 
@@ -30,7 +30,7 @@ contract TreasuryTest is Test {
     function setUp() public {
         admin = makeAddr("admin");
         operator = makeAddr("operator");
-        councilMember = makeAddr("councilMember");
+        boardMember = makeAddr("boardMember");
         recipient = makeAddr("recipient");
         user = makeAddr("user");
 
@@ -211,27 +211,27 @@ contract TreasuryTest is Test {
         assertFalse(treasury.isOperator(operator));
     }
 
-    function test_AddCouncilMember() public {
+    function test_AddBoardMember() public {
         vm.prank(admin);
-        treasury.addCouncilMember(councilMember);
+        treasury.addBoardMember(boardMember);
 
-        assertTrue(treasury.isCouncilMember(councilMember));
+        assertTrue(treasury.isBoardMember(boardMember));
 
-        // Council member can add operators
-        vm.prank(councilMember);
+        // Board member can add operators
+        vm.prank(boardMember);
         treasury.addOperator(operator);
 
         assertTrue(treasury.isOperator(operator));
     }
 
-    function test_RemoveCouncilMember() public {
+    function test_RemoveBoardMember() public {
         vm.prank(admin);
-        treasury.addCouncilMember(councilMember);
+        treasury.addBoardMember(boardMember);
 
         vm.prank(admin);
-        treasury.removeCouncilMember(councilMember);
+        treasury.removeBoardMember(boardMember);
 
-        assertFalse(treasury.isCouncilMember(councilMember));
+        assertFalse(treasury.isBoardMember(boardMember));
     }
 
     // ============ Emergency Withdrawal Tests ============

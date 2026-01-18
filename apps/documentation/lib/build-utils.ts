@@ -1,14 +1,14 @@
 /**
- * Build-time utilities for documentation
+ * Build utilities for documentation
  *
- * NOTE: This file uses node:path and is NOT worker-compatible.
- * Only import this in build scripts and tests, not in serverless functions.
+ * This module provides file system utilities for build scripts and tests.
+ * NOT compatible with serverless/worker environments - use a2a.ts instead.
  */
 
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
+const __dirname = fileURLToPath(new URL('.', import.meta.url))
 
-/** Root directory for documentation pages - only for build/test use */
+/** Root directory for documentation source files */
 export const DOCS_ROOT = join(__dirname, '..', 'docs', 'pages')

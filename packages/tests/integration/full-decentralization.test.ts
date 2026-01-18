@@ -91,7 +91,7 @@ function safeGetServiceUrl(
 ): string | null {
   try {
     return getServiceUrl(
-      service as 'storage' | 'bazaar' | 'indexer' | 'council',
+      service as 'storage' | 'bazaar' | 'indexer' | 'board',
       subservice as 'graphql',
     )
   } catch {
@@ -103,7 +103,7 @@ const TEST_CONFIG = {
   storageUrl: safeGetServiceUrl('storage') ?? `http://${host}:3100`,
   bazaarUrl: safeGetServiceUrl('bazaar') ?? `http://${host}:3000`,
   indexerUrl: safeGetServiceUrl('indexer', 'graphql') ?? `http://${host}:4000`,
-  councilUrl: safeGetServiceUrl('council') ?? `http://${host}:3200`,
+  boardUrl: safeGetServiceUrl('board') ?? `http://${host}:3200`,
 }
 
 // SQLit Tests

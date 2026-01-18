@@ -35,8 +35,8 @@ const erc8004 = getERC8004Client(erc8004Config)
 
 const futarchyConfig: FutarchyConfig = {
   rpcUrl: config.rpcUrl,
-  councilAddress: config.contracts.council
-    ? toAddress(config.contracts.council)
+  boardAddress: config.contracts.board
+    ? toAddress(config.contracts.board)
     : ZERO_ADDR,
   predictionMarketAddress: ZERO_ADDR,
   operatorKey: autocratConfig.operatorKey ?? autocratConfig.privateKey,
@@ -48,7 +48,7 @@ export const healthRoutes = new Elysia()
     const orchestrator = getOrchestrator()
     return {
       status: 'ok',
-      service: 'jeju-council',
+      service: 'jeju-board',
       version: '3.0.0',
       mode: 'multi-tenant',
       tee: getTEEMode(),
@@ -62,7 +62,7 @@ export const healthRoutes = new Elysia()
         validation: erc8004.validationDeployed,
       },
       futarchy: {
-        council: futarchy.councilDeployed,
+        board: futarchy.boardDeployed,
         predictionMarket: futarchy.predictionMarketDeployed,
       },
       registry: {
@@ -90,28 +90,28 @@ export const healthRoutes = new Elysia()
     const orch = orchestrator?.getStatus()
     const activeFlags = (await getModerationSystem().getActiveFlags()).length
     const lines = [
-      '# HELP council_requests_total Total HTTP requests',
-      '# TYPE council_requests_total counter',
-      `council_requests_total ${metricsData.requests}`,
-      '# HELP council_errors_total Total errors',
-      '# TYPE council_errors_total counter',
-      `council_errors_total ${metricsData.errors}`,
-      '# HELP council_uptime_seconds Service uptime',
-      '# TYPE council_uptime_seconds gauge',
-      `council_uptime_seconds ${uptime.toFixed(0)}`,
-      '# HELP council_memory_bytes Memory usage',
-      '# TYPE council_memory_bytes gauge',
-      `council_memory_bytes{type="heap"} ${mem.heapUsed}`,
-      `council_memory_bytes{type="rss"} ${mem.rss}`,
-      '# HELP council_orchestrator_cycles Total orchestrator cycles',
-      '# TYPE council_orchestrator_cycles counter',
-      `council_orchestrator_cycles ${orch?.cycleCount ?? 0}`,
-      '# HELP council_proposals_processed Total proposals processed',
-      '# TYPE council_proposals_processed counter',
-      `council_proposals_processed ${orch?.totalProcessed ?? 0}`,
-      '# HELP council_moderation_flags_active Active moderation flags',
-      '# TYPE council_moderation_flags_active gauge',
-      `council_moderation_flags_active ${activeFlags}`,
+      '# HELP board_requests_total Total HTTP requests',
+      '# TYPE board_requests_total counter',
+      `board_requests_total ${metricsData.requests}`,
+      '# HELP board_errors_total Total errors',
+      '# TYPE board_errors_total counter',
+      `board_errors_total ${metricsData.errors}`,
+      '# HELP board_uptime_seconds Service uptime',
+      '# TYPE board_uptime_seconds gauge',
+      `board_uptime_seconds ${uptime.toFixed(0)}`,
+      '# HELP board_memory_bytes Memory usage',
+      '# TYPE board_memory_bytes gauge',
+      `board_memory_bytes{type="heap"} ${mem.heapUsed}`,
+      `board_memory_bytes{type="rss"} ${mem.rss}`,
+      '# HELP board_orchestrator_cycles Total orchestrator cycles',
+      '# TYPE board_orchestrator_cycles counter',
+      `board_orchestrator_cycles ${orch?.cycleCount ?? 0}`,
+      '# HELP board_proposals_processed Total proposals processed',
+      '# TYPE board_proposals_processed counter',
+      `board_proposals_processed ${orch?.totalProcessed ?? 0}`,
+      '# HELP board_moderation_flags_active Active moderation flags',
+      '# TYPE board_moderation_flags_active gauge',
+      `board_moderation_flags_active ${activeFlags}`,
     ]
     return new Response(lines.join('\n'), {
       headers: { 'Content-Type': 'text/plain' },

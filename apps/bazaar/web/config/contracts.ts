@@ -1,12 +1,14 @@
+import { getContractsConfig } from '@jejunetwork/config'
 import {
   type ChainId,
-  getBazaarMarketplace,
   getUniswapV4,
   isValidAddress,
   ZERO_ADDRESS,
 } from '@jejunetwork/contracts'
 import type { Address } from 'viem'
-import { JEJU_CHAIN_ID } from './chains'
+import { CHAIN_ID, NETWORK } from './network'
+
+const JEJU_CHAIN_ID = CHAIN_ID
 
 /** Convert string to Address with validation, returns ZERO_ADDRESS if invalid */
 function toAddress(value: string | undefined): Address {
@@ -72,18 +74,22 @@ function getV4ContractsMap(): Record<number, V4Contracts> {
 
 const V4_CONTRACTS: Record<number, V4Contracts> = getV4ContractsMap()
 
-function buildNFTContracts(chainId: ChainId): NFTContracts {
-  const marketplaceAddr = toAddress(getBazaarMarketplace(chainId))
+function buildNFTContracts(): NFTContracts {
+  // Get marketplace from contracts.json config (updated by deploy scripts)
+  const contracts = getContractsConfig(NETWORK)
+  const marketplaceAddr =
+    toAddress(contracts.commerce?.nftMarketplace) ||
+    toAddress(contracts.bazaar?.marketplace)
   return {
     marketplace: marketplaceAddr,
   }
 }
 
+// Build contracts once based on detected network
+const nftContracts = buildNFTContracts()
 const NFT_CONTRACTS: Record<number, NFTContracts> = {
-  31337: buildNFTContracts(31337),
-  ...(JEJU_CHAIN_ID !== 31337
-    ? { [JEJU_CHAIN_ID]: buildNFTContracts(JEJU_CHAIN_ID as ChainId) }
-    : {}),
+  31337: nftContracts,
+  [JEJU_CHAIN_ID]: nftContracts,
 }
 
 export function getV4Contracts(chainId: number): V4Contracts | null {

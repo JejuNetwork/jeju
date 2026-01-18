@@ -131,10 +131,15 @@ export function createVPNModule(
   network: NetworkType,
 ): VPNModule {
   const contracts = getContractAddresses(network)
-  if (!contracts.vpnRegistry) {
-    throw new Error(`VPNRegistry contract not deployed on ${network}`)
+  const vpnRegistryAddressOpt = contracts.vpnRegistry
+
+  // Lazy-load contract address - throw on method call if not deployed
+  const getVpnRegistryAddress = () => {
+    if (!vpnRegistryAddressOpt) {
+      throw new Error(`VPNRegistry contract not deployed on ${network}`)
+    }
+    return vpnRegistryAddressOpt
   }
-  const vpnRegistryAddress = contracts.vpnRegistry
 
   // Node caching
   let nodesCache: VPNNodeInfo[] = []
@@ -145,7 +150,7 @@ export function createVPNModule(
     operator: Address,
   ): Promise<VPNNodeInfo | null> {
     const nodeData = (await wallet.publicClient.readContract({
-      address: vpnRegistryAddress,
+      address: getVpnRegistryAddress(),
       abi: VPN_REGISTRY_ABI,
       functionName: 'getNode',
       args: [operator],
@@ -181,7 +186,7 @@ export function createVPNModule(
     if (Date.now() - lastFetch < CACHE_TTL && nodesCache.length > 0) return
 
     const activeAddresses = (await wallet.publicClient.readContract({
-      address: vpnRegistryAddress,
+      address: getVpnRegistryAddress(),
       abi: VPN_REGISTRY_ABI,
       functionName: 'getActiveExitNodes',
       args: [],
@@ -230,7 +235,7 @@ export function createVPNModule(
 
       // Query session started events for current user
       const startedLogs = await wallet.publicClient.getLogs({
-        address: vpnRegistryAddress,
+        address: getVpnRegistryAddress(),
         event: SESSION_STARTED_EVENT,
         args: { user: wallet.address },
         fromBlock: 'earliest',
@@ -239,7 +244,7 @@ export function createVPNModule(
 
       // Query all ended sessions to filter out completed ones
       const endedLogs = await wallet.publicClient.getLogs({
-        address: vpnRegistryAddress,
+        address: getVpnRegistryAddress(),
         event: SESSION_ENDED_EVENT,
         fromBlock: 'earliest',
         toBlock: 'latest',
@@ -279,7 +284,7 @@ export function createVPNModule(
 
       // Query session started events for current user
       const startedLogs = await wallet.publicClient.getLogs({
-        address: vpnRegistryAddress,
+        address: getVpnRegistryAddress(),
         event: SESSION_STARTED_EVENT,
         args: { user: wallet.address },
         fromBlock: 'earliest',
@@ -288,7 +293,7 @@ export function createVPNModule(
 
       // Query ended sessions for bytes transferred
       const endedLogs = await wallet.publicClient.getLogs({
-        address: vpnRegistryAddress,
+        address: getVpnRegistryAddress(),
         event: SESSION_ENDED_EVENT,
         fromBlock: 'earliest',
         toBlock: 'latest',
@@ -346,13 +351,13 @@ export function createVPNModule(
 
       const [totalNodes, activeCount] = await Promise.all([
         wallet.publicClient.readContract({
-          address: vpnRegistryAddress,
+          address: getVpnRegistryAddress(),
           abi: VPN_REGISTRY_ABI,
           functionName: 'totalNodes',
           args: [],
         }) as Promise<bigint>,
         wallet.publicClient.readContract({
-          address: vpnRegistryAddress,
+          address: getVpnRegistryAddress(),
           abi: VPN_REGISTRY_ABI,
           functionName: 'activeNodeCount',
           args: [],
@@ -386,7 +391,7 @@ export function createVPNModule(
 
       // Query bandwidth reports for this node
       const bandwidthLogs = await wallet.publicClient.getLogs({
-        address: vpnRegistryAddress,
+        address: getVpnRegistryAddress(),
         event: BANDWIDTH_REPORTED_EVENT,
         args: { node: operator },
         fromBlock: 'earliest',
@@ -438,7 +443,7 @@ export function createVPNModule(
       const wireguardKey = `0x${'00'.repeat(32)}` as Hex // Placeholder
 
       const txHash = await wallet.sendTransaction({
-        to: vpnRegistryAddress,
+        to: getVpnRegistryAddress(),
         data: encodeFunctionData({
           abi: VPN_REGISTRY_ABI,
           functionName: 'registerNode',
@@ -452,7 +457,7 @@ export function createVPNModule(
 
     async updateNode(endpoint: string): Promise<{ txHash: Hex }> {
       const txHash = await wallet.sendTransaction({
-        to: vpnRegistryAddress,
+        to: getVpnRegistryAddress(),
         data: encodeFunctionData({
           abi: VPN_REGISTRY_ABI,
           functionName: 'updateEndpoint',
@@ -465,7 +470,7 @@ export function createVPNModule(
 
     async deactivateNode(): Promise<{ txHash: Hex }> {
       const txHash = await wallet.sendTransaction({
-        to: vpnRegistryAddress,
+        to: getVpnRegistryAddress(),
         data: encodeFunctionData({
           abi: VPN_REGISTRY_ABI,
           functionName: 'deactivate',
@@ -478,7 +483,7 @@ export function createVPNModule(
 
     async withdrawStake(): Promise<{ txHash: Hex }> {
       const txHash = await wallet.sendTransaction({
-        to: vpnRegistryAddress,
+        to: getVpnRegistryAddress(),
         data: encodeFunctionData({
           abi: VPN_REGISTRY_ABI,
           functionName: 'withdraw',

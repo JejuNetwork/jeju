@@ -7,6 +7,7 @@ import type { Address, Hex } from 'viem'
 // Local definition of AuthProvider to avoid importing React components from @jejunetwork/auth
 export const AuthProvider = {
   WALLET: 'wallet',
+  PASSKEY: 'passkey',
   FARCASTER: 'farcaster',
   GOOGLE: 'google',
   APPLE: 'apple',
@@ -236,12 +237,8 @@ export const REPORT_STAKE_AMOUNT = 1n * 10n ** 18n // 1 JEJU
 
 /** Sealed secret that can only be decrypted inside verified TEE */
 export interface SealedSecret {
-  /** AES-GCM encrypted ciphertext */
-  ciphertext: string
-  /** Initialization vector */
-  iv: string
-  /** Authentication tag */
-  tag: string
+  /** KMS encrypted secret payload */
+  encrypted: string
   /** When secret was sealed */
   sealedAt: number
 }

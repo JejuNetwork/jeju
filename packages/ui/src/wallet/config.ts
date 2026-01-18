@@ -38,7 +38,6 @@ export interface CreateWagmiConfigOptions {
  */
 export function createDecentralizedWagmiConfig({
   chains,
-  appName = 'Jeju Network',
 }: CreateWagmiConfigOptions) {
   if (chains.length === 0) {
     throw new Error('At least one chain config is required')
@@ -72,11 +71,6 @@ export function createDecentralizedWagmiConfig({
     connectors: [
       injected({
         shimDisconnect: true,
-        target: {
-          id: 'injected',
-          name: appName,
-          provider: typeof window !== 'undefined' ? window.ethereum : undefined,
-        },
       }),
     ],
     transports,

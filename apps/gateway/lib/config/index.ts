@@ -2,10 +2,6 @@
  * Gateway Frontend Configuration
  *
  * Uses @jejunetwork/config for all configuration.
- *
- * IMPORTANT: Service URLs that depend on network detection must be
- * fetched via getter functions to ensure correct runtime evaluation
- * in browser environments.
  */
 
 import {
@@ -20,16 +16,16 @@ import {
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import { type Address, getAddress } from 'viem'
 
-/**
- * Get the current network. This is a function to ensure
- * correct detection in browser after page load.
- */
-export function getNetwork(): NetworkType {
-  return getCurrentNetwork()
-}
-
-// For backwards compatibility, but prefer getNetwork() in new code
+// Network from config
 export const NETWORK: NetworkType = getCurrentNetwork()
+
+/**
+ * Get services config for current network.
+ * Must be called at runtime for correct network detection.
+ */
+export function getServices() {
+  return getServicesConfig(getCurrentNetwork())
+}
 
 // Chain configuration - these are safe as constants since chainId detection
 // uses hostname which is available synchronously
@@ -37,93 +33,52 @@ export const CHAIN_ID = getChainId(NETWORK)
 export const RPC_URL = getRpcUrl(NETWORK)
 export const WS_URL = getWsUrl(NETWORK)
 
-function requireServiceUrl(
-  url: string | undefined,
-  name: string,
-  network: NetworkType,
-): string {
-  if (!url) throw new Error(`${name} URL not configured for network ${network}`)
+// Service URLs from config
+const services = getServicesConfig(NETWORK)
+
+function requireServiceUrl(url: string | undefined, name: string): string {
+  if (!url) throw new Error(`${name} URL not configured for network ${NETWORK}`)
   return url
 }
 
-/**
- * Get indexer GraphQL URL. Must be called at runtime for correct network detection.
- */
-export function getIndexerUrl(): string {
-  const network = getCurrentNetwork()
-  const services = getServicesConfig(network)
-  return requireServiceUrl(services.indexer.graphql, 'Indexer GraphQL', network)
-}
-
-/**
- * Get indexer REST API URL. Must be called at runtime for correct network detection.
- */
-export function getIndexerRestUrl(): string {
-  const network = getCurrentNetwork()
-  const services = getServicesConfig(network)
-  return requireServiceUrl(services.indexer.rest, 'Indexer REST', network)
-}
-
-// Legacy exports - these evaluate at module load time which may be incorrect
-// in bundled browser environments. Prefer the getter functions above.
-const _services = getServicesConfig(NETWORK)
 export const OAUTH3_AGENT_URL = requireServiceUrl(
-  _services.oauth3?.api,
+  services.oauth3?.api,
   'OAuth3',
-  NETWORK,
 )
-// Use getIndexerUrl() instead - this constant may have wrong value if module
-// loads before browser network detection works
 export const INDEXER_URL = requireServiceUrl(
-  _services.indexer.graphql,
+  services.indexer.graphql,
   'Indexer GraphQL',
-  NETWORK,
 )
 export const INDEXER_REST_URL = requireServiceUrl(
-  _services.indexer.rest,
+  services.indexer.rest,
   'Indexer REST',
-  NETWORK,
 )
 export const INDEXER_A2A_URL = requireServiceUrl(
-  _services.gateway.a2a,
+  services.gateway.a2a,
   'Indexer A2A',
-  NETWORK,
 )
 export const INDEXER_MCP_URL = requireServiceUrl(
-  _services.gateway.mcp,
+  services.gateway.mcp,
   'Indexer MCP',
-  NETWORK,
 )
 export const RPC_GATEWAY_URL = requireServiceUrl(
-  _services.rpcGateway,
+  services.rpcGateway,
   'RPC Gateway',
-  NETWORK,
 )
-export const IPFS_API_URL = requireServiceUrl(
-  _services.storage.api,
-  'IPFS API',
-  NETWORK,
-)
+export const IPFS_API_URL = requireServiceUrl(services.storage.api, 'IPFS API')
 export const IPFS_GATEWAY_URL = requireServiceUrl(
-  _services.storage.ipfsGateway,
+  services.storage.ipfsGateway,
   'IPFS Gateway',
-  NETWORK,
 )
 export const OIF_AGGREGATOR_URL = requireServiceUrl(
-  _services.oif.aggregator,
+  services.oif.aggregator,
   'OIF Aggregator',
-  NETWORK,
 )
 export const LEADERBOARD_API_URL = requireServiceUrl(
-  _services.leaderboard.api,
+  services.leaderboard.api,
   'Leaderboard',
-  NETWORK,
 )
-export const EXPLORER_URL = requireServiceUrl(
-  _services.explorer,
-  'Explorer',
-  NETWORK,
-)
+export const EXPLORER_URL = requireServiceUrl(services.explorer, 'Explorer')
 
 // Contract addresses from config
 const contracts = getContractsConfig(NETWORK)

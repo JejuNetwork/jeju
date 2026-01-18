@@ -1,51 +1,27 @@
-import {
-  Activity,
-  Bot,
-  ChevronRight,
-  Crown,
-  Edit2,
-  MessageSquare,
-  Shield,
-  Zap,
-} from 'lucide-react'
+import { Activity, Bot, ChevronRight, Crown, Edit2, Zap } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { Link } from 'react-router-dom'
-import type { AgentRole, DAOAgent, DAODetail } from '../../types/dao'
+import { AGENT_ROLE_GRADIENTS, AGENT_ROLE_ICONS } from '../../constants/ui'
+import type { DAOAgent, DAODetail } from '../../types/dao'
 import { AgentDetailModal } from './AgentDetailModal'
 
 interface AgentsTabProps {
   dao: DAODetail
 }
 
-const ROLE_ICONS: Record<AgentRole, typeof Crown> = {
-  CEO: Crown,
-  TREASURY: Shield,
-  CODE: Bot,
-  COMMUNITY: MessageSquare,
-  SECURITY: Shield,
-  LEGAL: Shield,
-  CUSTOM: Bot,
-}
-
-const ROLE_GRADIENTS: Record<AgentRole, string> = {
-  CEO: 'var(--gradient-accent)',
-  TREASURY: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
-  CODE: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
-  COMMUNITY: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
-  SECURITY: 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)',
-  LEGAL: 'linear-gradient(135deg, #6B7280 0%, #4B5563 100%)',
-  CUSTOM: 'var(--gradient-secondary)',
-}
-
 interface AgentCardProps {
   agent: DAOAgent
-  isCEO?: boolean
+  isDirector?: boolean
   onViewDetails: (agent: DAOAgent) => void
 }
 
-function AgentCard({ agent, isCEO = false, onViewDetails }: AgentCardProps) {
-  const Icon = ROLE_ICONS[agent.role]
-  const gradientBg = ROLE_GRADIENTS[agent.role]
+function AgentCard({
+  agent,
+  isDirector = false,
+  onViewDetails,
+}: AgentCardProps) {
+  const Icon = AGENT_ROLE_ICONS[agent.role]
+  const gradientBg = AGENT_ROLE_GRADIENTS[agent.role]
   const activeConnectors = agent.connectors.filter((c) => c.enabled).length
 
   const timeSinceActive = Date.now() - agent.lastActiveAt
@@ -56,7 +32,7 @@ function AgentCard({ agent, isCEO = false, onViewDetails }: AgentCardProps) {
       className="group relative rounded-2xl p-5 transition-all duration-300"
       style={{
         backgroundColor: 'var(--surface)',
-        border: isCEO
+        border: isDirector
           ? '2px solid var(--color-accent)'
           : '1px solid var(--border)',
         boxShadow: 'var(--shadow-card)',
@@ -94,7 +70,7 @@ function AgentCard({ agent, isCEO = false, onViewDetails }: AgentCardProps) {
             >
               {agent.persona.name}
             </h3>
-            {isCEO && (
+            {isDirector && (
               <span
                 className="px-2 py-0.5 text-xs font-semibold rounded-full"
                 style={{
@@ -102,7 +78,7 @@ function AgentCard({ agent, isCEO = false, onViewDetails }: AgentCardProps) {
                   color: 'var(--color-accent)',
                 }}
               >
-                CEO
+                Director
               </span>
             )}
           </div>
@@ -228,15 +204,15 @@ function OrgChart({ dao }: { dao: DAODetail }) {
         Organization Structure
       </h3>
       <div className="relative">
-        {/* CEO at top */}
+        {/* Director at top */}
         <div className="flex justify-center mb-8">
           <div
             className="w-32 h-32 rounded-2xl flex flex-col items-center justify-center text-white shadow-xl"
             style={{ background: 'var(--gradient-accent)' }}
           >
             <Crown className="w-8 h-8 mb-2" aria-hidden="true" />
-            <span className="font-semibold">{dao.ceo.persona.name}</span>
-            <span className="text-xs opacity-75">CEO</span>
+            <span className="font-semibold">{dao.director.persona.name}</span>
+            <span className="text-xs opacity-75">Director</span>
           </div>
         </div>
 
@@ -252,9 +228,9 @@ function OrgChart({ dao }: { dao: DAODetail }) {
 
         {/* Board members */}
         <div className="flex justify-center gap-4 flex-wrap">
-          {dao.board.map((agent) => {
-            const Icon = ROLE_ICONS[agent.role]
-            const gradient = ROLE_GRADIENTS[agent.role]
+          {dao.boardAgents.map((agent) => {
+            const Icon = AGENT_ROLE_ICONS[agent.role]
+            const gradient = AGENT_ROLE_GRADIENTS[agent.role]
             return (
               <div
                 key={agent.id}
@@ -291,7 +267,7 @@ export function AgentsTab({ dao }: AgentsTabProps) {
       {/* Org Chart */}
       <OrgChart dao={dao} />
 
-      {/* CEO Section */}
+      {/* Director Section */}
       <div className="mb-8">
         <h3
           className="text-sm font-medium uppercase tracking-wider mb-4"
@@ -299,7 +275,11 @@ export function AgentsTab({ dao }: AgentsTabProps) {
         >
           Chief Executive Officer
         </h3>
-        <AgentCard agent={dao.ceo} isCEO onViewDetails={handleViewDetails} />
+        <AgentCard
+          agent={dao.director}
+          isDirector
+          onViewDetails={handleViewDetails}
+        />
       </div>
 
       {/* Board Section */}
@@ -309,7 +289,7 @@ export function AgentsTab({ dao }: AgentsTabProps) {
             className="text-sm font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
-            Board of Directors ({dao.board.length} members)
+            Board of Directors ({dao.boardAgents.length} members)
           </h3>
           <Link
             to={`/dao/${dao.daoId}/agents/add`}
@@ -321,7 +301,7 @@ export function AgentsTab({ dao }: AgentsTabProps) {
           </Link>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
-          {dao.board.map((agent) => (
+          {dao.boardAgents.map((agent) => (
             <AgentCard
               key={agent.id}
               agent={agent}

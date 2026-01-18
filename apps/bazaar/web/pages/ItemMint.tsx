@@ -380,7 +380,7 @@ export default function ItemMintPage() {
                 Minting...
               </span>
             ) : !isConnected ? (
-              'Connect Wallet'
+              'Sign In'
             ) : !mint.canMint ? (
               'Minting Unavailable'
             ) : mint.mintFee?.isFree ? (

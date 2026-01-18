@@ -40,7 +40,7 @@ async function dwsExec(
 // Export for backwards compatibility
 export { dwsExec as execViaAPI }
 
-// Note: dgram and net are protocol-level APIs not available in workerd
+// dgram and net are protocol-level APIs not available in workerd
 // VPN service uses these and MUST run on DWS node
 // For workerd compatibility, VPN would need to:
 // - Use DWS exec API to spawn WireGuard processes

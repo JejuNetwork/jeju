@@ -1,11 +1,12 @@
-import { ZERO_ADDRESS } from '@jejunetwork/types'
 import {
+  type Abi,
   type Address,
   isAddress,
   type PublicClient,
   parseAbi,
   parseEther,
 } from 'viem'
+import { z } from 'zod'
 import type {
   AgentCharacter,
   AgentDefinition,
@@ -30,10 +31,13 @@ interface AgentRegistration {
   isSlashed: boolean
 }
 
-import { AgentSearchResponseSchema, expect, expectTrue } from '../schemas'
+import { expect, expectTrue } from '../schemas'
 import type { CrucibleCompute } from './compute'
 import { createLogger, type Logger } from './logger'
 import type { CrucibleStorage } from './storage'
+
+// Timeout for waiting for transaction receipts (60s for localnet, longer for prod)
+const TX_RECEIPT_TIMEOUT_MS = 60_000
 
 // ABI matching actual IdentityRegistry.sol contract
 const IDENTITY_REGISTRY_ABI = parseAbi([
@@ -99,9 +103,9 @@ export class AgentSDK {
    */
   private async executeWrite(params: {
     address: Address
-    abi: readonly unknown[]
+    abi: Abi
     functionName: string
-    args?: readonly unknown[]
+    args?: readonly (Address | bigint | string | boolean | number)[]
     value?: bigint
   }): Promise<`0x${string}`> {
     if (!this.kmsSigner.isInitialized()) {
@@ -151,6 +155,7 @@ export class AgentSDK {
 
     const receipt = await this.publicClient.waitForTransactionReceipt({
       hash: txHash,
+      timeout: TX_RECEIPT_TIMEOUT_MS,
     })
 
     const log = receipt.logs[0]
@@ -198,7 +203,10 @@ export class AgentSDK {
       args: [agentId],
       value: funding,
     })
-    await this.publicClient.waitForTransactionReceipt({ hash: txHash })
+    await this.publicClient.waitForTransactionReceipt({
+      hash: txHash,
+      timeout: TX_RECEIPT_TIMEOUT_MS,
+    })
 
     const vaultAddress = (await this.publicClient.readContract({
       address: this.config.contracts.agentVault,
@@ -255,17 +263,13 @@ export class AgentSDK {
       args: [agentId],
     })
 
-    // Get name from character (stored in IPFS)
-    let name = `Agent ${agentId}`
-    if (characterCid) {
-      const character = await this.storage.loadCharacter(characterCid)
-      name = character.name
-    }
+    const character = characterCid
+      ? await this.storage.loadCharacter(characterCid)
+      : null
 
     // Infer botType from character or default to ai_agent
     let botType: 'ai_agent' | 'trading_bot' | 'org_tool' = 'ai_agent'
-    if (characterCid) {
-      const character = await this.storage.loadCharacter(characterCid)
+    if (character) {
       if (
         character.topics.includes('trading') ||
         character.topics.includes('arbitrage') ||
@@ -284,12 +288,12 @@ export class AgentSDK {
     return {
       agentId,
       owner: registration.owner,
-      name,
+      name: character?.name ?? `Agent ${agentId}`,
       botType,
       characterCid,
       stateCid,
       vaultAddress,
-      active: !registration.isBanned,
+      active: !registration.isBanned && !registration.isSlashed,
       registeredAt: Number(registration.registeredAt) * 1000,
       lastExecutedAt: Number(registration.lastActivityAt) * 1000,
       executionCount: 0,
@@ -410,7 +414,10 @@ export class AgentSDK {
       args: [agentId],
       value: amount,
     })
-    await this.publicClient.waitForTransactionReceipt({ hash: txHash })
+    await this.publicClient.waitForTransactionReceipt({
+      hash: txHash,
+      timeout: TX_RECEIPT_TIMEOUT_MS,
+    })
 
     this.log.info('Vault funded', { agentId: agentId.toString(), txHash })
     return txHash
@@ -434,7 +441,10 @@ export class AgentSDK {
       functionName: 'withdraw',
       args: [agentId, amount],
     })
-    await this.publicClient.waitForTransactionReceipt({ hash: txHash })
+    await this.publicClient.waitForTransactionReceipt({
+      hash: txHash,
+      timeout: TX_RECEIPT_TIMEOUT_MS,
+    })
 
     this.log.info('Withdrawal complete', {
       agentId: agentId.toString(),
@@ -470,6 +480,9 @@ export class AgentSDK {
         'Limit must be between 1 and 100',
       )
     }
+    if (filter.offset !== undefined) {
+      expectTrue(filter.offset >= 0, 'Offset must be non-negative')
+    }
     if (filter.owner !== undefined) {
       expect(isAddress(filter.owner), 'Owner must be a valid address')
     }
@@ -477,11 +490,24 @@ export class AgentSDK {
       filter: JSON.parse(JSON.stringify(filter)),
     })
 
+    // Build query based on filter
+    const limit = filter.limit ?? 50
+    const offset = filter.offset ?? 0
+    const where: string[] = []
+    if (filter.owner) {
+      where.push(`owner: { id_eq: "${filter.owner.toLowerCase()}" }`)
+    }
+    if (filter.active === true) {
+      where.push('isBanned_eq: false')
+      where.push('isSlashed_eq: false')
+    }
+    const whereFilter =
+      where.length > 0 ? `, where: { ${where.join(', ')} }` : ''
+
     const query = `
-      query SearchAgents($filter: AgentFilter!) {
-        agents(filter: $filter) {
-          items { agentId owner name characterCid stateCid vaultAddress active registeredAt lastExecutedAt executionCount }
-          total hasMore
+      query SearchAgents {
+        registeredAgents(limit: ${limit}, offset: ${offset}${whereFilter}, orderBy: registeredAt_DESC) {
+          agentId
         }
       }
     `
@@ -489,32 +515,76 @@ export class AgentSDK {
     const response = await fetch(this.config.services.indexerGraphql, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, variables: { filter } }),
+      body: JSON.stringify({ query }),
     })
 
     expect(response.ok, `Search failed: ${response.statusText}`)
 
-    const rawResult = await response.json()
-    const parsed = AgentSearchResponseSchema.parse(rawResult)
-    const { agents, total: parsedTotal } = parsed
-    const total = parsedTotal ?? agents.length
+    const raw: unknown = await response.json()
+    const result = z
+      .object({
+        data: z.object({
+          registeredAgents: z.array(z.object({ agentId: z.string() })),
+        }),
+        errors: z
+          .array(
+            z.object({
+              message: z.string(),
+            }),
+          )
+          .optional(),
+      })
+      .parse(raw)
+
+    if (result.errors && result.errors.length > 0) {
+      this.log.error('GraphQL error', { errors: result.errors })
+      throw new Error(`GraphQL error: ${result.errors[0].message}`)
+    }
+
+    const indexedAgents = result.data.registeredAgents
+    const total = indexedAgents.length
     this.log.debug('Search complete', { total })
 
-    // Convert parsed agents to SearchResult format
-    const items: AgentDefinition[] = agents.map((a) => ({
-      ...a,
-      agentId: BigInt(a.id),
-      owner: ZERO_ADDRESS,
-      botType: 'ai_agent',
-      stateCid: '',
-      vaultAddress: ZERO_ADDRESS,
-      active: a.status === 'active',
-      registeredAt: 0,
-      lastExecutedAt: 0,
-      executionCount: 0,
-    }))
+    const items: AgentDefinition[] = []
+    const resolvedAgents: Array<AgentDefinition | null> = new Array(
+      indexedAgents.length,
+    ).fill(null)
 
-    return { items, total, hasMore: false }
+    // Fetch agents concurrently (bounded) to avoid slow sequential chain + IPFS reads
+    const concurrency = 5
+    let nextIndex = 0
+    const workers = Array.from({ length: concurrency }, async () => {
+      while (true) {
+        const i = nextIndex
+        nextIndex++
+        if (i >= indexedAgents.length) return
+
+        const indexed = indexedAgents[i]
+        const agentId = BigInt(indexed.agentId)
+        const agent = await this.getAgent(agentId)
+        const validAgent = expect(agent, `Agent not found: ${indexed.agentId}`)
+        resolvedAgents[i] = validAgent
+      }
+    })
+
+    await Promise.all(workers)
+
+    for (const agent of resolvedAgents) {
+      if (!agent) continue
+
+      if (filter.active !== undefined && agent.active !== filter.active) {
+        continue
+      }
+      if (filter.name) {
+        if (!agent.name.toLowerCase().includes(filter.name.toLowerCase())) {
+          continue
+        }
+      }
+
+      items.push(agent)
+    }
+
+    return { items, total, hasMore: indexedAgents.length === limit }
   }
 
   private parseTokenUri(uri: string): {

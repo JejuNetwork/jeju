@@ -1,180 +1,142 @@
 /**
- * @fileoverview Gas Abstraction Layer
- *
- * Unified gas payment interface that:
- * - Automatically selects best payment token
- * - Supports native ETH, ERC20s, and sponsored transactions
- * - Integrates with CrossChainPaymaster for multi-token payment
- * - Works across all supported chains
+ * Gas Abstraction Service
+ * Unified gas management across chains with token payment support
  */
 
 import { ZERO_ADDRESS } from '@jejunetwork/types'
-import type { Address, Hex, PublicClient, WalletClient } from 'viem'
-import { AAClient } from './account-abstraction'
-import { EILClient } from './eil'
-import type { GasOption, TokenBalance } from './types'
+import type { Address, PublicClient } from 'viem'
+import { createEILClient, type EILClient } from './eil'
+import type { TokenBalance } from './types'
 
-export type GasPaymentMode = 'native' | 'token' | 'sponsored' | 'cross-chain'
-
-export interface GasConfig {
-  preferredMode: GasPaymentMode
-  preferredToken?: Address
-  maxGasPriceGwei?: number
-  autoBridge?: boolean // Auto-bridge gas token if needed
+// Supported gas tokens by chain
+const SUPPORTED_TOKENS: Record<number, Address[]> = {
+  // Ethereum Mainnet
+  1: [
+    '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' as Address, // USDC
+    '0xdAC17F958D2ee523a2206206994597C13D831ec7' as Address, // USDT
+    '0x6B175474E89094C44Da98b954EesfdeCB5f0f82ae' as Address, // DAI
+  ],
+  // Base
+  8453: [
+    '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as Address, // USDC
+  ],
+  // Arbitrum
+  42161: [
+    '0xaf88d065e77c8cC2239327C5EDb3A432268e5831' as Address, // USDC
+    '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9' as Address, // USDT
+  ],
 }
 
-export interface GasPaymentResult {
-  mode: GasPaymentMode
-  token: Address
-  tokenSymbol: string
-  amountPaid: bigint
-  ethEquivalent: bigint
-  usdValue?: number
-  txHash?: Hex
+export interface GasConfig {
+  preferredMode: 'native' | 'sponsored' | 'auto'
+  maxGasPriceGwei: number
+  autoBridge: boolean
+}
+
+export interface GasServiceConfig {
+  publicClients: Map<number, PublicClient>
+  supportedChains: number[]
+  defaultConfig?: Partial<GasConfig>
 }
 
 export interface GasStatus {
   chainId: number
   hasNativeBalance: boolean
   nativeBalance: bigint
-  canPayWithTokens: boolean
-  availableTokens: GasOption[]
-  recommendedToken?: GasOption
   needsBridge: boolean
   bridgeEstimate?: {
     sourceChain: number
+    sourceToken: Address
     amount: bigint
-    fee: bigint
+    estimatedGas: bigint
   }
 }
 
-export interface GasServiceConfig {
-  publicClients: Map<number, PublicClient>
-  walletClient?: WalletClient
-  supportedChains: number[]
-  defaultConfig?: Partial<GasConfig>
+export interface EnsureGasResult {
+  ready: boolean
+  action: 'none' | 'bridge' | 'swap' | 'deposit'
+  details?: {
+    amount?: bigint
+    sourceChain?: number
+    token?: Address
+  }
 }
 
+export interface GasOption {
+  token: Address
+  cost: bigint
+  mode: 'native' | 'sponsored'
+}
+
+/**
+ * Gas Abstraction Service for unified gas management
+ */
 export class GasAbstractionService {
   private publicClients: Map<number, PublicClient>
-  private walletClient?: WalletClient
-  private supportedChains: number[]
+  private supportedChains: Set<number>
   private config: GasConfig
   private eilClients: Map<number, EILClient> = new Map()
-  private aaClients: Map<number, AAClient> = new Map()
 
-  constructor(serviceConfig: GasServiceConfig) {
-    this.publicClients = serviceConfig.publicClients
-    this.walletClient = serviceConfig.walletClient
-    this.supportedChains = serviceConfig.supportedChains
+  constructor(options: GasServiceConfig) {
+    this.publicClients = options.publicClients
+    this.supportedChains = new Set(options.supportedChains)
     this.config = {
-      preferredMode: 'token',
-      maxGasPriceGwei: 100,
-      autoBridge: true,
-      ...serviceConfig.defaultConfig,
+      preferredMode: options.defaultConfig?.preferredMode ?? 'auto',
+      maxGasPriceGwei: options.defaultConfig?.maxGasPriceGwei ?? 100,
+      autoBridge: options.defaultConfig?.autoBridge ?? true,
     }
 
-    // Initialize clients for each chain
-    for (const chainId of serviceConfig.supportedChains) {
-      const publicClient = this.publicClients.get(chainId)
+    // Initialize EIL clients for supported chains
+    for (const chainId of options.supportedChains) {
+      const publicClient = options.publicClients.get(chainId)
       if (publicClient) {
-        this.eilClients.set(
-          chainId,
-          new EILClient({
-            chainId,
-            publicClient,
-            walletClient: this.walletClient,
-          }),
-        )
-        this.aaClients.set(
-          chainId,
-          new AAClient({
-            chainId,
-            publicClient,
-            walletClient: this.walletClient,
-          }),
-        )
+        this.eilClients.set(chainId, createEILClient({ chainId, publicClient }))
       }
     }
   }
 
   /**
+   * Update gas configuration
+   */
+  setConfig(config: Partial<GasConfig>): void {
+    this.config = { ...this.config, ...config }
+  }
+
+  /**
    * Get gas status for a chain
-   * Shows if user can pay for gas and how
    */
   async getGasStatus(
     chainId: number,
-    userAddress: Address,
+    user: Address,
     tokenBalances: TokenBalance[],
   ): Promise<GasStatus> {
-    const publicClient = this.publicClients.get(chainId)
-    if (!publicClient) {
+    if (!this.supportedChains.has(chainId)) {
       throw new Error(`Chain ${chainId} not supported`)
     }
 
-    // Get native balance
-    const nativeBalance = await publicClient.getBalance({
-      address: userAddress,
-    })
-    const hasNativeBalance = nativeBalance > 0n
-
-    // Get estimated gas cost (use a standard transfer as baseline)
-    const gasPrice = await publicClient.getGasPrice()
-    const estimatedGasCost = gasPrice * 21000n // Standard ETH transfer
-
-    // Check token options via EIL
-    const eilClient = this.eilClients.get(chainId)
-    const availableTokens: GasOption[] = []
-
-    if (eilClient && tokenBalances.length > 0) {
-      const chainBalances = tokenBalances.filter(
-        (tb) => tb.token.chainId === chainId,
-      )
-
-      for (const tb of chainBalances) {
-        const sponsorCheck = await eilClient.canSponsor(
-          estimatedGasCost,
-          tb.token.address,
-          userAddress,
-        )
-
-        if (sponsorCheck.canSponsor) {
-          availableTokens.push({
-            token: tb.token,
-            tokenAmount: sponsorCheck.tokenCost,
-            ethEquivalent: estimatedGasCost,
-            usdValue: tb.usdValue ?? 0,
-          })
-        }
-      }
+    const publicClient = this.publicClients.get(chainId)
+    if (!publicClient) {
+      throw new Error(`No client for chain ${chainId}`)
     }
 
-    // Sort by USD value (cheapest first)
-    availableTokens.sort((a, b) => a.usdValue - b.usdValue)
+    // Get native balance
+    const nativeBalance = await publicClient.getBalance({ address: user })
+    const hasNativeBalance = nativeBalance > 0n
 
-    const canPayWithTokens = availableTokens.length > 0
-    const recommendedToken = availableTokens[0]
-
-    // Check if we need to bridge gas from another chain
+    // Check if we need to bridge
     let needsBridge = false
     let bridgeEstimate: GasStatus['bridgeEstimate']
 
-    if (!hasNativeBalance && !canPayWithTokens) {
-      // Look for balances on other chains
-      for (const otherChainId of this.supportedChains) {
-        if (otherChainId === chainId) continue
-
-        const otherBalances = tokenBalances.filter(
-          (tb) => tb.token.chainId === otherChainId,
-        )
-        const hasOtherBalance = otherBalances.some((tb) => tb.balance > 0n)
-
-        if (hasOtherBalance) {
+    if (!hasNativeBalance) {
+      // Look for tokens on other chains
+      for (const tb of tokenBalances) {
+        if (tb.token.chainId !== chainId && tb.balance > 0n) {
           needsBridge = true
           bridgeEstimate = {
-            sourceChain: otherChainId,
-            amount: estimatedGasCost * 2n, // 2x for buffer
-            fee: estimatedGasCost / 10n, // Estimated bridge fee
+            sourceChain: tb.token.chainId,
+            sourceToken: tb.token.address as Address,
+            amount: tb.balance,
+            estimatedGas: 100000n, // Rough estimate
           }
           break
         }
@@ -185,165 +147,112 @@ export class GasAbstractionService {
       chainId,
       hasNativeBalance,
       nativeBalance,
-      canPayWithTokens,
-      availableTokens,
-      recommendedToken,
       needsBridge,
       bridgeEstimate,
     }
   }
 
   /**
-   * Get the best gas payment option across all chains
+   * Get supported tokens for gas payment on a chain
+   */
+  getSupportedTokens(chainId: number): Address[] {
+    return SUPPORTED_TOKENS[chainId] ?? []
+  }
+
+  /**
+   * Build paymaster data for token payment
+   */
+  buildPaymasterData(chainId: number, token: Address): `0x${string}` {
+    const eilClient = this.eilClients.get(chainId)
+    if (!eilClient || !eilClient.isReady()) {
+      return '0x'
+    }
+    return eilClient.buildPaymasterData(token)
+  }
+
+  /**
+   * Ensure user has enough gas for a transaction
+   */
+  async ensureGas(
+    chainId: number,
+    user: Address,
+    tokenBalances: TokenBalance[],
+    requiredGas: bigint,
+  ): Promise<EnsureGasResult> {
+    const status = await this.getGasStatus(chainId, user, tokenBalances)
+
+    if (status.hasNativeBalance && status.nativeBalance >= requiredGas) {
+      return { ready: true, action: 'none' }
+    }
+
+    // Check if we can use sponsored gas
+    const eilClient = this.eilClients.get(chainId)
+    if (eilClient?.isReady()) {
+      const tokens = this.getSupportedTokens(chainId)
+      for (const token of tokens) {
+        const canSponsor = await eilClient.canSponsor(requiredGas, token, user)
+        if (canSponsor.canSponsor) {
+          return { ready: true, action: 'none' }
+        }
+      }
+    }
+
+    // Need to bridge or deposit
+    if (status.needsBridge && status.bridgeEstimate) {
+      return {
+        ready: false,
+        action: 'bridge',
+        details: {
+          sourceChain: status.bridgeEstimate.sourceChain,
+          token: status.bridgeEstimate.sourceToken,
+          amount: status.bridgeEstimate.amount,
+        },
+      }
+    }
+
+    return { ready: false, action: 'deposit' }
+  }
+
+  /**
+   * Get the best gas payment option
    */
   async getBestGasOption(
     chainId: number,
-    userAddress: Address,
+    user: Address,
     tokenBalances: TokenBalance[],
     estimatedGas: bigint,
   ): Promise<GasOption | null> {
     const eilClient = this.eilClients.get(chainId)
-    if (!eilClient) return null
+    if (!eilClient?.isReady()) {
+      return null
+    }
 
-    const chainBalances = tokenBalances.filter(
-      (tb) => tb.token.chainId === chainId,
+    const relevantBalances = tokenBalances.filter(
+      (tb) => tb.token.chainId === chainId && tb.balance > 0n,
     )
-    if (chainBalances.length === 0) return null
 
-    const publicClient = this.publicClients.get(chainId)
-    if (!publicClient) return null
+    if (relevantBalances.length === 0) {
+      return null
+    }
 
-    const gasPrice = await publicClient.getGasPrice()
-    const gasCostETH = estimatedGas * gasPrice
-
-    const result = await eilClient.getBestPaymentTokenForApp(
-      ZERO_ADDRESS, // No specific app
-      userAddress,
-      gasCostETH,
-      chainBalances,
-    )
+    const tokens = relevantBalances.map((tb) => tb.token.address as Address)
+    const result = await eilClient.getBestGasToken(user, estimatedGas, tokens)
 
     if (result.bestToken === ZERO_ADDRESS) {
       return null
     }
 
-    const tokenBalance = chainBalances.find(
-      (tb) => tb.token.address === result.bestToken,
-    )
-    if (!tokenBalance) return null
-
     return {
-      token: tokenBalance.token,
-      tokenAmount: result.tokenCost,
-      ethEquivalent: gasCostETH,
-      usdValue: tokenBalance.usdValue ?? 0,
-      reason: result.reason,
+      token: result.bestToken,
+      cost: result.tokenCost,
+      mode: 'sponsored',
     }
-  }
-
-  /**
-   * Build paymaster data for a UserOperation
-   */
-  buildPaymasterData(
-    chainId: number,
-    paymentToken: Address,
-    appAddress?: Address,
-  ): Hex {
-    const eilClient = this.eilClients.get(chainId)
-    if (!eilClient) {
-      return '0x'
-    }
-
-    return eilClient.buildPaymasterData(
-      paymentToken,
-      appAddress ?? ZERO_ADDRESS,
-    )
-  }
-
-  /**
-   * Ensure user has gas on target chain
-   * Will auto-bridge if needed and autoBridge is enabled
-   */
-  async ensureGas(
-    targetChainId: number,
-    userAddress: Address,
-    tokenBalances: TokenBalance[],
-    minAmount: bigint,
-  ): Promise<{
-    ready: boolean
-    action?: 'none' | 'bridge' | 'swap'
-    txHash?: Hex
-  }> {
-    const status = await this.getGasStatus(
-      targetChainId,
-      userAddress,
-      tokenBalances,
-    )
-
-    // Already have native balance
-    if (status.nativeBalance >= minAmount) {
-      return { ready: true, action: 'none' }
-    }
-
-    // Can pay with tokens
-    if (status.canPayWithTokens) {
-      return { ready: true, action: 'none' }
-    }
-
-    // Need to bridge
-    if (status.needsBridge && this.config.autoBridge && status.bridgeEstimate) {
-      const eilClient = this.eilClients.get(status.bridgeEstimate.sourceChain)
-      if (eilClient && this.walletClient) {
-        const result = await eilClient.createCrossChainTransfer({
-          sourceToken: ZERO_ADDRESS,
-          amount: status.bridgeEstimate.amount,
-          destinationToken: ZERO_ADDRESS,
-          destinationChainId: targetChainId,
-          recipient: userAddress,
-        })
-
-        return { ready: false, action: 'bridge', txHash: result.txHash }
-      }
-    }
-
-    return { ready: false }
-  }
-
-  /**
-   * Update configuration
-   */
-  setConfig(config: Partial<GasConfig>): void {
-    this.config = { ...this.config, ...config }
-  }
-
-  /**
-   * Get supported payment tokens for a chain
-   */
-  getSupportedTokens(chainId: number): Address[] {
-    // These would typically come from contract or config
-    const tokensByChain: Record<number, Address[]> = {
-      1: [
-        '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', // USDC
-        '0xdAC17F958D2ee523a2206206994597C13D831ec7', // USDT
-        '0x6B175474E89094C44Da98b954EescdeCB5F6c6bB', // DAI
-      ],
-      8453: [
-        '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // USDC
-      ],
-      42161: [
-        '0xaf88d065e77c8cC2239327C5EDb3A432268e5831', // USDC
-        '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9', // USDT
-      ],
-      31337: [], // Localnet - dynamically determined
-    }
-
-    // Return tokens for chain, empty array if not found
-    const tokens = tokensByChain[chainId]
-    if (tokens) return tokens
-    return []
   }
 }
 
+/**
+ * Create a gas abstraction service
+ */
 export function createGasService(
   config: GasServiceConfig,
 ): GasAbstractionService {

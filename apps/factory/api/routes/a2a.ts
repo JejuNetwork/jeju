@@ -257,7 +257,7 @@ async function executeSkill(
     }
 
     case 'search-models': {
-      const models = listModels({
+      const models = await listModels({
         type: p.query !== 'all' ? p.query : undefined,
         org: p.org,
       })
@@ -277,7 +277,7 @@ async function executeSkill(
     }
 
     case 'list-bounties': {
-      const result = listBounties({ status: 'open' })
+      const result = await listBounties({ status: 'open' })
       return {
         message: `Found ${result.total} open bounties`,
         data: {
@@ -295,7 +295,7 @@ async function executeSkill(
     }
 
     case 'list-ci-runs': {
-      const result = listCIRuns({})
+      const result = await listCIRuns({})
       return {
         message: `Found ${result.total} CI runs`,
         data: {
@@ -312,7 +312,7 @@ async function executeSkill(
     }
 
     case 'list-agents': {
-      const agents = listAgents({ active: true })
+      const agents = await listAgents({ active: true })
       return {
         message: `Found ${agents.length} active agents`,
         data: {

@@ -14,7 +14,7 @@ interface ISequencerRegistryForced {
  * @notice Anti-censorship: queue L2 txs that sequencers must include within 50 blocks or get slashed.
  * @dev Security features:
  *      - forceInclude() is NEVER pausable - users can always force-include transactions
- *      - Only Security Council can pause (for emergencies)
+ *      - Only Security Board can pause (for emergencies)
  *      - Unpause requires timelock (7 days)
  *      - Registry changes require timelock (2 days)
  */
@@ -43,7 +43,7 @@ contract ForcedInclusion is ReentrancyGuard, Pausable, Ownable {
 
     address public immutable batchInbox;
     address public sequencerRegistry;
-    address public securityCouncil;
+    address public securityBoard;
 
     mapping(bytes32 => QueuedTx) public queuedTxs;
     bytes32[] public pendingTxIds;
@@ -61,7 +61,7 @@ contract ForcedInclusion is ReentrancyGuard, Pausable, Ownable {
     event UnpauseProposed(uint256 executeAfter);
     event UnpauseExecuted();
     event RegistryChangeProposed(address indexed newRegistry, uint256 executeAfter);
-    event SecurityCouncilUpdated(address indexed oldCouncil, address indexed newCouncil);
+    event SecurityBoardUpdated(address indexed oldBoard, address indexed newBoard);
 
     error InsufficientFee();
     error TxNotFound();
@@ -73,13 +73,13 @@ contract ForcedInclusion is ReentrancyGuard, Pausable, Ownable {
     error ForceFailed();
     error NotActiveSequencer();
     error InvalidInclusionProof();
-    error NotSecurityCouncil();
+    error NotSecurityBoard();
     error NoPendingUnpause();
     error NoPendingChange();
     error TimelockNotExpired();
 
-    modifier onlySecurityCouncil() {
-        if (msg.sender != securityCouncil) revert NotSecurityCouncil();
+    modifier onlySecurityBoard() {
+        if (msg.sender != securityBoard) revert NotSecurityBoard();
         _;
     }
 
@@ -87,13 +87,13 @@ contract ForcedInclusion is ReentrancyGuard, Pausable, Ownable {
 
     /// @param _batchInbox Batch inbox contract address
     /// @param _sequencerRegistry Sequencer registry for active sequencer checks
-    /// @param _securityCouncil Security council for emergency pause
+    /// @param _securityBoard Security board for emergency pause
     /// @param _owner Contract owner
     /// @param _skipContractCheck Set to true only in tests - production must be false
     constructor(
         address _batchInbox,
         address _sequencerRegistry,
-        address _securityCouncil,
+        address _securityBoard,
         address _owner,
         bool _skipContractCheck
     ) Ownable(_owner) {
@@ -109,7 +109,7 @@ contract ForcedInclusion is ReentrancyGuard, Pausable, Ownable {
 
         batchInbox = _batchInbox;
         sequencerRegistry = _sequencerRegistry;
-        securityCouncil = _securityCouncil;
+        securityBoard = _securityBoard;
     }
 
     function queueTx(bytes calldata data, uint256 gasLimit) external payable nonReentrant whenNotPaused {
@@ -240,11 +240,11 @@ contract ForcedInclusion is ReentrancyGuard, Pausable, Ownable {
         return result;
     }
 
-    // ============ Security Council Functions ============
+    // ============ Security Board Functions ============
 
-    /// @notice Emergency pause - only Security Council can pause
+    /// @notice Emergency pause - only Security Board can pause
     /// @dev This pauses queueTx but NOT forceInclude (anti-censorship must always work)
-    function pause() external onlySecurityCouncil {
+    function pause() external onlySecurityBoard {
         _pause();
         emit EmergencyPause(msg.sender);
     }
@@ -283,10 +283,10 @@ contract ForcedInclusion is ReentrancyGuard, Pausable, Ownable {
         delete pendingRegistryChange;
     }
 
-    /// @notice Update security council - only callable by owner (governance timelock)
-    function setSecurityCouncil(address _newCouncil) external onlyOwner {
-        emit SecurityCouncilUpdated(securityCouncil, _newCouncil);
-        securityCouncil = _newCouncil;
+    /// @notice Update security board - only callable by owner (governance timelock)
+    function setSecurityBoard(address _newBoard) external onlyOwner {
+        emit SecurityBoardUpdated(securityBoard, _newBoard);
+        securityBoard = _newBoard;
     }
 
     receive() external payable {}

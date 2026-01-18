@@ -10,7 +10,7 @@
 
 import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, parseAbiItem } from 'viem'
-import { requireContract } from '../config'
+import { safeGetContract } from '../config'
 import type { BaseWallet } from '../wallet'
 
 // Event signatures for querying logs
@@ -350,12 +350,36 @@ export function createTrainingModule(
   wallet: BaseWallet,
   network: NetworkType,
 ): TrainingModule {
-  const coordinatorAddress = requireContract(
+  // Use safe getters - contracts may not be deployed on all networks
+  const coordinatorAddressOpt = safeGetContract(
     'training',
     'TrainingCoordinator',
     network,
   )
-  const rewardsAddress = requireContract('training', 'TrainingRewards', network)
+  const rewardsAddressOpt = safeGetContract(
+    'training',
+    'TrainingRewards',
+    network,
+  )
+
+  // Lazy-load contract addresses - throw on method call if not deployed
+  const getCoordinatorAddress = () => {
+    if (!coordinatorAddressOpt) {
+      throw new Error(
+        'Training TrainingCoordinator contract not deployed on this network',
+      )
+    }
+    return coordinatorAddressOpt
+  }
+
+  const getRewardsAddress = () => {
+    if (!rewardsAddressOpt) {
+      throw new Error(
+        'Training TrainingRewards contract not deployed on this network',
+      )
+    }
+    return rewardsAddressOpt
+  }
 
   return {
     async createRun(params) {
@@ -377,7 +401,7 @@ export function createTrainingModule(
       })
 
       const txHash = await wallet.sendTransaction({
-        to: coordinatorAddress,
+        to: getCoordinatorAddress(),
         data,
       })
 
@@ -386,7 +410,7 @@ export function createTrainingModule(
 
     async getRun(runId) {
       const result = await wallet.publicClient.readContract({
-        address: coordinatorAddress,
+        address: getCoordinatorAddress(),
         abi: TRAINING_COORDINATOR_ABI,
         functionName: 'runs',
         args: [runId],
@@ -396,7 +420,7 @@ export function createTrainingModule(
         return null
 
       const clientCount = await wallet.publicClient.readContract({
-        address: coordinatorAddress,
+        address: getCoordinatorAddress(),
         abi: TRAINING_COORDINATOR_ABI,
         functionName: 'getClientCount',
         args: [runId],
@@ -434,7 +458,7 @@ export function createTrainingModule(
 
       // Query RunCreated events
       const logs = await wallet.publicClient.getLogs({
-        address: coordinatorAddress,
+        address: getCoordinatorAddress(),
         event: RUN_CREATED_EVENT,
         fromBlock: 'earliest',
         toBlock: 'latest',
@@ -462,7 +486,7 @@ export function createTrainingModule(
 
       // Query RunCreated events filtered by creator
       const logs = await wallet.publicClient.getLogs({
-        address: coordinatorAddress,
+        address: getCoordinatorAddress(),
         event: RUN_CREATED_EVENT,
         args: { creator: wallet.address },
         fromBlock: 'earliest',
@@ -487,7 +511,7 @@ export function createTrainingModule(
         functionName: 'pauseRun',
         args: [runId],
       })
-      return wallet.sendTransaction({ to: coordinatorAddress, data })
+      return wallet.sendTransaction({ to: getCoordinatorAddress(), data })
     },
 
     async resumeRun(runId) {
@@ -496,7 +520,7 @@ export function createTrainingModule(
         functionName: 'resumeRun',
         args: [runId],
       })
-      return wallet.sendTransaction({ to: coordinatorAddress, data })
+      return wallet.sendTransaction({ to: getCoordinatorAddress(), data })
     },
 
     async cancelRun(runId) {
@@ -505,7 +529,7 @@ export function createTrainingModule(
         functionName: 'cancelRun',
         args: [runId],
       })
-      return wallet.sendTransaction({ to: coordinatorAddress, data })
+      return wallet.sendTransaction({ to: getCoordinatorAddress(), data })
     },
 
     async joinRun(runId, nodeId) {
@@ -514,7 +538,7 @@ export function createTrainingModule(
         functionName: 'joinRun',
         args: [runId, nodeId],
       })
-      return wallet.sendTransaction({ to: coordinatorAddress, data })
+      return wallet.sendTransaction({ to: getCoordinatorAddress(), data })
     },
 
     async leaveRun(runId) {
@@ -523,7 +547,7 @@ export function createTrainingModule(
         functionName: 'leaveRun',
         args: [runId],
       })
-      return wallet.sendTransaction({ to: coordinatorAddress, data })
+      return wallet.sendTransaction({ to: getCoordinatorAddress(), data })
     },
 
     async getClients(runId) {
@@ -532,7 +556,7 @@ export function createTrainingModule(
 
       // Query ClientJoined events for this run
       const joinLogs = await wallet.publicClient.getLogs({
-        address: coordinatorAddress,
+        address: getCoordinatorAddress(),
         event: CLIENT_JOINED_EVENT,
         args: { runId },
         fromBlock: 'earliest',
@@ -541,7 +565,7 @@ export function createTrainingModule(
 
       // Query ClientLeft events to track who has left
       const leftLogs = await wallet.publicClient.getLogs({
-        address: coordinatorAddress,
+        address: getCoordinatorAddress(),
         event: CLIENT_LEFT_EVENT,
         args: { runId },
         fromBlock: 'earliest',
@@ -564,7 +588,7 @@ export function createTrainingModule(
 
         // Check if still active via contract
         const isActive = await wallet.publicClient.readContract({
-          address: coordinatorAddress,
+          address: getCoordinatorAddress(),
           abi: TRAINING_COORDINATOR_ABI,
           functionName: 'isClient',
           args: [runId, log.args.client],
@@ -594,7 +618,7 @@ export function createTrainingModule(
     async getMyClientStatus(runId) {
       // Check if wallet is a client
       const isActive = await wallet.publicClient.readContract({
-        address: coordinatorAddress,
+        address: getCoordinatorAddress(),
         abi: TRAINING_COORDINATOR_ABI,
         functionName: 'isClient',
         args: [runId, wallet.address],
@@ -606,7 +630,7 @@ export function createTrainingModule(
 
       // Query when we joined
       const joinLogs = await wallet.publicClient.getLogs({
-        address: coordinatorAddress,
+        address: getCoordinatorAddress(),
         event: CLIENT_JOINED_EVENT,
         args: { runId, client: wallet.address },
         fromBlock: 'earliest',
@@ -638,7 +662,7 @@ export function createTrainingModule(
 
     async isClientActive(runId, client) {
       return wallet.publicClient.readContract({
-        address: coordinatorAddress,
+        address: getCoordinatorAddress(),
         abi: TRAINING_COORDINATOR_ABI,
         functionName: 'isClient',
         args: [runId, client ?? wallet.address],
@@ -651,7 +675,7 @@ export function createTrainingModule(
         functionName: 'submitTrainingStep',
         args: [runId, stepData],
       })
-      return wallet.sendTransaction({ to: coordinatorAddress, data })
+      return wallet.sendTransaction({ to: getCoordinatorAddress(), data })
     },
 
     async submitWitnessReport(runId, report) {
@@ -660,7 +684,7 @@ export function createTrainingModule(
         functionName: 'submitWitnessReport',
         args: [runId, report],
       })
-      return wallet.sendTransaction({ to: coordinatorAddress, data })
+      return wallet.sendTransaction({ to: getCoordinatorAddress(), data })
     },
 
     async submitHealthCheck(runId, checkData) {
@@ -669,7 +693,7 @@ export function createTrainingModule(
         functionName: 'submitHealthCheck',
         args: [runId, checkData],
       })
-      return wallet.sendTransaction({ to: coordinatorAddress, data })
+      return wallet.sendTransaction({ to: getCoordinatorAddress(), data })
     },
 
     async claimRewards(runId) {
@@ -678,12 +702,12 @@ export function createTrainingModule(
         functionName: 'claimRewards',
         args: [runId],
       })
-      return wallet.sendTransaction({ to: rewardsAddress, data })
+      return wallet.sendTransaction({ to: getRewardsAddress(), data })
     },
 
     async getPendingRewards(runId, client) {
       return wallet.publicClient.readContract({
-        address: rewardsAddress,
+        address: getRewardsAddress(),
         abi: TRAINING_REWARDS_ABI,
         functionName: 'pendingRewards',
         args: [runId, client ?? wallet.address],
@@ -692,7 +716,7 @@ export function createTrainingModule(
 
     async getTotalRewards(runId) {
       return wallet.publicClient.readContract({
-        address: rewardsAddress,
+        address: getRewardsAddress(),
         abi: TRAINING_REWARDS_ABI,
         functionName: 'totalRewards',
         args: [runId],
@@ -701,7 +725,7 @@ export function createTrainingModule(
 
     async getRunProgress(runId) {
       const result = await wallet.publicClient.readContract({
-        address: coordinatorAddress,
+        address: getCoordinatorAddress(),
         abi: TRAINING_COORDINATOR_ABI,
         functionName: 'getProgress',
         args: [runId],
@@ -716,7 +740,7 @@ export function createTrainingModule(
 
     async getRunMetrics(runId) {
       const clientCount = await wallet.publicClient.readContract({
-        address: coordinatorAddress,
+        address: getCoordinatorAddress(),
         abi: TRAINING_COORDINATOR_ABI,
         functionName: 'getClientCount',
         args: [runId],

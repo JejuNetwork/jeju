@@ -13,6 +13,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./auth": {
+      "bun": "./src/auth/index.ts",
+      "types": "./dist/auth/index.d.ts",
+      "import": "./dist/auth/index.js"
+    },
     "./wallet": {
       "bun": "./src/wallet/index.ts",
       "types": "./dist/wallet/index.d.ts",
@@ -27,8 +32,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@jejunetwork/auth": "workspace:*",
     "@jejunetwork/sdk": "workspace:*",
     "@jejunetwork/types": "workspace:*",
+    "react-dom": "^19.2.3",
     "viem": "2.43.3"
   },
   "peerDependencies": {
@@ -39,6 +46,7 @@
   "devDependencies": {
     "@types/bun": "latest",
     "@types/react": "19.2.3",
+    "@types/react-dom": "19.0.4",
     "typescript": "5.9.3",
     "prettier": "3.5.3",
     "react": "19.2.3"

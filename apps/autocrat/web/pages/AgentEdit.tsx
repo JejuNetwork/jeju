@@ -31,7 +31,6 @@ import {
   type AgentConnector,
   BOARD_ROLE_PRESETS,
   type CommunicationTone,
-  type ConnectorType,
   type DAOAgent,
   type DecisionStyle,
   type FarcasterConnectorConfig,
@@ -371,7 +370,7 @@ export default function AgentEditPage() {
   const [linkedPackages, setLinkedPackages] = useState<string[]>([])
   const [packageInput, setPackageInput] = useState('')
 
-  const isCEO = agent?.role === 'CEO'
+  const isDirector = agent?.role === 'Director'
 
   // Populate form state when agent data loads
   useEffect(() => {
@@ -470,35 +469,6 @@ export default function AgentEditPage() {
     if (values.length > 1) {
       setValues(values.filter((_, i) => i !== index))
     }
-  }
-
-  const addConnector = (type: ConnectorType) => {
-    const newConnector: AgentConnector = {
-      id: `${type}-${Date.now()}`,
-      type,
-      enabled: true,
-      config:
-        type === 'farcaster'
-          ? {
-              channelUrl: '',
-              fid: 0,
-              autoPost: false,
-              monitorMentions: true,
-              postDecisions: false,
-              postProposals: false,
-            }
-          : type === 'github'
-            ? {
-                repoUrl: '',
-                webhookEnabled: true,
-                autoReviewPRs: true,
-                autoLabelIssues: false,
-              }
-            : ({} as AgentConnector['config']),
-      lastSync: 0,
-      status: 'disconnected',
-    }
-    setConnectors([...connectors, newConnector])
   }
 
   const updateConnector = (index: number, connector: AgentConnector) => {
@@ -612,12 +582,12 @@ export default function AgentEditPage() {
               <div className="flex items-center gap-3">
                 <div
                   className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                    isCEO
+                    isDirector
                       ? 'bg-gradient-to-br from-violet-500 to-pink-500'
                       : 'bg-slate-700'
                   }`}
                 >
-                  {isCEO ? (
+                  {isDirector ? (
                     <Crown className="w-6 h-6 text-white" />
                   ) : (
                     <Bot className="w-6 h-6 text-slate-300" />
@@ -628,7 +598,9 @@ export default function AgentEditPage() {
                     {agent.persona.name}
                   </h1>
                   <p className="text-sm text-slate-500">
-                    {isCEO ? 'CEO' : BOARD_ROLE_PRESETS[agent.role].name}
+                    {isDirector
+                      ? 'Director'
+                      : BOARD_ROLE_PRESETS[agent.role].name}
                   </p>
                 </div>
               </div>
@@ -903,7 +875,7 @@ export default function AgentEditPage() {
                 })}
               </div>
             </div>
-            {!isCEO && (
+            {!isDirector && (
               <div>
                 <label
                   htmlFor="voting-weight"
@@ -983,8 +955,22 @@ export default function AgentEditPage() {
           icon={Zap}
         >
           <div className="space-y-4">
+            {/* Coming Soon Notice */}
+            <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <Zap className="w-5 h-5 text-violet-400" />
+                <div>
+                  <p className="font-medium text-violet-300">Coming Soon</p>
+                  <p className="text-sm text-violet-200/70">
+                    Connector integrations for Farcaster, GitHub, Discord, and
+                    more are under development.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {connectors.length > 0 && (
-              <div className="space-y-3">
+              <div className="space-y-3 opacity-50 pointer-events-none">
                 {connectors.map((connector, index) => (
                   <ConnectorForm
                     key={connector.id}
@@ -995,23 +981,21 @@ export default function AgentEditPage() {
                 ))}
               </div>
             )}
-            <div>
-              <p className="text-sm text-slate-400 mb-2">Add connector:</p>
+            <div className="opacity-50">
+              <p className="text-sm text-slate-400 mb-2">
+                Available connectors (coming soon):
+              </p>
               <div className="flex flex-wrap gap-2">
-                {CONNECTOR_OPTIONS.filter(
-                  (opt) => !connectors.some((c) => c.type === opt.type),
-                ).map((opt) => {
+                {CONNECTOR_OPTIONS.map((opt) => {
                   const Icon = opt.icon
                   return (
-                    <button
+                    <span
                       key={opt.type}
-                      type="button"
-                      onClick={() => addConnector(opt.type)}
-                      className="inline-flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-sm text-slate-300 transition-colors"
+                      className="inline-flex items-center gap-2 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-500 cursor-not-allowed"
                     >
                       <Icon className="w-4 h-4" />
                       {opt.label}
-                    </button>
+                    </span>
                   )
                 })}
               </div>
@@ -1126,8 +1110,8 @@ export default function AgentEditPage() {
           </div>
         </Section>
 
-        {/* Danger Zone for non-CEO */}
-        {!isCEO && (
+        {/* Danger Zone for non-Director */}
+        {!isDirector && (
           <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-5">
             <div className="flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
@@ -1137,7 +1121,7 @@ export default function AgentEditPage() {
                 </h4>
                 <p className="text-sm text-red-200/70 mt-1">
                   Removing a board member will delete all their voting history
-                  and configuration. This action requires CEO approval.
+                  and configuration. This action requires Director approval.
                 </p>
                 <button
                   type="button"

@@ -147,7 +147,7 @@ describe('caip/index.ts - Universal CAIP Parsing', () => {
     test('returns false for invalid strings', () => {
       expect(isValidCAIP('')).toBe(false)
       expect(isValidCAIP('invalid')).toBe(false)
-      // Note: 'not:valid:format:here' parses as valid CAIP-10 (namespace:reference:address)
+      // 'not:valid:format:here' parses as valid CAIP-10 (namespace:reference:address)
       // because it has the right colon structure, even though 'not' is not a valid namespace
     })
   })

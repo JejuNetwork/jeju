@@ -62,7 +62,7 @@ function calculateHeuristicWeight(
   stakeEth: number,
   isLinked: boolean,
   hasBeenFunded: boolean,
-  maxCEOWeight: number,
+  maxDirectorWeight: number,
 ): number {
   // Base weight from community stake
   let weight = Math.min(stakeEth * 100, 2000)
@@ -77,7 +77,7 @@ function calculateHeuristicWeight(
     weight += 500
   }
 
-  return Math.min(Math.floor(weight), maxCEOWeight)
+  return Math.min(Math.floor(weight), maxDirectorWeight)
 }
 describe('FundingOracle', () => {
   describe('bigintSqrt', () => {
@@ -263,60 +263,64 @@ describe('FundingOracle', () => {
   })
 
   describe('calculateHeuristicWeight', () => {
-    const MAX_CEO_WEIGHT = 5000
+    const MAX_DIRECTOR_WEIGHT = 5000
 
     test('base weight from stake (capped at 2000)', () => {
-      expect(calculateHeuristicWeight(10, false, false, MAX_CEO_WEIGHT)).toBe(
-        1000,
-      )
-      expect(calculateHeuristicWeight(20, false, false, MAX_CEO_WEIGHT)).toBe(
-        2000,
-      )
-      expect(calculateHeuristicWeight(30, false, false, MAX_CEO_WEIGHT)).toBe(
-        2000,
-      ) // Capped
+      expect(
+        calculateHeuristicWeight(10, false, false, MAX_DIRECTOR_WEIGHT),
+      ).toBe(1000)
+      expect(
+        calculateHeuristicWeight(20, false, false, MAX_DIRECTOR_WEIGHT),
+      ).toBe(2000)
+      expect(
+        calculateHeuristicWeight(30, false, false, MAX_DIRECTOR_WEIGHT),
+      ).toBe(2000) // Capped
     })
 
     test('linked project adds 1000 weight', () => {
-      expect(calculateHeuristicWeight(0, true, false, MAX_CEO_WEIGHT)).toBe(
-        1000,
-      )
-      expect(calculateHeuristicWeight(10, true, false, MAX_CEO_WEIGHT)).toBe(
-        2000,
-      )
+      expect(
+        calculateHeuristicWeight(0, true, false, MAX_DIRECTOR_WEIGHT),
+      ).toBe(1000)
+      expect(
+        calculateHeuristicWeight(10, true, false, MAX_DIRECTOR_WEIGHT),
+      ).toBe(2000)
     })
 
     test('funded project adds 500 weight', () => {
-      expect(calculateHeuristicWeight(0, false, true, MAX_CEO_WEIGHT)).toBe(500)
-      expect(calculateHeuristicWeight(10, false, true, MAX_CEO_WEIGHT)).toBe(
-        1500,
-      )
+      expect(
+        calculateHeuristicWeight(0, false, true, MAX_DIRECTOR_WEIGHT),
+      ).toBe(500)
+      expect(
+        calculateHeuristicWeight(10, false, true, MAX_DIRECTOR_WEIGHT),
+      ).toBe(1500)
     })
 
     test('combined bonuses stack', () => {
       // stake: 10 ETH = 1000, linked: +1000, funded: +500 = 2500
-      expect(calculateHeuristicWeight(10, true, true, MAX_CEO_WEIGHT)).toBe(
-        2500,
-      )
+      expect(
+        calculateHeuristicWeight(10, true, true, MAX_DIRECTOR_WEIGHT),
+      ).toBe(2500)
     })
 
-    test('respects maxCEOWeight cap', () => {
+    test('respects maxDirectorWeight cap', () => {
       // With all bonuses maxed, should still respect cap
       expect(calculateHeuristicWeight(30, true, true, 2000)).toBe(2000)
       expect(calculateHeuristicWeight(30, true, true, 3000)).toBe(3000)
     })
 
     test('zero stake with no bonuses returns 0', () => {
-      expect(calculateHeuristicWeight(0, false, false, MAX_CEO_WEIGHT)).toBe(0)
+      expect(
+        calculateHeuristicWeight(0, false, false, MAX_DIRECTOR_WEIGHT),
+      ).toBe(0)
     })
 
     test('fractional stake values work', () => {
-      expect(calculateHeuristicWeight(0.5, false, false, MAX_CEO_WEIGHT)).toBe(
-        50,
-      )
-      expect(calculateHeuristicWeight(1.5, false, false, MAX_CEO_WEIGHT)).toBe(
-        150,
-      )
+      expect(
+        calculateHeuristicWeight(0.5, false, false, MAX_DIRECTOR_WEIGHT),
+      ).toBe(50)
+      expect(
+        calculateHeuristicWeight(1.5, false, false, MAX_DIRECTOR_WEIGHT),
+      ).toBe(150)
     })
   })
 

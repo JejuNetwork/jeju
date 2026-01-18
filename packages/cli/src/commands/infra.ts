@@ -184,9 +184,7 @@ infraCommand
 
 infraCommand
   .command('validate')
-  .description(
-    'Validate all deployment configurations (Terraform, Helm, Kurtosis)',
-  )
+  .description('Validate all deployment configurations (Helm, Kurtosis)')
   .action(async () => {
     const rootDir = findMonorepoRoot()
     const scriptPath = join(rootDir, 'packages/deployment/scripts/validate.ts')
@@ -201,117 +199,6 @@ infraCommand
       stdio: 'inherit',
     })
   })
-
-infraCommand
-  .command('terraform')
-  .description('Terraform operations for infrastructure')
-  .argument(
-    '[command]',
-    'Command: init | plan | apply | destroy | output',
-    'plan',
-  )
-  .option(
-    '--network <network>',
-    'Network: localnet | testnet | mainnet',
-    'testnet',
-  )
-  .action(async (command: string = 'plan', options: { network: string }) => {
-    const rootDir = findMonorepoRoot()
-    const scriptPath = join(rootDir, 'packages/deployment/scripts/terraform.ts')
-
-    if (!existsSync(scriptPath)) {
-      logger.error('Terraform script not found')
-      return
-    }
-
-    await execa('bun', ['run', scriptPath, command], {
-      cwd: rootDir,
-      env: { ...process.env, NETWORK: options.network },
-      stdio: 'inherit',
-    })
-  })
-
-infraCommand
-  .command('helmfile')
-  .description('Helmfile operations for Kubernetes deployments')
-  .argument(
-    '[command]',
-    'Command: diff | sync | apply | destroy | status | list',
-    'diff',
-  )
-  .option(
-    '--network <network>',
-    'Network: localnet | testnet | mainnet',
-    'testnet',
-  )
-  .action(async (command: string = 'diff', options: { network: string }) => {
-    const rootDir = findMonorepoRoot()
-    const scriptPath = join(rootDir, 'packages/deployment/scripts/helmfile.ts')
-
-    if (!existsSync(scriptPath)) {
-      logger.error('Helmfile script not found')
-      return
-    }
-
-    await execa('bun', ['run', scriptPath, command], {
-      cwd: rootDir,
-      env: { ...process.env, NETWORK: options.network },
-      stdio: 'inherit',
-    })
-  })
-
-infraCommand
-  .command('deploy-full')
-  .description(
-    'Full deployment pipeline (validate, terraform, images, kubernetes, verify)',
-  )
-  .option('--network <network>', 'Network: testnet | mainnet', 'testnet')
-  .option('--skip-validate', 'Skip validation step')
-  .option('--skip-terraform', 'Skip Terraform step')
-  .option('--skip-images', 'Skip Docker image builds')
-  .option('--skip-kubernetes', 'Skip Kubernetes deployment')
-  .option('--skip-verify', 'Skip verification step')
-  .option('--build-sqlit', 'Build SQLit image')
-  .action(
-    async (options: {
-      network: string
-      skipValidate?: boolean
-      skipTerraform?: boolean
-      skipImages?: boolean
-      skipKubernetes?: boolean
-      skipVerify?: boolean
-      buildSQLit?: boolean
-    }) => {
-      const rootDir = findMonorepoRoot()
-      const scriptPath = join(
-        rootDir,
-        'packages/deployment/scripts/deploy-full.ts',
-      )
-
-      if (!existsSync(scriptPath)) {
-        logger.error('Deploy full script not found')
-        return
-      }
-
-      const env: Record<string, string> = {
-        ...process.env,
-        NETWORK: options.network,
-      }
-
-      if (options.skipValidate) env.SKIP_VALIDATE = 'true'
-      if (options.skipTerraform) env.SKIP_TERRAFORM = 'true'
-      if (options.skipImages) env.SKIP_IMAGES = 'true'
-      if (options.skipKubernetes) env.SKIP_KUBERNETES = 'true'
-      if (options.skipVerify) env.SKIP_VERIFY = 'true'
-      if (options.buildSQLit) env.BUILD_SQLIT_IMAGE = 'true'
-
-      await execa('bun', ['run', scriptPath], {
-        cwd: rootDir,
-        env,
-        stdio: 'inherit',
-      })
-    },
-  )
 
 infraCommand
   .command('genesis')
@@ -403,56 +290,6 @@ infraCommand
   )
 
 infraCommand
-  .command('sync-alerts')
-  .description('Sync Prometheus alerts to Kubernetes ConfigMap')
-  .option('--namespace <ns>', 'Kubernetes namespace')
-  .action(async (options: { namespace?: string }) => {
-    const rootDir = findMonorepoRoot()
-    const scriptPath = join(
-      rootDir,
-      'packages/deployment/scripts/monitoring/sync-alerts.ts',
-    )
-
-    if (!existsSync(scriptPath)) {
-      logger.error('Sync alerts script not found')
-      return
-    }
-
-    const args = ['run', scriptPath]
-    if (options.namespace) args.push('--namespace', options.namespace)
-
-    await execa('bun', args, {
-      cwd: rootDir,
-      stdio: 'inherit',
-    })
-  })
-
-infraCommand
-  .command('sync-dashboards')
-  .description('Sync Grafana dashboards to Kubernetes ConfigMap')
-  .option('--namespace <ns>', 'Kubernetes namespace')
-  .action(async (options: { namespace?: string }) => {
-    const rootDir = findMonorepoRoot()
-    const scriptPath = join(
-      rootDir,
-      'packages/deployment/scripts/monitoring/sync-dashboards.ts',
-    )
-
-    if (!existsSync(scriptPath)) {
-      logger.error('Sync dashboards script not found')
-      return
-    }
-
-    const args = ['run', scriptPath]
-    if (options.namespace) args.push('--namespace', options.namespace)
-
-    await execa('bun', args, {
-      cwd: rootDir,
-      stdio: 'inherit',
-    })
-  })
-
-infraCommand
   .command('auto-update')
   .description('Start auto-update daemon for node management')
   .option('--network <network>', 'Network: localnet | testnet | mainnet')
@@ -477,29 +314,226 @@ infraCommand
     })
   })
 
-infraCommand
-  .command('validate-helm')
-  .description('Validate Helm charts')
-  .option('--chart <chart>', 'Validate specific chart only')
-  .action(async (options: { chart?: string }) => {
+// ============================================================================
+// DWS Services Commands
+// ============================================================================
+
+const dwsServicesCommand = new Command('dws-services').description(
+  'Deploy and manage DWS-native services (OAuth3, DA, Email, Hubble, Workers)',
+)
+
+dwsServicesCommand
+  .command('bootstrap')
+  .description('Bootstrap all DWS services for testnet')
+  .option('--dry-run', 'Print what would be deployed without deploying')
+  .action(async (options: { dryRun?: boolean }) => {
     const rootDir = findMonorepoRoot()
     const scriptPath = join(
       rootDir,
-      'packages/tests/scripts/test-helm-charts.ts',
+      'packages/deployment/scripts/dws/bootstrap-testnet.ts',
     )
 
     if (!existsSync(scriptPath)) {
-      logger.error('Helm charts validation script not found')
+      logger.error('DWS bootstrap script not found')
       return
     }
 
-    const args = ['run', scriptPath]
-    if (options.chart) args.push('--chart', options.chart)
+    if (options.dryRun) {
+      logger.info('Dry run mode - would deploy the following services:')
+      logger.info('  - OAuth3 (2-of-3 MPC)')
+      logger.info('  - Data Availability (IPFS-backed)')
+      logger.info('  - Email Service')
+      logger.info('  - Farcaster Hubble')
+      logger.info('  - x402 Facilitator')
+      logger.info('  - RPC Gateway')
+      logger.info('  - SQLit Adapter')
+      return
+    }
 
-    await execa('bun', args, {
+    await execa('bun', ['run', scriptPath], {
       cwd: rootDir,
       stdio: 'inherit',
     })
   })
+
+dwsServicesCommand
+  .command('deploy')
+  .description('Deploy a specific DWS service')
+  .argument(
+    '<service>',
+    'Service to deploy (oauth3, da, email, hubble, messaging, sqlit, x402, rpc-gateway, sqlit-adapter)',
+  )
+  .option('--replicas <n>', 'Number of replicas', '2')
+  .option('--name <name>', 'Service name')
+  .action(
+    async (service: string, options: { replicas: string; name?: string }) => {
+      const { getDWSUrl, getCurrentNetwork } = await import(
+        '@jejunetwork/config'
+      )
+      const network = getCurrentNetwork()
+      const dwsUrl = getDWSUrl(network)
+
+      if (!dwsUrl) {
+        logger.error('DWS URL not configured for this network')
+        return
+      }
+
+      const deployerAddress = process.env.DEPLOYER_ADDRESS
+      if (!deployerAddress) {
+        logger.error('DEPLOYER_ADDRESS environment variable required')
+        return
+      }
+
+      const serviceName = options.name ?? `jeju-${service}`
+      const replicas = parseInt(options.replicas, 10)
+
+      logger.info(`Deploying ${service} via DWS...`)
+      logger.info(`  Name: ${serviceName}`)
+      logger.info(`  Replicas: ${replicas}`)
+      logger.info(`  DWS URL: ${dwsUrl}`)
+
+      const serviceTypeMap: Record<string, string> = {
+        oauth3: 'oauth3',
+        da: 'da',
+        email: 'email',
+        hubble: 'hubble',
+        messaging: 'messaging',
+        sqlit: 'sqlit',
+        x402: 'workers',
+        'x402-facilitator': 'workers',
+        'rpc-gateway': 'workers',
+        'sqlit-adapter': 'workers',
+      }
+
+      const endpoint = serviceTypeMap[service]
+      if (!endpoint) {
+        logger.error(`Unknown service: ${service}`)
+        logger.info(
+          'Valid services: oauth3, da, email, hubble, messaging, sqlit, x402, rpc-gateway, sqlit-adapter',
+        )
+        return
+      }
+
+      const body: Record<string, unknown> = {
+        name: serviceName,
+        replicas,
+      }
+
+      // Add type for workers
+      if (endpoint === 'workers') {
+        body.type = service === 'x402' ? 'x402-facilitator' : service
+      }
+
+      const response = await fetch(`${dwsUrl}/dws-services/${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-jeju-address': deployerAddress,
+        },
+        body: JSON.stringify(body),
+      })
+
+      if (!response.ok) {
+        const error = await response.text()
+        logger.error(`Failed to deploy ${service}: ${error}`)
+        return
+      }
+
+      const result = (await response.json()) as {
+        service: { id: string; status: string; endpoints: string[] }
+      }
+      logger.success(`${service} deployed successfully`)
+      logger.info(`  ID: ${result.service.id}`)
+      logger.info(`  Status: ${result.service.status}`)
+      if (result.service.endpoints?.length > 0) {
+        logger.info(`  Endpoints: ${result.service.endpoints.join(', ')}`)
+      }
+    },
+  )
+
+dwsServicesCommand
+  .command('list')
+  .description('List all deployed DWS services')
+  .option('--type <type>', 'Filter by service type')
+  .action(async (options: { type?: string }) => {
+    const { getDWSUrl, getCurrentNetwork } = await import('@jejunetwork/config')
+    const network = getCurrentNetwork()
+    const dwsUrl = getDWSUrl(network)
+
+    if (!dwsUrl) {
+      logger.error('DWS URL not configured for this network')
+      return
+    }
+
+    const endpoints = ['oauth3', 'da', 'email', 'hubble', 'workers']
+    const filteredEndpoints = options.type ? [options.type] : endpoints
+
+    logger.info('DWS Services:')
+    logger.info('')
+
+    for (const endpoint of filteredEndpoints) {
+      const response = await fetch(`${dwsUrl}/dws-services/${endpoint}`, {
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      if (!response.ok) continue
+
+      const result = (await response.json()) as {
+        services: Array<{ id: string; name: string; status: string }>
+      }
+      if (result.services?.length > 0) {
+        logger.info(`${endpoint.toUpperCase()}:`)
+        for (const svc of result.services) {
+          logger.info(`  - ${svc.name} (${svc.id}) [${svc.status}]`)
+        }
+        logger.info('')
+      }
+    }
+  })
+
+dwsServicesCommand
+  .command('terminate')
+  .description('Terminate a DWS service')
+  .argument('<id>', 'Service ID to terminate')
+  .argument(
+    '<type>',
+    'Service type (oauth3, da, email, hubble, messaging, sqlit, workers)',
+  )
+  .action(async (id: string, type: string) => {
+    const { getDWSUrl, getCurrentNetwork } = await import('@jejunetwork/config')
+    const network = getCurrentNetwork()
+    const dwsUrl = getDWSUrl(network)
+
+    if (!dwsUrl) {
+      logger.error('DWS URL not configured for this network')
+      return
+    }
+
+    const deployerAddress = process.env.DEPLOYER_ADDRESS
+    if (!deployerAddress) {
+      logger.error('DEPLOYER_ADDRESS environment variable required')
+      return
+    }
+
+    logger.info(`Terminating service ${id}...`)
+
+    const response = await fetch(`${dwsUrl}/dws-services/${type}/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-jeju-address': deployerAddress,
+      },
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      logger.error(`Failed to terminate service: ${error}`)
+      return
+    }
+
+    logger.success(`Service ${id} terminated`)
+  })
+
+infraCommand.addCommand(dwsServicesCommand)
 
 export { infraCommand }

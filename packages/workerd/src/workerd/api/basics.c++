@@ -201,7 +201,7 @@ EventTarget::~EventTarget() noexcept(false) {
   for (auto& entry: typeMap) {
     for (auto& handler: entry.value.handlers) {
       KJ_IF_SOME(native, handler->handler.tryGet<EventHandler::NativeHandlerRef>()) {
-        // Note: Can't call `detach()` here because it would loop back and call
+        // Can't call `detach()` here because it would loop back and call
         // `removeNativeListener()` on us, invalidating the `typeMap` iterator. We'll directly
         // null out the state.
         native.handler.state = kj::none;
@@ -488,8 +488,8 @@ bool EventTarget::dispatchEventImpl(jsg::Lock& js, jsg::Ref<Event> event) {
           // value, we're going to emit a warning but otherwise ignore it. The warning will only
           // be emitted at most once per EventEmitter instance.
           auto ret = jsh.callback(js, event.addRef());
-          // Note: We used to run each handler in its own v8::TryCatch. However, due to a
-          //   misunderstanding of the V8 API, we incorrectly believed that TryCatch mishandled
+          // We used to run each handler in its own v8::TryCatch. However, due to a
+          // misunderstanding of the V8 API, we incorrectly believed that TryCatch mishandled
           //   termination (or maybe it actually did at the time), so we changed things such that
           //   we don't catch exceptions so the first handler to throw an exception terminates the
           //   loop, and the exception flows out of dispatchEvent(). In theory if multiple

@@ -117,9 +117,27 @@ async function buildWorker(): Promise<string> {
   return outputPath
 }
 
+// SQLit database configuration (decentralized distributed SQLite)
+interface SQLitConfig {
+  databaseId: string
+}
+
+function getSQLitConfig(network: NetworkType): SQLitConfig {
+  // Database IDs are network-specific
+  const databaseIds: Record<NetworkType, string> = {
+    localnet: 'indexer-localnet',
+    testnet: 'indexer-testnet',
+    mainnet: 'indexer-mainnet',
+  }
+  return {
+    databaseId: databaseIds[network],
+  }
+}
+
 async function deployWorker(
   config: DeployConfig,
   workerPath: string,
+  sqlitConfig: SQLitConfig,
 ): Promise<{ functionId: string; codeCid: string }> {
   console.log('[Indexer] Deploying worker to DWS...')
 
@@ -145,8 +163,9 @@ async function deployWorker(
     await uploadResponse.json(),
   )
   console.log(`   Worker code uploaded: ${uploadResult.cid}`)
+  console.log(`   SQLit Database: ${sqlitConfig.databaseId}`)
 
-  // Deploy worker
+  // Deploy worker with SQLit connection (decentralized distributed SQLite)
   const deployResponse = await fetch(`${config.dwsUrl}/workers`, {
     method: 'POST',
     headers: {
@@ -158,10 +177,14 @@ async function deployWorker(
       codeCid: uploadResult.cid,
       runtime: 'bun',
       handler: 'worker.js:default',
-      memory: 256,
-      timeout: 30000,
+      memory: 1024,
+      timeout: 60000,
       env: {
+        JEJU_NETWORK: config.network,
         NETWORK: config.network,
+        INDEXER_MODE: 'sqlit',
+        SQLIT_DATABASE_ID: sqlitConfig.databaseId,
+        OWNER_ADDRESS: account.address,
       },
     }),
   })
@@ -187,9 +210,6 @@ interface UploadResult {
   rootCid: string
 }
 
-/**
- * Verify content is retrievable from storage
- */
 async function verifyContentRetrievable(
   dwsUrl: string,
   cid: string,
@@ -197,9 +217,8 @@ async function verifyContentRetrievable(
   const response = await fetch(`${dwsUrl}/storage/download/${cid}`, {
     method: 'HEAD',
     signal: AbortSignal.timeout(10000),
-  }).catch(() => null)
-
-  return response?.ok === true
+  })
+  return response.ok
 }
 
 async function uploadFile(
@@ -311,8 +330,11 @@ async function registerApp(
     staticFilesRecord[path] = cid
   }
 
-  // Construct backend endpoint from worker ID
-  const backendEndpoint = `${config.dwsUrl}/workers/${workerInfo.functionId}`
+  // Use CID-based worker ID for decentralized routing
+  // CID-based routing allows any DWS pod to deploy the worker on-demand from IPFS
+  // The worker code is immutable and can be verified by the CID
+  const backendWorkerId = workerInfo.codeCid
+  const backendEndpoint = `${config.dwsUrl}/workers/${workerInfo.codeCid}/http`
 
   // App registration data for DWS app router
   const appConfig = {
@@ -320,9 +342,20 @@ async function registerApp(
     jnsName: 'indexer.jeju',
     frontendCid: indexCid, // CID for index.html (used as fallback)
     staticFiles: staticFilesRecord, // Map of all file paths to CIDs
-    backendWorkerId: workerInfo.functionId, // DWS worker ID
-    backendEndpoint: backendEndpoint, // DWS worker endpoint
-    apiPaths: ['/api', '/health', '/a2a', '/mcp', '/graphql'], // Note: no trailing slashes - isApiPath checks pathname.startsWith(prefix + '/')
+    backendWorkerId, // Use CID for decentralized routing
+    backendEndpoint, // CID-based endpoint
+    apiPaths: [
+      '/stats',
+      '/agents',
+      '/agents/*',
+      '/blocks',
+      '/transactions',
+      '/search',
+      '/health',
+      '/a2a/*',
+      '/mcp/*',
+      '/graphql',
+    ],
     spa: true, // Single-page application
     enabled: true,
   }
@@ -330,7 +363,7 @@ async function registerApp(
   console.log('[Indexer] Registering app with DWS...')
   console.log(`   Frontend CID: ${indexCid}`)
   console.log(`   Static files: ${staticFiles.size}`)
-  console.log(`   Backend worker: ${workerInfo.functionId}`)
+  console.log(`   Backend worker CID: ${workerInfo.codeCid}`)
   console.log(`   Backend endpoint: ${backendEndpoint}`)
   console.log(`   API paths: ${appConfig.apiPaths.join(', ')}`)
 
@@ -346,6 +379,76 @@ async function registerApp(
   }
 
   console.log('[Indexer] App registered successfully')
+
+  // Trigger worker sync across all DWS pods for immediate availability
+  console.log('[Indexer] Triggering cross-pod worker sync...')
+  await syncWorkersAcrossPods(config)
+}
+
+/**
+ * Sync workers across all DWS pods after deployment
+ *
+ * This ensures all pods have the worker loaded and available for immediate invocation,
+ * eliminating "Function not found" errors due to load balancer routing to a pod
+ * that doesn't have the worker loaded yet.
+ */
+interface SyncResult {
+  success: boolean
+  podId?: string
+  error?: string
+}
+
+async function syncEndpoint(url: string): Promise<SyncResult> {
+  const response = await fetch(url, {
+    method: 'POST',
+    signal: AbortSignal.timeout(10000),
+  })
+  if (!response.ok) {
+    return {
+      success: false,
+      error: `${response.status} ${response.statusText}`,
+    }
+  }
+  return (await response.json()) as SyncResult
+}
+
+async function syncWorkersAcrossPods(config: DeployConfig): Promise<void> {
+  const syncCount = 5
+  const syncPromises: Promise<SyncResult>[] = []
+  const errors: string[] = []
+
+  for (let i = 0; i < syncCount; i++) {
+    syncPromises.push(syncEndpoint(`${config.dwsUrl}/workers/sync`))
+    syncPromises.push(syncEndpoint(`${config.dwsUrl}/apps/sync`))
+  }
+
+  const results = await Promise.allSettled(syncPromises)
+  let successCount = 0
+  const uniquePods = new Set<string>()
+
+  for (const result of results) {
+    if (result.status === 'fulfilled' && result.value.success) {
+      successCount++
+      if (result.value.podId) uniquePods.add(result.value.podId)
+    } else if (result.status === 'rejected') {
+      errors.push(
+        result.reason instanceof Error
+          ? result.reason.message
+          : String(result.reason),
+      )
+    } else if (result.status === 'fulfilled' && result.value.error) {
+      errors.push(result.value.error)
+    }
+  }
+
+  console.log(
+    `   Synced ${successCount}/${results.length} endpoints, reached ${uniquePods.size} unique pods`,
+  )
+  if (errors.length > 0) {
+    console.warn(
+      `   Sync errors: ${errors.slice(0, 3).join(', ')}${errors.length > 3 ? ` (+${errors.length - 3} more)` : ''}`,
+    )
+  }
 }
 
 async function deploy(): Promise<void> {
@@ -362,13 +465,18 @@ async function deploy(): Promise<void> {
   // Ensure frontend build exists
   await ensureFrontendBuild()
 
+  // Get SQLit configuration (decentralized distributed SQLite)
+  console.log('\nConfiguring SQLit database...')
+  const sqlitConfig = getSQLitConfig(config.network)
+  console.log(`   Database ID: ${sqlitConfig.databaseId}`)
+
   // Build worker
   console.log('\nBuilding worker...')
   const workerPath = await buildWorker()
 
-  // Deploy worker to DWS
+  // Deploy worker to DWS with SQLit connection
   console.log('\nDeploying worker...')
-  const workerInfo = await deployWorker(config, workerPath)
+  const workerInfo = await deployWorker(config, workerPath, sqlitConfig)
 
   // Upload static assets from dist directory (excluding worker dir)
   console.log('\nUploading static assets...')
@@ -405,12 +513,42 @@ async function deploy(): Promise<void> {
   console.log(`${`║  API:      ${domain}/api`.padEnd(61)}║`)
   console.log(`${`║  GraphQL:  ${domain}/graphql`.padEnd(61)}║`)
   console.log(
-    `${`║  Worker:   ${workerInfo.functionId.slice(0, 36)}`.padEnd(61)}║`,
+    `${`║  Worker:   ${workerInfo.codeCid.slice(0, 36)}`.padEnd(61)}║`,
   )
   console.log(
     `${`║  IPFS:     ipfs://${staticResult.rootCid.slice(0, 20)}...`.padEnd(61)}║`,
   )
   console.log('╚════════════════════════════════════════════════════════════╝')
+
+  // Verify deployment by actually hitting the endpoints
+  console.log('\nVerifying deployment endpoints...')
+  const { verifyDeployment } = await import('@jejunetwork/shared/deploy')
+
+  const staticFilesRecord: Record<string, string> = {}
+  for (const [path, cid] of staticResult.files) {
+    staticFilesRecord[path] = cid
+  }
+
+  const verifyResult = await verifyDeployment(
+    {
+      name: 'indexer',
+      jnsName: 'indexer.jeju',
+      frontendCid: staticResult.rootCid,
+      staticFiles: staticFilesRecord,
+      backendWorkerId: workerInfo.codeCid,
+      appUrl: domain,
+      healthUrl: `${domain}/health`,
+    },
+    { timeout: 15000, retries: 5 },
+  )
+
+  if (!verifyResult.success) {
+    throw new Error(
+      `Deployment verification failed: frontend=${verifyResult.checks.frontend.ok}, health=${verifyResult.checks.health.ok}`,
+    )
+  }
+
+  console.log('\nDeployment verified successfully!')
 }
 
 deploy().catch((error: Error) => {

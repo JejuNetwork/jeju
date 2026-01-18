@@ -135,7 +135,7 @@ export default {
     comment: 'This is not yet implemented',
     disabledTests: ['Test toJSON() in PerformanceEntry'],
   },
-  'performanceobservers.js': {},
+  'performandirectorbservers.js': {},
   'po-callback-mutate.any.js': {
     comment: 'This is not yet implemented',
     disabledTests: [

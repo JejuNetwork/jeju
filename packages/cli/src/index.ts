@@ -34,12 +34,11 @@ import { forkCommand } from './commands/fork'
 import { fundCommand } from './commands/fund'
 import { infraCommand } from './commands/infra'
 import { initCommand } from './commands/init'
+import { jnsCommand } from './commands/jns'
 import { keysCommand } from './commands/keys'
 import { localnetFullCommand } from './commands/localnet-full'
 import { loginCommand, logoutCommand, whoamiCommand } from './commands/login'
 import { logsCommand } from './commands/logs'
-import { nodeCommand } from './commands/node'
-import { identityCommand } from './commands/identity'
 import { pkgCommand } from './commands/pkg'
 import { portsCommand } from './commands/ports'
 import { previewCommand } from './commands/preview'
@@ -61,7 +60,6 @@ import { tokenCommand } from './commands/token'
 import { trainingCommand } from './commands/training'
 import { validateCommand } from './commands/validate'
 import { vendorCommand } from './commands/vendor'
-import { verifyCommand } from './commands/verify'
 import { verifyStage2Command } from './commands/verify-stage2'
 import { workerCommand } from './commands/worker'
 import { logger } from './lib/logger'
@@ -135,6 +133,7 @@ program.addCommand(secretCommand)
 
 // Domain management (JNS)
 program.addCommand(domainCommand)
+program.addCommand(jnsCommand)
 
 // Keys and accounts
 program.addCommand(keysCommand)
@@ -150,10 +149,6 @@ program.addCommand(dwsCommand)
 program.addCommand(sqlitCommand)
 program.addCommand(proxyCommand)
 program.addCommand(localnetFullCommand)
-
-// Node operator commands
-program.addCommand(nodeCommand)
-program.addCommand(identityCommand)
 
 // Network and federation
 program.addCommand(forkCommand)
@@ -179,7 +174,6 @@ program.addCommand(setupCommand)
 program.addCommand(seedCommand)
 program.addCommand(tokenCommand)
 program.addCommand(validateCommand)
-program.addCommand(verifyCommand)
 program.addCommand(trainingCommand)
 program.addCommand(botsCommand)
 program.addCommand(vendorCommand)
@@ -360,8 +354,8 @@ program.action(() => {
   )
   console.log(
     '  ' +
-      chalk.cyan(`${cliName} deploy security-council`) +
-      ' Deploy Security Council\n',
+      chalk.cyan(`${cliName} deploy security-board`) +
+      ' Deploy Security Board\n',
   )
 
   console.log(chalk.bold('Utilities:\n'))
@@ -542,11 +536,6 @@ program.action(() => {
     '  ' +
       chalk.cyan(`${cliName} infra validate`) +
       '       Validate configurations',
-  )
-  console.log(
-    '  ' +
-      chalk.cyan(`${cliName} infra terraform`) +
-      '      Terraform operations',
   )
   console.log(
     '  ' +

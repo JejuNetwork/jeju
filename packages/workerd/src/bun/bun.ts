@@ -1,21 +1,72 @@
 // Bun Runtime Compatibility Layer for Workerd
 //
-// This provides REAL Bun API implementations for workerd, not polyfills.
-// - File operations: DWS Storage (IPFS-based) or in-memory
-// - Password hashing: Real bcrypt via bcryptjs
-// - DNS: Real DNS-over-HTTPS (DoH)
-// - SQLite: Real SQLit HTTP client or in-memory
+// Real Bun API implementations for workerd:
+// - File operations: node:fs with /tmp via enable_web_file_system (lazy loaded)
+// - Password hashing: PBKDF2 via WebCrypto
+// - DNS: DNS-over-HTTPS (Cloudflare/Google)
+// - Hash functions: JS implementations (wyhash, crc32, etc.)
+// - SQLite: NOT AVAILABLE (use Cloudflare D1 or external API)
 
-import { ERR_FS_FILE_NOT_FOUND, ERR_WORKERD_UNAVAILABLE } from 'bun-internal:errors'
-import { isArrayBuffer, isString, isUint8Array } from 'bun-internal:types'
+import { ERR_FS_FILE_NOT_FOUND } from './internal/errors'
+import { isArrayBuffer, isString, isUint8Array } from './internal/types'
 
-// Import and re-export DNS module
+type BunValue =
+  | string
+  | number
+  | boolean
+  | bigint
+  | symbol
+  | object
+  | null
+  | undefined
+
+// Lazy-loaded fs modules - only imported when file operations are used
+// This allows the bundle to load even when node:fs isn't available
+let fsModule: typeof import('node:fs') | null = null
+let fsPromisesModule: typeof import('node:fs/promises') | null = null
+let streamModule: typeof import('node:stream') | null = null
+
+function getFs() {
+  if (!fsModule) {
+    try {
+      fsModule = require('node:fs')
+    } catch {
+      throw new Error(
+        'File operations require node:fs.\n' +
+          'Enable with: compatibilityFlags = ["nodejs_compat", "enable_nodejs_fs_module"]',
+      )
+    }
+  }
+  return fsModule
+}
+
+function getFsPromises() {
+  if (!fsPromisesModule) {
+    try {
+      fsPromisesModule = require('node:fs/promises')
+    } catch {
+      throw new Error(
+        'File operations require node:fs/promises.\n' +
+          'Enable with: compatibilityFlags = ["nodejs_compat", "enable_nodejs_fs_module"]',
+      )
+    }
+  }
+  return fsPromisesModule
+}
+
+function getStream() {
+  if (!streamModule) {
+    try {
+      streamModule = require('node:stream')
+    } catch {
+      throw new Error('Stream operations require node:stream.')
+    }
+  }
+  return streamModule
+}
+
 import * as dns from './dns'
 export { dns }
-
-// Import and re-export Storage module  
-import * as storage from './storage'
-export { storage }
 
 // Types
 export interface BunFile {
@@ -24,7 +75,7 @@ export interface BunFile {
   readonly name: string
   readonly lastModified: number
   text(): Promise<string>
-  json<T = unknown>(): Promise<T>
+  json<T = BunValue>(): Promise<T>
   arrayBuffer(): Promise<ArrayBuffer>
   bytes(): Promise<Uint8Array>
   stream(): ReadableStream<Uint8Array>
@@ -68,7 +119,7 @@ export interface ServerWebSocket {
   send(data: string | ArrayBuffer): void
   close(code?: number, reason?: string): void
   readonly readyState: number
-  readonly data: unknown
+  readonly data: BunValue
 }
 
 export interface Server {
@@ -96,26 +147,38 @@ export type HashAlgorithm =
   | 'murmur32v3'
   | 'murmur64v2'
 
-// Virtual filesystem storage
-const fileStorage = new Map<string, Uint8Array>()
-const fileMetadata = new Map<string, { type: string; lastModified: number }>()
-
-// BunFile implementation
+// BunFile backed by node:fs. Use with enable_web_file_system for /tmp access.
 class BunFileImpl implements BunFile {
   private readonly path: string
   private readonly _type: string
+  private readonly sliceStart: number | undefined
+  private readonly sliceEnd: number | undefined
 
-  constructor(path: string | URL, options?: { type?: string }) {
+  constructor(
+    path: string | URL,
+    options?: { type?: string },
+    sliceStart?: number,
+    sliceEnd?: number,
+  ) {
     this.path = typeof path === 'string' ? path : path.pathname
     this._type = options?.type ?? 'application/octet-stream'
+    this.sliceStart = sliceStart
+    this.sliceEnd = sliceEnd
   }
 
   get size(): number {
-    return fileStorage.get(this.path)?.byteLength ?? 0
+    const fs = getFs()
+    if (!fs.existsSync(this.path)) return 0
+    const st = fs.statSync(this.path)
+    const len = st.size
+    if (this.sliceStart === undefined && this.sliceEnd === undefined) return len
+    const start = this.sliceStart ?? 0
+    const end = this.sliceEnd ?? len
+    return Math.max(0, end - start)
   }
 
   get type(): string {
-    return fileMetadata.get(this.path)?.type ?? this._type
+    return this._type
   }
 
   get name(): string {
@@ -123,90 +186,105 @@ class BunFileImpl implements BunFile {
   }
 
   get lastModified(): number {
-    return fileMetadata.get(this.path)?.lastModified ?? Date.now()
+    const fs = getFs()
+    if (!fs.existsSync(this.path)) return Date.now()
+    const st = fs.statSync(this.path)
+    return st.mtimeMs
   }
 
   async text(): Promise<string> {
-    const data = fileStorage.get(this.path)
-    if (!data) throw new ERR_FS_FILE_NOT_FOUND(this.path)
+    const data = await this.bytes()
     return new TextDecoder().decode(data)
   }
 
-  async json<T = unknown>(): Promise<T> {
+  async json<T = BunValue>(): Promise<T> {
     return JSON.parse(await this.text()) as T
   }
 
   async arrayBuffer(): Promise<ArrayBuffer> {
-    const data = fileStorage.get(this.path)
-    if (!data) throw new ERR_FS_FILE_NOT_FOUND(this.path)
-    const ab = data.buffer
-    if (ab instanceof ArrayBuffer) {
-      return ab.slice(data.byteOffset, data.byteOffset + data.byteLength)
-    }
+    const data = await this.bytes()
     const copy = new ArrayBuffer(data.byteLength)
     new Uint8Array(copy).set(data)
     return copy
   }
 
   async bytes(): Promise<Uint8Array> {
-    const data = fileStorage.get(this.path)
-    if (!data) throw new ERR_FS_FILE_NOT_FOUND(this.path)
-    return new Uint8Array(data)
+    const fs = getFs()
+    const fsp = getFsPromises()
+    if (!fs.existsSync(this.path)) throw new ERR_FS_FILE_NOT_FOUND(this.path)
+    const buf = await fsp.readFile(this.path)
+    const bytes = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength)
+    if (this.sliceStart === undefined && this.sliceEnd === undefined)
+      return bytes
+    return bytes.slice(this.sliceStart, this.sliceEnd)
   }
 
   stream(): ReadableStream<Uint8Array> {
-    const data = fileStorage.get(this.path)
-    if (!data) throw new ERR_FS_FILE_NOT_FOUND(this.path)
-    return new ReadableStream({
-      start(controller) {
-        controller.enqueue(data)
-        controller.close()
-      },
-    })
+    const fs = getFs()
+    const { Readable } = getStream()
+    if (!fs.existsSync(this.path)) throw new ERR_FS_FILE_NOT_FOUND(this.path)
+    const start = this.sliceStart
+    const end =
+      this.sliceEnd === undefined ? undefined : Math.max(0, this.sliceEnd - 1)
+    // fs.ReadStream extends stream.Readable; cast needed for Readable.toWeb compatibility
+    const nodeStream = fs.createReadStream(this.path, {
+      start,
+      end,
+    }) as InstanceType<typeof Readable>
+    return Readable.toWeb(nodeStream) as ReadableStream<Uint8Array>
   }
 
   slice(start?: number, end?: number, type?: string): BunFile {
-    const data = fileStorage.get(this.path)
-    if (!data) return new BunFileImpl(this.path, { type: type ?? this._type })
-    const sliced = data.slice(start, end)
-    const slicePath = `${this.path}#slice(${start},${end})`
-    fileStorage.set(slicePath, sliced)
-    return new BunFileImpl(slicePath, { type: type ?? this._type })
+    if (this.sliceStart !== undefined || this.sliceEnd !== undefined) {
+      const baseStart = this.sliceStart ?? 0
+      const newStart = start === undefined ? this.sliceStart : baseStart + start
+      const newEnd =
+        end === undefined
+          ? this.sliceEnd
+          : this.sliceStart === undefined
+            ? end
+            : baseStart + end
+      return new BunFileImpl(
+        this.path,
+        { type: type ?? this._type },
+        newStart,
+        newEnd,
+      )
+    }
+
+    return new BunFileImpl(this.path, { type: type ?? this._type }, start, end)
   }
 
   async exists(): Promise<boolean> {
-    return fileStorage.has(this.path)
+    const fs = getFs()
+    return fs.existsSync(this.path)
   }
 
   writer(): FileSink {
-    const path = this.path
-    const chunks: Uint8Array[] = []
+    const fs = getFs()
+    const fd = fs.openSync(this.path, 'w')
+    let closed = false
 
     return {
       write(data: string | ArrayBuffer | Uint8Array): number {
+        if (closed) {
+          throw new Error('FileSink is closed')
+        }
+
         const bytes =
           typeof data === 'string'
             ? new TextEncoder().encode(data)
             : data instanceof ArrayBuffer
               ? new Uint8Array(data)
               : data
-        chunks.push(bytes)
-        return bytes.byteLength
+
+        return fs.writeSync(fd, bytes, 0, bytes.byteLength)
       },
-      flush(): void {
-        const totalLength = chunks.reduce((sum, c) => sum + c.byteLength, 0)
-        const result = new Uint8Array(totalLength)
-        let offset = 0
-        for (const chunk of chunks) {
-          result.set(chunk, offset)
-          offset += chunk.byteLength
-        }
-        fileStorage.set(path, result)
-        fileMetadata.set(path, { type: 'application/octet-stream', lastModified: Date.now() })
-      },
+      flush(): void {}, // writeSync is unbuffered
       end(): void {
-        this.flush()
-        chunks.length = 0
+        if (closed) return
+        fs.closeSync(fd)
+        closed = true
       },
     }
   }
@@ -242,42 +320,34 @@ export async function write(
     bytes = await data.bytes()
   }
 
-  fileStorage.set(path, bytes)
-  fileMetadata.set(path, { type: 'application/octet-stream', lastModified: Date.now() })
+  const fsp = getFsPromises()
+  await fsp.writeFile(path, bytes)
   return bytes.byteLength
 }
 
 // Server
 let currentServeOptions: ServeOptions | null = null
 
-/**
- * Bun.serve - HTTP Server
- *
- * In workerd: This creates a virtual server for testing. For production workerd,
- * use the native export default { fetch(request) { ... } } pattern instead.
- *
- * The returned server object can be used to test fetch handlers:
- * ```
- * const server = Bun.serve({ fetch: (req) => new Response('OK') })
- * const response = await server.fetch(new Request('http://localhost/'))
- * ```
- */
+// Test helper only - does NOT create a real HTTP server in workerd.
+// For production, use: export default { fetch(request) { return new Response("OK") } }
 export function serve(options: ServeOptions): Server {
-  currentServeOptions = options
-  const port = options.port ?? 3000
-  const hostname = options.hostname ?? 'localhost'
-
   // Check if we're in actual workerd (navigator.userAgent contains 'Cloudflare-Workers')
   const isWorkerd =
     typeof navigator !== 'undefined' &&
     navigator.userAgent?.includes('Cloudflare-Workers')
 
   if (isWorkerd && !options.development) {
-    console.warn(
-      '[Bun.serve] Running in workerd. For production, use the native fetch handler:\n' +
-        '  export default { fetch(request) { return new Response("OK") } }',
+    throw new Error(
+      'Bun.serve() does not create a real HTTP server in workerd.\n' +
+        'For production, use the native pattern:\n' +
+        '  export default { fetch(request) { return new Response("OK") } }\n\n' +
+        'For testing, pass development: true to use this as a test helper.',
     )
   }
+
+  currentServeOptions = options
+  const port = options.port ?? 3000
+  const hostname = options.hostname ?? 'localhost'
 
   return {
     port,
@@ -287,8 +357,12 @@ export function serve(options: ServeOptions): Server {
     stop() {
       currentServeOptions = null
     },
-    ref() {},
-    unref() {},
+    ref() {
+      // No-op in workerd: The runtime manages process lifecycle
+    },
+    unref() {
+      // No-op in workerd: The runtime manages process lifecycle
+    },
     reload(newOptions: Partial<ServeOptions>) {
       currentServeOptions = { ...currentServeOptions!, ...newOptions }
     },
@@ -313,7 +387,7 @@ export function getServeHandler(): ServeOptions | null {
 // Environment - simplified proxy
 type ProcessEnv = { env?: Record<string, string> }
 const getProcess = (): ProcessEnv | undefined =>
-  (globalThis as Record<string, unknown>).process as ProcessEnv | undefined
+  (globalThis as Record<string, BunValue>).process as ProcessEnv | undefined
 
 export const env: Record<string, string | undefined> = new Proxy({} as Record<string, string | undefined>, {
   get(_, prop: string) {
@@ -353,6 +427,7 @@ export function sleepSync(ms: number): void {
   while (Date.now() < end) {}
 }
 
+// Returns time since Worker started (not absolute time). Use Date.now() for timestamps.
 export function nanoseconds(): bigint {
   return BigInt(Math.floor(performance.now() * 1_000_000))
 }
@@ -386,7 +461,7 @@ export function stringWidth(str: string): number {
   return width
 }
 
-export function deepEquals(a: unknown, b: unknown): boolean {
+export function deepEquals(a: BunValue, b: BunValue): boolean {
   if (a === b) return true
   if (typeof a !== typeof b) return false
   if (a === null || b === null) return a === b
@@ -397,8 +472,8 @@ export function deepEquals(a: unknown, b: unknown): boolean {
   }
 
   if (typeof a === 'object' && typeof b === 'object') {
-    const aObj = a as Record<string, unknown>
-    const bObj = b as Record<string, unknown>
+    const aObj = a as Record<string, BunValue>
+    const bObj = b as Record<string, BunValue>
     const aKeys = Object.keys(aObj)
     const bKeys = Object.keys(bObj)
     if (aKeys.length !== bKeys.length) return false
@@ -408,12 +483,19 @@ export function deepEquals(a: unknown, b: unknown): boolean {
   return false
 }
 
-export function inspect(obj: unknown, options?: { depth?: number; colors?: boolean }): string {
+export function inspect(
+  obj: BunValue,
+  options?: { depth?: number; colors?: boolean },
+): string {
   const depth = options?.depth ?? 2
   return inspectValue(obj, depth, new Set())
 }
 
-function inspectValue(value: unknown, depth: number, seen: Set<unknown>): string {
+function inspectValue(
+  value: BunValue,
+  depth: number,
+  seen: Set<BunValue>,
+): string {
   if (value === null) return 'null'
   if (value === undefined) return 'undefined'
 
@@ -440,7 +522,7 @@ function inspectValue(value: unknown, depth: number, seen: Set<unknown>): string
   if (type === 'object') {
     if (depth < 0) return '[Object]'
     seen.add(value)
-    const obj = value as Record<string, unknown>
+    const obj = value as Record<string, BunValue>
     const entries = Object.entries(obj).map(([k, v]) => `${k}: ${inspectValue(v, depth - 1, seen)}`)
     seen.delete(value)
     return `{ ${entries.join(', ')} }`
@@ -597,82 +679,205 @@ function murmur64v2(data: Uint8Array, seed = 0): bigint {
   return h
 }
 
-// Password hashing (PBKDF2-based for workerd)
-// Real bcrypt password hashing using bcryptjs (pure JS, works in all environments)
-import bcrypt from 'bcryptjs'
+// Password hashing (PBKDF2-based; works in workerd without native deps)
+//
+// Format:
+//   $workerd$pbkdf2$sha256$<iterations>$<saltHex>$<hashHex>
+const PBKDF2_HASH_NAME = 'SHA-256'
+const PBKDF2_DERIVE_BITS = 256
+const DEFAULT_PBKDF2_COST = 10
+const DEFAULT_PBKDF2_SALT_BYTES = 16
+
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+}
+
+function hexToBytes(hex: string): Uint8Array {
+  if (hex.length % 2 !== 0) throw new Error('Invalid hex string')
+  const bytes = new Uint8Array(hex.length / 2)
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16)
+  }
+  return bytes
+}
+
+function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let result = 0
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  }
+  return result === 0
+}
+
+async function pbkdf2Hash(
+  password: string,
+  iterations: number,
+  salt: Uint8Array,
+): Promise<string> {
+  const passwordData = new TextEncoder().encode(password)
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    passwordData,
+    'PBKDF2',
+    false,
+    ['deriveBits'],
+  )
+  // Create a copy with guaranteed ArrayBuffer to satisfy BufferSource type
+  const saltBuffer = new Uint8Array(salt).buffer as ArrayBuffer
+  const derivedBits = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: new Uint8Array(saltBuffer),
+      iterations,
+      hash: PBKDF2_HASH_NAME,
+    },
+    keyMaterial,
+    PBKDF2_DERIVE_BITS,
+  )
+  return bytesToHex(new Uint8Array(derivedBits))
+}
 
 export const password = {
-  /**
-   * Hash a password using bcrypt (real implementation, not polyfill)
-   * Output is compatible with standard bcrypt implementations
-   */
   async hash(
     password: string,
-    options?: { algorithm?: 'bcrypt' | 'argon2id' | 'argon2d' | 'argon2i'; cost?: number },
+    options?: {
+      algorithm?: 'pbkdf2' | 'bcrypt' | 'argon2id' | 'argon2d' | 'argon2i'
+      cost?: number
+    },
   ): Promise<string> {
-    const algorithm = options?.algorithm ?? 'bcrypt'
-    const cost = options?.cost ?? 10
-
-    if (algorithm !== 'bcrypt') {
-      // Argon2 requires native code or WASM - not available in workerd
-      // For now, throw a clear error rather than silently falling back
+    const algorithm = options?.algorithm ?? 'pbkdf2'
+    if (algorithm !== 'pbkdf2') {
       throw new Error(
-        `Algorithm '${algorithm}' is not available in workerd. Use 'bcrypt' instead.`,
+        `Algorithm '${algorithm}' is not available in workerd. Use 'pbkdf2' instead.`,
       )
     }
 
-    // Use real bcrypt via bcryptjs
-    const salt = await bcrypt.genSalt(cost)
-    return bcrypt.hash(password, salt)
+    const cost = options?.cost ?? DEFAULT_PBKDF2_COST
+    const iterations = 2 ** cost * 100
+    const salt = crypto.getRandomValues(
+      new Uint8Array(DEFAULT_PBKDF2_SALT_BYTES),
+    )
+    const hashHex = await pbkdf2Hash(password, iterations, salt)
+    return `$workerd$pbkdf2$sha256$${iterations}$${bytesToHex(salt)}$${hashHex}`
   },
 
-  /**
-   * Verify a password against a bcrypt hash
-   * Works with any standard bcrypt hash ($2a$, $2b$, $2y$)
-   */
   async verify(password: string, hash: string): Promise<boolean> {
-    // bcryptjs handles all bcrypt hash formats
-    if (hash.startsWith('$2')) {
-      return bcrypt.compare(password, hash)
+    if (hash.startsWith('$workerd$pbkdf2$sha256$')) {
+      // Format: $workerd$pbkdf2$sha256$<iterations>$<saltHex>$<hashHex>
+      // Parts: ['', 'workerd', 'pbkdf2', 'sha256', iterations, saltHex, hashHex]
+      const parts = hash.split('$')
+      if (parts.length !== 7) throw new Error('Invalid workerd hash format')
+
+      const iterationsRaw = parts[4]
+      const saltHex = parts[5]
+      const expectedHashHex = parts[6]
+
+      if (
+        iterationsRaw === undefined ||
+        saltHex === undefined ||
+        expectedHashHex === undefined
+      ) {
+        throw new Error('Invalid workerd hash format')
+      }
+
+      if (!/^\d+$/.test(iterationsRaw))
+        throw new Error('Invalid workerd hash format')
+      const iterations = parseInt(iterationsRaw, 10)
+      if (
+        !Number.isSafeInteger(iterations) ||
+        iterations <= 0 ||
+        iterations > 0xffffffff
+      ) {
+        throw new Error('Invalid workerd hash format')
+      }
+
+      if (!/^[0-9a-f]+$/i.test(saltHex) || saltHex.length % 2 !== 0) {
+        throw new Error('Invalid workerd hash format')
+      }
+      if (
+        !/^[0-9a-f]+$/i.test(expectedHashHex) ||
+        expectedHashHex.length === 0
+      ) {
+        throw new Error('Invalid workerd hash format')
+      }
+
+      const salt = hexToBytes(saltHex)
+      const computedHashHex = await pbkdf2Hash(password, iterations, salt)
+      return constantTimeEqual(computedHashHex, expectedHashHex)
     }
 
-    // Legacy: Support old PBKDF2 hashes from previous workerd implementation
+    // Legacy: $workerd$pbkdf2$<cost>$<saltHex>$<hashHex>
     if (hash.startsWith('$workerd$')) {
       return verifyLegacyWorkerdHash(password, hash)
     }
 
-    // Reject unknown hash formats
-    throw new Error('Unknown hash format. Expected bcrypt ($2a$, $2b$, $2y$) or legacy workerd format.')
+    throw new Error('Unknown hash format. Expected workerd PBKDF2 hash.')
   },
 }
 
-// Legacy verification for old PBKDF2 hashes (backwards compatibility only)
-async function verifyLegacyWorkerdHash(password: string, hash: string): Promise<boolean> {
+// Legacy verification for old PBKDF2 hashes (backwards compatibility only).
+async function verifyLegacyWorkerdHash(
+  password: string,
+  hash: string,
+): Promise<boolean> {
+  // Format: $workerd$pbkdf2$<cost>$<saltHex>$<hashHex>
+  // Parts: ['', 'workerd', 'pbkdf2', cost, saltHex, hashHex]
   const parts = hash.split('$')
-  if (parts.length !== 6) return false
-
-  const [, , , costStr, saltHex, expectedHashHex] = parts
-  const cost = parseInt(costStr, 10)
-  const passwordData = new TextEncoder().encode(password)
-  const salt = new Uint8Array(saltHex.match(/.{2}/g)?.map((byte) => parseInt(byte, 16)) ?? [])
-  const keyMaterial = await crypto.subtle.importKey('raw', passwordData, 'PBKDF2', false, ['deriveBits'])
-  const iterations = 2 ** cost * 100
-
-  const derivedBits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
-    keyMaterial,
-    256,
-  )
-
-  const computedHashHex = Array.from(new Uint8Array(derivedBits)).map((b) => b.toString(16).padStart(2, '0')).join('')
-
-  // Constant-time comparison
-  if (computedHashHex.length !== expectedHashHex.length) return false
-  let result = 0
-  for (let i = 0; i < computedHashHex.length; i++) {
-    result |= computedHashHex.charCodeAt(i) ^ expectedHashHex.charCodeAt(i)
+  if (parts.length !== 6) {
+    throw new Error(
+      'Invalid legacy workerd hash format. Expected: $workerd$pbkdf2$<cost>$<saltHex>$<hashHex>',
+    )
   }
-  return result === 0
+
+  const algorithm = parts[2]
+  if (algorithm !== 'pbkdf2') {
+    throw new Error(
+      `Unknown legacy hash algorithm: ${algorithm}. Only 'pbkdf2' is supported.`,
+    )
+  }
+
+  const costStr = parts[3]
+  const saltHex = parts[4]
+  const expectedHashHex = parts[5]
+
+  if (
+    costStr === undefined ||
+    saltHex === undefined ||
+    expectedHashHex === undefined
+  ) {
+    throw new Error('Invalid legacy workerd hash format: missing components')
+  }
+
+  if (!/^\d+$/.test(costStr)) {
+    throw new Error('Invalid legacy workerd hash format: cost must be numeric')
+  }
+
+  const cost = parseInt(costStr, 10)
+  if (!Number.isSafeInteger(cost) || cost < 0 || cost > 31) {
+    throw new Error(
+      'Invalid legacy workerd hash format: cost must be between 0 and 31',
+    )
+  }
+
+  if (!/^[0-9a-f]+$/i.test(saltHex) || saltHex.length % 2 !== 0) {
+    throw new Error(
+      'Invalid legacy workerd hash format: salt must be valid hex string',
+    )
+  }
+
+  if (!/^[0-9a-f]+$/i.test(expectedHashHex) || expectedHashHex.length === 0) {
+    throw new Error(
+      'Invalid legacy workerd hash format: hash must be valid non-empty hex string',
+    )
+  }
+
+  const iterations = 2 ** cost * 100
+  const salt = hexToBytes(saltHex)
+  const computedHashHex = await pbkdf2Hash(password, iterations, salt)
+  return constantTimeEqual(computedHashHex, expectedHashHex)
 }
 
 // Stream utilities
@@ -710,7 +915,9 @@ export async function readableStreamToBlob(stream: ReadableStream<Uint8Array>, t
   return new Blob([buffer], { type })
 }
 
-export async function readableStreamToJSON<T = unknown>(stream: ReadableStream<Uint8Array>): Promise<T> {
+export async function readableStreamToJSON<T = BunValue>(
+  stream: ReadableStream<Uint8Array>,
+): Promise<T> {
   return JSON.parse(await readableStreamToText(stream)) as T
 }
 
@@ -740,14 +947,12 @@ export class ArrayBufferSink {
     return result.buffer
   }
 
-  flush(): void {}
+  flush(): void {} // no-op, data accumulated until end()
 
   start(): void {
     this.chunks = []
   }
 }
-
-// DNS is now provided by './dns' module via re-export (DNS-over-HTTPS)
 
 // Misc
 export const main = (() => {
@@ -770,10 +975,16 @@ export function randomUUIDv7(): string {
   ].join('-')
 }
 
-const resolvedPromises = new WeakMap<Promise<unknown>, { resolved: boolean; value: unknown; error: unknown }>()
+interface PromiseTracker {
+  resolved: boolean
+  value: BunValue
+  error: BunValue
+}
 
-export function peek<T>(promise: Promise<T>): T | Promise<T> {
-  const cached = resolvedPromises.get(promise as Promise<unknown>)
+const resolvedPromises = new WeakMap<Promise<BunValue>, PromiseTracker>()
+
+export function peek<T extends BunValue>(promise: Promise<T>): T | Promise<T> {
+  const cached = resolvedPromises.get(promise as Promise<BunValue>)
   if (cached) {
     if (cached.resolved) {
       if (cached.error !== undefined) throw cached.error
@@ -782,15 +993,19 @@ export function peek<T>(promise: Promise<T>): T | Promise<T> {
     return promise
   }
 
-  const tracker = { resolved: false, value: undefined as unknown, error: undefined as unknown }
-  resolvedPromises.set(promise as Promise<unknown>, tracker)
+  const tracker: PromiseTracker = {
+    resolved: false,
+    value: undefined,
+    error: undefined,
+  }
+  resolvedPromises.set(promise as Promise<BunValue>, tracker)
 
   promise
     .then((value) => {
       tracker.resolved = true
       tracker.value = value
     })
-    .catch((error) => {
+    .catch((error: BunValue) => {
       tracker.resolved = true
       tracker.error = error
     })
@@ -798,8 +1013,26 @@ export function peek<T>(promise: Promise<T>): T | Promise<T> {
   return promise
 }
 
-export function gc(): void {}
-export function shrink(): void {}
+let gcWarningShown = false
+let shrinkWarningShown = false
+
+export function gc(): void {
+  if (!gcWarningShown) {
+    console.warn(
+      '[Bun.gc] No-op in workerd: V8 isolate garbage collection is managed by the runtime.',
+    )
+    gcWarningShown = true
+  }
+}
+
+export function shrink(): void {
+  if (!shrinkWarningShown) {
+    console.warn(
+      '[Bun.shrink] No-op in workerd: Memory management is handled by the runtime.',
+    )
+    shrinkWarningShown = true
+  }
+}
 
 export function generateHeapSnapshot(): never {
   throw new Error('generateHeapSnapshot is not available in workerd')

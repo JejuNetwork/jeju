@@ -63,11 +63,10 @@ async function main() {
   const host = getLocalhostHost()
   console.log('[Gateway] Starting production server...')
 
-  // Check if build exists
-  const distApiPath = resolve(APP_DIR, 'dist/api/a2a-server.js')
+  // Check if frontend build exists
   const distWebPath = resolve(APP_DIR, 'dist/index.html')
 
-  if (!existsSync(distApiPath) || !existsSync(distWebPath)) {
+  if (!existsSync(distWebPath)) {
     console.log('[Gateway] Build not found, running build first...')
     const buildProc = Bun.spawn(['bun', 'run', 'scripts/build.ts'], {
       cwd: APP_DIR,
@@ -77,10 +76,11 @@ async function main() {
     await buildProc.exited
   }
 
-  // Start the main A2A server (handles API + frontend)
-  console.log(`[Gateway] Starting A2A server on port ${API_PORT}...`)
+  // Start the worker from source (avoids Bun auto-serve conflicts with bundle)
+  // Frontend is served via IPFS/JNS in real deployments
+  console.log(`[Gateway] Starting worker server on port ${API_PORT}...`)
 
-  const proc = Bun.spawn(['bun', 'run', 'dist/api/a2a-server.js'], {
+  const proc = Bun.spawn(['bun', 'run', 'api/worker.ts'], {
     cwd: APP_DIR,
     stdout: 'inherit',
     stderr: 'inherit',
@@ -91,7 +91,7 @@ async function main() {
     },
   })
 
-  processes.push({ name: 'a2a', process: proc })
+  processes.push({ name: 'worker', process: proc })
 
   const ready = await waitForPort(API_PORT, 30000)
   if (!ready) {

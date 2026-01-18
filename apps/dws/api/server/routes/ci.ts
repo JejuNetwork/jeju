@@ -93,6 +93,94 @@ export function createCIRouter(ctx: CIContext) {
         }
       })
 
+      // List pipelines (workflow runs across all repos)
+      .get('/pipelines', async ({ request }) => {
+        const headers = extractHeaders(request)
+        const userAddress = headers['x-jeju-address']
+
+        // Get all runs across all repos
+        const allRuns = workflowEngine.getAllRuns()
+        const userRuns = userAddress
+          ? allRuns.filter(
+              (r) => r.triggeredBy.toLowerCase() === userAddress.toLowerCase(),
+            )
+          : allRuns
+
+        // Sort by most recent
+        userRuns.sort((a, b) => b.startedAt - a.startedAt)
+
+        // Map RunStatus to frontend pipeline status
+        const mapStatus = (
+          status: string,
+          conclusion?: string,
+        ): 'pending' | 'running' | 'success' | 'failed' => {
+          if (status === 'started' || status === 'in_progress') return 'running'
+          if (
+            status === 'failed' ||
+            status === 'cancelled' ||
+            status === 'timeout'
+          )
+            return 'failed'
+          if (conclusion === 'success') return 'success'
+          if (conclusion === 'failure') return 'failed'
+          if (status === 'queued' || status === 'waiting') return 'pending'
+          return 'pending'
+        }
+
+        // Map step status
+        const mapStepStatus = (
+          status: string,
+          conclusion?: string,
+        ): 'pending' | 'running' | 'success' | 'failed' | 'skipped' => {
+          if (status === 'skipped') return 'skipped'
+          if (status === 'started' || status === 'in_progress') return 'running'
+          if (
+            status === 'failed' ||
+            status === 'cancelled' ||
+            status === 'timeout'
+          )
+            return 'failed'
+          if (conclusion === 'success') return 'success'
+          if (conclusion === 'failure') return 'failed'
+          if (status === 'queued' || status === 'waiting') return 'pending'
+          return 'pending'
+        }
+
+        // Map to pipeline format
+        const pipelines = userRuns.map((run) => {
+          const steps: Array<{
+            name: string
+            status: 'pending' | 'running' | 'success' | 'failed' | 'skipped'
+            durationMs: number | null
+            output: string
+          }> = run.jobs.flatMap((job) =>
+            job.steps.map((step) => ({
+              name: `${job.name}: ${step.name}`,
+              status: mapStepStatus(step.status, step.conclusion),
+              durationMs:
+                step.completedAt && step.startedAt
+                  ? step.completedAt - step.startedAt
+                  : null,
+              output: step.outputs
+                ? Object.values(step.outputs).join('\n')
+                : '',
+            })),
+          )
+
+          return {
+            id: run.runId,
+            name: `Workflow ${run.workflowId.slice(0, 8)}`,
+            repoId: run.repoId,
+            status: mapStatus(run.status, run.conclusion),
+            triggeredAt: run.startedAt,
+            completedAt: run.completedAt ?? null,
+            steps,
+          }
+        })
+
+        return { pipelines }
+      })
+
       .get('/workflows/:repoId', async ({ params }) => {
         const { repoId } = expectValid(workflowListParamsSchema, params)
         const workflows = await workflowEngine.loadRepositoryWorkflows(repoId)

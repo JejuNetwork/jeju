@@ -1,18 +1,29 @@
 import type { Address } from 'viem'
-import type { AgentCharacter } from '../../lib/types'
+import type { TradingBotChain, TradingBotStrategy } from '../../lib/types'
 
-export type BotStrategy =
-  | 'momentum'
-  | 'mean-reversion'
-  | 'arbitrage'
-  | 'market-making'
-  | 'custom'
+/**
+ * Options for creating a trading bot instance.
+ */
+export interface TradingBotOptions {
+  agentId: bigint
+  name: string
+  strategies: TradingBotStrategy[]
+  chains: TradingBotChain[]
+  maxConcurrentExecutions: number
+  useFlashbots: boolean
+  treasuryAddress?: Address
+  privateKey?: `0x${string}`
+}
 
 export interface TradingBotConfig {
   id: bigint
   name: string
-  strategy: BotStrategy
-  character?: AgentCharacter
+  strategy:
+    | 'momentum'
+    | 'mean-reversion'
+    | 'arbitrage'
+    | 'market-making'
+    | 'custom'
   enabled: boolean
   maxPositionSize: bigint
   minTradeSize: bigint
@@ -44,12 +55,10 @@ export interface TradingBot {
   id: bigint
   config: TradingBotConfig
   state: TradingBotState
-
   start(): Promise<void>
   stop(): Promise<void>
   isRunning(): boolean
   isHealthy(): boolean
-
   getMetrics(): TradingBotMetrics
   evaluateOpportunity(token: Address, price: bigint): Promise<boolean>
   executeTrade(token: Address, amount: bigint, isBuy: boolean): Promise<string>

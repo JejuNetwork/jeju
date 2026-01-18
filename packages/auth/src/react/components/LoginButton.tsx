@@ -21,6 +21,7 @@ export interface LoginButtonProps {
 
 const providerLabels: Record<AuthProvider, string> = {
   [AuthProvider.WALLET]: 'Connect Wallet',
+  [AuthProvider.PASSKEY]: 'Sign in with Passkey',
   [AuthProvider.FARCASTER]: 'Sign in with Farcaster',
   [AuthProvider.GOOGLE]: 'Continue with Google',
   [AuthProvider.APPLE]: 'Continue with Apple',
@@ -33,6 +34,7 @@ const providerLabels: Record<AuthProvider, string> = {
 
 const providerIcons: Record<AuthProvider, string> = {
   [AuthProvider.WALLET]: '🔐',
+  [AuthProvider.PASSKEY]: '🔑',
   [AuthProvider.FARCASTER]: '🟣',
   [AuthProvider.GOOGLE]: '🔵',
   [AuthProvider.APPLE]: '🍎',

@@ -193,7 +193,7 @@ export default function LiquidityPage() {
             className="btn-primary w-full py-3 disabled:opacity-50"
           >
             {!isConnected
-              ? 'Connect Wallet'
+              ? 'Sign In'
               : !poolAddress
                 ? 'Select a Pool'
                 : isSubmitting

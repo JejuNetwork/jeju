@@ -81,36 +81,18 @@ export const CHAINS = {
   421614: { name: 'Arbitrum Sepolia', shortName: 'ARB-SEP', isTestnet: true },
 } as const
 
-/**
- * Get the indexer URL dynamically based on current runtime context.
- * This must be a function (not a constant) to ensure correct network detection in browser.
- */
-export function getIndexerUrl(): string {
-  // Check env override first
-  if (typeof process !== 'undefined' && process.env.INDEXER_URL) {
-    return process.env.INDEXER_URL
-  }
-
-  const network = getCurrentNetwork()
-  const isBrowser = typeof window !== 'undefined'
-
-  // In browser for non-localnet, use CORS-enabled DWS proxy
-  if (isBrowser && network !== 'localnet') {
-    return getServiceUrl('indexer', 'graphqlCors', network)
-  }
-
-  // Server-side or localnet: use direct graphql endpoint
-  return getServiceUrl('indexer', 'graphql', network)
-}
-
 // Service URLs (using centralized port config)
-// Note: indexer URL must be fetched via getIndexerUrl() for correct runtime network detection
+// Use graphqlCors endpoint in browser for CORS support
+const network = getCurrentNetwork()
+const isBrowser = typeof window !== 'undefined'
 export const SERVICES = {
   rpcGateway: getCoreAppUrl('RPC_GATEWAY'),
-  // DEPRECATED: Use getIndexerUrl() instead for runtime network detection
-  get indexer() {
-    return getIndexerUrl()
-  },
+  indexer:
+    (typeof process !== 'undefined' ? process.env.INDEXER_URL : undefined) ||
+    // Use CORS-enabled DWS proxy in browser, direct endpoint server-side
+    (isBrowser && network !== 'localnet'
+      ? getServiceUrl('indexer', 'graphqlCors', network)
+      : getServiceUrl('indexer', 'graphql', network)),
   ipfsApi: getCoreAppUrl('IPFS'),
   ipfsGateway: getCoreAppUrl('IPFS'),
 } as const

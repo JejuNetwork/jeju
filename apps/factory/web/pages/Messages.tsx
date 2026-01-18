@@ -1,6 +1,7 @@
 import { clsx } from 'clsx'
 import {
   Archive,
+  ArrowLeft,
   BellOff,
   Check,
   CheckCheck,
@@ -42,8 +43,19 @@ export function MessagesPage() {
 
   const [selectedFid, setSelectedFid] = useState<number | null>(null)
   const [showNewConversation, setShowNewConversation] = useState(false)
+  const [showMobileThread, setShowMobileThread] = useState(false)
 
   const conversations = conversationsData?.conversations ?? []
+
+  const handleSelectConversation = (fid: number) => {
+    setSelectedFid(fid)
+    setShowNewConversation(false)
+    setShowMobileThread(true)
+  }
+
+  const handleBack = () => {
+    setShowMobileThread(false)
+  }
 
   // If not connected to Farcaster, show connect prompt
   if (!farcasterStatus?.connected && walletConnected && !statusLoading) {
@@ -127,13 +139,21 @@ export function MessagesPage() {
 
       {/* Main content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Conversation list */}
-        <div className="w-full sm:w-80 border-r border-surface-800/50 flex flex-col bg-surface-900/50">
+        {/* Conversation list - hidden on mobile when thread is shown */}
+        <div
+          className={clsx(
+            'w-full sm:w-80 border-r border-surface-800/50 flex flex-col bg-surface-900/50',
+            showMobileThread && 'hidden sm:flex',
+          )}
+        >
           <div className="p-3 sm:p-4 border-b border-surface-800/50">
             <button
               type="button"
               className="btn btn-primary w-full"
-              onClick={() => setShowNewConversation(true)}
+              onClick={() => {
+                setShowNewConversation(true)
+                setShowMobileThread(true)
+              }}
             >
               New Message
             </button>
@@ -167,8 +187,7 @@ export function MessagesPage() {
                     isSelected={selectedFid === conv.otherUser?.fid}
                     onClick={() => {
                       if (conv.otherUser?.fid) {
-                        setSelectedFid(conv.otherUser.fid)
-                        setShowNewConversation(false)
+                        handleSelectConversation(conv.otherUser.fid)
                       }
                     }}
                   />
@@ -178,18 +197,25 @@ export function MessagesPage() {
           </div>
         </div>
 
-        {/* Message area */}
-        <div className="hidden sm:flex flex-1 flex-col">
+        {/* Message area - shown on mobile when thread is selected */}
+        <div
+          className={clsx(
+            'flex-1 flex-col',
+            showMobileThread ? 'flex' : 'hidden sm:flex',
+          )}
+        >
           {showNewConversation ? (
             <NewConversation
               onSelect={(fid) => {
-                setSelectedFid(fid)
-                setShowNewConversation(false)
+                handleSelectConversation(fid)
               }}
-              onCancel={() => setShowNewConversation(false)}
+              onCancel={() => {
+                setShowNewConversation(false)
+                setShowMobileThread(false)
+              }}
             />
           ) : selectedFid ? (
-            <MessageThread recipientFid={selectedFid} />
+            <MessageThread recipientFid={selectedFid} onBack={handleBack} />
           ) : (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
@@ -384,7 +410,13 @@ function NewConversation({
   )
 }
 
-function MessageThread({ recipientFid }: { recipientFid: number }) {
+function MessageThread({
+  recipientFid,
+  onBack,
+}: {
+  recipientFid: number
+  onBack?: () => void
+}) {
   const { data: messagesData, isLoading } = useMessages(recipientFid)
   const sendMessage = useSendMessage()
   const markAsRead = useMarkAsRead()
@@ -428,6 +460,16 @@ function MessageThread({ recipientFid }: { recipientFid: number }) {
       {/* Header */}
       <div className="p-4 border-b border-surface-800/50 flex items-center justify-between">
         <div className="flex items-center gap-3">
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="sm:hidden p-2 -ml-2 rounded-lg hover:bg-surface-800 text-surface-400"
+              aria-label="Back to conversations"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          )}
           <div className="w-8 h-8 rounded-full bg-surface-700 flex items-center justify-center text-surface-400 text-sm">
             {recipientFid}
           </div>

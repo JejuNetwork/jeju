@@ -46,7 +46,7 @@ interface ProposalRow {
   author: string
   status: string
   quality_score: number
-  council_votes: string
+  board_votes: string
   futarchy_market_id: string | null
   created_at: number
   updated_at: number
@@ -140,7 +140,7 @@ async function getSQLitClient(): Promise<SQLitClient> {
     // SQLit URL is automatically resolved from network config
     sqlitClient = getSQLit({
       databaseId: SQLIT_DATABASE_ID,
-      timeout: 30000,
+      timeoutMs: 30000,
       debug: !config.isProduction,
     })
   }
@@ -172,7 +172,7 @@ async function getSQLitClient(): Promise<SQLitClient> {
 
 function getCache(): CacheClient {
   if (!cacheClient) {
-    cacheClient = getCacheClient('council')
+    cacheClient = getCacheClient('board')
   }
   return cacheClient
 }
@@ -186,7 +186,7 @@ async function ensureTablesExist(): Promise<void> {
       author TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'draft',
       quality_score INTEGER DEFAULT 0,
-      council_votes TEXT DEFAULT '{}',
+      board_votes TEXT DEFAULT '{}',
       futarchy_market_id TEXT,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
@@ -209,7 +209,7 @@ async function ensureTablesExist(): Promise<void> {
       reporter_id TEXT NOT NULL,
       created_at INTEGER NOT NULL
     )`,
-    `CREATE TABLE IF NOT EXISTS council_votes (
+    `CREATE TABLE IF NOT EXISTS board_votes (
       id TEXT PRIMARY KEY,
       proposal_id TEXT NOT NULL,
       voter_id TEXT NOT NULL,
@@ -265,7 +265,7 @@ export const proposalState = {
   async create(proposal: Proposal): Promise<void> {
     const client = await getSQLitClient()
     await client.exec(
-      `INSERT INTO proposals (id, title, description, author, status, quality_score, council_votes, futarchy_market_id, created_at, updated_at)
+      `INSERT INTO proposals (id, title, description, author, status, quality_score, board_votes, futarchy_market_id, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         proposal.id,
@@ -303,7 +303,7 @@ export const proposalState = {
     const row = result.rows[0]
     if (row) {
       const autocratVotes = AutocratVotesRecordSchema.parse(
-        JSON.parse(row.council_votes ?? '{}'),
+        JSON.parse(row.board_votes ?? '{}'),
       )
       const proposal: Proposal = {
         id: row.id,
@@ -346,7 +346,7 @@ export const proposalState = {
       params.push(updates.qualityScore)
     }
     if (updates.autocratVotes !== undefined) {
-      sets.push('council_votes = ?')
+      sets.push('board_votes = ?')
       params.push(JSON.stringify(updates.autocratVotes))
     }
     if (updates.futarchyMarketId !== undefined) {
@@ -381,7 +381,7 @@ export const proposalState = {
       status: ProposalStatusSchema.parse(row.status),
       qualityScore: row.quality_score,
       autocratVotes: AutocratVotesRecordSchema.parse(
-        JSON.parse(row.council_votes ?? '{}'),
+        JSON.parse(row.board_votes ?? '{}'),
       ),
       futarchyMarketId: row.futarchy_market_id ?? undefined,
       createdAt: row.created_at,
@@ -468,7 +468,7 @@ export const moderationState = {
   },
 }
 
-// Autocrat vote operations (individual council member votes on proposals)
+// Autocrat vote operations (individual board member votes on proposals)
 export const autocratVoteState = {
   async save(proposalId: string, vote: AutocratVote): Promise<void> {
     const client = await getSQLitClient()

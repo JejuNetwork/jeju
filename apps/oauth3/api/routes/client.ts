@@ -12,10 +12,14 @@ import {
   ClientTier,
   ReportCategory as ReportCategoryEnum,
 } from '../../lib/types'
-import { hashClientSecret } from '../services/kms'
+import { hashClientSecret, initializeKMS } from '../services/kms'
 import { checkReputation } from '../services/reputation'
 import { verifyStake } from '../services/staking'
-import { clientReportState, clientState } from '../services/state'
+import {
+  clientReportState,
+  clientState,
+  initializeState,
+} from '../services/state'
 
 /**
  * Verify ownership of a client via signed message.
@@ -97,12 +101,47 @@ const UpdateClientBodySchema = t.Object({
   active: t.Optional(t.Boolean()),
 })
 
-export function createClientRouter(_config: AuthConfig) {
+// Lazy initialization for client routes
+let clientRouterInitialized = false
+let clientRouterInitPromise: Promise<void> | null = null
+
+async function ensureClientRouterInitialized(
+  config: AuthConfig,
+): Promise<void> {
+  if (clientRouterInitialized) return
+  if (clientRouterInitPromise) {
+    await clientRouterInitPromise
+    return
+  }
+
+  clientRouterInitPromise = (async () => {
+    await initializeState()
+    try {
+      await initializeKMS({
+        jwtSigningKeyId: config.jwtSigningKeyId ?? 'oauth3-jwt-signing',
+        jwtSignerAddress:
+          config.jwtSignerAddress ??
+          ('0x0000000000000000000000000000000000000000' as `0x${string}`),
+        serviceAgentId: config.serviceAgentId,
+        chainId: config.chainId ?? 'eip155:420691',
+      })
+    } catch (_err) {
+      console.warn('[OAuth3/Client] KMS initialization failed, using fallback')
+    }
+    clientRouterInitialized = true
+  })()
+
+  await clientRouterInitPromise
+}
+
+export function createClientRouter(config: AuthConfig) {
   return (
     new Elysia({ name: 'client', prefix: '/client' })
       .post(
         '/register',
         async ({ body, set }) => {
+          await ensureClientRouterInitialized(config)
+
           if (!isAddress(body.owner)) {
             set.status = 400
             return { error: 'invalid_owner_address' }

@@ -2,16 +2,24 @@
  * Database API Routes
  *
  * REST API for managed database service (SQLit + PostgreSQL)
+ * Supports permissionless provisioning via DWS
  */
 
 import { Elysia, t } from 'elysia'
-import type { Address } from 'viem'
+import type { Address, Hex } from 'viem'
 import type { BackendManager } from '../storage/backends'
 import {
   CreateDatabaseSchema,
   getManagedDatabaseService,
   UpdateDatabaseSchema,
 } from './managed-service'
+import {
+  checkHealth,
+  getInstance,
+  type ProvisionRequest,
+  provisionPostgres,
+  terminatePostgres,
+} from './postgres-provisioner'
 
 export function createDatabaseRoutes(backend: BackendManager) {
   const dbService = getManagedDatabaseService(backend)
@@ -235,6 +243,96 @@ export function createDatabaseRoutes(backend: BackendManager) {
 
           await dbService.promoteReplica(params.replicaId, owner)
           return { success: true }
+        },
+      )
+
+      // ============================================================
+      // Permissionless PostgreSQL Provisioning (DWS Native)
+      // ============================================================
+
+      // Provision a new PostgreSQL database (permissionless)
+      .post(
+        '/postgres/provision',
+        async ({ body }) => {
+          const request: ProvisionRequest = {
+            name: body.name,
+            owner: body.owner as Address,
+            signature: body.signature as Hex,
+            timestamp: body.timestamp,
+            resources: body.resources,
+          }
+
+          const result = await provisionPostgres(request)
+          return {
+            success: true,
+            instance: result.instance,
+            credentials: result.credentials,
+          }
+        },
+        {
+          body: t.Object({
+            name: t.String({ minLength: 1, maxLength: 64 }),
+            owner: t.String({ pattern: '^0x[a-fA-F0-9]{40}$' }),
+            signature: t.String({ pattern: '^0x[a-fA-F0-9]+$' }),
+            timestamp: t.Number(),
+            resources: t.Optional(
+              t.Object({
+                cpuCores: t.Optional(t.Number({ minimum: 1, maximum: 16 })),
+                memoryMb: t.Optional(
+                  t.Number({ minimum: 256, maximum: 65536 }),
+                ),
+                storageMb: t.Optional(
+                  t.Number({ minimum: 1024, maximum: 1048576 }),
+                ),
+                maxConnections: t.Optional(
+                  t.Number({ minimum: 10, maximum: 1000 }),
+                ),
+                poolSize: t.Optional(t.Number({ minimum: 5, maximum: 100 })),
+              }),
+            ),
+          }),
+        },
+      )
+
+      // Get PostgreSQL instance by ID/name
+      .get('/postgres/:instanceId', async ({ params, headers }) => {
+        const owner = headers['x-wallet-address'] as Address
+        if (!owner) {
+          return { error: 'Unauthorized', instance: null }
+        }
+
+        const instance = await getInstance(params.instanceId, owner)
+        if (!instance) {
+          return { error: 'Instance not found', instance: null }
+        }
+
+        return { instance }
+      })
+
+      // Health check for PostgreSQL instance
+      .get('/postgres/:instanceId/health', async ({ params }) => {
+        const status = await checkHealth(params.instanceId)
+        return { status }
+      })
+
+      // Terminate PostgreSQL instance
+      .post(
+        '/postgres/:instanceId/terminate',
+        async ({ params, body }) => {
+          await terminatePostgres(
+            params.instanceId,
+            body.owner as Address,
+            body.signature as Hex,
+            body.timestamp,
+          )
+          return { success: true }
+        },
+        {
+          body: t.Object({
+            owner: t.String({ pattern: '^0x[a-fA-F0-9]{40}$' }),
+            signature: t.String({ pattern: '^0x[a-fA-F0-9]+$' }),
+            timestamp: t.Number(),
+          }),
         },
       )
   )

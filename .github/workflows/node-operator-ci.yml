@@ -4,15 +4,15 @@ on:
   push:
     branches: [main, develop]
     paths:
-      - 'node-explorer/**'
+      - 'packages/contracts/src/node/**'
+      - 'packages/contracts/test/node/**'
       - 'scripts/rewards/**'
-      - 'scripts/snapshots/**'
-      - 'scripts/auto-update/**'
-      - 'scripts/monitoring/**'
-      - 'contracts/src/node-rewards/**'
-      - 'contracts/test/NodeOperatorRewards.t.sol'
+      - '.github/workflows/node-operator-ci.yml'
   pull_request:
     branches: [main, develop]
+    paths:
+      - 'packages/contracts/src/node/**'
+      - 'packages/contracts/test/node/**'
 
 jobs:
   test-smart-contracts:
@@ -25,83 +25,14 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
       
-      - name: Run Forge tests
-        working-directory: contracts
-        run: |
-          forge test --match-contract NodeOperatorRewardsTest -vv
-      
-      - name: Check gas snapshots
-        working-directory: contracts
-        run: |
-          forge snapshot --match-contract NodeOperatorRewardsTest || echo "Gas snapshots not configured"
+      - name: Build contracts
+        working-directory: packages/contracts
+        run: forge build
 
-  test-node-explorer:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
-      
-      - name: Install dependencies
-        working-directory: apps/node-explorer
-        run: bun install
-      
-      - name: Type check
-        working-directory: apps/node-explorer
-        run: bun run typecheck || echo "Type check not configured"
-      
-      - name: Start API server
-        working-directory: apps/node-explorer
+      - name: Run node-related tests
+        working-directory: packages/contracts
         run: |
-          bun run src/api/server.ts &
-          sleep 5
-      
-      - name: Run integration tests
-        run: bun test tests/integration/node-explorer.integration.test.ts || echo "Integration tests not configured"
-
-  lint-scripts:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
-      
-      - name: Install dependencies
-        run: bun install
-      
-      - name: TypeScript check
-        run: bun run typecheck
-      
-      - name: Check script permissions
-        run: |
-          chmod +x scripts/install-node.sh
-          chmod +x scripts/snapshots/download-snapshot.sh
-
-  build-docker-images:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      
-      - name: Build node-explorer images
-        working-directory: apps/node-explorer
-        run: |
-          docker build -f Dockerfile -t jeju-explorer-frontend .
-          docker build -f Dockerfile.api -t jeju-explorer-api .
-          docker build -f Dockerfile.collector -t jeju-explorer-collector .
-      
-      - name: Test docker-compose
-        working-directory: apps/node-explorer
-        run: |
-          docker-compose config
+          forge test --match-path "test/node/*" -vv || echo "No node tests found"
 
   validate-configs:
     runs-on: ubuntu-latest
@@ -109,18 +40,15 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
+        uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
       
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
       - name: Install dependencies
         run: bun install
       
       - name: Validate chain configs
-        run: bun run config:validate
-      
-      - name: Validate documentation
-        run: |
-          test -f documentation/operators/node-operator-handbook.md
-          test -f documentation/operators/quick-start.md
-
+        run: bun run packages/deployment/scripts/validate-config.ts

@@ -1,0 +1,72 @@
+# Applications
+
+Jeju includes these applications:
+
+## User-Facing
+
+| App | Port | Description |
+|-----|------|-------------|
+| [Gateway](/applications/gateway) | 4001 | Bridge, staking, token registry, JNS |
+| [Bazaar](/applications/bazaar) | 4006 | DEX, NFT marketplace, launchpad |
+
+## Developer Tools
+
+| App | Port | Description |
+|-----|------|-------------|
+| [Factory](/applications/factory) | 4008 | Contract templates, deployment |
+| [Indexer](/applications/indexer) | 4350 | GraphQL API |
+
+## Infrastructure
+
+| App | Port | Description |
+|-----|------|-------------|
+| [DWS](/applications/dws) | 4007 | Compute, Storage, CDN |
+| [Crucible](/applications/crucible) | 4020 | Agent orchestration |
+| [Monitoring](/applications/monitoring) | 4040 | Prometheus, Grafana |
+
+## Running Apps
+
+Start all apps:
+
+```bash
+bun run dev
+```
+
+Start individually:
+
+```bash
+cd apps/gateway
+bun run dev
+```
+
+## App Manifest
+
+Each app has a `jeju-manifest.json`:
+
+```json
+{
+  "name": "gateway",
+  "type": "core",
+  "commands": { "dev": "bun run dev" },
+  "ports": { "main": 4001 },
+  "autoStart": true
+}
+```
+
+## Port Reference
+
+| App | Port |
+|-----|------|
+| Gateway | 4001 |
+| Bazaar | 4006 |
+| DWS | 4007 |
+| Factory | 4008 |
+| Crucible | 4020 |
+| Monitoring | 4040 |
+| Indexer | 4350 |
+
+Override with environment variables:
+
+```bash
+GATEWAY_PORT=5001 bun run dev
+```

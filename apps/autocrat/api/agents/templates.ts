@@ -119,9 +119,6 @@ Output JSON: {"approved": bool, "reasoning": "...", "confidence": 0-100, "alignm
   },
 }
 
-// Legacy export for backwards compatibility
-export const ceoAgent = directorAgent
-
 const securityBountyAgent: AutocratAgentTemplate = {
   id: 'security-bounty',
   name: 'Security Bounty Agent',

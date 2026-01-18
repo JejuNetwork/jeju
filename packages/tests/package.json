@@ -13,10 +13,11 @@
     "./tauri/fixtures": "./shared/tauri/fixtures.ts",
     "./tauri/playwright-config": "./shared/tauri/playwright.config.tauri.ts",
     "./playwright-only": "./playwright-only.ts",
-    "./zod-compat": "./shared/zod-compat.ts",
     "./bun-global-setup": "./shared/bun-global-setup.ts",
     "./infra-check": "./shared/infra-check.ts",
     "./lock-manager": "./shared/lock-manager.ts",
+    "./contracts-required": "./shared/contracts-required.ts",
+    "./preflight": "./shared/preflight.ts",
     "./load/simulator": "./load/simulator.ts",
     "./e2e/full-app-crawler": "./e2e/full-app-crawler.ts",
     "./shared/live-infrastructure": "./shared/live-infrastructure.ts"
@@ -32,7 +33,10 @@
     "tauri:all": "bun run tauri:wallet && bun run tauri:node && bun run tauri:vpn"
   },
   "dependencies": {
+    "@jejunetwork/agents": "workspace:*",
+    "@jejunetwork/zksolbridge": "workspace:*",
     "@jejunetwork/config": "workspace:*",
+    "@jejunetwork/contracts": "workspace:*",
     "@jejunetwork/kms": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/types": "workspace:*",

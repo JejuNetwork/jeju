@@ -1,6 +1,13 @@
-import type { Action, Plugin } from '@elizaos/core'
+import type { Action, Plugin, Service } from '@elizaos/core'
 import { getCurrentNetwork } from '@jejunetwork/config'
-import type { JsonValue } from '@jejunetwork/types'
+import {
+  initJejuService,
+  JEJU_SERVICE_NAME,
+  type StandaloneJejuService,
+} from '@jejunetwork/eliza-plugin'
+import type { JejuClient } from '@jejunetwork/sdk'
+import type { JsonValue, NetworkType } from '@jejunetwork/types'
+import type { Hex } from 'viem'
 import type { AgentCharacter } from '../../lib/types'
 import {
   checkDWSHealth,
@@ -33,6 +40,10 @@ export interface RuntimeConfig {
   agentId: string
   character: AgentCharacter
   logger?: Logger
+  /** Private key for signing transactions (required for on-chain actions) */
+  privateKey?: Hex
+  /** Network to connect to */
+  network?: NetworkType
 }
 
 export interface RuntimeMessage {
@@ -46,7 +57,12 @@ export interface RuntimeMessage {
 export interface RuntimeResponse {
   text: string
   action?: string
-  actions?: Array<{ name: string; params: Record<string, string> }>
+  actions?: Array<{
+    type: string
+    params: Record<string, string>
+    success: boolean
+    result?: { response?: string; txHash?: string; error?: string }
+  }>
 }
 
 /**
@@ -78,19 +94,62 @@ async function generateResponse(
 }
 
 /**
+ * Mock service wrapper for Eliza compatibility
+ * Wraps StandaloneJejuService to match Eliza's Service interface
+ */
+class JejuServiceWrapper {
+  static serviceType = JEJU_SERVICE_NAME
+  capabilityDescription =
+    'Jeju Network access - compute, storage, DeFi, governance'
+
+  private service: StandaloneJejuService
+
+  constructor(service: StandaloneJejuService) {
+    this.service = service
+  }
+
+  getClient(): JejuClient {
+    return this.service.sdk
+  }
+
+  async stop(): Promise<void> {
+    // Cleanup if needed
+  }
+}
+
+/**
  * Crucible Agent Runtime
  *
  * Character-based agent using DWS for inference.
  * Includes jeju plugin actions for full network access.
+ * Implements enough of Eliza's IAgentRuntime interface for action handlers.
  */
 export class CrucibleAgentRuntime {
   private config: RuntimeConfig
   private log: Logger
   private initialized = false
 
+  // Service management for Eliza compatibility
+  private services: Map<string, Service | JejuServiceWrapper> = new Map()
+  private settings: Map<string, string> = new Map()
+  private cache: Map<string, JsonValue> = new Map()
+
+  // Jeju service instance
+  private jejuService: StandaloneJejuService | null = null
+
   constructor(config: RuntimeConfig) {
     this.config = config
     this.log = config.logger ?? createLogger(`Runtime:${config.agentId}`)
+
+    // Initialize settings from config and env
+    const network = config.network ?? (getCurrentNetwork() as NetworkType)
+    this.settings.set('NETWORK_TYPE', network)
+    this.settings.set('JEJU_NETWORK', network)
+
+    if (config.privateKey) {
+      this.settings.set('NETWORK_PRIVATE_KEY', config.privateKey)
+      this.settings.set('JEJU_PRIVATE_KEY', config.privateKey)
+    }
   }
 
   async initialize(): Promise<void> {
@@ -99,6 +158,40 @@ export class CrucibleAgentRuntime {
     this.log.info('Initializing agent runtime', {
       agentId: this.config.agentId,
     })
+
+    // Initialize Jeju service if we have credentials
+    // NOTE: Private key must be passed through config (from secrets module)
+    // DO NOT fall back to process.env - that bypasses secret management
+    const privateKey = this.config.privateKey
+    if (privateKey) {
+      try {
+        const network =
+          this.config.network ?? (getCurrentNetwork() as NetworkType)
+        this.jejuService = await initJejuService({
+          privateKey,
+          network,
+          smartAccount: false, // Use EOA for agents
+        })
+
+        // Wrap and register service
+        const wrapper = new JejuServiceWrapper(this.jejuService)
+        this.services.set(JEJU_SERVICE_NAME, wrapper)
+
+        this.log.info('Jeju service initialized', {
+          address: this.jejuService.sdk.address,
+          network,
+        })
+      } catch (err) {
+        this.log.warn(
+          'Failed to initialize Jeju service - on-chain actions disabled',
+          {
+            error: err instanceof Error ? err.message : String(err),
+          },
+        )
+      }
+    } else {
+      this.log.warn('No private key configured - on-chain actions disabled')
+    }
 
     // Check DWS availability (fully decentralized - no centralized fallbacks)
     const dwsOk = await checkDWSHealth()
@@ -367,10 +460,52 @@ export class CrucibleAgentRuntime {
       params: Object.keys(params).length > 0 ? params : null,
     })
 
+    // If action was detected, try to execute it
+    if (action && this.actionHasHandler(action)) {
+      this.log.info('Executing action', { action, params })
+      const execResult = await this.executeAction(action, params)
+
+      // Combine LLM response text with action result
+      const actionResultText = execResult.success
+        ? ((execResult.result as { response?: string })?.response ?? '')
+        : `Action failed: ${execResult.error}`
+
+      const combinedText = actionResultText
+        ? `${cleanText}\n\n${actionResultText}`
+        : cleanText
+
+      return {
+        text: combinedText,
+        action,
+        actions: [
+          {
+            type: action,
+            params,
+            success: execResult.success,
+            result: execResult.success
+              ? {
+                  response: (execResult.result as { response?: string })
+                    ?.response,
+                }
+              : { error: execResult.error },
+          },
+        ],
+      }
+    }
+
     return {
       text: cleanText,
       action,
-      actions: action ? [{ name: action, params }] : undefined,
+      actions: action
+        ? [
+            {
+              type: action,
+              params,
+              success: false,
+              result: { error: 'No handler available' },
+            },
+          ]
+        : undefined,
     }
   }
 
@@ -399,6 +534,215 @@ export class CrucibleAgentRuntime {
   /** Get the loaded jeju plugin */
   getPlugin(): Plugin | null {
     return jejuPlugin
+  }
+
+  // ============================================
+  // Eliza IAgentRuntime compatibility methods
+  // Required for action handlers to work
+  // ============================================
+
+  /**
+   * Get a registered service by name
+   * Used by Eliza action handlers to access JejuService
+   */
+  getService(name: string): Service | JejuServiceWrapper | undefined {
+    return this.services.get(name.toLowerCase())
+  }
+
+  /**
+   * Register a service
+   */
+  registerService(service: Service): void {
+    const serviceType = (service.constructor as { serviceType?: string })
+      .serviceType
+    if (serviceType) {
+      this.services.set(serviceType.toLowerCase(), service)
+    }
+  }
+
+  /**
+   * Get a setting value
+   * Used by Eliza handlers to get configuration
+   */
+  getSetting(key: string): string | undefined {
+    // Check runtime settings first
+    const value = this.settings.get(key)
+    if (value !== undefined) return value
+
+    // Fall back to environment variables
+    return process.env[key]
+  }
+
+  /**
+   * Get cached data
+   */
+  async getCache<T>(key: string): Promise<T | undefined> {
+    return this.cache.get(key) as T | undefined
+  }
+
+  /**
+   * Set cached data
+   */
+  async setCache(key: string, value: JsonValue): Promise<void> {
+    this.cache.set(key, value)
+  }
+
+  /**
+   * Check if we have an active signer for on-chain actions
+   */
+  hasSigner(): boolean {
+    return this.jejuService !== null
+  }
+
+  /**
+   * Generate text using DWS inference
+   * Required by Eliza action handlers like AUDIT_CONTRACT for LLM analysis
+   */
+  async generateText(prompt: string): Promise<string> {
+    const client = getSharedDWSClient()
+    const network = getCurrentNetwork()
+    const modelPrefs = this.config.character.modelPreferences
+
+    // Use larger model for analysis tasks
+    const model =
+      network === 'testnet' || network === 'mainnet'
+        ? (modelPrefs?.large ?? 'llama-3.3-70b-versatile')
+        : (modelPrefs?.small ?? 'llama-3.1-8b-instant')
+
+    this.log.info('generateText called', {
+      promptLength: prompt.length,
+      model,
+    })
+
+    const response = await client.chatCompletion(
+      [{ role: 'user', content: prompt }],
+      {
+        model,
+        temperature: 0.3, // Lower temperature for structured analysis
+        maxTokens: 2048,
+      },
+    )
+
+    const choice = response.choices[0]
+    if (!choice) {
+      throw new Error('DWS inference returned no choices')
+    }
+
+    const text = choice.message.content ?? ''
+    this.log.info('generateText completed', {
+      responseLength: text.length,
+    })
+
+    return text
+  }
+
+  /**
+   * Use a specific model tier for generation
+   * Required by Eliza action handlers
+   * @param modelTier - 'TEXT_SMALL', 'TEXT_LARGE', 'TEXT_ANALYSIS', etc.
+   * @param options - { prompt: string }
+   */
+  async useModel(
+    modelTier: string,
+    options: { prompt: string },
+  ): Promise<string> {
+    const client = getSharedDWSClient()
+
+    // Default tier to model mapping
+    const tierToModel: Record<string, string> = {
+      TEXT_SMALL: 'llama-3.1-8b-instant',
+      TEXT_LARGE: 'llama-3.3-70b-versatile',
+      TEXT_ANALYSIS: 'llama-3.3-70b-versatile',
+    }
+
+    // Character preferences override defaults for each tier
+    const modelPrefs = this.config.character.modelPreferences
+    let model: string
+    if (modelTier === 'TEXT_ANALYSIS') {
+      // Analysis tier: use analysis preference, fall back to large, then default
+      model =
+        modelPrefs?.analysis ??
+        modelPrefs?.large ??
+        tierToModel[modelTier] ??
+        'llama-3.3-70b-versatile'
+    } else if (modelTier === 'TEXT_LARGE') {
+      model =
+        modelPrefs?.large ?? tierToModel[modelTier] ?? 'llama-3.3-70b-versatile'
+    } else if (modelTier === 'TEXT_SMALL') {
+      model =
+        modelPrefs?.small ?? tierToModel[modelTier] ?? 'llama-3.1-8b-instant'
+    } else {
+      model = tierToModel[modelTier] ?? 'llama-3.1-8b-instant'
+    }
+
+    this.log.info('useModel called', {
+      modelTier,
+      model,
+      promptLength: options.prompt.length,
+    })
+
+    const response = await client.chatCompletion(
+      [{ role: 'user', content: options.prompt }],
+      {
+        model,
+        temperature: 0.3,
+        maxTokens: 2048,
+      },
+    )
+
+    const choice = response.choices[0]
+    if (!choice) {
+      throw new Error('DWS inference returned no choices')
+    }
+
+    const text = choice.message.content ?? ''
+    this.log.info('useModel completed', {
+      modelTier,
+      responseLength: text.length,
+    })
+
+    return text
+  }
+
+  /**
+   * Get memories from a room (Eliza compatibility)
+   */
+  async getMemories(params: {
+    roomId: string
+    count?: number
+    tableName?: string
+  }): Promise<
+    Array<{
+      id: string
+      entityId: string
+      agentId?: string
+      roomId: string
+      content: { text: string }
+      createdAt?: number
+    }>
+  > {
+    const { getDatabase } = await import('./database')
+    const db = getDatabase()
+
+    const messages = await db.getMessages(params.roomId, {
+      limit: params.count ?? 10,
+    })
+
+    return messages.map((msg) => ({
+      id: String(msg.id),
+      entityId: msg.agent_id,
+      agentId: msg.agent_id,
+      roomId: msg.room_id,
+      content: { text: msg.content },
+      createdAt: msg.created_at * 1000,
+    }))
+  }
+
+  /**
+   * Get the Jeju SDK client directly
+   */
+  getJejuClient(): JejuClient | null {
+    return this.jejuService?.sdk ?? null
   }
 
   /**
@@ -434,8 +778,16 @@ export class CrucibleAgentRuntime {
       // The Eliza handler expects (runtime, message, state, options, callback)
       // We create mock objects that provide what most handlers need
 
+      // Build message text that handlers can parse
+      // Most handlers expect URLs/values directly in text, not as JSON
+      const messageText = params.url
+        ? params.url
+        : Object.entries(params)
+            .map(([k, v]) => `${k}=${v}`)
+            .join(' ')
+
       const mockMessage = {
-        content: { text: JSON.stringify(params) },
+        content: { text: messageText },
         userId: this.config.agentId,
         roomId: 'crucible-runtime',
       }
@@ -445,13 +797,16 @@ export class CrucibleAgentRuntime {
         roomId: 'crucible-runtime',
       }
 
-      // Eliza handlers return a boolean and call the callback with results
+      // Eliza handlers return void and call the callback with results
+      // Track whether callback was invoked and capture results
+      let callbackInvoked = false
       let callbackResult: JsonValue = null
 
       const callback = async (response: {
         text?: string
         content?: { text?: string }
       }): Promise<void> => {
+        callbackInvoked = true
         // Capture the response from the handler
         const text = response.text ?? response.content?.text ?? ''
         callbackResult = { response: text }
@@ -459,7 +814,7 @@ export class CrucibleAgentRuntime {
 
       // Execute the Eliza action handler
       // Cast through unknown as the mock objects don't fully implement Eliza types
-      const handlerResult = await action.elizaHandler(
+      await action.elizaHandler(
         this as unknown as Parameters<ElizaActionHandler>[0], // IAgentRuntime - we implement enough of the interface
         mockMessage as unknown as Parameters<ElizaActionHandler>[1],
         mockState as unknown as Parameters<ElizaActionHandler>[2],
@@ -471,15 +826,13 @@ export class CrucibleAgentRuntime {
 
       this.log.info('Action executed', {
         actionName,
-        handlerResult: String(handlerResult),
+        callbackInvoked,
         callbackResult,
       })
 
-      // Normalize the handler result for return
-      // Eliza handlers return void or ActionResult (string | object)
-      // Consider success if we got any non-null result
-      const success = handlerResult !== undefined && handlerResult !== null
-      const resultValue = callbackResult ?? { executed: success }
+      // Success if callback was invoked (handler communicated a result)
+      const success = callbackInvoked
+      const resultValue = callbackResult ?? { executed: true }
 
       return {
         success,

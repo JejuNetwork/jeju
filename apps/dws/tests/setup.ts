@@ -1,20 +1,19 @@
 /**
  * DWS Test Setup
  *
- * Provides test infrastructure including:
- * - Anvil (local blockchain) management
- * - DWS server startup
- * - Mock inference server
- * - Contract deployment
+ * App-specific test setup that runs AFTER the shared infrastructure setup.
+ * The shared setup (@jejunetwork/tests/bun-global-setup) handles:
+ * - Starting jeju dev --minimal if needed
+ * - Verifying localnet (L1/L2) is running
+ * - Setting environment variables for RPC, DWS, etc.
  *
- * Works in two modes:
- * 1. Via `jeju test` - infrastructure is already up
- * 2. Standalone - starts required services
+ * This file adds DWS-specific setup:
+ * - Mock inference server for AI completions
+ * - DWS server startup (if needed)
+ * - Mock node registration
  */
 
 import { afterAll, beforeAll } from 'bun:test'
-import { existsSync } from 'node:fs'
-import { join } from 'node:path'
 import {
   CORE_PORTS,
   getDwsApiUrl,
@@ -24,7 +23,6 @@ import {
 import type { Subprocess } from 'bun'
 
 // Configuration
-const ANVIL_PORT = parseInt(process.env.ANVIL_PORT ?? '9545', 10)
 const DWS_PORT = CORE_PORTS.DWS_API.get()
 const INFERENCE_PORT = CORE_PORTS.DWS_INFERENCE.get()
 
@@ -35,30 +33,13 @@ const INFERENCE_URL =
   `http://${getLocalhostHost()}:${INFERENCE_PORT}`
 
 // Process management
-let _anvilProcess: Subprocess | null = null
 let dwsProcess: Subprocess | null = null
 let mockInferenceServer: { stop: () => void } | null = null
 let isSetup = false
 
 // =============================================================================
-// Utility Functions
+// Service Checks
 // =============================================================================
-
-function findMonorepoRoot(): string {
-  let dir = import.meta.dir
-  for (let i = 0; i < 10; i++) {
-    if (
-      existsSync(join(dir, 'bun.lock')) &&
-      existsSync(join(dir, 'packages'))
-    ) {
-      return dir
-    }
-    const parent = join(dir, '..')
-    if (parent === dir) break
-    dir = parent
-  }
-  return process.cwd()
-}
 
 async function waitForService(
   url: string,
@@ -79,110 +60,15 @@ async function waitForService(
   return false
 }
 
-async function waitForAnvil(): Promise<boolean> {
-  for (let i = 0; i < 60; i++) {
-    try {
-      const response = await fetch(RPC_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          method: 'eth_chainId',
-          params: [],
-          id: 1,
-        }),
-        signal: AbortSignal.timeout(2000),
-      })
-      if (response.ok) return true
-    } catch {
-      // Keep trying
-    }
-    await Bun.sleep(500)
-  }
-  return false
-}
-
 // =============================================================================
-// Service Management
+// Mock Inference Server
 // =============================================================================
-
-async function startAnvil(): Promise<boolean> {
-  console.log('[Test Setup] Checking Anvil...')
-
-  if (await waitForAnvil()) {
-    console.log('[Test Setup] Anvil already running')
-    return true
-  }
-
-  const anvil = Bun.which('anvil')
-  if (!anvil) {
-    console.error(
-      '[Test Setup] Anvil not found. Install: curl -L https://foundry.paradigm.xyz | bash',
-    )
-    return false
-  }
-
-  console.log('[Test Setup] Starting Anvil...')
-  _anvilProcess = Bun.spawn(
-    [anvil, '--port', String(ANVIL_PORT), '--chain-id', '31337', '--silent'],
-    {
-      stdout: 'pipe',
-      stderr: 'pipe',
-    },
-  )
-
-  if (await waitForAnvil()) {
-    console.log('[Test Setup] Anvil started')
-    return true
-  }
-
-  console.error('[Test Setup] Failed to start Anvil')
-  return false
-}
-
-async function deployContracts(): Promise<boolean> {
-  const rootDir = findMonorepoRoot()
-  const bootstrapScript = join(
-    rootDir,
-    'scripts',
-    'bootstrap',
-    'bootstrap-localnet-complete.ts',
-  )
-
-  if (!existsSync(bootstrapScript)) {
-    console.warn(
-      '[Test Setup] No bootstrap script found, skipping contract deployment',
-    )
-    return true
-  }
-
-  console.log('[Test Setup] Deploying contracts...')
-  const proc = Bun.spawn(['bun', 'run', bootstrapScript], {
-    cwd: rootDir,
-    stdout: 'pipe',
-    stderr: 'pipe',
-    env: {
-      ...process.env,
-      JEJU_RPC_URL: RPC_URL,
-      L2_RPC_URL: RPC_URL,
-    },
-  })
-
-  const exitCode = await proc.exited
-  if (exitCode !== 0) {
-    console.error('[Test Setup] Contract deployment failed')
-    return false
-  }
-
-  console.log('[Test Setup] Contracts deployed')
-  return true
-}
 
 async function startMockInferenceServer(): Promise<boolean> {
-  console.log('[Test Setup] Starting mock inference server...')
+  console.log('[DWS Setup] Starting mock inference server...')
 
   if (await waitForService(INFERENCE_URL, '/health', 3)) {
-    console.log('[Test Setup] Mock inference server already running')
+    console.log('[DWS Setup] Mock inference server already running')
     return true
   }
 
@@ -238,22 +124,40 @@ async function startMockInferenceServer(): Promise<boolean> {
   })
 
   mockInferenceServer = server
-  console.log('[Test Setup] Mock inference server started')
+  console.log('[DWS Setup] Mock inference server started')
   return true
 }
 
+// =============================================================================
+// DWS Server
+// =============================================================================
+
 async function startDWS(): Promise<boolean> {
-  console.log('[Test Setup] Checking DWS...')
+  console.log('[DWS Setup] Checking DWS...')
 
   if (await waitForService(DWS_URL, '/health', 5)) {
-    console.log('[Test Setup] DWS already running')
+    console.log('[DWS Setup] DWS already running')
     return true
   }
 
-  const rootDir = findMonorepoRoot()
+  // Find monorepo root
+  let rootDir = process.cwd()
+  const { existsSync } = await import('node:fs')
+  const { join } = await import('node:path')
+
+  for (let i = 0; i < 10; i++) {
+    if (
+      existsSync(join(rootDir, 'bun.lock')) &&
+      existsSync(join(rootDir, 'packages'))
+    ) {
+      break
+    }
+    rootDir = join(rootDir, '..')
+  }
+
   const dwsDir = join(rootDir, 'apps', 'dws')
 
-  console.log('[Test Setup] Starting DWS...')
+  console.log('[DWS Setup] Starting DWS...')
   dwsProcess = Bun.spawn(['bun', 'run', 'src/server/index.ts'], {
     cwd: dwsDir,
     stdout: 'pipe',
@@ -268,16 +172,16 @@ async function startDWS(): Promise<boolean> {
   })
 
   if (await waitForService(DWS_URL, '/health', 30)) {
-    console.log('[Test Setup] DWS started')
+    console.log('[DWS Setup] DWS started')
     return true
   }
 
-  console.error('[Test Setup] Failed to start DWS')
+  console.error('[DWS Setup] Failed to start DWS')
   return false
 }
 
 async function registerMockInferenceNode(): Promise<boolean> {
-  console.log('[Test Setup] Registering mock inference node...')
+  console.log('[DWS Setup] Registering mock inference node...')
 
   try {
     const response = await fetch(`${DWS_URL}/compute/nodes/register`, {
@@ -297,17 +201,17 @@ async function registerMockInferenceNode(): Promise<boolean> {
 
     if (!response.ok) {
       console.warn(
-        '[Test Setup] Failed to register mock node:',
+        '[DWS Setup] Failed to register mock node:',
         await response.text(),
       )
       return false
     }
 
-    console.log('[Test Setup] Mock inference node registered')
+    console.log('[DWS Setup] Mock inference node registered')
     return true
   } catch (error) {
     console.warn(
-      '[Test Setup] Could not register mock node:',
+      '[DWS Setup] Could not register mock node:',
       (error as Error).message,
     )
     return false
@@ -321,17 +225,10 @@ async function registerMockInferenceNode(): Promise<boolean> {
 export async function setup(): Promise<void> {
   if (isSetup) return
 
-  console.log('\n[Test Setup] Setting up test environment...\n')
+  console.log('\n[DWS Setup] Setting up DWS test environment...\n')
 
-  // Start anvil
-  if (!(await startAnvil())) {
-    throw new Error('Failed to start Anvil')
-  }
-
-  // Deploy contracts (optional)
-  await deployContracts().catch(() => {
-    console.warn('[Test Setup] Contract deployment failed, continuing anyway')
-  })
+  // Chain should already be running from shared setup
+  // Just start DWS-specific services
 
   // Start mock inference server
   await startMockInferenceServer()
@@ -348,11 +245,11 @@ export async function setup(): Promise<void> {
   await registerMockInferenceNode()
 
   isSetup = true
-  console.log('\n[Test Setup] Environment ready\n')
+  console.log('\n[DWS Setup] Environment ready\n')
 }
 
 export async function teardown(): Promise<void> {
-  console.log('[Test Setup] Cleaning up...')
+  console.log('[DWS Setup] Cleaning up...')
 
   if (dwsProcess) {
     dwsProcess.kill()
@@ -364,8 +261,6 @@ export async function teardown(): Promise<void> {
     mockInferenceServer = null
   }
 
-  // Don't kill anvil - let it run for faster test iterations
-
   isSetup = false
 }
 
@@ -374,7 +269,6 @@ export function isReady(): boolean {
 }
 
 export interface InfraStatus {
-  anvil: boolean
   dws: boolean
   inference: boolean
   rpcUrl: string
@@ -383,14 +277,12 @@ export interface InfraStatus {
 }
 
 export async function getStatus(): Promise<InfraStatus> {
-  const [anvil, dws, inference] = await Promise.all([
-    waitForAnvil().catch(() => false),
+  const [dws, inference] = await Promise.all([
     waitForService(DWS_URL, '/health', 3).catch(() => false),
     waitForService(INFERENCE_URL, '/health', 3).catch(() => false),
   ])
 
   return {
-    anvil,
     dws,
     inference,
     rpcUrl: RPC_URL,
@@ -427,12 +319,16 @@ export async function dwsRequest(
   options: RequestInit = {},
 ): Promise<Response> {
   const url = `${DWS_URL}${path.startsWith('/') ? path : `/${path}`}`
+
+  // Don't set Content-Type for FormData (browser will set multipart/form-data with boundary)
+  const isFormData = options.body instanceof FormData
+  const headers: HeadersInit = isFormData
+    ? { ...options.headers }
+    : { 'Content-Type': 'application/json', ...options.headers }
+
   const response = await fetch(url, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
+    headers,
   })
   return response
 }

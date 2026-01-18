@@ -116,14 +116,14 @@ const SELECTORS = {
 
   // Wallet elements
   walletConnect:
-    '[data-testid*="connect"], [aria-label*="connect wallet" i], button:has-text(/connect/i)',
+    '[data-testid*="connect"], [aria-label*="connect wallet" i], button:has-text("connect")',
   walletDisconnect:
-    '[data-testid*="disconnect"], [aria-label*="disconnect" i], button:has-text(/disconnect/i)',
+    '[data-testid*="disconnect"], [aria-label*="disconnect" i], button:has-text("disconnect")',
 
   // Modal elements
   modals: '[role="dialog"], [data-testid*="modal"], .modal, [class*="modal"]',
   modalClose:
-    '[aria-label*="close" i], button:has-text(/close|cancel|dismiss/i), [data-testid*="close"]',
+    '[aria-label*="close" i], button:has-text("close"), button:has-text("cancel"), button:has-text("dismiss"), [data-testid*="close"]',
 
   // Error elements
   errorMessages:

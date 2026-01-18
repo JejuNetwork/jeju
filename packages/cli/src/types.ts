@@ -129,19 +129,90 @@ export interface AppManifest {
   }
   /** Architecture configuration for on-chain deployment */
   architecture?: {
-    frontend?: boolean | { outputDir?: string }
-    backend?: boolean | { outputDir?: string }
+    type?: 'hybrid' | 'frontend' | 'backend'
+    frontend?: boolean | { outputDir?: string; buildDir?: string }
+    backend?:
+      | boolean
+      | { outputDir?: string; entrypoint?: string; startCmd?: string }
+  }
+  /** Decentralization configuration */
+  decentralization?: {
+    worker?: {
+      name: string
+      entrypoint: string
+      runtime?: 'bun' | 'workerd'
+      routes?: Array<{ pattern: string }>
+      compatibilityDate?: string
+      memory?: number
+      timeout?: number
+    }
+    cdn?: {
+      enabled?: boolean
+      regions?: string[]
+      cacheRules?: Array<{
+        pattern: string
+        ttl: number
+        staleWhileRevalidate?: number
+        immutable?: boolean
+      }>
+      apiCaching?: {
+        enabled?: boolean
+        defaultTtl?: number
+        varyHeaders?: string[]
+      }
+      serviceWorker?: boolean
+    }
+    frontend?: {
+      ipfs?: boolean
+      arweave?: boolean
+      jnsName?: string
+      buildDir?: string
+      spa?: boolean
+      fallbackOrigins?: string[]
+    }
+    robustness?: {
+      multiOrigin?: boolean
+      offlineSupport?: boolean
+      p2pFallback?: boolean
+      contentAddressed?: boolean
+    }
   }
   /** Populated by discoverApps with actual directory name */
   _folderName?: string
   /** DAO governance configuration */
   dao?: DAOConfig
+  /** Default environment variables for the app */
+  defaultEnv?: Record<string, string>
+  /** DWS deployment configuration */
+  dws?: {
+    frontend?: { outputDir?: string }
+    backend?: {
+      enabled?: boolean
+      runtime?: 'bun' | 'workerd'
+      entrypoint?: string
+      outputDir?: string
+      memory?: number
+      timeout?: number
+      minInstances?: number
+      maxInstances?: number
+      teeRequired?: boolean
+      regions?: string[]
+    }
+    /** SQLit database configuration */
+    database?: {
+      enabled?: boolean
+      name?: string
+      consistency?: 'eventual' | 'strong'
+      replication?: number
+      regions?: string[]
+    }
+  }
 }
 
 // ============ DAO Configuration Types ============
 
-/** CEO/Leader persona for DAO governance */
-export interface DAOCEOConfig {
+/** Director/Leader persona for DAO governance */
+export interface DAODirectorConfig {
   name: string
   description: string
   personality: string
@@ -152,21 +223,21 @@ export interface DAOCEOConfig {
   pfpCid?: string
 }
 
-/** Council member definition */
-export interface DAOCouncilMember {
+/** Board member definition */
+export interface DAOBoardMember {
   role: string
   description: string
   weight: number
   /** Address override for production - localnet uses anvil wallets */
   address?: string
-  /** Agent ID if council member is an AI agent */
+  /** Agent ID if board member is an AI agent */
   agentId?: number
 }
 
 /** Governance parameters */
 export interface DAOGovernanceParams {
   minQualityScore: number
-  councilVotingPeriod: number
+  boardVotingPeriod: number
   gracePeriod: number
   minProposalStake: string
   quorumBps: number
@@ -180,7 +251,7 @@ export interface DAOFundingConfig {
   cooldownPeriod: number
   matchingMultiplier: number
   quadraticEnabled: boolean
-  ceoWeightCap: number
+  directorWeightCap: number
 }
 
 /** Fee category for DAO-controlled fees */
@@ -240,9 +311,9 @@ export interface DAONetworkDeployment {
 export interface DAOConfig {
   /** Governance configuration */
   governance: {
-    ceo: DAOCEOConfig
-    council: {
-      members: DAOCouncilMember[]
+    director: DAODirectorConfig
+    board: {
+      members: DAOBoardMember[]
     }
     parameters: DAOGovernanceParams
   }
@@ -275,12 +346,12 @@ export interface DAODeploymentResult {
   contracts: {
     daoRegistry: string
     daoFunding: string
-    council: string | null
-    ceoAgent: string
+    board: string | null
+    directorAgent: string
     treasury: string
     feeConfig?: string
   }
-  council: {
+  board: {
     members: Array<{
       role: string
       address: string
@@ -309,35 +380,35 @@ export const WELL_KNOWN_KEYS = {
       address: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
       privateKey:
         '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d',
-      role: 'council-treasury',
+      role: 'board-treasury',
     },
     {
       name: 'Account #2 (Code Guardian)',
       address: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
       privateKey:
         '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a',
-      role: 'council-code',
+      role: 'board-code',
     },
     {
       name: 'Account #3 (Community Guardian)',
       address: '0x90F79bf6EB2c4f870365E785982E1f101E93b906',
       privateKey:
         '0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6',
-      role: 'council-community',
+      role: 'board-community',
     },
     {
       name: 'Account #4 (Security Guardian)',
       address: '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65',
       privateKey:
         '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a',
-      role: 'council-security',
+      role: 'board-security',
     },
     {
-      name: 'Account #5 (CEO Agent)',
+      name: 'Account #5 (Director Agent)',
       address: '0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc',
       privateKey:
         '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba',
-      role: 'ceo-agent',
+      role: 'director-agent',
     },
     {
       name: 'Account #6 (User)',
@@ -356,8 +427,8 @@ export const WELL_KNOWN_KEYS = {
   ],
 } as const
 
-/** Get council member addresses for localnet from anvil wallets */
-export function getDevCouncilAddresses(): Record<string, string> {
+/** Get board member addresses for localnet from anvil wallets */
+export function getDevBoardAddresses(): Record<string, string> {
   return {
     'Treasury Guardian': WELL_KNOWN_KEYS.dev[1].address,
     'Code Guardian': WELL_KNOWN_KEYS.dev[2].address,
@@ -366,8 +437,8 @@ export function getDevCouncilAddresses(): Record<string, string> {
   }
 }
 
-/** Get CEO agent address for localnet */
-export function getDevCEOAddress(): string {
+/** Get Director agent address for localnet */
+export function getDevDirectorAddress(): string {
   return WELL_KNOWN_KEYS.dev[5].address
 }
 

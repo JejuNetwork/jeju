@@ -139,7 +139,7 @@ async function main(): Promise<void> {
   console.log('='.repeat(60))
   console.log(`  Network: ${network}`)
   console.log('')
-  console.log('  Note: SQLIT providers register in the unified ComputeRegistry')
+  console.log('  SQLIT providers register in the unified ComputeRegistry')
   console.log('  with serviceType = keccak256("database")')
   console.log('='.repeat(60))
 

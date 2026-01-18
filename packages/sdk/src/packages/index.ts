@@ -46,7 +46,7 @@ export interface Package {
   keywords?: string[]
   downloadCount: number
   reputationScore?: number
-  councilProposalId?: string
+  boardProposalId?: string
   verified: boolean
   deprecated: boolean
   createdAt: string
@@ -220,7 +220,7 @@ const PACKAGE_REGISTRY_ABI = [
   },
   {
     type: 'function',
-    name: 'linkCouncilProposal',
+    name: 'linkBoardProposal',
     inputs: [
       { name: 'packageId', type: 'bytes32' },
       { name: 'proposalId', type: 'uint256' },
@@ -248,7 +248,7 @@ const PACKAGE_REGISTRY_ABI = [
           { name: 'downloadCount', type: 'uint256' },
           { name: 'publishCount', type: 'uint256' },
           { name: 'reputationScore', type: 'uint256' },
-          { name: 'councilProposalId', type: 'uint256' },
+          { name: 'boardProposalId', type: 'uint256' },
           { name: 'verified', type: 'bool' },
           { name: 'deprecated', type: 'bool' },
           { name: 'deprecationMessage', type: 'string' },
@@ -277,7 +277,7 @@ const PACKAGE_REGISTRY_ABI = [
           { name: 'downloadCount', type: 'uint256' },
           { name: 'publishCount', type: 'uint256' },
           { name: 'reputationScore', type: 'uint256' },
-          { name: 'councilProposalId', type: 'uint256' },
+          { name: 'boardProposalId', type: 'uint256' },
           { name: 'verified', type: 'bool' },
           { name: 'deprecated', type: 'bool' },
           { name: 'deprecationMessage', type: 'string' },
@@ -780,7 +780,7 @@ export class JejuPkgSDK {
     return hash
   }
 
-  async linkCouncilProposal(packageId: Hex, proposalId: bigint): Promise<Hex> {
+  async linkBoardProposal(packageId: Hex, proposalId: bigint): Promise<Hex> {
     if (!this.walletClient || !this.account || !this.config.registryAddress) {
       throw new Error(
         'Wallet client and registry address required for on-chain operations',
@@ -791,7 +791,7 @@ export class JejuPkgSDK {
       account: this.account,
       address: this.config.registryAddress,
       abi: PACKAGE_REGISTRY_ABI,
-      functionName: 'linkCouncilProposal',
+      functionName: 'linkBoardProposal',
       args: [packageId, proposalId],
       chain: null,
     })

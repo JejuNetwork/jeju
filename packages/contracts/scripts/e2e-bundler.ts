@@ -7,7 +7,10 @@
  * 3. Bundler validates and submits to EntryPoint
  */
 
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import {
+  type Address,
   createPublicClient,
   createWalletClient,
   encodeAbiParameters,
@@ -21,9 +24,23 @@ import {
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
 
-// Contract addresses - v0.7 stack from DeployFullLocalnet
-const ENTRY_POINT = '0x922D6956C99E12DFeB3224DEA977D0939758A1Fe'
-const _CROSS_CHAIN_PAYMASTER = '0x4C4a2f8c81640e47606d3fd77B353E87Ba015584'
+// Load deployment addresses
+const deploymentPath = join(
+  process.cwd(),
+  'packages/contracts/deployments/localnet-crosschain.json',
+)
+let ENTRY_POINT: Address
+let SIMPLE_ACCOUNT_FACTORY: Address
+let CROSS_CHAIN_PAYMASTER: Address
+if (existsSync(deploymentPath)) {
+  const deployment = JSON.parse(readFileSync(deploymentPath, 'utf-8'))
+  ENTRY_POINT = deployment.entryPoint as Address
+  SIMPLE_ACCOUNT_FACTORY = deployment.simpleAccountFactory as Address
+  CROSS_CHAIN_PAYMASTER = deployment.crossChainPaymaster as Address
+} else {
+  console.error('No deployment file found. Run deploy-crosschain.ts first.')
+  process.exit(1)
+}
 
 // URLs
 const RPC_URL = 'http://127.0.0.1:6546'
@@ -230,7 +247,7 @@ async function main() {
     address: ENTRY_POINT,
     abi: entryPointAbi,
     functionName: 'balanceOf',
-    args: [SIMPLE_PAYMASTER],
+    args: [CROSS_CHAIN_PAYMASTER],
   })
   console.log(`   Deposit: ${Number(paymasterDeposit) / 1e18} ETH`)
 
@@ -240,7 +257,7 @@ async function main() {
       address: ENTRY_POINT,
       abi: entryPointAbi,
       functionName: 'depositTo',
-      args: [SIMPLE_PAYMASTER],
+      args: [CROSS_CHAIN_PAYMASTER],
       value: parseEther('5'),
     })
     await publicClient.waitForTransactionReceipt({ hash })
@@ -274,8 +291,9 @@ async function main() {
   const maxFeePerGas = 2000000000n
   const preVerificationGas = 100000n
 
-  // v0.6 format: paymasterAndData is just the paymaster address
-  const paymasterAndData = SIMPLE_PAYMASTER as Hex
+  // v0.7 format: paymasterAndData is paymaster address (20 bytes) + packed gas limits (32 bytes) + data
+  // For CrossChainPaymasterUpgradeable, we use minimal encoding
+  const paymasterAndData = CROSS_CHAIN_PAYMASTER as Hex
 
   const userOp = {
     sender: accountAddress,

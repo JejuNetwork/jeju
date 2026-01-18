@@ -105,6 +105,7 @@ async function build(): Promise<void> {
       chunk: 'chunks/[name]-[hash].js',
       asset: 'assets/[name]-[hash].[ext]',
     },
+    drop: isProduction ? ['debugger'] : [],
   })
 
   if (!result.success) {
@@ -164,6 +165,7 @@ async function build(): Promise<void> {
         : `${(output.size / 1024).toFixed(2)} KB`
     console.log(`  ${output.path.replace(`${ROOT}/`, '')} - ${size}`)
   }
+  process.exit(0)
 }
 
 build().catch((error) => {

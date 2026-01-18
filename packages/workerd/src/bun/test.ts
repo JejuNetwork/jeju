@@ -20,6 +20,16 @@ export interface TestOptions {
   only?: boolean
 }
 
+export type ExpectValue =
+  | string
+  | number
+  | boolean
+  | bigint
+  | symbol
+  | object
+  | null
+  | undefined
+
 export interface Expect<T> {
   toBe(expected: T): void
   toEqual(expected: T): void
@@ -35,9 +45,9 @@ export interface Expect<T> {
   toBeLessThan(expected: number): void
   toBeLessThanOrEqual(expected: number): void
   toBeCloseTo(expected: number, precision?: number): void
-  toContain(expected: unknown): void
+  toContain(expected: ExpectValue): void
   toHaveLength(expected: number): void
-  toHaveProperty(key: string, value?: unknown): void
+  toHaveProperty(key: string, value?: ExpectValue): void
   toThrow(expected?: string | RegExp | Error): void
   toMatch(expected: string | RegExp): void
   toMatchObject(expected: object): void
@@ -98,7 +108,9 @@ export function afterEach(_fn: TestFunction): void {
   notAvailable('afterEach')
 }
 
-export function mock<T extends (...args: unknown[]) => unknown>(_fn?: T): T {
+export type TestFn = (...args: ExpectValue[]) => ExpectValue
+
+export function mock<T extends TestFn>(_fn?: T): T {
   notAvailable('mock')
 }
 

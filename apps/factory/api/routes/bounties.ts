@@ -3,9 +3,10 @@ import type { Address } from 'viem'
 import {
   type BountyRow,
   createBounty as dbCreateBounty,
+  getBountyStats as dbGetBountyStats,
   listBounties as dbListBounties,
   getBounty,
-} from '../db/client'
+} from '../db/sqlit-client'
 import {
   BountiesQuerySchema,
   BountyIdParamSchema,
@@ -68,9 +69,10 @@ export const bountiesRoutes = new Elysia({ prefix: '/api/bounties' })
       const page = parseInt(validated.page ?? '1', 10)
       const limit = parseInt(validated.limit ?? '20', 10)
 
-      const result = dbListBounties({
+      const result = await dbListBounties({
         status: validated.status,
         skill: validated.skill,
+        search: validated.q,
         page,
         limit,
       })
@@ -93,6 +95,25 @@ export const bountiesRoutes = new Elysia({ prefix: '/api/bounties' })
       },
     },
   )
+  .get(
+    '/stats',
+    async () => {
+      const stats = await dbGetBountyStats()
+      return {
+        openBounties: stats.openBounties,
+        totalValue: `${stats.totalValue.toFixed(2)} ETH`,
+        completed: stats.completed,
+        avgPayout: `${stats.avgPayout.toFixed(2)} ETH`,
+      }
+    },
+    {
+      detail: {
+        tags: ['bounties'],
+        summary: 'Get bounty stats',
+        description: 'Get aggregated bounty statistics',
+      },
+    },
+  )
   .post(
     '/',
     async ({ body, headers, set }) => {
@@ -108,7 +129,7 @@ export const bountiesRoutes = new Elysia({ prefix: '/api/bounties' })
         'request body',
       )
 
-      const row = dbCreateBounty({
+      const row = await dbCreateBounty({
         title: validated.title,
         description: validated.description,
         reward: validated.reward,
@@ -134,7 +155,7 @@ export const bountiesRoutes = new Elysia({ prefix: '/api/bounties' })
     '/:id',
     async ({ params, set }) => {
       const validated = expectValid(BountyIdParamSchema, params, 'params')
-      const row = getBounty(validated.id)
+      const row = await getBounty(validated.id)
       if (!row) {
         set.status = 404
         return {

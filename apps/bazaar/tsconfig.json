@@ -16,6 +16,6 @@
       "@/config/*": ["./web/config/*"]
     }
   },
-  "include": ["api/**/*.ts", "web/**/*.ts", "web/**/*.tsx", "lib/**/*.ts", "types/**/*.ts"],
+  "include": ["api/**/*.ts", "web/**/*.ts", "web/**/*.tsx", "lib/**/*.ts", "types/**/*.ts", "scripts/**/*.ts"],
   "exclude": ["node_modules", "tests/**/*", "api/__tests__/**", "**/*.test.ts", "dist", "web/lib", "web/types"]
 }

@@ -69,7 +69,7 @@ export default {
 
     // Check round tripping of DurableObjectId to string.
     //
-    // Note: `name` property is dropped from `env.ns.idFromString(id.toString())`
+    // The `name` property is dropped from `env.ns.idFromString(id.toString())`
     assert.equal(env.ns.idFromString(id.toString()).toString(), id.toString());
 
     // Check properties of DurableObject.

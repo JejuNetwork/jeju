@@ -5,10 +5,18 @@
  * Automatically starts Anvil for chain-dependent tests.
  */
 import { beforeAll, describe, expect, test } from 'bun:test'
+import { getCurrentNetwork } from '@jejunetwork/config'
 import { ensureServices, type TestEnv } from '../setup'
 
 const SKIP_TEE_TESTS =
   !process.env.TEE_PLATFORM || process.env.SKIP_TEE_TESTS === 'true'
+
+// For localnet, we have a default TEE secret in config
+// Only skip if explicitly set or on non-localnet without secret
+const isLocalnet = getCurrentNetwork() === 'localnet'
+const SKIP_KMS_TESTS =
+  process.env.SKIP_KMS_TESTS === 'true' ||
+  (!isLocalnet && !process.env.TEE_ENCRYPTION_SECRET)
 
 let env: TestEnv
 
@@ -86,7 +94,7 @@ describe('TEE Encryption', () => {
     console.log(`✅ Recommendations: ${result.recommendations.join(', ')}`)
   })
 
-  test('alignment score reflects council consensus', async () => {
+  test('alignment score reflects board consensus', async () => {
     if (SKIP_TEE_TESTS) {
       console.log('⏭️  Skipping: TEE infrastructure not available')
       return
@@ -145,8 +153,8 @@ describe('Network KMS Encryption', () => {
   })
 
   test('encryptDecision works', async () => {
-    if (!env.contractsDeployed) {
-      console.log('⏭️  Skipping: Contracts not deployed')
+    if (!env.contractsDeployed || SKIP_KMS_TESTS) {
+      console.log('⏭️  Skipping: Contracts not deployed or KMS secret not set')
       return
     }
     const encrypted = await encryption.encryptDecision(
@@ -158,8 +166,8 @@ describe('Network KMS Encryption', () => {
   })
 
   test('decryptDecision works', async () => {
-    if (!env.contractsDeployed) {
-      console.log('⏭️  Skipping: Contracts not deployed')
+    if (!env.contractsDeployed || SKIP_KMS_TESTS) {
+      console.log('⏭️  Skipping: Contracts not deployed or KMS secret not set')
       return
     }
     const encrypted = await encryption.encryptDecision(
@@ -173,8 +181,8 @@ describe('Network KMS Encryption', () => {
   })
 
   test('accessControlConditions reference proposal', async () => {
-    if (!env.contractsDeployed) {
-      console.log('⏭️  Skipping: Contracts not deployed')
+    if (!env.contractsDeployed || SKIP_KMS_TESTS) {
+      console.log('⏭️  Skipping: Contracts not deployed or KMS secret not set')
       return
     }
     const encrypted = await encryption.encryptDecision(makeDecision('test-acl'))
@@ -186,8 +194,10 @@ describe('Network KMS Encryption', () => {
   })
 
   test('canDecrypt returns false for recent decisions', async () => {
-    if (!env.chainRunning || !env.contractsDeployed) {
-      console.log('⏭️  Skipping: Chain/contracts not available')
+    if (!env.chainRunning || !env.contractsDeployed || SKIP_KMS_TESTS) {
+      console.log(
+        '⏭️  Skipping: Chain/contracts not available or KMS secret not set',
+      )
       return
     }
     const encrypted = await encryption.encryptDecision(

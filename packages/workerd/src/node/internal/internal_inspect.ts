@@ -817,7 +817,7 @@ function getEmptyFormatArray(): string[] {
   return []
 }
 
-function isInstanceof(object: unknown, proto: Function): boolean {
+function isInstandirectorf(object: unknown, proto: Function): boolean {
   try {
     return object instanceof proto
   } catch {
@@ -878,7 +878,7 @@ function getConstructorName(
       descriptor !== undefined &&
       typeof descriptor.value === 'function' &&
       descriptor.value.name !== '' &&
-      isInstanceof(tmp, descriptor.value)
+      isInstandirectorf(tmp, descriptor.value)
     ) {
       if (
         protoProps !== undefined &&
@@ -1095,7 +1095,7 @@ function formatProxy(
   )
 }
 
-// Note: using `formatValue` directly requires the indentation level to be
+// Using `formatValue` directly requires the indentation level to be
 // corrected by setting `ctx.indentationLvL += diff` and then to decrease the
 // value afterwards again.
 function formatValue(

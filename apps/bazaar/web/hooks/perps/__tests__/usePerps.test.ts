@@ -10,7 +10,7 @@ import {
   formatPrice,
   formatSize,
   PositionSide,
-} from '../usePerps'
+} from '../../../../lib/perps'
 
 // PRICE FORMATTING TESTS
 

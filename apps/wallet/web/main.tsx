@@ -1,4 +1,5 @@
-import { getRpcUrl } from '@jejunetwork/config'
+import { OAuth3Provider } from '@jejunetwork/auth/react'
+import { getCurrentNetwork, getOAuth3Url, getRpcUrl } from '@jejunetwork/config'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
@@ -61,13 +62,33 @@ const queryClient = new QueryClient({
   },
 })
 
+const NETWORK = getCurrentNetwork()
+
 const root = document.getElementById('root')
 if (root) {
   ReactDOM.createRoot(root).render(
     <React.StrictMode>
       <WagmiProvider config={config}>
         <QueryClientProvider client={queryClient}>
-          <App />
+          <OAuth3Provider
+            config={{
+              appId: 'wallet.apps.jeju',
+              redirectUri: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback`,
+              chainId:
+                NETWORK === 'mainnet'
+                  ? 1
+                  : NETWORK === 'testnet'
+                    ? jejuTestnet.id
+                    : networkLocalnet.id,
+              rpcUrl: getRpcUrl(NETWORK),
+              teeAgentUrl: getOAuth3Url(NETWORK),
+              network: NETWORK,
+              decentralized: NETWORK !== 'localnet',
+            }}
+            autoConnect={true}
+          >
+            <App />
+          </OAuth3Provider>
         </QueryClientProvider>
       </WagmiProvider>
     </React.StrictMode>,

@@ -393,8 +393,7 @@ describe.skipIf(!localnetAvailable || !creditManagerAvailable)(
       })) as [bigint, bigint, bigint]
       const initialEth = initialBalances[2]
 
-      // Note: Actual deposit would require a wallet client to send transactions
-      // For this test, we just verify the read functionality works
+      // Actual deposit requires wallet client - this test verifies read functionality
       logger.info(`Initial ETH balance: ${formatEther(initialEth)}`)
       expect(typeof initialEth).toBe('bigint')
 

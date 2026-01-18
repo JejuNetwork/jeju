@@ -22,8 +22,8 @@ struct CompatibilityFlags @0x8f8c1b68151b6cef {
   # Flags that change the basic behavior of the runtime API, especially for
   # backwards-compatibility with old bugs.
   #
-  # Note: At one time, this was called "FeatureFlags", and many places in the codebase still call
-  #   it that. We could do a mass-rename but there's some tricky spots involving JSON
+  # At one time, this was called "FeatureFlags", and many places in the codebase still call
+  # it that. We could do a mass-rename but there's some tricky spots involving JSON
   #   communications with other systems... I'm leaving it for now.
 
   annotation compatEnableFlag @0xb6dabbc87cd1b03e (field) :Text;
@@ -502,7 +502,7 @@ struct CompatibilityFlags @0x8f8c1b68151b6cef {
   # sends requests to the zone's origin servers, bypassing Cloudflare. E.g. the Worker would write
   # `env.ORIGIN.fetch(req)` to send a request to its origin.
   #
-  # Note: This flag only impacts behavior on Cloudflare. It has no effect when using workerd.
+  # This flag only impacts behavior on Cloudflare. It has no effect when using workerd.
   # Under workerd, the config file can control where global `fetch()` goes by configuring the
   # worker's `globalOutbound` implicit binding. By default, under workerd, global `fetch()` has
   # always been configured to accept publicly-routable internet hosts only; hostnames which map

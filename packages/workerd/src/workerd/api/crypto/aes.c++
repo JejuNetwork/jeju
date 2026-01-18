@@ -383,8 +383,8 @@ class AesCbcKey final: public AesKeyBase {
 
     // Perform the actual encryption.
     //
-    // Note: We don't worry about PKCS padding (see RFC2315 section 10.3 step 2) because BoringSSL
-    //   takes care of it for us by default in EVP_EncryptFinal_ex().
+    // We don't worry about PKCS padding (see RFC2315 section 10.3 step 2) because BoringSSL
+    // takes care of it for us by default in EVP_EncryptFinal_ex().
 
     int cipherSize = 0;
     OSSLCALL(EVP_EncryptUpdate(cipherCtx.get(), cipherText.asArrayPtr().begin(), &cipherSize,

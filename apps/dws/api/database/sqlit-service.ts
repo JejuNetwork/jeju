@@ -21,6 +21,7 @@ import {
   isProductionEnv,
 } from '@jejunetwork/config'
 import type { Address } from 'viem'
+import { z } from 'zod'
 
 // Configuration
 // K8s endpoint - can be overridden by SQLIT_BLOCK_PRODUCER_ENDPOINT env var
@@ -336,7 +337,48 @@ export async function sqlitCreateDatabase(nodeCount = 1): Promise<{
     return { success: false, status: await response.text(), data: null }
   }
 
-  return await response.json()
+  const CreateDatabaseResponseSchema = z.object({
+    success: z.boolean(),
+    status: z.string().optional(),
+    data: z
+      .object({
+        database: z.string(),
+      })
+      .nullable()
+      .optional(),
+  })
+
+  const parsed = CreateDatabaseResponseSchema.safeParse(await response.json())
+  if (!parsed.success) {
+    return {
+      success: false,
+      status: 'Invalid response from SQLit adapter',
+      data: null,
+    }
+  }
+
+  const result = parsed.data
+  const databaseId = result.data?.database
+  if (result.success && databaseId) {
+    const initResult = await sqlitExec(
+      databaseId,
+      'CREATE TABLE IF NOT EXISTS __sqlit_init (id INTEGER PRIMARY KEY)',
+      [],
+    )
+    if (!initResult.success) {
+      return {
+        success: false,
+        status: `SQLit init failed: ${initResult.status}`,
+        data: null,
+      }
+    }
+  }
+
+  return {
+    success: result.success,
+    status: result.status ?? 'ok',
+    data: result.data ?? null,
+  }
 }
 
 /**

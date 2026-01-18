@@ -6,7 +6,12 @@
 import { assertNoPageErrors } from '@jejunetwork/tests/playwright-only'
 import { expect, test } from '@playwright/test'
 
+const isRemote =
+  process.env.JEJU_NETWORK === 'testnet' ||
+  process.env.JEJU_NETWORK === 'mainnet'
+
 test.describe('Markets Page', () => {
+  test.skip(isRemote, 'Skipping on remote network')
   test('displays markets page without errors', async ({ page }) => {
     await page.goto('/markets')
     await page.waitForTimeout(500)
@@ -74,6 +79,7 @@ test.describe('Markets Page', () => {
 })
 
 test.describe('Markets Stats Verification', () => {
+  test.skip(isRemote, 'Skipping on remote network')
   test('market stats contain valid numeric values', async ({ page }) => {
     await page.goto('/markets')
     await page.waitForTimeout(2000)
@@ -120,6 +126,7 @@ test.describe('Markets Stats Verification', () => {
 })
 
 test.describe('Markets Filtering', () => {
+  test.skip(isRemote, 'Skipping on remote network')
   test('filtering changes displayed markets', async ({ page }) => {
     await page.goto('/markets')
     await page.waitForTimeout(2000)
@@ -155,6 +162,7 @@ test.describe('Markets Filtering', () => {
 })
 
 test.describe('Markets Search', () => {
+  test.skip(isRemote, 'Skipping on remote network')
   test('search filters markets correctly', async ({ page }) => {
     await page.goto('/markets')
     await page.waitForTimeout(2000)
@@ -184,6 +192,7 @@ test.describe('Markets Search', () => {
 })
 
 test.describe('Market Card Data', () => {
+  test.skip(isRemote, 'Skipping on remote network')
   test('market cards display prices as percentages', async ({ page }) => {
     await page.goto('/markets')
     await page.waitForTimeout(2000)
@@ -302,6 +311,7 @@ test.describe('Market Card Data', () => {
 })
 
 test.describe('Portfolio Page', () => {
+  test.skip(isRemote, 'Skipping on remote network')
   test('displays portfolio page', async ({ page }) => {
     await page.goto('/portfolio')
 

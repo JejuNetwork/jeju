@@ -13,6 +13,7 @@ import {
   type Hash,
   http,
   keccak256,
+  type PublicClient,
   parseAbi,
   type TransactionReceipt,
   toBytes,
@@ -29,12 +30,10 @@ const CLIENT_TTL_MS = 30_000 // Cached client TTL - balance staleness vs connect
 
 const clientCache = new Map<
   string,
-  { client: ReturnType<typeof createPublicClient>; createdAt: number }
+  { client: PublicClient; createdAt: number }
 >()
 
-function getPublicClient(
-  rpcUrl?: string,
-): ReturnType<typeof createPublicClient> {
+function getPublicClient(rpcUrl?: string): PublicClient {
   const url = rpcUrl || DEFAULT_RPC_URL
   const cached = clientCache.get(url)
 
@@ -42,7 +41,7 @@ function getPublicClient(
     return cached.client
   }
 
-  const client = createPublicClient({
+  const client: PublicClient = createPublicClient({
     chain: {
       id: DEFAULT_CHAIN_ID,
       name: 'Network',

@@ -5,17 +5,13 @@ pragma solidity ^0.8.33;
  * @title IBoardGovernance
  * @notice Interface for Jeju Autocrat Board governance
  * @dev Used by governed contracts to verify proposal approval
- *
- * Terminology:
- * - Director: The AI or human executive decision maker (formerly CEO)
- * - Board: The advisory/oversight body (formerly Council)
  */
 interface IBoardGovernance {
     enum ProposalStatus {
         SUBMITTED,
-        BOARD_REVIEW,
+        AUTOCRAT_REVIEW,
         RESEARCH_PENDING,
-        BOARD_FINAL,
+        AUTOCRAT_FINAL,
         DIRECTOR_QUEUE,
         APPROVED,
         EXECUTING,
@@ -34,7 +30,7 @@ interface IBoardGovernance {
         ProposalStatus status;
         uint8 qualityScore;
         uint256 createdAt;
-        uint256 boardVoteEnd;
+        uint256 autocratVoteEnd;
         uint256 gracePeriodEnd;
         bytes32 contentHash;
         address targetContract;
@@ -56,4 +52,3 @@ interface IBoardGovernance {
     function markCompleted(bytes32 proposalId) external;
     function markFailed(bytes32 proposalId, string calldata reason) external;
 }
-

@@ -642,7 +642,7 @@ class Request final: public Body {
   enum class Redirect {
     FOLLOW,
     MANUAL
-    // Note: error mode doesn't make sense for us.
+    // Error mode doesn't make sense for us.
   };
   static kj::Maybe<Redirect> tryParseRedirect(kj::StringPtr redirect);
 

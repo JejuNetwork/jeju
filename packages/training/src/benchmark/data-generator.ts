@@ -71,7 +71,7 @@ const NARRATIVE_FACT_TEMPLATES: Array<{
         eventType: 'scandal',
         volatilityBucket: 'high',
         descriptionTemplate:
-          '{ticker} board meeting: CEO denies cover-up allegations as evidence mounts',
+          '{ticker} board meeting: Director denies cover-up allegations as evidence mounts',
       },
     ],
   },
@@ -103,7 +103,7 @@ const NARRATIVE_FACT_TEMPLATES: Array<{
     ],
   },
   {
-    factTemplate: '{ticker} CEO is about to be indicted for fraud',
+    factTemplate: '{ticker} Director is about to be indicted for fraud',
     sentiment: 'negative',
     eventSequence: [
       {
@@ -111,21 +111,21 @@ const NARRATIVE_FACT_TEMPLATES: Array<{
         eventType: 'rumor',
         volatilityBucket: 'low',
         descriptionTemplate:
-          'Rumors swirl about {ticker} CEO facing regulatory scrutiny',
+          'Rumors swirl about {ticker} Director facing regulatory scrutiny',
       },
       {
         relativeDay: 14,
         eventType: 'leak',
         volatilityBucket: 'medium',
         descriptionTemplate:
-          'Sources close to investigation: {ticker} CEO under federal probe',
+          'Sources close to investigation: {ticker} Director under federal probe',
       },
       {
         relativeDay: 22,
         eventType: 'announcement',
         volatilityBucket: 'high',
         descriptionTemplate:
-          '{ticker} confirms CEO departure amid ongoing investigation',
+          '{ticker} confirms Director departure amid ongoing investigation',
       },
     ],
   },

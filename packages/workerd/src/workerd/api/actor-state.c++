@@ -104,8 +104,8 @@ template <typename Options>
 jsg::Promise<void> transformMaybeBackpressure(
     jsg::Lock& js, const Options& options, kj::Maybe<kj::Promise<void>> maybeBackpressure) {
   KJ_IF_SOME(backpressure, maybeBackpressure) {
-    // Note: In practice `allowConcurrency` will have no effect on a backpressure promise since
-    //   backpressure blocks everything anyway, but we pass the option through for consistency in
+    // In practice `allowConcurrency` will have no effect on a backpressure promise since
+    // backpressure blocks everything anyway, but we pass the option through for consistency in
     //   case of future changes.
     auto& context = IoContext::current();
     if (options.allowConcurrency.orDefault(false)) {

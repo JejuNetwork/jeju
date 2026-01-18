@@ -370,7 +370,7 @@ describe('Trajectory Format', () => {
           done: false,
           llmCalls: [
             {
-              model: 'gpt-4',
+              model: 'gpt-5',
               systemPrompt: 'You are a trading agent',
               userPrompt: 'Analyze this market condition',
               response: 'I recommend buying based on...',

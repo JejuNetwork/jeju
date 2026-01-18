@@ -6,17 +6,16 @@
  * Also serves the built web frontend.
  */
 
-import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { getLocalhostHost } from '@jejunetwork/config'
-import type { Server, Subprocess } from 'bun'
+import type { Subprocess } from 'bun'
 
 const APP_DIR = resolve(import.meta.dir, '..')
 const API_PORT = Number(process.env.OTTO_PORT) || 4050
-const WEB_PORT = Number(process.env.OTTO_WEB_PORT) || 4051
+const WEB_PORT = Number(process.env.OTTO_WEB_PORT) || 4060
 
 let apiProcess: Subprocess | null = null
-let webServer: Server | null = null
+let webServer: ReturnType<typeof Bun.serve> | null = null
 let shuttingDown = false
 
 function cleanup() {
@@ -53,22 +52,16 @@ async function waitForPort(port: number, timeout = 30000): Promise<boolean> {
 }
 
 async function buildFrontend(): Promise<boolean> {
-  const _host = getLocalhostHost()
   console.log('[Otto] Building frontend...')
 
-  const distWebDir = resolve(APP_DIR, 'dist/web')
-
-  // Run build if dist doesn't exist
-  if (!existsSync(distWebDir)) {
-    const result = Bun.spawnSync(['bun', 'run', 'scripts/build.ts'], {
-      cwd: APP_DIR,
-      stdout: 'inherit',
-      stderr: 'inherit',
-    })
-    if (result.exitCode !== 0) {
-      console.error('[Otto] Failed to build frontend')
-      return false
-    }
+  const result = Bun.spawnSync(['bun', 'run', 'scripts/build.ts'], {
+    cwd: APP_DIR,
+    stdout: 'inherit',
+    stderr: 'inherit',
+  })
+  if (result.exitCode !== 0) {
+    console.error('[Otto] Failed to build frontend')
+    return false
   }
 
   return true
@@ -103,8 +96,23 @@ async function startWebServer() {
       const url = new URL(req.url)
       let pathname = url.pathname
 
-      // Proxy API requests to API server
-      if (pathname.startsWith('/api')) {
+      const proxyPrefixes = [
+        '/api',
+        '/auth',
+        '/webhooks',
+        '/frame',
+        '/miniapp',
+        '/a2a',
+        '/mcp',
+        '/health',
+        '/status',
+      ]
+      const shouldProxy = proxyPrefixes.some(
+        (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+      )
+
+      // Proxy API + system routes to API server
+      if (shouldProxy) {
         const apiUrl = `http://${host}:${API_PORT}${pathname}${url.search}`
         const apiResponse = await fetch(apiUrl, {
           method: req.method,

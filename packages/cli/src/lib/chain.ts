@@ -100,6 +100,20 @@ export async function checkRpcHealth(
   }
 }
 
+export async function getRpcChainId(
+  rpcUrl: string,
+  timeout = 5000,
+): Promise<number | null> {
+  try {
+    const client = createPublicClient({
+      transport: http(rpcUrl, { timeout }),
+    })
+    return await client.getChainId()
+  } catch {
+    return null
+  }
+}
+
 export async function getAccountBalance(
   rpcUrl: string,
   address: `0x${string}`,
@@ -114,6 +128,54 @@ export async function getAccountBalance(
 export async function startLocalnet(
   rootDir: string,
 ): Promise<{ l1Port: number; l2Port: number }> {
+  // If localnet is already running and reachable, don't try to recreate it.
+  // This avoids hard-failing on Kurtosis/Docker client issues during E2E,
+  // and preserves existing port forwarding config.
+  const existingPorts = loadPortsConfig(rootDir)
+  const allowedChainIds = new Set([CHAIN_CONFIG.localnet.chainId, 1337])
+  if (existingPorts) {
+    const existingL2RpcUrl = `http://127.0.0.1:${existingPorts.l2Port}`
+    const healthy = await checkRpcHealth(existingL2RpcUrl, 2000)
+    const expectedChainId = CHAIN_CONFIG.localnet.chainId
+    const chainId = await getRpcChainId(existingL2RpcUrl, 2000)
+    if (healthy && chainId !== null && allowedChainIds.has(chainId)) {
+      logger.success(
+        `Localnet already running (L1: ${existingPorts.l1Port}, L2: ${existingPorts.l2Port})`,
+      )
+      return existingPorts
+    }
+    if (healthy && chainId !== null && !allowedChainIds.has(chainId)) {
+      logger.warn(
+        `Localnet chain ID mismatch (expected ${expectedChainId} or 1337, got ${chainId}) - restarting`,
+      )
+      await stopLocalnet()
+    }
+  }
+
+  // Fallback: localnet may already be running without a ports.json file.
+  // If the default L2 RPC is reachable, proceed without Kurtosis.
+  const defaultL2RpcUrl = CHAIN_CONFIG.localnet.rpcUrl
+  const defaultHealthy = await checkRpcHealth(defaultL2RpcUrl, 2000)
+  const defaultChainId = await getRpcChainId(defaultL2RpcUrl, 2000)
+  if (
+    defaultHealthy &&
+    defaultChainId !== null &&
+    allowedChainIds.has(defaultChainId)
+  ) {
+    logger.success(`Localnet already running (L2: ${defaultL2RpcUrl})`)
+    return { l1Port: DEFAULT_PORTS.l1Rpc, l2Port: DEFAULT_PORTS.l2Rpc }
+  }
+  if (
+    defaultHealthy &&
+    defaultChainId !== null &&
+    !allowedChainIds.has(defaultChainId)
+  ) {
+    logger.warn(
+      `Localnet chain ID mismatch (expected ${CHAIN_CONFIG.localnet.chainId} or 1337, got ${defaultChainId}) - restarting`,
+    )
+    await stopLocalnet()
+  }
+
   // Check Docker
   logger.step('Checking Docker...')
   const dockerResult = await checkDocker()
@@ -178,31 +240,42 @@ export async function startLocalnet(
 
   // Deploy localnet
   logger.step('Deploying network stack...')
-  await execa('kurtosis', ['run', kurtosisPackage, '--enclave', ENCLAVE_NAME], {
-    stdio: 'inherit',
-  })
+  const runResult = await execa(
+    'kurtosis',
+    ['run', kurtosisPackage, '--enclave', ENCLAVE_NAME],
+    { stdio: 'inherit', reject: false },
+  )
+  if (runResult.exitCode !== 0) {
+    logger.warn(
+      `Kurtosis run exited with code ${runResult.exitCode}. Verifying enclave state before failing...`,
+    )
+  }
 
   // Get ports
   logger.step('Getting port assignments...')
-  const l1PortResult = await execa('kurtosis', [
-    'port',
-    'print',
-    ENCLAVE_NAME,
-    'geth-l1',
-    'rpc',
-  ])
-  const l2PortResult = await execa('kurtosis', [
-    'port',
-    'print',
-    ENCLAVE_NAME,
-    'op-geth',
-    'rpc',
-  ])
+  const l1PortResult = await execa(
+    'kurtosis',
+    ['port', 'print', ENCLAVE_NAME, 'geth-l1', 'rpc'],
+    { reject: false },
+  )
+  const l2PortResult = await execa(
+    'kurtosis',
+    ['port', 'print', ENCLAVE_NAME, 'op-geth', 'rpc'],
+    { reject: false },
+  )
   const sqlitPortResult = await execa(
     'kurtosis',
     ['port', 'print', ENCLAVE_NAME, 'sqlit', 'api'],
     { reject: false },
   )
+
+  if (l1PortResult.exitCode !== 0 || l2PortResult.exitCode !== 0) {
+    throw new Error(
+      `Failed to resolve Kurtosis ports (L1 exit=${l1PortResult.exitCode}, L2 exit=${l2PortResult.exitCode}). ` +
+        `L1 stderr: ${l1PortResult.stderr?.trim() || 'n/a'} | ` +
+        `L2 stderr: ${l2PortResult.stderr?.trim() || 'n/a'}`,
+    )
+  }
 
   const l1PortStr = l1PortResult.stdout.trim().split(':').pop()
   const l2PortStr = l2PortResult.stdout.trim().split(':').pop()
@@ -225,23 +298,6 @@ export async function startLocalnet(
       : null
   const sqlitPort = sqlitPortStr ? parseInt(sqlitPortStr, 10) : 0
 
-  // Save ports config
-  const localhost = getLocalhostHost()
-  const portsConfig = {
-    l1Port,
-    l2Port,
-    sqlitPort,
-    l1Rpc: `http://${localhost}:${l1Port}`,
-    l2Rpc: `http://${localhost}:${l2Port}`,
-    sqlitApi: sqlitPort ? `http://${localhost}:${sqlitPort}` : undefined,
-    chainId: 31337,
-    timestamp: new Date().toISOString(),
-  }
-  writeFileSync(
-    join(kurtosisDir, 'ports.json'),
-    JSON.stringify(portsConfig, null, 2),
-  )
-
   // Set up port forwarding to static ports
   logger.step('Setting up port forwarding...')
   await setupPortForwarding(l1Port, DEFAULT_PORTS.l1Rpc, 'L1 RPC')
@@ -250,13 +306,36 @@ export async function startLocalnet(
     await setupPortForwarding(sqlitPort, DEFAULT_PORTS.sqlit, 'SQLit API')
   }
 
+  // Save ports config with STATIC forwarded ports (not dynamic Kurtosis ports)
+  // This ensures all code uses the same consistent ports
+  const localhost = getLocalhostHost()
+  const staticL1Port = DEFAULT_PORTS.l1Rpc
+  const staticL2Port = DEFAULT_PORTS.l2Rpc
+  const staticSqlitPort = sqlitPort ? DEFAULT_PORTS.sqlit : 0
+  const portsConfig = {
+    l1Port: staticL1Port,
+    l2Port: staticL2Port,
+    sqlitPort: staticSqlitPort,
+    l1Rpc: `http://${localhost}:${staticL1Port}`,
+    l2Rpc: `http://${localhost}:${staticL2Port}`,
+    sqlitApi: staticSqlitPort
+      ? `http://${localhost}:${staticSqlitPort}`
+      : undefined,
+    chainId: 31337,
+    timestamp: new Date().toISOString(),
+  }
+  writeFileSync(
+    join(kurtosisDir, 'ports.json'),
+    JSON.stringify(portsConfig, null, 2),
+  )
+
   // Wait for chain to be ready
   logger.step('Waiting for chain...')
   await waitForChain(getL2RpcUrl())
 
   logger.success('Localnet running')
 
-  return { l1Port: DEFAULT_PORTS.l1Rpc, l2Port: DEFAULT_PORTS.l2Rpc }
+  return { l1Port: staticL1Port, l2Port: staticL2Port }
 }
 
 async function setupPortForwarding(
@@ -287,8 +366,10 @@ async function setupPortForwarding(
     {
       detached: true,
       stdio: 'ignore',
+      reject: false,
     },
   )
+  subprocess.catch(() => {})
   subprocess.unref()
 
   logger.debug(`Port forwarding: ${staticPort} -> ${dynamicPort} (${name})`)
@@ -352,6 +433,147 @@ export function loadPortsConfig(
   }
 }
 
+/**
+ * Verify a contract has code deployed on-chain.
+ * Returns true if contract code exists, false otherwise.
+ */
+async function verifyContractOnChain(
+  rpcUrl: string,
+  contractAddress: string,
+): Promise<boolean> {
+  try {
+    const response = await fetch(rpcUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_getCode',
+        params: [contractAddress, 'latest'],
+        id: 1,
+      }),
+      signal: AbortSignal.timeout(10000),
+    })
+
+    if (!response.ok) return false
+
+    const result = await response.json()
+    const code = result.result as string
+    return Boolean(code && code !== '0x' && code.length > 4)
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Fund the deployer account from Geth dev account.
+ * Geth --dev mode creates a pre-funded dev account that can be used for transfers.
+ */
+async function fundDeployerFromDevAccount(rpcUrl: string): Promise<void> {
+  // Anvil default deployer account
+  const DEPLOYER_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
+  const FUNDING_AMOUNT = '100' // 100 ETH
+
+  // Check if deployer already has funds
+  const balanceResponse = await fetch(rpcUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'eth_getBalance',
+      params: [DEPLOYER_ADDRESS, 'latest'],
+      id: 1,
+    }),
+    signal: AbortSignal.timeout(10000),
+  })
+
+  const balanceData = await balanceResponse.json()
+  const balance = BigInt(balanceData.result ?? '0x0')
+
+  // If deployer has at least 1 ETH, skip funding
+  if (balance >= BigInt('1000000000000000000')) {
+    logger.debug('Deployer already funded, skipping')
+    return
+  }
+
+  logger.step('Funding deployer account from Geth dev account...')
+
+  // Get dev account address (first account in Geth --dev mode)
+  const accountsResponse = await fetch(rpcUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'eth_accounts',
+      params: [],
+      id: 1,
+    }),
+    signal: AbortSignal.timeout(10000),
+  })
+
+  const accountsData = await accountsResponse.json()
+  const accounts = accountsData.result as string[] | undefined
+
+  if (!accounts || accounts.length === 0) {
+    throw new Error('No dev accounts available - Geth may not be in dev mode')
+  }
+
+  const devAccount = accounts[0]
+  logger.debug(`Using Geth dev account: ${devAccount}`)
+
+  // Send ETH from dev account to deployer
+  const sendResponse = await fetch(rpcUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'eth_sendTransaction',
+      params: [
+        {
+          from: devAccount,
+          to: DEPLOYER_ADDRESS,
+          value: `0x${(BigInt(FUNDING_AMOUNT) * BigInt('1000000000000000000')).toString(16)}`,
+        },
+      ],
+      id: 1,
+    }),
+    signal: AbortSignal.timeout(30000),
+  })
+
+  const sendData = await sendResponse.json()
+
+  if (sendData.error) {
+    throw new Error(`Failed to fund deployer: ${sendData.error.message}`)
+  }
+
+  // Wait for transaction to be mined
+  const txHash = sendData.result as string
+  logger.debug(`Funding tx: ${txHash}`)
+
+  for (let i = 0; i < 30; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+
+    const receiptResponse = await fetch(rpcUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_getTransactionReceipt',
+        params: [txHash],
+        id: 1,
+      }),
+      signal: AbortSignal.timeout(10000),
+    })
+
+    const receiptData = await receiptResponse.json()
+    if (receiptData.result) {
+      logger.success(`Deployer funded with ${FUNDING_AMOUNT} ETH`)
+      return
+    }
+  }
+
+  throw new Error('Funding transaction not mined within 30 seconds')
+}
+
 export async function bootstrapContracts(
   rootDir: string,
   rpcUrl: string,
@@ -360,29 +582,31 @@ export async function bootstrapContracts(
     rootDir,
     'packages/contracts/deployments/localnet-complete.json',
   )
+  const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
   // Check if bootstrap file exists AND has valid contract addresses
   if (existsSync(bootstrapFile)) {
     const data = JSON.parse(readFileSync(bootstrapFile, 'utf-8'))
     const contracts = data?.contracts ?? {}
-    // Check if any key contracts are deployed (not zero addresses)
-    const hasValidContracts =
-      (contracts.jnsRegistry &&
-        contracts.jnsRegistry !==
-          '0x0000000000000000000000000000000000000000') ||
-      (contracts.storageManager &&
-        contracts.storageManager !==
-          '0x0000000000000000000000000000000000000000') ||
-      (contracts.identityRegistry &&
-        contracts.identityRegistry !==
-          '0x0000000000000000000000000000000000000000')
+    const jnsRegistry = contracts.jnsRegistry as string | undefined
 
-    if (hasValidContracts) {
-      logger.debug('Contracts already bootstrapped')
-      return
+    // If JNS Registry has valid address, verify it's on-chain
+    if (jnsRegistry && jnsRegistry !== ZERO_ADDRESS) {
+      const onChain = await verifyContractOnChain(rpcUrl, jnsRegistry)
+      if (onChain) {
+        logger.debug('Contracts already bootstrapped and verified on-chain')
+        return
+      }
+      logger.debug(
+        'Bootstrap file exists but JNS Registry not on-chain (chain may have been reset)',
+      )
+    } else {
+      logger.debug('Bootstrap file has placeholder addresses, will redeploy')
     }
-    logger.debug('Bootstrap file has placeholder addresses, will redeploy')
   }
+
+  // Fund the deployer account from Geth dev account if needed
+  await fundDeployerFromDevAccount(rpcUrl)
 
   logger.step('Bootstrapping contracts...')
 
@@ -401,7 +625,33 @@ export async function bootstrapContracts(
       JEJU_RPC_URL: rpcUrl,
       L2_RPC_URL: rpcUrl,
     },
-    stdio: 'pipe',
+    stdio: 'inherit',
   })
-  logger.success('Contracts bootstrapped')
+
+  // Verify deployment ON-CHAIN
+  if (existsSync(bootstrapFile)) {
+    const data = JSON.parse(readFileSync(bootstrapFile, 'utf-8'))
+    const contracts = data?.contracts ?? {}
+    const jnsRegistry = contracts.jnsRegistry as string | undefined
+
+    if (jnsRegistry && jnsRegistry !== ZERO_ADDRESS) {
+      const onChain = await verifyContractOnChain(rpcUrl, jnsRegistry)
+      if (!onChain) {
+        throw new Error(
+          'Contract deployment verification failed. ' +
+            `JNS Registry at ${jnsRegistry} has no code on-chain.`,
+        )
+      }
+    } else {
+      throw new Error(
+        'Bootstrap script completed but JNS Registry address is missing or zero.',
+      )
+    }
+  } else {
+    throw new Error(
+      'Bootstrap script completed but deployment file was not created.',
+    )
+  }
+
+  logger.success('Contracts bootstrapped and verified on-chain')
 }

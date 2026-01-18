@@ -37,7 +37,7 @@ contract SequencerConfigurationTest is Test {
     address public owner = address(1);
     address public treasury = address(2);
     address public governance = address(3);
-    address public securityCouncil = address(4);
+    address public securityBoard = address(4);
     address public prover = address(5);
 
     // Test sequencers
@@ -80,11 +80,11 @@ contract SequencerConfigurationTest is Test {
             2 // Threshold of 2
         );
 
-        timelock = new GovernanceTimelock(governance, securityCouncil, owner, 30 days);
+        timelock = new GovernanceTimelock(governance, securityBoard, owner, 30 days);
 
         disputeFactory = new DisputeGameFactory(treasury, owner);
 
-        forcedInclusion = new ForcedInclusion(address(0x5678), address(registry), securityCouncil, owner, true);
+        forcedInclusion = new ForcedInclusion(address(0x5678), address(registry), securityBoard, owner, true);
 
         vm.stopPrank();
 
@@ -214,9 +214,9 @@ contract SequencerConfigurationTest is Test {
         assertGe(emergencyDelay, 7 days, "Emergency delay must be >= 7 days");
     }
 
-    function test_GovernanceTimelock_SecurityCouncilIsSet() public view {
-        address council = timelock.securityCouncil();
-        assertTrue(council != address(0), "Security council must be set");
+    function test_GovernanceTimelock_SecurityBoardIsSet() public view {
+        address board = timelock.securityBoard();
+        assertTrue(board != address(0), "Security board must be set");
     }
 
     // =========================================================================

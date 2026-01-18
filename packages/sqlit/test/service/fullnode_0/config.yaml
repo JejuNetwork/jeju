@@ -1,5 +1,5 @@
 # SQLIT Configuration
-# Note: Token balances are now managed by the SQLitRegistry smart contract on Ethereum.
+# Token balances are now managed by the SQLitRegistry smart contract on Ethereum.
 # BaseAccounts only contain addresses - staking is handled on-chain.
 UseTestMasterKey: true
 StartupSyncHoles: false

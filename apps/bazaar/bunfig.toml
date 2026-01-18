@@ -24,5 +24,17 @@ external = [
 ]
 
 [test]
+# Preload shared test infrastructure - ensures jeju CLI is running
+preload = ["@jejunetwork/tests/bun-global-setup"]
 coverage = true
 coverageDir = "./test-results/coverage"
+timeout = 60000
+# Only run Bun tests. Playwright/Synpress suites run via `jeju test --mode e2e`.
+#
+# Bun tests live in:
+# - tests/unit, tests/integration
+# - api/**/__tests__
+# - web/**/__tests__
+#
+# Intentionally exclude tests/playwright + tests/e2e + tests/wallet from Bun.
+root = ["api/", "web/", "tests/unit", "tests/integration"]

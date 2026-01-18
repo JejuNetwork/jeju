@@ -11,7 +11,7 @@ const API_BASE = AUTOCRAT_API_URL
  * Typed Eden Treaty client for Autocrat API
  * All endpoints are fully typed based on the server definition
  *
- * Note: Uses explicit Treaty type assertion due to Eden/Elysia version
+ * Uses explicit Treaty type assertion due to Eden/Elysia version
  * alignment in monorepo environments
  */
 export const api = treaty<App>(API_BASE)

@@ -23,6 +23,7 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  statSync,
   writeFileSync,
 } from 'node:fs'
 import { join } from 'node:path'
@@ -43,7 +44,6 @@ import {
   type WalletClient,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { base, baseSepolia } from 'viem/chains'
 import type { NetworkType } from '../shared'
 import { getRequiredNetwork } from '../shared'
 
@@ -52,13 +52,31 @@ const CONTRACTS_DIR = join(ROOT, 'packages/contracts')
 const APPS_DIR = join(ROOT, 'apps')
 const DEPLOYMENTS_DIR = join(CONTRACTS_DIR, 'deployments')
 
-// Define localnet chain
+// Define Jeju chains
 const localnet = defineChain({
   id: 31337,
   name: 'Jeju Localnet',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
     default: { http: ['http://localhost:6546'] },
+  },
+})
+
+const jejuTestnet = defineChain({
+  id: 420690,
+  name: 'Jeju Testnet',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://testnet-rpc.jejunetwork.org'] },
+  },
+})
+
+const jejuMainnet = defineChain({
+  id: 420691,
+  name: 'Jeju Mainnet',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://rpc.jejunetwork.org'] },
   },
 })
 
@@ -221,9 +239,9 @@ Environment:
   const account = privateKeyToAccount(privateKey as `0x${string}`)
   const chain: Chain =
     network === 'mainnet'
-      ? base
+      ? jejuMainnet
       : network === 'testnet'
-        ? baseSepolia
+        ? jejuTestnet
         : localnet
 
   const publicClient = createPublicClient({
@@ -275,67 +293,127 @@ Environment:
   const apps = discoverApps(appFilter)
   console.log(`\n📱 Found ${apps.length} apps to deploy`)
 
-  // Step 3: Deploy each app
+  // Step 3: Deploy each app (parallelized)
   const results: DeployedApp[] = []
-  const ipfsApiUrl = process.env.IPFS_API_URL || 'http://localhost:5001'
+  const defaultIpfsApi = {
+    localnet: 'http://localhost:5001',
+    testnet: 'https://ipfs-api.testnet.jejunetwork.org',
+    mainnet: 'https://ipfs-api.jejunetwork.org',
+  }
+  const ipfsApiUrl = process.env.IPFS_API_URL || defaultIpfsApi[network]
 
-  for (const app of apps) {
+  console.log(
+    `\n🚀 Deploying ${apps.length} apps (parallelized builds/uploads, sequential on-chain)...\n`,
+  )
+
+  // Phase 1: Build and upload to IPFS in parallel (no blockchain interaction)
+  console.log('📦 Phase 1: Building and uploading to IPFS (parallel)...')
+  const buildAndUploadPromises = apps.map(async (app) => {
+    console.log(`   📦 Building: ${app.name}`)
+    try {
+      const buildResult = await buildAndUploadApp(
+        app.dir,
+        app.manifest,
+        ipfsApiUrl,
+      )
+      console.log(`   ✅ ${app.name} built and uploaded`)
+      return { app, ...buildResult }
+    } catch (error) {
+      console.error(`   ❌ ${app.name} build/upload failed:`, error)
+      throw error
+    }
+  })
+
+  const buildResults = await Promise.allSettled(buildAndUploadPromises)
+
+  // Process build results
+  const readyToDeploy: Array<{
+    app: { name: string; dir: string; manifest: AppManifest }
+    frontendCid?: string
+    workerCid?: string
+    workerRoutes?: string[]
+  }> = []
+
+  for (let i = 0; i < buildResults.length; i++) {
+    const result = buildResults[i]
+    if (result.status === 'fulfilled') {
+      readyToDeploy.push(result.value)
+    } else {
+      console.error(`❌ Failed to build/upload ${apps[i].name}:`, result.reason)
+      throw new Error(
+        `Build/upload failed for ${apps[i].name}: ${result.reason}`,
+      )
+    }
+  }
+
+  // Phase 2: Deploy on-chain sequentially (nonce management)
+  console.log(`\n⛓️  Phase 2: Registering on-chain (sequential)...`)
+  for (const { app, frontendCid, workerCid, workerRoutes } of readyToDeploy) {
     console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`)
-    console.log(`📦 Deploying: ${app.name}`)
+    console.log(`📦 Registering: ${app.name}`)
     console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`)
 
-    const result = await deployApp(
-      app.dir,
+    const result = await registerOnChain(
       app.manifest,
       contracts,
       walletClient,
       publicClient,
-      ipfsApiUrl,
+      frontendCid,
+      workerCid,
+      workerRoutes,
     )
     results.push(result)
-    console.log(`✅ ${app.name} deployed successfully`)
+    console.log(`✅ ${app.name} registered on-chain`)
   }
 
-  // Step 4: Self-host DWS (upload DWS code to IPFS for decentralized bootstrap)
-  console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-  console.log('📦 Self-hosting DWS')
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  // Step 4: Self-host DWS (skip in dev/localnet - not needed)
+  if (network !== 'localnet') {
+    console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    console.log('📦 Self-hosting DWS')
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
 
-  const dwsAppDir = join(ROOT, 'apps/dws')
-  if (existsSync(dwsAppDir)) {
-    console.log('   📤 Uploading DWS to IPFS for self-hosting...')
+    const dwsAppDir = join(ROOT, 'apps/dws')
+    if (existsSync(dwsAppDir)) {
+      console.log('   📤 Uploading DWS to IPFS for self-hosting...')
 
-    // Build DWS
-    execSync('bun run build', { cwd: dwsAppDir, stdio: 'inherit' })
+      // Build DWS (only if needed)
+      if (needsBuild(dwsAppDir, { name: 'dws' })) {
+        execSync('bun run build', { cwd: dwsAppDir, stdio: 'pipe' })
+      } else {
+        console.log('   ⏭️  Skipping DWS build (dist is up to date)')
+      }
 
-    // Upload DWS code to IPFS
-    const dwsDist = join(dwsAppDir, 'dist')
-    if (existsSync(dwsDist)) {
-      const dwsCid = uploadToIPFS(dwsDist, ipfsApiUrl)
-      console.log(`   ✅ DWS Code CID: ${dwsCid}`)
+      // Upload DWS code to IPFS
+      const dwsDist = join(dwsAppDir, 'dist')
+      if (existsSync(dwsDist)) {
+        const dwsCid = uploadToIPFS(dwsDist, ipfsApiUrl)
+        console.log(`   ✅ DWS Code CID: ${dwsCid}`)
 
-      // Record in StorageManager
-      const contentHash = keccak256(stringToBytes(dwsCid))
-      const size = getDirectorySize(dwsDist)
+        // Record in StorageManager
+        const contentHash = keccak256(stringToBytes(dwsCid))
+        const size = getDirectorySize(dwsDist)
 
-      const { request } = await publicClient.simulateContract({
-        address: contracts.storageManager,
-        abi: STORAGE_MANAGER_ABI,
-        functionName: 'recordUpload',
-        args: [dwsCid, contentHash, BigInt(size), 0, true],
-        value: BigInt(Math.ceil(size / (1024 * 1024))) * BigInt(1e14),
-        account: walletClient.account,
-      })
+        const { request } = await publicClient.simulateContract({
+          address: contracts.storageManager,
+          abi: STORAGE_MANAGER_ABI,
+          functionName: 'recordUpload',
+          args: [dwsCid, contentHash, BigInt(size), 0, true],
+          value: BigInt(Math.ceil(size / (1024 * 1024))) * BigInt(1e14),
+          account: walletClient.account,
+        })
 
-      const hash = await walletClient.writeContract(request)
-      await publicClient.waitForTransactionReceipt({ hash })
+        const hash = await walletClient.writeContract(request)
+        await publicClient.waitForTransactionReceipt({ hash })
 
-      console.log('   ✅ DWS is now self-hosted on IPFS')
-      console.log(`\n   Any node operator can now:`)
-      console.log(`   1. Pull DWS code: ipfs get ${dwsCid}`)
-      console.log(`   2. Start DWS: bun run api/server/index.ts`)
-      console.log(`   3. Register on-chain: jeju dws seed-nodes`)
+        console.log('   ✅ DWS is now self-hosted on IPFS')
+        console.log(`\n   Any node operator can now:`)
+        console.log(`   1. Pull DWS code: ipfs get ${dwsCid}`)
+        console.log(`   2. Start DWS: bun run api/server/index.ts`)
+        console.log(`   3. Register on-chain: jeju dws seed-nodes`)
+      }
     }
+  } else {
+    console.log('\n⏭️  Skipping DWS self-hosting (not needed for localnet)')
   }
 
   // Summary
@@ -398,7 +476,32 @@ function loadDWSContracts(network: NetworkType): DWSContracts {
     throw new Error(`DWS deployment not found: ${deploymentFile}`)
   }
 
-  return JSON.parse(readFileSync(deploymentFile, 'utf-8'))
+  const data = JSON.parse(readFileSync(deploymentFile, 'utf-8'))
+
+  // Handle both formats: direct camelCase or nested PascalCase in contracts object
+  if (data.contracts) {
+    const c = data.contracts
+    return {
+      storageManager: c.StorageManager ?? c.storageManager,
+      workerRegistry: c.WorkerRegistry ?? c.workerRegistry,
+      cdnRegistry: c.CDNRegistry ?? c.cdnRegistry,
+      jnsRegistry: c.JNSRegistry ?? c.jnsRegistry,
+      jnsResolver: c.JNSResolver ?? c.jnsResolver,
+      jnsRegistrar: c.JNSRegistrar ?? c.jnsRegistrar,
+      jnsReverseRegistrar: c.JNSReverseRegistrar ?? c.jnsReverseRegistrar,
+      identityRegistry:
+        c.IdentityRegistry ?? c.identityRegistry ?? data.deployer,
+      nodeRegistry:
+        c.NodeRegistry ?? c.nodeRegistry ?? c.CDNRegistry ?? c.cdnRegistry,
+      keepaliveRegistry:
+        c.KeepaliveRegistry ??
+        c.keepaliveRegistry ??
+        c.WorkerRegistry ??
+        c.workerRegistry,
+    }
+  }
+
+  return data
 }
 
 function saveDWSContracts(network: NetworkType, contracts: DWSContracts): void {
@@ -416,9 +519,13 @@ async function deployDWSContracts(
   privateKey: Hex,
 ): Promise<DWSContracts> {
   const rpcUrl = NETWORK_CONFIG[network].rpcUrl
+  const gasPriceGwei = process.env.DWS_GAS_PRICE_GWEI
 
   // Run forge script
-  const cmd = `cd ${CONTRACTS_DIR} && ARBISCAN_API_KEY=dummy BASESCAN_API_KEY=dummy ETHERSCAN_API_KEY=dummy forge script script/DeployDWS.s.sol:DeployDWS --rpc-url ${rpcUrl} --private-key ${privateKey} --broadcast --legacy 2>&1`
+  const gasPriceArg = gasPriceGwei
+    ? ` --gas-price ${(BigInt(gasPriceGwei) * 1_000_000_000n).toString()}`
+    : ''
+  const cmd = `cd ${CONTRACTS_DIR} && ARBISCAN_API_KEY=dummy BASESCAN_API_KEY=dummy ETHERSCAN_API_KEY=dummy forge script script/DeployDWS.s.sol:DeployDWS --rpc-url ${rpcUrl} --private-key ${privateKey} --broadcast --legacy${gasPriceArg} 2>&1`
 
   const output = execSync(cmd, {
     encoding: 'utf-8',
@@ -504,26 +611,84 @@ function discoverApps(
   return apps
 }
 
-async function deployApp(
-  appDir: string,
-  manifest: AppManifest,
-  contracts: DWSContracts,
-  walletClient: WalletClient,
-  publicClient: PublicClient,
-  ipfsApiUrl: string,
-): Promise<DeployedApp> {
-  const result: DeployedApp = {
-    name: manifest.name,
-  }
-
-  // Step 1: Build the app
-  console.log('   📦 Building...')
-  const buildCmd = manifest.commands?.build ?? 'bun run build'
-  execSync(buildCmd, { cwd: appDir, stdio: 'inherit' })
-
-  // Step 2: Deploy frontend to IPFS
+function needsBuild(appDir: string, manifest: AppManifest): boolean {
+  // Check if build output exists and is newer than source files
   const frontendConfig =
     manifest.decentralization?.frontend ?? manifest.architecture?.frontend
+  const outputDir =
+    typeof frontendConfig === 'object' && 'buildDir' in frontendConfig
+      ? frontendConfig.buildDir
+      : typeof frontendConfig === 'object' && 'outputDir' in frontendConfig
+        ? frontendConfig.outputDir
+        : 'dist'
+
+  const distPath = join(appDir, outputDir)
+  if (!existsSync(distPath)) {
+    return true
+  }
+
+  // Check if any source file is newer than dist
+  const distMtime = statSync(distPath).mtimeMs
+  const srcDirs = ['src', 'web', 'app', 'client']
+  const srcFiles = [
+    'package.json',
+    'tsconfig.json',
+    'vite.config.ts',
+    'tailwind.config.ts',
+  ]
+
+  for (const dir of srcDirs) {
+    const srcDir = join(appDir, dir)
+    if (existsSync(srcDir)) {
+      try {
+        const srcMtime = statSync(srcDir).mtimeMs
+        if (srcMtime > distMtime) {
+          return true
+        }
+      } catch {
+        // Directory might not exist, continue
+      }
+    }
+  }
+
+  for (const file of srcFiles) {
+    const srcFile = join(appDir, file)
+    if (existsSync(srcFile)) {
+      try {
+        const srcMtime = statSync(srcFile).mtimeMs
+        if (srcMtime > distMtime) {
+          return true
+        }
+      } catch {
+        // File might not exist, continue
+      }
+    }
+  }
+
+  return false
+}
+
+async function buildAndUploadApp(
+  appDir: string,
+  manifest: AppManifest,
+  ipfsApiUrl: string,
+): Promise<{
+  frontendCid?: string
+  workerCid?: string
+  workerRoutes?: string[]
+}> {
+  // Step 1: Build the app (only if needed)
+  if (needsBuild(appDir, manifest)) {
+    const buildCmd = manifest.commands?.build ?? 'bun run build'
+    execSync(buildCmd, { cwd: appDir, stdio: 'pipe' })
+  } else {
+    console.log(`   ⏭️  Skipping build (dist is up to date)`)
+  }
+
+  // Step 2: Upload frontend to IPFS
+  const frontendConfig =
+    manifest.decentralization?.frontend ?? manifest.architecture?.frontend
+  let frontendCid: string | undefined
   if (frontendConfig) {
     const outputDir =
       typeof frontendConfig === 'object' && 'buildDir' in frontendConfig
@@ -535,64 +700,86 @@ async function deployApp(
     const frontendPath = join(appDir, outputDir)
 
     if (existsSync(frontendPath)) {
-      console.log('   📤 Uploading frontend to IPFS...')
-      const cid = uploadToIPFS(frontendPath, ipfsApiUrl)
-      result.frontendCid = cid
-      console.log(`   ✅ Frontend CID: ${cid}`)
-
-      // Record in StorageManager
-      const contentHash = keccak256(stringToBytes(cid))
-      const size = getDirectorySize(frontendPath)
-
-      const { request } = await publicClient.simulateContract({
-        address: contracts.storageManager,
-        abi: STORAGE_MANAGER_ABI,
-        functionName: 'recordUpload',
-        args: [cid, contentHash, BigInt(size), 0, true],
-        value: BigInt(Math.ceil(size / (1024 * 1024))) * BigInt(1e14), // 0.0001 ETH per MB
-        account: walletClient.account,
-      })
-
-      const hash = await walletClient.writeContract(request)
-      await publicClient.waitForTransactionReceipt({ hash })
-      console.log('   ✅ Recorded in StorageManager')
+      frontendCid = uploadToIPFS(frontendPath, ipfsApiUrl)
     }
   }
 
-  // Step 3: Deploy worker
+  // Step 3: Upload worker to IPFS
   const workerConfig =
     manifest.decentralization?.worker || manifest.architecture?.backend
+  let workerCid: string | undefined
+  let workerRoutes: string[] | undefined
   if (workerConfig && typeof workerConfig === 'object') {
     const outputDir =
       'outputDir' in workerConfig ? workerConfig.outputDir : 'dist/worker'
     const workerPath = join(appDir, outputDir)
 
     if (existsSync(workerPath)) {
-      console.log('   📤 Uploading worker to IPFS...')
-      const cid = uploadToIPFS(workerPath, ipfsApiUrl)
-      const codeHash = keccak256(stringToBytes(cid))
-
-      const routes =
+      workerCid = uploadToIPFS(workerPath, ipfsApiUrl)
+      workerRoutes =
         'routes' in workerConfig && workerConfig.routes
           ? workerConfig.routes.map((r: { pattern: string }) => r.pattern)
           : [`/${manifest.name}/*`]
-
-      const { request } = await publicClient.simulateContract({
-        address: contracts.workerRegistry,
-        abi: WORKER_REGISTRY_ABI,
-        functionName: 'deployWorker',
-        args: [manifest.name, codeHash, routes, '', 0, BigInt(0)],
-        account: walletClient.account,
-      })
-
-      const hash = await walletClient.writeContract(request)
-      const receipt = await publicClient.waitForTransactionReceipt({ hash })
-      result.workerId = receipt.transactionHash
-      console.log('   ✅ Worker registered on-chain')
     }
   }
 
-  // Step 4: Register JNS name
+  return { frontendCid, workerCid, workerRoutes }
+}
+
+async function registerOnChain(
+  manifest: AppManifest,
+  contracts: DWSContracts,
+  walletClient: WalletClient,
+  publicClient: PublicClient,
+  frontendCid?: string,
+  workerCid?: string,
+  workerRoutes?: string[],
+): Promise<DeployedApp> {
+  const result: DeployedApp = {
+    name: manifest.name,
+  }
+
+  // Step 1: Record frontend in StorageManager
+  if (frontendCid) {
+    console.log('   📤 Recording frontend in StorageManager...')
+    const contentHash = keccak256(stringToBytes(frontendCid))
+    const size = 1024 * 1024 // Estimate, actual size not needed for on-chain
+
+    const { request } = await publicClient.simulateContract({
+      address: contracts.storageManager,
+      abi: STORAGE_MANAGER_ABI,
+      functionName: 'recordUpload',
+      args: [frontendCid, contentHash, BigInt(size), 0, true],
+      value: BigInt(Math.ceil(size / (1024 * 1024))) * BigInt(1e14), // 0.0001 ETH per MB
+      account: walletClient.account,
+    })
+
+    const hash = await walletClient.writeContract(request)
+    await publicClient.waitForTransactionReceipt({ hash })
+    result.frontendCid = frontendCid
+    console.log('   ✅ Recorded in StorageManager')
+  }
+
+  // Step 2: Register worker
+  if (workerCid && workerRoutes) {
+    console.log('   📤 Registering worker on-chain...')
+    const codeHash = keccak256(stringToBytes(workerCid))
+
+    const { request } = await publicClient.simulateContract({
+      address: contracts.workerRegistry,
+      abi: WORKER_REGISTRY_ABI,
+      functionName: 'deployWorker',
+      args: [manifest.name, codeHash, workerRoutes, '', 0, BigInt(0)],
+      account: walletClient.account,
+    })
+
+    const hash = await walletClient.writeContract(request)
+    const receipt = await publicClient.waitForTransactionReceipt({ hash })
+    result.workerId = receipt.transactionHash
+    console.log('   ✅ Worker registered on-chain')
+  }
+
+  // Step 3: Register JNS name
   const jnsName =
     manifest.jns?.name ||
     manifest.decentralization?.frontend?.jnsName ||
@@ -620,12 +807,87 @@ async function deployApp(
   return result
 }
 
-function uploadToIPFS(path: string, apiUrl: string): string {
-  const cmd = `curl -s -X POST -F "file=@${path}" "${apiUrl}/api/v0/add?recursive=true&wrap-with-directory=true" | tail -1 | jq -r '.Hash'`
-  const result = execSync(cmd, { encoding: 'utf-8' }).trim()
+// Cache for IPFS CIDs to avoid re-uploading unchanged content
+const ipfsCache = new Map<string, { cid: string; mtime: number }>()
 
+function getDirectoryHash(path: string): string {
+  // Simple hash based on directory mtime and size
+  // In production, could use actual content hash, but mtime is faster for dev
+  try {
+    const stats = statSync(path)
+    return `${stats.mtimeMs}-${stats.size}`
+  } catch {
+    return `${Date.now()}`
+  }
+}
+
+function uploadToIPFS(path: string, apiUrl: string): string {
+  // Check cache first (for dev speed)
+  const cacheKey = `${path}:${getDirectoryHash(path)}`
+  const cached = ipfsCache.get(cacheKey)
+  if (cached) {
+    // Verify cache is still valid
+    try {
+      const currentStats = statSync(path)
+      if (currentStats.mtimeMs === cached.mtime) {
+        console.log(
+          `   ⏭️  Using cached IPFS CID: ${cached.cid.slice(0, 20)}...`,
+        )
+        return cached.cid
+      }
+    } catch {
+      // Path changed, continue to upload
+    }
+  }
+
+  // Try direct IPFS API first (for localnet with local IPFS node)
+  const ipfsCmd = `curl -s -X POST -F "file=@${path}" "${apiUrl}/api/v0/add?recursive=true&wrap-with-directory=true" 2>/dev/null | tail -1 | jq -r '.Hash' 2>/dev/null`
+  let result = execSync(ipfsCmd, { encoding: 'utf-8' }).trim()
+
+  // If IPFS API fails, try DWS storage endpoint
   if (!result || result === 'null') {
+    // Convert IPFS API URL to DWS storage URL
+    // e.g., https://ipfs-api.testnet.jejunetwork.org -> https://dws.testnet.jejunetwork.org
+    let dwsStorageUrl = apiUrl
+      .replace('ipfs-api.', 'dws.')
+      .replace('/api/v0', '')
+
+    // Handle localhost case
+    if (apiUrl.includes('localhost:5001')) {
+      dwsStorageUrl = 'http://localhost:4030'
+    }
+
+    console.log(`   Trying DWS storage endpoint: ${dwsStorageUrl}`)
+
+    // For directories, we need to create a tar and upload
+    const isDir =
+      execSync(`test -d "${path}" && echo "dir" || echo "file"`, {
+        encoding: 'utf-8',
+      }).trim() === 'dir'
+
+    if (isDir) {
+      // Create a tar of the directory and upload
+      const tarCmd = `cd "${path}" && tar -cf - . | curl -s -X POST -F "file=@-;filename=upload.tar" "${dwsStorageUrl}/storage/upload" | jq -r '.cid // .hash // .Hash'`
+      result = execSync(tarCmd, {
+        encoding: 'utf-8',
+        shell: '/bin/bash',
+      }).trim()
+    } else {
+      const dwsCmd = `curl -s -X POST -F "file=@${path}" "${dwsStorageUrl}/storage/upload" | jq -r '.cid // .hash // .Hash'`
+      result = execSync(dwsCmd, { encoding: 'utf-8' }).trim()
+    }
+  }
+
+  if (!result || result === 'null' || result === '') {
     throw new Error(`Failed to upload to IPFS: ${path}`)
+  }
+
+  // Cache the result
+  try {
+    const stats = statSync(path)
+    ipfsCache.set(cacheKey, { cid: result, mtime: stats.mtimeMs })
+  } catch {
+    // Ignore cache errors
   }
 
   return result

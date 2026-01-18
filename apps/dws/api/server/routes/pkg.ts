@@ -126,6 +126,104 @@ export function createPkgRouter(ctx: PkgContext) {
         },
       )
 
+      // List packages (for frontend)
+      .get(
+        '/packages',
+        async ({ query }) => {
+          const limit = parseInt(query.limit ?? '50', 10)
+          const offset = parseInt(query.offset ?? '0', 10)
+
+          // Get in-memory packages
+          const inMemoryResults: Array<{
+            id: string
+            name: string
+            version: string
+            owner: Address
+            description: string
+            downloads: number
+            createdAt: number
+            updatedAt: number
+            cid: string
+          }> = []
+
+          for (const [, pkg] of localPackages) {
+            inMemoryResults.push({
+              id: pkg.packageId,
+              name: getFullName(pkg.name, pkg.scope),
+              version: pkg.latestVersion,
+              owner: pkg.owner,
+              description: pkg.description,
+              downloads: 0,
+              createdAt: pkg.createdAt.getTime(),
+              updatedAt: pkg.updatedAt.getTime(),
+              cid: '',
+            })
+          }
+
+          // Try on-chain packages (may fail if contract not deployed)
+          let onChainPackages: Array<{
+            id: string
+            name: string
+            version: string
+            owner: Address
+            description: string
+            downloads: number
+            createdAt: number
+            updatedAt: number
+            cid: string
+          }> = []
+          try {
+            const results = await registryManager.searchPackages(
+              '',
+              offset,
+              limit,
+            )
+            onChainPackages = await Promise.all(
+              results.map(async (p) => {
+                let cid = ''
+                try {
+                  const ver = await registryManager.getVersion(
+                    p.packageId,
+                    p.latestVersion,
+                  )
+                  cid = ver?.tarballCid ?? ''
+                } catch {
+                  // Version not found, continue without CID
+                }
+                return {
+                  id: p.packageId,
+                  name: registryManager.getFullName(p.name, p.scope),
+                  version: p.latestVersion as string,
+                  owner: p.owner,
+                  description: p.description,
+                  downloads: 0,
+                  createdAt: Number(p.createdAt) * 1000,
+                  updatedAt: Number(p.updatedAt) * 1000,
+                  cid,
+                }
+              }),
+            )
+          } catch {
+            // Contract not deployed, use in-memory only
+          }
+
+          // Combine and paginate
+          const allPackages = [...inMemoryResults, ...onChainPackages]
+          const paginated = allPackages.slice(offset, offset + limit)
+
+          return {
+            packages: paginated,
+            total: allPackages.length,
+          }
+        },
+        {
+          query: t.Object({
+            limit: t.Optional(t.String()),
+            offset: t.Optional(t.String()),
+          }),
+        },
+      )
+
       // Search packages (local + upstream)
       .get(
         '/-/v1/search',

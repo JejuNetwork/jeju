@@ -1,0 +1,85 @@
+# Phala TEE Eliza Image
+#
+# TEE-enabled Eliza agent runtime with auto-registration to ComputeRegistry.
+# Extends the base TEE image with Eliza runtime and registration logic.
+#
+# Build:
+#   docker build -t ghcr.io/jejunetwork/phala-tee-eliza:latest -f Dockerfile.eliza .
+#
+# Features:
+# - Eliza AI agent runtime
+# - Auto-registration with ComputeRegistry on startup
+# - TEE attestation for verified inference
+# - Health monitoring and metrics
+
+# ============================================================================
+# Build stage
+# ============================================================================
+
+FROM ghcr.io/jejunetwork/phala-tee-base:latest AS base
+
+# Install additional dependencies for Eliza
+USER root
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+USER tee
+WORKDIR /app
+
+# Copy Eliza-specific source
+COPY --chown=tee:tee eliza/ ./eliza/
+COPY --chown=tee:tee src/eliza-entrypoint.ts ./src/
+
+# Install Eliza dependencies
+WORKDIR /app/eliza
+RUN bun install --frozen-lockfile
+
+WORKDIR /app
+
+# Build entrypoint
+RUN bun build src/eliza-entrypoint.ts --outdir=dist --target=bun
+
+# ============================================================================
+# Runtime
+# ============================================================================
+
+FROM ghcr.io/jejunetwork/phala-tee-base:latest
+
+USER tee
+WORKDIR /app
+
+# Copy Eliza runtime
+COPY --from=base --chown=tee:tee /app/eliza ./eliza
+COPY --from=base --chown=tee:tee /app/dist/eliza-entrypoint.js ./dist/
+
+# Environment variables
+ENV NODE_ENV=production
+ENV TEE_ENABLED=true
+ENV ELIZA_PORT=3000
+ENV HEALTH_PORT=8080
+ENV METRICS_PORT=9090
+
+# Auto-registration configuration
+ENV AUTO_REGISTER=true
+ENV COMPUTE_REGISTRY_ADDRESS=
+ENV JEJU_RPC_URL=
+ENV OPERATOR_PRIVATE_KEY=
+ENV SERVICE_TYPE=inference
+ENV MODEL_ID=eliza-agent
+
+# Attestation configuration  
+ENV ATTESTATION_REFRESH_INTERVAL=43200000
+ENV MIN_ATTESTATION_STAKE=0.1
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:${HEALTH_PORT}/health || exit 1
+
+# Expose ports
+EXPOSE 3000 8080 9090
+
+# Start Eliza with registration
+CMD ["bun", "run", "dist/eliza-entrypoint.js"]

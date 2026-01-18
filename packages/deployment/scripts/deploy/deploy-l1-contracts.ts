@@ -296,8 +296,8 @@ NEXT STEPS
 1. Generate L2 genesis:
    NETWORK=testnet bun run packages/deployment/scripts/l2-genesis.ts
 
-2. Deploy OP Stack services:
-   NETWORK=testnet bun run packages/deployment/scripts/helmfile.ts sync
+2. Deploy DWS contracts and apps (permissionless):
+   NETWORK=testnet bun run packages/deployment/scripts/deploy/dws-bootstrap.ts
 
 3. Verify chain is producing blocks:
    curl -X POST https://testnet-rpc.jejunetwork.org -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'

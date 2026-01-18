@@ -60,24 +60,18 @@ interface StatConfig {
 // CONSTANTS
 // ============================================
 
-/**
- * Determine if we're running in local development mode.
- * Dev server runs on port 4355, production uses standard HTTPS (no port).
- */
-function isLocalDev(): boolean {
-  if (typeof window === 'undefined') return false
-  const port = window.location.port
-  // Dev server port is 4355 - anything else is production
-  return port === '4355'
-}
+const LOCALHOST_HOST =
+  typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1'
 
-/**
- * API and GraphQL URLs:
- * - In development: Use localhost with specific ports
- * - In production: Use relative URLs (served from same origin)
- */
-const API_BASE = isLocalDev() ? 'http://127.0.0.1:4352' : '/api'
-const GRAPHQL_URL = isLocalDev() ? 'http://127.0.0.1:4350/graphql' : '/graphql'
+const API_BASE =
+  typeof window !== 'undefined' && window.location.port === '4355'
+    ? `http://${LOCALHOST_HOST}:4352`
+    : '' // No /api prefix - routes are at root
+
+const GRAPHQL_URL =
+  typeof window !== 'undefined' && window.location.port === '4355'
+    ? `http://${LOCALHOST_HOST}:4350/graphql`
+    : '/graphql'
 
 const TABS: TabConfig[] = [
   { id: 'overview', label: 'Overview', ariaLabel: 'View network overview' },
@@ -321,9 +315,18 @@ export default function App() {
         setTransactions(txsResult.value.transactions ?? [])
       }
 
+      // Check for database errors in responses
+      const hasDbError =
+        (blocksResult.status === 'fulfilled' && blocksResult.value.error) ||
+        (txsResult.status === 'fulfilled' && txsResult.value.error)
+
       if (results.every((r) => r.status === 'rejected')) {
         setError(
           'Unable to reach the indexer. Verify the API server is running.',
+        )
+      } else if (hasDbError) {
+        setError(
+          'Indexer database is currently unavailable. Data may be limited.',
         )
       }
 

@@ -17,6 +17,7 @@ export const PlatformSchema = z.enum([
   'farcaster',
   'twitter',
   'web',
+  'chat',
 ])
 
 export const PlatformUserSchema = z.object({

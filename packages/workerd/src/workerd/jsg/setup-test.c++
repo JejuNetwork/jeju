@@ -33,8 +33,8 @@ KJ_TEST("eval() is blocked") {
   e.expectEval("new Function('a', 'b', 'return a + b;')(123, 321)", "throws",
       "EvalError: Code generation from strings disallowed for this context");
 
-  // Note: It would be nice to test as well that WebAssembly is blocked, but that requires
-  //   setting up an event loop since the WebAssembly calls are all async. We'll test this
+  // It would be nice to test as well that WebAssembly is blocked, but that requires
+  // setting up an event loop since the WebAssembly calls are all async. We'll test this
   //   elsewhere.
 }
 

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 * {
   margin: 0;
@@ -7,15 +7,15 @@
 }
 
 :root {
-  --font-main: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-main: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
   
-  /* Light theme - Vibrant Bazaar */
-  --bg-gradient-start: #f0f4ff;
-  --bg-gradient-end: #fdf4ff;
-  --bg-pattern: radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.08) 0%, transparent 50%),
-                radial-gradient(circle at 80% 20%, rgba(255, 119, 168, 0.08) 0%, transparent 50%),
-                radial-gradient(circle at 40% 40%, rgba(74, 222, 128, 0.05) 0%, transparent 40%);
+  /* Light theme - Jeju Island inspired: volcanic black, ocean cyan, tangerine warmth */
+  --bg-gradient-start: #f8fafc;
+  --bg-gradient-end: #f0fdfa;
+  --bg-pattern: radial-gradient(circle at 15% 85%, rgba(20, 184, 166, 0.08) 0%, transparent 45%),
+                radial-gradient(circle at 85% 15%, rgba(251, 146, 60, 0.06) 0%, transparent 45%),
+                radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 0.02) 0%, transparent 60%);
   
   --surface: #ffffff;
   --surface-elevated: #ffffff;
@@ -24,56 +24,59 @@
   
   --border: #e2e8f0;
   --border-strong: #cbd5e1;
-  --border-accent: rgba(139, 92, 246, 0.3);
+  --border-accent: rgba(20, 184, 166, 0.4);
   
-  --text-primary: #1e293b;
-  --text-secondary: #64748b;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
   --text-muted: #94a3b8;
   --text-inverse: #ffffff;
   
-  /* Brand colors - Fun marketplace vibes */
-  --accent-primary: #8b5cf6;
-  --accent-primary-hover: #7c3aed;
-  --accent-primary-soft: rgba(139, 92, 246, 0.1);
+  /* Brand colors - Jeju teal + tangerine accent */
+  --primary: #0d9488;
+  --primary-soft: rgba(13, 148, 136, 0.1);
+  --accent-primary: #14b8a6;
+  --accent-primary-hover: #0d9488;
+  --accent-primary-soft: rgba(20, 184, 166, 0.1);
   
-  --accent-secondary: #ec4899;
-  --accent-secondary-hover: #db2777;
-  --accent-secondary-soft: rgba(236, 72, 153, 0.1);
+  --accent-secondary: #f97316;
+  --accent-secondary-hover: #ea580c;
+  --accent-secondary-soft: rgba(249, 115, 22, 0.1);
   
-  --accent-tertiary: #06b6d4;
-  --accent-tertiary-soft: rgba(6, 182, 212, 0.1);
+  --accent-tertiary: #0ea5e9;
+  --accent-tertiary-soft: rgba(14, 165, 233, 0.1);
   
   /* Semantic */
-  --success: #10b981;
-  --success-soft: rgba(16, 185, 129, 0.1);
-  --success-bright: #00ff88;
-  --warning: #f59e0b;
-  --warning-soft: rgba(245, 158, 11, 0.1);
-  --warning-bright: #ffbe0b;
-  --error: #ef4444;
-  --error-soft: rgba(239, 68, 68, 0.1);
-  --error-bright: #ff4757;
-  --info: #3b82f6;
-  --info-soft: rgba(59, 130, 246, 0.1);
+  --success: #059669;
+  --success-soft: rgba(5, 150, 105, 0.1);
+  --success-bright: #10b981;
+  --warning: #d97706;
+  --warning-soft: rgba(217, 119, 6, 0.1);
+  --warning-bright: #f59e0b;
+  --error: #dc2626;
+  --error-soft: rgba(220, 38, 38, 0.1);
+  --error-bright: #ef4444;
+  --info: #0284c7;
+  --info-soft: rgba(2, 132, 199, 0.1);
   
   /* Chain colors */
   --chain-ethereum: #627eea;
   --chain-arbitrum: #28a0f0;
   --chain-optimism: #ff0420;
-  --chain-jeju: #64ffda;
-  --chain-default: #8888a8;
+  --chain-jeju: #14b8a6;
+  --chain-default: #64748b;
   
-  /* Gradients */
-  --gradient-brand: linear-gradient(135deg, #8b5cf6 0%, #ec4899 50%, #f97316 100%);
-  --gradient-brand-hover: linear-gradient(135deg, #7c3aed 0%, #db2777 50%, #ea580c 100%);
-  --gradient-card: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(139, 92, 246, 0.02) 100%);
+  /* Gradients - Jeju sunset/ocean inspired */
+  --gradient-brand: linear-gradient(135deg, #0d9488 0%, #14b8a6 50%, #0ea5e9 100%);
+  --gradient-brand-hover: linear-gradient(135deg, #0f766e 0%, #0d9488 50%, #0284c7 100%);
+  --gradient-accent: linear-gradient(135deg, #f97316 0%, #fb923c 50%, #fbbf24 100%);
+  --gradient-card: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(20, 184, 166, 0.02) 100%);
   
   /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.05);
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);
-  --shadow-glow: 0 0 20px rgba(139, 92, 246, 0.2);
-  --shadow-glow-strong: 0 0 30px rgba(139, 92, 246, 0.3);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 6px rgba(15, 23, 42, 0.06), 0 2px 4px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 10px 15px rgba(15, 23, 42, 0.08), 0 4px 6px rgba(15, 23, 42, 0.04);
+  --shadow-glow: 0 0 20px rgba(20, 184, 166, 0.25);
+  --shadow-glow-strong: 0 0 30px rgba(20, 184, 166, 0.35);
   
   /* Radius */
   --radius-sm: 6px;
@@ -89,54 +92,63 @@
 }
 
 [data-theme="dark"] {
-  --bg-gradient-start: #0f0f1a;
-  --bg-gradient-end: #1a0f1f;
-  --bg-pattern: radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
-                radial-gradient(circle at 80% 20%, rgba(236, 72, 153, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 40% 40%, rgba(6, 182, 212, 0.08) 0%, transparent 40%);
+  /* Dark theme - Deep volcanic night with glowing teal accents */
+  --bg-gradient-start: #0c1222;
+  --bg-gradient-end: #0f1a24;
+  --bg-pattern: radial-gradient(circle at 15% 85%, rgba(20, 184, 166, 0.12) 0%, transparent 45%),
+                radial-gradient(circle at 85% 15%, rgba(251, 146, 60, 0.08) 0%, transparent 45%),
+                radial-gradient(circle at 50% 50%, rgba(14, 165, 233, 0.05) 0%, transparent 60%);
   
-  --surface: #1e1e2e;
-  --surface-elevated: #252538;
-  --surface-hover: #2a2a3e;
-  --surface-active: #323248;
+  --surface: #111827;
+  --surface-elevated: #1f2937;
+  --surface-hover: #1e293b;
+  --surface-active: #334155;
   
-  --border: #313148;
-  --border-strong: #454560;
-  --border-accent: rgba(139, 92, 246, 0.4);
+  --border: #1e293b;
+  --border-strong: #334155;
+  --border-accent: rgba(45, 212, 191, 0.5);
   
   --text-primary: #f1f5f9;
-  --text-secondary: #a1a1b5;
-  --text-muted: #6b6b80;
-  --text-inverse: #1e293b;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-inverse: #0f172a;
   
-  --accent-primary: #a78bfa;
-  --accent-primary-hover: #c4b5fd;
-  --accent-primary-soft: rgba(167, 139, 250, 0.15);
+  --primary: #2dd4bf;
+  --primary-soft: rgba(45, 212, 191, 0.15);
+  --accent-primary: #2dd4bf;
+  --accent-primary-hover: #5eead4;
+  --accent-primary-soft: rgba(45, 212, 191, 0.15);
   
-  --accent-secondary: #f472b6;
-  --accent-secondary-hover: #f9a8d4;
-  --accent-secondary-soft: rgba(244, 114, 182, 0.15);
+  --accent-secondary: #fb923c;
+  --accent-secondary-hover: #fdba74;
+  --accent-secondary-soft: rgba(251, 146, 60, 0.15);
   
-  --accent-tertiary: #22d3ee;
-  --accent-tertiary-soft: rgba(34, 211, 238, 0.15);
+  --accent-tertiary: #38bdf8;
+  --accent-tertiary-soft: rgba(56, 189, 248, 0.15);
   
   --success: #34d399;
   --success-soft: rgba(52, 211, 153, 0.15);
-  --success-bright: #00ff88;
+  --success-bright: #6ee7b7;
   --warning: #fbbf24;
   --warning-soft: rgba(251, 191, 36, 0.15);
-  --warning-bright: #ffbe0b;
+  --warning-bright: #fcd34d;
   --error: #f87171;
   --error-soft: rgba(248, 113, 113, 0.15);
-  --error-bright: #ff4757;
-  --info: #60a5fa;
-  --info-soft: rgba(96, 165, 250, 0.15);
+  --error-bright: #fca5a5;
+  --info: #38bdf8;
+  --info-soft: rgba(56, 189, 248, 0.15);
   
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.4), 0 4px 6px rgba(0, 0, 0, 0.3);
-  --shadow-glow: 0 0 20px rgba(139, 92, 246, 0.3);
-  --shadow-glow-strong: 0 0 30px rgba(139, 92, 246, 0.4);
+  --chain-jeju: #2dd4bf;
+  
+  --gradient-brand: linear-gradient(135deg, #14b8a6 0%, #2dd4bf 50%, #38bdf8 100%);
+  --gradient-brand-hover: linear-gradient(135deg, #0d9488 0%, #14b8a6 50%, #0ea5e9 100%);
+  --gradient-accent: linear-gradient(135deg, #fb923c 0%, #fdba74 50%, #fcd34d 100%);
+  
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5), 0 4px 6px rgba(0, 0, 0, 0.4);
+  --shadow-glow: 0 0 20px rgba(45, 212, 191, 0.3);
+  --shadow-glow-strong: 0 0 30px rgba(45, 212, 191, 0.4);
 }
 
 body {

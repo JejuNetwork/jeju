@@ -275,7 +275,7 @@ impl<'a, T> Local<'a, T> {
 
     /// Returns true if the value is a JavaScript object.
     ///
-    /// Note: Unlike JavaScript's `typeof` operator which returns "object" for `null`,
+    /// Unlike JavaScript's `typeof` operator which returns "object" for `null`,
     /// this method returns `false` for `null` values. Use `is_null_or_undefined()`
     /// to check for nullish values separately.
     pub fn is_object(&self) -> bool {
@@ -288,7 +288,7 @@ impl<'a, T> Local<'a, T> {
     /// JavaScript's `typeof` operator: "undefined", "boolean", "number",
     /// "bigint", "string", "symbol", "function", or "object".
     ///
-    /// Note: For `null`, this returns "object" (JavaScript's historical behavior).
+    /// For `null`, this returns "object" (JavaScript's historical behavior).
     pub fn type_of(&self) -> String {
         unsafe { ffi::local_type_of(self.isolate.as_ffi(), &self.handle) }
     }

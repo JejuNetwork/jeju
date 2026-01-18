@@ -117,7 +117,7 @@ function transformClassMembers(
  *
  * myMethod(): void;
  *
- * Note: Private members like `myPrivateProperty` are not included in the interface.
+ * Private members like `myPrivateProperty` are not included in the interface.
  */
 function transformClassMemberToInterface(
   member: ts.ClassElement,

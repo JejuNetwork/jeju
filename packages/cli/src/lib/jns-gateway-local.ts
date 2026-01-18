@@ -47,7 +47,10 @@ const JNS_RESOLVER_ABI = [
 
 interface JNSGatewayConfig extends JNSGatewayConfigBase {
   ipfsGatewayUrl: string
+  dwsApiUrl: string
   rootDir: string // Monorepo root for serving local app builds
+  preferLocalFrontends: boolean
+  preferLocalBackends: boolean
 }
 
 interface ContentResolution {
@@ -58,22 +61,29 @@ interface ContentResolution {
   workerEndpoint: string | null
 }
 
-// Local worker endpoint mappings for vendor apps during development
-// Maps app name to local backend URL (must match CORE_PORTS from @jejunetwork/config)
+// Local worker endpoint mappings for development
+// Maps app name to local backend URL (must match ports from jeju-manifest.json)
 function getLocalWorkerEndpoints(): Record<string, string> {
   const host = getLocalhostHost()
   return {
-    factory: `http://${host}:4009`,
-    bazaar: `http://${host}:4007`, // BAZAAR_API port
-    gateway: `http://${host}:4060`,
+    // Core apps with backends
     dws: `http://${host}:4030`,
-    oauth3: `http://${host}:4200`,
-    auth: `http://${host}:4200`, // alias for oauth3
-    monitoring: `http://${host}:9091`, // A2A server port from jeju-manifest.json
+    gateway: `http://${host}:4013`, // Gateway main port
+    crucible: `http://${host}:4021`, // Crucible API port
+    example: `http://${host}:4500`, // Example main port
+    autocrat: `http://${host}:4040`, // Autocrat API port
+    bazaar: `http://${host}:4007`, // Bazaar API port
+    factory: `http://${host}:4009`, // Factory port
+    oauth3: `http://${host}:4200`, // OAuth3 gateway
+    auth: `http://${host}:4200`, // Alias for oauth3
+    // Additional apps
+    monitoring: `http://${host}:9091`, // Monitoring A2A server
     wallet: `http://${host}:4015`, // Wallet main port
     vpn: `http://${host}:4021`, // VPN API port
-    node: `http://${host}:1420`, // Node main port (from manifest)
+    node: `http://${host}:1420`, // Node main port
+    // Vendor apps
     babylon: `http://${host}:5009`, // Babylon API server
+    'babylon-api': `http://${host}:5009`, // Babylon API alias
   }
 }
 
@@ -104,6 +114,41 @@ export class LocalJNSGateway {
   private getLocalWorkerEndpoint(appName: string): string | null {
     const endpoints = getLocalWorkerEndpoints()
     return endpoints[appName] ?? null
+  }
+
+  /**
+   * Check if a string looks like an IPFS CID
+   */
+  private isIPFSCid(value: string): boolean {
+    return value.startsWith('Qm') || value.startsWith('bafy')
+  }
+
+  /**
+   * Check if a string looks like a UUID (DWS functionId)
+   */
+  private isUUID(value: string): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      value,
+    )
+  }
+
+  /**
+   * Parse a `dws.worker` reference into a concrete worker ID.
+   *
+   * Supported forms:
+   * - `bafy...` / `Qm...` (IPFS CID)
+   * - `<uuid>` (DWS functionId)
+   * - `workerd:<id>` or `bun:<id>` (legacy prefixed form)
+   */
+  private parseWorkerRef(value: string): { id: string } | null {
+    if (value.startsWith('workerd:') || value.startsWith('bun:')) {
+      const id = value.split(':')[1]
+      return id ? { id } : null
+    }
+    if (this.isIPFSCid(value) || this.isUUID(value)) {
+      return { id: value }
+    }
+    return null
   }
 
   private createApp() {
@@ -140,34 +185,65 @@ export class LocalJNSGateway {
           const name = `${subdomainName}.jeju`
           const resolution = await this.resolve(name)
 
-          // Check for API requests that should be routed to backend
-          if (
-            url.pathname.startsWith('/api') ||
-            url.pathname.startsWith('/health') ||
-            url.pathname.startsWith('/a2a') ||
-            url.pathname.startsWith('/mcp') ||
-            url.pathname.startsWith('/ws') ||
-            url.pathname.startsWith('/.well-known/')
-          ) {
-            // For local development, use local worker endpoint if available
-            const localEndpoint =
-              this.getLocalWorkerEndpoint(subdomainName) ??
-              this.getLocalWorkerEndpoint(appName)
-            if (localEndpoint) {
-              return this.proxyToWorker(localEndpoint, request)
+          const workerEndpoint = resolution.workerEndpoint
+          const isHttpEndpoint =
+            workerEndpoint?.startsWith('http://') ||
+            workerEndpoint?.startsWith('https://') ||
+            false
+          const workerRef =
+            workerEndpoint && !isHttpEndpoint
+              ? this.parseWorkerRef(workerEndpoint)
+              : null
+
+          // Check for API requests that should be routed to backend.
+          // IMPORTANT: Many Jeju apps (including oauth3) use non-/api prefixes.
+          const apiPrefixes = [
+            '/api',
+            '/health',
+            '/a2a',
+            '/mcp',
+            '/ws',
+            '/oauth',
+            '/wallet',
+            '/session',
+            '/farcaster',
+            '/client',
+            '/auth',
+            '/callback',
+            '/webhook',
+            '/.well-known/',
+          ] as const
+
+          if (apiPrefixes.some((p) => url.pathname.startsWith(p))) {
+            // DEV: Prefer local backend for hot reload if enabled
+            if (this.config.preferLocalBackends) {
+              const localEndpoint =
+                this.getLocalWorkerEndpoint(subdomainName) ??
+                this.getLocalWorkerEndpoint(appName)
+              if (localEndpoint) {
+                return this.proxyToWorker(localEndpoint, request)
+              }
             }
-            // If JNS has a real worker endpoint (not a tx hash), use it
-            if (
-              resolution.workerEndpoint &&
-              !resolution.workerEndpoint.startsWith('0x')
-            ) {
-              return this.proxyToWorker(resolution.workerEndpoint, request)
+
+            // If JNS has a real HTTP worker endpoint, use it
+            if (isHttpEndpoint && workerEndpoint) {
+              return this.proxyToWorker(workerEndpoint, request)
             }
-            // No local or JNS worker - return 503 for API requests
+
+            // If JNS has a worker CID/UUID, proxy through local DWS `/workers/:id/http/*`
+            if (workerRef) {
+              const endpoint = `${this.config.dwsApiUrl}/workers/${workerRef.id}/http`
+              // Pass app name so DWS can inject app-specific env (e.g., SQLIT_DATABASE_ID)
+              return this.proxyToWorker(endpoint, request, appName)
+            }
+
+            // No backend available
             return new Response(
               JSON.stringify({
                 error: 'Backend not available',
-                message: `No worker endpoint configured for ${appName}`,
+                message: workerEndpoint?.startsWith('0x')
+                  ? `Invalid dws.worker record for ${appName}: expected CID/UUID, got on-chain hex id`
+                  : `No worker endpoint configured for ${appName}`,
               }),
               {
                 status: 503,
@@ -176,11 +252,15 @@ export class LocalJNSGateway {
             )
           }
 
-          // In dev mode, prefer local files over IPFS to enable hot reload
-          // This ensures the latest local build is served, not stale IPFS content
-          const localResponse = await this.serveFromLocal(appName, url.pathname)
-          if (localResponse) {
-            return localResponse
+          // DEV: Prefer local files over IPFS to enable hot reload
+          if (this.config.preferLocalFrontends) {
+            const localResponse = await this.serveFromLocal(
+              appName,
+              url.pathname,
+            )
+            if (localResponse) {
+              return localResponse
+            }
           }
 
           // Fallback to IPFS if local files not found
@@ -438,11 +518,20 @@ export class LocalJNSGateway {
     ]
 
     // Common build output directories (order matters - more specific first)
+    // Also check source/public folders for dev mode.
     const buildDirs = [
-      'dist', // Most common
+      // Dev outputs
+      'dist/dev',
+      // Common production outputs
       'dist/web',
       'dist/client',
       'dist/static',
+      'dist', // Generic dist root
+      // App source assets (oauth3 uses apps/oauth3/web)
+      'web',
+      // Dev mode - serve directly from public folder
+      'public',
+      // Other common build outputs
       'docs/dist',
       'build',
       'out',
@@ -520,14 +609,30 @@ export class LocalJNSGateway {
   private async proxyToWorker(
     endpoint: string,
     request: Request,
+    appName?: string,
   ): Promise<Response> {
     const url = new URL(request.url)
     const workerUrl = `${endpoint}${url.pathname}${url.search}`
 
+    // Preserve the original Host for debugging and downstream routing
+    const proxyHeaders = new Headers(request.headers)
+    const originalHost = request.headers.get('host')
+    if (originalHost) {
+      proxyHeaders.set('x-forwarded-host', originalHost)
+    }
+
+    // Pass app name so DWS can inject app-specific env vars
+    if (appName) {
+      proxyHeaders.set('x-jeju-app', appName)
+    }
+
     const response = await fetch(workerUrl, {
       method: request.method,
-      headers: request.headers,
-      body: request.method !== 'GET' ? await request.text() : undefined,
+      headers: proxyHeaders,
+      body:
+        request.method !== 'GET' && request.method !== 'HEAD'
+          ? await request.text()
+          : undefined,
     })
 
     return new Response(response.body, {
@@ -550,13 +655,20 @@ export async function startLocalJNSGateway(
   port = 8080,
   ipfsGatewayPort = 4180, // Default IPFS gateway port from Docker (mapped 8080 -> 4180)
   rootDir = process.cwd(), // Monorepo root for local dev fallback
+  options?: {
+    preferLocalFrontends?: boolean
+    preferLocalBackends?: boolean
+  },
 ): Promise<LocalJNSGateway> {
   const gateway = new LocalJNSGateway({
     port,
     rpcUrl,
     jnsRegistryAddress,
     ipfsGatewayUrl: `http://${getLocalhostHost()}:${ipfsGatewayPort}`,
+    dwsApiUrl: `http://${getLocalhostHost()}:4030`,
     rootDir,
+    preferLocalFrontends: options?.preferLocalFrontends ?? true,
+    preferLocalBackends: options?.preferLocalBackends ?? true,
   })
 
   await gateway.start()

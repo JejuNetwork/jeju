@@ -30,14 +30,14 @@ interface DecisionData {
   model: string
   timestamp: number
 }
-const COUNCIL_ADDRESS: `0x${string}` =
+const BOARD_ADDRESS: `0x${string}` =
   '0x1234567890abcdef1234567890abcdef12345678'
 const CHAIN_ID = 'base-sepolia'
 const TEST_ENCRYPTION_KEY = 'test-encryption-key-for-unit-tests'
 function createAccessConditions(
   proposalId: string,
   encryptedAt: number,
-  councilAddress: string,
+  boardAddress: string,
   chainId: string,
 ): AccessControlCondition[] {
   const thirtyDaysLater = encryptedAt + 30 * 24 * 60 * 60
@@ -45,7 +45,7 @@ function createAccessConditions(
   return [
     // Condition 1: Proposal is completed
     {
-      contractAddress: councilAddress,
+      contractAddress: boardAddress,
       standardContractType: 'Custom',
       chain: chainId,
       method: 'proposals',
@@ -163,7 +163,7 @@ describe('Encryption Module', () => {
       const conditions = createAccessConditions(
         '0x1234',
         encryptedAt,
-        COUNCIL_ADDRESS,
+        BOARD_ADDRESS,
         CHAIN_ID,
       )
 
@@ -175,12 +175,12 @@ describe('Encryption Module', () => {
       const conditions = createAccessConditions(
         '0x1234',
         encryptedAt,
-        COUNCIL_ADDRESS,
+        BOARD_ADDRESS,
         CHAIN_ID,
       )
 
       const proposalCondition = conditions[0]
-      expect(proposalCondition.contractAddress).toBe(COUNCIL_ADDRESS)
+      expect(proposalCondition.contractAddress).toBe(BOARD_ADDRESS)
       expect(proposalCondition.method).toBe('proposals')
       expect(proposalCondition.returnValueTest.comparator).toBe('=')
       expect(proposalCondition.returnValueTest.value).toBe('7')
@@ -191,7 +191,7 @@ describe('Encryption Module', () => {
       const conditions = createAccessConditions(
         '0x1234',
         encryptedAt,
-        COUNCIL_ADDRESS,
+        BOARD_ADDRESS,
         CHAIN_ID,
       )
 
@@ -210,7 +210,7 @@ describe('Encryption Module', () => {
       const conditions = createAccessConditions(
         proposalId,
         Math.floor(Date.now() / 1000),
-        COUNCIL_ADDRESS,
+        BOARD_ADDRESS,
         CHAIN_ID,
       )
 
@@ -479,7 +479,7 @@ describe('Encryption Module', () => {
       const conditions = createAccessConditions(
         '0x1234',
         1000000,
-        COUNCIL_ADDRESS,
+        BOARD_ADDRESS,
         CHAIN_ID,
       )
 
@@ -490,13 +490,13 @@ describe('Encryption Module', () => {
       const conditions1 = createAccessConditions(
         '0x1111',
         1000000,
-        COUNCIL_ADDRESS,
+        BOARD_ADDRESS,
         CHAIN_ID,
       )
       const conditions2 = createAccessConditions(
         '0x2222',
         1000000,
-        COUNCIL_ADDRESS,
+        BOARD_ADDRESS,
         CHAIN_ID,
       )
 
@@ -509,13 +509,13 @@ describe('Encryption Module', () => {
       const conditions1 = createAccessConditions(
         '0x1234',
         1000000,
-        COUNCIL_ADDRESS,
+        BOARD_ADDRESS,
         CHAIN_ID,
       )
       const conditions2 = createAccessConditions(
         '0x1234',
         2000000,
-        COUNCIL_ADDRESS,
+        BOARD_ADDRESS,
         CHAIN_ID,
       )
 

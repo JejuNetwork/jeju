@@ -20,32 +20,23 @@
 import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { getL2RpcUrl, isLocalnet } from '@jejunetwork/config'
+import { getL2RpcUrl, getLocalhostHost } from '@jejunetwork/config'
 import {
+  bootstrapOracleRegistry,
   bootstrapPerps,
   bootstrapPredictionMarkets,
+  bootstrapTFMMPools,
+  bootstrapWeightUpdateRunner,
+  saveOracleDeployment,
   savePerpsDeployment,
   savePredictionMarketDeployment,
+  saveTFMMDeployment,
+  saveWeightRunnerDeployment,
 } from '../lib/bootstrap'
+import { getDeployerKey } from '../lib/secrets'
 
 const RPC_URL = getL2RpcUrl()
-const ANVIL_DEFAULT_KEY =
-  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
-
-function getDeployerKey(): string {
-  const envKey = process.env.PRIVATE_KEY
-  if (envKey) return envKey
-
-  if (!isLocalnet(RPC_URL)) {
-    throw new Error(
-      'PRIVATE_KEY environment variable required for non-local deployments.',
-    )
-  }
-
-  return ANVIL_DEFAULT_KEY
-}
-
-const DEPLOYER_KEY = getDeployerKey()
+const DEPLOYER_KEY = getDeployerKey(RPC_URL)
 const CONTRACTS_DIR = join(import.meta.dirname, '../../../packages/contracts')
 const CONFIG_DIR = join(import.meta.dirname, '../../../packages/config')
 
@@ -60,8 +51,13 @@ interface SeedResult {
   nfts: Array<{ tokenId: number; uri: string }>
   predictionMarkets: number
   perpMarkets: number
+  tfmmPools: number
   seededAt: string
+  warnings: string[]
 }
+
+// Track seeding warnings globally
+const seedWarnings: string[] = []
 
 function exec(cmd: string, options?: { cwd?: string }): string {
   return execSync(cmd, {
@@ -220,7 +216,9 @@ async function createTestCoins(
       console.log(`      Address: ${tokenAddress}`)
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error)
-      console.log(`    Skipped ${token.symbol}: ${msg.slice(0, 50)}`)
+      const warning = `Token ${token.symbol} creation failed: ${msg.slice(0, 80)}`
+      console.log(`    WARNING: ${warning}`)
+      seedWarnings.push(warning)
     }
   }
 
@@ -233,11 +231,24 @@ async function mintTestNFTs(
   console.log('\n4. Minting test NFTs...')
 
   const nfts: SeedResult['nfts'] = []
+  // Test NFTs with valid data URIs for development
   const testNFTs = [
-    { uri: 'ipfs://QmTest1/metadata.json', name: 'Bazaar Genesis #1' },
-    { uri: 'ipfs://QmTest2/metadata.json', name: 'Bazaar Genesis #2' },
-    { uri: 'ipfs://QmTest3/metadata.json', name: 'Rare Collectible' },
-    { uri: 'https://api.example.com/nft/1', name: 'HTTP Metadata NFT' },
+    {
+      uri: 'data:application/json,{"name":"Bazaar Genesis 1","description":"Test NFT for development"}',
+      name: 'Bazaar Genesis #1',
+    },
+    {
+      uri: 'data:application/json,{"name":"Bazaar Genesis 2","description":"Test NFT for development"}',
+      name: 'Bazaar Genesis #2',
+    },
+    {
+      uri: 'data:application/json,{"name":"Rare Collectible","description":"Test rare NFT"}',
+      name: 'Rare Collectible',
+    },
+    {
+      uri: 'data:application/json,{"name":"HTTP NFT","description":"Test HTTP metadata NFT"}',
+      name: 'HTTP Metadata NFT',
+    },
   ]
 
   let mintFee = '0'
@@ -265,7 +276,9 @@ async function mintTestNFTs(
       console.log(`      Token ID: ${tokenId}`)
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error)
-      console.log(`    Skipped ${nft.name}: ${msg.slice(0, 50)}`)
+      const warning = `NFT ${nft.name} mint failed: ${msg.slice(0, 80)}`
+      console.log(`    WARNING: ${warning}`)
+      seedWarnings.push(warning)
     }
   }
 
@@ -375,13 +388,29 @@ function printSummary(result: SeedResult): void {
 
   console.log(`\nPrediction Markets: ${result.predictionMarkets}`)
   console.log(`Perp Markets: ${result.perpMarkets}`)
+  console.log(`TFMM Pools: ${result.tfmmPools}`)
+
+  // Show warnings if any
+  if (result.warnings.length > 0) {
+    console.log('\nWarnings:')
+    for (const warning of result.warnings) {
+      console.log(`  - ${warning}`)
+    }
+  }
 
   const host = getLocalhostHost()
   console.log('\nNext Steps:')
   console.log(`  1. Open Bazaar: http://${host}:4006`)
   console.log('  2. Connect wallet (use Anvil dev account)')
   console.log('  3. Browse Coins, Items, and Prediction markets')
-  console.log('')
+
+  if (result.warnings.length > 0) {
+    console.log(
+      `\nSeeding completed with ${result.warnings.length} warning(s).\n`,
+    )
+  } else {
+    console.log('\nSeeding completed successfully.\n')
+  }
 }
 
 async function main(): Promise<void> {
@@ -452,7 +481,9 @@ async function main(): Promise<void> {
     }
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
-    console.log(`  Prediction markets: ${msg.slice(0, 50)}`)
+    const warning = `Prediction markets bootstrap failed: ${msg.slice(0, 80)}`
+    console.log(`  WARNING: ${warning}`)
+    seedWarnings.push(warning)
   }
 
   // Step 5: Bootstrap perps
@@ -466,7 +497,69 @@ async function main(): Promise<void> {
     }
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
-    console.log(`  Perps: ${msg.slice(0, 50)}`)
+    const warning = `Perps bootstrap failed: ${msg.slice(0, 80)}`
+    console.log(`  WARNING: ${warning}`)
+    seedWarnings.push(warning)
+  }
+
+  // Step 6: Bootstrap Oracle Registry
+  console.log('\n7. Bootstrapping Oracle Registry...')
+  let oracleRegistryAddress: string | null = null
+  try {
+    const oracleResult = await bootstrapOracleRegistry(RPC_URL, CONTRACTS_DIR)
+    if (oracleResult) {
+      oracleRegistryAddress = oracleResult.oracleRegistry
+      saveOracleDeployment(CONTRACTS_DIR, oracleResult)
+      console.log(`  OracleRegistry: ${oracleResult.oracleRegistry}`)
+    }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error)
+    const warning = `Oracle bootstrap failed: ${msg.slice(0, 80)}`
+    console.log(`  WARNING: ${warning}`)
+    seedWarnings.push(warning)
+  }
+
+  // Step 7: Bootstrap TFMM pools
+  console.log('\n8. Bootstrapping TFMM liquidity pools...')
+  let tfmmPoolCount = 0
+  let tfmmPools: Array<{ address: string; tokens: string[] }> = []
+  try {
+    const tfmmResult = await bootstrapTFMMPools(RPC_URL, CONTRACTS_DIR)
+    if (tfmmResult) {
+      tfmmPoolCount = tfmmResult.pools.length
+      tfmmPools = tfmmResult.pools.map((p) => ({
+        address: p.address,
+        tokens: p.tokens,
+      }))
+      saveTFMMDeployment(CONTRACTS_DIR, tfmmResult)
+    }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error)
+    const warning = `TFMM pools bootstrap failed: ${msg.slice(0, 80)}`
+    console.log(`  WARNING: ${warning}`)
+    seedWarnings.push(warning)
+  }
+
+  // Step 8: Bootstrap WeightUpdateRunner for pool rebalancing
+  if (oracleRegistryAddress && tfmmPools.length > 0) {
+    console.log('\n9. Bootstrapping WeightUpdateRunner...')
+    try {
+      const runnerResult = await bootstrapWeightUpdateRunner(
+        RPC_URL,
+        CONTRACTS_DIR,
+        oracleRegistryAddress,
+        tfmmPools,
+      )
+      if (runnerResult) {
+        saveWeightRunnerDeployment(CONTRACTS_DIR, runnerResult)
+        console.log(`  WeightUpdateRunner: ${runnerResult.weightUpdateRunner}`)
+      }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error)
+      const warning = `WeightUpdateRunner bootstrap failed: ${msg.slice(0, 80)}`
+      console.log(`  WARNING: ${warning}`)
+      seedWarnings.push(warning)
+    }
   }
 
   const result: SeedResult = {
@@ -475,7 +568,9 @@ async function main(): Promise<void> {
     nfts,
     predictionMarkets: predictionMarketCount,
     perpMarkets: perpMarketCount,
+    tfmmPools: tfmmPoolCount,
     seededAt: new Date().toISOString(),
+    warnings: seedWarnings,
   }
 
   saveSeedState(result)

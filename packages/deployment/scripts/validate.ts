@@ -1,14 +1,21 @@
 #!/usr/bin/env bun
 
 /**
- * Validate all deployment configurations
+ * Validate deployment configurations for decentralized deployment
+ *
+ * Validates:
+ * - Contract ABIs exist
+ * - App manifests are valid
+ * - DWS bootstrap script exists
+ * - IPFS connectivity (optional)
  */
 
-import { existsSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { $ } from 'bun'
 
-const ROOT = join(import.meta.dir, '..')
+const ROOT = join(import.meta.dir, '../../../..')
+const APPS_DIR = join(ROOT, 'apps')
+const CONTRACTS_DIR = join(ROOT, 'packages/contracts')
 
 interface ValidationResult {
   name: string
@@ -18,78 +25,124 @@ interface ValidationResult {
 
 const results: ValidationResult[] = []
 
-async function validateTerraform(env: string): Promise<void> {
-  const tfDir = join(ROOT, 'terraform/environments', env)
+function validateContracts(): void {
+  const abisDir = join(CONTRACTS_DIR, 'abis')
 
-  if (!existsSync(tfDir)) {
+  if (!existsSync(abisDir)) {
     results.push({
-      name: `Terraform (${env})`,
+      name: 'Contract ABIs',
       passed: false,
-      message: 'Directory not found',
+      message: 'ABIs directory not found',
     })
     return
   }
 
-  const init = await $`cd ${tfDir} && terraform init -backend=false`
-    .quiet()
-    .nothrow()
-  if (init.exitCode !== 0) {
+  const requiredAbis = [
+    'StorageManager.json',
+    'WorkerRegistry.json',
+    'JNSRegistry.json',
+    'JNSResolver.json',
+  ]
+
+  const missingAbis = requiredAbis.filter(
+    (abi) => !existsSync(join(abisDir, abi)),
+  )
+
+  if (missingAbis.length > 0) {
     results.push({
-      name: `Terraform init (${env})`,
+      name: 'Contract ABIs',
       passed: false,
-      message: 'Init failed',
+      message: `Missing: ${missingAbis.join(', ')}`,
     })
-    return
+  } else {
+    results.push({ name: 'Contract ABIs', passed: true })
+  }
+}
+
+function validateAppManifests(): void {
+  const appDirs = readdirSync(APPS_DIR, { withFileTypes: true })
+    .filter((d) => d.isDirectory())
+    .map((d) => d.name)
+
+  let validCount = 0
+  let invalidCount = 0
+  const invalid: string[] = []
+
+  for (const appName of appDirs) {
+    const manifestPath = join(APPS_DIR, appName, 'jeju-manifest.json')
+
+    if (!existsSync(manifestPath)) continue
+
+    try {
+      const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
+      if (
+        manifest.name &&
+        (manifest.decentralization || manifest.architecture)
+      ) {
+        validCount++
+      } else {
+        invalidCount++
+        invalid.push(appName)
+      }
+    } catch {
+      invalidCount++
+      invalid.push(appName)
+    }
   }
 
-  const validate = await $`cd ${tfDir} && terraform validate`.quiet().nothrow()
-  results.push({
-    name: `Terraform (${env})`,
-    passed: validate.exitCode === 0,
-    message: validate.exitCode !== 0 ? 'Validation failed' : undefined,
-  })
+  if (invalidCount > 0) {
+    results.push({
+      name: 'App Manifests',
+      passed: false,
+      message: `Invalid: ${invalid.join(', ')}`,
+    })
+  } else {
+    results.push({
+      name: 'App Manifests',
+      passed: true,
+      message: `${validCount} valid manifests`,
+    })
+  }
 }
 
-async function validateHelm(): Promise<void> {
-  const helmDir = join(ROOT, 'kubernetes/helm')
-  // Skip directories that only contain values overrides (no Chart.yaml)
-  const result =
-    await $`find ${helmDir} -mindepth 1 -maxdepth 1 -type d ! -name "cert-manager" ! -name "ingress-nginx" -exec helm lint {} \;`
-      .quiet()
-      .nothrow()
+function validateDWSBootstrap(): void {
+  const bootstrapPath = join(
+    ROOT,
+    'packages/deployment/scripts/deploy/dws-bootstrap.ts',
+  )
 
-  results.push({
-    name: 'Helm charts',
-    passed: result.exitCode === 0,
-    message: result.exitCode !== 0 ? 'Lint failed' : undefined,
-  })
+  if (existsSync(bootstrapPath)) {
+    results.push({ name: 'DWS Bootstrap Script', passed: true })
+  } else {
+    results.push({
+      name: 'DWS Bootstrap Script',
+      passed: false,
+      message: 'dws-bootstrap.ts not found',
+    })
+  }
 }
 
-async function validateKurtosis(): Promise<void> {
-  const kurtosisFile = join(ROOT, 'kurtosis/main.star')
+function validateKurtosis(): void {
+  const kurtosisFile = join(ROOT, 'packages/deployment/kurtosis/main.star')
 
-  if (!existsSync(kurtosisFile)) {
+  if (existsSync(kurtosisFile)) {
+    results.push({ name: 'Kurtosis (local testing)', passed: true })
+  } else {
     results.push({
       name: 'Kurtosis',
       passed: false,
-      message: 'main.star not found',
+      message: 'main.star not found (optional)',
     })
-    return
   }
-
-  results.push({ name: 'Kurtosis', passed: true })
 }
 
 async function main(): Promise<void> {
-  console.log('🔍 Validating deployment configurations...\n')
+  console.log('🔍 Validating decentralized deployment configurations...\n')
 
-  await Promise.all([
-    validateTerraform('testnet'),
-    validateTerraform('mainnet'),
-    validateTerraform('gcp-testnet'),
-    validateHelm(),
-    validateKurtosis(),
-  ])
+  validateContracts()
+  validateAppManifests()
+  validateDWSBootstrap()
+  validateKurtosis()
 
   console.log('━'.repeat(50))
 

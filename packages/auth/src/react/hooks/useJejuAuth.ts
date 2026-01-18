@@ -43,6 +43,8 @@ export interface UseJejuAuthReturn {
   // Convenience login methods
   /** Login with wallet */
   loginWithWallet: () => Promise<void>
+  /** Login with passkey */
+  loginWithPasskey: () => Promise<void>
   /** Login with Farcaster */
   loginWithFarcaster: () => Promise<void>
   /** Logout */
@@ -134,6 +136,11 @@ export function useJejuAuth(): UseJejuAuthReturn {
     await oauth3.login('wallet' as AuthProvider)
   }, [oauth3.login])
 
+  // Login with passkey
+  const loginWithPasskey = useCallback(async () => {
+    await oauth3.login('passkey' as AuthProvider)
+  }, [oauth3.login])
+
   // Login with Farcaster
   const loginWithFarcaster = useCallback(async () => {
     await oauth3.login('farcaster' as AuthProvider)
@@ -154,6 +161,7 @@ export function useJejuAuth(): UseJejuAuthReturn {
     walletAddress: oauth3.smartAccountAddress,
     linkedAccounts,
     loginWithWallet,
+    loginWithPasskey,
     loginWithFarcaster,
     logout: oauth3.logout,
     getAccessToken,

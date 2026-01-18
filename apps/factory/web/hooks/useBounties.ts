@@ -195,11 +195,10 @@ async function fetchBounties(filter?: {
 }
 
 async function fetchBountyStats(): Promise<BountyStats> {
-  // Stats endpoint - calculate from bounties list if no dedicated endpoint
-  const response = await api.api.bounties.get({})
+  const response = await api.api.bounties.stats.get()
   const data = extractDataSafe(response)
 
-  if (!isBountiesResponse(data)) {
+  if (!data || typeof data !== 'object') {
     return {
       openBounties: 0,
       totalValue: '0 ETH',
@@ -208,20 +207,18 @@ async function fetchBountyStats(): Promise<BountyStats> {
     }
   }
 
-  const bounties = data.bounties
-  const openBounties = bounties.filter((b) => b.status === 'open').length
-  const completed = bounties.filter((b) => b.status === 'completed').length
-  const totalValue = bounties.reduce(
-    (sum, b) => sum + Number.parseFloat(b.reward ?? '0'),
-    0,
-  )
-  const avgPayout = completed > 0 ? totalValue / completed : 0
+  const statsData = data as {
+    openBounties?: number
+    totalValue?: string
+    completed?: number
+    avgPayout?: string
+  }
 
   return {
-    openBounties,
-    totalValue: `${totalValue.toFixed(2)} ETH`,
-    completed,
-    avgPayout: `${avgPayout.toFixed(2)} ETH`,
+    openBounties: statsData.openBounties ?? 0,
+    totalValue: statsData.totalValue ?? '0 ETH',
+    completed: statsData.completed ?? 0,
+    avgPayout: statsData.avgPayout ?? '0 ETH',
   }
 }
 
@@ -284,16 +281,43 @@ export function useBountyStats() {
   }
 }
 
-export function useBounty(bountyId: string) {
+export function useBounty(bountyId: string): {
+  bounty: Bounty | null
+  isLoading: boolean
+} {
   const bountyRegistryAddress = getContractAddressSafe('daoRegistry')
 
-  const { data: bountyData, isLoading: contractLoading } = useReadContract({
+  const { data: contractData, isLoading: contractLoading } = useReadContract({
     address: bountyRegistryAddress || undefined,
     abi: bountyRegistryAbi,
     functionName: 'getBounty',
     args: bountyId.startsWith('0x') ? [bountyId as `0x${string}`] : undefined,
     query: { enabled: !!bountyRegistryAddress && !!bountyId },
   })
+
+  // Transform contract data to Bounty type
+  const bountyData: Bounty | null = contractData
+    ? {
+        id: contractData.id,
+        title: contractData.title,
+        description: contractData.description,
+        creator: contractData.creator,
+        rewards: [
+          {
+            token: 'ETH', // Contract uses rewardToken address
+            amount: String(contractData.rewardAmount),
+          },
+        ],
+        skills: [],
+        deadline: Number(contractData.deadline),
+        applicants: Number(contractData.applicantCount),
+        status: ['open', 'in_progress', 'review', 'completed', 'cancelled'][
+          contractData.status
+        ] as Bounty['status'],
+        milestones: Number(contractData.milestoneCount),
+        daoId: contractData.daoId,
+      }
+    : null
 
   const { data: apiBounty, isLoading: apiLoading } = useQuery({
     queryKey: ['bounty', bountyId],
@@ -310,7 +334,7 @@ export function useBounty(bountyId: string) {
   })
 
   return {
-    bounty: bountyData || apiBounty,
+    bounty: bountyData ?? apiBounty ?? null,
     isLoading: contractLoading || apiLoading,
   }
 }

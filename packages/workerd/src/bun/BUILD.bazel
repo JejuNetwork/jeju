@@ -10,11 +10,14 @@ wd_ts_bundle(
     ]),
     modules = [
         "bun.ts",
+        "dns.ts",
         "sqlite.ts",
         "test.ts",
         "ffi.ts",
     ],
     schema_id = "0xbcc8f57c63814006",  # Unique schema ID for bun runtime
     tsconfig_json = "tsconfig.json",
-    deps = [],
+    deps = [
+        "//:node_modules/@types/node",
+    ],
 )

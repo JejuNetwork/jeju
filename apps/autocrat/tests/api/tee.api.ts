@@ -52,7 +52,7 @@ test.describe('TEE Encryption', () => {
     expect(['simulated', 'hardware']).toContain(data.tee)
   })
 
-  test('CEO decision includes attestation info', async ({ request }) => {
+  test('Director decision includes attestation info', async ({ request }) => {
     const response = await request.post(`${AUTOCRAT_URL}/a2a`, {
       data: {
         jsonrpc: '2.0',
@@ -61,7 +61,7 @@ test.describe('TEE Encryption', () => {
         params: {
           message: {
             messageId: `msg-${Date.now()}`,
-            parts: [{ kind: 'data', data: { skillId: 'get-ceo-status' } }],
+            parts: [{ kind: 'data', data: { skillId: 'get-director-status' } }],
           },
         },
       },
@@ -93,7 +93,7 @@ test.describe('TEE Encryption', () => {
     expect(response.ok()).toBeTruthy()
     const result = await response.json()
     const data = getDataPart(result.result)
-    expect(data?.ceo).toBeDefined()
+    expect(data?.director).toBeDefined()
   })
 })
 
@@ -105,7 +105,7 @@ test.describe('Hardware TEE Flow (Mocked)', () => {
 
   const MOCK_DECISION = {
     approved: true,
-    reasoning: 'Test approved with high confidence based on council consensus.',
+    reasoning: 'Test approved with high confidence based on board consensus.',
     confidence: 95,
     alignment: 92,
     recommendations: ['Proceed with implementation', 'Monitor execution'],

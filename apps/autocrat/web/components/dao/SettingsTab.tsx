@@ -19,6 +19,7 @@ import {
 import { useCallback, useMemo, useState } from 'react'
 import { useUpdateDAO } from '../../hooks/useDAO'
 import type { DAODetail, DAOVisibility } from '../../types/dao'
+import { ConfirmDialog } from '../ConfirmDialog'
 
 interface SettingsTabProps {
   dao: DAODetail
@@ -112,6 +113,7 @@ export function SettingsTab({ dao }: SettingsTabProps) {
   const [twitterHandle, setTwitterHandle] = useState(dao.twitterHandle ?? '')
   const [githubOrg, setGithubOrg] = useState(dao.githubOrg ?? '')
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
 
   const updateDAO = useUpdateDAO(dao.daoId)
 
@@ -269,8 +271,12 @@ export function SettingsTab({ dao }: SettingsTabProps) {
           }}
         >
           <InfoRow label="Treasury" value={dao.treasury} copyable />
-          <InfoRow label="Council" value={dao.council} copyable />
-          <InfoRow label="CEO Agent" value={dao.ceoAgentContract} copyable />
+          <InfoRow label="Board" value={dao.board} copyable />
+          <InfoRow
+            label="Director Agent"
+            value={dao.directorAgentContract}
+            copyable
+          />
           <InfoRow label="Fee Config" value={dao.feeConfig} copyable />
         </div>
       </Section>
@@ -395,7 +401,7 @@ export function SettingsTab({ dao }: SettingsTabProps) {
                 className="text-lg font-semibold"
                 style={{ color: 'var(--text-primary)' }}
               >
-                {Math.floor(dao.governanceParams.councilVotingPeriod / 86400)}{' '}
+                {Math.floor(dao.governanceParams.boardVotingPeriod / 86400)}{' '}
                 days
               </p>
             </div>
@@ -450,16 +456,18 @@ export function SettingsTab({ dao }: SettingsTabProps) {
             <span
               className="px-3 py-1.5 rounded-lg text-sm"
               style={{
-                backgroundColor: dao.governanceParams.ceoVetoEnabled
+                backgroundColor: dao.governanceParams.directorVetoEnabled
                   ? 'rgba(16, 185, 129, 0.12)'
                   : 'var(--bg-secondary)',
-                color: dao.governanceParams.ceoVetoEnabled
+                color: dao.governanceParams.directorVetoEnabled
                   ? 'var(--color-success)'
                   : 'var(--text-tertiary)',
               }}
             >
-              CEO Veto:{' '}
-              {dao.governanceParams.ceoVetoEnabled ? 'Enabled' : 'Disabled'}
+              Director Veto:{' '}
+              {dao.governanceParams.directorVetoEnabled
+                ? 'Enabled'
+                : 'Disabled'}
             </span>
             <span
               className="px-3 py-1.5 rounded-lg text-sm"
@@ -695,10 +703,11 @@ export function SettingsTab({ dao }: SettingsTabProps) {
                 style={{ color: 'rgba(239, 68, 68, 0.8)' }}
               >
                 Archiving disables governance and freezes the treasury. Requires
-                CEO approval. Reversal requires a network-level proposal.
+                Director approval. Reversal requires a network-level proposal.
               </p>
               <button
                 type="button"
+                onClick={() => setShowArchiveConfirm(true)}
                 className="mt-3 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
                 style={{
                   backgroundColor: 'rgba(239, 68, 68, 0.15)',
@@ -712,6 +721,25 @@ export function SettingsTab({ dao }: SettingsTabProps) {
           </div>
         </div>
       </Section>
+
+      {/* Archive Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showArchiveConfirm}
+        onClose={() => setShowArchiveConfirm(false)}
+        onConfirm={() => {
+          setShowArchiveConfirm(false)
+          // Archive functionality requires a network-level governance proposal
+          // This is by design - archiving a DAO is a significant action that
+          // should go through the proper governance process, not a simple button click
+          setSaveError(
+            'DAO archiving requires a network-level governance proposal. Please submit a proposal through the governance system.',
+          )
+        }}
+        title="Archive DAO"
+        description={`Are you sure you want to request archiving "${dao.displayName}"? This will disable governance and freeze the treasury. Reversal requires a network-level proposal.`}
+        confirmLabel="Request Archive"
+        variant="danger"
+      />
 
       {/* Save Button */}
       <div

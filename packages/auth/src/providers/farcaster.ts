@@ -197,7 +197,6 @@ export class FarcasterProvider {
     this.apiUrl = config?.apiUrl ?? FARCASTER_API_URL
     this.useHubDirect = !this.apiKey
     this.signingService = getSecureSigningService()
-    // Note: appName and appFid from config can be used for app-specific branding if needed
   }
 
   /**

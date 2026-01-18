@@ -11,7 +11,7 @@
 
 import { cors } from '@elysiajs/cors'
 import { getLocalhostHost, isProductionEnv } from '@jejunetwork/config'
-import { Elysia } from 'elysia'
+import { type AnyElysia, Elysia } from 'elysia'
 import type { Address } from 'viem'
 import { z } from 'zod'
 import { getProviderInfo, getServiceName } from '../chains'
@@ -111,7 +111,7 @@ export interface A2ASkill {
   }
 }
 
-// Note: For AgentCard type, import from './a2a'
+// For AgentCard type, import from './a2a'
 
 export interface MCPResource {
   uri: string
@@ -229,19 +229,19 @@ export function createServer(config: ServerConfig) {
   const app = new Elysia()
     // Security middleware (headers, rate limiting)
     .use(
-      config.security?.disableSecurityHeaders
+      (config.security?.disableSecurityHeaders
         ? new Elysia()
-        : securityMiddleware(),
+        : securityMiddleware()) as unknown as AnyElysia,
     )
     .use(
       rateLimitMiddleware({
         max: config.security?.rateLimit?.max ?? 100,
         windowMs: config.security?.rateLimit?.windowMs ?? 60000,
-      }),
+      }) as unknown as AnyElysia,
     )
     .use(
       cors({
-        origin: (request) => {
+        origin: (request: Request) => {
           const origin = request.headers.get('origin')
           // Allow requests without origin (same-origin/server-to-server)
           if (!origin) return true
@@ -266,7 +266,7 @@ export function createServer(config: ServerConfig) {
           'x-jeju-timestamp',
           'x-jeju-signature',
         ],
-      }),
+      }) as unknown as AnyElysia,
     )
 
     .get('/.well-known/agent-card.json', () => agentCard)

@@ -52,8 +52,8 @@ function hello() {
 describe('getModelTokenLimit', () => {
   test('returns limit for known models', () => {
     const limits = [
-      getModelTokenLimit('gpt-4o'),
-      getModelTokenLimit('gpt-4-turbo'),
+      getModelTokenLimit('gpt-5'),
+      getModelTokenLimit('gpt-5'),
       getModelTokenLimit('claude-3-5-sonnet'),
       getModelTokenLimit('meta-llama/Llama-3.1-70B-Instruct'),
     ]

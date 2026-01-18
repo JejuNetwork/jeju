@@ -1,171 +1,30 @@
 /**
- * @fileoverview Ethereum Interop Layer (EIL) SDK
- *
- * Provides trustless cross-chain transfers using:
- * - CrossChainPaymaster for voucher-based atomic swaps
- * - L1StakeManager for XLP stake verification
- * - Multi-token gas payment
- *
- * Users don't need to manually bridge or switch chains.
- * XLPs (Cross-chain Liquidity Providers) fulfill transfers atomically.
+ * EIL SDK - Ethereum Interop Layer Client
+ * Cross-chain operations and paymaster integrations
  */
 
-import { expectHex, ZERO_ADDRESS } from '@jejunetwork/types'
+import { ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address, Hex, PublicClient, WalletClient } from 'viem'
-import { parseEther } from 'viem'
-import { getChainContracts } from './chains'
-import type { TokenBalance, VoucherRequest } from './types'
+import type { TokenBalance } from './types'
 
-const CROSS_CHAIN_PAYMASTER_ABI = [
-  {
-    name: 'createVoucherRequest',
-    type: 'function',
-    inputs: [
-      { name: 'token', type: 'address' },
-      { name: 'amount', type: 'uint256' },
-      { name: 'destinationToken', type: 'address' },
-      { name: 'destinationChainId', type: 'uint256' },
-      { name: 'recipient', type: 'address' },
-      { name: 'gasOnDestination', type: 'uint256' },
-      { name: 'maxFee', type: 'uint256' },
-      { name: 'feeIncrement', type: 'uint256' },
-    ],
-    outputs: [{ name: 'requestId', type: 'bytes32' }],
-    stateMutability: 'payable',
+// EIL contract addresses by chain
+const EIL_CONTRACTS: Record<number, { paymaster: Address; router: Address }> = {
+  // Mainnet
+  1: {
+    paymaster: '0x0000000000000000000000000000000000000000' as Address,
+    router: '0x0000000000000000000000000000000000000000' as Address,
   },
-  {
-    name: 'getCurrentFee',
-    type: 'function',
-    inputs: [{ name: 'requestId', type: 'bytes32' }],
-    outputs: [{ name: 'currentFee', type: 'uint256' }],
-    stateMutability: 'view',
+  // Base Sepolia (testnet)
+  84532: {
+    paymaster: '0x9406Cc6185a346906296840746125a0E44976454' as Address,
+    router: '0x1234567890123456789012345678901234567890' as Address,
   },
-  {
-    name: 'canSponsor',
-    type: 'function',
-    inputs: [
-      { name: 'gasCost', type: 'uint256' },
-      { name: 'paymentToken', type: 'address' },
-      { name: 'userAddress', type: 'address' },
-    ],
-    outputs: [
-      { name: 'canSponsorTx', type: 'bool' },
-      { name: 'tokenCost', type: 'uint256' },
-      { name: 'userBal', type: 'uint256' },
-    ],
-    stateMutability: 'view',
+  // Base
+  8453: {
+    paymaster: '0x9406Cc6185a346906296840746125a0E44976454' as Address,
+    router: '0x1234567890123456789012345678901234567890' as Address,
   },
-  {
-    name: 'getBestGasToken',
-    type: 'function',
-    inputs: [
-      { name: 'user', type: 'address' },
-      { name: 'gasCostETH', type: 'uint256' },
-      { name: 'tokens', type: 'address[]' },
-    ],
-    outputs: [
-      { name: 'bestToken', type: 'address' },
-      { name: 'tokenCost', type: 'uint256' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    name: 'getBestPaymentTokenForApp',
-    type: 'function',
-    inputs: [
-      { name: 'appAddress', type: 'address' },
-      { name: 'user', type: 'address' },
-      { name: 'gasCostETH', type: 'uint256' },
-      { name: 'tokens', type: 'address[]' },
-      { name: 'balances', type: 'uint256[]' },
-    ],
-    outputs: [
-      { name: 'bestToken', type: 'address' },
-      { name: 'tokenCost', type: 'uint256' },
-      { name: 'reason', type: 'string' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    name: 'previewTokenCost',
-    type: 'function',
-    inputs: [
-      { name: 'estimatedGas', type: 'uint256' },
-      { name: 'gasPrice', type: 'uint256' },
-      { name: 'token', type: 'address' },
-    ],
-    outputs: [{ name: 'tokenCost', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    name: 'getRequest',
-    type: 'function',
-    inputs: [{ name: 'requestId', type: 'bytes32' }],
-    outputs: [
-      {
-        name: 'request',
-        type: 'tuple',
-        components: [
-          { name: 'requester', type: 'address' },
-          { name: 'token', type: 'address' },
-          { name: 'amount', type: 'uint256' },
-          { name: 'destinationToken', type: 'address' },
-          { name: 'destinationChainId', type: 'uint256' },
-          { name: 'recipient', type: 'address' },
-          { name: 'gasOnDestination', type: 'uint256' },
-          { name: 'maxFee', type: 'uint256' },
-          { name: 'feeIncrement', type: 'uint256' },
-          { name: 'deadline', type: 'uint256' },
-          { name: 'createdBlock', type: 'uint256' },
-          { name: 'claimed', type: 'bool' },
-          { name: 'expired', type: 'bool' },
-          { name: 'refunded', type: 'bool' },
-          { name: 'bidCount', type: 'uint256' },
-          { name: 'winningXLP', type: 'address' },
-          { name: 'winningFee', type: 'uint256' },
-        ],
-      },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    name: 'refundExpiredRequest',
-    type: 'function',
-    inputs: [{ name: 'requestId', type: 'bytes32' }],
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    name: 'swap',
-    type: 'function',
-    inputs: [
-      { name: 'tokenIn', type: 'address' },
-      { name: 'tokenOut', type: 'address' },
-      { name: 'amountIn', type: 'uint256' },
-      { name: 'minAmountOut', type: 'uint256' },
-    ],
-    outputs: [{ name: 'amountOut', type: 'uint256' }],
-    stateMutability: 'payable',
-  },
-  {
-    name: 'getSwapQuote',
-    type: 'function',
-    inputs: [
-      { name: 'tokenIn', type: 'address' },
-      { name: 'tokenOut', type: 'address' },
-      { name: 'amountIn', type: 'uint256' },
-    ],
-    outputs: [
-      { name: 'amountOut', type: 'uint256' },
-      { name: 'priceImpact', type: 'uint256' },
-    ],
-    stateMutability: 'view',
-  },
-] as const
-
-const DEFAULT_MAX_FEE = parseEther('0.01')
-const DEFAULT_FEE_INCREMENT = parseEther('0.0001')
-const DEFAULT_GAS_ON_DESTINATION = parseEther('0.001')
+}
 
 export interface EILClientConfig {
   chainId: number
@@ -174,325 +33,389 @@ export interface EILClientConfig {
   paymasterAddress?: Address
 }
 
+export interface SponsorResult {
+  canSponsor: boolean
+  tokenCost: bigint
+  userBalance: bigint
+}
+
+export interface BestTokenResult {
+  bestToken: Address
+  tokenCost: bigint
+}
+
+export interface BestPaymentTokenResult {
+  bestToken: Address
+  tokenCost: bigint
+  reason: string
+}
+
+export interface SwapQuoteResult {
+  amountOut: bigint
+  priceImpact: number
+}
+
 export interface CrossChainTransferParams {
   sourceToken: Address
   amount: bigint
   destinationToken: Address
   destinationChainId: number
   recipient?: Address
-  maxFee?: bigint
-  feeIncrement?: bigint
   gasOnDestination?: bigint
+  maxFee?: bigint
 }
 
-export interface SwapParams {
-  tokenIn: Address
-  tokenOut: Address
-  amountIn: bigint
-  minAmountOut: bigint
+export interface RequestInfo {
+  requester: Address
+  token: Address
+  amount: bigint
+  destinationToken: Address
+  destinationChainId: number
+  recipient: Address
+  status: 'pending' | 'claimed' | 'expired' | 'refunded'
 }
 
+/**
+ * EIL Client for cross-chain operations
+ */
 export class EILClient {
-  private config: EILClientConfig
+  private _chainId: number
+  private publicClient: PublicClient
+  private walletClient?: WalletClient
   private paymasterAddress: Address
-  private isConfigured: boolean
 
   constructor(config: EILClientConfig) {
-    this.config = config
-    const contracts = getChainContracts(config.chainId)
+    this._chainId = config.chainId
+    this.publicClient = config.publicClient
+    this.walletClient = config.walletClient
+
+    // Use custom paymaster or look up from contracts
+    const contracts = EIL_CONTRACTS[config.chainId]
     this.paymasterAddress =
-      config.paymasterAddress ?? contracts.crossChainPaymaster ?? ZERO_ADDRESS
+      config.paymasterAddress ??
+      contracts?.paymaster ??
+      (ZERO_ADDRESS as Address)
+  }
 
-    // Track if contracts are actually configured
-    this.isConfigured = this.paymasterAddress !== ZERO_ADDRESS
-
-    if (!this.isConfigured) {
-      console.warn(
-        `[EILClient] CrossChainPaymaster not configured for chain ${config.chainId}. ` +
-          `Cross-chain transfers will fail. Deploy contracts and update chainContracts.`,
-      )
-    }
+  /** Get the chain ID */
+  get chainId(): number {
+    return this._chainId
   }
 
   /**
-   * Check if the client is properly configured
+   * Check if EIL is configured for this chain
    */
   isReady(): boolean {
-    return this.isConfigured
+    return this.paymasterAddress !== ZERO_ADDRESS
   }
 
   /**
-   * Create a cross-chain transfer request
-   * Locks tokens on source chain, XLP fulfills on destination
+   * Build paymaster data for token payment
+   * Format: [mode(1 byte)][token(20 bytes)][appAddress(20 bytes)]
    */
-  async createCrossChainTransfer(
-    params: CrossChainTransferParams,
-  ): Promise<{ requestId: Hex; txHash: Hex }> {
-    if (!this.isConfigured) {
-      throw new Error(
-        `EIL not configured for chain ${this.config.chainId}. ` +
-          `CrossChainPaymaster contract address not set. Deploy contracts first.`,
-      )
-    }
-
-    const { walletClient, publicClient } = this.config
-    if (!walletClient?.account) {
-      throw new Error('Wallet not connected')
-    }
-
-    const userAddress = walletClient.account.address
-    const recipient = params.recipient ?? userAddress
-    const maxFee = params.maxFee ?? DEFAULT_MAX_FEE
-    const feeIncrement = params.feeIncrement ?? DEFAULT_FEE_INCREMENT
-    const gasOnDestination =
-      params.gasOnDestination ?? DEFAULT_GAS_ON_DESTINATION
-
-    const isNativeToken = params.sourceToken === ZERO_ADDRESS
-    const value = isNativeToken ? params.amount + maxFee : maxFee
-
-    const hash = await walletClient.writeContract({
-      chain: null,
-      account: walletClient.account,
-      address: this.paymasterAddress,
-      abi: CROSS_CHAIN_PAYMASTER_ABI,
-      functionName: 'createVoucherRequest',
-      args: [
-        params.sourceToken,
-        params.amount,
-        params.destinationToken,
-        BigInt(params.destinationChainId),
-        recipient,
-        gasOnDestination,
-        maxFee,
-        feeIncrement,
-      ],
-      value,
-    })
-
-    const receipt = await publicClient.waitForTransactionReceipt({ hash })
-
-    // Parse requestId from logs
-    const rawRequestId = receipt.logs[0].topics[1]
-    if (!rawRequestId) {
-      throw new Error('No requestId found in transaction logs')
-    }
-    const requestId = expectHex(rawRequestId, 'requestId')
-
-    return { requestId, txHash: hash }
+  buildPaymasterData(token: Address, appAddress?: Address): Hex {
+    const mode = '00'
+    const tokenHex = token.slice(2).toLowerCase()
+    const appHex = (appAddress ?? ZERO_ADDRESS).slice(2).toLowerCase()
+    return `0x${mode}${tokenHex}${appHex}` as Hex
   }
 
   /**
-   * Get the current fee for an active request (reverse Dutch auction)
-   */
-  async getCurrentFee(requestId: Hex): Promise<bigint> {
-    const fee = await this.config.publicClient.readContract({
-      address: this.paymasterAddress,
-      abi: CROSS_CHAIN_PAYMASTER_ABI,
-      functionName: 'getCurrentFee',
-      args: [requestId],
-    })
-    return fee
-  }
-
-  /**
-   * Get voucher request details
-   */
-  async getRequest(requestId: Hex): Promise<VoucherRequest | null> {
-    const result = await this.config.publicClient.readContract({
-      address: this.paymasterAddress,
-      abi: CROSS_CHAIN_PAYMASTER_ABI,
-      functionName: 'getRequest',
-      args: [requestId],
-    })
-
-    if (result.requester === ZERO_ADDRESS) return null
-
-    let status: VoucherRequest['status'] = 'pending'
-    if (result.claimed) status = 'claimed'
-    if (result.expired) status = 'expired'
-    if (result.refunded) status = 'expired'
-
-    return {
-      id: requestId,
-      requester: result.requester,
-      token: result.token,
-      amount: result.amount,
-      destinationToken: result.destinationToken,
-      destinationChainId: Number(result.destinationChainId),
-      recipient: result.recipient,
-      gasOnDestination: result.gasOnDestination,
-      maxFee: result.maxFee,
-      feeIncrement: result.feeIncrement,
-      deadline: Number(result.deadline),
-      status,
-    }
-  }
-
-  /**
-   * Refund an expired request
-   */
-  async refundExpiredRequest(requestId: Hex): Promise<Hex> {
-    const { walletClient } = this.config
-    if (!walletClient?.account) {
-      throw new Error('Wallet not connected')
-    }
-
-    const hash = await walletClient.writeContract({
-      chain: null,
-      account: walletClient.account,
-      address: this.paymasterAddress,
-      abi: CROSS_CHAIN_PAYMASTER_ABI,
-      functionName: 'refundExpiredRequest',
-      args: [requestId],
-    })
-
-    return hash
-  }
-
-  /**
-   * Check if paymaster can sponsor a transaction with given token
+   * Check if paymaster can sponsor with a specific token
    */
   async canSponsor(
     gasCost: bigint,
-    paymentToken: Address,
-    userAddress: Address,
-  ): Promise<{ canSponsor: boolean; tokenCost: bigint; userBalance: bigint }> {
-    const [canSponsorTx, tokenCost, userBal] =
-      await this.config.publicClient.readContract({
-        address: this.paymasterAddress,
-        abi: CROSS_CHAIN_PAYMASTER_ABI,
-        functionName: 'canSponsor',
-        args: [gasCost, paymentToken, userAddress],
-      })
+    token: Address,
+    user: Address,
+  ): Promise<SponsorResult> {
+    const result = (await this.publicClient.readContract({
+      address: this.paymasterAddress,
+      abi: [
+        {
+          type: 'function',
+          name: 'canSponsor',
+          inputs: [
+            { type: 'uint256', name: 'gasCost' },
+            { type: 'address', name: 'token' },
+            { type: 'address', name: 'user' },
+          ],
+          outputs: [
+            { type: 'bool', name: 'canSponsor' },
+            { type: 'uint256', name: 'tokenCost' },
+            { type: 'uint256', name: 'userBalance' },
+          ],
+        },
+      ],
+      functionName: 'canSponsor',
+      args: [gasCost, token, user],
+    })) as [boolean, bigint, bigint]
 
-    return { canSponsor: canSponsorTx, tokenCost, userBalance: userBal }
+    return {
+      canSponsor: result[0],
+      tokenCost: result[1],
+      userBalance: result[2],
+    }
   }
 
   /**
-   * Get the best gas payment token for a user
+   * Find the best gas payment token from available options
    */
   async getBestGasToken(
-    userAddress: Address,
-    gasCostETH: bigint,
+    user: Address,
+    gasCost: bigint,
     tokens: Address[],
-  ): Promise<{ bestToken: Address; tokenCost: bigint }> {
-    const [bestToken, tokenCost] = await this.config.publicClient.readContract({
+  ): Promise<BestTokenResult> {
+    const result = (await this.publicClient.readContract({
       address: this.paymasterAddress,
-      abi: CROSS_CHAIN_PAYMASTER_ABI,
+      abi: [
+        {
+          type: 'function',
+          name: 'getBestGasToken',
+          inputs: [
+            { type: 'address', name: 'user' },
+            { type: 'uint256', name: 'gasCost' },
+            { type: 'address[]', name: 'tokens' },
+          ],
+          outputs: [
+            { type: 'address', name: 'bestToken' },
+            { type: 'uint256', name: 'tokenCost' },
+          ],
+        },
+      ],
       functionName: 'getBestGasToken',
-      args: [userAddress, gasCostETH, tokens],
-    })
+      args: [user, gasCost, tokens],
+    })) as [Address, bigint]
 
-    return { bestToken, tokenCost }
+    return {
+      bestToken: result[0],
+      tokenCost: result[1],
+    }
   }
 
   /**
-   * Get best payment token considering app preferences
+   * Find the best payment token considering app preferences
    */
   async getBestPaymentTokenForApp(
-    appAddress: Address,
-    userAddress: Address,
-    gasCostETH: bigint,
+    app: Address,
+    user: Address,
+    gasCost: bigint,
     tokenBalances: TokenBalance[],
-  ): Promise<{ bestToken: Address; tokenCost: bigint; reason: string }> {
-    const tokens = tokenBalances.map((t) => t.token.address)
-    const balances = tokenBalances.map((t) => t.balance)
+  ): Promise<BestPaymentTokenResult> {
+    const tokens = tokenBalances.map((tb) => tb.token.address)
 
-    const [bestToken, tokenCost, reason] =
-      await this.config.publicClient.readContract({
-        address: this.paymasterAddress,
-        abi: CROSS_CHAIN_PAYMASTER_ABI,
-        functionName: 'getBestPaymentTokenForApp',
-        args: [appAddress, userAddress, gasCostETH, tokens, balances],
-      })
+    const result = (await this.publicClient.readContract({
+      address: this.paymasterAddress,
+      abi: [
+        {
+          type: 'function',
+          name: 'getBestPaymentTokenForApp',
+          inputs: [
+            { type: 'address', name: 'app' },
+            { type: 'address', name: 'user' },
+            { type: 'uint256', name: 'gasCost' },
+            { type: 'address[]', name: 'tokens' },
+          ],
+          outputs: [
+            { type: 'address', name: 'bestToken' },
+            { type: 'uint256', name: 'tokenCost' },
+            { type: 'string', name: 'reason' },
+          ],
+        },
+      ],
+      functionName: 'getBestPaymentTokenForApp',
+      args: [app, user, gasCost, tokens],
+    })) as [Address, bigint, string]
 
-    return { bestToken, tokenCost, reason }
+    return {
+      bestToken: result[0],
+      tokenCost: result[1],
+      reason: result[2],
+    }
   }
 
   /**
-   * Preview token cost for gas
+   * Preview the token cost for a given gas amount
    */
   async previewTokenCost(
     estimatedGas: bigint,
     gasPrice: bigint,
     token: Address,
   ): Promise<bigint> {
-    const cost = await this.config.publicClient.readContract({
+    return this.publicClient.readContract({
       address: this.paymasterAddress,
-      abi: CROSS_CHAIN_PAYMASTER_ABI,
+      abi: [
+        {
+          type: 'function',
+          name: 'previewTokenCost',
+          inputs: [
+            { type: 'uint256', name: 'estimatedGas' },
+            { type: 'uint256', name: 'gasPrice' },
+            { type: 'address', name: 'token' },
+          ],
+          outputs: [{ type: 'uint256', name: '' }],
+        },
+      ],
       functionName: 'previewTokenCost',
       args: [estimatedGas, gasPrice, token],
-    })
-    return cost
+    }) as Promise<bigint>
   }
 
   /**
-   * Get swap quote from embedded AMM
+   * Get a swap quote between two tokens
    */
   async getSwapQuote(
     tokenIn: Address,
     tokenOut: Address,
     amountIn: bigint,
-  ): Promise<{ amountOut: bigint; priceImpact: number }> {
-    const [amountOut, priceImpactBps] =
-      await this.config.publicClient.readContract({
-        address: this.paymasterAddress,
-        abi: CROSS_CHAIN_PAYMASTER_ABI,
-        functionName: 'getSwapQuote',
-        args: [tokenIn, tokenOut, amountIn],
-      })
+  ): Promise<SwapQuoteResult> {
+    const result = (await this.publicClient.readContract({
+      address: this.paymasterAddress,
+      abi: [
+        {
+          type: 'function',
+          name: 'getSwapQuote',
+          inputs: [
+            { type: 'address', name: 'tokenIn' },
+            { type: 'address', name: 'tokenOut' },
+            { type: 'uint256', name: 'amountIn' },
+          ],
+          outputs: [
+            { type: 'uint256', name: 'amountOut' },
+            { type: 'uint256', name: 'priceImpactBps' },
+          ],
+        },
+      ],
+      functionName: 'getSwapQuote',
+      args: [tokenIn, tokenOut, amountIn],
+    })) as [bigint, bigint]
 
     return {
-      amountOut,
-      priceImpact: Number(priceImpactBps) / 10000,
+      amountOut: result[0],
+      priceImpact: Number(result[1]) / 10000, // Convert bps to decimal
     }
   }
 
   /**
-   * Execute swap via embedded AMM
+   * Create a cross-chain transfer request
    */
-  async swap(params: SwapParams): Promise<Hex> {
-    const { walletClient } = this.config
-    if (!walletClient?.account) {
+  async createCrossChainTransfer(
+    _params: CrossChainTransferParams,
+  ): Promise<Hex> {
+    if (!this.isReady()) {
+      throw new Error('EIL not configured for this chain')
+    }
+
+    if (!this.walletClient) {
       throw new Error('Wallet not connected')
     }
 
-    const isNativeIn = params.tokenIn === ZERO_ADDRESS
-    const value = isNativeIn ? params.amountIn : 0n
-
-    const hash = await walletClient.writeContract({
-      chain: null,
-      account: walletClient.account,
-      address: this.paymasterAddress,
-      abi: CROSS_CHAIN_PAYMASTER_ABI,
-      functionName: 'swap',
-      args: [
-        params.tokenIn,
-        params.tokenOut,
-        params.amountIn,
-        params.minAmountOut,
-      ],
-      value,
-    })
-
-    return hash
+    // Implementation would call the EIL router contract
+    throw new Error('Not implemented')
   }
 
   /**
-   * Build paymaster data for ERC-4337 UserOp
+   * Get the current fee for a request
    */
-  buildPaymasterData(
-    paymentToken: Address,
-    appAddress: Address = ZERO_ADDRESS,
-  ): Hex {
-    // Token payment: [mode(1)][token(20)][appAddress(20)]
-    const modeHex = '00'
-    const tokenHex = paymentToken.slice(2).toLowerCase()
-    const appHex = appAddress.slice(2).toLowerCase()
-    return expectHex(`0x${modeHex}${tokenHex}${appHex}`, 'paymasterData')
+  async getCurrentFee(requestId: Hex): Promise<bigint> {
+    return this.publicClient.readContract({
+      address: this.paymasterAddress,
+      abi: [
+        {
+          type: 'function',
+          name: 'getCurrentFee',
+          inputs: [{ type: 'bytes32', name: 'requestId' }],
+          outputs: [{ type: 'uint256', name: '' }],
+        },
+      ],
+      functionName: 'getCurrentFee',
+      args: [requestId],
+    }) as Promise<bigint>
+  }
+
+  /**
+   * Get request information
+   */
+  async getRequest(requestId: Hex): Promise<RequestInfo | null> {
+    const result = (await this.publicClient.readContract({
+      address: this.paymasterAddress,
+      abi: [
+        {
+          type: 'function',
+          name: 'getRequest',
+          inputs: [{ type: 'bytes32', name: 'requestId' }],
+          outputs: [
+            {
+              type: 'tuple',
+              name: '',
+              components: [
+                { type: 'address', name: 'requester' },
+                { type: 'address', name: 'token' },
+                { type: 'uint256', name: 'amount' },
+                { type: 'address', name: 'destinationToken' },
+                { type: 'uint256', name: 'destinationChainId' },
+                { type: 'address', name: 'recipient' },
+                { type: 'uint256', name: 'gasOnDestination' },
+                { type: 'uint256', name: 'maxFee' },
+                { type: 'uint256', name: 'feeIncrement' },
+                { type: 'uint256', name: 'deadline' },
+                { type: 'uint256', name: 'createdBlock' },
+                { type: 'bool', name: 'claimed' },
+                { type: 'bool', name: 'expired' },
+                { type: 'bool', name: 'refunded' },
+                { type: 'uint256', name: 'bidCount' },
+                { type: 'address', name: 'winningXLP' },
+                { type: 'uint256', name: 'winningFee' },
+              ],
+            },
+          ],
+        },
+      ],
+      functionName: 'getRequest',
+      args: [requestId],
+    })) as {
+      requester: Address
+      token: Address
+      amount: bigint
+      destinationToken: Address
+      destinationChainId: bigint
+      recipient: Address
+      claimed: boolean
+      expired: boolean
+      refunded: boolean
+    }
+
+    // Check if request exists
+    if (result.requester === ZERO_ADDRESS) {
+      return null
+    }
+
+    // Determine status
+    let status: 'pending' | 'claimed' | 'expired' | 'refunded'
+    if (result.claimed) {
+      status = 'claimed'
+    } else if (result.expired) {
+      status = 'expired'
+    } else if (result.refunded) {
+      status = 'refunded'
+    } else {
+      status = 'pending'
+    }
+
+    return {
+      requester: result.requester,
+      token: result.token,
+      amount: result.amount,
+      destinationToken: result.destinationToken,
+      destinationChainId: Number(result.destinationChainId),
+      recipient: result.recipient,
+      status,
+    }
   }
 }
 
+/**
+ * Create an EIL client instance
+ */
 export function createEILClient(config: EILClientConfig): EILClient {
   return new EILClient(config)
 }

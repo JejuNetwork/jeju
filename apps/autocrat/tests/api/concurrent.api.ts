@@ -100,7 +100,7 @@ test.describe('Parallel Request Handling', () => {
     const operations = [
       sendA2A(request, 'get-governance-stats'),
       sendA2A(request, 'get-autocrat-status'),
-      sendA2A(request, 'get-ceo-status'),
+      sendA2A(request, 'get-director-status'),
       request.get(`${AUTOCRAT_URL}/health`),
       request.post(`${AUTOCRAT_URL}/mcp/tools/list`),
       sendA2A(request, 'assess-proposal', {

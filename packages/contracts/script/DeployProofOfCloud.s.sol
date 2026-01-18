@@ -94,8 +94,7 @@ contract DeployProofOfCloud is Script {
             return signers;
         }
 
-        // Parse comma-separated addresses
-        // Note: This is a simplified parser - in production use a proper parser
+        // Parse comma-separated addresses (simplified parser)
         return _parseAddresses(signersEnv);
     }
 

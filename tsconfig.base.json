@@ -19,8 +19,8 @@
     "declarationMap": true,
     "sourceMap": true,
     "downlevelIteration": true,
-    "types": ["bun"],
-    "typeRoots": ["./node_modules/@types", "./node_modules/bun-types"]
+    "jsx": "react-jsx",
+    "types": ["bun"]
   },
   "exclude": [
     "node_modules/@types/web",

@@ -72,7 +72,7 @@ WorkerTracer::~WorkerTracer() noexcept(false) {
       // (which is not incorrect behavior, but likely indicates inefficient code that sets up
       // WorkerInterfaces and then ends up not using it due to an error/incorrect parameters; such
       // error checking should be done beforehand to avoid unused allocations). Report such cases.
-      // Note: If markedUnused is true, this tracer was intentionally not used (e.g., duplicate
+      // If markedUnused is true, this tracer was intentionally not used (e.g., duplicate
       // alarm request deduplication) and the warning should be suppressed.
       LOG_ERROR_PERIODICALLY(
           "destructed WorkerTracer with STW without reporting Onset event", kj::getStackTrace());
@@ -129,7 +129,7 @@ void WorkerTracer::addSpan(tracing::CompleteSpan&& span) {
     return;
   }
 
-  // Note: spans are not available in the buffered tail worker, so we don't need an exceededSpanLimit
+  // Spans are not available in the buffered tail worker, so we don't need an exceededSpanLimit
   // variable for it and it can't cause truncation.
   auto& tailStreamWriter = KJ_UNWRAP_OR_RETURN(maybeTailStreamWriter);
 

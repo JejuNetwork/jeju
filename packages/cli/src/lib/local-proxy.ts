@@ -63,7 +63,7 @@ function buildServicesFromApps(): Record<string, number> {
   // OAuth3 authentication:
   // - auth.local → authentication gateway API (port 4200)
   // - oauth3.local → authentication gateway API (port 4200) - also serves frontend
-  // Note: The API server on 4200 serves both API endpoints and frontend HTML
+  // The API server on 4200 serves both API endpoints and frontend HTML
   services.auth = 4200
   services.oauth3 = 4200
 
@@ -364,10 +364,8 @@ const DIRECT_ROUTE_SERVICES = new Set([
   'indexer', // Indexer serves its own frontend
   'git', // JejuGit - routes to DWS
   'pkg', // JejuPkg - routes to DWS
-  'auth', // OAuth3 authentication gateway API
-  'oauth3', // OAuth3 lander/frontend page
   'vpn', // VPN app - serves its own frontend in dev
-  // Note: 'dws' is NOT here - it has a frontend served via JNS Gateway
+  // 'dws' is NOT here - it has a frontend served via JNS Gateway
 ])
 
 // Services that need hybrid routing (frontend + API on same domain)
@@ -401,7 +399,6 @@ const HYBRID_SERVICES: Record<string, { port: number; apiPaths: string[] }> = {
       '/registry/*',
       '/k3s/*',
       '/helm/*',
-      '/terraform/*',
       '/ingress/*',
       '/mesh/*',
       '/containers/*',
@@ -428,6 +425,10 @@ const HYBRID_SERVICES: Record<string, { port: number; apiPaths: string[] }> = {
       '/ws/*',
     ],
   },
+  bazaar: {
+    port: 4007,
+    apiPaths: ['/api/*', '/health', '/.well-known/*'],
+  },
 }
 
 export function generateCaddyfile(config: ProxyConfig = {}): string {
@@ -436,7 +437,7 @@ export function generateCaddyfile(config: ProxyConfig = {}): string {
   // Use port 80 by default for clean URLs (requires sudo on Unix)
   const proxyPort = config.port || 80
   // JNS Gateway port for app content from IPFS
-  // Note: Port 4302 is used by JNS resolution service, gateway is on 4303
+  // Port 4302 is used by JNS resolution service, gateway is on 4303
   const jnsGatewayPort = 4303
 
   const entries: string[] = [
@@ -1002,8 +1003,8 @@ export async function stopProxy(): Promise<void> {
     await $`rm -f ${PID_FILE}`.nothrow().quiet()
   }
 
-  // Kill any Caddy processes using our config file
-  await $`pkill -f "caddy run --config ${CADDYFILE_PATH}"`.nothrow().quiet()
+  // Kill ALL Caddy processes to ensure clean state
+  await $`pkill caddy`.nothrow().quiet()
 
   // Remove port forwarding rules
   await removePortForwarding()

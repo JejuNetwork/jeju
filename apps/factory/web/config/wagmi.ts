@@ -9,7 +9,7 @@ import { getL2RpcUrl } from '@jejunetwork/config'
 import {
   type ChainConfig,
   createDecentralizedWagmiConfig,
-} from '@jejunetwork/ui/wallet'
+} from '@jejunetwork/ui'
 
 // Network configurations
 const NETWORK_CONFIGS: Record<string, ChainConfig> = {

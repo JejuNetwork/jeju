@@ -15,7 +15,8 @@ import type { BunPlugin, Subprocess } from 'bun'
 
 const APP_DIR = resolve(import.meta.dir, '..')
 const API_PORT = Number(process.env.API_PORT) || 4040
-const FRONTEND_PORT = Number(process.env.PORT) || 4042
+const frontendPortEnv = process.env.FRONTEND_PORT
+const FRONTEND_PORT = frontendPortEnv ? Number(frontendPortEnv) : 4042
 
 interface ProcessInfo {
   name: string
@@ -67,7 +68,14 @@ async function startAPIServer(): Promise<boolean> {
   console.log(`[Autocrat] Starting API server on port ${API_PORT}...`)
 
   const _host = getLocalhostHost()
-  const proc = Bun.spawn(['bun', '--watch', 'api/server.ts'], {
+
+  // LOCALNET ONLY: Anvil's default development key (account[0])
+  // This is the well-known Anvil/Hardhat dev key - NEVER use in production
+  // Production uses KMS-based signing via @jejunetwork/kms
+  const ANVIL_DEV_KEY =
+    '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
+
+  const proc = Bun.spawn(['bun', '--watch', 'api/worker.ts'], {
     cwd: APP_DIR,
     stdout: 'inherit',
     stderr: 'inherit',
@@ -77,6 +85,12 @@ async function startAPIServer(): Promise<boolean> {
       NETWORK: 'localnet',
       TEE_MODE: 'simulated',
       TEE_PLATFORM: 'local',
+      // Ensure correct RPC for localnet
+      RPC_URL: process.env.RPC_URL ?? 'http://127.0.0.1:6546',
+      // LOCALNET ONLY: Use Anvil dev key for local development
+      // Production: KMS handles all signing via SecretVault
+      PRIVATE_KEY: process.env.PRIVATE_KEY ?? ANVIL_DEV_KEY,
+      SQLIT_PRIVATE_KEY: process.env.SQLIT_PRIVATE_KEY ?? ANVIL_DEV_KEY,
     },
   })
 
@@ -124,13 +138,16 @@ const EXTERNALS = [
   'bun:sqlite',
   'node:*',
   'typeorm',
+  '@jejunetwork/auth/providers',
   '@jejunetwork/db',
   '@jejunetwork/dws',
   '@jejunetwork/kms',
   '@jejunetwork/deployment',
   '@jejunetwork/training',
   'elysia',
-  '@elysiajs/*',
+  '@elysiajs/cors',
+  '@elysiajs/swagger',
+  '@elysiajs/static',
   'ioredis',
   'croner',
   'opossum',
@@ -268,9 +285,11 @@ async function startFrontendServer(): Promise<boolean> {
         })
       }
 
-      // Serve CSS from web/
+      // Serve CSS from web/ (pathname like /web/app/globals.css)
       if (pathname.endsWith('.css')) {
-        const cssFile = Bun.file(resolve(APP_DIR, `web${pathname}`))
+        // Strip leading slash and try as-is first (for /web/app/globals.css)
+        const cssPath = pathname.startsWith('/') ? pathname.slice(1) : pathname
+        const cssFile = Bun.file(resolve(APP_DIR, cssPath))
         if (await cssFile.exists()) {
           return new Response(cssFile, {
             headers: {
@@ -331,6 +350,10 @@ function getContentType(path: string): string {
 async function seedJejuDAO(): Promise<void> {
   console.log('[Autocrat] Seeding Jeju DAO...')
 
+  // LOCALNET ONLY: Anvil's default development key (account[0])
+  const ANVIL_DEV_KEY =
+    '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
+
   const proc = Bun.spawn(['bun', 'run', 'scripts/seed.ts', '--skip-wait'], {
     cwd: APP_DIR,
     stdout: 'inherit',
@@ -338,6 +361,11 @@ async function seedJejuDAO(): Promise<void> {
     env: {
       ...process.env,
       AUTOCRAT_API_URL: `http://${getLocalhostHost()}:${API_PORT}`,
+      // Ensure correct RPC for localnet
+      RPC_URL: process.env.RPC_URL ?? 'http://127.0.0.1:6546',
+      // LOCALNET ONLY: Use Anvil dev key for seeding
+      PRIVATE_KEY: process.env.PRIVATE_KEY ?? ANVIL_DEV_KEY,
+      SQLIT_PRIVATE_KEY: process.env.SQLIT_PRIVATE_KEY ?? ANVIL_DEV_KEY,
     },
   })
 

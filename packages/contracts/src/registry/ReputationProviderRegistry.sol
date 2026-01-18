@@ -15,7 +15,7 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
     }
     enum ProposalStatus {
         PENDING,
-        COUNCIL_REVIEW,
+        BOARD_REVIEW,
         APPROVED,
         REJECTED,
         EXECUTED,
@@ -52,8 +52,8 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
         uint256 challengeEnds;
         uint256 timelockEnds;
         ProposalStatus status;
-        bytes32 councilDecisionHash;
-        string councilReason;
+        bytes32 boardDecisionHash;
+        string boardReason;
         bool proposerClaimed;
     }
 
@@ -106,7 +106,7 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
     mapping(bytes32 => mapping(address => uint256)) public userOpinionIndex;
     mapping(bytes32 => mapping(address => bool)) public hasOpined;
 
-    address public councilGovernance;
+    address public boardGovernance;
     address public treasury;
     uint256 public totalProtocolFees;
     uint256 private _nextProposalId;
@@ -128,7 +128,7 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
         bytes32 indexed proposalId, address indexed author, bool inFavor, uint256 stake, string ipfsHash
     );
     event ProposalStatusChanged(bytes32 indexed proposalId, ProposalStatus oldStatus, ProposalStatus newStatus);
-    event CouncilDecision(bytes32 indexed proposalId, bool approved, bytes32 decisionHash, string reason);
+    event BoardDecision(bytes32 indexed proposalId, bool approved, bytes32 decisionHash, string reason);
     event RewardsClaimed(bytes32 indexed proposalId, address indexed claimer, uint256 amount);
     event ProposalCancelled(bytes32 indexed proposalId, address indexed proposer, uint256 penalty);
     event ProviderFeedbackRecorded(address indexed provider, uint256 agentId, uint8 score);
@@ -159,9 +159,9 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
     error NotProposer();
     error CannotCancelAfterReview();
 
-    constructor(address _council, address _treasury, address _owner) Ownable(_owner) {
+    constructor(address _board, address _treasury, address _owner) Ownable(_owner) {
         if (_treasury == address(0)) revert InvalidAddress();
-        councilGovernance = _council;
+        boardGovernance = _board;
         treasury = _treasury;
     }
 
@@ -317,7 +317,7 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
         emit ProposalStatusChanged(id, old, ProposalStatus.CANCELLED);
     }
 
-    function advanceToCouncilReview(bytes32 id) external {
+    function advanceToBoardReview(bytes32 id) external {
         Proposal storage p = proposals[id];
         if (p.createdAt == 0) revert ProposalNotFound();
         if (p.status != ProposalStatus.PENDING) revert ProposalNotPending();
@@ -327,24 +327,24 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
         if (p.forStake + p.againstStake < MIN_QUORUM_STAKE || p.forCount + p.againstCount < MIN_QUORUM_VOTERS) {
             p.status = ProposalStatus.REJECTED;
         } else {
-            p.status = ProposalStatus.COUNCIL_REVIEW;
+            p.status = ProposalStatus.BOARD_REVIEW;
         }
         emit ProposalStatusChanged(id, old, p.status);
     }
 
-    function submitCouncilDecision(bytes32 id, bool approved, bytes32 hash, string calldata reason) external {
-        if (msg.sender != councilGovernance) revert NotAuthorized();
+    function submitBoardDecision(bytes32 id, bool approved, bytes32 hash, string calldata reason) external {
+        if (msg.sender != boardGovernance) revert NotAuthorized();
         Proposal storage p = proposals[id];
         if (p.createdAt == 0) revert ProposalNotFound();
-        if (p.status != ProposalStatus.COUNCIL_REVIEW) revert ProposalNotInReview();
+        if (p.status != ProposalStatus.BOARD_REVIEW) revert ProposalNotInReview();
 
-        p.councilDecisionHash = hash;
-        p.councilReason = reason;
+        p.boardDecisionHash = hash;
+        p.boardReason = reason;
         ProposalStatus old = p.status;
         p.status = approved ? ProposalStatus.APPROVED : ProposalStatus.REJECTED;
         if (approved) p.timelockEnds = block.timestamp + TIMELOCK_PERIOD;
 
-        emit CouncilDecision(id, approved, hash, reason);
+        emit BoardDecision(id, approved, hash, reason);
         emit ProposalStatusChanged(id, old, p.status);
     }
 
@@ -593,9 +593,9 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
         _addProvider(addr, name, desc, weight);
     }
 
-    function setCouncilGovernance(address v) external onlyOwner {
-        emit ConfigUpdated("council", councilGovernance, v);
-        councilGovernance = v;
+    function setBoardGovernance(address v) external onlyOwner {
+        emit ConfigUpdated("board", boardGovernance, v);
+        boardGovernance = v;
     }
 
     function setTreasury(address v) external onlyOwner {
@@ -623,11 +623,11 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
     function emergencyRejectProposal(bytes32 id, string calldata reason) external onlyOwner {
         Proposal storage p = proposals[id];
         if (p.createdAt == 0) revert ProposalNotFound();
-        if (p.status != ProposalStatus.COUNCIL_REVIEW) revert ProposalNotInReview();
+        if (p.status != ProposalStatus.BOARD_REVIEW) revert ProposalNotInReview();
         require(block.timestamp > p.challengeEnds + 30 days, "Not stuck");
         ProposalStatus old = p.status;
         p.status = ProposalStatus.REJECTED;
-        p.councilReason = reason;
+        p.boardReason = reason;
         emit ProposalStatusChanged(id, old, ProposalStatus.REJECTED);
     }
 

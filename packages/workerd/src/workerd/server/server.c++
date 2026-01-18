@@ -2848,8 +2848,8 @@ class Server::WorkerService final: public Service,
             vfs(*directory) {}
     };
 
-    // Note: The Vfs must not be torn down until all actors have been torn down, so we have to
-    //   declare `actorStorage` before `actors`.
+    // The Vfs must not be torn down until all actors have been torn down, so we have to
+    // declare `actorStorage` before `actors`.
     kj::Maybe<ActorStorage> actorStorage;
 
     // If the actor is broken, we remove it from the map. However, if it's just evicted due to

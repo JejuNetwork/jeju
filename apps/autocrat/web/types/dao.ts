@@ -71,7 +71,7 @@ export interface AgentContext {
 
 // Agent role types
 export type AgentRole =
-  | 'CEO'
+  | 'Director'
   | 'TREASURY'
   | 'CODE'
   | 'COMMUNITY'
@@ -146,8 +146,8 @@ export interface DAOListItem {
   avatarCid: string
   status: DAOStatus
   visibility: DAOVisibility
-  ceoName: string
-  ceoAvatarCid: string
+  directorName: string
+  directorAvatarCid: string
   boardMemberCount: number
   proposalCount: number
   activeProposalCount: number
@@ -168,12 +168,12 @@ export interface DAODetail {
   status: DAOStatus
   visibility: DAOVisibility
   treasury: Address
-  council: Address
-  ceoAgentContract: Address
+  board: Address
+  directorAgentContract: Address
   feeConfig: Address
   manifestCid: string
-  ceo: DAOAgent
-  board: DAOAgent[]
+  director: DAOAgent
+  boardAgents: DAOAgent[]
   governanceParams: GovernanceParams
   fundingConfig: FundingConfig
   networkPermissions: NetworkPermissions
@@ -193,12 +193,12 @@ export interface DAODetail {
 
 export interface GovernanceParams {
   minQualityScore: number
-  councilVotingPeriod: number
+  boardVotingPeriod: number
   gracePeriod: number
   minProposalStake: string
   quorumBps: number
   minBoardApprovals: number
-  ceoVetoEnabled: boolean
+  directorVetoEnabled: boolean
   communityVetoEnabled: boolean
   vetoThreshold: number
 }
@@ -210,7 +210,7 @@ export interface FundingConfig {
   cooldownPeriod: number
   matchingMultiplier: number
   quadraticEnabled: boolean
-  ceoWeightCap: number
+  directorWeightCap: number
   treasuryFeePercent: number
 }
 
@@ -224,7 +224,7 @@ export interface DAOStats {
   uniqueProposers: number
   averageQualityScore: number
   averageApprovalTime: number
-  ceoApprovalRate: number
+  directorApprovalRate: number
   boardApprovalRate: number
 }
 
@@ -237,7 +237,7 @@ export interface CreateDAODraft {
   bannerCid: string
   visibility: DAOVisibility
   treasury: Address
-  ceo: CreateAgentDraft
+  director: CreateAgentDraft
   board: CreateAgentDraft[]
   governanceParams: GovernanceParams
   farcasterChannel?: string
@@ -289,7 +289,7 @@ export type ProposalStatus =
   | 'board_review'
   | 'research'
   | 'board_final'
-  | 'ceo_queue'
+  | 'director_queue'
   | 'approved'
   | 'executing'
   | 'completed'
@@ -308,7 +308,7 @@ export interface BoardVote {
   votedAt: number
 }
 
-export interface CEODecision {
+export interface DirectorDecision {
   approved: boolean
   reasoning: string
   conditions: string[]
@@ -331,7 +331,7 @@ export interface ProposalListItem {
   boardApprovals: number
   boardRejections: number
   totalBoardMembers: number
-  ceoApproved?: boolean
+  directorApproved?: boolean
   createdAt: number
   updatedAt: number
   tags: string[]
@@ -343,7 +343,7 @@ export interface ProposalDetail extends ProposalListItem {
   calldata?: string
   value?: string
   boardVotes: BoardVote[]
-  ceoDecision?: CEODecision
+  directorDecision?: DirectorDecision
   researchReport?: ResearchReport
   farcasterCasts: FarcasterCast[]
   backers: BackerInfo[]
@@ -421,12 +421,12 @@ export interface ModelOption {
 // Default governance params
 export const DEFAULT_GOVERNANCE_PARAMS: GovernanceParams = {
   minQualityScore: 70,
-  councilVotingPeriod: 86400 * 3, // 3 days
+  boardVotingPeriod: 86400 * 3, // 3 days
   gracePeriod: 86400, // 1 day
   minProposalStake: '0.01',
   quorumBps: 5000, // 50%
   minBoardApprovals: 2,
-  ceoVetoEnabled: true,
+  directorVetoEnabled: true,
   communityVetoEnabled: true,
   vetoThreshold: 33, // 33%
 }
@@ -439,7 +439,7 @@ export const DEFAULT_FUNDING_CONFIG: FundingConfig = {
   cooldownPeriod: 86400 * 7, // 7 days
   matchingMultiplier: 2,
   quadraticEnabled: true,
-  ceoWeightCap: 50, // 50% max CEO influence
+  directorWeightCap: 50, // 50% max Director influence
   treasuryFeePercent: 5,
 }
 
@@ -448,8 +448,8 @@ export const BOARD_ROLE_PRESETS: Record<
   AgentRole,
   { name: string; description: string; defaultPersonality: string }
 > = {
-  CEO: {
-    name: 'CEO',
+  Director: {
+    name: 'Director',
     description: 'Final decision maker for the DAO',
     defaultPersonality: 'Decisive, strategic, mission-focused, fair but firm',
   },

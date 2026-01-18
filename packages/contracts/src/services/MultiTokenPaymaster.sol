@@ -9,6 +9,10 @@ import {BasePaymaster} from "account-abstraction/core/BasePaymaster.sol";
 import {IPriceOracle} from "../interfaces/IPriceOracle.sol";
 import {ICreditManager, IServiceRegistry, ICloudServiceRegistry} from "../interfaces/IServices.sol";
 
+interface IFeeDistributor {
+    function distributeFees(uint256 amount, address appAddress) external;
+}
+
 /**
  * @title MultiTokenPaymaster
  * @author Jeju Network
@@ -72,6 +76,9 @@ contract MultiTokenPaymaster is BasePaymaster {
     /// @notice Revenue wallet for service fees
     address public revenueWallet;
 
+    /// @notice Fee distributor for proper fee splits (45% app, 45% LP, 10% contributors)
+    IFeeDistributor public feeDistributor;
+
     /// @notice Maximum gas cost allowed
     uint256 public maxGasCost = 0.1 ether;
 
@@ -102,6 +109,7 @@ contract MultiTokenPaymaster is BasePaymaster {
     event ServiceRegistryUpdated(address indexed oldRegistry, address indexed newRegistry);
     event NativeTokenUpdated(address indexed oldToken, address indexed newToken);
     event RevenueWalletUpdated(address indexed oldWallet, address indexed newWallet);
+    event FeeDistributorUpdated(address indexed oldDistributor, address indexed newDistributor);
     event FeeMarginUpdated(uint256 oldMargin, uint256 newMargin);
     event EntryPointFunded(uint256 amount);
 
@@ -141,9 +149,9 @@ contract MultiTokenPaymaster is BasePaymaster {
         priceOracle = IPriceOracle(_priceOracle);
         revenueWallet = _revenueWallet;
 
-        // Transfer ownership if specified different from deployer
-        if (_owner != msg.sender) {
-            _transferOwnership(_owner);
+        address resolvedOwner = _owner == address(0) ? msg.sender : _owner;
+        if (resolvedOwner != msg.sender) {
+            _transferOwnership(resolvedOwner);
         }
     }
 
@@ -218,12 +226,16 @@ contract MultiTokenPaymaster is BasePaymaster {
         uint256 serviceCost = serviceRegistry.getServiceCost(serviceName, user);
         uint256 actualTotalCost = _calculateTotalCost(serviceCost, actualGasCost, token);
 
+        // Get app address for fee attribution
+        address appAddress = _getAppFromService(serviceName);
+
         if (useCredit) {
             (bool success,) = creditManager.tryDeductCredit(user, token, actualTotalCost);
             require(success, "Credit deduction failed");
             emit TransactionSponsoredWithCredit(user, serviceName, token, actualTotalCost);
         } else {
             if (token == ETH_ADDRESS) {
+                // ETH goes to revenue wallet (feeDistributor handles tokens only)
                 (bool success,) = revenueWallet.call{value: actualTotalCost}("");
                 require(success, "ETH transfer failed");
 
@@ -232,7 +244,15 @@ contract MultiTokenPaymaster is BasePaymaster {
                     creditManager.addCredit{value: creditAmount}(user, ETH_ADDRESS, creditAmount);
                 }
             } else {
-                IERC20(token).safeTransferFrom(user, revenueWallet, actualTotalCost);
+                // Route token fees through feeDistributor if available
+                if (address(feeDistributor) != address(0) && appAddress != address(0)) {
+                    IERC20(token).safeTransferFrom(user, address(this), actualTotalCost);
+                    IERC20(token).forceApprove(address(feeDistributor), actualTotalCost);
+                    feeDistributor.distributeFees(actualTotalCost, appAddress);
+                } else {
+                    // Fallback to revenue wallet
+                    IERC20(token).safeTransferFrom(user, revenueWallet, actualTotalCost);
+                }
 
                 if (overpayment > actualTotalCost) {
                     uint256 creditAmount = overpayment - actualTotalCost;
@@ -244,6 +264,15 @@ contract MultiTokenPaymaster is BasePaymaster {
         }
 
         try ICloudServiceRegistry(address(serviceRegistry)).recordUsage(user, serviceName, serviceCost) {} catch {}
+    }
+
+    /// @notice Get app address from service name for fee attribution
+    function _getAppFromService(string memory serviceName) internal view returns (address) {
+        try ICloudServiceRegistry(address(serviceRegistry)).getServiceOwner(serviceName) returns (address owner) {
+            return owner;
+        } catch {
+            return address(0);
+        }
     }
 
     // ============ Internal Helpers ============
@@ -292,6 +321,12 @@ contract MultiTokenPaymaster is BasePaymaster {
         address oldWallet = revenueWallet;
         revenueWallet = newWallet;
         emit RevenueWalletUpdated(oldWallet, newWallet);
+    }
+
+    function setFeeDistributor(address newDistributor) external onlyOwner {
+        address oldDistributor = address(feeDistributor);
+        feeDistributor = IFeeDistributor(newDistributor);
+        emit FeeDistributorUpdated(oldDistributor, newDistributor);
     }
 
     function setFeeMargin(uint256 newMargin) external onlyOwner {

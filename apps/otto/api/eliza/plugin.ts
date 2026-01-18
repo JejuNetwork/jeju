@@ -26,7 +26,7 @@ import {
   getLaunchService,
   type LaunchRequest,
 } from '../services/launch'
-import { getStateManager } from '../services/state'
+import { getSQLitStateManager } from '../services/sqlit-state'
 import { getTradingService } from '../services/trading'
 import { getWalletService } from '../services/wallet'
 import {
@@ -69,7 +69,7 @@ async function getOrCreateUser(
   }
 
   const platform = getPlatform(message)
-  const user = getWalletService().getUserByPlatform(platform, userId)
+  const user = await getWalletService().getUserByPlatform(platform, userId)
 
   if (!user) {
     return null
@@ -112,7 +112,7 @@ export const swapAction: Action = {
 
     const userId = getUserId(message)
     const platform = getPlatform(message)
-    const user = getWalletService().getUserByPlatform(platform, userId)
+    const user = await getWalletService().getUserByPlatform(platform, userId)
 
     if (!user) {
       const connectUrl = await getWalletService().generateConnectUrl(
@@ -170,7 +170,7 @@ export const swapAction: Action = {
     )
     const channelId = getRoomId(message)
 
-    getStateManager().setPendingAction(platform, channelId, {
+    await getSQLitStateManager().setPendingAction(platform, channelId, {
       type: 'swap',
       quote,
       params: {
@@ -225,7 +225,7 @@ export const bridgeAction: Action = {
       return
     }
 
-    const user = getWalletService().getUserByPlatform(platform, userId)
+    const user = await getWalletService().getUserByPlatform(platform, userId)
     if (!user) {
       const connectUrl = await getWalletService().generateConnectUrl(
         platform,
@@ -290,7 +290,7 @@ export const bridgeAction: Action = {
     )
     const channelId = getRoomId(message)
 
-    getStateManager().setPendingAction(platform, channelId, {
+    await getSQLitStateManager().setPendingAction(platform, channelId, {
       type: 'bridge',
       quote,
       params: {
@@ -480,7 +480,8 @@ export const confirmAction: Action = {
 
     const platform = getPlatform(message)
     const channelId = getRoomId(message)
-    const pending = getStateManager().getPendingAction(platform, channelId)
+    const stateManager = getSQLitStateManager()
+    const pending = await stateManager.getPendingAction(platform, channelId)
 
     if (!pending) {
       callback?.({
@@ -490,7 +491,7 @@ export const confirmAction: Action = {
     }
 
     if (Date.now() > pending.expiresAt) {
-      getStateManager().clearPendingAction(platform, channelId)
+      await stateManager.clearPendingAction(platform, channelId)
       callback?.({ text: 'Quote expired. Please request a new quote.' })
       return
     }
@@ -508,7 +509,7 @@ export const confirmAction: Action = {
         amount: pending.quote.fromAmount,
         chainId: swapParams.chainId,
       })
-      getStateManager().clearPendingAction(platform, channelId)
+      await stateManager.clearPendingAction(platform, channelId)
 
       if (result.success) {
         callback?.({ text: `Swap complete.\nTx: ${result.txHash}` })
@@ -529,7 +530,7 @@ export const confirmAction: Action = {
         destToken: pending.quote.destToken.address,
         amount: pending.quote.inputAmount,
       })
-      getStateManager().clearPendingAction(platform, channelId)
+      await stateManager.clearPendingAction(platform, channelId)
 
       if (result.success) {
         callback?.({
@@ -545,7 +546,7 @@ export const confirmAction: Action = {
       })
 
       const result = await getLaunchService().launchToken(launchParams)
-      getStateManager().clearPendingAction(platform, channelId)
+      await stateManager.clearPendingAction(platform, channelId)
 
       if (result.success) {
         let socialMsg = ''
@@ -588,7 +589,7 @@ export const cancelAction: Action = {
   ) => {
     const platform = getPlatform(message)
     const channelId = getRoomId(message)
-    getStateManager().clearPendingAction(platform, channelId)
+    await getSQLitStateManager().clearPendingAction(platform, channelId)
     callback?.({ text: 'Cancelled.' })
   },
   examples: [
@@ -688,7 +689,7 @@ export const launchAction: Action = {
 
     // Store pending launch
     const channelId = getRoomId(message)
-    getStateManager().setPendingAction(platform, channelId, {
+    await getSQLitStateManager().setPendingAction(platform, channelId, {
       type: 'launch',
       params: launchRequest,
       expiresAt: Date.now() + PENDING_ACTION_TTL,
@@ -756,7 +757,7 @@ export const ottoWalletProvider: Provider = {
   get: async (_runtime: IAgentRuntime, message: Memory, _state: State) => {
     const userId = getUserId(message)
     const platform = getPlatform(message)
-    const user = getWalletService().getUserByPlatform(platform, userId)
+    const user = await getWalletService().getUserByPlatform(platform, userId)
 
     if (!user) {
       return {
@@ -765,7 +766,10 @@ export const ottoWalletProvider: Provider = {
     }
 
     const channelId = getRoomId(message)
-    const pending = getStateManager().getPendingAction(platform, channelId)
+    const pending = await getSQLitStateManager().getPendingAction(
+      platform,
+      channelId,
+    )
 
     return {
       text: `User wallet: ${user.primaryWallet}

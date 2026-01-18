@@ -1,167 +1,301 @@
 /**
- * SQLit HTTP Client for Workerd
+ * Factory SQLit Database Client
  *
- * Workerd-compatible database client that uses SQLit HTTP API instead of bun:sqlite.
- * This file is used when running in workerd environment.
+ * Uses distributed SQLit for DWS/workerd deployment.
+ * All operations are async to work with the HTTP-based SQLit.
  */
 
-import { getSQLitBlockProducerUrl } from '@jejunetwork/config'
+import { getSQLitUrl } from '@jejunetwork/config'
+import {
+  createDatabaseService,
+  type DatabaseService,
+} from '@jejunetwork/shared'
 import { z } from 'zod'
+import { configureFactory, getFactoryConfig } from '../config'
+import FACTORY_SCHEMA from './schema'
 
-// =============================================================================
-// SQLit HTTP Client
-// =============================================================================
-
-interface SQLitConfig {
-  endpoint: string
-  dbid: string
-  timeout: number
-}
-
-interface SQLitQueryResponse {
-  data?: {
-    rows: Record<string, unknown>[] | null
-  }
-  status: string
-  error?: string
-  rowsAffected?: number
-  lastInsertId?: string | number
-}
-
-class SQLitHttpClient {
-  private readonly endpoint: string
-  private readonly dbid: string
-  private readonly timeout: number
-
-  constructor(config: SQLitConfig) {
-    this.endpoint = config.endpoint
-    this.dbid = config.dbid
-    this.timeout = config.timeout
-  }
-
-  async query<T = Record<string, unknown>>(
-    sql: string,
-    params: (string | number | null)[] = [],
-  ): Promise<T[]> {
-    const formattedSql = this.formatSQL(sql, params)
-    return this.fetch<T>('query', formattedSql)
-  }
-
-  async exec(
-    sql: string,
-    params: (string | number | null)[] = [],
-  ): Promise<{ rowsAffected: number; lastInsertId: number | bigint }> {
-    const formattedSql = this.formatSQL(sql, params)
-    return this.fetchExec(formattedSql)
-  }
-
-  async execRaw(sql: string): Promise<void> {
-    await this.fetch('exec', sql)
-  }
-
-  private formatSQL(sql: string, params: (string | number | null)[]): string {
-    if (params.length === 0) return sql
-
-    let paramIndex = 0
-    return sql.replace(/\?/g, () => {
-      const param = params[paramIndex++]
-      if (param === null) return 'NULL'
-      if (typeof param === 'string') return `'${param.replace(/'/g, "''")}'`
-      if (typeof param === 'number') return String(param)
-      return 'NULL'
+// Response schema for SQLit database creation
+const CreateDatabaseResponseSchema = z.object({
+  success: z.boolean(),
+  status: z.string().optional(),
+  data: z
+    .object({
+      database: z.string(),
     })
-  }
+    .optional(),
+  databaseId: z.string().optional(),
+  error: z.string().optional(),
+})
 
-  private async fetch<T>(method: 'query' | 'exec', sql: string): Promise<T[]> {
-    const uri = `${this.endpoint}/v1/${method}`
+// Backup metadata schema
+const BackupMetadataSchema = z.object({
+  databaseId: z.string(),
+  backupId: z.string(),
+  timestamp: z.number(),
+  ipfsCid: z.string().optional(),
+  tableCount: z.number(),
+  rowCount: z.number(),
+})
 
-    const response = await fetch(uri, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        assoc: true,
-        database: this.dbid,
-        query: sql,
-      }),
-      signal: AbortSignal.timeout(this.timeout),
+type BackupMetadata = z.infer<typeof BackupMetadataSchema>
+
+// Local storage for backup metadata (persisted via SQLit __factory_backups table)
+let lastBackupTime = 0
+const BACKUP_INTERVAL_MS = 60 * 60 * 1000 // 1 hour
+
+function isDwsSqlitProxy(endpoint: string): boolean {
+  return endpoint.includes('/sqlit')
+}
+
+/**
+ * Check if SQLit server is healthy
+ */
+async function checkSQLitHealth(endpoint: string): Promise<boolean> {
+  try {
+    const healthPath = isDwsSqlitProxy(endpoint) ? '/v1/status' : '/health'
+    const response = await fetch(`${endpoint}${healthPath}`, {
+      signal: AbortSignal.timeout(5000),
     })
-
-    if (!response.ok) {
-      throw new Error(`SQLit request failed: ${response.status}`)
-    }
-
-    const result: SQLitQueryResponse = await response.json()
-
-    if (result.error) {
-      throw new Error(result.error)
-    }
-
-    return (result.data?.rows as T[]) ?? []
-  }
-
-  private async fetchExec(
-    sql: string,
-  ): Promise<{ rowsAffected: number; lastInsertId: number | bigint }> {
-    const uri = `${this.endpoint}/v1/exec`
-
-    const response = await fetch(uri, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        assoc: true,
-        database: this.dbid,
-        query: sql,
-      }),
-      signal: AbortSignal.timeout(this.timeout),
-    })
-
-    if (!response.ok) {
-      throw new Error(`SQLit request failed: ${response.status}`)
-    }
-
-    const result: SQLitQueryResponse = await response.json()
-
-    if (result.error) {
-      throw new Error(result.error)
-    }
-
-    const rowsAffected = result.rowsAffected ?? 0
-    const lastInsertId =
-      result.lastInsertId !== undefined
-        ? typeof result.lastInsertId === 'string'
-          ? BigInt(result.lastInsertId)
-          : result.lastInsertId
-        : 0
-
-    return { rowsAffected, lastInsertId }
+    return response.ok
+  } catch {
+    return false
   }
 }
 
-// =============================================================================
-// Database Instance
-// =============================================================================
+/**
+ * Create a backup of the database to IPFS
+ */
+export async function createBackup(): Promise<BackupMetadata | null> {
+  const config = getFactoryConfig()
+  const endpoint = config.sqlitEndpoint || getSQLitUrl()
+  const databaseId = config.sqlitDatabaseId
 
-let client: SQLitHttpClient | null = null
+  try {
+    // Request SQLit to create a backup
+    const response = await fetch(
+      `${endpoint}/v2/databases/${databaseId}/backup`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ storage: 'ipfs' }),
+        signal: AbortSignal.timeout(60000),
+      },
+    )
 
-function getClient(): SQLitHttpClient {
-  if (client) return client
+    const result = await response.json()
+    if (!result.success) {
+      console.warn('[Factory SQLit] Backup failed:', result.error)
+      return null
+    }
 
-  const endpoint = getSQLitBlockProducerUrl()
-  const dbid = process.env.SQLIT_DATABASE_ID ?? 'factory'
+    const metadata: BackupMetadata = {
+      databaseId,
+      backupId: result.backupId ?? `backup-${Date.now()}`,
+      timestamp: Date.now(),
+      ipfsCid: result.ipfsCid,
+      tableCount: result.tableCount ?? 0,
+      rowCount: result.rowCount ?? 0,
+    }
 
-  client = new SQLitHttpClient({
-    endpoint,
-    dbid,
-    timeout: 30000,
-  })
-
-  return client
+    lastBackupTime = Date.now()
+    console.log(`[Factory SQLit] Backup created: ${metadata.backupId}`)
+    return metadata
+  } catch (err) {
+    console.warn('[Factory SQLit] Backup error:', err)
+    return null
+  }
 }
 
-// =============================================================================
-// Schemas
-// =============================================================================
+/**
+ * Restore database from a backup
+ */
+export async function restoreFromBackup(backupId: string): Promise<boolean> {
+  const config = getFactoryConfig()
+  const endpoint = config.sqlitEndpoint || getSQLitUrl()
+  const databaseId = config.sqlitDatabaseId
 
+  try {
+    const response = await fetch(
+      `${endpoint}/v2/databases/${databaseId}/restore`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ backupId }),
+        signal: AbortSignal.timeout(120000),
+      },
+    )
+
+    const result = await response.json()
+    if (!result.success) {
+      console.error('[Factory SQLit] Restore failed:', result.error)
+      return false
+    }
+
+    console.log(`[Factory SQLit] Database restored from backup: ${backupId}`)
+    return true
+  } catch (err) {
+    console.error('[Factory SQLit] Restore error:', err)
+    return false
+  }
+}
+
+/**
+ * List available backups
+ */
+export async function listBackups(): Promise<BackupMetadata[]> {
+  const config = getFactoryConfig()
+  const endpoint = config.sqlitEndpoint || getSQLitUrl()
+  const databaseId = config.sqlitDatabaseId
+
+  try {
+    const response = await fetch(
+      `${endpoint}/v2/databases/${databaseId}/backups`,
+      { signal: AbortSignal.timeout(10000) },
+    )
+
+    const result = await response.json()
+    if (!result.success || !Array.isArray(result.backups)) {
+      return []
+    }
+
+    return result.backups.map((b: Record<string, unknown>) =>
+      BackupMetadataSchema.parse(b),
+    )
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Ensure the Factory database exists in SQLit.
+ * Creates it if it doesn't exist, or restores from backup if needed.
+ */
+async function ensureDatabaseExists(): Promise<string> {
+  const config = getFactoryConfig()
+  const endpoint = config.sqlitEndpoint || getSQLitUrl()
+  let databaseId = config.sqlitDatabaseId
+
+  // First check if SQLit server is healthy
+  const isHealthy = await checkSQLitHealth(endpoint)
+  if (!isHealthy) {
+    throw new Error(
+      `SQLit server not available at ${endpoint}. Ensure SQLit is running.`,
+    )
+  }
+
+  // Try to connect to existing database
+  try {
+    const checkResponse = await fetch(
+      isDwsSqlitProxy(endpoint) ? `${endpoint}/v1/exec` : `${endpoint}/v2/execute`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(
+          isDwsSqlitProxy(endpoint)
+            ? {
+                database: databaseId,
+                query: 'SELECT 1',
+                args: [],
+              }
+            : {
+                databaseId,
+                sql: 'SELECT 1',
+                params: [],
+              },
+        ),
+        signal: AbortSignal.timeout(5000),
+      },
+    )
+
+    const checkResult = await checkResponse.json()
+
+    if (checkResult && checkResult.success === true) {
+      console.log(`[Factory SQLit] Connected to database: ${databaseId}`)
+      return databaseId
+    }
+  } catch {
+    // Database doesn't exist, will create or restore
+  }
+
+  // Check for backups to restore from (not supported via DWS SQLit proxy)
+  if (!isDwsSqlitProxy(endpoint)) {
+    const backups = await listBackups()
+    if (backups.length > 0) {
+      // Sort by timestamp descending to get most recent
+      const latestBackup = backups.sort((a, b) => b.timestamp - a.timestamp)[0]
+      console.log(
+        `[Factory SQLit] Found backup from ${new Date(latestBackup.timestamp).toISOString()}`,
+      )
+
+      const restored = await restoreFromBackup(latestBackup.backupId)
+      if (restored) {
+        return databaseId
+      }
+      console.warn(
+        '[Factory SQLit] Backup restore failed, creating new database',
+      )
+    }
+  }
+
+  // Create new database
+  try {
+    const createResponse = await fetch(
+      isDwsSqlitProxy(endpoint)
+        ? `${endpoint}/v1/admin/create`
+        : `${endpoint}/v2/databases`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(
+          isDwsSqlitProxy(endpoint)
+            ? { databaseId }
+            : {
+                name: 'factory',
+                encryptionMode: 'none',
+                replication: { replicaCount: 2 },
+              },
+        ),
+        signal: AbortSignal.timeout(10000),
+      },
+    )
+
+    const createResult = CreateDatabaseResponseSchema.parse(
+      await createResponse.json(),
+    )
+
+    if (!createResult.success) {
+      throw new Error(createResult.error || 'Failed to create database')
+    }
+
+    const returnedId = createResult.data
+      ? createResult.data.database
+      : createResult.databaseId
+    databaseId = returnedId || databaseId
+    console.log(`[Factory SQLit] Created new database: ${databaseId}`)
+
+    // Update config with new database ID
+    configureFactory({ sqlitDatabaseId: databaseId })
+
+    return databaseId
+  } catch (err) {
+    const error = err instanceof Error ? err.message : String(err)
+    throw new Error(`Failed to create SQLit database: ${error}`)
+  }
+}
+
+/**
+ * Schedule periodic backups
+ */
+export function startBackupScheduler(): void {
+  setInterval(async () => {
+    const timeSinceLastBackup = Date.now() - lastBackupTime
+    if (timeSinceLastBackup >= BACKUP_INTERVAL_MS) {
+      await createBackup()
+    }
+  }, 60000) // Check every minute
+}
+
+// Row Schemas (same as original)
 const BountyRowSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -211,26 +345,6 @@ const ProjectRowSchema = z.object({
   updated_at: z.number(),
 })
 
-const AgentRowSchema = z.object({
-  id: z.string(),
-  agent_id: z.string(),
-  owner: z.string(),
-  name: z.string(),
-  bot_type: z.string(),
-  character_cid: z.string().nullable(),
-  state_cid: z.string(),
-  vault_address: z.string(),
-  active: z.number(),
-  registered_at: z.number(),
-  last_executed_at: z.number(),
-  execution_count: z.number(),
-  capabilities: z.string(),
-  specializations: z.string(),
-  reputation: z.number(),
-  created_at: z.number(),
-  updated_at: z.number(),
-})
-
 const LeaderboardRowSchema = z.object({
   address: z.string(),
   name: z.string(),
@@ -242,17 +356,100 @@ const LeaderboardRowSchema = z.object({
   updated_at: z.number(),
 })
 
-// Export row types
+// Export types
 export type BountyRow = z.infer<typeof BountyRowSchema>
 export type JobRow = z.infer<typeof JobRowSchema>
 export type ProjectRow = z.infer<typeof ProjectRowSchema>
-export type AgentRow = z.infer<typeof AgentRowSchema>
 export type LeaderboardRow = z.infer<typeof LeaderboardRowSchema>
 
-// =============================================================================
-// Helper Functions
-// =============================================================================
+// Database service singleton
+let db: DatabaseService | null = null
+let initialized = false
 
+/** Get the SQLit database service */
+export function getDB(): DatabaseService {
+  if (!db) {
+    const config = getFactoryConfig()
+    db = createDatabaseService({
+      databaseId: config.sqlitDatabaseId,
+      endpoint: config.sqlitEndpoint || getSQLitUrl(),
+      timeout: 30000,
+      debug: config.isDev,
+    })
+  }
+  return db
+}
+
+/** Recreate database service with updated config (after auto-provisioning) */
+function recreateDB(): DatabaseService {
+  const config = getFactoryConfig()
+  db = createDatabaseService({
+    databaseId: config.sqlitDatabaseId,
+    endpoint: config.sqlitEndpoint || getSQLitUrl(),
+    timeout: 30000,
+    debug: config.isDev,
+  })
+  return db
+}
+
+/** Initialize database with schema (auto-provisions if needed) */
+export async function initDB(): Promise<DatabaseService> {
+  if (!initialized) {
+    // First ensure database exists (creates if needed)
+    const databaseId = await ensureDatabaseExists()
+
+    // Recreate DB service with correct database ID
+    const config = getFactoryConfig()
+    if (config.sqlitDatabaseId !== databaseId) {
+      configureFactory({ sqlitDatabaseId: databaseId })
+      recreateDB()
+    }
+
+    const database = getDB()
+
+    const healthy = await database.isHealthy()
+    if (!healthy) {
+      throw new Error(
+        `SQLit database not available at ${config.sqlitEndpoint}. ` +
+          'Ensure SQLit server is running.',
+      )
+    }
+
+    // Execute schema - split by semicolons and filter to valid statements
+    // First remove all SQL comments, then split on semicolons
+    const schemaWithoutComments = FACTORY_SCHEMA.replace(/--[^\n]*/g, '')
+    const statements = schemaWithoutComments
+      .split(';')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0 && /^(CREATE|INSERT|ALTER)/i.test(s))
+
+    for (const stmt of statements) {
+      await database.exec(`${stmt};`)
+    }
+
+    initialized = true
+    console.log('[Factory SQLit] Database initialized')
+
+    // Start backup scheduler in production
+    if (!config.isDev) {
+      startBackupScheduler()
+      console.log('[Factory SQLit] Backup scheduler started (hourly)')
+    }
+  }
+
+  return getDB()
+}
+
+/** Close database connection */
+export async function closeDB(): Promise<void> {
+  if (db) {
+    await db.close()
+    db = null
+    initialized = false
+  }
+}
+
+// Utility functions
 function toJSON(data: unknown): string {
   return JSON.stringify(data)
 }
@@ -261,18 +458,19 @@ export function generateId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
-// =============================================================================
-// Bounties (Async)
-// =============================================================================
+// ============================================================================
+// BOUNTIES
+// ============================================================================
 
-export async function listBountiesAsync(filter?: {
+export async function listBounties(filter?: {
   status?: string
   skill?: string
   creator?: string
+  search?: string
   page?: number
   limit?: number
 }): Promise<{ bounties: BountyRow[]; total: number }> {
-  const db = getClient()
+  const database = getDB()
   const conditions: string[] = []
   const params: (string | number)[] = []
 
@@ -288,6 +486,10 @@ export async function listBountiesAsync(filter?: {
     conditions.push('skills LIKE ?')
     params.push(`%${filter.skill}%`)
   }
+  if (filter?.search) {
+    conditions.push('(title LIKE ? OR description LIKE ?)')
+    params.push(`%${filter.search}%`, `%${filter.search}%`)
+  }
 
   const whereClause =
     conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
@@ -295,30 +497,32 @@ export async function listBountiesAsync(filter?: {
   const limit = filter?.limit ?? 20
   const offset = (page - 1) * limit
 
-  const countResult = await db.query<{ count: number }>(
+  // Get count
+  const countResult = await database.query<{ count: number }>(
     `SELECT COUNT(*) as count FROM bounties ${whereClause}`,
     params,
   )
-  const total = countResult[0]?.count ?? 0
+  const total = countResult.rows[0]?.count ?? 0
 
-  const rows = await db.query<BountyRow>(
-    `SELECT * FROM bounties ${whereClause} ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}`,
-    params,
+  // Get bounties
+  const result = await database.query<BountyRow>(
+    `SELECT * FROM bounties ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    [...params, limit, offset],
   )
 
-  return { bounties: rows.map((r) => BountyRowSchema.parse(r)), total }
+  return { bounties: result.rows.map((r) => BountyRowSchema.parse(r)), total }
 }
 
-export async function getBountyAsync(id: string): Promise<BountyRow | null> {
-  const db = getClient()
-  const rows = await db.query<BountyRow>(
+export async function getBounty(id: string): Promise<BountyRow | null> {
+  const database = getDB()
+  const result = await database.query<BountyRow>(
     'SELECT * FROM bounties WHERE id = ?',
     [id],
   )
-  return rows[0] ? BountyRowSchema.parse(rows[0]) : null
+  return result.rows[0] ? BountyRowSchema.parse(result.rows[0]) : null
 }
 
-export async function createBountyAsync(bounty: {
+export async function createBounty(bounty: {
   title: string
   description: string
   reward: string
@@ -334,13 +538,13 @@ export async function createBountyAsync(bounty: {
   }>
   creator: string
 }): Promise<BountyRow> {
-  const db = getClient()
+  const database = getDB()
   const id = generateId('bounty')
   const now = Date.now()
 
-  await db.exec(
-    `INSERT INTO bounties (id, title, description, reward, currency, skills, deadline, milestones, creator, status, submissions, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', 0, ?, ?)`,
+  await database.exec(
+    `INSERT INTO bounties (id, title, description, reward, currency, skills, deadline, milestones, creator, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       bounty.title,
@@ -356,23 +560,70 @@ export async function createBountyAsync(bounty: {
     ],
   )
 
-  const created = await getBountyAsync(id)
+  const created = await getBounty(id)
   if (!created) throw new Error(`Failed to create bounty ${id}`)
   return created
 }
 
-// =============================================================================
-// Jobs (Async)
-// =============================================================================
+export async function updateBountyStatus(
+  id: string,
+  status: string,
+): Promise<boolean> {
+  const database = getDB()
+  const result = await database.exec(
+    'UPDATE bounties SET status = ?, updated_at = ? WHERE id = ?',
+    [status, Date.now(), id],
+  )
+  return result.rowsAffected > 0
+}
 
-export async function listJobsAsync(filter?: {
+export async function getBountyStats(): Promise<{
+  openBounties: number
+  totalValue: number
+  completed: number
+  avgPayout: number
+}> {
+  const database = getDB()
+  const result = await database.query<{
+    total: number
+    open: number
+    completed: number
+    total_reward_value: number | null
+  }>(
+    `SELECT
+      COUNT(*) as total,
+      SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END) as open,
+      SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+      SUM(CAST(reward AS REAL)) as total_reward_value
+    FROM bounties`,
+  )
+
+  const stats = result.rows[0]
+  const totalValue = stats?.total_reward_value ?? 0
+  const completedBounties = stats?.completed ?? 0
+  const avgPayout = completedBounties > 0 ? totalValue / completedBounties : 0
+
+  return {
+    openBounties: stats?.open ?? 0,
+    totalValue,
+    completed: completedBounties,
+    avgPayout,
+  }
+}
+
+// ============================================================================
+// JOBS
+// ============================================================================
+
+export async function listJobs(filter?: {
   type?: string
   remote?: boolean
   status?: string
+  search?: string
   page?: number
   limit?: number
 }): Promise<{ jobs: JobRow[]; total: number }> {
-  const db = getClient()
+  const database = getDB()
   const conditions: string[] = ["status = 'open'"]
   const params: (string | number)[] = []
 
@@ -384,43 +635,129 @@ export async function listJobsAsync(filter?: {
     conditions.push('remote = ?')
     params.push(filter.remote ? 1 : 0)
   }
+  if (filter?.search) {
+    conditions.push('(title LIKE ? OR description LIKE ? OR company LIKE ?)')
+    params.push(
+      `%${filter.search}%`,
+      `%${filter.search}%`,
+      `%${filter.search}%`,
+    )
+  }
 
   const whereClause = `WHERE ${conditions.join(' AND ')}`
   const page = filter?.page ?? 1
   const limit = filter?.limit ?? 20
   const offset = (page - 1) * limit
 
-  const countResult = await db.query<{ count: number }>(
+  const countResult = await database.query<{ count: number }>(
     `SELECT COUNT(*) as count FROM jobs ${whereClause}`,
     params,
   )
-  const total = countResult[0]?.count ?? 0
+  const total = countResult.rows[0]?.count ?? 0
 
-  const rows = await db.query<JobRow>(
-    `SELECT * FROM jobs ${whereClause} ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}`,
-    params,
+  const result = await database.query<JobRow>(
+    `SELECT * FROM jobs ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    [...params, limit, offset],
   )
 
-  return { jobs: rows.map((r) => JobRowSchema.parse(r)), total }
+  return { jobs: result.rows.map((r) => JobRowSchema.parse(r)), total }
 }
 
-export async function getJobAsync(id: string): Promise<JobRow | null> {
-  const db = getClient()
-  const rows = await db.query<JobRow>('SELECT * FROM jobs WHERE id = ?', [id])
-  return rows[0] ? JobRowSchema.parse(rows[0]) : null
+export async function getJob(id: string): Promise<JobRow | null> {
+  const database = getDB()
+  const result = await database.query<JobRow>(
+    'SELECT * FROM jobs WHERE id = ?',
+    [id],
+  )
+  return result.rows[0] ? JobRowSchema.parse(result.rows[0]) : null
 }
 
-// =============================================================================
-// Projects (Async)
-// =============================================================================
+export async function createJob(job: {
+  title: string
+  company: string
+  companyLogo?: string
+  type: 'full-time' | 'part-time' | 'contract' | 'bounty'
+  remote: boolean
+  location: string
+  salary?: { min: number; max: number; currency: string; period?: string }
+  skills: string[]
+  description: string
+  poster: string
+}): Promise<JobRow> {
+  const database = getDB()
+  const id = generateId('job')
+  const now = Date.now()
 
-export async function listProjectsAsync(filter?: {
+  await database.exec(
+    `INSERT INTO jobs (id, title, company, company_logo, type, remote, location, salary_min, salary_max, salary_currency, salary_period, skills, description, poster, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id,
+      job.title,
+      job.company,
+      job.companyLogo ?? null,
+      job.type,
+      job.remote ? 1 : 0,
+      job.location,
+      job.salary?.min ?? null,
+      job.salary?.max ?? null,
+      job.salary?.currency ?? null,
+      job.salary?.period ?? null,
+      toJSON(job.skills),
+      job.description,
+      job.poster,
+      now,
+      now,
+    ],
+  )
+
+  const created = await getJob(id)
+  if (!created) throw new Error(`Failed to create job ${id}`)
+  return created
+}
+
+export async function getJobStats(): Promise<{
+  totalJobs: number
+  openJobs: number
+  remoteJobs: number
+  averageSalary: number
+}> {
+  const database = getDB()
+  const result = await database.query<{
+    total: number
+    open: number
+    remote: number
+    avg_salary: number | null
+  }>(
+    `SELECT
+      COUNT(*) as total,
+      SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END) as open,
+      SUM(CASE WHEN remote = 1 THEN 1 ELSE 0 END) as remote,
+      AVG(CASE WHEN salary_min IS NOT NULL AND salary_max IS NOT NULL THEN (salary_min + salary_max) / 2 ELSE NULL END) as avg_salary
+    FROM jobs`,
+  )
+
+  const stats = result.rows[0]
+  return {
+    totalJobs: stats?.total ?? 0,
+    openJobs: stats?.open ?? 0,
+    remoteJobs: stats?.remote ?? 0,
+    averageSalary: Math.round(stats?.avg_salary ?? 0),
+  }
+}
+
+// ============================================================================
+// PROJECTS
+// ============================================================================
+
+export async function listProjects(filter?: {
   status?: string
   owner?: string
+  search?: string
   page?: number
   limit?: number
 }): Promise<{ projects: ProjectRow[]; total: number }> {
-  const db = getClient()
+  const database = getDB()
   const conditions: string[] = []
   const params: (string | number)[] = []
 
@@ -432,6 +769,10 @@ export async function listProjectsAsync(filter?: {
     conditions.push('owner = ?')
     params.push(filter.owner)
   }
+  if (filter?.search) {
+    conditions.push('(name LIKE ? OR description LIKE ?)')
+    params.push(`%${filter.search}%`, `%${filter.search}%`)
+  }
 
   const whereClause =
     conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
@@ -439,103 +780,170 @@ export async function listProjectsAsync(filter?: {
   const limit = filter?.limit ?? 20
   const offset = (page - 1) * limit
 
-  const countResult = await db.query<{ count: number }>(
+  const countResult = await database.query<{ count: number }>(
     `SELECT COUNT(*) as count FROM projects ${whereClause}`,
     params,
   )
-  const total = countResult[0]?.count ?? 0
+  const total = countResult.rows[0]?.count ?? 0
 
-  const rows = await db.query<ProjectRow>(
-    `SELECT * FROM projects ${whereClause} ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}`,
-    params,
+  const result = await database.query<ProjectRow>(
+    `SELECT * FROM projects ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    [...params, limit, offset],
   )
 
-  return { projects: rows.map((r) => ProjectRowSchema.parse(r)), total }
+  return { projects: result.rows.map((r) => ProjectRowSchema.parse(r)), total }
 }
 
-export async function getProjectAsync(id: string): Promise<ProjectRow | null> {
-  const db = getClient()
-  const rows = await db.query<ProjectRow>(
+export async function getProject(id: string): Promise<ProjectRow | null> {
+  const database = getDB()
+  const result = await database.query<ProjectRow>(
     'SELECT * FROM projects WHERE id = ?',
     [id],
   )
-  return rows[0] ? ProjectRowSchema.parse(rows[0]) : null
+  return result.rows[0] ? ProjectRowSchema.parse(result.rows[0]) : null
 }
 
-// =============================================================================
-// Agents (Async)
-// =============================================================================
+export async function createProject(project: {
+  name: string
+  description: string
+  visibility: 'public' | 'private' | 'internal'
+  owner: string
+}): Promise<ProjectRow> {
+  const database = getDB()
+  const id = generateId('project')
+  const now = Date.now()
 
-export async function listAgentsAsync(filter?: {
-  capability?: string
-  active?: boolean
-  owner?: string
-}): Promise<AgentRow[]> {
-  const db = getClient()
-  const conditions: string[] = []
-  const params: (string | number)[] = []
-
-  if (filter?.capability) {
-    conditions.push('capabilities LIKE ?')
-    params.push(`%${filter.capability}%`)
-  }
-  if (filter?.active !== undefined) {
-    conditions.push('active = ?')
-    params.push(filter.active ? 1 : 0)
-  }
-  if (filter?.owner) {
-    conditions.push('owner = ?')
-    params.push(filter.owner)
-  }
-
-  const whereClause =
-    conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
-
-  const rows = await db.query<AgentRow>(
-    `SELECT * FROM agents ${whereClause} ORDER BY reputation DESC, created_at DESC`,
-    params,
+  await database.exec(
+    `INSERT INTO projects (id, name, description, visibility, owner, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id,
+      project.name,
+      project.description,
+      project.visibility,
+      project.owner,
+      now,
+      now,
+    ],
   )
 
-  return rows.map((r) => AgentRowSchema.parse(r))
+  const created = await getProject(id)
+  if (!created) throw new Error(`Failed to create project ${id}`)
+  return created
 }
 
-export async function getAgentAsync(agentId: string): Promise<AgentRow | null> {
-  const db = getClient()
-  const rows = await db.query<AgentRow>(
-    'SELECT * FROM agents WHERE agent_id = ?',
-    [agentId],
-  )
-  return rows[0] ? AgentRowSchema.parse(rows[0]) : null
-}
+// ============================================================================
+// LEADERBOARD
+// ============================================================================
 
-// =============================================================================
-// Leaderboard (Async)
-// =============================================================================
-
-export async function getLeaderboardAsync(
+export async function getLeaderboard(
   limit: number = 50,
 ): Promise<LeaderboardRow[]> {
-  const db = getClient()
-  const rows = await db.query<LeaderboardRow>(
-    `SELECT * FROM leaderboard ORDER BY score DESC LIMIT ${limit}`,
+  const database = getDB()
+  const result = await database.query<LeaderboardRow>(
+    'SELECT * FROM leaderboard ORDER BY score DESC LIMIT ?',
+    [limit],
   )
-  return rows.map((r) => LeaderboardRowSchema.parse(r))
+  return result.rows.map((r) => LeaderboardRowSchema.parse(r))
 }
 
-// =============================================================================
-// Database Health
-// =============================================================================
+export async function getLeaderboardEntry(
+  address: string,
+): Promise<LeaderboardRow | null> {
+  const database = getDB()
+  const result = await database.query<LeaderboardRow>(
+    'SELECT * FROM leaderboard WHERE address = ?',
+    [address],
+  )
+  return result.rows[0] ? LeaderboardRowSchema.parse(result.rows[0]) : null
+}
 
-export async function checkDatabaseHealth(): Promise<{
-  healthy: boolean
-  latency: number
-}> {
-  const start = Date.now()
-  try {
-    const db = getClient()
-    await db.query('SELECT 1')
-    return { healthy: true, latency: Date.now() - start }
-  } catch {
-    return { healthy: false, latency: Date.now() - start }
+export async function updateLeaderboardScore(
+  address: string,
+  updates: {
+    name?: string
+    avatar?: string
+    scoreIncrement?: number
+    contributionsIncrement?: number
+    bountiesIncrement?: number
+  },
+): Promise<LeaderboardRow> {
+  const database = getDB()
+  const now = Date.now()
+  const existing = await getLeaderboardEntry(address)
+
+  if (!existing) {
+    const name = updates.name ?? `${address.slice(0, 6)}...${address.slice(-4)}`
+    const avatar =
+      updates.avatar ??
+      `https://api.dicebear.com/7.x/identicon/svg?seed=${address}`
+    const score = updates.scoreIncrement ?? 0
+    const contributions = updates.contributionsIncrement ?? 0
+    const bounties = updates.bountiesIncrement ?? 0
+
+    await database.exec(
+      `INSERT INTO leaderboard (address, name, avatar, score, contributions, bounties_completed, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [address, name, avatar, score, contributions, bounties, now],
+    )
+  } else {
+    const sets: string[] = ['updated_at = ?']
+    const params: (string | number)[] = [now]
+
+    if (updates.name) {
+      sets.push('name = ?')
+      params.push(updates.name)
+    }
+    if (updates.avatar) {
+      sets.push('avatar = ?')
+      params.push(updates.avatar)
+    }
+    if (updates.scoreIncrement) {
+      sets.push('score = score + ?')
+      params.push(updates.scoreIncrement)
+    }
+    if (updates.contributionsIncrement) {
+      sets.push('contributions = contributions + ?')
+      params.push(updates.contributionsIncrement)
+    }
+    if (updates.bountiesIncrement) {
+      sets.push('bounties_completed = bounties_completed + ?')
+      params.push(updates.bountiesIncrement)
+    }
+
+    params.push(address)
+    await database.exec(
+      `UPDATE leaderboard SET ${sets.join(', ')} WHERE address = ?`,
+      params,
+    )
+
+    // Update tier based on score
+    const updated = await getLeaderboardEntry(address)
+    if (updated) {
+      let tier: string = 'bronze'
+      if (updated.score >= 10000) tier = 'diamond'
+      else if (updated.score >= 5000) tier = 'gold'
+      else if (updated.score >= 1000) tier = 'silver'
+
+      if (tier !== updated.tier) {
+        await database.exec(
+          'UPDATE leaderboard SET tier = ? WHERE address = ?',
+          [tier, address],
+        )
+      }
+    }
   }
+
+  const entry = await getLeaderboardEntry(address)
+  if (!entry) throw new Error(`Failed to get leaderboard entry ${address}`)
+  return entry
+}
+
+// ============================================================================
+// HEALTH CHECK
+// ============================================================================
+
+export async function isHealthy(): Promise<boolean> {
+  const database = getDB()
+  return database.isHealthy()
 }

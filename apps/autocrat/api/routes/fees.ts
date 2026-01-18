@@ -1,13 +1,13 @@
 import { Elysia, t } from 'elysia'
 import {
-  ceoFeeSkills,
-  executeCEOFeeSkill,
+  directorFeeSkills,
+  executeDirectorFeeSkill,
   getFeeChangeHistory,
   getFeeConfigState,
   getPendingFeeChanges,
   initializeFeeActions,
   isTxHashResult,
-} from '../ceo-fee-actions'
+} from '../director-fee-actions'
 import { getSharedState } from '../shared-state'
 
 // Initialize fee actions on first call
@@ -65,20 +65,27 @@ export const feesRoutes = new Elysia({ prefix: '/fees' })
     }
 
     const state = await getFeeConfigState()
+    // Convert bigint to string for JSON serialization
     return {
       success: true,
-      data: state,
+      data: {
+        ...state,
+        names: {
+          ...state.names,
+          baseRegistrationPrice: state.names.baseRegistrationPrice.toString(),
+        },
+      },
       timestamp: Date.now(),
     }
   })
 
   /**
    * GET /fees/skills
-   * List available CEO fee management skills
+   * List available Director fee management skills
    */
   .get('/skills', () => ({
     success: true,
-    skills: ceoFeeSkills,
+    skills: directorFeeSkills,
   }))
 
   /**
@@ -103,7 +110,7 @@ export const feesRoutes = new Elysia({ prefix: '/fees' })
       }
 
       const { skillId, params } = body
-      const result = await executeCEOFeeSkill(skillId, params)
+      const result = await executeDirectorFeeSkill(skillId, params)
 
       if (!result.success) {
         return { success: false, error: result.error }
@@ -178,21 +185,27 @@ export const feesRoutes = new Elysia({ prefix: '/fees' })
       },
       governance: {
         treasury: state.treasury,
-        council: state.council,
-        ceo: state.ceo,
+        board: state.board,
+        director: state.director,
       },
     }
 
     return {
       success: true,
       summary,
-      raw: state,
+      raw: {
+        ...state,
+        names: {
+          ...state.names,
+          baseRegistrationPrice: state.names.baseRegistrationPrice.toString(),
+        },
+      },
     }
   })
 
   /**
    * POST /fees/propose
-   * Propose a fee change (for council, CEO can execute immediately or after timelock)
+   * Propose a fee change (for board, Director can execute immediately or after timelock)
    */
   .post(
     '/propose',
@@ -223,7 +236,7 @@ export const feesRoutes = new Elysia({ prefix: '/fees' })
         return { success: false, error: `Unknown category: ${category}` }
       }
 
-      const result = await executeCEOFeeSkill(skillId, newValues)
+      const result = await executeDirectorFeeSkill(skillId, newValues)
 
       if (!result.success) {
         return { success: false, error: result.error }

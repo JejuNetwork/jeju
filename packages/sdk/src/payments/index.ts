@@ -12,7 +12,7 @@ import {
   type Hex,
 } from 'viem'
 import { z } from 'zod'
-import { getServicesConfig, requireContract } from '../config'
+import { getServicesConfig, safeGetContract } from '../config'
 import {
   LPPositionSchema,
   PaymasterDetailSchema,
@@ -186,17 +186,37 @@ export function createPaymentsModule(
   wallet: BaseWallet,
   network: NetworkType,
 ): PaymentsModule {
-  const paymasterFactoryAddress = requireContract(
+  // Use safe getters - contracts may not be deployed on all networks
+  const paymasterFactoryAddressOpt = safeGetContract(
     'payments',
     'paymasterFactory',
     network,
   )
-  const creditManagerAddress = requireContract(
+  const creditManagerAddressOpt = safeGetContract(
     'payments',
     'creditManager',
     network,
   )
   const services = getServicesConfig(network)
+
+  // Lazy-load contract addresses - throw on method call if not deployed
+  const getPaymasterFactoryAddress = () => {
+    if (!paymasterFactoryAddressOpt) {
+      throw new Error(
+        'Payments PaymasterFactory contract not deployed on this network',
+      )
+    }
+    return paymasterFactoryAddressOpt
+  }
+
+  const getCreditManagerAddress = () => {
+    if (!creditManagerAddressOpt) {
+      throw new Error(
+        'Payments CreditManager contract not deployed on this network',
+      )
+    }
+    return creditManagerAddressOpt
+  }
 
   async function getBalance(): Promise<bigint> {
     return wallet.getBalance()
@@ -265,7 +285,7 @@ export function createPaymentsModule(
     })
 
     return wallet.sendTransaction({
-      to: paymasterFactoryAddress,
+      to: getPaymasterFactoryAddress(),
       data,
       value: initialDeposit,
     })
@@ -364,12 +384,12 @@ export function createPaymentsModule(
   }
 
   async function getCredits(service: ServiceType): Promise<CreditBalance> {
-    if (!creditManagerAddress) {
+    if (!getCreditManagerAddress()) {
       throw new Error('Credit manager not configured for this network')
     }
 
     const creditManager = getContract({
-      address: creditManagerAddress,
+      address: getCreditManagerAddress(),
       abi: CREDIT_MANAGER_ABI,
       client: wallet.publicClient,
     })
@@ -390,7 +410,7 @@ export function createPaymentsModule(
     service: ServiceType,
     amount: bigint,
   ): Promise<Hex> {
-    if (!creditManagerAddress) {
+    if (!getCreditManagerAddress()) {
       throw new Error('Credit manager not configured for this network')
     }
 
@@ -401,7 +421,7 @@ export function createPaymentsModule(
     })
 
     return wallet.sendTransaction({
-      to: creditManagerAddress,
+      to: getCreditManagerAddress(),
       data,
       value: amount,
     })
@@ -411,7 +431,7 @@ export function createPaymentsModule(
     service: ServiceType,
     amount: bigint,
   ): Promise<Hex> {
-    if (!creditManagerAddress) {
+    if (!getCreditManagerAddress()) {
       throw new Error('Credit manager not configured for this network')
     }
 
@@ -421,7 +441,7 @@ export function createPaymentsModule(
       args: [SERVICE_IDS[service], amount],
     })
 
-    return wallet.sendTransaction({ to: creditManagerAddress, data })
+    return wallet.sendTransaction({ to: getCreditManagerAddress(), data })
   }
 
   return {

@@ -16,10 +16,10 @@ import {
 import type { AutocratConfig } from '../lib'
 import {
   type AutocratVoteFromContract,
-  CEO_AGENT_ABI,
-  type CEOStatsFromContract,
-  COUNCIL_ABI,
+  BOARD_ABI,
   type DecisionFromContract,
+  DIRECTOR_AGENT_ABI,
+  type DirectorStatsFromContract,
   getAutocratRole,
   getProposalStatus,
   getProposalType,
@@ -51,13 +51,13 @@ type ProposalTuple = readonly [
   bigint, // backerCount
   boolean, // hasResearch
   `0x${string}`, // researchHash
-  boolean, // ceoApproved
-  `0x${string}`, // ceoDecisionHash
+  boolean, // directorApproved
+  `0x${string}`, // directorDecisionHash
 ]
 
 type AutocratVoteTuple = readonly [
   `0x${string}`, // proposalId
-  `0x${string}`, // councilAgent
+  `0x${string}`, // boardAgent
   number, // role
   number, // vote
   `0x${string}`, // reasoningHash
@@ -79,7 +79,7 @@ type ModelTuple = readonly [
   bigint, // benchmarkScore
 ]
 
-type CEOStatsTuple = readonly [
+type DirectorStatsTuple = readonly [
   string, // currentModelId
   bigint, // totalDecisions
   bigint, // approvedDecisions
@@ -122,8 +122,8 @@ function parseProposalTuple(t: ProposalTuple): ProposalFromContract {
     backerCount: t[15],
     hasResearch: t[16],
     researchHash: t[17],
-    ceoApproved: t[18],
-    ceoDecisionHash: t[19],
+    directorApproved: t[18],
+    directorDecisionHash: t[19],
   }
 }
 
@@ -132,7 +132,7 @@ function parseAutocratVoteTuple(
 ): AutocratVoteFromContract {
   return {
     proposalId: t[0],
-    councilAgent: t[1],
+    boardAgent: t[1],
     role: t[2],
     vote: t[3],
     reasoningHash: t[4],
@@ -157,7 +157,9 @@ function parseModelTuple(t: ModelTuple): ModelFromContract {
   }
 }
 
-function parseCEOStatsTuple(t: CEOStatsTuple): CEOStatsFromContract {
+function parseDirectorStatsTuple(
+  t: DirectorStatsTuple,
+): DirectorStatsFromContract {
   return {
     currentModelId: t[0],
     totalDecisions: t[1],
@@ -200,8 +202,8 @@ function expectModelTuple(result: unknown): ModelFromContract {
   return parseModelTuple(asTuple<ModelTuple>(result, 11))
 }
 
-function expectCEOStatsTuple(result: unknown): CEOStatsFromContract {
-  return parseCEOStatsTuple(asTuple<CEOStatsTuple>(result, 6))
+function expectDirectorStatsTuple(result: unknown): DirectorStatsFromContract {
+  return parseDirectorStatsTuple(asTuple<DirectorStatsTuple>(result, 6))
 }
 
 function expectDecisionTuple(result: unknown): DecisionFromContract {
@@ -215,14 +217,14 @@ function expectStringArray(result: unknown): string[] {
 
 export class AutocratBlockchain {
   readonly client: PublicClient
-  readonly councilAddress: Address
-  readonly ceoAgentAddress: Address
-  readonly councilDeployed: boolean
-  readonly ceoDeployed: boolean
+  readonly boardAddress: Address
+  readonly directorAgentAddress: Address
+  readonly boardDeployed: boolean
+  readonly directorDeployed: boolean
   private readonly config: AutocratConfig
 
-  // Wrapper object for CEO Agent contract calls
-  readonly ceoAgent: {
+  // Wrapper object for Director Agent contract calls
+  readonly directorAgent: {
     getAllModels: () => Promise<string[]>
   }
 
@@ -235,21 +237,23 @@ export class AutocratBlockchain {
       chain,
       transport: http(config.rpcUrl),
     }) as PublicClient
-    this.councilAddress = toAddress(config.contracts?.council ?? ZERO_ADDRESS)
-    this.ceoAgentAddress = toAddress(config.contracts?.ceoAgent ?? ZERO_ADDRESS)
-    this.councilDeployed =
-      viemIsAddress(this.councilAddress) && this.councilAddress !== ZERO_ADDRESS
-    this.ceoDeployed =
-      viemIsAddress(this.ceoAgentAddress) &&
-      this.ceoAgentAddress !== ZERO_ADDRESS
+    this.boardAddress = toAddress(config.contracts?.board ?? ZERO_ADDRESS)
+    this.directorAgentAddress = toAddress(
+      config.contracts?.directorAgent ?? ZERO_ADDRESS,
+    )
+    this.boardDeployed =
+      viemIsAddress(this.boardAddress) && this.boardAddress !== ZERO_ADDRESS
+    this.directorDeployed =
+      viemIsAddress(this.directorAgentAddress) &&
+      this.directorAgentAddress !== ZERO_ADDRESS
 
-    // Initialize ceoAgent wrapper
-    this.ceoAgent = {
+    // Initialize directorAgent wrapper
+    this.directorAgent = {
       getAllModels: async () => {
-        if (!this.ceoDeployed) return []
+        if (!this.directorDeployed) return []
         const result = await this.client.readContract({
-          address: this.ceoAgentAddress,
-          abi: CEO_AGENT_ABI,
+          address: this.directorAgentAddress,
+          abi: DIRECTOR_AGENT_ABI,
           functionName: 'getAllModels',
         })
         return expectStringArray(result)
@@ -266,17 +270,17 @@ export class AutocratBlockchain {
       proposalId,
       'Proposal ID',
     )
-    if (!this.councilDeployed) return null
+    if (!this.boardDeployed) return null
     const proposalResult = await this.client.readContract({
-      address: this.councilAddress,
-      abi: COUNCIL_ABI,
+      address: this.boardAddress,
+      abi: BOARD_ABI,
       functionName: 'getProposal',
       args: [validated],
     })
     const proposal = expectProposalTuple(proposalResult)
     const votesResult = await this.client.readContract({
-      address: this.councilAddress,
-      abi: COUNCIL_ABI,
+      address: this.boardAddress,
+      abi: BOARD_ABI,
       functionName: 'getAutocratVotes',
       args: [validated],
     })
@@ -305,13 +309,13 @@ export class AutocratBlockchain {
       backerCount: p.backerCount.toString(),
       hasResearch: p.hasResearch,
       researchHash: p.researchHash,
-      ceoApproved: p.ceoApproved,
+      directorApproved: p.directorApproved,
     }
   }
 
   formatVotes(votes: AutocratVoteFromContract[]) {
     return votes.map((v) => ({
-      agent: v.councilAgent,
+      agent: v.boardAgent,
       role: getAutocratRole(v.role),
       vote: getVoteType(v.vote),
       weight: v.weight.toString(),
@@ -338,17 +342,17 @@ export class AutocratBlockchain {
       limit > 0 && limit <= 1000,
       `Limit must be between 1 and 1000, got ${limit}`,
     )
-    if (!this.councilDeployed) return { total: 0, proposals: [] }
+    if (!this.boardDeployed) return { total: 0, proposals: [] }
 
     const proposalIdsResult = activeOnly
       ? await this.client.readContract({
-          address: this.councilAddress,
-          abi: COUNCIL_ABI,
+          address: this.boardAddress,
+          abi: BOARD_ABI,
           functionName: 'getActiveProposals',
         })
       : await this.client.readContract({
-          address: this.councilAddress,
-          abi: COUNCIL_ABI,
+          address: this.boardAddress,
+          abi: BOARD_ABI,
           functionName: 'getAllProposals',
         })
     const proposalIds = expectStringArray(proposalIdsResult)
@@ -356,8 +360,8 @@ export class AutocratBlockchain {
     const proposals = []
     for (const id of proposalIds.slice(-limit)) {
       const proposalResult = await this.client.readContract({
-        address: this.councilAddress,
-        abi: COUNCIL_ABI,
+        address: this.boardAddress,
+        abi: BOARD_ABI,
         functionName: 'getProposal',
         args: [id],
       })
@@ -375,7 +379,7 @@ export class AutocratBlockchain {
     return { total: proposalIds.length, proposals: proposals.reverse() }
   }
 
-  async getCEOStatus(): Promise<{
+  async getDirectorStatus(): Promise<{
     currentModel: {
       modelId: string
       name: string
@@ -392,8 +396,8 @@ export class AutocratBlockchain {
     }
     decisionsThisPeriod?: number
   }> {
-    if (!this.ceoDeployed) {
-      // Use the DAO's configured model as the current CEO
+    if (!this.directorDeployed) {
+      // Use the DAO's configured model as the current Director
       const configuredModelId = this.config.directorModelId ?? 'claude-opus-4-5'
       const activeModel =
         findModelById(configuredModelId) ?? MODEL_CANDIDATES[0]
@@ -417,14 +421,14 @@ export class AutocratBlockchain {
     }
 
     const statsResult = await this.client.readContract({
-      address: this.ceoAgentAddress,
-      abi: CEO_AGENT_ABI,
-      functionName: 'getCEOStats',
+      address: this.directorAgentAddress,
+      abi: DIRECTOR_AGENT_ABI,
+      functionName: 'getDirectorStats',
     })
-    const stats = expectCEOStatsTuple(statsResult)
+    const stats = expectDirectorStatsTuple(statsResult)
     const modelResult = await this.client.readContract({
-      address: this.ceoAgentAddress,
-      abi: CEO_AGENT_ABI,
+      address: this.directorAgentAddress,
+      abi: DIRECTOR_AGENT_ABI,
       functionName: 'getCurrentModel',
     })
     const model = expectModelTuple(modelResult)
@@ -466,11 +470,11 @@ export class AutocratBlockchain {
       proposalId,
       'Proposal ID',
     )
-    if (!this.ceoDeployed) return { decided: false }
+    if (!this.directorDeployed) return { decided: false }
 
     const decisionResult = await this.client.readContract({
-      address: this.ceoAgentAddress,
-      abi: CEO_AGENT_ABI,
+      address: this.directorAgentAddress,
+      abi: DIRECTOR_AGENT_ABI,
       functionName: 'getDecision',
       args: [validated],
     })
@@ -506,15 +510,15 @@ export class AutocratBlockchain {
       isActive: boolean
     }>
   > {
-    if (!this.ceoDeployed) {
+    if (!this.directorDeployed) {
       // Return default models with DAO's configured model marked as active
       const configuredModelId = this.config.directorModelId ?? 'claude-opus-4-5'
       return getDefaultModelCandidates(configuredModelId)
     }
 
     const modelIdsResult = await this.client.readContract({
-      address: this.ceoAgentAddress,
-      abi: CEO_AGENT_ABI,
+      address: this.directorAgentAddress,
+      abi: DIRECTOR_AGENT_ABI,
       functionName: 'getAllModels',
     })
     const modelIds = expectStringArray(modelIdsResult)
@@ -522,8 +526,8 @@ export class AutocratBlockchain {
 
     for (const modelId of modelIds) {
       const modelResult = await this.client.readContract({
-        address: this.ceoAgentAddress,
-        abi: CEO_AGENT_ABI,
+        address: this.directorAgentAddress,
+        abi: DIRECTOR_AGENT_ABI,
         functionName: 'getModel',
         args: [modelId],
       })
@@ -561,11 +565,11 @@ export class AutocratBlockchain {
       limit > 0 && limit <= 100,
       `Limit must be between 1 and 100, got ${limit}`,
     )
-    if (!this.ceoDeployed) return []
+    if (!this.directorDeployed) return []
 
     const decisionIdsResult = await this.client.readContract({
-      address: this.ceoAgentAddress,
-      abi: CEO_AGENT_ABI,
+      address: this.directorAgentAddress,
+      abi: DIRECTOR_AGENT_ABI,
       functionName: 'getRecentDecisions',
       args: [limit],
     })
@@ -574,8 +578,8 @@ export class AutocratBlockchain {
 
     for (const id of decisionIds) {
       const decisionResult = await this.client.readContract({
-        address: this.ceoAgentAddress,
-        abi: CEO_AGENT_ABI,
+        address: this.directorAgentAddress,
+        abi: DIRECTOR_AGENT_ABI,
         functionName: 'getDecision',
         args: [id],
       })
@@ -599,23 +603,23 @@ export class AutocratBlockchain {
 
   async getGovernanceStats(): Promise<{
     totalProposals: string
-    ceo: { model: string; decisions: string; approvalRate: string }
+    director: { model: string; decisions: string; approvalRate: string }
     parameters: {
       minQualityScore: string
       autocratVotingPeriod: string
       gracePeriod: string
     }
   }> {
-    if (!this.councilDeployed || !this.ceoDeployed) {
-      const ceo = this.config.agents?.ceo
+    if (!this.boardDeployed || !this.directorDeployed) {
+      const director = this.config.agents?.director
       const params = this.config.parameters
       const minQuality = params?.minQualityScore ?? 70
       const votingPeriod = params?.autocratVotingPeriod ?? 86400
       const gracePeriod = params?.gracePeriod ?? 172800
       return {
         totalProposals: '0',
-        ceo: {
-          model: ceo?.model ?? 'local',
+        director: {
+          model: director?.model ?? 'local',
           decisions: '0',
           approvalRate: '0%',
         },
@@ -628,42 +632,42 @@ export class AutocratBlockchain {
     }
 
     const proposalCountResult = await this.client.readContract({
-      address: this.councilAddress,
-      abi: COUNCIL_ABI,
+      address: this.boardAddress,
+      abi: BOARD_ABI,
       functionName: 'proposalCount',
     })
     const proposalCount = toBigInt(proposalCountResult)
-    const ceoStatsResult = await this.client.readContract({
-      address: this.ceoAgentAddress,
-      abi: CEO_AGENT_ABI,
-      functionName: 'getCEOStats',
+    const directorStatsResult = await this.client.readContract({
+      address: this.directorAgentAddress,
+      abi: DIRECTOR_AGENT_ABI,
+      functionName: 'getDirectorStats',
     })
-    const ceoStats = expectCEOStatsTuple(ceoStatsResult)
+    const directorStats = expectDirectorStatsTuple(directorStatsResult)
     const minQualityResult = await this.client.readContract({
-      address: this.councilAddress,
-      abi: COUNCIL_ABI,
+      address: this.boardAddress,
+      abi: BOARD_ABI,
       functionName: 'minQualityScore',
     })
     const minQuality = Number(minQualityResult)
     const votingPeriodResult = await this.client.readContract({
-      address: this.councilAddress,
-      abi: COUNCIL_ABI,
+      address: this.boardAddress,
+      abi: BOARD_ABI,
       functionName: 'autocratVotingPeriod',
     })
     const votingPeriod = toBigInt(votingPeriodResult)
     const graceResult = await this.client.readContract({
-      address: this.councilAddress,
-      abi: COUNCIL_ABI,
+      address: this.boardAddress,
+      abi: BOARD_ABI,
       functionName: 'gracePeriod',
     })
     const grace = toBigInt(graceResult)
 
     return {
       totalProposals: proposalCount.toString(),
-      ceo: {
-        model: ceoStats.currentModelId,
-        decisions: ceoStats.totalDecisions.toString(),
-        approvalRate: `${(Number(ceoStats.approvalRate) / 100).toFixed(2)}%`,
+      director: {
+        model: directorStats.currentModelId,
+        decisions: directorStats.totalDecisions.toString(),
+        approvalRate: `${(Number(directorStats.approvalRate) / 100).toFixed(2)}%`,
       },
       parameters: {
         minQualityScore: minQuality.toString(),
@@ -692,11 +696,20 @@ export class AutocratBlockchain {
     }
   }
 
-  async getProposalsByDAO(_daoId: string) {
-    // Get all proposals for this DAO
-    // Note: In a multi-DAO setup, this would filter by daoId from the registry
+  async getProposalsByDAO(daoId: string) {
+    // Get all proposals and filter by daoId
     const result = await this.listProposals(false)
-    return result.proposals
+    // Filter proposals by the DAO's board address from registry
+    // Proposals submitted to different DAOs have different board contracts
+    const daoBoard = this.config.contracts?.board
+    if (!daoBoard || daoBoard === ZERO_ADDRESS) {
+      return result.proposals
+    }
+    // Return proposals that belong to this DAO's board
+    return result.proposals.filter((p) => {
+      // In multi-DAO setup, proposalId contains daoId prefix
+      return p.proposalId.startsWith(daoId) || result.proposals.length === 0
+    })
   }
 
   async submitProposal(_params: {

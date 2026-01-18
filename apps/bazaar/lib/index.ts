@@ -2,7 +2,7 @@
  * Bazaar - Shared Library
  *
  * Exports shared utilities and modules used across api/ and web/.
- * Note: Some modules export same-named functions (formatPrice, formatTimeRemaining).
+ * Some modules export same-named functions (formatPrice, formatTimeRemaining).
  * Use explicit imports with aliases when you need multiple versions.
  */
 

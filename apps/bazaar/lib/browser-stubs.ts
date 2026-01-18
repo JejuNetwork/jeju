@@ -37,6 +37,8 @@ const network = getCurrentNetwork()
 const contracts = getContractsConfig(network)
 const isMainnet = network === 'mainnet'
 
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
+
 const NETWORK_CONFIG = {
   chain: isMainnet ? base : baseSepolia,
   rpcUrl: getRpcUrl(network),
@@ -79,7 +81,8 @@ export function useBanStatus(address: Address | undefined): BanStatus {
 
     const config = getNetworkConfig()
 
-    if (!config.banManager) {
+    // Check if banManager is null or zero address (not deployed)
+    if (!config.banManager || config.banManager === ZERO_ADDRESS) {
       setStatus({
         isBanned: false,
         isOnNotice: false,

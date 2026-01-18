@@ -1,7 +1,7 @@
 import { getContract, getRpcUrl } from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address } from 'viem'
-import { type CouncilConfig, toAddress } from '../lib'
+import { type BoardConfig, toAddress } from '../lib'
 import { type AutocratBlockchain, getBlockchain } from './blockchain'
 import { type AutocratConfig, config as autocratConfigRaw } from './config'
 import { type AutocratOrchestrator, createOrchestrator } from './orchestrator'
@@ -39,13 +39,13 @@ const agent = (id: string, name: string, prompt: string) => ({
   systemPrompt: prompt,
 })
 
-export function getConfig(): CouncilConfig {
+export function getConfig(): BoardConfig {
   return {
     rpcUrl: getRpcUrl(),
     daoId: autocratConfigRaw.defaultDao,
     contracts: {
-      board: getContractAddr('governance', 'council'),
-      directorAgent: getContractAddr('governance', 'ceoAgent'),
+      board: getContractAddr('governance', 'board'),
+      directorAgent: getContractAddr('governance', 'directorAgent'),
       treasury: getContractAddr('governance', 'treasury'),
       feeConfig: getContractAddr('payments', 'feeConfig'),
       daoRegistry: getContractAddr('governance', 'daoRegistry'),
@@ -80,7 +80,7 @@ export function getConfig(): CouncilConfig {
       minQualityScore: 70,
       boardVotingPeriod: 259200,
       gracePeriod: 86400,
-      minProposalStake: BigInt('10000000000000000'),
+      minProposalStake: '10000000000000000',
       quorumBps: 5000,
     },
     directorPersona: {
@@ -112,8 +112,8 @@ export function getConfig(): CouncilConfig {
   }
 }
 
-const councilConfig = getConfig()
-export const config = councilConfig
+const boardConfig = getConfig()
+export const config = boardConfig
 export const autocratConfig: AutocratConfig = autocratConfigRaw
 export const blockchain: AutocratBlockchain = getBlockchain(config)
 
@@ -122,14 +122,25 @@ let _orchestrator: AutocratOrchestrator | null = null
 /**
  * Get shared state for use in routes and services
  */
+// Helper to get distributor contract addresses
+const getDistributorAddr = (name: string): Address => {
+  try {
+    return toAddress(getContract('distributor', name))
+  } catch {
+    return ZERO_ADDRESS
+  }
+}
+
 export function getSharedState(): {
-  config: CouncilConfig
+  config: BoardConfig
   autocratConfig: AutocratConfig
   contracts: {
     feeConfig: Address
     treasury: Address
-    council: Address
+    board: Address
     daoRegistry: Address
+    appFeeRegistry: Address
+    feeDistributor: Address
   }
   clients: {
     publicClient: AutocratBlockchain['client'] | null
@@ -142,8 +153,10 @@ export function getSharedState(): {
     contracts: {
       feeConfig: config.contracts.feeConfig ?? ZERO_ADDRESS,
       treasury: config.contracts.treasury ?? ZERO_ADDRESS,
-      council: config.contracts.council ?? ZERO_ADDRESS,
+      board: config.contracts.board ?? ZERO_ADDRESS,
       daoRegistry: config.contracts.daoRegistry ?? ZERO_ADDRESS,
+      appFeeRegistry: getDistributorAddr('appFeeRegistry'),
+      feeDistributor: getDistributorAddr('feeDistributor'),
     },
     clients: {
       publicClient: blockchain.client,

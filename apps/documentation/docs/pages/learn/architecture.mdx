@@ -1,0 +1,129 @@
+# Architecture
+
+Jeju is an OP-Stack L2 on Ethereum using EigenDA for data availability.
+
+## Stack
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Applications                                                │
+│  Gateway · Bazaar · Crucible · Factory · DWS · Indexer       │
+├─────────────────────────────────────────────────────────────┤
+│  Smart Contracts                                             │
+│  Tokens · Identity · Paymasters · OIF · EIL · DeFi           │
+├─────────────────────────────────────────────────────────────┤
+│  L2 (OP-Stack)                                               │
+│  op-reth + op-node · Flashblocks · ERC-4337 Bundler          │
+├─────────────────────────────────────────────────────────────┤
+│  Data Availability: EigenDA                                  │
+├─────────────────────────────────────────────────────────────┤
+│  Settlement: Ethereum                                        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## OP-Stack Components
+
+| Component | Description |
+|-----------|-------------|
+| **op-reth** | Executes transactions (Rust Ethereum client) |
+| **op-node** | Derives chain state from L1 |
+| **op-batcher** | Batches L2 transactions to L1/EigenDA |
+| **op-proposer** | Posts L2 state roots to L1 |
+| **op-challenger** | Monitors for fraud (future) |
+
+## Block Times
+
+| Stage | Time |
+|-------|------|
+| Flashblock pre-confirmation | 200ms |
+| L2 block finality | 2s |
+| L1 confirmation | ~15 min |
+| Challenge period | 7 days |
+
+## Transaction Flow
+
+1. User submits transaction
+2. Sequencer includes it (200ms pre-confirmation)
+3. Block finalized on L2 (2 seconds)
+4. Batcher posts to EigenDA (every minute)
+5. Proposer posts state root to L1 (every hour)
+6. Settlement finalized after challenge period (7 days)
+
+```
+User → Sequencer → L2 Block → Batcher → EigenDA → L1 State Root
+       (200ms)     (2s)       (1 min)    (1 min)   (1 hour)
+```
+
+## Account Abstraction
+
+Jeju has native ERC-4337 support:
+
+| Component | Description |
+|-----------|-------------|
+| **EntryPoint** | Standard ERC-4337 contract |
+| **Bundler** | Built into op-reth |
+| **Paymasters** | Pay gas in any token, or sponsor for users |
+
+Smart accounts enable:
+- Paying gas in USDC, JEJU, or any registered token
+- Apps sponsoring gas for users
+- Batched transactions
+- Social recovery
+- Session keys
+
+## Key Protocols
+
+### ERC-8004 (Agent Identity)
+
+On-chain registry for AI agents:
+- Unique agent identities
+- A2A (agent-to-agent) communication endpoints
+- MCP (Model Context Protocol) endpoints
+- Reputation tracking
+
+### ERC-7683 (Cross-Chain Intents)
+
+Intent-based cross-chain transactions:
+- User expresses intent on source chain
+- Solvers compete to fulfill
+- Oracle verifies execution
+
+### EIL (Ethereum Interop Layer)
+
+Instant cross-chain transfers:
+- Liquidity providers (XLPs) front funds
+- Users receive immediately on destination
+- No bridge wait time
+
+## Data Availability
+
+**EigenDA** is the primary DA layer:
+- Lower cost than posting to Ethereum calldata
+- High throughput
+- Ethereum economic security
+
+**Fallback:** If EigenDA is unavailable, automatic fallback to Ethereum calldata.
+
+## Security
+
+| Layer | Status |
+|-------|--------|
+| Sequencer | Centralized (roadmap: decentralized) |
+| State Transition | Fault proofs with 7-day challenge |
+| Data Availability | EigenDA + Ethereum fallback |
+| Settlement | Ethereum mainnet |
+
+## Supported Chains
+
+| Chain | Integration |
+|-------|-------------|
+| Ethereum | Settlement + EIL + OIF |
+| Base | OIF + EIL |
+| Arbitrum | Coming soon |
+| Solana | ZK Bridge |
+
+## Related
+
+- [Gasless Transactions](/learn/gasless)
+- [Agent Infrastructure](/learn/agents)
+- [Cross-Chain](/integrate/overview)

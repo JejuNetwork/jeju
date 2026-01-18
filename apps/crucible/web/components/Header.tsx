@@ -1,4 +1,5 @@
-import { useJejuAuth } from '@jejunetwork/auth/react'
+import { AuthProvider } from '@jejunetwork/auth'
+import { LoginModal, useJejuAuth } from '@jejunetwork/auth/react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useHealth } from '../hooks'
@@ -13,6 +14,7 @@ export function Header() {
   const { pathname } = useLocation()
   const { data: health } = useHealth()
   const [showMobileMenu, setShowMobileMenu] = useState(false)
+  const [loginOpen, setLoginOpen] = useState(false)
   const [isDark, setIsDark] = useState(() => {
     if (typeof window === 'undefined') return true
     const savedTheme = localStorage.getItem('crucible-theme')
@@ -23,13 +25,8 @@ export function Header() {
   })
 
   // Auth state
-  const {
-    authenticated,
-    loading: authLoading,
-    walletAddress,
-    loginWithWallet,
-    logout,
-  } = useJejuAuth()
+  const { authenticated, loading: authLoading, walletAddress, logout } =
+    useJejuAuth()
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark)
@@ -63,9 +60,9 @@ export function Header() {
     setShowMobileMenu((prev) => !prev)
   }, [])
 
-  const handleConnect = useCallback(async () => {
-    await loginWithWallet()
-  }, [loginWithWallet])
+  const handleConnect = useCallback(() => {
+    setLoginOpen(true)
+  }, [])
 
   const handleDisconnect = useCallback(async () => {
     await logout()
@@ -369,6 +366,24 @@ export function Header() {
           </div>
         </div>
       </nav>
+
+      <LoginModal
+        isOpen={loginOpen}
+        onClose={() => setLoginOpen(false)}
+        onSuccess={() => setLoginOpen(false)}
+        title="Sign In"
+        subtitle="Use wallet or passkey"
+        providers={[
+          AuthProvider.WALLET,
+          AuthProvider.PASSKEY,
+          AuthProvider.FARCASTER,
+          AuthProvider.GOOGLE,
+          AuthProvider.GITHUB,
+          AuthProvider.TWITTER,
+          AuthProvider.DISCORD,
+        ]}
+        showEmailPhone={false}
+      />
     </>
   )
 }

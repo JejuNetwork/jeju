@@ -67,7 +67,7 @@ function getConfig(): BundlerConfig {
   }
 
   const chainIds: Record<string, number> = {
-    localnet: 420691,
+    localnet: 31337, // L2 chain ID for local development
     testnet: 420690,
     mainnet: 420692,
   }

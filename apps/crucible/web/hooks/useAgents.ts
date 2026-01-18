@@ -12,14 +12,51 @@ interface Agent {
   agentId: string
   owner: string
   name: string
+  description?: string
   botType: 'ai_agent' | 'trading_bot' | 'org_tool'
   characterCid?: string
   stateCid: string
   vaultAddress: string
+  vaultBalance?: string
   active: boolean
   registeredAt: number
   lastExecutedAt: number
   executionCount: number
+  tickIntervalMs?: number
+  capabilities?: {
+    canChat?: boolean
+    canTrade?: boolean
+    canVote?: boolean
+    canPropose?: boolean
+    canStake?: boolean
+    a2a?: boolean
+    compute?: boolean
+  }
+  /** TEE verification status */
+  tee?: {
+    /** Whether agent runs in TEE */
+    enabled: boolean
+    /** TEE platform type */
+    platform?:
+      | 'intel_tdx'
+      | 'intel_sgx'
+      | 'amd_sev_snp'
+      | 'phala'
+      | 'aws_nitro'
+      | 'gcp_confidential'
+    /** Attestation status */
+    status: 'valid' | 'expired' | 'unverified' | 'pending'
+    /** mrEnclave measurement */
+    mrEnclave?: string
+    /** mrSigner measurement */
+    mrSigner?: string
+    /** Provider endpoint */
+    endpoint?: string
+    /** When attestation expires */
+    expiresAt?: number
+    /** Last attestation timestamp */
+    lastAttestationAt?: number
+  }
 }
 
 interface AgentsSearchResponse {
@@ -29,6 +66,7 @@ interface AgentsSearchResponse {
 }
 
 interface RegisterAgentRequest {
+  name: string
   character: {
     id: string
     name: string
@@ -45,6 +83,15 @@ interface RegisterAgentRequest {
     }
   }
   initialFunding?: string
+  capabilities?: {
+    canChat?: boolean
+    canTrade?: boolean
+    canVote?: boolean
+    canPropose?: boolean
+    canStake?: boolean
+    a2a?: boolean
+    compute?: boolean
+  }
 }
 
 interface RegisterAgentResponse {
@@ -94,7 +141,7 @@ function useAuthHeaders() {
     if (isAuthenticated && smartAccountAddress) {
       headers['X-Jeju-Address'] = smartAccountAddress
       if (session?.sessionId) {
-        headers['Authorization'] = `Bearer ${session.sessionId}`
+        headers.Authorization = `Bearer ${session.sessionId}`
       }
     }
 
@@ -149,7 +196,8 @@ export function useMyAgents() {
   const { smartAccountAddress, isAuthenticated } = useOAuth3()
 
   return useAgents({
-    owner: isAuthenticated && smartAccountAddress ? smartAccountAddress : undefined,
+    owner:
+      isAuthenticated && smartAccountAddress ? smartAccountAddress : undefined,
   })
 }
 

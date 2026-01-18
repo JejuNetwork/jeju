@@ -5,13 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#0D0B14">
   <title>Indexer</title>
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/graphiql@3/graphiql.min.js" crossorigin></script>
-  <link href="https://unpkg.com/graphiql@3/graphiql.min.css" rel="stylesheet" />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="/vendor/react.production.min.js" crossorigin></script>
+  <script src="/vendor/react-dom.production.min.js" crossorigin></script>
+  <script src="/vendor/graphiql.min.js" crossorigin></script>
+  <link href="/vendor/graphiql.min.css" rel="stylesheet" />
   <style>
     :root {
       --jeju-primary: #FF6B35;
@@ -255,40 +252,6 @@
     </header>
     <div id="graphiql-container"></div>
   </div>
-  <script>
-    const themeToggle = document.getElementById('themeToggle');
-    const themeIcon = document.getElementById('themeIcon');
-    const body = document.body;
-    const savedTheme = localStorage.getItem('jeju-theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const initialTheme = savedTheme || (prefersDark ? 'dark' : 'light');
-    body.setAttribute('data-theme', initialTheme);
-    themeIcon.textContent = initialTheme === 'dark' ? '☀️' : '🌙';
-    themeToggle.addEventListener('click', () => {
-      const newTheme = body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-      body.setAttribute('data-theme', newTheme);
-      localStorage.setItem('jeju-theme', newTheme);
-      themeIcon.textContent = newTheme === 'dark' ? '☀️' : '🌙';
-    });
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-      if (!localStorage.getItem('jeju-theme')) {
-        const newTheme = e.matches ? 'dark' : 'light';
-        body.setAttribute('data-theme', newTheme);
-        themeIcon.textContent = newTheme === 'dark' ? '☀️' : '🌙';
-      }
-    });
-    const graphqlUrl = window.location.hostname === 'localhost' ? 'http://localhost:4000/graphql' : '/graphql';
-    const fetcher = GraphiQL.createFetcher({ url: graphqlUrl });
-    const defaultQuery = `query {
-  blocks(limit: 5, orderBy: number_DESC) {
-    number
-    hash
-    timestamp
-  }
-}`;
-    ReactDOM.createRoot(document.getElementById('graphiql-container')).render(
-      React.createElement(GraphiQL, { fetcher, defaultQuery, defaultEditorToolsVisibility: false })
-    );
-  </script>
+  <script src="/vendor/playground.js"></script>
 </body>
 </html>

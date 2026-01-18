@@ -10,9 +10,27 @@
  */
 
 import { getAutocratUrl } from '@jejunetwork/config'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import type { Address } from 'viem'
+import { useAccount, useSignTypedData } from 'wagmi'
+
+// EIP-712 Domain for Director Decisions
+const DIRECTOR_DECISION_DOMAIN = {
+  name: 'Autocrat Director',
+  version: '1',
+  chainId: 84532, // Base Sepolia
+} as const
+
+// EIP-712 Types for Director Decision
+const DIRECTOR_DECISION_TYPES = {
+  DirectorDecision: [
+    { name: 'proposalId', type: 'string' },
+    { name: 'approved', type: 'bool' },
+    { name: 'reasoning', type: 'string' },
+    { name: 'timestamp', type: 'uint256' },
+  ],
+} as const
 
 interface BoardVote {
   role: string
@@ -260,16 +278,18 @@ function ProposalContextSection({ context }: { context: DirectorContext }) {
 function DecisionForm({
   proposalId: _proposalId,
   onSubmit,
+  isPending = false,
 }: {
   proposalId: string
   onSubmit: (decision: { approved: boolean; reasoning: string }) => void
+  isPending?: boolean
 }) {
   // _proposalId available if needed for future EIP-712 signing
   const [approved, setApproved] = useState<boolean | null>(null)
   const [reasoning, setReasoning] = useState('')
 
   const handleSubmit = () => {
-    if (approved === null) return
+    if (approved === null || isPending) return
     onSubmit({ approved, reasoning })
   }
 
@@ -326,10 +346,10 @@ function DecisionForm({
       <button
         type="button"
         onClick={handleSubmit}
-        disabled={approved === null || !reasoning.trim()}
+        disabled={approved === null || !reasoning.trim() || isPending}
         className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-700 disabled:cursor-not-allowed rounded-lg font-medium transition-colors"
       >
-        Sign & Submit Decision
+        {isPending ? 'Signing & Submitting...' : 'Sign & Submit Decision'}
       </button>
 
       <p className="text-xs text-zinc-500 mt-3 text-center">
@@ -344,6 +364,11 @@ export function DirectorDashboard() {
   const [selectedProposalId, setSelectedProposalId] = useState<string | null>(
     null,
   )
+  const [submitError, setSubmitError] = useState<string | null>(null)
+
+  const queryClient = useQueryClient()
+  const { address, isConnected } = useAccount()
+  const { signTypedDataAsync } = useSignTypedData()
 
   // Fetch pending proposals
   const { data: pendingProposals } = useQuery({
@@ -372,16 +397,77 @@ export function DirectorDashboard() {
     enabled: !!selectedProposalId,
   })
 
+  // Mutation for submitting director decision
+  const submitDecisionMutation = useMutation({
+    mutationFn: async (params: {
+      proposalId: string
+      approved: boolean
+      reasoning: string
+      signature: `0x${string}`
+      directorAddress: Address
+    }) => {
+      const res = await fetch(`${getAutocratUrl()}/api/v1/director/decision`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          proposalId: params.proposalId,
+          approved: params.approved,
+          reasoning: params.reasoning,
+          signature: params.signature,
+          directorAddress: params.directorAddress,
+        }),
+      })
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(error.error ?? 'Failed to submit decision')
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      setSubmitError(null)
+      setSelectedProposalId(null)
+      queryClient.invalidateQueries({
+        queryKey: ['director-pending-proposals'],
+      })
+    },
+    onError: (error: Error) => {
+      setSubmitError(error.message)
+    },
+  })
+
   const handleDecisionSubmit = async (decision: {
     approved: boolean
     reasoning: string
   }) => {
-    // This would trigger wallet signature and submit to chain
-    console.log('Submitting decision:', {
-      proposalId: selectedProposalId,
-      ...decision,
+    if (!selectedProposalId || !address || !isConnected) {
+      setSubmitError('Please connect your wallet to submit a decision')
+      return
+    }
+
+    setSubmitError(null)
+
+    // Sign the decision with EIP-712
+    const timestamp = BigInt(Math.floor(Date.now() / 1000))
+    const signature = await signTypedDataAsync({
+      domain: DIRECTOR_DECISION_DOMAIN,
+      types: DIRECTOR_DECISION_TYPES,
+      primaryType: 'DirectorDecision',
+      message: {
+        proposalId: selectedProposalId,
+        approved: decision.approved,
+        reasoning: decision.reasoning,
+        timestamp,
+      },
     })
-    // TODO: Implement EIP-712 signature and on-chain submission
+
+    // Submit the signed decision
+    await submitDecisionMutation.mutateAsync({
+      proposalId: selectedProposalId,
+      approved: decision.approved,
+      reasoning: decision.reasoning,
+      signature,
+      directorAddress: address,
+    })
   }
 
   return (
@@ -401,9 +487,26 @@ export function DirectorDashboard() {
                 {pendingProposals?.length ?? 0}
               </div>
             </div>
+            {isConnected ? (
+              <div className="px-3 py-2 bg-emerald-500/20 text-emerald-400 rounded-lg text-sm font-medium">
+                {address?.slice(0, 6)}...{address?.slice(-4)}
+              </div>
+            ) : (
+              <div className="px-3 py-2 bg-amber-500/20 text-amber-400 rounded-lg text-sm font-medium">
+                Wallet Not Connected
+              </div>
+            )}
           </div>
         </div>
       </header>
+
+      {submitError && (
+        <div className="max-w-7xl mx-auto px-6 pt-4">
+          <div className="p-4 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 text-sm">
+            {submitError}
+          </div>
+        </div>
+      )}
 
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="grid grid-cols-12 gap-8">
@@ -452,6 +555,7 @@ export function DirectorDashboard() {
                   <DecisionForm
                     proposalId={selectedProposalId}
                     onSubmit={handleDecisionSubmit}
+                    isPending={submitDecisionMutation.isPending}
                   />
                 </div>
               ) : (

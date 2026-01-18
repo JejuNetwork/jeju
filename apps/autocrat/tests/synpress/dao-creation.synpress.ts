@@ -22,9 +22,9 @@ const TEST_DAO = {
   description: 'A test DAO for automated testing of the Autocrat platform.',
   farcasterChannel: '/test-channel',
   tags: ['test', 'automated'],
-  ceo: {
-    name: 'TestBot CEO',
-    bio: 'An AI CEO for testing purposes',
+  director: {
+    name: 'TestBot Director',
+    bio: 'An AI Director for testing purposes',
     personality: 'Decisive, analytical, test-focused',
     values: ['accuracy', 'reliability', 'thoroughness'],
   },
@@ -55,7 +55,8 @@ test.describe('DAO Creation with Wallet', () => {
 
     // Connect wallet first
     await connectAndVerify(page, metamask, {
-      connectButtonText: 'Connect',
+      connectButtonText: 'Sign In',
+      walletOptionText: 'Connect Wallet',
     })
 
     // Step 1: Basics
@@ -82,24 +83,24 @@ test.describe('DAO Creation with Wallet', () => {
       }
     }
 
-    // Continue to CEO step
+    // Continue to Director step
     await page.getByRole('button', { name: 'Continue' }).click()
 
-    // Step 2: CEO Configuration
+    // Step 2: Director Configuration
     await expect(
-      page.getByRole('heading', { name: 'Configure CEO' }),
+      page.getByRole('heading', { name: 'Configure Director' }),
     ).toBeVisible()
 
-    await page.getByLabel('Agent Name').fill(TEST_DAO.ceo.name)
+    await page.getByLabel('Agent Name').fill(TEST_DAO.director.name)
 
     const bioInput = page.getByLabel('Bio')
     if (await bioInput.isVisible()) {
-      await bioInput.fill(TEST_DAO.ceo.bio)
+      await bioInput.fill(TEST_DAO.director.bio)
     }
 
     const personalityInput = page.getByLabel('Personality')
     if (await personalityInput.isVisible()) {
-      await personalityInput.fill(TEST_DAO.ceo.personality)
+      await personalityInput.fill(TEST_DAO.director.personality)
     }
 
     // Select model (Claude Opus by default, so we can leave it)
@@ -107,13 +108,13 @@ test.describe('DAO Creation with Wallet', () => {
     await page.getByText('Balanced').click()
 
     // Add values
-    for (let i = 0; i < TEST_DAO.ceo.values.length; i++) {
+    for (let i = 0; i < TEST_DAO.director.values.length; i++) {
       const valueInputs = page.locator('input[placeholder*="Security"]')
       if (await valueInputs.nth(i).isVisible()) {
-        await valueInputs.nth(i).fill(TEST_DAO.ceo.values[i])
+        await valueInputs.nth(i).fill(TEST_DAO.director.values[i])
 
         // Add new value input if needed
-        if (i < TEST_DAO.ceo.values.length - 1) {
+        if (i < TEST_DAO.director.values.length - 1) {
           await page.getByText('Add Value').click()
         }
       }
@@ -150,8 +151,8 @@ test.describe('DAO Creation with Wallet', () => {
     await expect(minQualityInput).toHaveValue('70')
 
     // Verify checkboxes
-    const ceoVetoCheckbox = page.locator('input[type="checkbox"]').first()
-    await expect(ceoVetoCheckbox).toBeChecked()
+    const directorVetoCheckbox = page.locator('input[type="checkbox"]').first()
+    await expect(directorVetoCheckbox).toBeChecked()
 
     // Continue to Review step
     await page.getByRole('button', { name: 'Continue' }).click()
@@ -162,7 +163,7 @@ test.describe('DAO Creation with Wallet', () => {
     // Verify summary shows correct data
     await expect(page.getByText(TEST_DAO.displayName)).toBeVisible()
     await expect(page.getByText(`@${TEST_DAO.name}`)).toBeVisible()
-    await expect(page.getByText(TEST_DAO.ceo.name)).toBeVisible()
+    await expect(page.getByText(TEST_DAO.director.name)).toBeVisible()
 
     // Funding notice should be visible
     await expect(page.getByText(/treasury/i)).toBeVisible()
@@ -173,12 +174,12 @@ test.describe('DAO Creation with Wallet', () => {
     await expect(createButton).toBeEnabled()
 
     // Click create (will trigger API call)
-    // Note: In real test with backend, this would create the DAO
+    // In real test with backend, this would create the DAO
     // await createButton.click()
     // await expect(page).toHaveURL(/\/dao\/test-dao/)
   })
 
-  test('validates CEO name requirement', async ({
+  test('validates Director name requirement', async ({
     context,
     page,
     metamaskPage,
@@ -195,7 +196,8 @@ test.describe('DAO Creation with Wallet', () => {
     await page.waitForLoadState('networkidle')
 
     await connectAndVerify(page, metamask, {
-      connectButtonText: 'Connect',
+      connectButtonText: 'Sign In',
+      walletOptionText: 'Connect Wallet',
     })
 
     // Fill basics
@@ -203,17 +205,17 @@ test.describe('DAO Creation with Wallet', () => {
     await page.getByLabel(/Display Name/).fill('Test DAO')
     await page.getByRole('button', { name: 'Continue' }).click()
 
-    // On CEO step, don't fill name
+    // On Director step, don't fill name
     await expect(
-      page.getByRole('heading', { name: 'Configure CEO' }),
+      page.getByRole('heading', { name: 'Configure Director' }),
     ).toBeVisible()
 
     // Continue button should be disabled
     const continueButton = page.getByRole('button', { name: 'Continue' })
     await expect(continueButton).toBeDisabled()
 
-    // Fill CEO name
-    await page.getByLabel('Agent Name').fill('Test CEO')
+    // Fill Director name
+    await page.getByLabel('Agent Name').fill('Test Director')
 
     // Now continue should be enabled
     await expect(continueButton).toBeEnabled()
@@ -236,7 +238,8 @@ test.describe('DAO Creation with Wallet', () => {
     await page.waitForLoadState('networkidle')
 
     await connectAndVerify(page, metamask, {
-      connectButtonText: 'Connect',
+      connectButtonText: 'Sign In',
+      walletOptionText: 'Connect Wallet',
     })
 
     // Fill basics
@@ -244,9 +247,9 @@ test.describe('DAO Creation with Wallet', () => {
     await page.getByLabel(/Display Name/).fill('Persist Test')
     await page.getByLabel(/Description/).fill('Testing data persistence')
 
-    // Go to CEO step
+    // Go to Director step
     await page.getByRole('button', { name: 'Continue' }).click()
-    await page.getByLabel('Agent Name').fill('Persistent CEO')
+    await page.getByLabel('Agent Name').fill('Persistent Director')
 
     // Go back
     await page.getByRole('button', { name: 'Back' }).click()
@@ -261,8 +264,10 @@ test.describe('DAO Creation with Wallet', () => {
     // Go forward again
     await page.getByRole('button', { name: 'Continue' }).click()
 
-    // CEO data should be preserved
-    await expect(page.getByLabel('Agent Name')).toHaveValue('Persistent CEO')
+    // Director data should be preserved
+    await expect(page.getByLabel('Agent Name')).toHaveValue(
+      'Persistent Director',
+    )
   })
 
   test('can navigate using step indicators', async ({
@@ -282,7 +287,8 @@ test.describe('DAO Creation with Wallet', () => {
     await page.waitForLoadState('networkidle')
 
     await connectAndVerify(page, metamask, {
-      connectButtonText: 'Connect',
+      connectButtonText: 'Sign In',
+      walletOptionText: 'Connect Wallet',
     })
 
     // Fill all required fields to unlock steps
@@ -290,7 +296,7 @@ test.describe('DAO Creation with Wallet', () => {
     await page.getByLabel(/Display Name/).fill('Step Nav Test')
     await page.getByRole('button', { name: 'Continue' }).click()
 
-    await page.getByLabel('Agent Name').fill('Step Nav CEO')
+    await page.getByLabel('Agent Name').fill('Step Nav Director')
     await page.getByRole('button', { name: 'Continue' }).click()
 
     // Now we're on Board step
@@ -318,13 +324,16 @@ test.describe('Board Member Management', () => {
     )
 
     await page.goto(`${AUTOCRAT_URL}/create`)
-    await connectAndVerify(page, metamask, { connectButtonText: 'Connect' })
+    await connectAndVerify(page, metamask, {
+      connectButtonText: 'Sign In',
+      walletOptionText: 'Connect Wallet',
+    })
 
     // Navigate to board step
     await page.getByLabel(/Slug/).fill('board-test')
     await page.getByLabel(/Display Name/).fill('Board Test')
     await page.getByRole('button', { name: 'Continue' }).click()
-    await page.getByLabel('Agent Name').fill('Board Test CEO')
+    await page.getByLabel('Agent Name').fill('Board Test Director')
     await page.getByRole('button', { name: 'Continue' }).click()
 
     // Should see 3 board member forms
@@ -353,13 +362,16 @@ test.describe('Board Member Management', () => {
     )
 
     await page.goto(`${AUTOCRAT_URL}/create`)
-    await connectAndVerify(page, metamask, { connectButtonText: 'Connect' })
+    await connectAndVerify(page, metamask, {
+      connectButtonText: 'Sign In',
+      walletOptionText: 'Connect Wallet',
+    })
 
     // Navigate to board step
     await page.getByLabel(/Slug/).fill('add-member-test')
     await page.getByLabel(/Display Name/).fill('Add Member Test')
     await page.getByRole('button', { name: 'Continue' }).click()
-    await page.getByLabel('Agent Name').fill('Add Member CEO')
+    await page.getByLabel('Agent Name').fill('Add Member Director')
     await page.getByRole('button', { name: 'Continue' }).click()
 
     // Click add board member
@@ -382,13 +394,16 @@ test.describe('Board Member Management', () => {
     )
 
     await page.goto(`${AUTOCRAT_URL}/create`)
-    await connectAndVerify(page, metamask, { connectButtonText: 'Connect' })
+    await connectAndVerify(page, metamask, {
+      connectButtonText: 'Sign In',
+      walletOptionText: 'Connect Wallet',
+    })
 
     // Navigate to board step
     await page.getByLabel(/Slug/).fill('min-board-test')
     await page.getByLabel(/Display Name/).fill('Min Board Test')
     await page.getByRole('button', { name: 'Continue' }).click()
-    await page.getByLabel('Agent Name').fill('Min Board CEO')
+    await page.getByLabel('Agent Name').fill('Min Board Director')
     await page.getByRole('button', { name: 'Continue' }).click()
 
     // With 3 members (minimum), trash buttons should not be visible
@@ -420,13 +435,16 @@ test.describe('Governance Parameters', () => {
     )
 
     await page.goto(`${AUTOCRAT_URL}/create`)
-    await connectAndVerify(page, metamask, { connectButtonText: 'Connect' })
+    await connectAndVerify(page, metamask, {
+      connectButtonText: 'Sign In',
+      walletOptionText: 'Connect Wallet',
+    })
 
     // Navigate to governance step
     await page.getByLabel(/Slug/).fill('gov-defaults-test')
     await page.getByLabel(/Display Name/).fill('Gov Defaults Test')
     await page.getByRole('button', { name: 'Continue' }).click()
-    await page.getByLabel('Agent Name').fill('Gov Defaults CEO')
+    await page.getByLabel('Agent Name').fill('Gov Defaults Director')
     await page.getByRole('button', { name: 'Continue' }).click()
 
     // Fill board names
@@ -441,13 +459,13 @@ test.describe('Governance Parameters', () => {
     const minQualityInput = page.locator('input[type="number"]').first()
     await expect(minQualityInput).toHaveValue('70')
 
-    // CEO veto should be enabled by default
-    const ceoVetoCheckbox = page
-      .getByText('Enable CEO Veto Power')
+    // Director veto should be enabled by default
+    const directorVetoCheckbox = page
+      .getByText('Enable Director Veto Power')
       .locator('..')
       .locator('input[type="checkbox"]')
-    if (await ceoVetoCheckbox.isVisible()) {
-      await expect(ceoVetoCheckbox).toBeChecked()
+    if (await directorVetoCheckbox.isVisible()) {
+      await expect(directorVetoCheckbox).toBeChecked()
     }
   })
 
@@ -465,13 +483,16 @@ test.describe('Governance Parameters', () => {
     )
 
     await page.goto(`${AUTOCRAT_URL}/create`)
-    await connectAndVerify(page, metamask, { connectButtonText: 'Connect' })
+    await connectAndVerify(page, metamask, {
+      connectButtonText: 'Sign In',
+      walletOptionText: 'Connect Wallet',
+    })
 
     // Navigate to governance step
     await page.getByLabel(/Slug/).fill('gov-modify-test')
     await page.getByLabel(/Display Name/).fill('Gov Modify Test')
     await page.getByRole('button', { name: 'Continue' }).click()
-    await page.getByLabel('Agent Name').fill('Gov Modify CEO')
+    await page.getByLabel('Agent Name').fill('Gov Modify Director')
     await page.getByRole('button', { name: 'Continue' }).click()
     await page.getByRole('button', { name: 'Continue' }).click()
 
@@ -504,14 +525,17 @@ test.describe('Error Handling', () => {
     )
 
     await page.goto(`${AUTOCRAT_URL}/create`)
-    await connectAndVerify(page, metamask, { connectButtonText: 'Connect' })
+    await connectAndVerify(page, metamask, {
+      connectButtonText: 'Sign In',
+      walletOptionText: 'Connect Wallet',
+    })
 
     // Fill all steps
     await page.getByLabel(/Slug/).fill('error-test')
     await page.getByLabel(/Display Name/).fill('Error Test')
     await page.getByRole('button', { name: 'Continue' }).click()
 
-    await page.getByLabel('Agent Name').fill('Error Test CEO')
+    await page.getByLabel('Agent Name').fill('Error Test Director')
     await page.getByRole('button', { name: 'Continue' }).click()
 
     // Fill board member names
@@ -552,7 +576,10 @@ test.describe('Error Handling', () => {
     )
 
     await page.goto(`${AUTOCRAT_URL}/create`)
-    await connectAndVerify(page, metamask, { connectButtonText: 'Connect' })
+    await connectAndVerify(page, metamask, {
+      connectButtonText: 'Sign In',
+      walletOptionText: 'Connect Wallet',
+    })
 
     // Disconnect network
     await context.setOffline(true)

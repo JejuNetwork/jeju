@@ -21,7 +21,7 @@ import {
   UserSettingsSchema,
 } from '../../lib'
 import { DEFAULT_CHAIN_ID, DEFAULT_SLIPPAGE_BPS } from '../config'
-import { getStateManager } from './state'
+import { getSQLitStateManager } from './sqlit-state'
 
 const getOAuth3BaseUrl = () => {
   const envUrl =
@@ -114,17 +114,23 @@ const oauth3Api = {
 }
 
 export class WalletService {
-  private stateManager = getStateManager()
+  private stateManager = getSQLitStateManager()
 
-  getOrCreateUser(platform: Platform, platformId: string): OttoUser | null {
+  async getOrCreateUser(
+    platform: Platform,
+    platformId: string,
+  ): Promise<OttoUser | null> {
     return this.stateManager.getUserByPlatform(platform, platformId)
   }
 
-  getUser(userId: string): OttoUser | null {
+  async getUser(userId: string): Promise<OttoUser | null> {
     return this.stateManager.getUser(userId)
   }
 
-  getUserByPlatform(platform: Platform, platformId: string): OttoUser | null {
+  async getUserByPlatform(
+    platform: Platform,
+    platformId: string,
+  ): Promise<OttoUser | null> {
     return this.stateManager.getUserByPlatform(platform, platformId)
   }
 
@@ -204,7 +210,7 @@ export class WalletService {
       throw new Error('Invalid signature')
     }
 
-    let user = this.findUserByWallet(walletAddress)
+    let user = await this.findUserByWallet(walletAddress)
 
     if (user) {
       const hasLink = user.platforms.some(
@@ -218,7 +224,7 @@ export class WalletService {
           linkedAt: Date.now(),
           verified: true,
         })
-        this.stateManager.setUser(user)
+        await this.stateManager.setUser(user)
       }
     } else {
       const userId = `user_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
@@ -240,13 +246,15 @@ export class WalletService {
       }
 
       user = expectValid(OttoUserSchema, newUser, 'new user')
-      this.stateManager.setUser(user)
+      await this.stateManager.setUser(user)
     }
 
     return user
   }
 
-  private findUserByWallet(walletAddress: Address): OttoUser | null {
+  private async findUserByWallet(
+    walletAddress: Address,
+  ): Promise<OttoUser | null> {
     return this.stateManager.getUserByWallet(walletAddress)
   }
 
@@ -255,14 +263,14 @@ export class WalletService {
     platform: Platform,
     platformId: string,
   ): Promise<boolean> {
-    const user = this.stateManager.getUser(userId)
+    const user = await this.stateManager.getUser(userId)
     if (!user) return false
 
     user.platforms = user.platforms.filter(
       (p) => !(p.platform === platform && p.platformId === platformId),
     )
 
-    this.stateManager.setUser(user)
+    await this.stateManager.setUser(user)
     return true
   }
 
@@ -277,7 +285,7 @@ export class WalletService {
     })
 
     user.smartAccountAddress = data.address
-    this.stateManager.setUser(user)
+    await this.stateManager.setUser(user)
     return data.address
   }
 
@@ -310,7 +318,7 @@ export class WalletService {
 
     user.sessionKeyAddress = data.sessionKeyAddress
     user.sessionKeyExpiry = expiresAt
-    this.stateManager.setUser(user)
+    await this.stateManager.setUser(user)
 
     return { address: data.sessionKeyAddress, expiresAt }
   }
@@ -331,7 +339,7 @@ export class WalletService {
 
     user.sessionKeyAddress = undefined
     user.sessionKeyExpiry = undefined
-    this.stateManager.setUser(user)
+    await this.stateManager.setUser(user)
 
     return true
   }
@@ -344,12 +352,15 @@ export class WalletService {
     )
   }
 
-  updateSettings(userId: string, settings: Partial<UserSettings>): boolean {
+  async updateSettings(
+    userId: string,
+    settings: Partial<UserSettings>,
+  ): Promise<boolean> {
     if (!userId) {
       throw new Error('User ID is required')
     }
 
-    const user = this.stateManager.getUser(userId)
+    const user = await this.stateManager.getUser(userId)
     if (!user) {
       return false
     }
@@ -362,15 +373,15 @@ export class WalletService {
     )
 
     user.settings = validatedSettings
-    this.stateManager.setUser(user)
+    await this.stateManager.setUser(user)
     return true
   }
 
-  getSettings(userId: string): UserSettings {
+  async getSettings(userId: string): Promise<UserSettings> {
     if (!userId) {
       throw new Error('User ID is required')
     }
-    const user = this.stateManager.getUser(userId)
+    const user = await this.stateManager.getUser(userId)
     if (!user) {
       throw new Error(`User not found: ${userId}`)
     }

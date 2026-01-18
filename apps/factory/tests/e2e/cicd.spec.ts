@@ -1,3 +1,8 @@
+// Check if running against testnet/mainnet
+const isRemote =
+  process.env.JEJU_NETWORK === 'testnet' ||
+  process.env.JEJU_NETWORK === 'mainnet'
+
 /**
  * CI/CD E2E Tests
  * Tests workflow runs, logs, deployments, and build details
@@ -6,6 +11,7 @@
 import { expect, test } from '@playwright/test'
 
 test.describe('CI/CD Dashboard', () => {
+  test.skip(isRemote, 'Skipping on remote network')
   test('displays CI/CD page', async ({ page }) => {
     await page.goto('/ci')
     await expect(page.getByRole('heading', { name: /ci\/cd/i })).toBeVisible()
@@ -62,6 +68,7 @@ test.describe('CI/CD Dashboard', () => {
 })
 
 test.describe('Workflow Run Detail', () => {
+  test.skip(isRemote, 'Skipping on remote network')
   test('navigates to run detail', async ({ page }) => {
     await page.goto('/ci')
     const runLink = page.locator('a[href^="/ci/runs/"]').first()
@@ -73,6 +80,7 @@ test.describe('Workflow Run Detail', () => {
 })
 
 test.describe('Deployments', () => {
+  test.skip(isRemote, 'Skipping on remote network')
   test('displays deployment cards', async ({ page }) => {
     await page.goto('/ci')
     await expect(

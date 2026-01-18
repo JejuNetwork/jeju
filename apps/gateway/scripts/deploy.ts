@@ -9,7 +9,7 @@
  * 4. Updates JNS contenthash
  */
 
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { readdir, readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import {
@@ -36,12 +36,55 @@ const DWSWorkerDeployResponseSchema = z.object({
   status: z.enum(['active', 'inactive', 'error']),
 })
 
+const WorkerdDeployResponseSchema = z.object({
+  workerId: z.string(),
+  name: z.string(),
+  codeCid: z.string(),
+  status: z.enum(['active', 'inactive', 'error']),
+})
+
 interface DeployConfig {
   network: 'localnet' | 'testnet' | 'mainnet'
   dwsUrl: string
   rpcUrl: string
   privateKey: `0x${string}`
   cdnEnabled: boolean
+}
+
+interface GatewayManifest {
+  dws?: {
+    backend?: {
+      runtime?: 'bun' | 'workerd'
+    }
+  }
+}
+
+function getWorkerRuntime(): 'bun' | 'workerd' {
+  try {
+    const manifestPath = resolve(APP_DIR, 'jeju-manifest.json')
+    const raw = JSON.parse(
+      readFileSync(manifestPath, 'utf8'),
+    ) as GatewayManifest
+    return raw.dws?.backend?.runtime ?? 'bun'
+  } catch {
+    return 'bun'
+  }
+}
+
+async function buildWorkerdAuthHeaders(
+  account: ReturnType<typeof privateKeyToAccount>,
+): Promise<Record<string, string>> {
+  const timestamp = Math.floor(Date.now() / 1000).toString()
+  const nonce = crypto.randomUUID()
+  const message = `DWS Deploy Request\nTimestamp: ${timestamp}\nNonce: ${nonce}`
+  const signature = await account.signMessage({ message })
+
+  return {
+    'x-jeju-address': account.address,
+    'x-jeju-timestamp': timestamp,
+    'x-jeju-nonce': nonce,
+    'x-jeju-signature': signature,
+  }
 }
 
 function getConfig(): DeployConfig {
@@ -62,10 +105,22 @@ function getConfig(): DeployConfig {
     },
   }
 
+  // SECURITY NOTE: Deployment key is passed via environment for now.
+  // This is acceptable for deployment scripts run by operators.
+  // For production, consider using hardware wallets or KMS-based signing
+  // for deployment transactions.
   const privateKey = process.env.DEPLOYER_PRIVATE_KEY || process.env.PRIVATE_KEY
   if (!privateKey) {
     throw new Error(
-      'DEPLOYER_PRIVATE_KEY or PRIVATE_KEY environment variable required',
+      'DEPLOYER_PRIVATE_KEY or PRIVATE_KEY environment variable required. ' +
+        'This key is used only for deployment transactions.',
+    )
+  }
+
+  // Validate key format
+  if (!privateKey.startsWith('0x') || privateKey.length !== 66) {
+    throw new Error(
+      'Invalid private key format. Must be 0x-prefixed 64 hex chars.',
     )
   }
 
@@ -78,7 +133,8 @@ function getConfig(): DeployConfig {
 }
 
 async function ensureBuild(): Promise<void> {
-  const requiredFiles = ['./dist/api/a2a-server.js', './dist/index.html']
+  // Check for essential build outputs: frontend entry and worker bundle
+  const requiredFiles = ['./dist/index.html', './dist/worker/worker-entry.js']
 
   for (const file of requiredFiles) {
     if (!existsSync(resolve(APP_DIR, file))) {
@@ -139,6 +195,23 @@ async function verifyContentRetrievable(
   return true
 }
 
+function getMimeType(filename: string): string {
+  const ext = filename.split('.').pop()?.toLowerCase()
+  const mimeTypes: Record<string, string> = {
+    html: 'text/html',
+    js: 'application/javascript',
+    css: 'text/css',
+    json: 'application/json',
+    svg: 'image/svg+xml',
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    ico: 'image/x-icon',
+    map: 'application/json',
+  }
+  return mimeTypes[ext ?? ''] ?? 'application/octet-stream'
+}
+
 async function uploadToIPFS(
   dwsUrl: string,
   filePath: string,
@@ -146,44 +219,67 @@ async function uploadToIPFS(
 ): Promise<UploadResult> {
   const content = await readFile(resolve(APP_DIR, filePath))
   const hash = keccak256(content) as `0x${string}`
+  const mimeType = getMimeType(name)
 
-  const formData = new FormData()
-  formData.append('file', new Blob([content]), name)
-  formData.append('name', name)
+  // Retry upload up to 3 times with exponential backoff
+  let lastError: Error | null = null
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const formData = new FormData()
+    formData.append('file', new Blob([content], { type: mimeType }), name)
+    formData.append('name', name)
 
-  const response = await fetch(`${dwsUrl}/storage/upload`, {
-    method: 'POST',
-    body: formData,
-  })
+    const response = await fetch(`${dwsUrl}/storage/upload`, {
+      method: 'POST',
+      body: formData,
+      signal: AbortSignal.timeout(90000), // 90 second timeout for large files
+    }).catch((err: Error) => {
+      lastError = err
+      return null
+    })
 
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Upload failed for ${name}: ${errorText}`)
+    if (response?.ok) {
+      const rawJson: unknown = await response.json()
+      const parsed = IPFSUploadResponseSchema.safeParse(rawJson)
+      if (!parsed.success) {
+        throw new Error(`Invalid upload response: ${parsed.error.message}`)
+      }
+
+      // Verify the content is actually retrievable before claiming success
+      const verified = await verifyContentRetrievable(
+        dwsUrl,
+        parsed.data.cid,
+        content.length,
+      )
+      if (!verified) {
+        throw new Error(
+          `Upload verification failed for ${name} - content not retrievable from storage`,
+        )
+      }
+
+      return {
+        cid: parsed.data.cid,
+        hash,
+        size: content.length,
+      }
+    }
+
+    const errorText = response
+      ? await response.text()
+      : (lastError?.message ?? 'Unknown error')
+    console.log(`   Attempt ${attempt}/3 failed for ${name}: ${errorText}`)
+
+    if (attempt < 3) {
+      const delay = attempt * 2000 // 2s, 4s
+      console.log(`   Retrying in ${delay / 1000}s...`)
+      await new Promise((resolve) => setTimeout(resolve, delay))
+    } else {
+      throw new Error(
+        `Upload failed for ${name} after 3 attempts: ${errorText}`,
+      )
+    }
   }
 
-  const rawJson: unknown = await response.json()
-  const parsed = IPFSUploadResponseSchema.safeParse(rawJson)
-  if (!parsed.success) {
-    throw new Error(`Invalid upload response: ${parsed.error.message}`)
-  }
-
-  // Verify the content is actually retrievable before claiming success
-  const verified = await verifyContentRetrievable(
-    dwsUrl,
-    parsed.data.cid,
-    content.length,
-  )
-  if (!verified) {
-    throw new Error(
-      `Upload verification failed for ${name} - content not retrievable from storage`,
-    )
-  }
-
-  return {
-    cid: parsed.data.cid,
-    hash,
-    size: content.length,
-  }
+  throw new Error(`Upload failed for ${name}: unexpected state`)
 }
 
 async function uploadDirectory(
@@ -200,6 +296,16 @@ async function uploadDirectory(
     const fullPath = join(dirPath, entry.name)
     const key = prefix ? `${prefix}/${entry.name}` : entry.name
 
+    // Skip source maps and dev artifacts
+    if (entry.name.endsWith('.map')) {
+      console.log(`   ${key} -> skipped (source map)`)
+      continue
+    }
+    if (entry.name === 'main.js' || entry.name === 'main.css') {
+      console.log(`   ${key} -> skipped (dev artifact)`)
+      continue
+    }
+
     if (entry.isDirectory()) {
       const subResults = await uploadDirectory(dwsUrl, fullPath, key)
       for (const [k, v] of subResults) {
@@ -215,28 +321,96 @@ async function uploadDirectory(
   return results
 }
 
-// Worker deployment function (kept for future backend deployment)
-// Currently Gateway runs as a static frontend with optional backend proxy
-async function _deployWorker(
+// Worker deployment - uploads worker bundle and registers with DWS
+async function deployWorker(
   config: DeployConfig,
-  apiBundle: UploadResult,
-): Promise<string> {
+): Promise<{ id: string; runtime: 'bun' | 'workerd' } | null> {
+  const workerPath = './dist/worker/worker-entry.js'
+  if (!existsSync(resolve(APP_DIR, workerPath))) {
+    console.log('   No worker bundle found, skipping worker deployment')
+    return null
+  }
+
+  const runtime = getWorkerRuntime()
+
+  // First upload the worker bundle to IPFS
+  console.log('   Uploading worker bundle to IPFS...')
+  const workerBundle = await uploadToIPFS(
+    config.dwsUrl,
+    workerPath,
+    'worker-entry.js',
+  )
+  console.log(`   Worker bundle uploaded: ${workerBundle.cid}`)
+
   const account = privateKeyToAccount(config.privateKey)
 
+  if (runtime === 'workerd') {
+    const deployRequest = {
+      name: 'gateway-api',
+      codeCid: workerBundle.cid,
+      handler: 'default',
+      memoryMb: 512,
+      timeoutMs: 30000,
+      cpuTimeMs: 50,
+      compatibilityDate: '2024-01-01',
+    }
+
+    console.log('   Registering workerd worker with DWS...')
+    const authHeaders = await buildWorkerdAuthHeaders(account)
+    const response = await fetch(`${config.dwsUrl}/workerd`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders,
+      },
+      body: JSON.stringify(deployRequest),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.warn(`   Warning: Workerd deployment failed: ${errorText}`)
+      console.warn('   Falling back to Bun runtime for reliability...')
+      return await deployWorkerBun(config, workerBundle.cid, account)
+    }
+
+    const rawJson: unknown = await response.json()
+    const parsed = WorkerdDeployResponseSchema.safeParse(rawJson)
+    if (!parsed.success) {
+      console.warn(
+        `   Warning: Invalid workerd deploy response: ${parsed.error.message}`,
+      )
+      console.warn('   Falling back to Bun runtime for reliability...')
+      return await deployWorkerBun(config, workerBundle.cid, account)
+    }
+
+    console.log(`   Workerd worker registered: ${parsed.data.workerId}`)
+    return { id: parsed.data.workerId, runtime }
+  }
+
+  return await deployWorkerBun(config, workerBundle.cid, account)
+}
+
+async function deployWorkerBun(
+  config: DeployConfig,
+  codeCid: string,
+  account: ReturnType<typeof privateKeyToAccount>,
+): Promise<{ id: string; runtime: 'bun' } | null> {
   const deployRequest = {
     name: 'gateway-api',
-    codeCid: apiBundle.cid,
+    codeCid,
     runtime: 'bun',
-    handler: 'a2a-server.js:default',
+    handler: 'worker-entry.js:default',
     memory: 512,
     timeout: 30000,
     env: {
       NETWORK: config.network,
       RPC_URL: config.rpcUrl,
       DWS_URL: config.dwsUrl,
+      JEJU_NETWORK: config.network,
     },
   }
 
+  console.log('   Registering Bun worker with DWS...')
   const response = await fetch(`${config.dwsUrl}/workers`, {
     method: 'POST',
     headers: {
@@ -247,15 +421,22 @@ async function _deployWorker(
   })
 
   if (!response.ok) {
-    throw new Error(`Worker deployment failed: ${await response.text()}`)
+    const errorText = await response.text()
+    console.warn(`   Warning: Bun worker deployment failed: ${errorText}`)
+    return null
   }
 
   const rawJson: unknown = await response.json()
   const parsed = DWSWorkerDeployResponseSchema.safeParse(rawJson)
   if (!parsed.success) {
-    throw new Error(`Invalid deploy response: ${parsed.error.message}`)
+    console.warn(
+      `   Warning: Invalid Bun deploy response: ${parsed.error.message}`,
+    )
+    return null
   }
-  return parsed.data.functionId
+
+  console.log(`   Bun worker registered: ${parsed.data.functionId}`)
+  return { id: parsed.data.functionId, runtime: 'bun' }
 }
 
 function getContentType(path: string): string {
@@ -324,6 +505,7 @@ async function setupCDN(
 async function registerWithDWSAppRouter(
   config: DeployConfig,
   staticFiles: Map<string, UploadResult>,
+  worker: { id: string; runtime: 'bun' | 'workerd' } | null,
 ): Promise<void> {
   const account = privateKeyToAccount(config.privateKey)
 
@@ -336,14 +518,26 @@ async function registerWithDWSAppRouter(
   }
 
   // Register with DWS app router for hostname-based routing
+  const backendWorkerId = worker ? `${worker.runtime}:${worker.id}` : null
+  const backendEndpoint =
+    worker?.runtime === 'bun' ? `${config.dwsUrl}/workers/${worker.id}` : null
+
   const appRouterData = {
     name: 'gateway',
     jnsName: 'gateway.jeju',
     frontendCid: null, // Use null since we're using staticFiles
     staticFiles: staticFilesMap,
-    backendWorkerId: null,
-    backendEndpoint: null,
-    apiPaths: ['/api', '/health', '/a2a', '/mcp', '/rpc', '/x402'],
+    backendWorkerId,
+    backendEndpoint,
+    apiPaths: [
+      '/api',
+      '/health',
+      '/a2a',
+      '/mcp',
+      '/rpc',
+      '/x402',
+      '/.well-known',
+    ],
     spa: true,
     enabled: true,
   }
@@ -385,44 +579,36 @@ async function deploy(): Promise<void> {
   await ensureBuild()
 
   // Upload static assets to IPFS via DWS
-  console.log('\n[Step 1/4] Uploading static assets to IPFS...')
+  console.log('\n[Step 1/5] Uploading static assets to IPFS...')
   const webAssets = await uploadDirectory(config.dwsUrl, './dist/web', 'web')
-  const indexResult = await uploadToIPFS(
-    config.dwsUrl,
-    './dist/index.html',
+
+  // Upload root-level files
+  const rootFiles = [
     'index.html',
-  )
-  webAssets.set('index.html', indexResult)
-  console.log(`   index.html -> ${indexResult.cid}`)
-  console.log(`   Total: ${webAssets.size} files`)
-
-  // Register with DWS app router (critical for hostname routing)
-  console.log('\n[Step 2/4] Registering with DWS app router...')
-  await registerWithDWSAppRouter(config, webAssets)
-
-  // Setup CDN caching rules
-  console.log('\n[Step 3/4] Configuring CDN...')
-  await setupCDN(config, webAssets)
-
-  // Verify deployment
-  console.log('\n[Step 4/4] Verifying deployment...')
-  const verifyResponse = await fetch(`${config.dwsUrl}/apps/deployed`)
-  if (verifyResponse.ok) {
-    const apps = await verifyResponse.json()
-    const gatewayApp = apps.apps?.find(
-      (a: { name: string }) => a.name === 'gateway',
-    )
-    if (gatewayApp) {
-      console.log(`   App registered: ${gatewayApp.name}`)
-      console.log(
-        `   Frontend CID: ${gatewayApp.frontendCid || 'null (using staticFiles)'}`,
-      )
-      console.log(
-        `   Static Files: ${gatewayApp.staticFiles ? Object.keys(gatewayApp.staticFiles).length : 0} files`,
-      )
-      console.log(`   Enabled: ${gatewayApp.enabled}`)
+    'favicon.svg',
+    'agent-card.json',
+    'rpc-config.json',
+  ]
+  for (const file of rootFiles) {
+    if (existsSync(resolve(APP_DIR, `./dist/${file}`))) {
+      const result = await uploadToIPFS(config.dwsUrl, `./dist/${file}`, file)
+      webAssets.set(file, result)
+      console.log(`   ${file} -> ${result.cid}`)
     }
   }
+  console.log(`   Total: ${webAssets.size} files`)
+
+  // Deploy backend worker
+  console.log('\n[Step 2/5] Deploying backend worker...')
+  const worker = await deployWorker(config)
+
+  // Register with DWS app router (critical for hostname routing)
+  console.log('\n[Step 3/5] Registering with DWS app router...')
+  await registerWithDWSAppRouter(config, webAssets, worker)
+
+  // Setup CDN caching rules
+  console.log('\n[Step 4/5] Configuring CDN...')
+  await setupCDN(config, webAssets)
 
   const domain =
     config.network === 'testnet'
@@ -435,11 +621,34 @@ async function deploy(): Promise<void> {
   console.log('╠════════════════════════════════════════════════════════════╣')
   console.log(`║  Frontend: https://${domain}`)
   console.log(`║  Static Files: ${webAssets.size} files uploaded to IPFS`)
-  console.log(`║  Index CID: ${indexResult.cid}`)
-  console.log('╠════════════════════════════════════════════════════════════╣')
-  console.log('║  DNS NOTE: Ensure DNS points to DWS ALB, not CloudFront    ║')
-  console.log('║  DNS should resolve same as dws.testnet.jejunetwork.org    ║')
+  console.log(`║  Index CID: ${webAssets.get('index.html')?.cid ?? 'N/A'}`)
   console.log('╚════════════════════════════════════════════════════════════╝')
+
+  // Verify deployment by actually hitting the endpoints
+  console.log('\n[Step 5/5] Verifying deployment endpoints...')
+  const { verifyDeployment } = await import('@jejunetwork/shared/deploy')
+  const verifyResult = await verifyDeployment({
+    name: 'gateway',
+    jnsName: 'gateway.jeju',
+    frontendCid: webAssets.get('index.html')?.cid ?? '',
+    staticFiles: Object.fromEntries(
+      Array.from(webAssets.entries()).map(([k, v]) => [
+        k.startsWith('/') ? k : `/${k}`,
+        v.cid,
+      ]),
+    ),
+    backendWorkerId: worker?.id,
+    appUrl: `https://${domain}`,
+    healthUrl: `https://${domain}/health`,
+  })
+
+  if (!verifyResult.success) {
+    throw new Error(
+      `Deployment verification failed: frontend=${verifyResult.checks.frontend.ok}, health=${verifyResult.checks.health.ok}`,
+    )
+  }
+
+  console.log('\nDeployment verified successfully!')
 }
 
 deploy().catch((error) => {

@@ -1,8 +1,5 @@
-import type {
-  AuthProvider,
-  SealedOAuthProvider,
-  SealedSecret,
-} from '../../lib/types'
+import type { AuthProvider, SealedOAuthProvider } from '../../lib/types'
+import { z } from 'zod'
 import { sealSecret, unsealSecret } from './kms'
 
 // Cache for decrypted secrets (very short-lived)
@@ -28,11 +25,16 @@ export async function loadSealedProviders(): Promise<void> {
     name: AuthProvider
     envPrefix: string
   }> = [
-    { name: 'github' as AuthProvider, envPrefix: 'GITHUB' },
-    { name: 'google' as AuthProvider, envPrefix: 'GOOGLE' },
-    { name: 'twitter' as AuthProvider, envPrefix: 'TWITTER' },
-    { name: 'discord' as AuthProvider, envPrefix: 'DISCORD' },
+    { name: 'github', envPrefix: 'GITHUB' },
+    { name: 'google', envPrefix: 'GOOGLE' },
+    { name: 'twitter', envPrefix: 'TWITTER' },
+    { name: 'discord', envPrefix: 'DISCORD' },
   ]
+
+  const SealedSecretSchema = z.object({
+    encrypted: z.string(),
+    sealedAt: z.number(),
+  })
 
   for (const { name, envPrefix } of providers) {
     const clientId = process.env[`${envPrefix}_CLIENT_ID`]
@@ -40,7 +42,9 @@ export async function loadSealedProviders(): Promise<void> {
 
     if (clientId && sealedSecretJson) {
       try {
-        const sealedSecret = JSON.parse(sealedSecretJson) as SealedSecret
+        const sealedSecret = SealedSecretSchema.parse(
+          JSON.parse(sealedSecretJson),
+        )
         sealedProviders.set(name, {
           clientId,
           sealedSecret,

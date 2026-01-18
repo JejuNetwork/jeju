@@ -122,7 +122,7 @@ export const TorrentUploadResultSchema = z.object({
 })
 export type TorrentUploadResult = z.infer<typeof TorrentUploadResultSchema>
 
-// Note: TorrentDownloadOptions contains a callback function which cannot be validated with Zod
+// TorrentDownloadOptions contains a callback function which cannot be validated with Zod
 export interface TorrentDownloadOptions {
   preferTorrent?: boolean
   maxPeers?: number

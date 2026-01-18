@@ -35,7 +35,7 @@ contract FederationIntegrationTest is Test {
     address fork2Operator;
     address relayer;
     address aiOracle;
-    address councilGovernance;
+    address boardGovernance;
     address treasury;
     address guardian1;
     address guardian2;
@@ -56,7 +56,7 @@ contract FederationIntegrationTest is Test {
         fork2Operator = makeAddr("fork2Operator");
         relayer = makeAddr("relayer");
         aiOracle = makeAddr("aiOracle");
-        councilGovernance = makeAddr("councilGovernance");
+        boardGovernance = makeAddr("boardGovernance");
         treasury = makeAddr("treasury");
         guardian1 = makeAddr("guardian1");
         guardian2 = makeAddr("guardian2");
@@ -79,7 +79,7 @@ contract FederationIntegrationTest is Test {
         // Deploy governance
         governance = new FederationGovernance(
             address(networkRegistry),
-            councilGovernance,
+            boardGovernance,
             address(0), // prediction market (mock)
             aiOracle,
             treasury
@@ -165,7 +165,7 @@ contract FederationIntegrationTest is Test {
         governance.resolveMarketVoting(proposalId);
 
         // Autocrat approves (sets timelockEnds = block.timestamp + 7 days)
-        vm.prank(councilGovernance);
+        vm.prank(boardGovernance);
         governance.submitAutocratDecision(proposalId, true, keccak256("approved"), "Network meets quality standards");
 
         // Wait for timelock (7+ days after autocrat decision at t+8 days)
@@ -398,7 +398,7 @@ contract FederationIntegrationTest is Test {
         governance.submitAIEvaluation(proposalId1, 90, 90, 90, 90);
         vm.warp(currentTime + 8 days);
         governance.resolveMarketVoting(proposalId1);
-        vm.prank(councilGovernance);
+        vm.prank(boardGovernance);
         governance.submitAutocratDecision(proposalId1, true, keccak256("approved1"), "Approved");
         vm.warp(currentTime + 16 days);
         governance.executeProposal(proposalId1);
@@ -411,7 +411,7 @@ contract FederationIntegrationTest is Test {
         governance.submitAIEvaluation(proposalId2, 90, 90, 90, 90);
         vm.warp(currentTime + 8 days);
         governance.resolveMarketVoting(proposalId2);
-        vm.prank(councilGovernance);
+        vm.prank(boardGovernance);
         governance.submitAutocratDecision(proposalId2, true, keccak256("approved2"), "Approved");
         vm.warp(currentTime + 16 days);
         governance.executeProposal(proposalId2);
@@ -424,7 +424,7 @@ contract FederationIntegrationTest is Test {
         governance.submitAIEvaluation(proposalId3, 90, 90, 90, 90);
         vm.warp(currentTime + 8 days);
         governance.resolveMarketVoting(proposalId3);
-        vm.prank(councilGovernance);
+        vm.prank(boardGovernance);
         governance.submitAutocratDecision(proposalId3, true, keccak256("approved3"), "Approved");
         vm.warp(currentTime + 16 days);
         governance.executeProposal(proposalId3);
@@ -538,7 +538,7 @@ contract FederationIntegrationTest is Test {
         vm.warp(baseTime + 8 days);
         governance.resolveMarketVoting(proposalId);
 
-        vm.prank(councilGovernance);
+        vm.prank(boardGovernance);
         governance.submitAutocratDecision(proposalId, true, keccak256("approved"), "Approved");
 
         // Wait for timelock (TIMELOCK_PERIOD = 7 days after autocrat decision)

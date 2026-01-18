@@ -1,5 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { reportBundleSizes } from '@jejunetwork/shared'
 import type { BunPlugin } from 'bun'
 
 const outdir = './dist'
@@ -40,6 +41,8 @@ const browserShimPlugin: BunPlugin = {
     // Dedupe React - ensure all React imports resolve to the same package
     const reactPath = require.resolve('react')
     const reactDomPath = require.resolve('react-dom')
+    const wagmiPath = require.resolve('wagmi')
+    const viemPath = require.resolve('viem')
 
     build.onResolve({ filter: /^react$/ }, () => ({
       path: reactPath,
@@ -56,6 +59,17 @@ const browserShimPlugin: BunPlugin = {
     build.onResolve({ filter: /^react-dom\/client$/ }, () => ({
       path: require.resolve('react-dom/client'),
     }))
+
+    // Dedupe wagmi and viem to prevent context issues
+    build.onResolve({ filter: /^wagmi$/ }, () => ({
+      path: wagmiPath,
+    }))
+    build.onResolve({ filter: /^wagmi\/connectors$/ }, () => ({
+      path: require.resolve('wagmi/connectors'),
+    }))
+    build.onResolve({ filter: /^viem$/ }, () => ({
+      path: viemPath,
+    }))
   },
 }
 
@@ -63,12 +77,13 @@ const result = await Bun.build({
   entrypoints: ['./web/main.tsx'],
   outdir: join(outdir, 'web'),
   target: 'browser',
-  minify: process.env.NODE_ENV === 'production',
+  minify: true,
   sourcemap: 'external',
   splitting: false,
   packages: 'bundle',
   plugins: [browserShimPlugin],
   naming: '[name].[hash].[ext]',
+  drop: ['debugger'],
   external: [
     // Node-only modules
     '@google-cloud/*',
@@ -135,6 +150,8 @@ if (!result.success) {
   process.exit(1)
 }
 
+reportBundleSizes(result, 'DWS Frontend')
+
 // Find the main entry file with hash
 const mainEntry = result.outputs.find(
   (o) => o.kind === 'entry-point' && o.path.includes('main'),
@@ -159,7 +176,4 @@ if (cssFileName) {
 writeFileSync(join(outdir, 'index.html'), indexHtml)
 
 console.log('Build succeeded.')
-console.log(`  Entry: ${mainFileName}`)
-for (const output of result.outputs) {
-  console.log(`  ${output.path}`)
-}
+process.exit(0)

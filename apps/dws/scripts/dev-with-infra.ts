@@ -25,6 +25,7 @@ interface ProcessInfo {
 
 const processes: ProcessInfo[] = []
 let shuttingDown = false
+const isTestMode = process.env.JEJU_TEST_MODE === '1'
 
 function cleanup() {
   if (shuttingDown) return
@@ -71,6 +72,30 @@ async function waitForPort(port: number, timeout = 30000): Promise<boolean> {
   return false
 }
 
+function killProcessesOnPort(port: number): void {
+  const result = Bun.spawnSync({
+    cmd: ['lsof', '-ti', `tcp:${port}`],
+    stdout: 'pipe',
+    stderr: 'pipe',
+  })
+
+  if (result.exitCode !== 0) {
+    throw new Error(`Unable to identify process on port ${port}`)
+  }
+
+  const output = new TextDecoder().decode(result.stdout).trim()
+  if (!output) {
+    throw new Error(`No process found on port ${port}`)
+  }
+
+  for (const pidStr of output.split('\n')) {
+    const pid = Number.parseInt(pidStr, 10)
+    if (Number.isFinite(pid) && pid > 0) {
+      process.kill(pid, 'SIGTERM')
+    }
+  }
+}
+
 async function startAnvil(): Promise<boolean> {
   // Check if anvil is already running
   const host = getLocalhostHost()
@@ -90,6 +115,16 @@ async function startAnvil(): Promise<boolean> {
       console.log('[Dev] Anvil already running on port 6546')
       return true
     }
+    if (isTestMode && data.result) {
+      console.log(
+        `[Dev] Test mode: using existing chain ${data.result} on port 6546`,
+      )
+      return true
+    }
+    console.log(
+      `[Dev] Found chain ${data.result ?? 'unknown'} on port 6546; restarting Anvil...`,
+    )
+    killProcessesOnPort(6546)
   } catch {
     // Not running, start it
   }
@@ -118,6 +153,10 @@ async function startAnvil(): Promise<boolean> {
 }
 
 async function deployContracts(): Promise<boolean> {
+  if (isTestMode) {
+    console.log('[Dev] Test mode: skipping contract deployment')
+    return true
+  }
   console.log('[Dev] Deploying contracts...')
 
   const host = getLocalhostHost()
@@ -145,14 +184,13 @@ async function deployContracts(): Promise<boolean> {
 async function startDWSServer(): Promise<boolean> {
   console.log('[Dev] Starting DWS API server...')
 
-  const host = getLocalhostHost()
-
   // Check if already running
   if (await isPortInUse(4030)) {
     console.log('[Dev] DWS already running on port 4030')
     return true
   }
 
+  const host = getLocalhostHost()
   const proc = Bun.spawn(['bun', 'run', 'api/server/index.ts'], {
     cwd: DWS_DIR,
     stdout: 'inherit',
@@ -161,11 +199,15 @@ async function startDWSServer(): Promise<boolean> {
       ...process.env,
       NETWORK: 'localnet',
       PORT: '4030',
-      RPC_URL: `http://${host}:6546`,
-      // Use in-memory SQLit mode
-      SQLIT_MODE: 'memory',
-      // Disable Docker for dev
-      SKIP_DOCKER: 'true',
+      RPC_URL: process.env.RPC_URL ?? `http://${host}:6546`,
+      ...(isTestMode
+        ? {}
+        : {
+            // Use in-memory SQLit mode
+            SQLIT_MODE: 'memory',
+            // Disable Docker for dev
+            SKIP_DOCKER: 'true',
+          }),
     },
   })
 

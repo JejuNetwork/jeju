@@ -1,24 +1,9 @@
 /**
  * TEE Manager - Unified TEE provider management with auto-detection
- * Priority: AWS Nitro > GCP Confidential > Phala > Mock
+ * Priority: GCP Confidential > Phala/dStack > Mock
  */
 
-import {
-  getAwsEnclaveId,
-  getPhalaEndpoint,
-  isTestMode,
-} from '@jejunetwork/config'
-
-// Dynamic import for Node.js-only fs (TEE detection only runs in Node.js)
-async function existsSyncSafe(path: string): Promise<boolean> {
-  try {
-    const fs = await import('node:fs')
-    return fs.existsSync(path)
-  } catch {
-    return false
-  }
-}
-
+import { getPhalaEndpoint, isTestMode } from '@jejunetwork/config'
 import type { Hex } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import type {
@@ -28,7 +13,6 @@ import type {
 } from '../types/index.js'
 import { toHash32 } from '../types/index.js'
 import { computeMerkleRoot, createLogger } from '../utils/index.js'
-import { createAWSNitroProvider } from './aws-nitro-provider.js'
 import { createGCPConfidentialProvider } from './gcp-confidential-provider.js'
 import { createMockProvider } from './mock-provider.js'
 import { createPhalaClient, type PhalaClient } from './phala-client.js'
@@ -155,9 +139,6 @@ export class TEEManager {
       }
     }
 
-    const awsEnv = await this.detectAWS()
-    if (awsEnv.inTEE) return awsEnv
-
     const gcpEnv = await this.detectGCP()
     if (gcpEnv.inTEE) return gcpEnv
 
@@ -176,50 +157,6 @@ export class TEEManager {
       capabilities: ['attestation', 'key_gen'],
       details: { platform: 'local' },
     }
-  }
-
-  private async detectAWS(): Promise<TEEEnvironment> {
-    const env: TEEEnvironment = {
-      provider: 'aws',
-      inTEE: false,
-      capabilities: [],
-      details: {},
-    }
-
-    try {
-      const response = await fetch(
-        'http://169.254.169.254/latest/meta-data/instance-id',
-        {
-          signal: AbortSignal.timeout(1000),
-        },
-      )
-
-      if (response.ok) {
-        env.details.instanceId = await response.text()
-        env.details.platform = 'aws'
-
-        // Check for NSM device
-        const enclaveId = getAwsEnclaveId()
-        const hasNsm = await existsSyncSafe('/dev/nsm')
-        if (hasNsm || enclaveId) {
-          env.inTEE = true
-          env.capabilities = ['attestation', 'key_gen', 'persistent']
-          env.details.enclaveId = enclaveId
-        }
-
-        const regionResp = await fetch(
-          'http://169.254.169.254/latest/meta-data/placement/region',
-          {
-            signal: AbortSignal.timeout(1000),
-          },
-        )
-        if (regionResp.ok) env.details.region = await regionResp.text()
-      }
-    } catch {
-      // Not in AWS
-    }
-
-    return env
   }
 
   private async detectGCP(): Promise<TEEEnvironment> {
@@ -302,7 +239,7 @@ export class TEEManager {
       if (this.config.requireRealTEE) {
         throw new Error(
           'No real TEE environment detected but requireRealTEE=true. ' +
-            'Deploy to AWS Nitro, GCP Confidential VM, or configure Phala endpoint.',
+            'Deploy to GCP Confidential VM, dStack, or configure Phala endpoint.',
         )
       }
       return createMockProvider()
@@ -313,8 +250,6 @@ export class TEEManager {
 
   private createProvider(provider: TEEProvider): ITEEProvider {
     switch (provider) {
-      case 'aws':
-        return createAWSNitroProvider({ region: this.config.awsRegion })
       case 'gcp': {
         const gcpProject = this.config.gcpProject
         if (!gcpProject) {

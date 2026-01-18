@@ -63,19 +63,38 @@ export const RegisterAgentRequestSchema = z.object({
     })
     .optional(),
   initialFunding: z.string().optional(),
+  capabilities: z
+    .object({
+      canTrade: z.boolean().optional(),
+      canChat: z.boolean().optional(),
+      canPropose: z.boolean().optional(),
+      canVote: z.boolean().optional(),
+      canStake: z.boolean().optional(),
+      a2a: z.boolean().optional(),
+      compute: z.boolean().optional(),
+    })
+    .optional(),
 })
 
 export const AgentStartRequestSchema = z.object({
-  agentId: z.coerce.number().int().positive(),
+  // Numeric agent ID (for on-chain registered agents)
+  agentId: z.coerce.number().int().positive().optional(),
+  // Character CID or built-in character ID
   characterCid: NonEmptyStringSchema.optional(),
-  // Autonomous agent fields
   characterId: NonEmptyStringSchema.optional(),
+  // Autonomous agent config
   tickIntervalMs: z.number().int().positive().optional(),
   capabilities: z
     .object({
       canTrade: z.boolean().optional(),
-      canSocial: z.boolean().optional(),
-      canResearch: z.boolean().optional(),
+      canChat: z.boolean().optional(),
+      canPropose: z.boolean().optional(),
+      canVote: z.boolean().optional(),
+      canDelegate: z.boolean().optional(),
+      canStake: z.boolean().optional(),
+      canBridge: z.boolean().optional(),
+      a2a: z.boolean().optional(),
+      compute: z.boolean().optional(),
     })
     .optional(),
 })
@@ -135,7 +154,7 @@ export const CreateRoomRequestSchema = z.object({
   name: NonEmptyStringSchema,
   description: z.string().optional(),
   roomType: z
-    .enum(['collaboration', 'adversarial', 'debate', 'council'])
+    .enum(['collaboration', 'adversarial', 'debate', 'board'])
     .default('collaboration'),
   config: z
     .object({
@@ -163,11 +182,21 @@ export const LeaveRoomRequestSchema = z.object({
 export const PostMessageRequestSchema = z.object({
   content: NonEmptyStringSchema,
   action: z.string().optional(),
-  agentId: z.coerce.number().int().positive(),
+  agentId: z.string().min(1), // Supports both numeric IDs and wallet addresses
 })
 
 export const SetPhaseRequestSchema = z.object({
   phase: z.enum(['setup', 'active', 'paused', 'completed', 'archived']),
+})
+
+export const RoomSearchQuerySchema = z.object({
+  name: z.string().optional(),
+  roomType: z
+    .enum(['collaboration', 'adversarial', 'debate', 'board'])
+    .optional(),
+  active: z.coerce.boolean().optional(),
+  limit: z.coerce.number().int().positive().max(100).default(20),
+  offset: z.coerce.number().int().nonnegative().default(0),
 })
 
 // Response Schemas
@@ -214,6 +243,17 @@ export const AgentCharacterSchema = z.object({
     .optional(),
   mcpServers: z.array(z.string()).optional(),
   a2aCapabilities: z.array(z.string()).optional(),
+  capabilities: z
+    .object({
+      canTrade: z.boolean().optional(),
+      canChat: z.boolean().optional(),
+      canPropose: z.boolean().optional(),
+      canVote: z.boolean().optional(),
+      canStake: z.boolean().optional(),
+      a2a: z.boolean().optional(),
+      compute: z.boolean().optional(),
+    })
+    .optional(),
 })
 
 export const StorageUploadResponseSchema = z.object({
@@ -338,6 +378,7 @@ export type JoinRoomRequest = z.infer<typeof JoinRoomRequestSchema>
 export type LeaveRoomRequest = z.infer<typeof LeaveRoomRequestSchema>
 export type PostMessageRequest = z.infer<typeof PostMessageRequestSchema>
 export type SetPhaseRequest = z.infer<typeof SetPhaseRequestSchema>
+export type RoomSearchQuery = z.infer<typeof RoomSearchQuerySchema>
 export type ChatApiResponse = z.infer<typeof ChatApiResponseSchema>
 export type AgentCharacter = z.infer<typeof AgentCharacterSchema>
 export type StorageUploadResponse = z.infer<typeof StorageUploadResponseSchema>

@@ -57,8 +57,8 @@ function resolveModelProvider(
 
 describe('Model Pattern Matching', () => {
   describe('OpenAI Models', () => {
-    test('routes gpt-4 to openai', () => {
-      expect(resolveModelProvider('gpt-4').provider).toBe('openai')
+    test('routes gpt-5 to openai', () => {
+      expect(resolveModelProvider('gpt-5').provider).toBe('openai')
     })
 
     test('routes gpt-5.2 to openai', () => {
@@ -261,25 +261,25 @@ describe('Provider Prefix Routing', () => {
   })
 
   test('provider prefix overrides pattern matching', () => {
-    // Even though gpt-4 would match openai pattern,
+    // Even though gpt-5 would match openai pattern,
     // the explicit prefix should win
-    const result = resolveModelProvider('groq/gpt-4')
+    const result = resolveModelProvider('groq/gpt-5')
     expect(result.provider).toBe('groq')
-    expect(result.model).toBe('gpt-4')
+    expect(result.model).toBe('gpt-5')
   })
 })
 
 describe('Explicit Provider Parameter', () => {
   test('explicit provider takes highest priority', () => {
-    const result = resolveModelProvider('gpt-4', 'anthropic')
+    const result = resolveModelProvider('gpt-5', 'anthropic')
     expect(result.provider).toBe('anthropic')
-    expect(result.model).toBe('gpt-4')
+    expect(result.model).toBe('gpt-5')
   })
 
   test('explicit provider overrides prefix', () => {
-    const result = resolveModelProvider('openai/gpt-4', 'groq')
+    const result = resolveModelProvider('openai/gpt-5', 'groq')
     expect(result.provider).toBe('groq')
-    expect(result.model).toBe('openai/gpt-4')
+    expect(result.model).toBe('openai/gpt-5')
   })
 })
 

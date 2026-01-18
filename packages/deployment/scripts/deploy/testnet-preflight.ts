@@ -1,13 +1,11 @@
 #!/usr/bin/env bun
 /**
- * Testnet Pre-Flight Check
+ * Testnet Pre-Flight Check (Decentralized Deployment)
  *
  * Validates all prerequisites before running testnet deployment:
- * - AWS credentials and permissions
- * - Terraform state
- * - Required API keys
+ * - Required tools (bun, forge, ipfs)
  * - Deployer wallet balance
- * - Required tools
+ * - API keys for services
  *
  * Usage:
  *   bun run scripts/deploy/testnet-preflight.ts
@@ -21,7 +19,6 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { sepolia } from 'viem/chains'
 
 const ROOT = join(import.meta.dir, '../../../..')
-const DEPLOYMENT_DIR = join(ROOT, 'packages/deployment')
 
 interface CheckResult {
   name: string
@@ -31,14 +28,6 @@ interface CheckResult {
 }
 
 const results: CheckResult[] = []
-
-function log(
-  message: string,
-  level: 'info' | 'success' | 'error' | 'warn' = 'info',
-): void {
-  const icons = { info: 'ℹ️', success: '✅', error: '❌', warn: '⚠️' }
-  console.log(`${icons[level]}  ${message}`)
-}
 
 function check(
   name: string,
@@ -84,9 +73,11 @@ async function main(): Promise<void> {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════════╗
 ║                                                                          ║
-║   🔍 TESTNET PRE-FLIGHT CHECK                                            ║
+║   🔍 TESTNET PRE-FLIGHT CHECK (Decentralized)                            ║
 ║                                                                          ║
-║   Validates all prerequisites before deployment                          ║
+║   Validates prerequisites for permissionless deployment                  ║
+║   - No AWS, Terraform, or Kubernetes required                            ║
+║   - Deploy via on-chain contracts + DWS                                  ║
 ║                                                                          ║
 ╚══════════════════════════════════════════════════════════════════════════╝
 `)
@@ -126,48 +117,16 @@ async function main(): Promise<void> {
     return { status: 'pass', message: version.split('\n')[0] }
   })
 
-  // Check terraform
-  check('Terraform', () => {
-    const version = execSync(
-      'terraform --version 2>/dev/null || echo "not found"',
-      { encoding: 'utf-8' },
-    ).trim()
-    if (version === 'not found') {
-      return {
-        status: 'warn',
-        message: 'Not installed (optional for contract-only deployment)',
-        fix: 'brew install terraform',
-      }
-    }
-    return { status: 'pass', message: version.split('\n')[0] }
-  })
-
-  // Check aws cli
-  check('AWS CLI', () => {
-    const version = execSync('aws --version 2>/dev/null || echo "not found"', {
+  // Check IPFS (optional but recommended)
+  check('IPFS CLI', () => {
+    const version = execSync('ipfs --version 2>/dev/null || echo "not found"', {
       encoding: 'utf-8',
     }).trim()
     if (version === 'not found') {
       return {
         status: 'warn',
-        message: 'Not installed (required for infrastructure)',
-        fix: 'brew install awscli',
-      }
-    }
-    return { status: 'pass', message: version.split(' ')[0] }
-  })
-
-  // Check kubectl
-  check('kubectl', () => {
-    const version = execSync(
-      'kubectl version --client --short 2>/dev/null || kubectl version --client 2>/dev/null | head -1 || echo "not found"',
-      { encoding: 'utf-8' },
-    ).trim()
-    if (version === 'not found') {
-      return {
-        status: 'warn',
-        message: 'Not installed (required for K8s deployment)',
-        fix: 'brew install kubectl',
+        message: 'Not installed (will use DWS storage endpoint)',
+        fix: 'brew install ipfs',
       }
     }
     return { status: 'pass', message: version }
@@ -184,6 +143,21 @@ async function main(): Promise<void> {
         status: 'fail',
         message: 'Not installed',
         fix: 'Should be pre-installed on macOS',
+      }
+    }
+    return { status: 'pass', message: version }
+  })
+
+  // Check jq (for JSON parsing)
+  check('jq', () => {
+    const version = execSync('jq --version 2>/dev/null || echo "not found"', {
+      encoding: 'utf-8',
+    }).trim()
+    if (version === 'not found') {
+      return {
+        status: 'warn',
+        message: 'Not installed (optional, for JSON parsing)',
+        fix: 'brew install jq',
       }
     }
     return { status: 'pass', message: version }
@@ -214,45 +188,17 @@ async function main(): Promise<void> {
     return { status: 'pass', message: `Set (${deployerKey.slice(0, 10)}...)` }
   })
 
-  // Check AWS credentials
-  check('AWS Credentials', () => {
-    const awsAccessKey = process.env.AWS_ACCESS_KEY_ID
-    const awsProfile = process.env.AWS_PROFILE
-    const awsRoleArn = process.env.AWS_ROLE_ARN
-
-    if (awsRoleArn) {
+  // Check IPFS API URL (optional)
+  check('IPFS_API_URL', () => {
+    const url = process.env.IPFS_API_URL
+    if (!url) {
       return {
         status: 'pass',
-        message: `Using role ARN: ${awsRoleArn.slice(0, 30)}...`,
+        message:
+          'Not set (will use default: https://ipfs-api.testnet.jejunetwork.org)',
       }
     }
-    if (awsProfile) {
-      return { status: 'pass', message: `Using profile: ${awsProfile}` }
-    }
-    if (awsAccessKey) {
-      return {
-        status: 'pass',
-        message: `Using access key: ${awsAccessKey.slice(0, 10)}...`,
-      }
-    }
-    return {
-      status: 'warn',
-      message: 'Not configured (required for infrastructure)',
-      fix: 'aws configure or export AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY',
-    }
-  })
-
-  // Check API keys
-  check('OPENAI_API_KEY', () => {
-    const key = process.env.OPENAI_API_KEY
-    if (!key) {
-      return {
-        status: 'warn',
-        message: 'Not set (optional - for AI features)',
-        fix: 'export OPENAI_API_KEY=sk-...',
-      }
-    }
-    return { status: 'pass', message: `Set (${key.slice(0, 10)}...)` }
+    return { status: 'pass', message: url }
   })
 
   console.log(`\n${'═'.repeat(70)}`)
@@ -263,7 +209,7 @@ async function main(): Promise<void> {
     const account = privateKeyToAccount(deployerKey as `0x${string}`)
     console.log(`Deployer Address: ${account.address}\n`)
 
-    // Check Sepolia balance
+    // Check Sepolia balance (for L1 bridge if needed)
     await checkAsync('Sepolia ETH Balance', async () => {
       const client = createPublicClient({
         chain: sepolia,
@@ -277,21 +223,15 @@ async function main(): Promise<void> {
 
       if (balanceEth < 0.1) {
         return {
-          status: 'fail',
-          message: `${balanceEth.toFixed(4)} ETH (need 0.1+ for L1 operations)`,
-          fix: 'Get Sepolia ETH from: https://sepoliafaucet.com or https://faucet.alchemy.com/sepolia',
-        }
-      }
-      if (balanceEth < 1) {
-        return {
           status: 'warn',
-          message: `${balanceEth.toFixed(4)} ETH (recommend 1+ ETH)`,
+          message: `${balanceEth.toFixed(4)} ETH (need 0.1+ for L1 bridge)`,
+          fix: 'Get Sepolia ETH from: https://sepoliafaucet.com',
         }
       }
       return { status: 'pass', message: `${balanceEth.toFixed(4)} ETH` }
     })
 
-    // Check Jeju testnet balance (if RPC is up)
+    // Check Jeju testnet balance
     await checkAsync('Jeju Testnet ETH Balance', async () => {
       const client = createPublicClient({
         transport: http('https://testnet-rpc.jejunetwork.org'),
@@ -319,44 +259,12 @@ async function main(): Promise<void> {
       return { status: 'pass', message: `${balanceEth.toFixed(4)} ETH` }
     })
   } else {
-    log('Skipping balance checks (no deployer key)', 'warn')
+    console.log('⚠️  Skipping balance checks (no deployer key)')
   }
 
   console.log(`\n${'═'.repeat(70)}`)
-  console.log('📋 Infrastructure State')
+  console.log('📋 Project Structure')
   console.log(`${'═'.repeat(70)}\n`)
-
-  // Check Terraform state
-  check('Terraform State', () => {
-    const tfStateFile = join(
-      DEPLOYMENT_DIR,
-      'terraform/environments/testnet/.terraform',
-    )
-    if (existsSync(tfStateFile)) {
-      return { status: 'pass', message: 'Initialized' }
-    }
-    return {
-      status: 'warn',
-      message: 'Not initialized',
-      fix: 'cd packages/deployment/terraform/environments/testnet && terraform init',
-    }
-  })
-
-  // Check if Terraform vars exist
-  check('Terraform Variables', () => {
-    const tfVarsFile = join(
-      DEPLOYMENT_DIR,
-      'terraform/environments/testnet/terraform.tfvars',
-    )
-    if (existsSync(tfVarsFile)) {
-      return { status: 'pass', message: 'terraform.tfvars exists' }
-    }
-    return {
-      status: 'warn',
-      message: 'terraform.tfvars not found',
-      fix: 'cp terraform.tfvars.example terraform.tfvars and configure',
-    }
-  })
 
   // Check contracts package
   check('Contracts Package', () => {
@@ -367,16 +275,25 @@ async function main(): Promise<void> {
     return { status: 'fail', message: 'foundry.toml not found' }
   })
 
-  // Check Babylon vendor
-  check('Babylon Vendor', () => {
-    const babylonManifest = join(ROOT, 'vendor/babylon/jeju-manifest.json')
-    if (existsSync(babylonManifest)) {
+  // Check DWS bootstrap script
+  check('DWS Bootstrap Script', () => {
+    const script = join(
+      ROOT,
+      'packages/deployment/scripts/deploy/dws-bootstrap.ts',
+    )
+    if (existsSync(script)) {
       return { status: 'pass', message: 'Found' }
     }
-    return {
-      status: 'warn',
-      message: 'Not found (Babylon features will be skipped)',
+    return { status: 'fail', message: 'dws-bootstrap.ts not found' }
+  })
+
+  // Check apps directory
+  check('Apps Directory', () => {
+    const appsDir = join(ROOT, 'apps')
+    if (existsSync(appsDir)) {
+      return { status: 'pass', message: 'Found' }
     }
+    return { status: 'fail', message: 'apps/ not found' }
   })
 
   // Summary
@@ -420,10 +337,10 @@ async function main(): Promise<void> {
 ╔══════════════════════════════════════════════════════════════════════════╗
 ║  ✅ PRE-FLIGHT CHECK PASSED                                              ║
 ║                                                                          ║
-║  All prerequisites are met. You can proceed with deployment:             ║
+║  All prerequisites are met. Deploy with:                                 ║
 ║                                                                          ║
 ║  NETWORK=testnet DEPLOYER_PRIVATE_KEY=0x... \\                            ║
-║    bun run packages/deployment/scripts/deploy/testnet-babylon-full.ts    ║
+║    bun run packages/deployment/scripts/deploy/dws-bootstrap.ts           ║
 ╚══════════════════════════════════════════════════════════════════════════╝
 `)
 }

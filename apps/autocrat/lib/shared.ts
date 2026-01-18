@@ -101,7 +101,7 @@ export function parseJson<T>(response: string): T {
   return JSON.parse(match[0]) as T
 }
 
-export const COUNCIL_ABI = [
+export const BOARD_ABI = [
   'function getProposal(bytes32) view returns (tuple(bytes32, address, uint256, uint8, uint8, uint8, uint256, uint256, uint256, bytes32, address, bytes, uint256, uint256, uint256, uint256, bool, bytes32, bool, bytes32))',
   'function getAutocratVotes(bytes32) view returns (tuple(bytes32, address, uint8, uint8, bytes32, uint256, uint256)[])',
   'function getActiveProposals() view returns (bytes32[])',
@@ -112,9 +112,9 @@ export const COUNCIL_ABI = [
   'function gracePeriod() view returns (uint256)',
 ] as const
 
-export const CEO_AGENT_ABI = [
+export const DIRECTOR_AGENT_ABI = [
   'function getCurrentModel() view returns (tuple(string, string, string, address, uint256, uint256, uint256, bool, uint256, uint256, uint256))',
-  'function getCEOStats() view returns (string, uint256, uint256, uint256, uint256, uint256)',
+  'function getDirectorStats() view returns (string, uint256, uint256, uint256, uint256, uint256)',
   'function getDecision(bytes32) view returns (tuple(bytes32, string, bool, bytes32, bytes32, bytes32, uint256, uint256, uint256, bool, bool))',
   'function getAllModels() view returns (string[])',
   'function getModel(string) view returns (tuple(string, string, string, address, uint256, uint256, uint256, bool, uint256, uint256, uint256))',
@@ -126,7 +126,7 @@ export const PROPOSAL_STATUS = [
   'AUTOCRAT_REVIEW',
   'RESEARCH_PENDING',
   'AUTOCRAT_FINAL',
-  'CEO_QUEUE',
+  'DIRECTOR_QUEUE',
   'APPROVED',
   'EXECUTING',
   'COMPLETED',
@@ -206,13 +206,13 @@ export interface ProposalFromContract {
   backerCount: bigint
   hasResearch: boolean
   researchHash: `0x${string}`
-  ceoApproved: boolean
-  ceoDecisionHash: `0x${string}`
+  directorApproved: boolean
+  directorDecisionHash: `0x${string}`
 }
 
 export interface AutocratVoteFromContract {
   proposalId: `0x${string}`
-  councilAgent: `0x${string}`
+  boardAgent: `0x${string}`
   role: number
   vote: number
   reasoningHash: `0x${string}`
@@ -248,7 +248,7 @@ export interface DecisionFromContract {
   overridden: boolean
 }
 
-export interface CEOStatsFromContract {
+export interface DirectorStatsFromContract {
   currentModelId: string
   totalDecisions: bigint
   approvedDecisions: bigint

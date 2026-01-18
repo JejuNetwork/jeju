@@ -22,64 +22,113 @@ import {
   Twitter,
   Wallet,
 } from 'lucide-react'
+import { AuthProvider } from '@jejunetwork/auth'
+import { useJejuAuth, useOAuth3 } from '@jejunetwork/auth/react'
 import { useState } from 'react'
-import { type AuthProvider, useAuth } from '../../hooks/useAuth'
 
-const PROVIDER_INFO: Record<
-  AuthProvider,
-  {
-    name: string
-    icon: React.ComponentType<{ className?: string }>
-    color: string
-    description: string
-  }
-> = {
-  wallet: {
+type ProviderInfo = {
+  name: string
+  icon: React.ComponentType<{ className?: string }>
+  color: string
+  description: string
+}
+
+const PROVIDER_INFO: Record<AuthProvider, ProviderInfo> = {
+  [AuthProvider.WALLET]: {
     name: 'Wallet',
     icon: Wallet,
     color: 'text-orange-400',
     description: 'Ethereum wallet',
   },
-  google: {
+  [AuthProvider.GOOGLE]: {
     name: 'Google',
     icon: Chrome,
     color: 'text-red-400',
     description: 'Google account',
   },
-  apple: {
+  [AuthProvider.APPLE]: {
     name: 'Apple',
     icon: Apple,
     color: 'text-gray-400',
     description: 'Apple ID',
   },
-  twitter: {
+  [AuthProvider.TWITTER]: {
     name: 'Twitter',
     icon: Twitter,
     color: 'text-blue-400',
     description: 'Twitter/X account',
   },
-  github: {
+  [AuthProvider.GITHUB]: {
     name: 'GitHub',
     icon: Github,
     color: 'text-purple-400',
     description: 'GitHub account',
   },
-  discord: {
+  [AuthProvider.DISCORD]: {
     name: 'Discord',
     icon: MessageCircle,
     color: 'text-indigo-400',
     description: 'Discord account',
   },
-  farcaster: {
+  [AuthProvider.FARCASTER]: {
     name: 'Farcaster',
     icon: MessageCircle,
     color: 'text-purple-400',
     description: 'Farcaster ID',
   },
+  [AuthProvider.PASSKEY]: {
+    name: 'Passkey',
+    icon: Shield,
+    color: 'text-emerald-400',
+    description: 'Passkey',
+  },
+}
+
+type LinkedProvider = {
+  provider: AuthProvider
+  providerId: string
+  handle?: string
+  linkedAt: number
+}
+
+const SUPPORTED_PROVIDERS: AuthProvider[] = [
+  AuthProvider.WALLET,
+  AuthProvider.GOOGLE,
+  AuthProvider.APPLE,
+  AuthProvider.TWITTER,
+  AuthProvider.GITHUB,
+  AuthProvider.DISCORD,
+  AuthProvider.FARCASTER,
+  AuthProvider.PASSKEY,
+]
+
+function toAuthProvider(type: string): AuthProvider | null {
+  switch (type) {
+    case 'wallet':
+      return AuthProvider.WALLET
+    case 'google':
+      return AuthProvider.GOOGLE
+    case 'apple':
+      return AuthProvider.APPLE
+    case 'twitter':
+      return AuthProvider.TWITTER
+    case 'github':
+      return AuthProvider.GITHUB
+    case 'discord':
+      return AuthProvider.DISCORD
+    case 'farcaster':
+      return AuthProvider.FARCASTER
+    case 'passkey':
+      return AuthProvider.PASSKEY
+    default:
+      return null
+  }
 }
 
 export function LinkedAccounts() {
-  const { session, linkProvider, unlinkProvider, isLoading } = useAuth()
+  const oauth3 = useOAuth3()
+  const { linkedAccounts } = useJejuAuth()
+  const { session, linkProvider, unlinkProvider, isLoading } = oauth3
   const [activeAction, setActiveAction] = useState<{
     provider: AuthProvider
     action: 'link' | 'unlink'
@@ -96,11 +145,23 @@ export function LinkedAccounts() {
     )
   }
 
-  const linkedProviders = session.linkedProviders ?? []
+  const linkedProviders = linkedAccounts
+    .map((account): LinkedProvider | null => {
+      const provider = toAuthProvider(account.type)
+      if (!provider) return null
+      return {
+        provider,
+        providerId: account.identifier,
+        handle: account.handle,
+        linkedAt: account.linkedAt,
+      }
+    })
+    .filter((account): account is LinkedProvider => account !== null)
+
   const linkedProviderIds = new Set(linkedProviders.map((p) => p.provider))
-  const availableProviders = (
-    Object.keys(PROVIDER_INFO) as AuthProvider[]
-  ).filter((p) => !linkedProviderIds.has(p))
+  const availableProviders = SUPPORTED_PROVIDERS.filter(
+    (provider) => !linkedProviderIds.has(provider),
+  )
 
   const handleLink = async (provider: AuthProvider) => {
     setActiveAction({ provider, action: 'link' })
@@ -108,7 +169,8 @@ export function LinkedAccounts() {
     try {
       await linkProvider(provider)
     } catch (err) {
-      setError((err as Error).message)
+      const message = err instanceof Error ? err.message : 'Failed to link account'
+      setError(message)
     } finally {
       setActiveAction(null)
     }
@@ -126,7 +188,8 @@ export function LinkedAccounts() {
     try {
       await unlinkProvider(provider)
     } catch (err) {
-      setError((err as Error).message)
+      const message = err instanceof Error ? err.message : 'Failed to unlink account'
+      setError(message)
     } finally {
       setActiveAction(null)
     }
@@ -225,11 +288,6 @@ export function LinkedAccounts() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {linked.verified && (
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-xs">
-                        Verified
-                      </span>
-                    )}
                     <button
                       type="button"
                       onClick={() => handleUnlink(linked.provider)}

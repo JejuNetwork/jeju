@@ -103,7 +103,7 @@ interface ITreasury {
     function getTokenBalance(address token) external view returns (uint256);
     function getWithdrawalInfo() external view returns (uint256 limit, uint256 usedToday, uint256 remaining);
     function isOperator(address account) external view returns (bool);
-    function isCouncilMember(address account) external view returns (bool);
+    function isBoardMember(address account) external view returns (bool);
     function getFeatures() external view returns (bool teeEnabled, bool profitDistributionEnabled);
 
     // TEE Views

@@ -18,7 +18,7 @@ import {
   waitForTransactionReceipt,
   writeContract,
 } from 'viem/actions'
-import { type CEOPersona, toHex } from '../lib'
+import { type DirectorPersona, toHex } from '../lib'
 import type { DAOFull, FundingProject } from '../lib/types'
 import type { AutocratBlockchain } from './blockchain'
 import { inferChainFromRpcUrl } from './chains'
@@ -29,7 +29,7 @@ import {
   type KMSAccount,
 } from './kms-signer'
 
-// Config type for orchestrator - accepts CouncilConfig or minimal config
+// Config type for orchestrator - accepts BoardConfig or minimal config
 export interface AutocratConfig {
   rpcUrl: string
   chainId?: number
@@ -56,7 +56,7 @@ import { getResearchAgent, type ResearchRequest } from './research-agent'
 import { makeTEEDecision } from './tee'
 
 // Use JSON ABI format to avoid abitype parsing issues with complex tuples
-const COUNCIL_WRITE_ABI = [
+const BOARD_WRITE_ABI = [
   {
     name: 'getActiveProposals',
     type: 'function',
@@ -92,8 +92,8 @@ const COUNCIL_WRITE_ABI = [
           { type: 'uint256', name: 'backerCount' },
           { type: 'bool', name: 'hasResearch' },
           { type: 'bytes32', name: 'researchHash' },
-          { type: 'bool', name: 'ceoApproved' },
-          { type: 'bytes32', name: 'ceoDecisionHash' },
+          { type: 'bool', name: 'directorApproved' },
+          { type: 'bytes32', name: 'directorDecisionHash' },
         ],
       },
     ],
@@ -109,7 +109,7 @@ const COUNCIL_WRITE_ABI = [
         name: '',
         components: [
           { type: 'bytes32', name: 'proposalId' },
-          { type: 'address', name: 'councilAgent' },
+          { type: 'address', name: 'boardAgent' },
           { type: 'uint8', name: 'role' },
           { type: 'uint8', name: 'vote' },
           { type: 'bytes32', name: 'reasoningHash' },
@@ -148,7 +148,7 @@ const COUNCIL_WRITE_ABI = [
     outputs: [],
   },
   {
-    name: 'advanceToCEO',
+    name: 'advanceToDirector',
     type: 'function',
     stateMutability: 'nonpayable',
     inputs: [{ type: 'bytes32', name: 'proposalId' }],
@@ -163,7 +163,7 @@ const COUNCIL_WRITE_ABI = [
   },
 ] as const
 
-const CEO_WRITE_ABI = parseAbi([
+const DIRECTOR_WRITE_ABI = parseAbi([
   'function recordDecision(bytes32 proposalId, bool approved, bytes32 decisionHash, bytes32 encryptedHash, uint256 confidenceScore, uint256 alignmentScore) external',
 ])
 const STATUS = {
@@ -171,7 +171,7 @@ const STATUS = {
   AUTOCRAT_REVIEW: 1,
   RESEARCH_PENDING: 2,
   AUTOCRAT_FINAL: 3,
-  CEO_QUEUE: 4,
+  DIRECTOR_QUEUE: 4,
   APPROVED: 5,
   EXECUTING: 6,
   COMPLETED: 7,
@@ -180,8 +180,8 @@ const STATUS = {
 interface DAOState {
   daoId: string
   daoFull: DAOFull
-  councilAddress: Address
-  ceoAgentAddress: Address
+  boardAddress: Address
+  directorAgentAddress: Address
   lastProcessed: number
   processedCount: number
   errors: string[]
@@ -206,7 +206,7 @@ export interface DAOStateStatus {
   isActive: boolean
   lastProcessed: number
   processedCount: number
-  ceoName: string
+  directorName: string
   errors: string[]
 }
 export class AutocratOrchestrator {
@@ -271,14 +271,14 @@ export class AutocratOrchestrator {
       ZERO_ADDRESS
     const chainId = this.config.chainId ?? this.inferChainId(this.config.rpcUrl)
 
-    // Pass the operator address for KMS-based signing in DAOService
-    const operatorKey = process.env.OPERATOR_KEY ?? process.env.PRIVATE_KEY
+    // Pass the operator signer for KMS-based signing in DAOService
+    // The signer is already initialized via createKMSAccount in start()
     this.daoService = createDAOService({
       rpcUrl: this.config.rpcUrl,
       chainId,
       daoRegistryAddress: daoRegistryAddr,
       daoFundingAddress: daoFundingAddr,
-      privateKey: operatorKey, // DAOService will migrate to KMS internally
+      operatorAddress: this.account?.address, // DAOService uses KMS via operator address
     })
 
     // Load all active DAOs
@@ -337,13 +337,13 @@ export class AutocratOrchestrator {
       if (this.daoStates.has(daoId)) continue
 
       const daoFull = await this.daoService.getDAOFull(daoId)
-      const councilAddr = daoFull.dao.council
-      const ceoAgentAddr = daoFull.dao.ceoAgent
+      const boardAddr = daoFull.dao.board
+      const directorAgentAddr = daoFull.dao.directorAgent
       if (
-        !councilAddr ||
-        councilAddr === '0x0000000000000000000000000000000000000000' ||
-        !ceoAgentAddr ||
-        ceoAgentAddr === '0x0000000000000000000000000000000000000000'
+        !boardAddr ||
+        boardAddr === '0x0000000000000000000000000000000000000000' ||
+        !directorAgentAddr ||
+        directorAgentAddr === '0x0000000000000000000000000000000000000000'
       ) {
         continue
       }
@@ -351,8 +351,8 @@ export class AutocratOrchestrator {
       this.daoStates.set(daoId, {
         daoId,
         daoFull,
-        councilAddress: councilAddr,
-        ceoAgentAddress: ceoAgentAddr,
+        boardAddress: boardAddr,
+        directorAgentAddress: directorAgentAddr,
         lastProcessed: 0,
         processedCount: 0,
         errors: [],
@@ -369,12 +369,12 @@ export class AutocratOrchestrator {
   }
 
   private async processDAO(state: DAOState): Promise<void> {
-    const { councilAddress } = state
+    const { boardAddress } = state
 
     try {
       const activeIds = (await readContract(this.client, {
-        address: councilAddress,
-        abi: COUNCIL_WRITE_ABI,
+        address: boardAddress,
+        abi: BOARD_WRITE_ABI,
         functionName: 'getActiveProposals',
       })) as readonly `0x${string}`[]
 
@@ -382,8 +382,8 @@ export class AutocratOrchestrator {
 
       for (const proposalId of activeIds.slice(0, 5)) {
         const proposal = (await readContract(this.client, {
-          address: councilAddress,
-          abi: COUNCIL_WRITE_ABI,
+          address: boardAddress,
+          abi: BOARD_WRITE_ABI,
           functionName: 'getProposal',
           args: [proposalId],
         })) as ProposalFromContract
@@ -410,7 +410,7 @@ export class AutocratOrchestrator {
         break
 
       case STATUS.AUTOCRAT_REVIEW:
-        await this.processCouncilReview(state, proposalId, proposal)
+        await this.processBoardReview(state, proposalId, proposal)
         break
 
       case STATUS.RESEARCH_PENDING:
@@ -421,8 +421,8 @@ export class AutocratOrchestrator {
         await this.processFinalReview(state, proposalId, proposal)
         break
 
-      case STATUS.CEO_QUEUE:
-        await this.processCEODecision(state, proposalId, proposal)
+      case STATUS.DIRECTOR_QUEUE:
+        await this.processDirectorDecision(state, proposalId, proposal)
         break
 
       case STATUS.APPROVED:
@@ -431,16 +431,16 @@ export class AutocratOrchestrator {
     }
   }
 
-  private async processCouncilReview(
+  private async processBoardReview(
     state: DAOState,
     proposalId: string,
     proposal: ProposalFromContract,
   ): Promise<void> {
-    const { councilAddress } = state
+    const { boardAddress } = state
 
     const votes = (await readContract(this.client, {
-      address: councilAddress,
-      abi: COUNCIL_WRITE_ABI,
+      address: boardAddress,
+      abi: BOARD_WRITE_ABI,
       functionName: 'getAutocratVotes',
       args: [toHex(proposalId)],
     })) as AutocratVoteFromContract[]
@@ -488,8 +488,8 @@ export class AutocratOrchestrator {
             { APPROVE: 0, REJECT: 1, ABSTAIN: 2 }[vote.vote] ?? 2
 
           const hash = await writeContract(this.walletClient, {
-            address: councilAddress,
-            abi: COUNCIL_WRITE_ABI,
+            address: boardAddress,
+            abi: BOARD_WRITE_ABI,
             functionName: 'castAutocratVote',
             args: [
               toHex(proposalId),
@@ -507,8 +507,8 @@ export class AutocratOrchestrator {
     const now = Math.floor(Date.now() / 1000)
     if (now >= Number(proposal.autocratVoteEnd) && this.account) {
       const hash = await writeContract(this.walletClient, {
-        address: councilAddress,
-        abi: COUNCIL_WRITE_ABI,
+        address: boardAddress,
+        abi: BOARD_WRITE_ABI,
         functionName: 'finalizeAutocratVote',
         args: [toHex(proposalId)],
         account: this.account as unknown as Account,
@@ -523,7 +523,7 @@ export class AutocratOrchestrator {
     proposalId: string,
     proposal: ProposalFromContract,
   ): Promise<void> {
-    const { councilAddress, daoFull } = state
+    const { boardAddress, daoFull } = state
 
     if (proposal.hasResearch) return
 
@@ -542,8 +542,8 @@ export class AutocratOrchestrator {
 
     if (this.account) {
       const hash = await writeContract(this.walletClient, {
-        address: councilAddress,
-        abi: COUNCIL_WRITE_ABI,
+        address: boardAddress,
+        abi: BOARD_WRITE_ABI,
         functionName: 'recordResearch',
         args: [toHex(proposalId), keccak256(stringToHex(report.requestHash))],
         account: this.account as unknown as Account,
@@ -558,16 +558,16 @@ export class AutocratOrchestrator {
     proposalId: string,
     proposal: ProposalFromContract,
   ): Promise<void> {
-    const { councilAddress } = state
+    const { boardAddress } = state
     const now = Math.floor(Date.now() / 1000)
 
     if (now < Number(proposal.autocratVoteEnd)) return
 
     if (this.account) {
       const hash = await writeContract(this.walletClient, {
-        address: councilAddress,
-        abi: COUNCIL_WRITE_ABI,
-        functionName: 'advanceToCEO',
+        address: boardAddress,
+        abi: BOARD_WRITE_ABI,
+        functionName: 'advanceToDirector',
         args: [toHex(proposalId)],
         account: this.account as unknown as Account,
         chain: inferChain(this.config.rpcUrl),
@@ -576,20 +576,20 @@ export class AutocratOrchestrator {
     }
   }
 
-  private async processCEODecision(
+  private async processDirectorDecision(
     state: DAOState,
     proposalId: string,
     proposal: ProposalFromContract,
   ): Promise<void> {
-    const { councilAddress, daoFull } = state
-    const persona = daoFull.ceoPersona
+    const { boardAddress, daoFull } = state
+    const persona = daoFull.directorPersona
     if (!persona) {
-      throw new Error(`DAO ${state.daoId} has no CEO persona`)
+      throw new Error(`DAO ${state.daoId} has no Director persona`)
     }
 
     const votes = (await readContract(this.client, {
-      address: councilAddress,
-      abi: COUNCIL_WRITE_ABI,
+      address: boardAddress,
+      abi: BOARD_WRITE_ABI,
       functionName: 'getAutocratVotes',
       args: [toHex(proposalId)],
     })) as AutocratVoteFromContract[]
@@ -668,12 +668,13 @@ export class AutocratOrchestrator {
 
     if (
       this.account &&
-      state.ceoAgentAddress &&
-      state.ceoAgentAddress !== '0x0000000000000000000000000000000000000000'
+      state.directorAgentAddress &&
+      state.directorAgentAddress !==
+        '0x0000000000000000000000000000000000000000'
     ) {
       const hash = await writeContract(this.walletClient, {
-        address: state.ceoAgentAddress,
-        abi: CEO_WRITE_ABI,
+        address: state.directorAgentAddress,
+        abi: DIRECTOR_WRITE_ABI,
         functionName: 'recordDecision',
         args: [
           toHex(proposalId),
@@ -695,7 +696,7 @@ export class AutocratOrchestrator {
     proposalId: string,
     proposal: ProposalFromContract,
   ): Promise<void> {
-    const { councilAddress } = state
+    const { boardAddress } = state
     const now = Math.floor(Date.now() / 1000)
     const gracePeriodEnd = Number(proposal.gracePeriodEnd)
 
@@ -705,8 +706,8 @@ export class AutocratOrchestrator {
 
     if (this.account) {
       const hash = await writeContract(this.walletClient, {
-        address: councilAddress,
-        abi: COUNCIL_WRITE_ABI,
+        address: boardAddress,
+        abi: BOARD_WRITE_ABI,
         functionName: 'executeProposal',
         args: [toHex(proposalId)],
         account: this.account as unknown as Account,
@@ -735,7 +736,7 @@ export class AutocratOrchestrator {
           await this.daoService.finalizeEpoch(daoId)
         }
 
-        // Auto-set CEO weights for new projects
+        // Auto-set Director weights for new projects
         const projects = await this.daoService.getActiveProjects(daoId)
         for (const project of projects) {
           if (
@@ -745,7 +746,7 @@ export class AutocratOrchestrator {
             // Calculate weight based on project quality and community stake
             const weight = this.calculateProjectWeight(project, state.daoFull)
             if (weight > 0) {
-              await this.daoService.setCEOWeight(project.projectId, weight)
+              await this.daoService.setDirectorWeight(project.projectId, weight)
             }
           }
         }
@@ -771,7 +772,7 @@ export class AutocratOrchestrator {
 
     const linkedBonus = isLinked ? 1000 : 0
 
-    // Total weight (capped at CEO weight cap from config)
+    // Total weight (capped at Director weight cap from config)
     const totalWeight = Math.min(
       stakeWeight + linkedBonus,
       daoFull.params.quorumBps / 2,
@@ -780,7 +781,7 @@ export class AutocratOrchestrator {
     return Math.floor(totalWeight)
   }
   private generatePersonaResponse(
-    persona: CEOPersona,
+    persona: DirectorPersona,
     approved: boolean,
     reasoning: string,
     daoDisplayName?: string,
@@ -815,28 +816,28 @@ export class AutocratOrchestrator {
   }
 
   private getPersonaTemplates(
-    persona: CEOPersona,
+    persona: DirectorPersona,
     daoName?: string,
   ): Record<string, Record<string, string>> {
-    const ceoName = persona.name
+    const directorName = persona.name
     const dao = daoName ?? 'the DAO'
 
     // Check for specific personas with custom templates (based on persona traits/personality)
     if (
-      ceoName.toLowerCase().includes('monkey king') ||
+      directorName.toLowerCase().includes('monkey king') ||
       persona.personality.toLowerCase().includes('mischievous')
     ) {
       return {
         playful: {
-          approval: `The ${ceoName} approves. {reasoning}. Let this journey begin - together we shall reach our destination.`,
-          rejection: `Even the ${ceoName} must decline this path. {reasoning}. Return with a stronger proposal, and we shall consider again.`,
+          approval: `The ${directorName} approves. {reasoning}. Let this journey begin - together we shall reach our destination.`,
+          rejection: `Even the ${directorName} must decline this path. {reasoning}. Return with a stronger proposal, and we shall consider again.`,
         },
         authoritative: {
-          approval: `By my authority, it is decided. {reasoning}. The ${ceoName} grants passage.`,
+          approval: `By my authority, it is decided. {reasoning}. The ${directorName} grants passage.`,
           rejection: `This path would not serve us well. {reasoning}. Refine your offering and return when worthy.`,
         },
         friendly: {
-          approval: `My friends, we move forward together. {reasoning}. The ${ceoName} stands with you on this adventure.`,
+          approval: `My friends, we move forward together. {reasoning}. The ${directorName} stands with you on this adventure.`,
           rejection: `Dear companions, not this time. {reasoning}. But do not despair - every setback is a lesson for the journey ahead.`,
         },
         formal: {
@@ -844,8 +845,8 @@ export class AutocratOrchestrator {
           rejection: `After careful review, this proposal cannot proceed. {reasoning}. Please revise and resubmit.`,
         },
         professional: {
-          approval: `Decision: Approved. {reasoning}. ${dao} moves forward with this initiative under the guidance of the ${ceoName}.`,
-          rejection: `Decision: Declined. {reasoning}. The ${ceoName} invites refinement of this proposal for future consideration.`,
+          approval: `Decision: Approved. {reasoning}. ${dao} moves forward with this initiative under the guidance of the ${directorName}.`,
+          rejection: `Decision: Declined. {reasoning}. The ${directorName} invites refinement of this proposal for future consideration.`,
         },
       }
     }
@@ -857,7 +858,7 @@ export class AutocratOrchestrator {
         rejection: `Not quite there yet. {reasoning}. Keep iterating.`,
       },
       authoritative: {
-        approval: `This proposal is approved by ${ceoName}. {reasoning}. Execute immediately.`,
+        approval: `This proposal is approved by ${directorName}. {reasoning}. Execute immediately.`,
         rejection: `This proposal is rejected. {reasoning}. Do better.`,
       },
       friendly: {
@@ -869,7 +870,7 @@ export class AutocratOrchestrator {
         rejection: `After careful consideration, this proposal is not approved. {reasoning}. Please address the concerns and resubmit.`,
       },
       professional: {
-        approval: `Decision: Approved by ${ceoName}. {reasoning}. Implementation may proceed.`,
+        approval: `Decision: Approved by ${directorName}. {reasoning}. Implementation may proceed.`,
         rejection: `Decision: Not Approved. {reasoning}. Revision required before resubmission.`,
       },
     }
@@ -885,7 +886,7 @@ export class AutocratOrchestrator {
         isActive: state.isActive,
         lastProcessed: state.lastProcessed,
         processedCount: state.processedCount,
-        ceoName: state.daoFull.directorPersona.name,
+        directorName: state.daoFull.directorPersona.name,
         errors: state.errors.slice(-5),
       }
     }
@@ -913,7 +914,7 @@ export class AutocratOrchestrator {
       isActive: state.isActive,
       lastProcessed: state.lastProcessed,
       processedCount: state.processedCount,
-      ceoName: state.daoFull.directorPersona.name,
+      directorName: state.daoFull.directorPersona.name,
       errors: state.errors.slice(-5),
     }
   }
@@ -922,10 +923,10 @@ export class AutocratOrchestrator {
     if (!this.daoService) return
 
     const daoFull = await this.daoService.getDAOFull(daoId)
-    const councilAddr = daoFull.dao.council
-    const ceoAgentAddr = daoFull.dao.ceoAgent
+    const boardAddr = daoFull.dao.board
+    const directorAgentAddr = daoFull.dao.directorAgent
 
-    if (!councilAddr || !ceoAgentAddr) {
+    if (!boardAddr || !directorAgentAddr) {
       console.log(`[Orchestrator] DAO ${daoId} missing required addresses`)
       return
     }
@@ -934,14 +935,14 @@ export class AutocratOrchestrator {
 
     if (existing) {
       existing.daoFull = daoFull
-      existing.councilAddress = councilAddr
-      existing.ceoAgentAddress = ceoAgentAddr
+      existing.boardAddress = boardAddr
+      existing.directorAgentAddress = directorAgentAddr
     } else {
       this.daoStates.set(daoId, {
         daoId,
         daoFull,
-        councilAddress: councilAddr,
-        ceoAgentAddress: ceoAgentAddr,
+        boardAddress: boardAddr,
+        directorAgentAddress: directorAgentAddr,
         lastProcessed: 0,
         processedCount: 0,
         errors: [],

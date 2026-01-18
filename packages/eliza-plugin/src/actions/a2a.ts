@@ -39,7 +39,15 @@ export const callAgentAction: Action = {
     _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
-    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
+    const service = runtime.getService(JEJU_SERVICE_NAME) as
+      | JejuService
+      | undefined
+    if (!service) {
+      callback?.({
+        text: 'A2A service not available. Agent-to-agent communication requires JejuService to be registered.',
+      })
+      return
+    }
     const client = service.getClient()
     const text = getMessageText(message)
 
@@ -120,7 +128,15 @@ export const discoverAgentsAction: Action = {
     _options?: HandlerOptions,
     callback?: HandlerCallback,
   ): Promise<void> => {
-    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
+    const service = runtime.getService(JEJU_SERVICE_NAME) as
+      | JejuService
+      | undefined
+    if (!service) {
+      callback?.({
+        text: 'A2A service not available. Agent discovery requires JejuService to be registered.',
+      })
+      return
+    }
     const client = service.getClient()
     const text = getMessageText(message)
 
@@ -136,11 +152,13 @@ export const discoverAgentsAction: Action = {
     }
 
     // Sanitize agent names and endpoints to prevent injection
-    const sanitizedAgents = agents.slice(0, 10).map((agent) => ({
-      name: truncateOutput(agent.name, 100),
-      endpoint: truncateOutput(agent.endpoint, 200),
-      skillCount: agent.skills.length,
-    }))
+    const sanitizedAgents = agents
+      .slice(0, 10)
+      .map((agent: { name: string; endpoint: string; skills: unknown[] }) => ({
+        name: truncateOutput(agent.name, 100),
+        endpoint: truncateOutput(agent.endpoint, 200),
+        skillCount: agent.skills.length,
+      }))
 
     const agentList = sanitizedAgents
       .map(

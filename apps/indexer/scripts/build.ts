@@ -7,6 +7,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
+import { reportBundleSizes } from '@jejunetwork/shared'
 import { $ } from 'bun'
 
 const APP_DIR = resolve(import.meta.dir, '..')
@@ -19,18 +20,17 @@ async function build() {
   // Clean lib directory
   await rm(resolve(APP_DIR, 'lib'), { recursive: true, force: true })
 
-  // Run pre-build script
-  console.log('[Indexer] Running pre-build...')
-  await $`bun scripts/pre-build.ts`.cwd(APP_DIR)
-
   // Run TypeScript compilation (ignore errors for now, frontend is separate)
   console.log('[Indexer] Compiling TypeScript...')
   await $`bunx tsc 2>/dev/null || true`.cwd(APP_DIR)
 
-  // Setup model symlink
-  console.log('[Indexer] Setting up model symlink...')
+  // Copy compiled model files (migration tool needs actual files, not symlink)
+  console.log('[Indexer] Setting up model directory...')
   await rm(resolve(APP_DIR, 'lib/model'), { recursive: true, force: true })
-  await $`ln -s ${resolve(APP_DIR, 'src/model')} ${resolve(APP_DIR, 'lib/model')}`
+  // Copy compiled model from lib/src/model to lib/model for migration tool
+  await $`cp -r ${resolve(APP_DIR, 'lib/src/model')} ${resolve(APP_DIR, 'lib/model')}`.cwd(
+    APP_DIR,
+  )
 
   // Run post-build script
   console.log('[Indexer] Running post-build...')
@@ -49,6 +49,7 @@ async function build() {
     splitting: false,
     packages: 'bundle',
     naming: '[name].[hash].[ext]',
+    drop: ['debugger'],
     external: [
       '@google-cloud/*',
       '@grpc/*',
@@ -78,6 +79,8 @@ async function build() {
     process.exit(1)
   }
 
+  reportBundleSizes(frontendResult, 'Indexer Frontend')
+
   // Find the main entry file with hash
   const mainEntry = frontendResult.outputs.find(
     (o) => o.kind === 'entry-point' && o.path.includes('main'),
@@ -106,6 +109,7 @@ async function build() {
   console.log('  lib/        - Compiled TypeScript')
   console.log(`  dist/web/${mainFileName} - Frontend bundle`)
   console.log('  dist/index.html - Entry HTML')
+  process.exit(0)
 }
 
 build().catch((err) => {

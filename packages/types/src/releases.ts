@@ -26,10 +26,10 @@ export type ReleaseArch = z.infer<typeof ReleaseArchSchema>
 export const ReleaseArtifactSchema = z.object({
   platform: ReleasePlatformSchema,
   arch: ReleaseArchSchema.optional(),
-  filename: z.string(),
-  cid: z.string(), // IPFS CID for download
-  size: z.number(),
-  sha256: z.string(),
+  filename: z.string().min(1),
+  cid: z.string().min(1), // IPFS CID for download
+  size: z.number().nonnegative(), // File size in bytes, must be >= 0
+  sha256: z.string().min(1),
   minOsVersion: z.string().optional(),
   storeUrl: z.string().url().optional(), // App store / extension store URL
 })

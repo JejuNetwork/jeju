@@ -1,11 +1,15 @@
 /**
  * CI Secrets Store - MPC-backed secrets for CI/CD
+ *
+ * SECURITY: In production, CI_ENCRYPTION_SECRET should be stored in KMS,
+ * not in environment variables.
  */
 
 import { isProductionEnv } from '@jejunetwork/config'
 import { getMPCCoordinator } from '@jejunetwork/kms'
 import { decryptAesGcm, encryptAesGcm, hash256 } from '@jejunetwork/shared'
 import type { Address, Hex } from 'viem'
+import { getKMSSecret } from '../shared/kms-secrets'
 import type {
   CISecret,
   Environment,
@@ -30,6 +34,19 @@ interface SecretsStoreConfig {
 // Module-level storage for encrypted secret values (simulates secure storage)
 const secretStorage = new Map<string, string>()
 
+// Cached CI encryption secret from KMS
+let cachedCISecret: string | null = null
+let ciSecretInitialized = false
+
+async function initializeCISecret(): Promise<void> {
+  if (ciSecretInitialized) return
+  const secret = await getKMSSecret('ci_encryption')
+  if (secret) {
+    cachedCISecret = secret
+  }
+  ciSecretInitialized = true
+}
+
 export class CISecretsStore {
   private secrets = new Map<string, CISecret>()
   private environments = new Map<string, Environment>()
@@ -37,26 +54,32 @@ export class CISecretsStore {
   private partyCounter = 0
 
   /**
+   * Initialize the store (must be called before using)
+   */
+  async initialize(): Promise<void> {
+    await initializeCISecret()
+  }
+
+  /**
    * Derive encryption key from server secret + secretId
-   * SECURITY: CI_ENCRYPTION_SECRET MUST be set in production
+   * SECURITY: CI_ENCRYPTION_SECRET should be in KMS, not env vars
    */
   private deriveKey(secretId: string): Uint8Array {
-    const serverSecret = process.env.CI_ENCRYPTION_SECRET
     const isProduction = isProductionEnv()
 
-    if (!serverSecret) {
+    if (!cachedCISecret) {
       if (isProduction) {
         throw new Error(
-          'CRITICAL: CI_ENCRYPTION_SECRET must be set in production. CI secrets cannot be secured without it.',
+          'CRITICAL: CI encryption secret not found in KMS. Store using: jeju secrets set CI_ENCRYPTION_SECRET <value>',
         )
       }
       // Development only: use distinct dev key that won't match any production key
       console.warn(
-        '[CISecretsStore] WARNING: CI_ENCRYPTION_SECRET not set. Using dev-only key.',
+        '[CISecretsStore] WARNING: CI encryption secret not set. Using dev-only key.',
       )
       return hash256(`DEV_ONLY_INSECURE_KEY_DO_NOT_USE_IN_PROD:${secretId}`)
     }
-    return hash256(`${serverSecret}:${secretId}`)
+    return hash256(`${cachedCISecret}:${secretId}`)
   }
 
   /**

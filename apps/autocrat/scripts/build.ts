@@ -16,6 +16,7 @@ import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { getCurrentNetwork } from '@jejunetwork/config'
+import { reportBundleSizes } from '@jejunetwork/shared'
 import type { BunPlugin } from 'bun'
 
 const APP_DIR = resolve(import.meta.dir, '..')
@@ -134,6 +135,7 @@ const browserPlugin: BunPlugin = {
 }
 
 // Node.js built-ins that need to be external for browser builds
+// @elysiajs/eden is NOT external - it's the browser client and must be bundled
 const BROWSER_EXTERNALS = [
   '@google-cloud/*',
   '@grpc/*',
@@ -151,8 +153,11 @@ const BROWSER_EXTERNALS = [
   '@jejunetwork/kms',
   '@jejunetwork/deployment',
   '@jejunetwork/training',
-  'elysia',
-  '@elysiajs/*',
+  'elysia', // Server-only, not needed in browser
+  '@elysiajs/cors', // Server-only
+  '@elysiajs/swagger', // Server-only
+  '@elysiajs/static', // Server-only
+  // @elysiajs/eden is intentionally NOT here - it's the browser client
   'ioredis',
   'croner',
   'opossum',
@@ -253,6 +258,7 @@ async function buildFrontend(): Promise<void> {
     sourcemap: 'external',
     external: BROWSER_EXTERNALS,
     plugins: [browserPlugin],
+    drop: ['debugger'],
     define: {
       'process.env.NODE_ENV': JSON.stringify('production'),
       'process.env.JEJU_NETWORK': JSON.stringify(network),
@@ -299,6 +305,8 @@ async function buildFrontend(): Promise<void> {
     throw new Error('Frontend build failed')
   }
 
+  reportBundleSizes(result, 'Autocrat Frontend')
+
   const mainEntry = result.outputs.find(
     (o) => o.kind === 'entry-point' && o.path.includes('main'),
   )
@@ -316,7 +324,8 @@ async function buildFrontend(): Promise<void> {
   <meta name="theme-color" content="#0D0B14" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#FFFBF7" media="(prefers-color-scheme: light)">
   <title>Autocrat - AI-Powered Governance</title>
-  <meta name="description" content="Multi-tenant DAO governance with AI CEOs, futarchy, and deep funding.">
+  <meta name="description" content="Multi-tenant DAO governance with AI Directors, futarchy, and deep funding.">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -341,7 +350,7 @@ async function buildFrontend(): Promise<void> {
   await Bun.write(`${STATIC_DIR}/index.html`, html)
 
   if (existsSync(resolve(APP_DIR, 'public'))) {
-    await cp(resolve(APP_DIR, 'public'), `${STATIC_DIR}/public`, {
+    await cp(resolve(APP_DIR, 'public'), STATIC_DIR, {
       recursive: true,
     })
   }
@@ -360,6 +369,7 @@ async function buildWorker(): Promise<void> {
     sourcemap: 'external',
     external: WORKER_EXTERNALS,
     plugins: [viemChainsPlugin],
+    drop: ['debugger'],
     define: { 'process.env.NODE_ENV': JSON.stringify('production') },
   })
 
@@ -368,6 +378,8 @@ async function buildWorker(): Promise<void> {
     for (const log of result.logs) console.error(log)
     throw new Error('Worker build failed')
   }
+
+  reportBundleSizes(result, 'Autocrat Worker')
 
   let gitCommit = 'unknown'
   let gitBranch = 'unknown'
@@ -452,6 +464,7 @@ async function build(): Promise<void> {
   await createDeploymentBundle()
 
   console.log('\n[Autocrat] Build complete.')
+  process.exit(0)
 }
 
 build().catch((error) => {

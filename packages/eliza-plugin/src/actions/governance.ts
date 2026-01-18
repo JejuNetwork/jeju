@@ -77,7 +77,7 @@ Title: ${title}
 Type: ${type}
 Transaction: ${txHash}
 
-The proposal will go through council review before community voting.`,
+The proposal will go through board review before community voting.`,
       content: { txHash, title, type },
     })
   },

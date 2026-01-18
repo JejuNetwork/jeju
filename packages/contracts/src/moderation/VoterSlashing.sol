@@ -81,7 +81,7 @@ contract VoterSlashing is Ownable, ReentrancyGuard {
     // Minimum vote margin for quality assessment (prevents 50/50 cases from being "low")
     uint256 public constant MIN_QUALITY_MARGIN_BPS = 2000; // 20%
 
-    // Addresses authorized to assess case quality (moderation council)
+    // Addresses authorized to assess case quality (moderation board)
     mapping(address => bool) public qualityAssessors;
 
     // ═══════════════════════════════════════════════════════════════════════

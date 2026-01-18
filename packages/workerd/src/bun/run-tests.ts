@@ -2,18 +2,20 @@
 // Test runner for Bun compatibility layer
 // Runs unit tests and integration tests with workerd
 
-import { spawn, type Subprocess } from 'bun'
-import path from 'path'
+import { mkdirSync, rmSync } from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { type Subprocess, spawn } from 'bun'
+import { build } from 'esbuild'
 
 const __dirname = path.dirname(new URL(import.meta.url).pathname)
 const WORKERD_URL = 'http://127.0.0.1:9124'
-const WORKERD_CONFIG = path.resolve(__dirname, '../../samples/bun-bundle/config.capnp')
 const STARTUP_TIMEOUT = 10000
 
 async function checkWorkerdRunning(): Promise<boolean> {
   try {
     const response = await fetch(`${WORKERD_URL}/health`, {
-      signal: AbortSignal.timeout(1000)
+      signal: AbortSignal.timeout(1000),
     })
     return response.ok
   } catch {
@@ -27,7 +29,7 @@ async function waitForWorkerd(timeoutMs: number): Promise<void> {
     if (await checkWorkerdRunning()) {
       return
     }
-    await new Promise(resolve => setTimeout(resolve, 200))
+    await new Promise((resolve) => setTimeout(resolve, 200))
   }
   throw new Error(`Workerd did not become ready within ${timeoutMs}ms`)
 }
@@ -37,7 +39,12 @@ async function runUnitTests(): Promise<number> {
   console.log('')
 
   const proc = spawn({
-    cmd: ['bun', 'test', path.join(__dirname, 'bun.test.ts'), path.join(__dirname, 'sqlite.test.ts')],
+    cmd: [
+      'bun',
+      'test',
+      path.join(__dirname, 'bun.test.ts'),
+      path.join(__dirname, 'sqlite.test.ts'),
+    ],
     stdio: ['inherit', 'inherit', 'inherit'],
   })
 
@@ -49,6 +56,7 @@ async function runIntegrationTests(workerdRunning: boolean): Promise<number> {
   console.log('')
 
   const env = { ...process.env }
+  env.WORKERD_INTEGRATION = '1'
   if (workerdRunning) {
     env.WORKERD_RUNNING = '1'
   }
@@ -62,12 +70,59 @@ async function runIntegrationTests(workerdRunning: boolean): Promise<number> {
   return proc.exited
 }
 
+async function buildLocalWorkerdConfig(): Promise<{
+  tempDir: string
+  configPath: string
+}> {
+  const tempDir = path.join(os.tmpdir(), `workerd-bun-${crypto.randomUUID()}`)
+  mkdirSync(tempDir, { recursive: true })
+
+  const workerSource = path.resolve(
+    __dirname,
+    '../../samples/helloworld-bun/worker.ts',
+  )
+  const workerOut = path.join(tempDir, 'worker.js')
+
+  await build({
+    entryPoints: [workerSource],
+    outfile: workerOut,
+    format: 'esm',
+    bundle: true,
+    external: ['./bun-bundle.js'],
+  })
+
+  const bunBundlePath = path.resolve(__dirname, '../../dist/bun/bun-bundle.js')
+  const bunBundleOut = path.join(tempDir, 'bun-bundle.js')
+  const bunBundleBytes = await Bun.file(bunBundlePath).bytes()
+  await Bun.write(bunBundleOut, bunBundleBytes)
+  const configPath = path.join(tempDir, 'config-local.capnp')
+  const config = [
+    'using Workerd = import "/workerd/workerd.capnp";',
+    'const config :Workerd.Config = (',
+    '  services = [ (name = "main", worker = .w) ],',
+    '  sockets = [ ( name = "http", address = "*:9124", http = (), service = "main" ) ]',
+    ');',
+    'const w :Workerd.Worker = (',
+    '  modules = [',
+    '    (name = "worker", esModule = embed "worker.js"),',
+    '    (name = "./bun-bundle.js", esModule = embed "bun-bundle.js")',
+    '  ],',
+    '  compatibilityDate = "2024-09-02",',
+    '  compatibilityFlags = ["nodejs_compat_v2"]',
+    ');',
+  ].join('\n')
+  await Bun.write(configPath, config)
+
+  return { tempDir, configPath }
+}
+
 async function main() {
   console.log('🚀 Bun Compatibility Layer Test Runner')
   console.log('============================================================')
   console.log('')
 
   let workerdProcess: Subprocess | null = null
+  let tempDir: string | null = null
   let exitCode = 0
 
   try {
@@ -120,12 +175,14 @@ async function main() {
     } else {
       // Start workerd
       console.log('🏃 Starting workerd...')
-      console.log(`   Config: ${WORKERD_CONFIG}`)
+      const localConfig = await buildLocalWorkerdConfig()
+      tempDir = localConfig.tempDir
+      console.log(`   Config: ${localConfig.configPath}`)
 
       workerdProcess = spawn({
-        cmd: ['workerd', 'serve', WORKERD_CONFIG],
-        stdout: 'pipe',
-        stderr: 'pipe',
+        cmd: ['workerd', 'serve', '--experimental', localConfig.configPath],
+        stdout: 'inherit',
+        stderr: 'inherit',
       })
 
       console.log(`   PID: ${workerdProcess.pid}`)
@@ -142,10 +199,15 @@ async function main() {
     console.log('📦 Testing basic connectivity...')
     const start = Date.now()
     const response = await fetch(`${WORKERD_URL}/`)
-    const data = await response.json() as { message: string; bunVersion: string }
+    const data = (await response.json()) as {
+      message: string
+      bunVersion: string
+    }
 
     if (response.status === 200 && data.message.includes('Bun')) {
-      console.log(`   ✅ Basic connectivity test passed (${Date.now() - start}ms)`)
+      console.log(
+        `   ✅ Basic connectivity test passed (${Date.now() - start}ms)`,
+      )
       console.log(`   Bun version: ${data.bunVersion}`)
     } else {
       throw new Error('Basic connectivity test failed')
@@ -163,7 +225,6 @@ async function main() {
       console.log('')
       console.log('✅ Integration tests passed')
     }
-
   } catch (error) {
     console.error('')
     console.error('❌ Test run failed:', error)
@@ -176,6 +237,9 @@ async function main() {
       workerdProcess.kill()
       await workerdProcess.exited
       console.log('   ✅ Workerd stopped')
+    }
+    if (tempDir) {
+      rmSync(tempDir, { recursive: true, force: true })
     }
   }
 

@@ -19,7 +19,8 @@ import json
 import logging
 import os
 import random
-from typing import TYPE_CHECKING, Optional
+from contextlib import AbstractAsyncContextManager
+from typing import TYPE_CHECKING, ClassVar, Optional, Protocol, TypedDict, cast
 
 if TYPE_CHECKING:
     from .tinker_client import JejuTinkerClient
@@ -46,6 +47,61 @@ logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
+
+
+class _ManagedNodeState(Protocol):
+    tokens: list[int]
+    masked_tokens: list[int]
+    logprobs: list[float]
+
+
+class _ManagedState(TypedDict):
+    nodes: list[_ManagedNodeState]
+
+
+class _CompletionMessage(Protocol):
+    content: str | None
+
+
+class _CompletionChoice(Protocol):
+    message: _CompletionMessage
+    finish_reason: str
+
+
+class _ChatCompletion(Protocol):
+    choices: list[_CompletionChoice]
+
+
+class _ManagedServer(Protocol):
+    async def chat_completion(
+        self,
+        *,
+        messages: list[dict[str, str]],
+        n: int,
+        max_tokens: int,
+    ) -> _ChatCompletion: ...
+
+    def get_state(self) -> _ManagedState: ...
+
+
+class _ServerWithManagedServer(Protocol):
+    def managed_server(
+        self, *, tokenizer: object
+    ) -> AbstractAsyncContextManager[_ManagedServer]: ...
+
+
+class _Rollout(TypedDict):
+    trajectory: dict[str, object]
+    generated_response: str
+    messages: list[dict[str, str]]
+    tokens: list[int]
+    masks: list[int]
+    logprobs: list[float]
+    finish_reason: str
+
+
+class ScoredDataGroupWithInferenceLogprobs(ScoredDataGroup, total=False):
+    inference_logprobs: list[list[float]]
 
 
 class JejuEnvConfig(BaseEnvConfig):
@@ -114,7 +170,7 @@ class JejuRLAIFEnv(BaseEnv):
     """
 
     name = "jeju-rlaif"
-    env_config_cls = JejuEnvConfig
+    env_config_cls: ClassVar[type[BaseEnvConfig]] = JejuEnvConfig
 
     def __init__(
         self,
@@ -332,9 +388,11 @@ class JejuRLAIFEnv(BaseEnv):
             return None, []
 
         # Collect responses from the training model for each trajectory
-        rollout_data = []
+        rollout_data: list[_Rollout] = []
 
-        async with self.server.managed_server(tokenizer=self.tokenizer) as managed:
+        server = cast(_ServerWithManagedServer, self.server)
+        managed_server = server.managed_server
+        async with managed_server(tokenizer=self.tokenizer) as managed:
             for traj in trajectory_group:
                 # Build chat messages from trajectory
                 messages = self._trajectory_to_messages(traj)
@@ -368,7 +426,7 @@ class JejuRLAIFEnv(BaseEnv):
 
                 node = nodes[0]
                 response_content = (
-                    completion.choices[0].message.content if completion.choices else ""
+                    (completion.choices[0].message.content or "") if completion.choices else ""
                 )
 
                 # Build full conversation with response
@@ -525,12 +583,12 @@ You receive market updates and must analyze, reason, and then act."""
 
         return messages
 
-    async def _score_with_judge(self, rollout_data: list[dict]) -> ScoredDataGroup | None:
+    async def _score_with_judge(self, rollout_data: list[_Rollout]) -> ScoredDataGroup | None:
         """
         Score rollouts using Deterministic Judge logic (rewards.py).
         Replaces OpenAI calls with robust Python logic for PnL, Format, and Reasoning verification.
         """
-        scores = []
+        scores: list[float] = []
 
         for item in rollout_data:
             traj = item["trajectory"]
@@ -540,8 +598,9 @@ You receive market updates and must analyze, reason, and then act."""
             # We treat the generated response as a single 'tick' of output to be judged.
             # Create a mock structure for the detailed quality calculation.
             mock_calls = [{"response": generated_response, "reasoning": generated_response}]
+            empty_params: dict[str, object] = {}
             mock_action = Action(
-                action_type="unknown", parameters={}, success=True
+                action_type="unknown", parameters=empty_params, success=True
             )  # Fallback action
 
             # Calculate granular scores
@@ -554,7 +613,8 @@ You receive market updates and must analyze, reason, and then act."""
 
             # 2. Financial Context (from trajectory history)
             # In RLAIF, we attribute the Trajectory's final PnL to this generation step as a proxy.
-            final_pnl = traj.get("final_pnl", 0.0)
+            final_pnl_value = traj.get("final_pnl", 0.0)
+            final_pnl = float(final_pnl_value) if isinstance(final_pnl_value, (int, float)) else 0.0
 
             reward_inputs = TrajectoryRewardInputs(
                 final_pnl=final_pnl,
@@ -584,17 +644,27 @@ You receive market updates and must analyze, reason, and then act."""
         centered_scores = [s - mean_score for s in scores]
 
         # Build ScoredDataGroup
-        scored_group = ScoredDataGroup()
-        scored_group["tokens"] = []
-        scored_group["masks"] = []
-        scored_group["scores"] = []
-        scored_group["inference_logprobs"] = []
+        tokens_list: list[list[int]] = [r["tokens"] for r in rollout_data]
+        masks_list: list[list[int]] = [r["masks"] for r in rollout_data]
+        logprobs_list: list[list[float]] = [r["logprobs"] for r in rollout_data]
+        advantages_list: list[list[float]] = [
+            [centered_scores[i] if m != 0 else 0.0 for m in r["masks"]]
+            for i, r in enumerate(rollout_data)
+        ]
+        images_list: list[list[str]] = [[] for _ in rollout_data]
 
-        for i, rollout in enumerate(rollout_data):
-            scored_group["tokens"].append(rollout["tokens"])
-            scored_group["masks"].append(rollout["masks"])
-            scored_group["scores"].append(centered_scores[i])
-            scored_group["inference_logprobs"].append(rollout["logprobs"])
+        scored_group: ScoredDataGroupWithInferenceLogprobs = {
+            "tokens": tokens_list,
+            "masks": masks_list,
+            "scores": centered_scores,
+            "advantages": advantages_list,
+            "ref_logprobs": logprobs_list,
+            "messages": None,
+            "overrides": None,
+            "group_overrides": None,
+            "images": images_list,
+            "inference_logprobs": logprobs_list,
+        }
 
         return scored_group
 

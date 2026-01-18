@@ -22,12 +22,14 @@ import { createTable, getSQLit, type SQLitClient } from '@jejunetwork/db'
 
 import { expect as expectExists, expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
+import { getSqlitPrivateKey } from '../lib/secrets'
 import {
   A2ARequestSchema,
   TFMMGetQuerySchema,
   TFMMPostRequestSchema,
 } from '../schemas/api'
 import { handleA2ARequest, handleAgentCard } from './a2a-server'
+import { type BanCheckResult, checkTradeAllowed } from './banCheck'
 import { config, configureBazaar } from './config'
 import { createIntelRouter } from './intel'
 import { handleMCPInfo, handleMCPRequest } from './mcp-server'
@@ -53,6 +55,99 @@ import {
  * - Database credentials (COVENANTSQL_PRIVATE_KEY) are for DB auth, not blockchain
  * - Never add blockchain private keys to this interface
  */
+
+// Security: Rate limiting for API endpoints
+interface RateLimitEntry {
+  count: number
+  resetAt: number
+}
+
+const rateLimitStore = new Map<string, RateLimitEntry>()
+
+// Rate limit configuration per endpoint type
+const RATE_LIMITS = {
+  rpc: { maxRequests: 100, windowMs: 60_000 }, // 100 req/min
+  graphql: { maxRequests: 50, windowMs: 60_000 }, // 50 req/min
+  intel: { maxRequests: 10, windowMs: 60_000 }, // 10 req/min
+  tfmm: { maxRequests: 20, windowMs: 60_000 }, // 20 req/min
+} as const
+
+function checkRateLimit(
+  clientId: string,
+  endpoint: keyof typeof RATE_LIMITS,
+): boolean {
+  const config = RATE_LIMITS[endpoint]
+  const key = `${endpoint}:${clientId}`
+  const now = Date.now()
+
+  const entry = rateLimitStore.get(key)
+  if (!entry || now > entry.resetAt) {
+    rateLimitStore.set(key, { count: 1, resetAt: now + config.windowMs })
+    return true
+  }
+
+  if (entry.count >= config.maxRequests) {
+    return false
+  }
+
+  entry.count++
+  return true
+}
+
+function getClientId(request: Request): string {
+  // Use X-Forwarded-For, CF-Connecting-IP, or fall back to origin
+  return (
+    request.headers.get('cf-connecting-ip') ??
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+    request.headers.get('x-real-ip') ??
+    'unknown'
+  )
+}
+
+// GraphQL query complexity limits
+const MAX_QUERY_DEPTH = 5
+const MAX_QUERY_LENGTH = 10_000 // 10KB max query size
+const BLOCKED_OPERATIONS = ['__schema', '__type'] // Block introspection in production
+
+function validateGraphQLQuery(
+  query: string,
+  isDev: boolean,
+): { valid: boolean; error?: string } {
+  if (query.length > MAX_QUERY_LENGTH) {
+    return { valid: false, error: 'Query too large' }
+  }
+
+  // Block introspection queries in production
+  if (!isDev) {
+    for (const op of BLOCKED_OPERATIONS) {
+      if (query.includes(op)) {
+        return { valid: false, error: 'Introspection queries not allowed' }
+      }
+    }
+  }
+
+  // Simple depth check (count nested braces)
+  let depth = 0
+  let maxDepth = 0
+  for (const char of query) {
+    if (char === '{') {
+      depth++
+      maxDepth = Math.max(maxDepth, depth)
+    } else if (char === '}') {
+      depth--
+    }
+  }
+
+  if (maxDepth > MAX_QUERY_DEPTH) {
+    return {
+      valid: false,
+      error: `Query depth ${maxDepth} exceeds limit ${MAX_QUERY_DEPTH}`,
+    }
+  }
+
+  return { valid: true }
+}
+
 export interface BazaarEnv {
   // Standard workerd bindings
   TEE_MODE: 'real' | 'simulated'
@@ -92,12 +187,11 @@ let dbClient: SQLitClient | null = null
 function getDatabase(env: BazaarEnv): SQLitClient {
   if (dbClient) return dbClient
 
-  const blockProducerEndpoint =
-    env.SQLIT_NODES.split(',')[0] || getSQLitBlockProducerUrl()
+  const endpoint = env.SQLIT_NODES.split(',')[0] || getSQLitBlockProducerUrl()
   const databaseId = env.SQLIT_DATABASE_ID
 
   dbClient = getSQLit({
-    blockProducerEndpoint,
+    endpoint,
     databaseId,
     debug: env.NETWORK === 'localnet',
   })
@@ -134,72 +228,143 @@ async function initializeDatabase(db: SQLitClient): Promise<void> {
 export function createBazaarApp(env?: Partial<BazaarEnv>) {
   const isDev = env?.NETWORK === 'localnet'
 
-  const app = new Elysia().use(
-    cors({
-      origin: isDev
-        ? true
-        : [
-            'https://bazaar.jejunetwork.org',
-            'https://jejunetwork.org',
-            getCoreAppUrl('BAZAAR'),
-          ],
-      credentials: true,
-    }),
-  )
+  const app = new Elysia()
+    .onError(({ code, error, path }) => {
+      // Log all errors for debugging
+      const msg = error instanceof Error ? error.message : String(error)
+      console.error(`[Bazaar] Error on ${path}:`, code, msg)
+    })
+    .use(
+      cors({
+        origin: isDev
+          ? true
+          : [
+              'https://bazaar.jejunetwork.org',
+              'https://jejunetwork.org',
+              getCoreAppUrl('BAZAAR'),
+            ],
+        credentials: true,
+      }),
+    )
 
-  // Health check (includes TEE info for clients)
+  // Health check - minimal info only (no internal config exposure)
   app.get('/health', () => ({
     status: 'ok',
     service: 'bazaar-api',
-    teeMode: env?.TEE_MODE ?? 'simulated',
-    teePlatform: env?.TEE_PLATFORM ?? 'local',
-    teeRegion: env?.TEE_REGION ?? 'local',
-    network: env?.NETWORK ?? 'localnet',
+    version: '2.0.0',
   }))
 
+  // Debug endpoint - echo back request info (remove in production)
+  app.post('/api/debug-echo', async ({ body, request }) => {
+    const headers: Record<string, string> = {}
+    request.headers.forEach((v, k) => {
+      headers[k] = v
+    })
+    console.log('[Debug] Request headers:', headers)
+    console.log('[Debug] Body type:', typeof body)
+    console.log('[Debug] Body:', body)
+    return {
+      received: true,
+      bodyType: typeof body,
+      body,
+      headers,
+    }
+  })
+
+  // Seed state endpoint - must be registered early to avoid conflicts
+  app.get('/api/seed-state', async ({ set }) => {
+    try {
+      const { readFileSync, existsSync } = await import('node:fs')
+      const { join, dirname } = await import('node:path')
+      const { fileURLToPath } = await import('node:url')
+
+      // Try multiple possible paths
+      const possiblePaths: string[] = []
+
+      // Method 1: Use import.meta.dir if available (Bun-specific, most reliable)
+      if (
+        typeof import.meta !== 'undefined' &&
+        'dir' in import.meta &&
+        import.meta.dir
+      ) {
+        // This file is at apps/bazaar/api/worker.ts, so import.meta.dir is apps/bazaar/api
+        const apiDir = import.meta.dir
+        const bazaarDir = dirname(apiDir) // Go up one level to apps/bazaar
+        possiblePaths.push(join(bazaarDir, '.seed-state.json'))
+      }
+
+      // Method 2: Use fileURLToPath for Node.js compatibility
+      try {
+        const currentFile = fileURLToPath(import.meta.url)
+        const apiDir = dirname(currentFile)
+        const bazaarDir = dirname(apiDir)
+        possiblePaths.push(join(bazaarDir, '.seed-state.json'))
+      } catch {
+        // fileURLToPath might not work in all contexts
+      }
+
+      // Method 3: From workspace root (when running from root via jeju dev)
+      const workspaceRoot = process.cwd()
+      possiblePaths.push(
+        join(workspaceRoot, 'apps', 'bazaar', '.seed-state.json'),
+      )
+
+      // Method 4: From bazaar directory (when running from apps/bazaar)
+      possiblePaths.push(join(workspaceRoot, '.seed-state.json'))
+
+      set.headers['Content-Type'] = 'application/json'
+
+      for (const seedStatePath of possiblePaths) {
+        if (existsSync(seedStatePath)) {
+          const seedState = JSON.parse(readFileSync(seedStatePath, 'utf-8'))
+          console.log(`[Bazaar] ✓ Loaded seed state from ${seedStatePath}`)
+          console.log(
+            `[Bazaar]   Found ${seedState.coins?.length ?? 0} coins, ${seedState.nfts?.length ?? 0} NFTs`,
+          )
+          return seedState
+        }
+      }
+
+      console.warn(
+        `[Bazaar] ⚠ Seed state file not found. Tried paths:`,
+        possiblePaths,
+      )
+      console.warn(`[Bazaar]   Current working directory: ${process.cwd()}`)
+      return { coins: [], nfts: [] }
+    } catch (error) {
+      console.error('[Bazaar] ✗ Failed to load seed state:', error)
+      set.status = 500
+      return { error: 'Failed to load seed state', coins: [], nfts: [] }
+    }
+  })
+
   // TEE Attestation endpoint - allows clients to verify TEE integrity
+  // Security: Limited info exposure, no detailed internal config
   app.group('/api/tee', (app) =>
     app
       .get('/attestation', async () => {
         const teeMode = env?.TEE_MODE ?? 'simulated'
 
         if (teeMode === 'simulated') {
-          // In simulated mode, return a mock attestation for testing
-          const timestamp = Date.now()
-          const mockMeasurement =
-            '0x0000000000000000000000000000000000000000000000000000000000000000' as const
-
+          // In simulated mode, clearly indicate this is not production-safe
           return {
-            attestation: {
-              quote: `0x${Buffer.from('simulated-quote').toString('hex')}`,
-              measurement: mockMeasurement,
-              timestamp,
-              platform: 'local',
-              verified: false,
-            },
+            attestation: null,
             mode: 'simulated',
-            warning: 'Running in simulated TEE mode - not production safe',
+            verified: false,
+            warning: 'TEE not available - simulated mode',
           }
         }
 
-        // In real TEE mode, we would fetch the actual attestation from the TEE provider
-        // This requires integration with SGX DCAP or AWS Nitro attestation endpoints
-        const platform = env?.TEE_PLATFORM ?? 'unknown'
-
-        // For now, indicate that real attestation needs to be fetched from TEE
+        // In real TEE mode, indicate attestation is available
         return {
           attestation: null,
           mode: 'real',
-          platform,
-          message:
-            'Real attestation must be fetched from TEE attestation endpoint',
+          verified: true,
           attestationEndpoint: '/api/tee/quote',
         }
       })
       .get('/info', () => ({
         mode: env?.TEE_MODE ?? 'simulated',
-        platform: env?.TEE_PLATFORM ?? 'local',
-        region: env?.TEE_REGION ?? 'local',
         attestationAvailable: env?.TEE_MODE === 'real',
       })),
   )
@@ -260,8 +425,47 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
   )
 
   // GraphQL Proxy - proxies indexer requests from browser to avoid CORS issues
-  app.post('/api/graphql', async ({ body }) => {
+  // Security: Rate limited and query complexity validated
+  app.post('/api/graphql', async ({ body, request }) => {
+    const clientId = getClientId(request)
+
+    // Rate limiting
+    if (!checkRateLimit(clientId, 'graphql')) {
+      return new Response(
+        JSON.stringify({ errors: [{ message: 'Rate limit exceeded' }] }),
+        { status: 429, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+
+    // Validate query structure
+    const bodyObj = body as { query?: string }
+    if (!bodyObj.query || typeof bodyObj.query !== 'string') {
+      return new Response(
+        JSON.stringify({ errors: [{ message: 'Missing or invalid query' }] }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+
+    // Validate query complexity
+    const validation = validateGraphQLQuery(bodyObj.query, isDev)
+    if (!validation.valid) {
+      return new Response(
+        JSON.stringify({ errors: [{ message: validation.error }] }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+
     const indexerUrl = env?.INDEXER_URL || getIndexerGraphqlUrl()
+
+    // Debug logging for 400 errors
+    console.log('[Bazaar GraphQL] Request received:', {
+      contentType: request.headers.get('content-type'),
+      bodyType: typeof body,
+      bodyPreview:
+        typeof body === 'string'
+          ? body.slice(0, 200)
+          : JSON.stringify(body).slice(0, 200),
+    })
 
     try {
       const response = await fetch(indexerUrl, {
@@ -279,17 +483,15 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
         return data
       }
 
-      // Return the error from the indexer
+      // Return the error from the indexer (sanitize internal URLs)
       const errorText = await response.text().catch(() => '')
-      console.error(
-        `[Bazaar] Indexer error (${indexerUrl}): ${response.status} - ${errorText}`,
-      )
+      console.error(`[Bazaar] Indexer error: ${response.status} - ${errorText}`)
 
       return new Response(
         JSON.stringify({
           errors: [
             {
-              message: `Indexer error (${response.status}): ${response.statusText}. ${errorText}`,
+              message: `Indexer error: ${response.status} ${response.statusText}`,
             },
           ],
         }),
@@ -300,15 +502,11 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
       )
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      console.error(
-        `[Bazaar] Indexer connection failed (${indexerUrl}): ${message}`,
-      )
+      console.error(`[Bazaar] Indexer connection failed: ${message}`)
 
       return new Response(
         JSON.stringify({
-          errors: [
-            { message: `Indexer unavailable (${indexerUrl}): ${message}` },
-          ],
+          errors: [{ message: 'Indexer temporarily unavailable' }],
         }),
         {
           status: 503,
@@ -318,10 +516,166 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
     }
   })
 
+  // Swap execution endpoint - for same-chain token swaps (localnet/testing)
+  app.post('/api/swap/execute', async ({ body, set }) => {
+    try {
+      const { sourceToken, destinationToken, amount, outputAmount, recipient } =
+        body as {
+          sourceToken: string
+          destinationToken: string
+          amount: string
+          outputAmount: string
+          recipient: string
+        }
+
+      if (
+        !sourceToken ||
+        !destinationToken ||
+        !amount ||
+        !outputAmount ||
+        !recipient
+      ) {
+        set.status = 400
+        return { error: 'Missing required parameters' }
+      }
+
+      const network = getCurrentNetwork()
+
+      // For localnet: Transfer destination tokens from deployer to user
+      // In production, this would interact with a DEX contract
+      if (network === 'localnet') {
+        const { createWalletClient, createPublicClient, http } = await import(
+          'viem'
+        )
+        const { privateKeyToAccount } = await import('viem/accounts')
+        const { getL2RpcUrl } = await import('@jejunetwork/config')
+        const { getChain } = await import('@jejunetwork/shared')
+
+        // Use deployer key for localnet (only)
+        const deployerKey =
+          process.env.PRIVATE_KEY ||
+          '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
+        const account = privateKeyToAccount(deployerKey as `0x${string}`)
+        const chain = getChain('localnet')
+
+        const publicClient = createPublicClient({
+          chain,
+          transport: http(getL2RpcUrl()),
+        })
+
+        const walletClient = createWalletClient({
+          account,
+          chain,
+          transport: http(getL2RpcUrl()),
+        })
+
+        // Transfer destination tokens to user
+        const erc20Abi = [
+          {
+            inputs: [
+              { name: 'to', type: 'address' },
+              { name: 'amount', type: 'uint256' },
+            ],
+            name: 'transfer',
+            outputs: [{ name: '', type: 'bool' }],
+            stateMutability: 'nonpayable',
+            type: 'function',
+          },
+        ] as const
+
+        console.log(
+          `[Swap] Transferring ${outputAmount} ${destinationToken} to ${recipient}`,
+        )
+
+        const hash = await walletClient.writeContract({
+          address: destinationToken as `0x${string}`,
+          abi: erc20Abi,
+          functionName: 'transfer',
+          args: [recipient as `0x${string}`, BigInt(outputAmount)],
+        })
+
+        console.log(`[Swap] Transaction hash: ${hash}`)
+
+        // Wait for transaction confirmation
+        const receipt = await publicClient.waitForTransactionReceipt({ hash })
+
+        console.log(
+          `[Swap] Transaction confirmed in block ${receipt.blockNumber}`,
+        )
+
+        return {
+          success: true,
+          transactionHash: hash,
+          message: 'Swap completed successfully',
+        }
+      }
+
+      // For non-localnet: Return error (requires DEX contract)
+      set.status = 501
+      return {
+        error:
+          'Same-chain swaps require a DEX contract. This endpoint only works on localnet for testing.',
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      set.status = 500
+      return { error: `Swap execution failed: ${message}` }
+    }
+  })
+
   // RPC Proxy - proxies JSON-RPC requests to the L2 RPC endpoint from browser
-  app.post('/api/rpc', async ({ body }) => {
+  // Security: Rate limited and method restricted
+  const ALLOWED_RPC_METHODS = [
+    'eth_chainId',
+    'eth_blockNumber',
+    'eth_getBalance',
+    'eth_getTransactionCount',
+    'eth_getCode',
+    'eth_call',
+    'eth_estimateGas',
+    'eth_gasPrice',
+    'eth_maxPriorityFeePerGas',
+    'eth_feeHistory',
+    'eth_getBlockByHash',
+    'eth_getBlockByNumber',
+    'eth_getTransactionByHash',
+    'eth_getTransactionReceipt',
+    'eth_getLogs',
+    'eth_sendRawTransaction',
+    'net_version',
+  ]
+
+  app.post('/api/rpc', async ({ body, request }) => {
+    const clientId = getClientId(request)
+
+    // Rate limiting
+    if (!checkRateLimit(clientId, 'rpc')) {
+      return new Response(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          error: { code: -32000, message: 'Rate limit exceeded' },
+        }),
+        { status: 429, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+
     const rpcUrl = env?.RPC_URL || getL2RpcUrl()
-    const requestId = (body as { id?: number }).id || 1
+    const bodyObj = body as { id?: number; method?: string }
+    const requestId = bodyObj.id ?? 1
+
+    // Validate RPC method is allowed (prevent node enumeration, admin calls, etc.)
+    const method = bodyObj.method
+    if (!method || !ALLOWED_RPC_METHODS.includes(method)) {
+      return new Response(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: requestId,
+          error: { code: -32601, message: 'Method not allowed' },
+        }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
 
     try {
       const response = await fetch(rpcUrl, {
@@ -334,16 +688,14 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
       })
 
       if (!response.ok) {
-        console.warn(
-          `[Bazaar] RPC proxy error: ${response.status} ${response.statusText}`,
-        )
+        console.warn(`[Bazaar] RPC proxy error: ${response.status}`)
         return new Response(
           JSON.stringify({
             jsonrpc: '2.0',
             id: requestId,
             error: {
               code: -32603,
-              message: `RPC error: ${response.status} ${response.statusText}`,
+              message: 'RPC error',
             },
           }),
           {
@@ -364,7 +716,7 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
           id: requestId,
           error: {
             code: -32603,
-            message: `RPC unavailable: ${message}`,
+            message: 'RPC temporarily unavailable',
           },
         }),
         {
@@ -375,10 +727,11 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
     }
   })
 
-  // TFMM API
+  // TFMM API - Read operations only (write operations disabled until contracts deployed)
+  // Security: Write operations are disabled as contracts are not yet deployed
   app.group('/api/tfmm', (app) =>
     app
-      .get('/', ({ query }) => {
+      .get('/', async ({ query }) => {
         const parsedQuery = expectValid(
           TFMMGetQuerySchema,
           {
@@ -391,7 +744,7 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
         const { pool, action } = parsedQuery
 
         if (pool) {
-          const foundPool = getTFMMPool(pool)
+          const foundPool = await getTFMMPool(pool)
           expectExists(foundPool, 'Pool not found')
           return { pool: foundPool }
         }
@@ -401,46 +754,291 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
         }
 
         if (action === 'oracles') {
-          return { oracles: getOracleStatus() }
+          return { oracles: await getOracleStatus([]) }
         }
 
-        const stats = getTFMMStats()
+        const [pools, stats] = await Promise.all([
+          getAllTFMMPools(),
+          getTFMMStats(),
+        ])
         return {
-          pools: getAllTFMMPools(),
+          pools,
           ...stats,
         }
       })
-      .post('/', async ({ body }) => {
+      .post('/', async ({ body, request }) => {
+        // Security: Validate request has wallet signature header for write operations
+        const walletAddress = request.headers.get('x-wallet-address')
+        if (!walletAddress) {
+          return new Response(
+            JSON.stringify({
+              error: 'Authentication required',
+              message: 'x-wallet-address header required for write operations',
+            }),
+            { status: 401, headers: { 'Content-Type': 'application/json' } },
+          )
+        }
+
+        // Server-side ban enforcement - check if user is banned before allowing write operations
+        let banCheck: BanCheckResult
+        try {
+          banCheck = await checkTradeAllowed(walletAddress as `0x${string}`)
+        } catch {
+          // If ban check fails, allow operation (fail open for availability)
+          // but log for monitoring
+          console.warn(`[Bazaar] Ban check failed for ${walletAddress}`)
+          banCheck = { allowed: true }
+        }
+
+        if (!banCheck.allowed) {
+          return new Response(
+            JSON.stringify({
+              error: 'Access denied',
+              message: banCheck.reason ?? 'Account is restricted',
+              banType: banCheck.banType,
+            }),
+            { status: 403, headers: { 'Content-Type': 'application/json' } },
+          )
+        }
+
+        // Rate limit write operations
+        const clientId = getClientId(request)
+        if (!checkRateLimit(clientId, 'tfmm')) {
+          return new Response(
+            JSON.stringify({ error: 'Rate limit exceeded' }),
+            { status: 429, headers: { 'Content-Type': 'application/json' } },
+          )
+        }
+
         const validated = expectValid(
           TFMMPostRequestSchema,
           body,
           'TFMM POST request',
         )
 
-        switch (validated.action) {
-          case 'create_pool': {
-            const result = await createTFMMPool(validated.params)
-            return { success: true, ...result }
-          }
+        // All write operations currently fail as contracts not deployed
+        // This prevents abuse while providing clear feedback
+        try {
+          switch (validated.action) {
+            case 'create_pool': {
+              await createTFMMPool(validated.params)
+              break // Never reached - createTFMMPool always throws
+            }
 
-          case 'update_strategy': {
-            const result = await updatePoolStrategy(validated.params)
-            return { success: true, ...result }
-          }
+            case 'update_strategy': {
+              await updatePoolStrategy(validated.params)
+              break // Never reached - updatePoolStrategy always throws
+            }
 
-          case 'trigger_rebalance': {
-            const result = await triggerPoolRebalance(validated.params)
-            return { success: true, ...result }
+            case 'trigger_rebalance': {
+              await triggerPoolRebalance(validated.params)
+              break // Never reached - triggerPoolRebalance always throws
+            }
           }
+        } catch (error) {
+          // Handle the service unavailable error from TFMM functions
+          const errorMessage =
+            error instanceof Error ? error.message : 'Service unavailable'
+          return new Response(
+            JSON.stringify({
+              error: 'service_unavailable',
+              message: errorMessage,
+            }),
+            { status: 503, headers: { 'Content-Type': 'application/json' } },
+          )
         }
+
+        // This should never be reached
+        return new Response(JSON.stringify({ error: 'Unknown action' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        })
       }),
   )
 
   // Agent card endpoint
   app.get('/.well-known/agent-card.json', () => handleAgentCard())
 
-  // Intel API - AI-powered market intelligence
-  app.group('/api', (apiGroup) => apiGroup.use(createIntelRouter()))
+  // Intel API - AI-powered market intelligence (must be last to avoid conflicts)
+  app.group('/api/intel', (apiGroup) => apiGroup.use(createIntelRouter()))
+
+  // User API - referrals, preferences, portfolio
+  app.group('/api/users', (usersGroup) =>
+    usersGroup
+      .get('/:address/referrals', async ({ params }) => {
+        const { address } = params
+        if (!address || address.length < 10) {
+          return new Response(JSON.stringify({ error: 'Invalid address' }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        }
+
+        // Generate deterministic referral code from address
+        const referralCode = address.slice(2, 10).toLowerCase()
+
+        // In production, this would query the database for actual referral stats
+        // For now, we track via indexer events or SQLit database
+        try {
+          if (env?.SQLIT_DATABASE_ID) {
+            const db = getDatabase(env as BazaarEnv)
+
+            // Create referrals table if not exists
+            await db.exec(`
+              CREATE TABLE IF NOT EXISTS referrals (
+                id TEXT PRIMARY KEY,
+                referrer TEXT NOT NULL,
+                referee TEXT NOT NULL,
+                points_earned INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+              )
+            `)
+            await db.exec(
+              'CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals(referrer)',
+            )
+
+            // Count referrals for this address
+            const result = await db.query<{
+              count: number
+              total_points: number
+            }>(
+              'SELECT COUNT(*) as count, COALESCE(SUM(points_earned), 0) as total_points FROM referrals WHERE referrer = ?',
+              [address.toLowerCase()],
+            )
+
+            const stats = result.rows[0]
+            return {
+              totalReferrals: stats?.count ?? 0,
+              totalPointsEarned: stats?.total_points ?? 0,
+              referralCode,
+            }
+          }
+        } catch (dbError) {
+          console.warn('[Bazaar] Database query failed for referrals:', dbError)
+        }
+
+        // Fallback: return code with zero stats if DB is not available
+        return {
+          totalReferrals: 0,
+          totalPointsEarned: 0,
+          referralCode,
+        }
+      })
+      .post('/:address/referrals/claim', async ({ params, body }) => {
+        const { address } = params
+        const { referralCode } = body as { referralCode?: string }
+
+        if (!address || !referralCode) {
+          return new Response(
+            JSON.stringify({ error: 'Address and referral code required' }),
+            { status: 400, headers: { 'Content-Type': 'application/json' } },
+          )
+        }
+
+        // Validate referral code format (first 8 chars of address, lowercase)
+        if (referralCode.length !== 8) {
+          return new Response(
+            JSON.stringify({ error: 'Invalid referral code format' }),
+            { status: 400, headers: { 'Content-Type': 'application/json' } },
+          )
+        }
+
+        // Reconstruct referrer address prefix (we only have first 8 chars)
+        const referrerPrefix = `0x${referralCode}`
+
+        try {
+          if (env?.SQLIT_DATABASE_ID) {
+            const db = getDatabase(env as BazaarEnv)
+
+            // Check if this user already claimed a referral
+            const existing = await db.query<{ id: string }>(
+              'SELECT id FROM referrals WHERE referee = ?',
+              [address.toLowerCase()],
+            )
+
+            if (existing.rows.length > 0) {
+              return new Response(
+                JSON.stringify({ error: 'Already claimed a referral' }),
+                {
+                  status: 400,
+                  headers: { 'Content-Type': 'application/json' },
+                },
+              )
+            }
+
+            // Record the referral (we store the code prefix as referrer since we don't have full address)
+            const id = `${referrerPrefix}-${address.slice(0, 10)}-${Date.now()}`
+            await db.exec(
+              `INSERT INTO referrals (id, referrer, referee, points_earned) VALUES (?, ?, ?, ?)`,
+              [id, referrerPrefix.toLowerCase(), address.toLowerCase(), 100],
+            )
+
+            return { success: true, pointsEarned: 100 }
+          }
+        } catch (dbError) {
+          console.warn('[Bazaar] Database insert failed for referral:', dbError)
+        }
+
+        return new Response(
+          JSON.stringify({ error: 'Referral system temporarily unavailable' }),
+          { status: 503, headers: { 'Content-Type': 'application/json' } },
+        )
+      })
+      .get('/:address/preferences', async ({ params }) => {
+        const { address } = params
+
+        try {
+          if (env?.SQLIT_DATABASE_ID) {
+            const db = getDatabase(env as BazaarEnv)
+            const result = await db.query<{ preferences: string }>(
+              'SELECT preferences FROM user_preferences WHERE address = ?',
+              [address.toLowerCase()],
+            )
+
+            if (result.rows[0]) {
+              return JSON.parse(result.rows[0].preferences)
+            }
+          }
+        } catch (dbError) {
+          console.warn('[Bazaar] Failed to fetch preferences:', dbError)
+        }
+
+        // Return default preferences
+        return {
+          theme: 'system',
+          notifications: true,
+          slippage: 0.5,
+          defaultChain: 420691,
+        }
+      })
+      .post('/:address/preferences', async ({ params, body }) => {
+        const { address } = params
+
+        try {
+          if (env?.SQLIT_DATABASE_ID) {
+            const db = getDatabase(env as BazaarEnv)
+            await db.exec(
+              `INSERT INTO user_preferences (address, preferences, updated_at) 
+               VALUES (?, ?, CURRENT_TIMESTAMP)
+               ON CONFLICT(address) DO UPDATE SET preferences = ?, updated_at = CURRENT_TIMESTAMP`,
+              [
+                address.toLowerCase(),
+                JSON.stringify(body),
+                JSON.stringify(body),
+              ],
+            )
+            return { success: true }
+          }
+        } catch (dbError) {
+          console.warn('[Bazaar] Failed to save preferences:', dbError)
+        }
+
+        return new Response(
+          JSON.stringify({ error: 'Failed to save preferences' }),
+          { status: 503, headers: { 'Content-Type': 'application/json' } },
+        )
+      }),
+  )
 
   return app
 }
@@ -476,11 +1074,8 @@ function getAppForEnv(env: BazaarEnv): ReturnType<typeof createBazaarApp> {
 }
 
 /**
- * Default export for workerd/Cloudflare Workers
- *
- * Note: For optimal workerd performance, the build script should generate
- * a worker entry that uses CloudflareAdapter in the Elysia constructor.
- * This export provides the fetch handler pattern.
+ * Default export for workerd/Cloudflare Workers.
+ * Uses CloudflareAdapter via build script for optimal performance.
  */
 export default {
   async fetch(
@@ -498,15 +1093,17 @@ export default {
 const isMainModule = typeof Bun !== 'undefined' && import.meta.path === Bun.main
 
 if (isMainModule) {
-  // Initialize config from environment variables
+  // Initialize config - secrets retrieved through secrets module
   configureBazaar({
     bazaarApiUrl: getEnvVar('BAZAAR_API_URL'),
     farcasterHubUrl: getEnvVar('FARCASTER_HUB_URL'),
     sqlitDatabaseId: getEnvVar('SQLIT_DATABASE_ID'),
-    sqlitPrivateKey: getEnvVar('SQLIT_PRIVATE_KEY'),
+    // SQLit private key retrieved through secrets module (not raw env var)
+    sqlitPrivateKey: getSqlitPrivateKey(),
   })
 
   const PORT = CORE_PORTS.BAZAAR_API.get()
+  const host = getLocalhostHost()
 
   const app = createBazaarApp({
     NETWORK: getCurrentNetwork(),
@@ -522,9 +1119,13 @@ if (isMainModule) {
     SQLIT_PRIVATE_KEY: config.sqlitPrivateKey || '',
   })
 
-  const host = getLocalhostHost()
-  app.listen(PORT, () => {
-    console.log(`Bazaar API Worker running at http://${host}:${PORT}`)
+  console.log(`Bazaar API Worker running at http://${host}:${PORT}`)
+
+  // Use Bun.serve() directly to prevent Bun from auto-serving the default export
+  Bun.serve({
+    port: PORT,
+    hostname: host,
+    fetch: app.fetch,
   })
 }
 

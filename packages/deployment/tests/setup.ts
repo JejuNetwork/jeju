@@ -89,7 +89,7 @@ export async function startAnvil(): Promise<ChildProcess> {
       {
         stdio: ['ignore', 'pipe', 'pipe'],
       },
-    )
+    ) as ChildProcess
 
     anvilProcess = proc
 
@@ -101,7 +101,7 @@ export async function startAnvil(): Promise<ChildProcess> {
       }
     }, 10000)
 
-    proc.stdout.on('data', (data: Buffer) => {
+    proc.stdout?.on('data', (data: Buffer) => {
       const output = data.toString()
       if (output.includes('Listening on') && !started) {
         started = true
@@ -111,7 +111,7 @@ export async function startAnvil(): Promise<ChildProcess> {
       }
     })
 
-    proc.stderr.on('data', (data: Buffer) => {
+    proc.stderr?.on('data', (data: Buffer) => {
       const output = data.toString()
       // Anvil sometimes outputs to stderr for info messages
       if (output.includes('Listening on') && !started) {
@@ -121,12 +121,12 @@ export async function startAnvil(): Promise<ChildProcess> {
       }
     })
 
-    proc.on('error', (err) => {
+    proc.on('error', (err: Error) => {
       clearTimeout(timeout)
       reject(new Error(`Failed to start anvil: ${err.message}`))
     })
 
-    proc.on('exit', (code) => {
+    proc.on('exit', (code: number | null) => {
       if (!started) {
         clearTimeout(timeout)
         reject(new Error(`Anvil exited with code ${code}`))

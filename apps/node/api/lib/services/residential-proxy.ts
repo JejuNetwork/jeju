@@ -1,5 +1,5 @@
 // Workerd-compatible: HTTP servers converted to Fetch API handlers
-// Note: Residential proxy uses CONNECT method for HTTPS tunneling which requires protocol-level networking
+// Residential proxy uses CONNECT method for HTTPS tunneling which requires protocol-level networking
 // This service should run on DWS node, but handlers are workerd-compatible
 
 import type * as http from 'node:http'
@@ -346,7 +346,7 @@ export class ResidentialProxyService {
 
   /**
    * Get Fetch API handler for proxy requests (workerd-compatible)
-   * Note: CONNECT method for HTTPS tunneling requires protocol-level networking (net.Socket)
+   * CONNECT method for HTTPS tunneling requires protocol-level networking (net.Socket)
    * which is not available in workerd. CONNECT requests should be handled on DWS node.
    */
   getRequestHandler(): (req: Request) => Promise<Response> {
@@ -442,7 +442,7 @@ export class ResidentialProxyService {
     void _targetUrl // Reserved for future proxy implementation
 
     // Forward request via proxy coordinator
-    // Note: Full proxy implementation requires protocol-level networking
+    // Full proxy implementation requires protocol-level networking
     return new Response('Proxy forwarding requires DWS node execution', {
       status: 501,
     })

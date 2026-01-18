@@ -21,7 +21,7 @@ vendored_py_wd_test(
     use_snapshot = "baseline",
 )
 
-# Note: the `existing_dedicated` tests verify that a dedicated snapshot which has been deployed to
+# The `existing_dedicated` tests verify that a dedicated snapshot which has been deployed to
 # production continues to work. Because of this the snapshot should never be changed and should
 # remain the same to ensure Workers in production continue to work.
 vendored_py_wd_test(

@@ -34,6 +34,8 @@ export {
   type WalletClientConfig,
   writeContract,
 } from '@jejunetwork/contracts'
+// Alerts
+export * from './alerts'
 // Moderation API
 export {
   type AgentLabels,
@@ -54,13 +56,25 @@ export {
   type TransactionRequest,
 } from './api/moderation'
 // Auth Types
-export type { SIWEMessage, SIWFMessage } from './auth/types'
+export type { OAuth3AppConfig, OAuth3Network, SIWEMessage, SIWFMessage } from './auth/types'
 // Branding
 export {
   applyBrandingToDocument,
   getBrandingCssVars,
 } from './branding'
-// Legacy cache exports for backwards compatibility
+// Build Utilities (for production builds - NOT worker compatible)
+export {
+  BROWSER_EXTERNALS,
+  createBrowserPlugin,
+  createDefines,
+  createFrontendBuildConfig,
+  createWorkerBuildConfig,
+  formatBytes as formatBuildBytes,
+  reportBundleSizes,
+  validateBuildInputs,
+  WORKER_EXTERNALS,
+} from './build'
+// Cache rental client (for DWS cache instances)
 export {
   type CacheClient,
   type CacheClientConfig,
@@ -68,9 +82,7 @@ export {
   CacheRentalClient,
   type CacheStats,
   getCacheRentalClient,
-  getLegacyCacheClient,
   resetCacheRentalClient,
-  resetLegacyCacheClients,
 } from './cache'
 // Chains
 export {
@@ -387,8 +399,6 @@ export {
 } from './middleware/cache'
 // Content Moderation Pipeline (multi-provider)
 export {
-  type AWSRekognitionConfig,
-  AWSRekognitionProvider,
   type CategoryScore,
   CloudflareModerationProvider,
   type CloudflareProviderConfig,
@@ -642,8 +652,6 @@ export {
   createIPNSClient,
   // JNS
   createJNSService,
-  // KMS
-  createKMSService,
   createPreviewManager,
   // Storage
   createStorageService,
@@ -667,6 +675,8 @@ export {
   type JNSService,
   type KMSConfig,
   type KMSServiceClient,
+  createKMSService,
+  getKMSServiceFromEnv,
   type PinOptions,
   PreviewDeploymentManager,
   type QueryParam,

@@ -168,7 +168,7 @@
       "timeout": 120000
     },
     "integration": {
-      "command": "bun test src/tests/integration.test.ts",
+      "command": "bun run test:integration",
       "timeout": 300000,
       "requiresServices": true
     },
@@ -185,6 +185,11 @@
       "builder": "bun",
       "entrypoint": "index.html",
       "outputDir": "dist/web"
+    },
+    "backend": {
+      "outputDir": "dist/api",
+      "entrypoint": "index.js",
+      "startCmd": "bun run api/server.ts"
     }
   }
 }

@@ -12,11 +12,11 @@ import {IDAORegistry} from "../governance/interfaces/IDAORegistry.sol";
  * @title PaymentRequestRegistry
  * @author Jeju Network
  * @notice Registry for non-bounty payment requests (marketing, ops, community, etc.)
- * @dev Supports retroactive funding with supermajority council approval
+ * @dev Supports retroactive funding with supermajority board approval
  *
  * Key Features:
  * - Multiple payment categories for non-technical work
- * - Council review with supermajority requirement
+ * - Board review with supermajority requirement
  * - Director can approve/modify for amounts below threshold
  * - Dispute escalation to futarchy markets
  * - Retroactive funding support with strong evidence requirements

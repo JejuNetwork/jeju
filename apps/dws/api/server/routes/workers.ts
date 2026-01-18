@@ -1,6 +1,12 @@
 /**
  * Workers API Routes
  * Serverless function deployment and invocation
+ *
+ * Features:
+ * - Multi-tier worker lookup (memory → cache → SQLit)
+ * - Cross-pod synchronization via WorkerRegistryService
+ * - Background sync to keep workers loaded across pods
+ * - Retry logic with exponential backoff for reliability
  */
 
 import {
@@ -13,8 +19,12 @@ import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
 import { z } from 'zod'
 import type { JSONValue } from '../../shared/validation'
-import { dwsWorkerState } from '../../state'
+import { dwsWorkerCronState, dwsWorkerState } from '../../state'
 import type { BackendManager } from '../../storage/backends'
+import {
+  getWorkerRegistry,
+  type WorkerRegistryService,
+} from '../../workers/registry-service'
 import { WorkerRuntime } from '../../workers/runtime'
 import type {
   DeployParams,
@@ -26,6 +36,16 @@ import type {
 const EnvRecordSchema = z.record(z.string(), z.string())
 const RuntimeTypeSchema = z.enum(['bun', 'node', 'deno'])
 
+/** Zod schema for cron schedule */
+const CronScheduleSchema = z.object({
+  name: z.string().min(1).max(64),
+  schedule: z.string().min(9).max(64), // e.g., "*/5 * * * *" is 11 chars
+  endpoint: z.string().min(1).max(256),
+  timezone: z.string().optional(),
+  timeoutMs: z.number().int().positive().optional(),
+  retries: z.number().int().min(0).max(5).optional(),
+})
+
 /** Zod schema for worker deployment */
 const DeployWorkerJsonBodySchema = z.object({
   name: z.string().optional(),
@@ -36,6 +56,7 @@ const DeployWorkerJsonBodySchema = z.object({
   memory: z.number().int().positive().optional(),
   timeout: z.number().int().positive().optional(),
   env: EnvRecordSchema.optional(),
+  crons: z.array(CronScheduleSchema).optional(), // Cron schedules to register
 })
 
 /** Zod schema for worker update */
@@ -50,12 +71,37 @@ const UpdateWorkerJsonBodySchema = z.object({
 // Shared runtime instance for use by other modules
 let sharedRuntime: WorkerRuntime | null = null
 
+// Shared registry instance
+let sharedRegistry: WorkerRegistryService | null = null
+
+// Shared backend manager instance
+let sharedBackend: BackendManager | null = null
+
 // Cache for CID -> functionId mapping (for lazy deployment)
-// TODO: Implement lazy worker deployment using this cache
-// const cidToFunctionId = new Map<string, string>()
+const cidToFunctionId = new Map<string, string>()
 
 export function getSharedWorkersRuntime(): WorkerRuntime | null {
   return sharedRuntime
+}
+
+export function getSharedWorkerRegistry(): WorkerRegistryService | null {
+  return sharedRegistry
+}
+
+/**
+ * Public interface to getOrLoadWorker for use by other modules (e.g., app-router)
+ * Handles both UUID and CID-based worker IDs
+ */
+export async function getOrLoadWorkerPublic(
+  functionId: string,
+  env?: Record<string, string>,
+): Promise<WorkerFunction | null> {
+  if (!sharedRuntime || !sharedBackend) {
+    console.error('[Workers] Runtime or backend not initialized')
+    return null
+  }
+
+  return getOrLoadWorker(functionId, sharedBackend, env)
 }
 
 /**
@@ -65,58 +111,120 @@ function isIPFSCid(str: string): boolean {
   return str.startsWith('Qm') || str.startsWith('bafy')
 }
 
+async function applyWorkerEnv(
+  worker: WorkerFunction,
+  env?: Record<string, string>,
+): Promise<void> {
+  if (!env || Object.keys(env).length === 0) {
+    return
+  }
+
+  if (Object.keys(worker.env).length > 0) {
+    return
+  }
+
+  worker.env = env
+  await dwsWorkerState.save(worker)
+}
+
+/**
+ * Get or load a worker with multi-tier fallback
+ *
+ * This is the primary entry point for worker lookup. It uses the registry
+ * service to check all tiers (memory, cache, SQLit) and handles cold starts.
+ *
+ * @param functionId - Worker UUID or CID
+ * @returns Worker function if found, null otherwise
+ */
+async function getOrLoadWorker(
+  functionId: string,
+  backend: BackendManager,
+  env?: Record<string, string>,
+): Promise<WorkerFunction | null> {
+  const registry = getWorkerRegistry()
+  const runtime = sharedRuntime
+
+  if (!runtime) {
+    console.error('[Workers] Runtime not initialized')
+    return null
+  }
+
+  // First check local runtime memory (fastest path)
+  const localFn = runtime.getFunction(functionId)
+  if (localFn) {
+    await applyWorkerEnv(localFn, env)
+    return localFn
+  }
+
+  // Use registry for multi-tier lookup
+  const result = await registry.getWorker(functionId)
+  if (result) {
+    await applyWorkerEnv(result.worker, env)
+    console.log(
+      `[Workers] Loaded worker ${result.worker.name} from ${result.source} (${result.loadTimeMs}ms, coldStart=${result.coldStart})`,
+    )
+    return result.worker
+  }
+
+  // Force a persistence sync once to catch recent deployments
+  const syncResult = await registry.syncFromPersistence()
+  if (syncResult.loaded > 0 || syncResult.skipped > 0) {
+    const retry = await registry.getWorker(functionId)
+    if (retry) {
+      console.log(
+        `[Workers] Loaded worker ${retry.worker.name} after sync (${retry.source})`,
+      )
+      return retry.worker
+    }
+  }
+
+  // If functionId looks like a CID, try CID-based lookup
+  if (isIPFSCid(functionId)) {
+    const cidResult = await registry.getWorkerByCid(functionId)
+    if (cidResult) {
+      await applyWorkerEnv(cidResult.worker, env)
+      console.log(
+        `[Workers] Loaded worker by CID from ${cidResult.source} (${cidResult.loadTimeMs}ms)`,
+      )
+      return cidResult.worker
+    }
+
+    // CID not in database - deploy fresh from IPFS
+    console.log(`[Workers] Deploying new worker from CID: ${functionId}`)
+    const deployed = await deployFromCid(runtime, backend, functionId, env)
+    return deployed
+  }
+
+  return null
+}
+
 /**
  * Deploy a worker from a CID on-demand
+ * Uses registry for lookup and persists for cross-pod recovery
  */
 async function deployFromCid(
   runtime: WorkerRuntime,
   backend: BackendManager,
   cid: string,
+  env?: Record<string, string>,
 ): Promise<WorkerFunction> {
-  // Check cache first
+  const registry = getWorkerRegistry()
+
+  // Check local cache first
   const cachedId = cidToFunctionId.get(cid)
   if (cachedId) {
     const fn = runtime.getFunction(cachedId)
     if (fn) {
       return fn
     }
-    // Cached ID but function not in runtime - remove from cache and redeploy
     cidToFunctionId.delete(cid)
   }
 
-  // Try to load from SQLit by CID (for multi-pod recovery)
-  try {
-    const existingWorker = await dwsWorkerState.getByCid(cid)
-    if (existingWorker) {
-      const fn: WorkerFunction = {
-        id: existingWorker.id,
-        name: existingWorker.name,
-        owner: existingWorker.owner as Address,
-        runtime: existingWorker.runtime,
-        handler: existingWorker.handler,
-        codeCid: existingWorker.codeCid,
-        memory: existingWorker.memory,
-        timeout: existingWorker.timeout,
-        env: existingWorker.env,
-        status: existingWorker.status,
-        version: existingWorker.version,
-        createdAt: existingWorker.createdAt,
-        updatedAt: existingWorker.updatedAt,
-        invocationCount: existingWorker.invocationCount,
-        avgDurationMs: existingWorker.avgDurationMs,
-        errorCount: existingWorker.errorCount,
-      }
-      await runtime.deployFunction(fn)
-      cidToFunctionId.set(cid, fn.id)
-      console.log(
-        `[Workers] Loaded worker from SQLit by CID: ${fn.name} (${fn.id})`,
-      )
-      return fn
-    }
-  } catch (err) {
-    console.warn(
-      `[Workers] Failed to load worker by CID from SQLit: ${err instanceof Error ? err.message : String(err)}`,
-    )
+  // Try registry lookup by CID
+  const registryResult = await registry.getWorkerByCid(cid)
+  if (registryResult) {
+    cidToFunctionId.set(cid, registryResult.worker.id)
+    return registryResult.worker
   }
 
   console.log(`[Workers] Deploying new worker from CID: ${cid}`)
@@ -137,7 +245,7 @@ async function deployFromCid(
     codeCid: cid,
     memory: 512,
     timeout: 60000,
-    env: {},
+    env: env ? env : {},
     status: 'active',
     version: 1,
     createdAt: Date.now(),
@@ -150,32 +258,31 @@ async function deployFromCid(
   await runtime.deployFunction(fn)
   cidToFunctionId.set(cid, functionId)
 
+  // Register with registry
+  registry.registerLocalWorker(fn)
+
   // Persist to SQLit for multi-pod recovery
-  try {
-    await dwsWorkerState.save({
-      id: fn.id,
-      name: fn.name,
-      owner: fn.owner,
-      runtime: fn.runtime as 'bun' | 'node' | 'deno',
-      handler: fn.handler,
-      codeCid: fn.codeCid,
-      memory: fn.memory,
-      timeout: fn.timeout,
-      env: fn.env,
-      status: fn.status as 'active' | 'inactive' | 'error',
-      version: fn.version,
-      invocationCount: fn.invocationCount,
-      avgDurationMs: fn.avgDurationMs,
-      errorCount: fn.errorCount,
-      createdAt: fn.createdAt,
-      updatedAt: fn.updatedAt,
-    })
-    console.log(`[Workers] Persisted CID-deployed worker to SQLit: ${fn.id}`)
-  } catch (persistError) {
-    console.warn(
-      `[Workers] Failed to persist CID worker to SQLit: ${persistError instanceof Error ? persistError.message : String(persistError)}`,
-    )
-  }
+  await dwsWorkerState.save({
+    id: fn.id,
+    name: fn.name,
+    owner: fn.owner,
+    runtime: fn.runtime as 'bun' | 'node' | 'deno',
+    handler: fn.handler,
+    codeCid: fn.codeCid,
+    memory: fn.memory,
+    timeout: fn.timeout,
+    env: fn.env,
+    status: fn.status as 'active' | 'inactive' | 'error',
+    version: fn.version,
+    invocationCount: fn.invocationCount,
+    avgDurationMs: fn.avgDurationMs,
+    errorCount: fn.errorCount,
+    createdAt: fn.createdAt,
+    updatedAt: fn.updatedAt,
+  })
+
+  // Update location in shared cache
+  registry.updateWorkerLocation(fn.id)
 
   console.log(`[Workers] Deployed worker ${functionId} from CID ${cid}`)
 
@@ -183,17 +290,22 @@ async function deployFromCid(
 }
 
 /**
- * Load a specific worker from SQLit by ID and deploy to runtime
- * Used for on-demand loading when a function is not found in memory
+ * Load persisted workers from SQLit and deploy them to the runtime
+ * Also registers them with the WorkerRegistryService for cross-pod discovery
  */
-async function loadWorkerById(
+async function loadPersistedWorkers(
   runtime: WorkerRuntime,
-  functionId: string,
-): Promise<WorkerFunction | null> {
-  try {
-    const worker = await dwsWorkerState.get(functionId)
-    if (!worker) return null
+  registry: WorkerRegistryService,
+): Promise<{ loaded: number; failed: number }> {
+  let loaded = 0
+  const failed = 0
 
+  const workers = await dwsWorkerState.listActive()
+  console.log(
+    `[Workers] Loading ${workers.length} persisted workers from SQLit`,
+  )
+
+  for (const worker of workers) {
     const fn: WorkerFunction = {
       id: worker.id,
       name: worker.name,
@@ -214,86 +326,80 @@ async function loadWorkerById(
     }
 
     await runtime.deployFunction(fn)
-    console.log(
-      `[Workers] On-demand loaded worker from SQLit: ${worker.name} (${worker.id})`,
-    )
-    return fn
-  } catch (err) {
-    console.warn(
-      `[Workers] Failed to load worker ${functionId} from SQLit: ${err instanceof Error ? err.message : String(err)}`,
-    )
-    return null
-  }
-}
 
-/**
- * Load persisted workers from SQLit and deploy them to the runtime
- */
-async function loadPersistedWorkers(runtime: WorkerRuntime): Promise<void> {
-  try {
-    const workers = await dwsWorkerState.listActive()
-    console.log(
-      `[Workers] Loading ${workers.length} persisted workers from SQLit`,
-    )
+    // Register with registry for cross-pod discovery
+    registry.registerLocalWorker(fn)
 
-    for (const worker of workers) {
-      try {
-        const fn: WorkerFunction = {
-          id: worker.id,
-          name: worker.name,
-          owner: worker.owner as Address,
-          runtime: worker.runtime,
-          handler: worker.handler,
-          codeCid: worker.codeCid,
-          memory: worker.memory,
-          timeout: worker.timeout,
-          env: worker.env,
-          status: worker.status,
-          version: worker.version,
-          createdAt: worker.createdAt,
-          updatedAt: worker.updatedAt,
-          invocationCount: worker.invocationCount,
-          avgDurationMs: worker.avgDurationMs,
-          errorCount: worker.errorCount,
-        }
-        await runtime.deployFunction(fn)
-        console.log(`[Workers] Loaded worker: ${worker.name} (${worker.id})`)
-      } catch (err) {
-        console.warn(
-          `[Workers] Failed to load worker ${worker.name}: ${err instanceof Error ? err.message : String(err)}`,
-        )
-        // Mark as inactive if load fails
-        await dwsWorkerState.updateStatus(worker.id, 'error')
-      }
-    }
-  } catch (err) {
-    // SQLit might not be available - that's okay for development
-    console.log(
-      `[Workers] SQLit not available for worker persistence: ${err instanceof Error ? err.message : String(err)}`,
-    )
+    console.log(`[Workers] Loaded worker: ${worker.name} (${worker.id})`)
+    loaded++
   }
+
+  console.log(
+    `[Workers] Startup load complete: ${loaded} loaded, ${failed} failed`,
+  )
+  return { loaded, failed }
 }
 
 export function createWorkersRouter(backend: BackendManager) {
   const runtime = new WorkerRuntime(backend)
-  sharedRuntime = runtime // Store reference for shared access
+  const registry = getWorkerRegistry()
 
-  // Load persisted workers from SQLit on startup (async, non-blocking)
-  loadPersistedWorkers(runtime).catch((err) => {
-    console.warn(
-      `[Workers] Failed to load persisted workers: ${err instanceof Error ? err.message : String(err)}`,
-    )
+  sharedRuntime = runtime // Store reference for shared access
+  sharedRegistry = registry // Store registry reference
+  sharedBackend = backend // Store backend reference for getOrLoadWorkerPublic
+
+  // Set up registry callback for deploying workers loaded from cache/SQLit
+  registry.setWorkerLoadedCallback(async (worker: WorkerFunction) => {
+    const existingFn = runtime.getFunction(worker.id)
+    if (!existingFn) {
+      await runtime.deployFunction(worker)
+      console.log(
+        `[Workers] Registry callback: deployed ${worker.name} (${worker.id})`,
+      )
+    }
   })
+
+  // Load persisted workers from SQLit on startup
+  loadPersistedWorkers(runtime, registry)
+    .then(({ loaded, failed }) => {
+      console.log(
+        `[Workers] Initial load complete: ${loaded} workers loaded, ${failed} failed`,
+      )
+      // Start background sync after initial load
+      registry.startBackgroundSync()
+    })
+    .catch((err) => {
+      console.error(
+        `[Workers] Failed to load persisted workers: ${err instanceof Error ? err.message : String(err)}`,
+      )
+      // Start background sync even if initial load fails - it will retry
+      registry.startBackgroundSync()
+    })
 
   return (
     new Elysia({ name: 'workers', prefix: '/workers' })
-      // Health check
+      // Health check with registry stats
       .get('/health', () => {
-        const stats = runtime.getStats()
+        const runtimeStats = runtime.getStats()
+        const registryStats = registry.getStats()
         return {
           status: 'healthy',
           service: 'dws-workers',
-          ...stats,
+          ...runtimeStats,
+          registry: registryStats,
+        }
+      })
+
+      // Sync endpoint - forces reload from persistence
+      // Use this after deployments to ensure all pods have the worker
+      .post('/sync', async () => {
+        const result = await registry.syncFromPersistence()
+        return {
+          success: true,
+          podId: registry.getPodId(),
+          region: registry.getPodRegion(),
+          ...result,
+          stats: registry.getStats(),
         }
       })
 
@@ -327,6 +433,17 @@ export function createWorkersRouter(backend: BackendManager) {
               set.status = 400
               return { error: 'name is required' }
             }
+
+            // Parse crons from FormData if present
+            const cronsJson = getFormString(formData, 'crons')
+            const crons = cronsJson
+              ? expectJson(
+                  cronsJson,
+                  z.array(CronScheduleSchema),
+                  'worker crons',
+                )
+              : undefined
+
             params = {
               name: formName,
               runtime:
@@ -340,6 +457,7 @@ export function createWorkersRouter(backend: BackendManager) {
                 EnvRecordSchema,
                 'worker env',
               ),
+              crons,
             }
           } else {
             const jsonBody = expectValid(
@@ -381,29 +499,49 @@ export function createWorkersRouter(backend: BackendManager) {
 
               await runtime.deployFunction(fn)
 
+              // Register with registry for cross-pod discovery
+              registry.registerLocalWorker(fn)
+
               // Persist to SQLit for recovery across pod restarts
-              try {
-                await dwsWorkerState.save({
-                  id: fn.id,
-                  name: fn.name,
-                  owner: fn.owner,
-                  runtime: fn.runtime as 'bun' | 'node' | 'deno',
-                  handler: fn.handler,
-                  codeCid: fn.codeCid,
-                  memory: fn.memory,
-                  timeout: fn.timeout,
-                  env: fn.env,
-                  status: fn.status as 'active' | 'inactive' | 'error',
-                  version: fn.version,
-                  invocationCount: fn.invocationCount,
-                  avgDurationMs: fn.avgDurationMs,
-                  errorCount: fn.errorCount,
-                  createdAt: fn.createdAt,
-                  updatedAt: fn.updatedAt,
-                })
-              } catch (persistError) {
-                console.warn(
-                  `[Workers] Failed to persist worker to SQLit: ${persistError instanceof Error ? persistError.message : String(persistError)}`,
+              await dwsWorkerState.save({
+                id: fn.id,
+                name: fn.name,
+                owner: fn.owner,
+                runtime: fn.runtime as 'bun' | 'node' | 'deno',
+                handler: fn.handler,
+                codeCid: fn.codeCid,
+                memory: fn.memory,
+                timeout: fn.timeout,
+                env: fn.env,
+                status: fn.status as 'active' | 'inactive' | 'error',
+                version: fn.version,
+                invocationCount: fn.invocationCount,
+                avgDurationMs: fn.avgDurationMs,
+                errorCount: fn.errorCount,
+                createdAt: fn.createdAt,
+                updatedAt: fn.updatedAt,
+              })
+
+              // Update worker location in shared cache
+              registry.updateWorkerLocation(fn.id)
+
+              // Register cron schedules if provided
+              let cronsRegistered = 0
+              if (jsonBody.crons && jsonBody.crons.length > 0) {
+                for (const cron of jsonBody.crons) {
+                  await dwsWorkerCronState.register({
+                    workerId: fn.id,
+                    name: cron.name,
+                    schedule: cron.schedule,
+                    endpoint: cron.endpoint,
+                    timezone: cron.timezone,
+                    timeoutMs: cron.timeoutMs,
+                    retries: cron.retries,
+                  })
+                  cronsRegistered++
+                }
+                console.log(
+                  `[Workers] Registered ${cronsRegistered} cron schedule(s) for worker ${fn.name} (${fn.id})`,
                 )
               }
 
@@ -413,6 +551,7 @@ export function createWorkersRouter(backend: BackendManager) {
                 name: fn.name,
                 codeCid: fn.codeCid,
                 status: fn.status,
+                cronsRegistered,
               }
             }
 
@@ -429,6 +568,7 @@ export function createWorkersRouter(backend: BackendManager) {
               memory: jsonBody.memory,
               timeout: jsonBody.timeout,
               env: jsonBody.env,
+              crons: jsonBody.crons,
             }
           }
 
@@ -468,29 +608,49 @@ export function createWorkersRouter(backend: BackendManager) {
 
           await runtime.deployFunction(fn)
 
+          // Register with registry for cross-pod discovery
+          registry.registerLocalWorker(fn)
+
           // Persist to SQLit for recovery across pod restarts
-          try {
-            await dwsWorkerState.save({
-              id: fn.id,
-              name: fn.name,
-              owner: fn.owner,
-              runtime: fn.runtime as 'bun' | 'node' | 'deno',
-              handler: fn.handler,
-              codeCid: fn.codeCid,
-              memory: fn.memory,
-              timeout: fn.timeout,
-              env: fn.env,
-              status: fn.status as 'active' | 'inactive' | 'error',
-              version: fn.version,
-              invocationCount: fn.invocationCount,
-              avgDurationMs: fn.avgDurationMs,
-              errorCount: fn.errorCount,
-              createdAt: fn.createdAt,
-              updatedAt: fn.updatedAt,
-            })
-          } catch (persistError) {
-            console.warn(
-              `[Workers] Failed to persist worker to SQLit: ${persistError instanceof Error ? persistError.message : String(persistError)}`,
+          await dwsWorkerState.save({
+            id: fn.id,
+            name: fn.name,
+            owner: fn.owner,
+            runtime: fn.runtime as 'bun' | 'node' | 'deno',
+            handler: fn.handler,
+            codeCid: fn.codeCid,
+            memory: fn.memory,
+            timeout: fn.timeout,
+            env: fn.env,
+            status: fn.status as 'active' | 'inactive' | 'error',
+            version: fn.version,
+            invocationCount: fn.invocationCount,
+            avgDurationMs: fn.avgDurationMs,
+            errorCount: fn.errorCount,
+            createdAt: fn.createdAt,
+            updatedAt: fn.updatedAt,
+          })
+
+          // Update worker location in shared cache
+          registry.updateWorkerLocation(fn.id)
+
+          // Register cron schedules if provided
+          let cronsRegistered = 0
+          if (params.crons && params.crons.length > 0) {
+            for (const cron of params.crons) {
+              await dwsWorkerCronState.register({
+                workerId: fn.id,
+                name: cron.name,
+                schedule: cron.schedule,
+                endpoint: cron.endpoint,
+                timezone: cron.timezone,
+                timeoutMs: cron.timeoutMs,
+                retries: cron.retries,
+              })
+              cronsRegistered++
+            }
+            console.log(
+              `[Workers] Registered ${cronsRegistered} cron schedule(s) for worker ${fn.name} (${fn.id})`,
             )
           }
 
@@ -500,6 +660,7 @@ export function createWorkersRouter(backend: BackendManager) {
             name: fn.name,
             codeCid: fn.codeCid,
             status: fn.status,
+            cronsRegistered,
           }
         },
         {
@@ -546,11 +707,11 @@ export function createWorkersRouter(backend: BackendManager) {
         },
       )
 
-      // Get function
+      // Get function (with multi-tier lookup)
       .get(
         '/:functionId',
-        ({ params, set }) => {
-          const fn = runtime.getFunction(params.functionId)
+        async ({ params, set }) => {
+          const fn = await getOrLoadWorker(params.functionId, backend)
           if (!fn) {
             set.status = 404
             return { error: 'Function not found' }
@@ -652,7 +813,7 @@ export function createWorkersRouter(backend: BackendManager) {
             return { error: 'x-jeju-address header required' }
           }
 
-          const fn = runtime.getFunction(params.functionId)
+          const fn = await getOrLoadWorker(params.functionId, backend)
 
           if (!fn) {
             set.status = 404
@@ -664,8 +825,24 @@ export function createWorkersRouter(backend: BackendManager) {
             return { error: 'Not authorized' }
           }
 
+          // Undeploy from runtime
           await runtime.undeployFunction(fn.id)
-          return { success: true }
+
+          // Unregister from registry
+          registry.unregisterLocalWorker(fn.id)
+
+          // Delete associated cron schedules
+          const deletedCrons = await dwsWorkerCronState.deleteByWorker(fn.id)
+          if (deletedCrons > 0) {
+            console.log(
+              `[Workers] Deleted ${deletedCrons} cron schedule(s) for worker ${fn.name} (${fn.id})`,
+            )
+          }
+
+          // Mark as inactive in persistence
+          await dwsWorkerState.updateStatus(fn.id, 'inactive')
+
+          return { success: true, cronsDeleted: deletedCrons }
         },
         {
           params: t.Object({
@@ -743,40 +920,12 @@ export function createWorkersRouter(backend: BackendManager) {
       )
 
       // HTTP handler (for web functions)
-      // Define handler once, then apply to all HTTP methods
-      // Note: Elysia's .all() doesn't include GET, so we explicitly register each method
+      // Uses getOrLoadWorker for multi-tier lookup with retry
       .route(
         'GET',
         '/:functionId/http/*',
         async ({ params, request, set }) => {
-          let fn = runtime.getFunction(params.functionId)
-
-          // If not found in memory, try to load from SQLit (on-demand for multi-pod)
-          if (!fn) {
-            const loadedFn = await loadWorkerById(runtime, params.functionId)
-            if (loadedFn) {
-              fn = loadedFn
-            }
-          }
-
-          // If still not found, check if the ID is a CID and deploy on-demand
-          if (!fn && isIPFSCid(params.functionId)) {
-            console.log(
-              `[Workers] Function ${params.functionId} not found, attempting CID deployment`,
-            )
-            try {
-              const deployed = await deployFromCid(
-                runtime,
-                backend,
-                params.functionId,
-              )
-              fn = deployed
-            } catch (err) {
-              console.error(
-                `[Workers] Failed to deploy from CID: ${err instanceof Error ? err.message : String(err)}`,
-              )
-            }
-          }
+          const fn = await getOrLoadWorker(params.functionId, backend)
 
           if (!fn) {
             set.status = 404
@@ -784,7 +933,6 @@ export function createWorkersRouter(backend: BackendManager) {
           }
 
           const url = new URL(request.url)
-          // Use params.functionId (could be CID or UUID) for path extraction
           const path =
             url.pathname.replace(`/workers/${params.functionId}/http`, '') ||
             '/'
@@ -802,7 +950,7 @@ export function createWorkersRouter(backend: BackendManager) {
             body: null,
           }
 
-          const response = await runtime.invokeHTTP(fn.id, event)
+          const response = await runtime.invokeHTTP(fn.id, event, fn)
 
           return new Response(response.body, {
             status: response.statusCode,
@@ -819,31 +967,7 @@ export function createWorkersRouter(backend: BackendManager) {
       .post(
         '/:functionId/http/*',
         async ({ params, request, set }) => {
-          let fn = runtime.getFunction(params.functionId)
-
-          // If not found in memory, try to load from SQLit (on-demand for multi-pod)
-          if (!fn) {
-            const loadedFn = await loadWorkerById(runtime, params.functionId)
-            if (loadedFn) fn = loadedFn
-          }
-
-          if (!fn && isIPFSCid(params.functionId)) {
-            console.log(
-              `[Workers] Function ${params.functionId} not found, attempting CID deployment`,
-            )
-            try {
-              const deployed = await deployFromCid(
-                runtime,
-                backend,
-                params.functionId,
-              )
-              fn = deployed
-            } catch (err) {
-              console.error(
-                `[Workers] Failed to deploy from CID: ${err instanceof Error ? err.message : String(err)}`,
-              )
-            }
-          }
+          const fn = await getOrLoadWorker(params.functionId, backend)
 
           if (!fn) {
             set.status = 404
@@ -868,7 +992,7 @@ export function createWorkersRouter(backend: BackendManager) {
             body: await request.text(),
           }
 
-          const response = await runtime.invokeHTTP(fn.id, event)
+          const response = await runtime.invokeHTTP(fn.id, event, fn)
 
           return new Response(response.body, {
             status: response.statusCode,
@@ -885,28 +1009,7 @@ export function createWorkersRouter(backend: BackendManager) {
       .put(
         '/:functionId/http/*',
         async ({ params, request, set }) => {
-          let fn = runtime.getFunction(params.functionId)
-
-          // If not found in memory, try to load from SQLit (on-demand for multi-pod)
-          if (!fn) {
-            const loadedFn = await loadWorkerById(runtime, params.functionId)
-            if (loadedFn) fn = loadedFn
-          }
-
-          if (!fn && isIPFSCid(params.functionId)) {
-            try {
-              const deployed = await deployFromCid(
-                runtime,
-                backend,
-                params.functionId,
-              )
-              fn = deployed
-            } catch (err) {
-              console.error(
-                `[Workers] Failed to deploy from CID: ${err instanceof Error ? err.message : String(err)}`,
-              )
-            }
-          }
+          const fn = await getOrLoadWorker(params.functionId, backend)
 
           if (!fn) {
             set.status = 404
@@ -931,7 +1034,7 @@ export function createWorkersRouter(backend: BackendManager) {
             body: await request.text(),
           }
 
-          const response = await runtime.invokeHTTP(fn.id, event)
+          const response = await runtime.invokeHTTP(fn.id, event, fn)
 
           return new Response(response.body, {
             status: response.statusCode,
@@ -948,28 +1051,7 @@ export function createWorkersRouter(backend: BackendManager) {
       .patch(
         '/:functionId/http/*',
         async ({ params, request, set }) => {
-          let fn = runtime.getFunction(params.functionId)
-
-          // If not found in memory, try to load from SQLit (on-demand for multi-pod)
-          if (!fn) {
-            const loadedFn = await loadWorkerById(runtime, params.functionId)
-            if (loadedFn) fn = loadedFn
-          }
-
-          if (!fn && isIPFSCid(params.functionId)) {
-            try {
-              const deployed = await deployFromCid(
-                runtime,
-                backend,
-                params.functionId,
-              )
-              fn = deployed
-            } catch (err) {
-              console.error(
-                `[Workers] Failed to deploy from CID: ${err instanceof Error ? err.message : String(err)}`,
-              )
-            }
-          }
+          const fn = await getOrLoadWorker(params.functionId, backend)
 
           if (!fn) {
             set.status = 404
@@ -994,7 +1076,7 @@ export function createWorkersRouter(backend: BackendManager) {
             body: await request.text(),
           }
 
-          const response = await runtime.invokeHTTP(fn.id, event)
+          const response = await runtime.invokeHTTP(fn.id, event, fn)
 
           return new Response(response.body, {
             status: response.statusCode,
@@ -1011,28 +1093,7 @@ export function createWorkersRouter(backend: BackendManager) {
       .delete(
         '/:functionId/http/*',
         async ({ params, request, set }) => {
-          let fn = runtime.getFunction(params.functionId)
-
-          // If not found in memory, try to load from SQLit (on-demand for multi-pod)
-          if (!fn) {
-            const loadedFn = await loadWorkerById(runtime, params.functionId)
-            if (loadedFn) fn = loadedFn
-          }
-
-          if (!fn && isIPFSCid(params.functionId)) {
-            try {
-              const deployed = await deployFromCid(
-                runtime,
-                backend,
-                params.functionId,
-              )
-              fn = deployed
-            } catch (err) {
-              console.error(
-                `[Workers] Failed to deploy from CID: ${err instanceof Error ? err.message : String(err)}`,
-              )
-            }
-          }
+          const fn = await getOrLoadWorker(params.functionId, backend)
 
           if (!fn) {
             set.status = 404
@@ -1057,7 +1118,7 @@ export function createWorkersRouter(backend: BackendManager) {
             body: await request.text(),
           }
 
-          const response = await runtime.invokeHTTP(fn.id, event)
+          const response = await runtime.invokeHTTP(fn.id, event, fn)
 
           return new Response(response.body, {
             status: response.statusCode,

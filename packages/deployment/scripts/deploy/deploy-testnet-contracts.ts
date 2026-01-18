@@ -52,6 +52,14 @@ const DEPLOYMENT_PHASES: DeploymentPhase[] = [
     dependsOn: [],
   },
   {
+    name: 'tee',
+    description:
+      'TEE Attestation Verification (UnifiedAttestationVerifier, TEERegistry)',
+    script: 'script/DeployTEE.s.sol:DeployTEE',
+    dependsOn: ['dws'],
+    skipOnMissingScript: false,
+  },
+  {
     name: 'x402',
     description: 'x402 Payment Protocol',
     script: 'script/DeployX402.s.sol:DeployX402',

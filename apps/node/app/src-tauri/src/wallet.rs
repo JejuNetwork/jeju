@@ -149,19 +149,9 @@ impl WalletManager {
         })
     }
 
-    /// Get wallet address
-    pub fn address(&self) -> Option<String> {
-        self.signer.as_ref().map(|s| format!("{:?}", s.address()))
-    }
-
-    /// Get signer for contract interactions
-    pub fn get_signer(&self) -> Option<&PrivateKeySigner> {
-        self.signer.as_ref()
-    }
-
-    /// Get balances
-    /// Note: Balance fetching is now done through ContractClient in commands/wallet.rs
-    /// This method is kept for compatibility but delegates to a simpler implementation
+    /// Get balances.
+    /// Balance fetching is now done through ContractClient in commands/wallet.rs.
+    /// This method is kept for compatibility but delegates to a simpler implementation.
     #[allow(dead_code)]
     pub async fn get_balance(&self) -> Result<BalanceInfo, String> {
         // Balance fetching is now done through ContractClient
@@ -221,7 +211,8 @@ impl WalletManager {
 
         let mut tx = TransactionRequest::default()
             .with_to(to_address)
-            .with_value(value_wei);
+            .with_value(value_wei)
+            .with_chain_id(self.chain_id);
 
         if let Some(input) = tx_data {
             tx = tx.with_input(input);

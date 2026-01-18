@@ -153,17 +153,17 @@ describe('Character Definitions', () => {
       expect(blueTeamCharacter.name).toBe('Shield')
     })
 
-    it('should focus on defensive topics', () => {
+    it('should focus on security and moderation topics', () => {
       const topics = blueTeamCharacter.topics
 
-      expect(topics).toContain('security defense')
-      expect(topics).toContain('system protection')
-      expect(topics).toContain('incident response')
+      expect(topics).toContain('moderation cases')
+      expect(topics).toContain('threat investigation')
+      expect(topics).toContain('security monitoring')
     })
 
     it('should have defensive adjectives', () => {
-      expect(blueTeamCharacter.adjectives).toContain('protective')
-      expect(blueTeamCharacter.adjectives).toContain('resilient')
+      expect(blueTeamCharacter.adjectives).toContain('vigilant')
+      expect(blueTeamCharacter.adjectives).toContain('investigative')
     })
   })
 

@@ -45,6 +45,7 @@ export type TEEPlatform =
   | 'intel-tdx'
   | 'amd-sev'
   | 'nvidia-cc'
+  | 'aws-nitro'
   | 'none'
 
 export interface HardwareSpec {
@@ -111,7 +112,14 @@ export const HardwareSpecSchema = z.object({
   networkBandwidthMbps: z.number().min(100).default(1000),
   publicIp: z.boolean().default(false),
   teePlatform: z
-    .enum(['intel-sgx', 'intel-tdx', 'amd-sev', 'nvidia-cc', 'none'])
+    .enum([
+      'intel-sgx',
+      'intel-tdx',
+      'amd-sev',
+      'nvidia-cc',
+      'aws-nitro',
+      'none',
+    ])
     .default('none'),
   teeMemoryMb: z.number().optional(),
   region: z.string().optional(),
@@ -488,6 +496,88 @@ const MACHINE_TYPES: MachineType[] = [
     pricePerHourWei: 20000000000000000n, // 0.02 ETH
     available: true,
   },
+  {
+    id: 'nitro-db-small',
+    name: 'Nitro DB Small',
+    description: '4 CPU, 8GB RAM, AWS Nitro Enclave - PostgreSQL Database',
+    hardware: {
+      cpuCores: 4,
+      cpuArchitecture: 'amd64',
+      memoryMb: 8192,
+      storageMb: 102400,
+      storageType: 'nvme',
+      gpuType: 'none',
+      gpuCount: 0,
+      networkBandwidthMbps: 1000,
+      publicIp: true,
+      teePlatform: 'aws-nitro',
+      teeMemoryMb: 4096,
+    },
+    pricePerHourWei: 4250000000000000n, // ~$0.17/hr @ $4000/ETH
+    available: true,
+  },
+  {
+    id: 'nitro-db-medium',
+    name: 'Nitro DB Medium',
+    description: '4 CPU, 16GB RAM, AWS Nitro Enclave - PostgreSQL Database',
+    hardware: {
+      cpuCores: 4,
+      cpuArchitecture: 'amd64',
+      memoryMb: 16384,
+      storageMb: 204800,
+      storageType: 'nvme',
+      gpuType: 'none',
+      gpuCount: 0,
+      networkBandwidthMbps: 1000,
+      publicIp: true,
+      teePlatform: 'aws-nitro',
+      teeMemoryMb: 8192,
+    },
+    pricePerHourWei: 4800000000000000n, // ~$0.192/hr @ $4000/ETH
+    available: true,
+  },
+  {
+    id: 'nitro-db-large',
+    name: 'Nitro DB Large',
+    description:
+      '4 CPU, 32GB RAM, AWS Nitro Enclave - PostgreSQL Database (Memory Optimized)',
+    hardware: {
+      cpuCores: 4,
+      cpuArchitecture: 'amd64',
+      memoryMb: 32768,
+      storageMb: 409600,
+      storageType: 'nvme',
+      gpuType: 'none',
+      gpuCount: 0,
+      networkBandwidthMbps: 2500,
+      publicIp: true,
+      teePlatform: 'aws-nitro',
+      teeMemoryMb: 16384,
+    },
+    pricePerHourWei: 6300000000000000n, // ~$0.252/hr @ $4000/ETH
+    available: true,
+  },
+  {
+    id: 'nitro-db-xlarge',
+    name: 'Nitro DB XLarge',
+    description:
+      '8 CPU, 64GB RAM, AWS Nitro Enclave - PostgreSQL Database (High Performance)',
+    hardware: {
+      cpuCores: 8,
+      cpuArchitecture: 'amd64',
+      memoryMb: 65536,
+      storageMb: 819200,
+      storageType: 'nvme',
+      gpuType: 'none',
+      gpuCount: 0,
+      networkBandwidthMbps: 5000,
+      publicIp: true,
+      teePlatform: 'aws-nitro',
+      teeMemoryMb: 32768,
+    },
+    pricePerHourWei: 12600000000000000n, // ~$0.504/hr @ $4000/ETH
+    available: true,
+  },
 ]
 
 // Provisioner State
@@ -794,6 +884,7 @@ export class ContainerProvisioner {
       'intel-tdx': 0,
       'amd-sev': 0,
       'nvidia-cc': 0,
+      'aws-nitro': 0,
       none: 0,
     }
 

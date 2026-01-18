@@ -16,7 +16,7 @@ import {
   parseAbiItem,
   parseEther,
 } from 'viem'
-import { requireContract } from '../config'
+import { safeGetContract } from '../config'
 import type { BaseWallet } from '../wallet'
 
 // Event signatures for tracking positions
@@ -306,15 +306,26 @@ export function createPredictionModule(
   wallet: BaseWallet,
   network: NetworkType,
 ): PredictionModule {
-  const predictionMarketAddress = requireContract(
+  // Use safe getter - contracts may not be deployed on all networks
+  const predictionMarketAddressOpt = safeGetContract(
     'prediction',
     'PredictionMarket',
     network,
   )
 
+  // Lazy-load contract address - throw on method call if not deployed
+  const getPredictionMarketAddress = () => {
+    if (!predictionMarketAddressOpt) {
+      throw new Error(
+        'Prediction PredictionMarket contract not deployed on this network',
+      )
+    }
+    return predictionMarketAddressOpt
+  }
+
   async function readMarket(marketId: Hex): Promise<PredictionMarket | null> {
     const result = await wallet.publicClient.readContract({
-      address: predictionMarketAddress,
+      address: getPredictionMarketAddress(),
       abi: PREDICTION_MARKET_ABI,
       functionName: 'markets',
       args: [marketId],
@@ -357,7 +368,7 @@ export function createPredictionModule(
       })
 
       const txHash = await wallet.sendTransaction({
-        to: predictionMarketAddress,
+        to: getPredictionMarketAddress(),
         data,
         value: params.initialLiquidity ?? parseEther('0.1'),
       })
@@ -369,7 +380,7 @@ export function createPredictionModule(
 
     async listActiveMarkets() {
       const ids = await wallet.publicClient.readContract({
-        address: predictionMarketAddress,
+        address: getPredictionMarketAddress(),
         abi: PREDICTION_MARKET_ABI,
         functionName: 'getActiveMarkets',
         args: [],
@@ -387,7 +398,7 @@ export function createPredictionModule(
 
     async listResolvedMarkets() {
       const ids = await wallet.publicClient.readContract({
-        address: predictionMarketAddress,
+        address: getPredictionMarketAddress(),
         abi: PREDICTION_MARKET_ABI,
         functionName: 'getActiveMarkets',
         args: [],
@@ -409,7 +420,7 @@ export function createPredictionModule(
         functionName: 'resolveMarket',
         args: [marketId],
       })
-      return wallet.sendTransaction({ to: predictionMarketAddress, data })
+      return wallet.sendTransaction({ to: getPredictionMarketAddress(), data })
     },
 
     async cancelMarket(marketId) {
@@ -418,7 +429,7 @@ export function createPredictionModule(
         functionName: 'cancelMarket',
         args: [marketId],
       })
-      return wallet.sendTransaction({ to: predictionMarketAddress, data })
+      return wallet.sendTransaction({ to: getPredictionMarketAddress(), data })
     },
 
     async buyShares(params) {
@@ -437,7 +448,7 @@ export function createPredictionModule(
       )
 
       return wallet.sendTransaction({
-        to: predictionMarketAddress,
+        to: getPredictionMarketAddress(),
         data,
         value: cost,
       })
@@ -449,12 +460,12 @@ export function createPredictionModule(
         functionName: 'sellShares',
         args: [params.marketId, params.isYes, params.shares, 0n],
       })
-      return wallet.sendTransaction({ to: predictionMarketAddress, data })
+      return wallet.sendTransaction({ to: getPredictionMarketAddress(), data })
     },
 
     async getBuyPrice(marketId, isYes, shares) {
       return wallet.publicClient.readContract({
-        address: predictionMarketAddress,
+        address: getPredictionMarketAddress(),
         abi: PREDICTION_MARKET_ABI,
         functionName: 'getBuyPrice',
         args: [marketId, isYes, shares],
@@ -463,7 +474,7 @@ export function createPredictionModule(
 
     async getSellPrice(marketId, isYes, shares) {
       return wallet.publicClient.readContract({
-        address: predictionMarketAddress,
+        address: getPredictionMarketAddress(),
         abi: PREDICTION_MARKET_ABI,
         functionName: 'getSellPrice',
         args: [marketId, isYes, shares],
@@ -472,7 +483,7 @@ export function createPredictionModule(
 
     async getSpotPrice(marketId, isYes) {
       const price = await wallet.publicClient.readContract({
-        address: predictionMarketAddress,
+        address: getPredictionMarketAddress(),
         abi: PREDICTION_MARKET_ABI,
         functionName: 'getSpotPrice',
         args: [marketId, isYes],
@@ -482,7 +493,7 @@ export function createPredictionModule(
 
     async getPosition(marketId, holder) {
       const result = await wallet.publicClient.readContract({
-        address: predictionMarketAddress,
+        address: getPredictionMarketAddress(),
         abi: PREDICTION_MARKET_ABI,
         functionName: 'positions',
         args: [marketId, holder ?? wallet.address],
@@ -506,7 +517,7 @@ export function createPredictionModule(
 
       // Query buy events for this user to find markets they participated in
       const buyLogs = await wallet.publicClient.getLogs({
-        address: predictionMarketAddress,
+        address: getPredictionMarketAddress(),
         event: SHARES_BOUGHT_EVENT,
         args: { buyer: wallet.address },
         fromBlock: 'earliest',
@@ -521,7 +532,7 @@ export function createPredictionModule(
 
       // Also check sell events in case they bought and sold
       const sellLogs = await wallet.publicClient.getLogs({
-        address: predictionMarketAddress,
+        address: getPredictionMarketAddress(),
         event: SHARES_SOLD_EVENT,
         args: { seller: wallet.address },
         fromBlock: 'earliest',
@@ -551,12 +562,12 @@ export function createPredictionModule(
         functionName: 'claimWinnings',
         args: [marketId],
       })
-      return wallet.sendTransaction({ to: predictionMarketAddress, data })
+      return wallet.sendTransaction({ to: getPredictionMarketAddress(), data })
     },
 
     async getClaimableAmount(marketId, holder) {
       return wallet.publicClient.readContract({
-        address: predictionMarketAddress,
+        address: getPredictionMarketAddress(),
         abi: PREDICTION_MARKET_ABI,
         functionName: 'getClaimableAmount',
         args: [marketId, holder ?? wallet.address],
@@ -573,7 +584,7 @@ export function createPredictionModule(
 
     async getTotalVolume() {
       return wallet.publicClient.readContract({
-        address: predictionMarketAddress,
+        address: getPredictionMarketAddress(),
         abi: PREDICTION_MARKET_ABI,
         functionName: 'totalVolume',
         args: [],

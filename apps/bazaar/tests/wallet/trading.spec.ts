@@ -5,15 +5,9 @@
 
 import { getChainId, getContract, getRpcUrl } from '@jejunetwork/config'
 import type { BrowserContext, Page } from '@playwright/test'
-// Must import zod-compat before synpress for Zod 4 compatibility
-import '@jejunetwork/tests/zod-compat'
 import { testWithSynpress } from '@synthetixio/synpress'
-// Must import zod-compat before synpress for Zod 4 compatibility
-import '@jejunetwork/tests/zod-compat'
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright'
 import { createPublicClient, formatEther, http } from 'viem'
-// Must import zod-compat before synpress for Zod 4 compatibility
-import '@jejunetwork/tests/zod-compat'
 import { basicSetup } from '../../synpress.config'
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup))
@@ -52,9 +46,15 @@ async function connectWallet(
   )
 
   await page.goto('/')
-  const connectBtn = page.getByRole('button', { name: /Connect Wallet/i })
-  if (await connectBtn.isVisible()) {
-    await connectBtn.click()
+  const signInButton = page.getByRole('button', { name: /sign in/i })
+  if (await signInButton.isVisible()) {
+    await signInButton.click()
+    const walletOption = page.getByRole('button', {
+      name: /connect wallet/i,
+    })
+    if (await walletOption.isVisible().catch(() => false)) {
+      await walletOption.click()
+    }
     await page.waitForTimeout(1000)
     await metamask.connectToDapp()
     await expect(page.getByText(/0xf39F/i)).toBeVisible({ timeout: 15000 })
@@ -277,7 +277,11 @@ test.describe('Trade Execution', () => {
     )
 
     await page.goto('/')
-    await page.getByRole('button', { name: /Connect Wallet/i }).click()
+    await page.getByRole('button', { name: /sign in/i }).click()
+    const walletOption = page.getByRole('button', { name: /connect wallet/i })
+    if (await walletOption.isVisible().catch(() => false)) {
+      await walletOption.click()
+    }
     await metamask.connectToDapp()
     await expect(page.getByText(/0xf39F/i)).toBeVisible({ timeout: 15000 })
 
@@ -321,7 +325,11 @@ test.describe('Trade Execution', () => {
     )
 
     await page.goto('/')
-    await page.getByRole('button', { name: /Connect Wallet/i }).click()
+    await page.getByRole('button', { name: /sign in/i }).click()
+    const walletOption = page.getByRole('button', { name: /connect wallet/i })
+    if (await walletOption.isVisible().catch(() => false)) {
+      await walletOption.click()
+    }
     await metamask.connectToDapp()
     await expect(page.getByText(/0xf39F/i)).toBeVisible({ timeout: 15000 })
 

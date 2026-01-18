@@ -9,7 +9,7 @@
 
 import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, parseAbiItem } from 'viem'
-import { requireContract } from '../config'
+import { safeGetContract } from '../config'
 import type { BaseWallet } from '../wallet'
 
 // Event signatures for tracking
@@ -402,11 +402,20 @@ export function createOTCModule(
   wallet: BaseWallet,
   network: NetworkType,
 ): OTCModule {
-  const otcAddress = requireContract('otc', 'OTC', network)
+  // Use safe getter - contracts may not be deployed on all networks
+  const otcAddressOpt = safeGetContract('otc', 'OTC', network)
+
+  // Lazy-load contract address - throw on method call if not deployed
+  const getOtcAddress = () => {
+    if (!otcAddressOpt) {
+      throw new Error('OTC contract not deployed on this network')
+    }
+    return otcAddressOpt
+  }
 
   async function readConsignment(id: bigint): Promise<Consignment | null> {
     const result = await wallet.publicClient.readContract({
-      address: otcAddress,
+      address: getOtcAddress(),
       abi: OTC_ABI,
       functionName: 'consignments',
       args: [id],
@@ -441,7 +450,7 @@ export function createOTCModule(
 
       // Query TokenRegistered events to find all tokens
       const logs = await wallet.publicClient.getLogs({
-        address: otcAddress,
+        address: getOtcAddress(),
         event: TOKEN_REGISTERED_EVENT,
         fromBlock: 'earliest',
         toBlock: 'latest',
@@ -460,7 +469,7 @@ export function createOTCModule(
 
     async getToken(tokenId) {
       const result = await wallet.publicClient.readContract({
-        address: otcAddress,
+        address: getOtcAddress(),
         abi: OTC_ABI,
         functionName: 'tokens',
         args: [tokenId],
@@ -480,7 +489,7 @@ export function createOTCModule(
 
     async getTokenPrice(tokenId) {
       return wallet.publicClient.readContract({
-        address: otcAddress,
+        address: getOtcAddress(),
         abi: OTC_ABI,
         functionName: 'getTokenPrice',
         args: [tokenId],
@@ -508,7 +517,7 @@ export function createOTCModule(
       })
 
       const txHash = await wallet.sendTransaction({
-        to: otcAddress,
+        to: getOtcAddress(),
         data,
       })
 
@@ -519,7 +528,7 @@ export function createOTCModule(
 
     async listActiveConsignments() {
       const ids = await wallet.publicClient.readContract({
-        address: otcAddress,
+        address: getOtcAddress(),
         abi: OTC_ABI,
         functionName: 'getActiveConsignments',
         args: [],
@@ -538,7 +547,7 @@ export function createOTCModule(
 
     async listMyConsignments() {
       const ids = await wallet.publicClient.readContract({
-        address: otcAddress,
+        address: getOtcAddress(),
         abi: OTC_ABI,
         functionName: 'getConsignerConsignments',
         args: [wallet.address],
@@ -562,7 +571,7 @@ export function createOTCModule(
         args: [consignmentId],
       })
 
-      return wallet.sendTransaction({ to: otcAddress, data })
+      return wallet.sendTransaction({ to: getOtcAddress(), data })
     },
 
     async topUpConsignment(consignmentId, amount) {
@@ -571,7 +580,7 @@ export function createOTCModule(
         functionName: 'topUpConsignment',
         args: [consignmentId, amount],
       })
-      return wallet.sendTransaction({ to: otcAddress, data })
+      return wallet.sendTransaction({ to: getOtcAddress(), data })
     },
 
     async createOffer(params) {
@@ -589,7 +598,7 @@ export function createOTCModule(
       })
 
       const txHash = await wallet.sendTransaction({
-        to: otcAddress,
+        to: getOtcAddress(),
         data,
       })
 
@@ -598,7 +607,7 @@ export function createOTCModule(
 
     async getOffer(offerId) {
       const result = await wallet.publicClient.readContract({
-        address: otcAddress,
+        address: getOtcAddress(),
         abi: OTC_ABI,
         functionName: 'offers',
         args: [offerId],
@@ -631,7 +640,7 @@ export function createOTCModule(
 
     async listMyOffers() {
       const offerIds = await wallet.publicClient.readContract({
-        address: otcAddress,
+        address: getOtcAddress(),
         abi: OTC_ABI,
         functionName: 'getBeneficiaryOffers',
         args: [wallet.address],
@@ -651,7 +660,7 @@ export function createOTCModule(
 
     async listPendingOffers() {
       const offerIds = await wallet.publicClient.readContract({
-        address: otcAddress,
+        address: getOtcAddress(),
         abi: OTC_ABI,
         functionName: 'getOpenOfferIds',
         args: [],
@@ -677,7 +686,7 @@ export function createOTCModule(
         functionName: 'approveOffer',
         args: [offerId],
       })
-      return wallet.sendTransaction({ to: otcAddress, data })
+      return wallet.sendTransaction({ to: getOtcAddress(), data })
     },
 
     async rejectOffer(offerId) {
@@ -686,7 +695,7 @@ export function createOTCModule(
         functionName: 'rejectOffer',
         args: [offerId],
       })
-      return wallet.sendTransaction({ to: otcAddress, data })
+      return wallet.sendTransaction({ to: getOtcAddress(), data })
     },
 
     async payOffer(offerId, amount) {
@@ -696,7 +705,11 @@ export function createOTCModule(
         functionName: 'payOfferETH',
         args: [offerId],
       })
-      return wallet.sendTransaction({ to: otcAddress, data, value: amount })
+      return wallet.sendTransaction({
+        to: getOtcAddress(),
+        data,
+        value: amount,
+      })
     },
 
     async fulfillOffer(offerId) {
@@ -705,7 +718,7 @@ export function createOTCModule(
         functionName: 'fulfillOffer',
         args: [offerId],
       })
-      return wallet.sendTransaction({ to: otcAddress, data })
+      return wallet.sendTransaction({ to: getOtcAddress(), data })
     },
 
     async cancelOffer(offerId) {
@@ -714,12 +727,12 @@ export function createOTCModule(
         functionName: 'cancelOffer',
         args: [offerId],
       })
-      return wallet.sendTransaction({ to: otcAddress, data })
+      return wallet.sendTransaction({ to: getOtcAddress(), data })
     },
 
     async getQuote(consignmentId, tokenAmount, discountBps, currency) {
       const result = await wallet.publicClient.readContract({
-        address: otcAddress,
+        address: getOtcAddress(),
         abi: OTC_ABI,
         functionName: 'getQuote',
         args: [consignmentId, tokenAmount, BigInt(discountBps), currency],

@@ -9,7 +9,6 @@ import {
   FarcasterClient,
   type FarcasterProfile,
   FarcasterSignerService,
-  type IdentifierKind,
   lookupFidByAddress,
   XMTPClient,
   type XMTPSigner,
@@ -166,7 +165,7 @@ function createXMTPKMSSigner(
     type: 'EOA',
     getIdentifier: () => ({
       identifier: address.toLowerCase(),
-      identifierKind: 0 as IdentifierKind, // Ethereum
+      identifierKind: 'Ethereum',
     }),
     signMessage: async (message: string): Promise<Uint8Array> => {
       const result = await kmsSigner.signMessage(message)
@@ -279,7 +278,7 @@ class WalletMessagingService {
 
     log.info('XMTP client initialized', {
       address: this.address,
-      inboxId: this.xmtpClient.inboxId,
+      inboxId: this.xmtpClient.inboxId ?? 'unknown',
     })
   }
 
@@ -415,18 +414,20 @@ class WalletMessagingService {
 
     if (this.xmtpClient) {
       await this.xmtpClient.conversations.sync()
-      const dms = this.xmtpClient.conversations.listDms()
+      const dms = await this.xmtpClient.conversations.listDms()
 
       for (const dm of dms) {
+        const peerInboxId = await dm.peerInboxId()
+        const createdAtMs = dm.createdAt?.getTime() ?? Date.now()
         conversations.set(`xmtp-${dm.id}`, {
           id: `xmtp-${dm.id}`,
           type: 'xmtp',
-          recipientName: `${dm.peerInboxId.slice(0, 10)}...`,
-          unreadCount: 0, // TODO: Track unread
+          recipientName: `${peerInboxId.slice(0, 10)}...`,
+          unreadCount: 0,
           isMuted: this.preferences.mutedConversations.includes(
             `xmtp-${dm.id}`,
           ),
-          updatedAt: dm.createdAt.getTime(),
+          updatedAt: createdAtMs,
         })
       }
     }
@@ -494,14 +495,14 @@ class WalletMessagingService {
 
       await conversation.sync()
       const xmtpMessages = await conversation.messages({
-        limit: options?.limit ?? 50,
+        limit: BigInt(options?.limit ?? 50),
       })
 
       return xmtpMessages.map((m) => ({
         id: m.id,
         conversationId,
         text: String(m.content),
-        timestamp: m.sentAt.getTime(),
+        timestamp: Number(m.sentAtNs / BigInt(1_000_000)),
         isFromMe: m.senderInboxId === this.xmtpClient?.inboxId,
         status: 'delivered' as const,
         protocol: 'xmtp' as const,
@@ -551,7 +552,7 @@ class WalletMessagingService {
     if (params.recipientAddress && this.xmtpClient) {
       const dm = await this.xmtpClient.conversations.newDmWithIdentifier({
         identifier: params.recipientAddress.toLowerCase(),
-        identifierKind: 0 as IdentifierKind, // Ethereum
+        identifierKind: 'Ethereum',
       })
 
       const messageId = await dm.send(params.text)

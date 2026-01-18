@@ -54,30 +54,34 @@ interface StorageBackend {
   healthCheck(): Promise<boolean>
 }
 
-// Default Configuration
+// Network-aware configuration
+// Localnet prioritizes speed (local + IPFS without pinning)
+// Production prioritizes durability (IPFS + Filecoin with replication)
+function getDefaultConfig(): MultiBackendConfig {
+  const network = getCurrentNetwork()
+  const isLocalnet = network === 'localnet'
 
-const DEFAULT_CONFIG: MultiBackendConfig = {
-  backends: [
-    { type: 'local', enabled: true, priority: 0 },
-    { type: 'webtorrent', enabled: true, priority: 1 },
-    { type: 'ipfs', enabled: true, priority: 2 },
-    { type: 'filecoin', enabled: true, priority: 3 },
-    { type: 'arweave', enabled: true, priority: 4 },
-  ],
-  defaultTier: 'popular',
-  replicationFactor: 2,
+  return {
+    backends: [
+      { type: 'local', enabled: true, priority: 0 },
+      { type: 'webtorrent', enabled: true, priority: 1 },
+      { type: 'ipfs', enabled: true, priority: 2 },
+      { type: 'filecoin', enabled: !isLocalnet, priority: 3 }, // Skip Filecoin in localnet
+      { type: 'arweave', enabled: !isLocalnet, priority: 4 }, // Skip Arweave in localnet
+    ],
+    defaultTier: 'popular',
+    // Localnet: single replica for speed; Production: 2 replicas for durability
+    replicationFactor: isLocalnet ? 1 : 2,
 
-  // System content: IPFS + Filecoin (no local fallback for system content)
-  // IPFS first for reliable CIDs, Filecoin for permanent storage
-  systemContentBackends: ['ipfs', 'filecoin'],
-
-  // Popular content: IPFS + Filecoin (no local fallback for popular content)
-  // Local backend returns non-IPFS CIDs which break decentralized routing
-  popularContentBackends: ['ipfs', 'filecoin'],
-
-  // Private content: IPFS only (encrypted)
-  privateContentBackends: ['ipfs'],
+    // Localnet: IPFS only (fast, with pin=false applied separately)
+    // Production: IPFS + Filecoin for permanent storage
+    systemContentBackends: isLocalnet ? ['ipfs'] : ['ipfs', 'filecoin'],
+    popularContentBackends: isLocalnet ? ['ipfs'] : ['ipfs', 'filecoin'],
+    privateContentBackends: ['ipfs'],
+  }
 }
+
+const DEFAULT_CONFIG: MultiBackendConfig = getDefaultConfig()
 
 // Multi-Backend Manager
 
@@ -148,7 +152,7 @@ export class MultiBackendManager {
       type: 'local',
       async upload(content: Buffer): Promise<{ cid: string; url: string }> {
         // Generate a local content hash for caching purposes
-        // Note: This is NOT an IPFS CID and should only be used as last resort
+        // This is NOT an IPFS CID and should only be used as last resort
         const contentHash = keccak256(new Uint8Array(content)).slice(2, 50)
         localStorage.set(contentHash, content)
         console.warn(
@@ -194,19 +198,37 @@ export class MultiBackendManager {
             options?.filename ?? 'file',
           )
 
-          const response = await fetch(`${ipfsApiUrl}/api/v0/add`, {
-            method: 'POST',
-            body: formData,
-          })
+          for (let attempt = 1; attempt <= 3; attempt++) {
+            const controller = new AbortController()
+            const timeout = setTimeout(() => controller.abort(), 180_000)
+            try {
+              const response = await fetch(`${ipfsApiUrl}/api/v0/add`, {
+                method: 'POST',
+                body: formData,
+                signal: controller.signal,
+              }).finally(() => clearTimeout(timeout))
 
-          if (!response.ok)
-            throw new Error(`IPFS upload failed: ${response.statusText}`)
-          const data = expectValid(
-            IpfsAddResponseSchema,
-            await response.json(),
-            'IPFS add response',
-          )
-          return { cid: data.Hash, url: `${ipfsGatewayUrl}/ipfs/${data.Hash}` }
+              if (!response.ok) {
+                throw new Error(`IPFS upload failed: ${response.statusText}`)
+              }
+              const data = expectValid(
+                IpfsAddResponseSchema,
+                await response.json(),
+                'IPFS add response',
+              )
+              return {
+                cid: data.Hash,
+                url: `${ipfsGatewayUrl}/ipfs/${data.Hash}`,
+              }
+            } catch (err) {
+              if (attempt === 3) throw err
+              const message = err instanceof Error ? err.message : String(err)
+              console.warn(
+                `[IPFS] Upload attempt ${attempt} failed: ${message}`,
+              )
+            }
+          }
+          throw new Error('IPFS upload failed after 3 attempts')
         },
         async download(cid: string): Promise<Buffer> {
           const response = await fetch(`${ipfsGatewayUrl}/ipfs/${cid}`)
@@ -785,16 +807,29 @@ export class MultiBackendManager {
       return preferred
     }
 
+    let backends: StorageBackendType[]
     switch (tier) {
       case 'system':
-        return this.config.systemContentBackends
+        backends = [...this.config.systemContentBackends]
+        break
       case 'popular':
-        return this.config.popularContentBackends
+        backends = [...this.config.popularContentBackends]
+        break
       case 'private':
-        return this.config.privateContentBackends
+        backends = [...this.config.privateContentBackends]
+        break
       default:
-        return this.config.popularContentBackends
+        backends = [...this.config.popularContentBackends]
     }
+
+    // On localnet, add 'local' as fallback if not already included
+    // This allows deployment without running IPFS locally
+    const network = getCurrentNetwork()
+    if (network === 'localnet' && !backends.includes('local')) {
+      backends.push('local')
+    }
+
+    return backends
   }
 
   private createBasicMetadata(cid: string, content: Buffer): ContentMetadata {
@@ -833,7 +868,11 @@ export class MultiBackendManager {
   /**
    * Get aggregated node stats
    */
-  getNodeStats(): Partial<NodeStorageStats> {
+  getNodeStats(): {
+    totalPins: number
+    totalSizeBytes: number
+    totalSizeGB: number
+  } & Partial<NodeStorageStats> {
     const webtorrentStats = this.webtorrentBackend?.getNodeStats() ?? {}
 
     let totalSize = 0
@@ -841,9 +880,16 @@ export class MultiBackendManager {
       totalSize += metadata.size
     }
 
+    const totalPins = this.contentRegistry.size
+    const totalSizeBytes = totalSize
+    const totalSizeGB = totalSize / (1024 * 1024 * 1024)
+
     return {
       ...webtorrentStats,
-      usedCapacityGB: totalSize / (1024 * 1024 * 1024),
+      totalPins,
+      totalSizeBytes,
+      totalSizeGB,
+      usedCapacityGB: totalSizeGB,
     }
   }
 

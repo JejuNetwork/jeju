@@ -1,16 +1,25 @@
 import {
   Activity,
+  Calculator,
   Clock,
   Code,
   Play,
   Plus,
   RefreshCw,
   Trash2,
+  X,
   Zap,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
-import { useDeployWorker, useInvokeWorker, useWorkers } from '../../hooks'
+import { Skeleton, SkeletonTable } from '../../components/Skeleton'
+import { useConfirm, useToast } from '../../context/AppContext'
+import {
+  useDeleteWorker,
+  useDeployWorker,
+  useInvokeWorker,
+  useWorkers,
+} from '../../hooks'
 
 const SAMPLE_CODE = `// Hello World Worker
 export default {
@@ -19,11 +28,22 @@ export default {
   }
 };`
 
+// Pricing per memory tier (per invocation in wei)
+const MEMORY_PRICING: Record<string, number> = {
+  '128': 100,
+  '256': 200,
+  '512': 400,
+  '1024': 800,
+}
+
 export default function WorkersPage() {
   const { isConnected } = useAccount()
+  const { showSuccess, showError } = useToast()
+  const confirm = useConfirm()
   const { data: workersData, isLoading, refetch } = useWorkers()
   const deployWorker = useDeployWorker()
   const invokeWorker = useInvokeWorker()
+  const deleteWorker = useDeleteWorker()
 
   const [showModal, setShowModal] = useState(false)
   const [showInvokeModal, setShowInvokeModal] = useState<string | null>(null)
@@ -41,31 +61,69 @@ export default function WorkersPage() {
 
   const handleDeploy = async (e: React.FormEvent) => {
     e.preventDefault()
-    await deployWorker.mutateAsync({
-      name: formData.name,
-      code: formData.code,
-      runtime: formData.runtime,
-      handler: formData.handler,
-      memory: parseInt(formData.memory, 10),
-      timeout: parseInt(formData.timeout, 10),
+    try {
+      await deployWorker.mutateAsync({
+        name: formData.name,
+        code: formData.code,
+        runtime: formData.runtime,
+        handler: formData.handler,
+        memory: parseInt(formData.memory, 10),
+        timeout: parseInt(formData.timeout, 10),
+      })
+      showSuccess('Worker deployed', `Deployed "${formData.name}" successfully`)
+      setShowModal(false)
+      setFormData({
+        name: '',
+        code: SAMPLE_CODE,
+        runtime: 'bun',
+        handler: 'index.handler',
+        memory: '256',
+        timeout: '30000',
+      })
+    } catch (error) {
+      showError(
+        'Deployment failed',
+        error instanceof Error ? error.message : 'Failed to deploy worker',
+      )
+    }
+  }
+
+  const handleDelete = async (workerId: string, workerName: string) => {
+    const confirmed = await confirm({
+      title: 'Delete Worker',
+      message: `Are you sure you want to delete "${workerName}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      destructive: true,
     })
-    setShowModal(false)
-    setFormData({
-      name: '',
-      code: SAMPLE_CODE,
-      runtime: 'bun',
-      handler: 'index.handler',
-      memory: '256',
-      timeout: '30000',
-    })
+
+    if (!confirmed) return
+
+    try {
+      await deleteWorker.mutateAsync(workerId)
+      showSuccess('Worker deleted', `Deleted "${workerName}"`)
+    } catch (error) {
+      showError(
+        'Delete failed',
+        error instanceof Error ? error.message : 'Failed to delete worker',
+      )
+    }
   }
 
   const handleInvoke = async (id: string) => {
-    const result = await invokeWorker.mutateAsync({
-      id,
-      payload: JSON.parse(invokePayload),
-    })
-    setInvokeResult(JSON.stringify(result, null, 2))
+    try {
+      const result = await invokeWorker.mutateAsync({
+        id,
+        payload: JSON.parse(invokePayload),
+      })
+      setInvokeResult(JSON.stringify(result, null, 2))
+      showSuccess('Worker invoked', 'Execution completed successfully')
+    } catch (error) {
+      showError(
+        'Invocation failed',
+        error instanceof Error ? error.message : 'Failed to invoke worker',
+      )
+    }
   }
 
   const workers = workersData?.functions ?? []
@@ -74,6 +132,10 @@ export default function WorkersPage() {
     (sum, w) => sum + w.invocationCount,
     0,
   )
+
+  // Calculate estimated cost
+  const estimatedCostWei = MEMORY_PRICING[formData.memory] ?? 200
+  const estimatedCostEth = estimatedCostWei / 1e18
 
   return (
     <div>
@@ -89,6 +151,9 @@ export default function WorkersPage() {
       >
         <div>
           <h1 className="page-title">Workers</h1>
+          <p className="page-subtitle">
+            Serverless functions running in V8 isolates at the edge
+          </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
@@ -116,7 +181,9 @@ export default function WorkersPage() {
           </div>
           <div className="stat-content">
             <div className="stat-label">Active Workers</div>
-            <div className="stat-value">{active}</div>
+            <div className="stat-value">
+              {isLoading ? <Skeleton width={40} height={28} /> : active}
+            </div>
           </div>
         </div>
         <div className="stat-card">
@@ -126,7 +193,11 @@ export default function WorkersPage() {
           <div className="stat-content">
             <div className="stat-label">Total Invocations</div>
             <div className="stat-value">
-              {totalInvocations.toLocaleString()}
+              {isLoading ? (
+                <Skeleton width={60} height={28} />
+              ) : (
+                totalInvocations.toLocaleString()
+              )}
             </div>
           </div>
         </div>
@@ -137,25 +208,30 @@ export default function WorkersPage() {
           <div className="stat-content">
             <div className="stat-label">Avg Duration</div>
             <div className="stat-value">
-              {workers.length > 0
-                ? `${(workers.reduce((sum, w) => sum + w.avgDurationMs, 0) / workers.length).toFixed(0)}ms`
-                : '—'}
+              {isLoading ? (
+                <Skeleton width={50} height={28} />
+              ) : workers.length > 0 ? (
+                `${(workers.reduce((sum, w) => sum + w.avgDurationMs, 0) / workers.length).toFixed(0)}ms`
+              ) : (
+                '—'
+              )}
             </div>
           </div>
         </div>
         <div className="stat-card">
-          <div
-            className="stat-icon"
-            style={{ background: 'var(--error-soft)', color: 'var(--error)' }}
-          >
+          <div className="stat-icon error">
             <Activity size={24} />
           </div>
           <div className="stat-content">
             <div className="stat-label">Error Rate</div>
             <div className="stat-value">
-              {totalInvocations > 0
-                ? `${((workers.reduce((sum, w) => sum + w.errorCount, 0) / totalInvocations) * 100).toFixed(1)}%`
-                : '0%'}
+              {isLoading ? (
+                <Skeleton width={40} height={28} />
+              ) : totalInvocations > 0 ? (
+                `${((workers.reduce((sum, w) => sum + w.errorCount, 0) / totalInvocations) * 100).toFixed(1)}%`
+              ) : (
+                '0%'
+              )}
             </div>
           </div>
         </div>
@@ -169,19 +245,12 @@ export default function WorkersPage() {
         </div>
 
         {isLoading ? (
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'center',
-              padding: '3rem',
-            }}
-          >
-            <div className="spinner" />
-          </div>
+          <SkeletonTable rows={5} cols={7} />
         ) : workers.length === 0 ? (
           <div className="empty-state">
             <Zap size={48} />
             <h3>No workers yet</h3>
+            <p>Deploy your first serverless function to get started</p>
             <button
               type="button"
               className="btn btn-primary"
@@ -241,6 +310,7 @@ export default function WorkersPage() {
                         type="button"
                         className="btn btn-ghost btn-sm"
                         title="Delete"
+                        onClick={() => handleDelete(worker.id, worker.name)}
                       >
                         <Trash2 size={14} />
                       </button>
@@ -254,26 +324,15 @@ export default function WorkersPage() {
       </div>
 
       {showModal && (
-        <div className="modal-overlay">
+        <div className="modal-overlay" role="dialog" aria-modal="true">
           <button
             type="button"
-            className="absolute inset-0 cursor-default"
+            className="modal-backdrop"
             onClick={() => setShowModal(false)}
-            aria-label="Close modal"
+            tabIndex={-1}
+            aria-label="Close"
           />
-          <div
-            className="modal"
-            style={{ maxWidth: '700px' }}
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => {
-              e.stopPropagation()
-              if (e.key === 'Escape') {
-                setShowModal(false)
-              }
-            }}
-            role="dialog"
-            aria-modal="true"
-          >
+          <div className="modal" style={{ maxWidth: '700px' }}>
             <div className="modal-header">
               <h3 className="modal-title">Deploy Worker</h3>
               <button
@@ -281,7 +340,7 @@ export default function WorkersPage() {
                 className="btn btn-ghost btn-icon"
                 onClick={() => setShowModal(false)}
               >
-                ×
+                <X size={18} />
               </button>
             </div>
             <form onSubmit={handleDeploy}>
@@ -394,6 +453,34 @@ export default function WorkersPage() {
                     </select>
                   </div>
                 </div>
+
+                {/* Cost Estimation */}
+                <div className="cost-estimate">
+                  <div className="cost-estimate-header">
+                    <Calculator size={16} />
+                    Estimated Cost
+                  </div>
+                  <div className="cost-breakdown">
+                    <div className="cost-row">
+                      <span>Memory ({formData.memory} MB)</span>
+                      <span className="cost-value">
+                        {estimatedCostWei} wei/invocation
+                      </span>
+                    </div>
+                    <div className="cost-row">
+                      <span>
+                        Timeout ({parseInt(formData.timeout, 10) / 1000}s max)
+                      </span>
+                      <span className="cost-value">Included</span>
+                    </div>
+                    <div className="cost-row total">
+                      <span>Per Invocation</span>
+                      <span className="cost-value">
+                        ~{estimatedCostEth.toFixed(10)} ETH
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
               <div className="modal-footer">
                 <button
@@ -423,29 +510,18 @@ export default function WorkersPage() {
       )}
 
       {showInvokeModal && (
-        <div className="modal-overlay">
+        <div className="modal-overlay" role="dialog" aria-modal="true">
           <button
             type="button"
-            className="absolute inset-0 cursor-default"
+            className="modal-backdrop"
             onClick={() => {
               setShowInvokeModal(null)
               setInvokeResult(null)
             }}
-            aria-label="Close modal"
+            tabIndex={-1}
+            aria-label="Close"
           />
-          <div
-            className="modal"
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => {
-              e.stopPropagation()
-              if (e.key === 'Escape') {
-                setShowInvokeModal(null)
-                setInvokeResult(null)
-              }
-            }}
-            role="dialog"
-            aria-modal="true"
-          >
+          <div className="modal">
             <div className="modal-header">
               <h3 className="modal-title">Invoke Worker</h3>
               <button
@@ -456,7 +532,7 @@ export default function WorkersPage() {
                   setInvokeResult(null)
                 }}
               >
-                ×
+                <X size={18} />
               </button>
             </div>
             <div className="modal-body">

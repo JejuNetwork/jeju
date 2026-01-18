@@ -138,8 +138,8 @@ export const PAYMENT_CATEGORY_DISPLAY: Record<
 
 export type PaymentRequestStatus =
   | 'SUBMITTED'
-  | 'COUNCIL_REVIEW'
-  | 'CEO_REVIEW'
+  | 'BOARD_REVIEW'
+  | 'DIRECTOR_REVIEW'
   | 'APPROVED'
   | 'REJECTED'
   | 'PAID'
@@ -148,8 +148,8 @@ export type PaymentRequestStatus =
 
 export const PAYMENT_REQUEST_STATUSES: PaymentRequestStatus[] = [
   'SUBMITTED',
-  'COUNCIL_REVIEW',
-  'CEO_REVIEW',
+  'BOARD_REVIEW',
+  'DIRECTOR_REVIEW',
   'APPROVED',
   'REJECTED',
   'PAID',
@@ -166,13 +166,13 @@ export const PAYMENT_STATUS_DISPLAY: Record<
     bgClass: 'bg-slate-500/20',
     textClass: 'text-slate-400',
   },
-  COUNCIL_REVIEW: {
-    label: 'Council Review',
+  BOARD_REVIEW: {
+    label: 'Board Review',
     bgClass: 'bg-amber-500/20',
     textClass: 'text-amber-400',
   },
-  CEO_REVIEW: {
-    label: 'CEO Review',
+  DIRECTOR_REVIEW: {
+    label: 'Director Review',
     bgClass: 'bg-purple-500/20',
     textClass: 'text-purple-400',
   },
@@ -233,14 +233,14 @@ export interface PaymentRequest {
   disputeCaseId: string
 }
 
-export interface PaymentCouncilVote {
+export interface PaymentBoardVote {
   voter: Address
   vote: PaymentVoteType
   reason: string
   votedAt: number
 }
 
-export interface CEODecision {
+export interface DirectorDecision {
   approved: boolean
   modifiedAmount: bigint
   reason: string
@@ -248,10 +248,10 @@ export interface CEODecision {
 }
 
 export interface DAOPaymentConfig {
-  requiresCouncilApproval: boolean
-  minCouncilVotes: number
-  councilSupermajorityBps: number
-  ceoCanOverride: boolean
+  requiresBoardApproval: boolean
+  minBoardVotes: number
+  boardSupermajorityBps: number
+  directorCanOverride: boolean
   maxAutoApproveAmount: bigint
   reviewPeriod: number
   disputePeriod: number
@@ -393,7 +393,7 @@ export const DEPTH_DECAY_BPS = 2000 // 20% decay per level
 export const MAX_DELIBERATION_INFLUENCE_BPS = 1000 // 10% max influence
 export const MIN_WEIGHT_FOR_DISTRIBUTION = 10
 export const DEFAULT_EPOCH_DURATION = 30 * 24 * 60 * 60 // 30 days in seconds
-export const COUNCIL_REVIEW_PERIOD = 7 * 24 * 60 * 60 // 7 days
+export const BOARD_REVIEW_PERIOD = 7 * 24 * 60 * 60 // 7 days
 export const DEFAULT_SUPERMAJORITY_BPS = 6700 // 67%
 export function getContributorTypeIndex(type: ContributorType): number {
   return CONTRIBUTOR_TYPES.indexOf(type)

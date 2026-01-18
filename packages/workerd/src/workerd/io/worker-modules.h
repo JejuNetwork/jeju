@@ -94,7 +94,7 @@ kj::Own<api::pyodide::PyodideMetadataReader::State> createPyodideMetadataState(
 // initialization logic that is agnostic to the Worker::Api implementation,
 // but accepts a callback parameter to handle the Worker::Api-specific details.
 //
-// Note: this is a big template but it will only be called from two places in
+// This is a big template but it will only be called from two places in
 // the codebase, one for workerd and one for the internal project. It depends
 // on the TypeWrapper specific to each project.
 template <typename TypeWrapper>

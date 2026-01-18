@@ -596,7 +596,7 @@ impl Drop for Realm {
                     && let Some(drop_fn) = resource_state.drop_fn
                     && !resource_state.this.is_null()
                 {
-                    // Note: Do not access resource_state after drop_fn returns, as
+                    // Do not access resource_state after drop_fn returns, as
                     // ResourceState is embedded inside the Resource which is now freed.
                     let isolate = resource_state.isolate.expect("isolate should be set");
                     drop_fn(isolate.as_ffi(), resource_state.this);

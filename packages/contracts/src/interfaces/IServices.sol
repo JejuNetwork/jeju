@@ -18,6 +18,7 @@ interface ICloudServiceRegistry {
     function getServiceCost(string calldata serviceName, address user) external view returns (uint256 cost);
     function recordUsage(address user, string calldata serviceName, uint256 cost) external;
     function isServiceAvailable(string calldata serviceName) external view returns (bool);
+    function getServiceOwner(string calldata serviceName) external view returns (address owner);
 }
 
 /**

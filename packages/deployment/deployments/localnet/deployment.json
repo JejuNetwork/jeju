@@ -1,0 +1,36 @@
+{
+  "network": "localnet",
+  "chainId": 31337,
+  "deployedAt": "2026-01-02T19:30:00.000Z",
+  "contracts": {
+    "jns": {
+      "registry": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0",
+      "resolver": "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82",
+      "registrar": "0x9A676e781A523b5d0C0e43731313A708CB607508",
+      "reverseRegistrar": "0x0B306BF915C4d645ff596e518fAf3F9669b97016"
+    },
+    "dws": {
+      "storageManager": "0x4ed7c70F96B99c776995fB64377f0d4aB3B0e1C1",
+      "workerRegistry": "0x322813Fd9A801c5507c9de605d63CEA4f2CE6c44",
+      "cdnRegistry": "0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f",
+      "repoRegistry": "0x4A679253410272dd5232B3Ff7cF5dbB88f295319",
+      "packageRegistry": "0x7a2088a1bFc9d81c55368AE168C2C02570cB814F",
+      "providerRegistry": "0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519",
+      "billing": "0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496",
+      "serviceProvisioning": "0x34A1D3fff3958843C43aD80F30b94c510645C316"
+    },
+    "identity": {
+      "identityRegistry": "0xf5059a5D33d5853360D16C683c16e67980206f36"
+    },
+    "governance": {
+      "daoRegistry": "0x998abeb3E57409262aE5b751f60747921B33613E",
+      "daoFunding": "0x70e0bA845a1A0F2DA3359C97E0285013525FFC49",
+      "feeConfig": "0x95401dc811bb5740090279Ba06cfA8fcF6113778"
+    },
+    "daos": {
+      "jeju": "0x817de6bba9d23a6d8e30ed827ba108818083e8a358e4ebafe56228f5b35ce22f",
+      "apps": "0x35c2914114c1e6534ddb2f1de828b51450cd60ac1e32aa891440a146211425aa"
+    }
+  }
+}
+

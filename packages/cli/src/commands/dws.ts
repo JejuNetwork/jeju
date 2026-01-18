@@ -1651,8 +1651,7 @@ async function verifyTeeGpu(options: { network: string }): Promise<void> {
   const rootDir = findMonorepoRoot()
   const verifyScript = join(
     rootDir,
-    'scripts',
-    'verify-tee-gpu-provisioning.ts',
+    'packages/deployment/scripts/verify/verify-tee-gpu-provisioning.ts',
   )
 
   if (!existsSync(verifyScript)) {

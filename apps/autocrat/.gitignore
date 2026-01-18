@@ -41,7 +41,7 @@ synpress-report*/
 
 # App storage
 .autocrat-storage/
-.council-storage/
+.board-storage/
 
 # bun.lock (only at monorepo root)
 bun.lock

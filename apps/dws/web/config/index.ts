@@ -40,6 +40,16 @@ export const CONTRACTS = {
   jnsResolver: (contracts.jns.resolver as Address) || ZERO_ADDRESS,
   x402Facilitator:
     (contracts.payments.x402Facilitator as Address) || ZERO_ADDRESS,
+  // Use nodeStaking.manager to match contracts.json structure
+  nodeStakingManager:
+    (contracts.nodeStaking?.manager as Address) || ZERO_ADDRESS,
+} as const
+
+// Token addresses from config
+export const TOKENS = {
+  jeju: (contracts.tokens?.jeju as Address) || ZERO_ADDRESS,
+  usdc: (contracts.tokens?.usdc as Address) || ZERO_ADDRESS,
+  weth: (contracts.tokens?.weth as Address) || ZERO_ADDRESS,
 } as const
 
 export const API_ENDPOINTS = {

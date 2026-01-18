@@ -54,9 +54,8 @@ const A2AResponseSchema = z.object({
     .optional(),
 })
 
-const ReposResponseSchema = z.object({
-  repos: z.array(z.unknown()),
-})
+// Git endpoint returns an array directly
+const ReposResponseSchema = z.array(z.unknown())
 
 const PackagesResponseSchema = z.object({
   packages: z.array(z.unknown()),
@@ -195,8 +194,7 @@ describe('Factory API', () => {
     if (!response.ok) return
 
     const data = await expectResponse(response, ReposResponseSchema)
-    expect(data.repos).toBeDefined()
-    expect(Array.isArray(data.repos)).toBe(true)
+    expect(Array.isArray(data)).toBe(true)
   })
 
   test('packages endpoint returns packages', async () => {

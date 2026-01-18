@@ -45,8 +45,6 @@ export type ModerationProvider =
   | 'local'
   | 'openai'
   | 'hive'
-  | 'aws_rekognition'
-  | 'aws-rekognition'
   | 'cloudflare'
   | 'llm'
   | 'hash'

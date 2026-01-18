@@ -6,12 +6,17 @@
 import { assertNoPageErrors } from '@jejunetwork/tests/playwright-only'
 import { expect, type Page, test } from '@playwright/test'
 
+const isRemote =
+  process.env.JEJU_NETWORK === 'testnet' ||
+  process.env.JEJU_NETWORK === 'mainnet'
+
 async function navigateTo(page: Page, url: string): Promise<void> {
   await page.goto(url, { waitUntil: 'networkidle' })
   await page.waitForTimeout(500)
 }
 
 test.describe('Items Page', () => {
+  test.skip(isRemote, 'Skipping on remote network')
   test('displays items page', async ({ page }) => {
     await page.goto('/items')
     await assertNoPageErrors(page)
@@ -75,6 +80,7 @@ test.describe('Items Page', () => {
 })
 
 test.describe('Items Mint Page', () => {
+  test.skip(isRemote, 'Skipping on remote network')
   test('displays mint form', async ({ page }) => {
     await navigateTo(page, '/items/mint')
 
@@ -100,6 +106,7 @@ test.describe('Items Mint Page', () => {
 })
 
 test.describe('My Items Page', () => {
+  test.skip(isRemote, 'Skipping on remote network')
   test('displays my items page', async ({ page }) => {
     await page.goto('/items')
     await page.waitForTimeout(500)

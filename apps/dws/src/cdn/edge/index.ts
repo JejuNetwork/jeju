@@ -12,6 +12,7 @@ import {
   getIpfsGatewayEnv,
   getLocalhostHost,
   getRpcUrl,
+  isProductionEnv,
   tryGetContract,
 } from '@jejunetwork/config'
 import type { Address } from 'viem'
@@ -55,14 +56,51 @@ export function configureEdgeNode(config: Partial<EdgeNodeStartConfig>): void {
 
 /**
  * Start edge node from environment variables
+ *
+ * SECURITY: In production, use CDN_EDGE_KMS_KEY_ID for KMS-backed signing.
+ * Direct PRIVATE_KEY is blocked in production.
  */
 export async function startEdgeNode(): Promise<EdgeNodeServer> {
-  const privateKey =
+  const isProduction = isProductionEnv()
+  const kmsKeyId =
+    getEnvVar('CDN_EDGE_KMS_KEY_ID') ?? process.env.CDN_EDGE_KMS_KEY_ID
+  const ownerAddress = (getEnvVar('CDN_EDGE_OWNER_ADDRESS') ??
+    process.env.CDN_EDGE_OWNER_ADDRESS) as Address | undefined
+  const directKey =
     edgeNodeConfig.privateKey ??
     getEnvVar('PRIVATE_KEY') ??
     (typeof process !== 'undefined' ? process.env.PRIVATE_KEY : undefined)
-  if (!privateKey) {
-    throw new Error('PRIVATE_KEY environment variable required')
+
+  let privateKey: string | undefined
+
+  if (isProduction) {
+    if (directKey) {
+      console.error(
+        '[CDN Edge] SECURITY: PRIVATE_KEY detected in production. ' +
+          'Use CDN_EDGE_KMS_KEY_ID for KMS-backed signing.',
+      )
+      // Block direct key in production
+    }
+    if (!kmsKeyId) {
+      throw new Error(
+        'CDN_EDGE_KMS_KEY_ID required in production. Direct private keys are not allowed.',
+      )
+    }
+    // KMS mode - privateKey will be undefined, handled by KMS
+  } else {
+    // Development mode
+    if (directKey) {
+      console.warn(
+        '[CDN Edge] WARNING: Using PRIVATE_KEY for development. Use KMS in production.',
+      )
+      privateKey = directKey
+    }
+  }
+
+  if (!privateKey && !kmsKeyId) {
+    throw new Error(
+      'CDN edge requires CDN_EDGE_KMS_KEY_ID (production) or PRIVATE_KEY (development)',
+    )
   }
 
   const config: EdgeNodeConfig = {
@@ -72,6 +110,8 @@ export async function startEdgeNode(): Promise<EdgeNodeServer> {
       (typeof process !== 'undefined' ? process.env.CDN_NODE_ID : undefined) ??
       crypto.randomUUID(),
     privateKey,
+    kmsKeyId,
+    ownerAddress,
     endpoint:
       edgeNodeConfig.endpoint ??
       getEnvVar('CDN_ENDPOINT') ??

@@ -1,10 +1,21 @@
 /**
  * Jeju Secret Command - Manage environment secrets
  *
+ * SECURITY: All secrets are stored in KMS (Key Management Service) and
+ * retrieved by workers at runtime. Secrets are NEVER embedded in bundles
+ * or deployment configurations.
+ *
  * Like `vercel env` or `wrangler secret`:
- * - jeju secret set KEY value - Set a secret
- * - jeju secret list - List secrets
- * - jeju secret delete KEY - Delete a secret
+ * - jeju secret set KEY value - Set a secret (stores in KMS)
+ * - jeju secret list - List secrets (metadata only, no values)
+ * - jeju secret delete KEY - Delete a secret from KMS
+ * - jeju secret pull - Pull secrets to local .env for development
+ * - jeju secret push - Push local .env to KMS
+ *
+ * Architecture:
+ * 1. Secrets are registered in KMS by this command
+ * 2. Workers receive KMS_SECRET_IDS (list of secret IDs, not values)
+ * 3. Workers fetch actual values from KMS at runtime using TEE attestation
  */
 
 import { existsSync, readFileSync } from 'node:fs'
@@ -12,6 +23,7 @@ import { join } from 'node:path'
 import { getDWSUrl, getLocalhostHost } from '@jejunetwork/config'
 import { Command } from 'commander'
 import type { Address } from 'viem'
+import { z } from 'zod'
 import { logger } from '../lib/logger'
 import type { AppManifest, NetworkType } from '../types'
 import { requireLogin } from './login'
@@ -55,7 +67,10 @@ function loadManifest(dir: string): AppManifest | null {
 }
 
 /**
- * Set a secret
+ * Set a secret in KMS
+ *
+ * SECURITY: This stores the secret in the KMS vault, NOT in worker config.
+ * Workers will fetch secrets at runtime using their TEE attestation.
  */
 async function setSecret(
   appName: string,
@@ -63,23 +78,37 @@ async function setSecret(
   value: string,
   scope: string,
   network: NetworkType,
-  authToken: string,
-  address: Address,
-): Promise<void> {
+  authToken: string | null,
+  address: Address | null,
+  serviceId?: string,
+): Promise<{ secretId: string }> {
   const dwsUrl = getDWSUrlForNetwork(network)
 
-  const response = await fetch(`${dwsUrl}/secrets/set`, {
+  // Use the KMS vault endpoint to store secrets securely
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`
+  }
+  if (serviceId) {
+    headers['x-service-id'] = serviceId
+  } else if (address) {
+    headers['x-jeju-address'] = address
+  }
+
+  const response = await fetch(`${dwsUrl}/kms/vault/secrets`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${authToken}`,
-      'X-Jeju-Address': address,
-    },
+    headers,
     body: JSON.stringify({
-      app: appName,
-      key,
+      // Secret name includes app scope for namespacing
+      name: `${appName}:${key}`,
       value,
-      scope,
+      tags: [appName, scope],
+      // Policy allows the deployer to access the secret
+      policy: {
+        allowedWorkerIds: [`${appName}-worker`],
+      },
     }),
   })
 
@@ -87,10 +116,22 @@ async function setSecret(
     const error = await response.text()
     throw new Error(`Failed to set secret: ${error}`)
   }
+
+  const result = z
+    .object({
+      id: z.string().optional(),
+      secretId: z.string().optional(),
+    })
+    .parse(await response.json())
+  const secretId = result.secretId ?? result.id
+  if (!secretId) {
+    throw new Error('Failed to set secret: missing secret id')
+  }
+  return { secretId }
 }
 
 /**
- * List secrets
+ * List secrets from KMS (metadata only, no values)
  */
 async function listSecrets(
   appName: string,
@@ -100,10 +141,11 @@ async function listSecrets(
 ): Promise<Secret[]> {
   const dwsUrl = getDWSUrlForNetwork(network)
 
-  const response = await fetch(`${dwsUrl}/secrets/list?app=${appName}`, {
+  // Use vault endpoint to list secrets
+  const response = await fetch(`${dwsUrl}/kms/vault/secrets`, {
     headers: {
       Authorization: `Bearer ${authToken}`,
-      'X-Jeju-Address': address,
+      'x-jeju-address': address,
     },
   })
 
@@ -115,12 +157,32 @@ async function listSecrets(
     throw new Error(`Failed to list secrets: ${response.statusText}`)
   }
 
-  const data = await response.json()
-  return data.secrets ?? []
+  const data = (await response.json()) as {
+    secrets: Array<{
+      id: string
+      name: string
+      version: number
+      createdAt: number
+      updatedAt: number
+      tags?: string[]
+    }>
+  }
+
+  // Filter to app's secrets and transform to expected format
+  return data.secrets
+    .filter((s) => s.name.startsWith(`${appName}:`))
+    .map((s) => ({
+      key: s.name.replace(`${appName}:`, ''),
+      createdAt: s.createdAt,
+      updatedAt: s.updatedAt,
+      scope: (s.tags?.find((t) =>
+        ['production', 'preview', 'development', 'all'].includes(t),
+      ) ?? 'all') as Secret['scope'],
+    }))
 }
 
 /**
- * Delete a secret
+ * Delete a secret from KMS
  */
 async function deleteSecret(
   appName: string,
@@ -131,18 +193,26 @@ async function deleteSecret(
 ): Promise<void> {
   const dwsUrl = getDWSUrlForNetwork(network)
 
-  const response = await fetch(`${dwsUrl}/secrets/delete`, {
-    method: 'DELETE',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${authToken}`,
-      'X-Jeju-Address': address,
+  // First, get the secret ID from the list
+  const secrets = await listSecrets(appName, network, authToken, address)
+  const secret = secrets.find((s) => s.key === key)
+
+  if (!secret) {
+    throw new Error(`Secret ${key} not found for app ${appName}`)
+  }
+
+  // Delete from vault using the namespaced name
+  const secretName = `${appName}:${key}`
+  const response = await fetch(
+    `${dwsUrl}/kms/vault/secrets/${encodeURIComponent(secretName)}`,
+    {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        'x-jeju-address': address,
+      },
     },
-    body: JSON.stringify({
-      app: appName,
-      key,
-    }),
-  })
+  )
 
   if (!response.ok) {
     const error = await response.text()
@@ -151,7 +221,10 @@ async function deleteSecret(
 }
 
 /**
- * Get a secret value (for pulling to local)
+ * Get a secret value from KMS (for pulling to local development)
+ *
+ * SECURITY: This should only be used for local development.
+ * In production, workers fetch secrets directly from KMS using TEE attestation.
  */
 async function getSecretValue(
   appName: string,
@@ -162,15 +235,21 @@ async function getSecretValue(
 ): Promise<string | null> {
   const dwsUrl = getDWSUrlForNetwork(network)
 
-  const response = await fetch(
-    `${dwsUrl}/secrets/get?app=${appName}&key=${key}`,
-    {
-      headers: {
-        Authorization: `Bearer ${authToken}`,
-        'X-Jeju-Address': address,
-      },
+  // Use batch fetch endpoint to get secret value
+  const secretName = `${appName}:${key}`
+  const response = await fetch(`${dwsUrl}/vault/secrets/batch`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${authToken}`,
+      'x-jeju-address': address,
+      'x-worker-id': 'cli-pull', // Special worker ID for CLI operations
     },
-  )
+    body: JSON.stringify({
+      secretIds: [secretName],
+      workerId: 'cli-pull',
+    }),
+  })
 
   if (!response.ok) {
     if (response.status === 404) {
@@ -179,8 +258,13 @@ async function getSecretValue(
     throw new Error(`Failed to get secret ${key}: ${response.statusText}`)
   }
 
-  const data = await response.json()
-  return data.value ?? null
+  const data = (await response.json()) as {
+    secrets: Array<{ secretId: string; value: string }>
+    errors?: Array<{ secretId: string; error: string }>
+  }
+
+  const secret = data.secrets.find((s) => s.secretId === secretName)
+  return secret?.value ?? null
 }
 
 export const secretCommand = new Command('secret')
@@ -236,9 +320,9 @@ secretCommand
       logger.warn('Secret keys should be UPPER_SNAKE_CASE')
     }
 
-    logger.step(`Setting ${key}...`)
+    logger.step(`Setting ${key} in KMS...`)
 
-    await setSecret(
+    const result = await setSecret(
       appName,
       key,
       secretValue,
@@ -248,8 +332,12 @@ secretCommand
       credentials.address as Address,
     )
 
-    logger.success(`Secret ${key} set for ${appName}`)
+    logger.success(`Secret ${key} stored in KMS for ${appName}`)
+    logger.info(`Secret ID: ${result.secretId}`)
     logger.info(`Scope: ${options.scope}`)
+    logger.newline()
+    logger.info('SECURITY: Secret is stored in KMS, not in worker config')
+    logger.info('Workers fetch secrets at runtime using TEE attestation')
     logger.newline()
     logger.info('Redeploy to apply: jeju publish')
   })
@@ -428,6 +516,7 @@ secretCommand
   .description('Push local .env file to secrets')
   .option('--app <name>', 'App name (default: from manifest)')
   .option('-i, --input <file>', 'Input file', '.env.local')
+  .option('--service-id <id>', 'Store secrets under service identity')
   .option(
     '--scope <scope>',
     'Secret scope: production, preview, development, all',
@@ -436,6 +525,10 @@ secretCommand
   .action(async (options) => {
     const credentials = requireLogin()
     const network = credentials.network as NetworkType
+    const serviceId = typeof options.serviceId === 'string'
+      ? options.serviceId.trim()
+      : ''
+    const useServiceId = serviceId.length > 0
     const cwd = process.cwd()
 
     // Get app name
@@ -460,6 +553,7 @@ secretCommand
     const lines = content.split('\n')
 
     let pushed = 0
+    const secretIds: string[] = []
     for (const line of lines) {
       // Skip comments and empty lines
       if (!line || line.startsWith('#')) continue
@@ -479,23 +573,33 @@ secretCommand
         value = value.slice(1, -1)
       }
 
-      logger.step(`Setting ${key}...`)
+      logger.step(`Storing ${key} in KMS...`)
 
-      await setSecret(
+      const result = await setSecret(
         appName,
         key,
         value,
         options.scope,
         network,
-        credentials.authToken,
-        credentials.address as Address,
+        useServiceId ? null : credentials.authToken,
+        useServiceId ? null : (credentials.address as Address),
+        useServiceId ? serviceId : undefined,
       )
 
+      secretIds.push(`${key}:${result.secretId}`)
       pushed++
     }
 
-    logger.success(`Pushed ${pushed} secrets from ${options.input}`)
+    logger.success(`Pushed ${pushed} secrets to KMS from ${options.input}`)
     logger.info(`Scope: ${options.scope}`)
+    logger.newline()
+    logger.info(
+      'SECURITY: Secrets stored in KMS, not embedded in worker config',
+    )
+    logger.info('Secret IDs registered:')
+    for (const id of secretIds) {
+      logger.info(`  - ${id}`)
+    }
     logger.newline()
     logger.info('Redeploy to apply: jeju publish')
   })

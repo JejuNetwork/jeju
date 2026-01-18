@@ -96,7 +96,7 @@ export const OAUTH3_APP_REGISTRY_ABI = [
           { name: 'name', type: 'string' },
           { name: 'description', type: 'string' },
           { name: 'owner', type: 'address' },
-          { name: 'council', type: 'address' },
+          { name: 'board', type: 'address' },
           { name: 'createdAt', type: 'uint256' },
           { name: 'active', type: 'bool' },
         ],

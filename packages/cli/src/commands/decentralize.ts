@@ -152,7 +152,7 @@ async function transferOwnership(options: TransferOptions): Promise<void> {
   console.log('\n⛔ THIS ACTION IS IRREVERSIBLE ⛔\n')
   console.log('After this:')
   console.log('  • All admin changes require 30-day timelock')
-  console.log('  • Emergency changes require 7-day minimum + Security Council')
+  console.log('  • Emergency changes require 7-day minimum + Security Board')
   console.log('  • You CANNOT undo this transfer')
   console.log('  • Direct owner access will be PERMANENTLY LOST')
   console.log(`\n${'⚠️ '.repeat(30)}\n`)

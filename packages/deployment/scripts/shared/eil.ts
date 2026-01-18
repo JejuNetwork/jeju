@@ -378,7 +378,7 @@ export class EILClient {
           clearTimeout(timeout)
           unwatch()
           const log = logs[0]
-          // Note: Signature is not emitted in VoucherIssued event
+          // Signature is not emitted in VoucherIssued event
           // It must be fetched separately or obtained from the XLP off-chain
           // For now, we return empty string and the caller should fetch it if needed
           resolve({

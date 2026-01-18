@@ -60,7 +60,7 @@ const STATUS_CONFIG = [
   { label: 'Pending', color: 'bg-gray-500', icon: Clock },
   { label: 'Validating', color: 'bg-blue-500', icon: Shield },
   { label: 'Guardian Review', color: 'bg-purple-500', icon: User },
-  { label: 'CEO Review', color: 'bg-indigo-500', icon: User },
+  { label: 'Director Review', color: 'bg-indigo-500', icon: User },
   { label: 'Approved', color: 'bg-green-500', icon: CheckCircle },
   { label: 'Paid', color: 'bg-emerald-500', icon: DollarSign },
   { label: 'Rejected', color: 'bg-red-500', icon: XCircle },

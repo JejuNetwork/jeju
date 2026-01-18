@@ -13,15 +13,16 @@
 #   kurtosis run packages/deployment/kurtosis/decentralized-local.star --enclave jeju-decentralized
 
 # Use Jeju's decentralized registry
-# Fallback to upstream for bootstrapping (when registry.jeju isn't available yet)
-REGISTRY_JEJU = "localhost:5000"
+# For local dev, use 127.0.0.1:5000 (local Docker registry)
+# In production, use registry.jeju
+REGISTRY_JEJU = "127.0.0.1:5000"
 FALLBACK_REGISTRY = "us-docker.pkg.dev/oplabs-tools-artifacts/images"
 
 # Versions
-GETH_VERSION = "v1.14.12"
+GETH_VERSION = "v1.16.7"
 OP_GETH_VERSION = "v1.101408.0"
 OP_NODE_VERSION = "v1.10.1"
-OP_CONDUCTOR_VERSION = "v1.10.1"
+OP_CONDUCTOR_VERSION = "latest"
 OP_BATCHER_VERSION = "v1.10.1"
 OP_PROPOSER_VERSION = "v1.10.1"
 
@@ -64,33 +65,56 @@ def run(plan, args={}):
     
     plan.print("Generating cryptographic material...")
     
-    # Use hardcoded dev keys for local development - DO NOT USE IN PRODUCTION
-    # These are deterministic for reproducibility in local dev
-    jwt_secret = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+    # Use alpine image which has /dev/urandom for random hex generation
+    jwt_result = plan.run_sh(
+        run="cat /dev/urandom | head -c 32 | od -A n -t x1 | tr -d ' \n'",
+        image="alpine:latest",
+        name="gen-jwt"
+    )
+    jwt_secret = jwt_result.output.strip()
     
-    # Sequencer keys (from well-known test accounts)
-    sequencer_keys = [
-        "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-        "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
-        "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a",
-    ]
+    # Generate unique keys for each sequencer
+    sequencer_keys = []
+    for i in range(SEQUENCER_COUNT):
+        key_result = plan.run_sh(
+            run="cat /dev/urandom | head -c 32 | od -A n -t x1 | tr -d ' \n'",
+            image="alpine:latest",
+            name="gen-seq-key-" + str(i)
+        )
+        sequencer_keys.append("0x" + key_result.output.strip())
     
-    # Operator keys (from well-known test accounts)
-    batcher_key = "0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6"
-    proposer_key = "0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a"
-    challenger_key = "0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba"
+    # Generate operator keys (batcher, proposer, challenger)
+    batcher_key_result = plan.run_sh(
+        run="cat /dev/urandom | head -c 32 | od -A n -t x1 | tr -d ' \n'",
+        image="alpine:latest",
+        name="gen-batcher-key"
+    )
+    proposer_key_result = plan.run_sh(
+        run="cat /dev/urandom | head -c 32 | od -A n -t x1 | tr -d ' \n'",
+        image="alpine:latest",
+        name="gen-proposer-key"
+    )
+    challenger_key_result = plan.run_sh(
+        run="cat /dev/urandom | head -c 32 | od -A n -t x1 | tr -d ' \n'",
+        image="alpine:latest",
+        name="gen-challenger-key"
+    )
+    
+    batcher_key = "0x" + batcher_key_result.output.strip()
+    proposer_key = "0x" + proposer_key_result.output.strip()
+    challenger_key = "0x" + challenger_key_result.output.strip()
     
     plan.print("  JWT secret: generated")
     plan.print("  Sequencer keys: " + str(SEQUENCER_COUNT) + " generated")
     plan.print("  Operator keys: batcher, proposer, challenger generated")
     
-    # Create secrets artifact with hardcoded dev keys
+    # Create secrets artifact using render_templates with proper format
     secrets_artifact = plan.render_templates(
         config={
-            "jwt-secret.txt": struct(template=jwt_secret, data={}),
-            "batcher.key": struct(template=batcher_key, data={}),
-            "proposer.key": struct(template=proposer_key, data={}),
-            "challenger.key": struct(template=challenger_key, data={}),
+            "jwt-secret.txt": struct(template="{{.jwt}}", data={"jwt": jwt_secret}),
+            "batcher.key": struct(template="{{.key}}", data={"key": batcher_key}),
+            "proposer.key": struct(template="{{.key}}", data={"key": proposer_key}),
+            "challenger.key": struct(template="{{.key}}", data={"key": challenger_key}),
         },
         name="operator-secrets",
     )
@@ -111,46 +135,31 @@ def run(plan, args={}):
     # ========================================================================
     
     plan.print("")
-    plan.print("Starting L1 chain...")
+    plan.print("Starting L1 chain (anvil)...")
     
+    # Use anvil for L1 - simpler and more reliable for local dev
     l1 = plan.add_service(
-        name="l1-geth",
+        name="l1-anvil",
         config=ServiceConfig(
-            image=REGISTRY_JEJU + "/geth:" + GETH_VERSION,
+            image="ghcr.io/foundry-rs/foundry:latest",
             ports={
                 "rpc": PortSpec(number=8545, transport_protocol="TCP"),
-                "ws": PortSpec(number=8546, transport_protocol="TCP"),
-                "authrpc": PortSpec(number=8551, transport_protocol="TCP"),
             },
+            entrypoint=["anvil"],
             cmd=[
-                "--dev",
-                "--dev.period=2",
-                "--http",
-                "--http.addr=0.0.0.0",
-                "--http.port=8545",
-                "--http.api=eth,net,web3,debug,personal,admin,txpool",
-                "--http.corsdomain=*",
-                "--ws",
-                "--ws.addr=0.0.0.0",
-                "--ws.port=8546",
-                "--ws.api=eth,net,web3,debug",
-                "--ws.origins=*",
-                "--authrpc.addr=0.0.0.0",
-                "--authrpc.port=8551",
-                "--authrpc.vhosts=*",
-                "--authrpc.jwtsecret=/secrets/jwt-secret.txt",
-                "--nodiscover",
-                "--networkid=" + str(L1_CHAIN_ID),
+                "--host", "0.0.0.0",
+                "--port", "8545",
+                "--chain-id", str(L1_CHAIN_ID),
+                "--block-time", "2",
+                "--accounts", "10",
+                "--balance", "10000",
             ],
-            files={
-                "/secrets": secrets_artifact,
-            },
         )
     )
     
     # Wait for L1
     plan.wait(
-        service_name="l1-geth",
+        service_name="l1-anvil",
         recipe=PostHttpRequestRecipe(
             port_id="rpc",
             endpoint="/",
@@ -163,7 +172,7 @@ def run(plan, args={}):
         timeout="60s",
     )
     
-    plan.print("  L1 ready")
+    plan.print("  L1 (anvil) ready")
     
     # ========================================================================
     # Step 4: Start L2 Execution Clients (op-geth)
@@ -188,7 +197,6 @@ def run(plan, args={}):
                 ports={
                     "rpc": PortSpec(number=8545, transport_protocol="TCP"),
                     "ws": PortSpec(number=8546, transport_protocol="TCP"),
-                    "authrpc": PortSpec(number=8551, transport_protocol="TCP"),
                 },
                 cmd=[
                     "--dev",
@@ -203,18 +211,10 @@ def run(plan, args={}):
                     "--ws.port=8546",
                     "--ws.api=eth,net,web3,debug",
                     "--ws.origins=*",
-                    "--authrpc.addr=0.0.0.0",
-                    "--authrpc.port=8551",
-                    "--authrpc.vhosts=*",
-                    "--authrpc.jwtsecret=/secrets/jwt-secret.txt",
                     "--nodiscover",
-                    "--networkid=" + str(L2_CHAIN_ID),
                     "--maxpeers=0",
                     "--gcmode=archive",
                 ],
-                files={
-                    "/secrets": secrets_artifact,
-                },
             )
         )
         sequencer_services.append(seq_name)
@@ -255,7 +255,6 @@ def run(plan, args={}):
   "fjord_time": 0,
   "granite_time": 0,
   "holocene_time": 0,
-  "isthmus_time": 0,
   "batch_inbox_address": "0xff00000000000000000000000000000000000901",
   "deposit_contract_address": "0x0000000000000000000000000000000000000000",
   "l1_system_config_address": "0x0000000000000000000000000000000000000000"
@@ -336,8 +335,9 @@ def run(plan, args={}):
         
         cmd = [
             "op-node",
-            "--l1=ws://l1-geth:8546",
-            "--l2=http://" + seq_name + ":8551",
+            "--l1=http://l1-anvil:8545",
+            "--l1.beacon.ignore",  # Skip beacon for local dev (no L1 beacon running)
+            "--l2=http://" + seq_name + ":8545",
             "--l2.jwt-secret=/secrets/jwt-secret.txt",
             "--rollup.config=/config/rollup.json",
             "--rpc.addr=0.0.0.0",
@@ -389,7 +389,7 @@ def run(plan, args={}):
             },
             cmd=[
                 "op-batcher",
-                "--l1-eth-rpc=http://l1-geth:8545",
+                "--l1-eth-rpc=http://l1-anvil:8545",
                 "--l2-eth-rpc=http://" + sequencer_services[0] + ":8545",
                 "--rollup-rpc=http://" + node_services[0] + ":9545",
                 "--private-key=" + batcher_key,
@@ -425,7 +425,7 @@ def run(plan, args={}):
             },
             cmd=[
                 "op-proposer",
-                "--l1-eth-rpc=http://l1-geth:8545",
+                "--l1-eth-rpc=http://l1-anvil:8545",
                 "--rollup-rpc=http://" + node_services[0] + ":9545",
                 "--private-key=" + proposer_key,
                 "--poll-interval=6s",
@@ -472,7 +472,7 @@ def run(plan, args={}):
     plan.print("  [x] Registry.jeju for container images")
     plan.print("")
     plan.print("Services:")
-    plan.print("  L1:          l1-geth:8545")
+    plan.print("  L1:          l1-anvil:8545")
     if enable_multi_sequencer:
         for name in sequencer_services:
             plan.print("  L2:          " + name + ":8545")
@@ -495,7 +495,7 @@ def run(plan, args={}):
         "multi_sequencer": enable_multi_sequencer,
         "sequencer_count": seq_count,
         "conductor_count": len(conductor_services),
-        "l1_rpc": "http://l1-geth:8545",
+        "l1_rpc": "http://l1-anvil:8545",
         "l2_rpc": "http://" + sequencer_services[0] + ":8545",
         "services": {
             "sequencers": sequencer_services,

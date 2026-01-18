@@ -16,6 +16,20 @@ import { join, resolve } from 'node:path'
 import { getCurrentNetwork } from '@jejunetwork/config'
 import type { BunPlugin } from 'bun'
 
+// Simple bundle size reporter
+function reportBundleSizes(
+  result: { outputs: Array<{ path: string; size?: number }> },
+  label: string,
+): void {
+  console.log(`\n${label} Bundle Sizes:`)
+  for (const output of result.outputs) {
+    const name = output.path.split('/').pop()
+    const size = output.size ?? 0
+    const kb = (size / 1024).toFixed(2)
+    console.log(`  ${name}: ${kb} KB`)
+  }
+}
+
 const DIST_DIR = './dist'
 const STATIC_DIR = `${DIST_DIR}/static`
 const WORKER_DIR = `${DIST_DIR}/worker`
@@ -80,19 +94,17 @@ const browserPlugin: BunPlugin = {
     const messagingStub = resolve('./web/stubs/messaging.ts')
     const dbStub = resolve('./web/stubs/db.ts')
     const sharedStub = resolve('./web/stubs/shared.ts')
+    const contractsStub = resolve('./web/stubs/contracts.ts')
 
     build.onResolve({ filter: /^@jejunetwork\/kms/ }, () => ({ path: kmsStub }))
+    build.onResolve({ filter: /^@jejunetwork\/contracts/ }, () => ({
+      path: contractsStub,
+    }))
     build.onResolve({ filter: /^@jejunetwork\/messaging/ }, () => ({
       path: messagingStub,
     }))
     build.onResolve({ filter: /^@jejunetwork\/db/ }, () => ({ path: dbStub }))
     build.onResolve({ filter: /^@jejunetwork\/deployment/ }, () => ({
-      path: serverOnlyStub,
-    }))
-    build.onResolve({ filter: /^@xmtp\/node-sdk/ }, () => ({
-      path: serverOnlyStub,
-    }))
-    build.onResolve({ filter: /^@xmtp\/node-bindings/ }, () => ({
       path: serverOnlyStub,
     }))
     build.onResolve({ filter: /^ioredis/ }, () => ({ path: serverOnlyStub }))
@@ -106,7 +118,7 @@ const browserPlugin: BunPlugin = {
       path: resolve('./scripts/shims/pino.ts'),
     }))
 
-    // Dedupe React
+    // Dedupe React - ensure all React imports resolve to the same package
     const reactPath = require.resolve('react')
     const reactDomPath = require.resolve('react-dom')
     build.onResolve({ filter: /^react$/ }, () => ({ path: reactPath }))
@@ -121,17 +133,18 @@ const browserPlugin: BunPlugin = {
       path: require.resolve('react-dom/client'),
     }))
 
-    // Dedupe @noble/curves
-    build.onResolve({ filter: /^@noble\/curves\/secp256k1$/ }, () => ({
-      path: require.resolve('@noble/curves/secp256k1'),
+    // Dedupe wagmi and viem to prevent context and crypto issues
+    // Let these packages handle @noble/* internally - don't manually resolve
+    build.onResolve({ filter: /^wagmi$/ }, () => ({
+      path: require.resolve('wagmi'),
     }))
-    build.onResolve({ filter: /^@noble\/curves\/p256$/ }, () => ({
-      path: require.resolve('@noble/curves/p256'),
+    build.onResolve({ filter: /^wagmi\/connectors$/ }, () => ({
+      path: require.resolve('wagmi/connectors'),
     }))
-    build.onResolve({ filter: /^@noble\/curves$/ }, () => ({
-      path: require.resolve('@noble/curves'),
+    build.onResolve({ filter: /^viem$/ }, () => ({
+      path: require.resolve('viem'),
     }))
-    build.onResolve({ filter: /^@noble\/hashes/ }, (args) => ({
+    build.onResolve({ filter: /^viem\/(.*)$/ }, (args) => ({
       path: require.resolve(args.path),
     }))
 
@@ -216,6 +229,7 @@ async function buildFrontend(): Promise<void> {
     sourcemap: 'external',
     external: BROWSER_EXTERNALS,
     plugins: [browserPlugin],
+    drop: ['debugger'],
     define: {
       'process.env.NODE_ENV': JSON.stringify('production'),
       'process.env.JEJU_NETWORK': JSON.stringify(network),
@@ -262,6 +276,8 @@ async function buildFrontend(): Promise<void> {
     throw new Error('Frontend build failed')
   }
 
+  reportBundleSizes(result, 'Bazaar Frontend')
+
   const mainEntry = result.outputs.find(
     (o) => o.kind === 'entry-point' && o.path.includes('client'),
   )
@@ -280,6 +296,7 @@ async function buildFrontend(): Promise<void> {
   <meta name="theme-color" content="#FFFBF7" media="(prefers-color-scheme: light)">
   <title>Bazaar - Agent Marketplace</title>
   <meta name="description" content="The marketplace for tokens, collectibles, prediction markets, and more.">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -305,6 +322,10 @@ async function buildFrontend(): Promise<void> {
 
   if (existsSync('./public')) {
     await cp('./public', `${STATIC_DIR}/public`, { recursive: true })
+    // Copy favicon to root for browser requests
+    if (existsSync('./public/favicon.svg')) {
+      await cp('./public/favicon.svg', `${STATIC_DIR}/favicon.svg`)
+    }
   }
 
   console.log(`  Frontend: ${STATIC_DIR}/`)
@@ -320,6 +341,7 @@ async function buildWorker(): Promise<void> {
     minify: true,
     sourcemap: 'external',
     external: WORKER_EXTERNALS,
+    drop: ['debugger'],
     define: { 'process.env.NODE_ENV': JSON.stringify('production') },
   })
 
@@ -328,6 +350,8 @@ async function buildWorker(): Promise<void> {
     for (const log of result.logs) console.error(log)
     throw new Error('Worker build failed')
   }
+
+  reportBundleSizes(result, 'Bazaar Worker')
 
   let gitCommit = 'unknown'
   let gitBranch = 'unknown'
@@ -412,6 +436,7 @@ async function build(): Promise<void> {
   await createDeploymentBundle()
 
   console.log('\nBuild complete.')
+  process.exit(0)
 }
 
 build().catch((error) => {

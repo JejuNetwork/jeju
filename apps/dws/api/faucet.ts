@@ -62,7 +62,6 @@ const FAUCET_CONFIG = {
   amountPerClaim: parseEther('100'),
   jejuTokenAddress: addr(contracts.tokens.jeju),
   identityRegistryAddress: addr(contracts.registry.identity),
-  faucetPrivateKey: process.env.FAUCET_PRIVATE_KEY,
 } as const
 
 // Chain definition for local/testnet
@@ -193,7 +192,9 @@ let cachedWalletClient: WalletClient | KMSWalletClient | null = null
 async function getWalletClient(): Promise<WalletClient | KMSWalletClient> {
   if (cachedWalletClient) return cachedWalletClient
 
-  // Try KMS first for side-channel protection
+  const isProduction = isProductionEnv()
+
+  // In production, MUST use KMS - no direct private keys
   const kmsKeyId =
     typeof process !== 'undefined' ? process.env.FAUCET_KMS_KEY_ID : undefined
   const ownerAddress = (
@@ -202,6 +203,30 @@ async function getWalletClient(): Promise<WalletClient | KMSWalletClient> {
       : undefined
   ) as Address | undefined
 
+  if (isProduction) {
+    if (!kmsKeyId || !ownerAddress) {
+      throw new Error(
+        'SECURITY: FAUCET_KMS_KEY_ID and FAUCET_OWNER_ADDRESS required in production. ' +
+          'Direct private keys (FAUCET_PRIVATE_KEY) are not allowed in production.',
+      )
+    }
+    const kmsAvailable = await isKMSAvailable()
+    if (!kmsAvailable) {
+      throw new Error(
+        'KMS not available - cannot start faucet in production without KMS',
+      )
+    }
+    cachedWalletClient = await createKMSWalletClient({
+      chain,
+      rpcUrl: RPC_URL,
+      kmsKeyId,
+      ownerAddress,
+    })
+    console.log('[Faucet] Using KMS-backed signing (production)')
+    return cachedWalletClient
+  }
+
+  // Development: Try KMS first, then fallback to direct key
   if (kmsKeyId && ownerAddress) {
     const kmsAvailable = await isKMSAvailable()
     if (kmsAvailable) {
@@ -213,25 +238,24 @@ async function getWalletClient(): Promise<WalletClient | KMSWalletClient> {
       })
       console.log('[Faucet] Using KMS-backed signing')
       return cachedWalletClient
-    } else if (isProductionEnv()) {
-      throw new Error('KMS not available in production for faucet')
     }
   }
 
-  // Fallback to direct key
-  const privateKey = FAUCET_CONFIG.faucetPrivateKey
+  // Development fallback to direct key (fetched at runtime, not stored in config)
+  const privateKey = process.env.FAUCET_PRIVATE_KEY
   if (!privateKey) {
-    throw new Error('FAUCET_PRIVATE_KEY or FAUCET_KMS_KEY_ID not configured')
+    throw new Error(
+      'Faucet not configured. Set FAUCET_KMS_KEY_ID + FAUCET_OWNER_ADDRESS for KMS, ' +
+        'or FAUCET_PRIVATE_KEY for development only.',
+    )
   }
   if (!isHexString(privateKey)) {
     throw new Error('FAUCET_PRIVATE_KEY must be a hex string starting with 0x')
   }
 
-  if (isProductionEnv()) {
-    console.warn(
-      '[Faucet] Using direct key in production - set FAUCET_KMS_KEY_ID',
-    )
-  }
+  console.warn(
+    '[Faucet] WARNING: Using direct FAUCET_PRIVATE_KEY. Use KMS in production.',
+  )
 
   const account = privateKeyToAccount(privateKey)
   cachedWalletClient = createWalletClient({
@@ -285,23 +309,23 @@ async function getFaucetBalance(): Promise<bigint> {
     return 0n
   }
 
-  // No faucet wallet configured
-  if (!FAUCET_CONFIG.faucetPrivateKey) {
+  // Get wallet client to determine faucet address
+  try {
+    const walletClient = await getWalletClient()
+    if (!walletClient.account) {
+      return 0n
+    }
+
+    return publicClient.readContract({
+      address: FAUCET_CONFIG.jejuTokenAddress,
+      abi: erc20Abi,
+      functionName: 'balanceOf',
+      args: [walletClient.account.address],
+    })
+  } catch {
+    // Wallet not configured
     return 0n
   }
-
-  const privateKey = FAUCET_CONFIG.faucetPrivateKey
-  if (!privateKey || !isHexString(privateKey)) {
-    return 0n
-  }
-  const account = privateKeyToAccount(privateKey)
-
-  return publicClient.readContract({
-    address: FAUCET_CONFIG.jejuTokenAddress,
-    abi: erc20Abi,
-    functionName: 'balanceOf',
-    args: [account.address],
-  })
 }
 
 /**
@@ -314,8 +338,14 @@ export function isFaucetConfigured(): boolean {
     return false
   }
 
+  // Check for KMS or direct key configuration
+  const hasKmsConfig = !!(
+    process.env.FAUCET_KMS_KEY_ID && process.env.FAUCET_OWNER_ADDRESS
+  )
+  const hasDirectKey = !!process.env.FAUCET_PRIVATE_KEY
+
   return Boolean(
-    FAUCET_CONFIG.faucetPrivateKey &&
+    (hasKmsConfig || hasDirectKey) &&
       FAUCET_CONFIG.jejuTokenAddress !== ZERO_ADDRESS,
   )
 }

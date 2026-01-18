@@ -1,0 +1,100 @@
+# Gateway
+
+Bridge, staking, token registry, and JNS.
+
+**URL:** https://gateway.jejunetwork.org
+
+## Features
+
+| Feature | Description |
+|---------|-------------|
+| **Bridge** | Move tokens from Ethereum/Base to Jeju |
+| **Staking** | Stake JEJU for rewards |
+| **Token Registry** | Register tokens for gas payments |
+| **Node Registration** | Register as RPC/compute/storage provider |
+| **JNS** | Register .jeju domains |
+
+## Bridge
+
+Uses EIL for instant bridging (~30 seconds).
+
+1. Connect wallet
+2. Select source chain (Ethereum or Base)
+3. Enter amount
+4. Click Bridge
+5. Receive on Jeju
+
+**Supported:** ETH, USDC, USDT, WBTC, registered tokens.
+
+XLPs (liquidity providers) credit you instantly on Jeju, then claim your deposit later.
+
+## Staking
+
+Stake JEJU to:
+- Earn protocol fees
+- Vote in governance
+- Qualify for node operation
+
+| Lock Duration | APY Boost |
+|---------------|-----------|
+| None | Base rate |
+| 3 months | +10% |
+| 6 months | +25% |
+| 12 months | +50% |
+
+## Token Registry
+
+Register ERC-20 tokens for gas payments:
+
+1. Go to Gateway → Token Registry
+2. Click "Register Token"
+3. Provide token address and Chainlink oracle address
+4. Pay 100 JEJU fee
+
+**Requirements:**
+- Chainlink-compatible price oracle
+- $10,000+ liquidity on Jeju DEX
+
+## Node Registration
+
+Register as infrastructure provider:
+
+1. Go to Gateway → Nodes
+2. Select type (RPC, Compute, Storage)
+3. Stake required ETH
+4. Enter endpoint URL
+
+| Type | Stake |
+|------|-------|
+| RPC | 0.5 ETH |
+| Compute | 1 ETH |
+| Storage | 0.5 ETH |
+
+## JNS (Jeju Name Service)
+
+Register human-readable names:
+
+1. Go to Gateway → JNS
+2. Search for available name
+3. Select duration (1-5 years)
+4. Pay fee
+5. Use `yourname.jeju` instead of addresses
+
+## Run Locally
+
+```bash
+cd apps/gateway
+bun install
+bun run dev
+```
+
+Runs on http://localhost:4001
+
+## Environment
+
+```bash
+VITE_RPC_URL=http://127.0.0.1:9545
+VITE_CHAIN_ID=1337
+VITE_WALLETCONNECT_PROJECT_ID=...
+VITE_INDEXER_URL=http://127.0.0.1:4350/graphql
+```

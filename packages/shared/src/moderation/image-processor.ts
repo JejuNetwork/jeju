@@ -7,7 +7,7 @@
  * - Computes perceptual hash (dHash) for similarity matching
  * - Extracts dimensions from image headers
  *
- * Note: Image resize requires sharp. Without it, images are processed at original size.
+ * Image resize requires sharp. Without it, images are processed at original size.
  */
 
 import { logger } from '../logger'

@@ -7,6 +7,7 @@ import {
   erc20Abi,
   formatUnits,
   http,
+  isAddress,
 } from 'viem'
 import { CONTRACTS, RPC_URL } from '../../config'
 import {
@@ -22,6 +23,7 @@ import {
   Grid,
   InfoCard,
   PageHeader,
+  Pagination,
 } from '../components/ui'
 import { JEJU_CHAIN_ID } from '../config/chains'
 
@@ -110,10 +112,55 @@ async function fetchDefaultTokens(): Promise<Token[]> {
   const rpcUrl = typeof window !== 'undefined' ? '/api/rpc' : RPC_URL
   const client = createPublicClient({ transport: http(rpcUrl) })
 
-  // Known localnet tokens
+  // Known localnet tokens - include JEJU and seeded tokens
   const knownTokens: Array<{ address: Address; verified: boolean }> = [
     { address: CONTRACTS.jeju, verified: true },
   ]
+
+  // Load seeded tokens from seed state if available (for localnet)
+  if (typeof window === 'undefined') {
+    // Server-side: try to read seed state file
+    try {
+      const { readFileSync, existsSync } = await import('node:fs')
+      const { join } = await import('node:path')
+      const seedStatePath = join(process.cwd(), 'apps/bazaar/.seed-state.json')
+      if (existsSync(seedStatePath)) {
+        const seedState = JSON.parse(readFileSync(seedStatePath, 'utf-8'))
+        if (seedState.coins && Array.isArray(seedState.coins)) {
+          for (const coin of seedState.coins) {
+            if (coin.address && isAddress(coin.address)) {
+              knownTokens.push({
+                address: coin.address as Address,
+                verified: false, // Seeded tokens are not verified by default
+              })
+            }
+          }
+        }
+      }
+    } catch {
+      // Failed to load seed state - continue with default tokens
+    }
+  } else {
+    // Client-side: try to fetch seed state from API
+    try {
+      const response = await fetch('/api/seed-state')
+      if (response.ok) {
+        const seedState = await response.json()
+        if (seedState.coins && Array.isArray(seedState.coins)) {
+          for (const coin of seedState.coins) {
+            if (coin.address && isAddress(coin.address)) {
+              knownTokens.push({
+                address: coin.address as Address,
+                verified: false,
+              })
+            }
+          }
+        }
+      }
+    } catch {
+      // Failed to fetch seed state - continue with default tokens
+    }
+  }
 
   for (const { address, verified } of knownTokens) {
     // Skip zero addresses
@@ -164,9 +211,12 @@ async function fetchDefaultTokens(): Promise<Token[]> {
   return tokens
 }
 
+const ITEMS_PER_PAGE = 12
+
 export default function CoinsPage() {
   const [filter, setFilter] = useState<FilterType>('all')
   const [orderBy, setOrderBy] = useState<OrderByType>('recent')
+  const [page, setPage] = useState(1)
 
   // Check if indexer is healthy
   const { data: indexerUp } = useQuery({
@@ -187,16 +237,25 @@ export default function CoinsPage() {
       if (indexerUp) {
         try {
           const result = await fetchTokensWithMarketData({
-            limit: 50,
+            limit: 100,
             verified: filter === 'verified' ? true : undefined,
             orderBy,
           })
+          // If indexer returns tokens, use them
           if (result.length > 0) return result
-        } catch {
+          // If indexer is up but returns empty (no Token entities yet), fall back to RPC
+          console.log(
+            '[Coins] Indexer returned empty tokens, falling back to RPC',
+          )
+        } catch (error) {
           // Indexer error, fall through to default tokens
+          console.warn(
+            '[Coins] Indexer query failed, falling back to RPC:',
+            error,
+          )
         }
       }
-      // Fetch default tokens directly from RPC
+      // Fetch default tokens directly from RPC (seeded tokens + JEJU)
       return fetchDefaultTokens()
     },
     refetchInterval: 15000,
@@ -212,6 +271,19 @@ export default function CoinsPage() {
     }
     return tokens
   }, [tokens, filter])
+
+  // Pagination
+  const totalPages = Math.ceil(filteredTokens.length / ITEMS_PER_PAGE)
+  const paginatedTokens = useMemo(() => {
+    const start = (page - 1) * ITEMS_PER_PAGE
+    return filteredTokens.slice(start, start + ITEMS_PER_PAGE)
+  }, [filteredTokens, page])
+
+  // Reset page when filter changes
+  const handleFilterChange = (newFilter: FilterType) => {
+    setFilter(newFilter)
+    setPage(1)
+  }
 
   return (
     <div className="animate-fade-in">
@@ -237,7 +309,7 @@ export default function CoinsPage() {
         <FilterTabs
           options={FILTER_OPTIONS}
           value={filter}
-          onChange={setFilter}
+          onChange={handleFilterChange}
           className="flex-1"
         />
 
@@ -282,13 +354,21 @@ export default function CoinsPage() {
 
       {/* Tokens Grid */}
       {!isLoading && !error && filteredTokens.length > 0 && (
-        <Grid cols={3}>
-          {filteredTokens.map((token, index) => (
-            <div key={token.address} className={`stagger-${(index % 6) + 1}`}>
-              <TokenCard token={token} />
-            </div>
-          ))}
-        </Grid>
+        <>
+          <Grid cols={3}>
+            {paginatedTokens.map((token, index) => (
+              <div key={token.address} className={`stagger-${(index % 6) + 1}`}>
+                <TokenCard token={token} />
+              </div>
+            ))}
+          </Grid>
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            className="mt-8"
+          />
+        </>
       )}
     </div>
   )

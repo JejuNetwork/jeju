@@ -1,0 +1,12 @@
+{
+  "network": "testnet",
+  "phase": "verification",
+  "startedAt": "2026-01-04T04:47:22.215Z",
+  "completedPhases": [
+    "kubernetes",
+    "external-chains",
+    "verification"
+  ],
+  "failedPhase": null,
+  "endpoints": {}
+}

@@ -116,7 +116,7 @@ export const JEJU_TESTNET_CONFIG = {
 
 // MAINNET CONFIGURATION
 
-// Note: JEJU mainnet deployment pending Jeju Network launch
+// JEJU mainnet deployment pending Jeju Network launch
 export const JEJU_MAINNET_CONFIG = {
   // Home chain is Jeju L2 (mainnet)
   homeChain: {

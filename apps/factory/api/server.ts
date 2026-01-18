@@ -45,9 +45,7 @@ import {
 
 const config = getFactoryConfig()
 // When running with frontend dev server, API uses port + 1 (frontend proxies to us)
-const API_PORT_OFFSET = process.env.API_PORT_OFFSET
-  ? Number(process.env.API_PORT_OFFSET)
-  : 0
+const API_PORT_OFFSET = getEnvNumber('API_PORT_OFFSET') ?? 0
 const PORT = config.port + API_PORT_OFFSET
 const isDev = config.isDev
 
@@ -84,11 +82,13 @@ function createApp() {
     .get('/health', () => 'OK')
     .onRequest(async ({ request, set }): Promise<Response | undefined> => {
       const url = new URL(request.url)
-      // Skip rate limiting for health and docs
+      // Skip rate limiting for health, docs, and test mode
       if (
         url.pathname === '/health' ||
         url.pathname === '/api/health' ||
-        url.pathname.startsWith('/swagger')
+        url.pathname.startsWith('/swagger') ||
+        process.env.SKIP_RATE_LIMIT === 'true' ||
+        request.headers.get('X-Test-Mode') === 'true'
       ) {
         return undefined
       }

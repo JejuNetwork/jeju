@@ -29,10 +29,10 @@ export const ProposalStatusSchema = z.nativeEnum({
   DRAFT: 0,
   PENDING_QUALITY: 1,
   SUBMITTED: 2,
-  COUNCIL_REVIEW: 3,
+  BOARD_REVIEW: 3,
   RESEARCH: 4,
-  COUNCIL_FINAL: 5,
-  CEO_QUEUE: 6,
+  BOARD_FINAL: 5,
+  DIRECTOR_QUEUE: 6,
   APPROVED: 7,
   EXECUTING: 8,
   COMPLETED: 9,
@@ -75,7 +75,7 @@ export const FundingStatusSchema = z.nativeEnum({
   REJECTED: 5,
 })
 
-export const CouncilRoleSchema = z.nativeEnum({
+export const BoardRoleSchema = z.nativeEnum({
   TREASURY: 0,
   CODE: 1,
   COMMUNITY: 2,
@@ -151,7 +151,7 @@ export const BountySubmissionStatusSchema = z.nativeEnum(BountySubmissionStatus)
 
 export const ValidationResultSchema = z.nativeEnum(ValidationResult)
 
-export const CEOPersonaSchema = z.object({
+export const DirectorPersonaSchema = z.object({
   name: z.string().min(1).max(100),
   pfpCid: z.string().min(1),
   description: z.string().min(10).max(500),
@@ -162,7 +162,7 @@ export const CEOPersonaSchema = z.object({
   specialties: z.array(z.string().min(1)).min(1).max(10),
 })
 
-export const CouncilMemberConfigSchema = z.object({
+export const BoardMemberConfigSchema = z.object({
   member: AddressSchema,
   agentId: BigIntSchema,
   role: z.string().min(1).max(50),
@@ -173,7 +173,7 @@ export const CouncilMemberConfigSchema = z.object({
 
 export const GovernanceParamsSchema = z.object({
   minQualityScore: z.number().int().min(0).max(100),
-  councilVotingPeriod: z.number().int().positive(),
+  boardVotingPeriod: z.number().int().positive(),
   autocratVotingPeriod: z.number().int().positive().optional(),
   gracePeriod: z.number().int().positive(),
   minProposalStake: BigIntSchema,
@@ -190,12 +190,12 @@ export const FundingConfigSchema = z.object({
   cooldownPeriod: z.number().int().positive(),
   matchingMultiplier: z.number().int().min(0).max(100000),
   quadraticEnabled: z.boolean(),
-  ceoWeightCap: z.number().int().min(0).max(10000),
+  directorWeightCap: z.number().int().min(0).max(10000),
 })
 
 export const DAOContractsSchema = z.object({
-  council: AddressSchema,
-  ceoAgent: AddressSchema,
+  board: AddressSchema,
+  directorAgent: AddressSchema,
   treasury: AddressSchema,
   feeConfig: AddressSchema,
   daoRegistry: AddressSchema,
@@ -213,12 +213,12 @@ export const AgentConfigSchema = z.object({
   model: z.string().min(1).max(100),
   endpoint: z.string().url(),
   systemPrompt: z.string().min(10).max(5000),
-  persona: CEOPersonaSchema.optional(),
+  persona: DirectorPersonaSchema.optional(),
 })
 
 export const DAOAgentsSchema = z.object({
-  ceo: AgentConfigSchema,
-  council: z.array(AgentConfigSchema).min(1).max(20),
+  director: AgentConfigSchema,
+  board: z.array(AgentConfigSchema).min(1).max(20),
   proposalAgent: AgentConfigSchema,
   researchAgent: AgentConfigSchema,
   fundingAgent: AgentConfigSchema,
@@ -230,10 +230,10 @@ export const DAOSchema = z.object({
   displayName: z.string().min(1).max(200),
   description: z.string().min(10).max(2000),
   treasury: AddressSchema,
-  council: AddressSchema,
-  ceoAgent: AddressSchema,
+  board: AddressSchema,
+  directorAgent: AddressSchema,
   feeConfig: AddressSchema,
-  ceoModelId: z.string().min(1),
+  directorModelId: z.string().min(1),
   manifestCid: z.string().min(1),
   status: DAOStatusSchema,
   createdAt: z.number().int().positive(),
@@ -243,9 +243,9 @@ export const DAOSchema = z.object({
 
 export const DAOFullSchema = z.object({
   dao: DAOSchema,
-  ceoPersona: CEOPersonaSchema,
+  directorPersona: DirectorPersonaSchema,
   params: GovernanceParamsSchema,
-  councilMembers: z.array(CouncilMemberConfigSchema),
+  boardMembers: z.array(BoardMemberConfigSchema),
   linkedPackages: z.array(z.string().min(1)),
   linkedRepos: z.array(z.string().min(1)),
 })
@@ -298,11 +298,11 @@ export const QualityAssessmentSchema = z.object({
   readyToSubmit: z.boolean(),
 })
 
-export const CouncilVoteSchema = z.object({
+export const BoardVoteSchema = z.object({
   proposalId: ProposalIdSchema,
   daoId: z.string().min(1).max(100),
-  councilAgentId: z.string().min(1),
-  role: CouncilRoleSchema,
+  boardAgentId: z.string().min(1),
+  role: BoardRoleSchema,
   vote: VoteTypeSchema,
   reasoning: z.string().min(10).max(2000),
   concerns: z.array(z.string().min(1)),
@@ -342,7 +342,7 @@ export const ResearchReportSchema = z.object({
   ipfsHash: z.string().min(1),
 })
 
-export const CEODecisionSchema = z.object({
+export const DirectorDecisionSchema = z.object({
   proposalId: ProposalIdSchema,
   daoId: z.string().min(1).max(100),
   approved: z.boolean(),
@@ -569,7 +569,7 @@ export const BugBountyVoteRequestSchema = z.object({
   feedback: z.string().min(10).max(2000),
 })
 
-export const BugBountyCEODecisionRequestSchema = z.object({
+export const BugBountyDirectorDecisionRequestSchema = z.object({
   approved: z.boolean(),
   rewardAmount: z.string().min(1),
   notes: z.string().min(10).max(2000),
@@ -619,7 +619,7 @@ export const A2AMessageSchema = z.object({
 export const A2AChatParamsSchema = z.object({
   message: z.string().min(1).max(5000),
   agent: z
-    .enum(['ceo', 'treasury', 'code', 'community', 'security'])
+    .enum(['director', 'treasury', 'code', 'community', 'security'])
     .optional(),
 })
 
@@ -821,10 +821,6 @@ export const DirectorStatusDataSchema = z.object({
     .optional(),
 })
 export type DirectorStatusData = z.infer<typeof DirectorStatusDataSchema>
-
-// Legacy export for backwards compatibility
-export const CEOStatusDataSchema = DirectorStatusDataSchema
-export type CEOStatusData = DirectorStatusData
 
 export const AutocratStatusDataSchema = z.object({
   roles: z.array(

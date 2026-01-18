@@ -1,3 +1,15 @@
+/**
+ * Crucible Test Setup
+ *
+ * App-specific test setup that runs AFTER the shared infrastructure setup.
+ * The shared setup (@jejunetwork/tests/bun-global-setup) handles:
+ * - Starting jeju dev --minimal if needed
+ * - Verifying localnet (L1/L2) is running
+ * - Setting environment variables for RPC, DWS, etc.
+ *
+ * This file adds Crucible-specific environment setup.
+ */
+
 import { afterAll, beforeAll } from 'bun:test'
 import { getServicesConfig } from '@jejunetwork/config'
 
@@ -11,27 +23,35 @@ interface TestEnv {
 // Check if DWS is available
 async function checkDWS(): Promise<boolean> {
   const dwsUrl = getServicesConfig().dws.api
-  const result = await fetch(`${dwsUrl}/health`, {
-    signal: AbortSignal.timeout(2000),
-  })
-  return result.ok
+  try {
+    const result = await fetch(`${dwsUrl}/health`, {
+      signal: AbortSignal.timeout(2000),
+    })
+    return result.ok
+  } catch {
+    return false
+  }
 }
 
 // Check if RPC is available
 async function checkRPC(): Promise<boolean> {
   const rpcUrl = getServicesConfig().rpc.l2
-  const result = await fetch(rpcUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      method: 'eth_chainId',
-      params: [],
-      id: 1,
-    }),
-    signal: AbortSignal.timeout(2000),
-  })
-  return result.ok
+  try {
+    const result = await fetch(rpcUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_chainId',
+        params: [],
+        id: 1,
+      }),
+      signal: AbortSignal.timeout(2000),
+    })
+    return result.ok
+  } catch {
+    return false
+  }
 }
 
 /**
@@ -54,23 +74,6 @@ export async function isReady(): Promise<boolean> {
 }
 
 /**
- * Wait for infrastructure to be healthy
- */
-async function waitForInfra(_maxAttempts = 5): Promise<boolean> {
-  const status = await getStatus()
-
-  if (!status.rpc) {
-    console.warn('RPC not available - chain-dependent tests will fail')
-  }
-
-  if (!status.dws) {
-    console.warn('DWS not available - storage/compute tests will fail')
-  }
-
-  return status.rpc && status.dws
-}
-
-/**
  * Get test environment using config (handles env var overrides internally)
  */
 export function getTestEnv(): TestEnv {
@@ -85,13 +88,25 @@ export function getTestEnv(): TestEnv {
 }
 
 /**
- * Setup hook - call in describe block or beforeAll
+ * Setup hook - verifies infrastructure is available
  */
 export async function setup(): Promise<void> {
-  // Verify infrastructure is healthy
-  const ready = await waitForInfra(5)
-  if (!ready) {
-    console.warn('Infrastructure not fully available - tests may be skipped')
+  console.log('\n[Crucible Setup] Verifying test infrastructure...')
+
+  // Verify infrastructure is healthy (should be from shared setup)
+  const status = await getStatus()
+
+  if (!status.rpc) {
+    throw new Error(
+      'Localnet RPC not available. The shared test setup should have started it.\n' +
+        'Run: bun run jeju dev --minimal',
+    )
+  }
+
+  if (!status.dws) {
+    console.warn(
+      '[Crucible Setup] DWS not available - storage/compute tests will fail',
+    )
   }
 
   // Set environment variables for Crucible
@@ -99,13 +114,18 @@ export async function setup(): Promise<void> {
   process.env.DWS_URL = env.dwsUrl
   process.env.STORAGE_API_URL = env.storageUrl
   process.env.COMPUTE_MARKETPLACE_URL = env.computeUrl
+
+  console.log('[Crucible Setup] Environment:')
+  console.log(`   RPC: ${env.rpcUrl} ${status.rpc ? '✅' : '❌'}`)
+  console.log(`   DWS: ${env.dwsUrl} ${status.dws ? '✅' : '❌'}`)
+  console.log('')
 }
 
 /**
- * Teardown hook - call in afterAll
+ * Teardown hook - nothing to tear down, infrastructure is managed externally
  */
 export async function teardown(): Promise<void> {
-  // Nothing to tear down - infrastructure is managed externally
+  // Nothing to tear down - infrastructure is managed by shared setup
 }
 
 // Auto-setup when file is imported in test context

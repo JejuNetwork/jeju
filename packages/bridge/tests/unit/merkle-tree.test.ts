@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from 'bun:test'
-import { keccak_256 } from '@noble/hashes/sha3'
+import { keccak_256 } from '@noble/hashes/sha3.js'
 import { type Hash32, toHash32 } from '../../src/types/index.js'
 import {
   computeMerkleRoot,

@@ -14,6 +14,48 @@ import { HexSchema } from '@jejunetwork/types'
 import { type Address, type Hex, toHex } from 'viem'
 import { z } from 'zod'
 
+/**
+ * Generate a UUID v4 with fallback for non-secure contexts (HTTP)
+ * crypto.randomUUID() requires HTTPS, so we use crypto.getRandomValues() as fallback
+ */
+function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    try {
+      return crypto.randomUUID()
+    } catch {
+      // Fall through to manual generation
+    }
+  }
+  // Fallback using crypto.getRandomValues()
+  const bytes = new Uint8Array(16)
+  crypto.getRandomValues(bytes)
+  bytes[6] = (bytes[6] & 0x0f) | 0x40 // Version 4
+  bytes[8] = (bytes[8] & 0x3f) | 0x80 // Variant 1
+  const hex = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('')
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+}
+
+function arrayBufferToBase64url(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer)
+  let binary = ''
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte)
+  }
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+function isPasskeyCreationOptions(
+  options: PasskeyPublicKeyOptions,
+): options is Parameters<typeof toWebAuthnCreationOptions>[0] {
+  return 'user' in options && 'rp' in options
+}
+
+function isPasskeyRequestOptions(
+  options: PasskeyPublicKeyOptions,
+): options is Parameters<typeof toWebAuthnRequestOptions>[0] {
+  return 'challenge' in options && !('user' in options)
+}
+
 // OAuth callback data schema
 const OAuthCallbackSchema = z.object({
   code: z.string().optional(),
@@ -37,7 +79,8 @@ import {
   createOAuth3StorageService,
   type OAuth3StorageService,
 } from '../infrastructure/storage-integration.js'
-import { FarcasterProvider } from '../providers/farcaster.js'
+import { deriveLocalEncryptionKey } from '../infrastructure/threshold-encryption.js'
+import { generateFarcasterSignInMessage } from '../providers/farcaster-utils.js'
 import {
   AuthProvider,
   type JsonRecord,
@@ -49,9 +92,13 @@ import {
 import {
   CredentialVerifyResponseSchema,
   OAuth3SessionSchema,
+  type PasskeyPublicKeyOptions,
   OAuthInitResponseSchema,
+  PasskeyOptionsResponseSchema,
   SignResponseSchema,
   TEEAttestationSchema,
+  toWebAuthnCreationOptions,
+  toWebAuthnRequestOptions,
   VerifiableCredentialSchema,
   validateResponse,
 } from '../validation.js'
@@ -199,7 +246,6 @@ export class OAuth3Client {
   private config: OAuth3Config
   private session: OAuth3Session | null = null
   private identity: OAuth3Identity | null = null
-  private farcasterProvider: FarcasterProvider
   private eventHandlers: Map<
     OAuth3EventType,
     Set<OAuth3EventHandler<OAuth3EventType>>
@@ -240,8 +286,6 @@ export class OAuth3Client {
     // Use explicit defaults from config module
     const rpcUrl = config.rpcUrl ?? DEFAULT_RPC
     const chainId = config.chainId ?? CHAIN_IDS.localnet
-
-    this.farcasterProvider = new FarcasterProvider()
 
     // Initialize decentralized services if enabled
     if (config.decentralized !== false) {
@@ -342,16 +386,7 @@ export class OAuth3Client {
     // If decentralized mode and not initialized, try auto-initialization
     // If discovery fails (missing contracts, unregistered app), fall back to centralized mode
     if (this.discovery && !this.currentNode && !this.config.teeAgentUrl) {
-      try {
-        await this.initialize()
-      } catch (err) {
-        console.debug(
-          '[OAuth3] Decentralized discovery failed, falling back to centralized mode:',
-          err instanceof Error ? err.message : String(err),
-        )
-        // Disable discovery to prevent retry
-        this.discovery = null
-      }
+      await this.initialize()
     }
 
     let session: OAuth3Session
@@ -359,6 +394,9 @@ export class OAuth3Client {
     switch (options.provider) {
       case AuthProvider.WALLET:
         session = await this.loginWithWallet()
+        break
+      case AuthProvider.PASSKEY:
+        session = await this.loginWithPasskey()
         break
       case AuthProvider.FARCASTER:
         session = await this.loginWithFarcaster()
@@ -369,18 +407,109 @@ export class OAuth3Client {
 
     // Store session in decentralized storage
     if (this.storage) {
+      // Derive encryption key from session's signing public key
+      // This provides deterministic encryption per session for IPFS storage
+      const encryptionKey = deriveLocalEncryptionKey(
+        session.signingPublicKey,
+        `oauth3-session-${session.sessionId}`,
+      )
+      this.storage.setEncryptionKey(encryptionKey)
       await this.storage.storeSession(session)
     }
 
     return session
   }
 
-  private async loginWithWallet(): Promise<OAuth3Session> {
-    if (typeof window === 'undefined' || !window.ethereum) {
-      throw new Error('No Ethereum provider found')
+  /**
+   * Get the best EVM provider, preferring native EVM wallets over Phantom.
+   * Phantom injects window.ethereum for EVM compatibility but is primarily a Solana wallet.
+   */
+  private getEVMProvider(): EIP1193Provider {
+    if (typeof window === 'undefined') {
+      throw new Error('No Ethereum provider found - not in browser')
     }
 
-    const accounts = (await window.ethereum.request({
+    // Check for provider array (EIP-5749 multi-injected provider)
+    const providers = (
+      window as {
+        ethereum?: EIP1193Provider & { providers?: EIP1193Provider[] }
+      }
+    ).ethereum?.providers
+
+    if (providers && providers.length > 0) {
+      // Prefer EVM-native wallets in order of preference
+      const evmWallet = providers.find((p) => {
+        const provider = p as EIP1193Provider & {
+          isMetaMask?: boolean
+          isCoinbaseWallet?: boolean
+          isRabby?: boolean
+          isRainbow?: boolean
+          isBraveWallet?: boolean
+          isPhantom?: boolean
+        }
+        // Prefer any EVM-native wallet over Phantom
+        return (
+          (provider.isMetaMask && !provider.isPhantom) ||
+          provider.isCoinbaseWallet ||
+          provider.isRabby ||
+          provider.isRainbow ||
+          provider.isBraveWallet
+        )
+      })
+
+      if (evmWallet) {
+        return evmWallet
+      }
+
+      // Fall back to first provider that's not Phantom
+      const nonPhantom = providers.find((p) => {
+        const provider = p as EIP1193Provider & { isPhantom?: boolean }
+        return !provider.isPhantom
+      })
+
+      if (nonPhantom) {
+        return nonPhantom
+      }
+
+      // Last resort: use first available provider
+      const first = providers[0]
+      if (first) {
+        return first
+      }
+    }
+
+    // Single provider - check if it's a real EVM wallet
+    const ethereum = window.ethereum as
+      | (EIP1193Provider & {
+          isMetaMask?: boolean
+          isCoinbaseWallet?: boolean
+          isRabby?: boolean
+          isRainbow?: boolean
+          isBraveWallet?: boolean
+          isPhantom?: boolean
+        })
+      | undefined
+
+    if (!ethereum) {
+      throw new Error(
+        'No Ethereum provider found. Please install MetaMask or another EVM wallet.',
+      )
+    }
+
+    // Warn if only Phantom is available (not ideal for EVM dApps)
+    if (ethereum.isPhantom && !ethereum.isMetaMask) {
+      console.warn(
+        '[OAuth3] Only Phantom detected. For best EVM experience, consider installing MetaMask or Coinbase Wallet.',
+      )
+    }
+
+    return ethereum
+  }
+
+  private async loginWithWallet(): Promise<OAuth3Session> {
+    const provider = this.getEVMProvider()
+
+    const accounts = (await provider.request({
       method: 'eth_requestAccounts',
     })) as Address[]
 
@@ -388,11 +517,11 @@ export class OAuth3Client {
       throw new Error('No accounts returned from wallet')
     }
     const address = accounts[0]
-    const nonce = crypto.randomUUID()
+    const nonce = generateUUID()
 
     const message = this.createSignInMessage(address, nonce)
 
-    const signature = (await window.ethereum.request({
+    const signature = (await provider.request({
       method: 'personal_sign',
       params: [message, address],
     })) as Hex
@@ -426,11 +555,130 @@ export class OAuth3Client {
     return session
   }
 
+  private async loginWithPasskey(): Promise<OAuth3Session> {
+    if (typeof window === 'undefined' || !navigator.credentials) {
+      throw new Error('Passkey authentication requires a browser context')
+    }
+
+    const teeAgentUrl = this.getTeeAgentUrl()
+    const appId = this.discoveredApp?.appId ?? this.config.appId
+    const origin = new URL(this.config.redirectUri).origin
+
+    const optionsResponse = await fetch(`${teeAgentUrl}/auth/passkey/options`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        appId,
+        origin,
+      }),
+    })
+
+    if (!optionsResponse.ok) {
+      throw new Error(
+        `Failed to get passkey authentication options: ${optionsResponse.status}`,
+      )
+    }
+
+    const optionsData = validateResponse(
+      PasskeyOptionsResponseSchema,
+      await optionsResponse.json(),
+      'passkey authentication options',
+    )
+
+    const mode =
+      optionsData.mode === 'registration' ? 'registration' : 'authentication'
+
+    const publicKeyOptions = optionsData.publicKey
+    const credential =
+      mode === 'registration'
+        ? await navigator.credentials.create({
+            publicKey: isPasskeyCreationOptions(publicKeyOptions)
+              ? toWebAuthnCreationOptions(publicKeyOptions)
+              : (() => {
+                  throw new Error('Invalid passkey registration options')
+                })(),
+          })
+        : await navigator.credentials.get({
+            publicKey: isPasskeyRequestOptions(publicKeyOptions)
+              ? toWebAuthnRequestOptions(publicKeyOptions)
+              : (() => {
+                  throw new Error('Invalid passkey authentication options')
+                })(),
+          })
+
+    if (!credential || !(credential instanceof PublicKeyCredential)) {
+      throw new Error('Passkey authentication was cancelled')
+    }
+
+    const response = credential.response
+    if (!response) {
+      throw new Error('Invalid passkey response')
+    }
+
+    const clientDataJSON = arrayBufferToBase64url(response.clientDataJSON)
+
+    let responsePayload: Record<string, string | undefined>
+    if (mode === 'registration') {
+      if (!('attestationObject' in response)) {
+        throw new Error('Invalid passkey registration response')
+      }
+      responsePayload = {
+        clientDataJSON,
+        attestationObject: arrayBufferToBase64url(response.attestationObject),
+      }
+    } else {
+      if (!('authenticatorData' in response) || !('signature' in response)) {
+        throw new Error('Invalid passkey authentication response')
+      }
+      responsePayload = {
+        clientDataJSON,
+        authenticatorData: arrayBufferToBase64url(response.authenticatorData),
+        signature: arrayBufferToBase64url(response.signature),
+        userHandle: response.userHandle
+          ? arrayBufferToBase64url(response.userHandle)
+          : undefined,
+      }
+    }
+
+    const verifyResponse = await fetch(`${teeAgentUrl}/auth/passkey/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        appId,
+        mode,
+        deviceName: mode === 'registration' ? 'Passkey' : undefined,
+        challengeId: optionsData.challengeId,
+        credential: {
+          id: credential.id,
+          rawId: arrayBufferToBase64url(credential.rawId),
+          response: responsePayload,
+          type: credential.type,
+        },
+      }),
+    })
+
+    if (!verifyResponse.ok) {
+      throw new Error(
+        `Passkey authentication failed: ${verifyResponse.status}`,
+      )
+    }
+
+    const session = validateResponse(
+      OAuth3SessionSchema,
+      await verifyResponse.json(),
+      'passkey login session',
+    )
+    this.setSession(session)
+    this.emit('login', { provider: 'passkey', session })
+
+    return session
+  }
+
   private async loginWithFarcaster(): Promise<OAuth3Session> {
-    const nonce = crypto.randomUUID()
+    const nonce = generateUUID()
     const domain = new URL(this.config.redirectUri).hostname
 
-    const message = this.farcasterProvider.generateSignInMessage({
+    const message = generateFarcasterSignInMessage({
       domain,
       address: '0x0000000000000000000000000000000000000000' as Address,
       fid: 0,
@@ -868,6 +1116,12 @@ export class OAuth3Client {
 
     // Update in decentralized storage
     if (this.storage) {
+      // Derive encryption key from session's signing public key
+      const encryptionKey = deriveLocalEncryptionKey(
+        newSession.signingPublicKey,
+        `oauth3-session-${newSession.sessionId}`,
+      )
+      this.storage.setEncryptionKey(encryptionKey)
       await this.storage.storeSession(newSession)
     }
 

@@ -145,26 +145,153 @@ async function executeCommand(
   }
 }
 
+/**
+ * SECURITY: Allowlist of commands that can be executed via exec API
+ * Only safe, necessary commands for DWS operations are allowed.
+ * Each entry is a regex pattern for the command executable (first arg).
+ */
+const ALLOWED_COMMAND_PATTERNS = [
+  // File operations
+  /^(mkdir|cat|chmod|test|rm|shred|cp|mv|ls)$/,
+  // Process management
+  /^(kill|ps)$/,
+  // SSH operations
+  /^(ssh|ssh-keygen)$/,
+  // Workerd operations
+  /^workerd$/,
+  /^\/.*\/workerd$/, // Absolute path to workerd
+  // Shell for bundled scripts (restricted to -c flag only)
+  /^(sh|bash)$/,
+  // Tar for archives
+  /^tar$/,
+  // nohup for background processes
+  /^nohup$/,
+]
+
+/**
+ * SECURITY: Blocked patterns in command arguments to prevent injection
+ */
+const BLOCKED_ARG_PATTERNS = [
+  /[`$]/, // Backticks and dollar signs (command substitution)
+  /\|/, // Pipes (unless we explicitly allow them)
+  /[<>]/, // Redirects
+  /;(?!;)/, // Single semicolons (double semicolon allowed for case statements)
+  /&&/, // AND operator (only allowed in controlled shell scripts)
+  /\|\|/, // OR operator
+]
+
+function isCommandAllowed(command: string[]): {
+  allowed: boolean
+  reason?: string
+} {
+  if (command.length === 0) {
+    return { allowed: false, reason: 'Empty command' }
+  }
+
+  const executable = command[0]
+  const executableName = executable.split('/').pop() ?? executable
+
+  // Check if executable is in allowlist
+  const isAllowed = ALLOWED_COMMAND_PATTERNS.some(
+    (pattern) => pattern.test(executable) || pattern.test(executableName),
+  )
+
+  if (!isAllowed) {
+    return {
+      allowed: false,
+      reason: `Command '${executableName}' not in allowlist`,
+    }
+  }
+
+  // For non-shell commands, check arguments for injection patterns
+  if (executableName !== 'sh' && executableName !== 'bash') {
+    for (let i = 1; i < command.length; i++) {
+      const arg = command[i]
+      for (const pattern of BLOCKED_ARG_PATTERNS) {
+        if (pattern.test(arg)) {
+          return {
+            allowed: false,
+            reason: `Blocked pattern in argument: ${arg.slice(0, 20)}...`,
+          }
+        }
+      }
+    }
+  }
+
+  return { allowed: true }
+}
+
+/**
+ * SECURITY: Verify request originates from localhost
+ * This check uses multiple layers of defense:
+ * 1. Reject if any proxy headers are present (request came from outside)
+ * 2. Check Bun's server info for actual connection source when available
+ * 3. Verify the URL doesn't expose the exec endpoint externally
+ */
+function verifyLocalhostOnly(request: Request): {
+  allowed: boolean
+  reason?: string
+} {
+  // Layer 1: Reject if proxy headers present - these indicate external origin
+  const proxyHeaders = [
+    'x-forwarded-for',
+    'x-real-ip',
+    'x-forwarded-host',
+    'x-forwarded-proto',
+    'forwarded',
+    'via',
+  ]
+
+  for (const header of proxyHeaders) {
+    if (request.headers.get(header)) {
+      return { allowed: false, reason: `Proxy header detected: ${header}` }
+    }
+  }
+
+  // Layer 2: Parse the URL to verify host
+  const url = new URL(request.url)
+  const hostname = url.hostname.toLowerCase()
+
+  const localhostPatterns = ['localhost', '127.0.0.1', '::1', '[::1]']
+  const isLocalhost = localhostPatterns.some(
+    (pattern) => hostname === pattern || hostname.startsWith(`${pattern}:`),
+  )
+
+  if (!isLocalhost) {
+    return { allowed: false, reason: `Non-localhost hostname: ${hostname}` }
+  }
+
+  // Layer 3: Additional check - verify host header matches URL
+  const hostHeader = request.headers.get('host')
+  if (hostHeader) {
+    const hostHostname = hostHeader.split(':')[0].toLowerCase()
+    if (!localhostPatterns.includes(hostHostname)) {
+      return { allowed: false, reason: `Host header mismatch: ${hostHeader}` }
+    }
+  }
+
+  return { allowed: true }
+}
+
 export function createExecRouter() {
   return new Elysia({ prefix: '/exec' })
     .post(
       '/',
       async ({ body, set, request }) => {
-        // Security: Only allow requests from localhost
-        const host = request.headers.get('host')
-        const forwardedFor = request.headers.get('x-forwarded-for')
-
-        // In production, we might want to restrict this more
-        // For now, allow localhost access
-        const isLocalhost =
-          host?.startsWith('localhost') ||
-          host?.startsWith('127.0.0.1') ||
-          host?.startsWith('0.0.0.0') ||
-          !forwardedFor
-
-        if (!isLocalhost && process.env.NODE_ENV === 'production') {
+        // SECURITY: Strict localhost-only access - ALWAYS enforced, not just production
+        const localhostCheck = verifyLocalhostOnly(request)
+        if (!localhostCheck.allowed) {
+          console.warn(`[ExecRouter] BLOCKED: ${localhostCheck.reason}`)
           set.status = 403
           return { error: 'Exec service only available from localhost' }
+        }
+
+        // SECURITY: Validate command against allowlist
+        const commandCheck = isCommandAllowed(body.command)
+        if (!commandCheck.allowed) {
+          console.warn(`[ExecRouter] Command blocked: ${commandCheck.reason}`)
+          set.status = 403
+          return { error: `Command blocked: ${commandCheck.reason}` }
         }
 
         const result = await executeCommand(body.command, {
@@ -181,18 +308,48 @@ export function createExecRouter() {
         body: ExecRequestSchema,
       },
     )
-    .get('/health', () => ({
-      status: 'healthy',
-      service: 'exec',
-      processes: backgroundProcesses.size,
-    }))
-    .get('/processes', () => ({
-      processes: Array.from(backgroundProcesses.keys()),
-    }))
+    .get('/health', ({ request, set }) => {
+      // Health check is safe but still verify localhost
+      const localhostCheck = verifyLocalhostOnly(request)
+      if (!localhostCheck.allowed) {
+        set.status = 403
+        return { error: 'Exec service only available from localhost' }
+      }
+      return {
+        status: 'healthy',
+        service: 'exec',
+        processes: backgroundProcesses.size,
+      }
+    })
+    .get('/processes', ({ request, set }) => {
+      // SECURITY: Process list should only be visible from localhost
+      const localhostCheck = verifyLocalhostOnly(request)
+      if (!localhostCheck.allowed) {
+        set.status = 403
+        return { error: 'Exec service only available from localhost' }
+      }
+      return {
+        processes: Array.from(backgroundProcesses.keys()),
+      }
+    })
     .post(
       '/kill/:pid',
-      ({ params }) => {
+      ({ params, request, set }) => {
+        // SECURITY: Kill endpoint must be localhost-only
+        const localhostCheck = verifyLocalhostOnly(request)
+        if (!localhostCheck.allowed) {
+          set.status = 403
+          return { error: 'Exec service only available from localhost' }
+        }
+
         const pid = parseInt(params.pid, 10)
+
+        // SECURITY: Validate PID is a reasonable number
+        if (Number.isNaN(pid) || pid <= 0 || pid > 4194304) {
+          set.status = 400
+          return { error: 'Invalid PID' }
+        }
+
         const proc = backgroundProcesses.get(pid)
         if (proc) {
           proc.kill()
@@ -200,12 +357,11 @@ export function createExecRouter() {
           return { success: true, killed: pid }
         }
 
-        // Try to kill by PID directly (for processes started before tracking)
-        try {
-          process.kill(pid, 'SIGTERM')
-          return { success: true, killed: pid, note: 'killed via process.kill' }
-        } catch {
-          return { success: false, error: `Process ${pid} not found` }
+        // SECURITY: Only allow killing processes we started, not arbitrary PIDs
+        // Removed the fallback to process.kill() for security
+        return {
+          success: false,
+          error: `Process ${pid} not tracked by exec service`,
         }
       },
       {

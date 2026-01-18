@@ -4,6 +4,10 @@
  * DWS-deployable worker using Elysia with workerd compatibility.
  * Compatible with workerd runtime and DWS infrastructure.
  *
+ * Architecture:
+ * - Faucet routes: Directly implemented in this worker
+ * - RPC/x402/leaderboard/oracle: Mounted as sub-apps for unified deployment
+ *
  * @see https://elysiajs.com/integrations/cloudflare-worker
  */
 
@@ -13,24 +17,34 @@ import {
   getCoreAppUrl,
   getCurrentNetwork,
   getLocalhostHost,
+  getRpcUrl,
 } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import { z } from 'zod'
 import { config } from './config'
+import { leaderboardApp } from './leaderboard'
+
+// Import sub-apps for unified deployment
+// These are mounted at their respective prefixes
+import { rpcApp } from './rpc/server'
 import {
   claimFromFaucet,
+  claimGasGrant,
   getFaucetInfo,
   getFaucetStatus,
 } from './services/faucet-service'
+import x402App from './x402/server'
 
 /**
  * Worker Environment Types
+ *
+ * SECURITY: All signing operations use KMS via service IDs.
+ * No private keys are passed through environment variables.
  */
 export interface GatewayEnv {
   // Standard workerd bindings
   NETWORK: 'localnet' | 'testnet' | 'mainnet'
   RPC_URL: string
-  FAUCET_PRIVATE_KEY?: string
 
   // KV bindings (optional)
   GATEWAY_CACHE?: KVNamespace
@@ -103,6 +117,13 @@ export function createGatewayApp(env?: Partial<GatewayEnv>) {
           return { success: false, error: 'Invalid address format' }
         }
         return claimFromFaucet(bodyParsed.data.address as `0x${string}`)
+      })
+      .post('/gas-grant', async ({ body }) => {
+        const bodyParsed = z.object({ address: AddressSchema }).safeParse(body)
+        if (!bodyParsed.success) {
+          return { success: false, error: 'Invalid address format' }
+        }
+        return claimGasGrant(bodyParsed.data.address as `0x${string}`)
       }),
   )
 
@@ -156,6 +177,16 @@ export function createGatewayApp(env?: Partial<GatewayEnv>) {
     },
   }))
 
+  // Mount sub-apps at their respective prefixes
+  // RPC Gateway - handles multi-chain RPC proxying
+  app.mount('/rpc', rpcApp.handle)
+
+  // X402 Payment Facilitator
+  app.mount('/x402', x402App.handle)
+
+  // Leaderboard API
+  app.mount('/leaderboard', leaderboardApp.handle)
+
   return app
 }
 
@@ -188,9 +219,10 @@ function getAppForEnv(env: GatewayEnv): ReturnType<typeof createGatewayApp> {
 }
 
 /**
- * Default export for workerd/Cloudflare Workers
+ * Worker handler for workerd/Cloudflare Workers
+ * Exported as named export to avoid Bun auto-serving
  */
-export default {
+export const workerHandler = {
   async fetch(
     request: Request,
     env: GatewayEnv,
@@ -201,18 +233,32 @@ export default {
   },
 }
 
-// Standalone Server (for local dev)
+// Workerd-compatible fetch export (DWS runtime autodetects this)
+export async function fetch(
+  request: Request,
+  env: GatewayEnv,
+  ctx: ExecutionContext,
+): Promise<Response> {
+  return workerHandler.fetch(request, env, ctx)
+}
+
+// Standalone Server (for local dev and production mode with Bun)
+// Only starts if this is the main module being run directly
 
 const isMainModule = typeof Bun !== 'undefined' && import.meta.path === Bun.main
 
+// Start server when running the source file directly
 if (isMainModule) {
-  const PORT = config.gatewayApiPort || CORE_PORTS.NODE_EXPLORER_API.get()
+  const PORT =
+    Number(process.env.PORT) ||
+    config.gatewayApiPort ||
+    CORE_PORTS.NODE_EXPLORER_API.get()
   const network = getCurrentNetwork()
 
   const app = createGatewayApp({
     NETWORK: network,
-    RPC_URL: process.env.RPC_URL || 'http://localhost:8545',
-    FAUCET_PRIVATE_KEY: process.env.FAUCET_PRIVATE_KEY,
+    RPC_URL:
+      process.env.JEJU_RPC_URL ?? process.env.RPC_URL ?? getRpcUrl(network),
   })
 
   const host = getLocalhostHost()

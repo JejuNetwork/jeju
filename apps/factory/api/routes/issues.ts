@@ -90,7 +90,7 @@ export const issuesRoutes = new Elysia({ prefix: '/api/issues' })
       const validated = expectValid(IssuesQuerySchema, query, 'query params')
       const page = Number.parseInt(validated.page ?? '1', 10)
 
-      const result = dbListIssues({
+      const result = await dbListIssues({
         repo: validated.repo,
         status: validated.status,
         label: validated.label,
@@ -113,7 +113,7 @@ export const issuesRoutes = new Elysia({ prefix: '/api/issues' })
       }
       const validated = expectValid(CreateIssueBodySchema, body, 'request body')
 
-      const row = dbCreateIssue({
+      const row = await dbCreateIssue({
         repo: validated.repo,
         title: validated.title,
         body: validated.body,
@@ -131,7 +131,7 @@ export const issuesRoutes = new Elysia({ prefix: '/api/issues' })
     '/:issueId',
     async ({ params, set }) => {
       // Try to find by ID first, then by number if it looks like a number
-      const row = getIssue(params.issueId)
+      const row = await getIssue(params.issueId)
       if (!row) {
         const num = parseInt(params.issueId, 10)
         if (!Number.isNaN(num)) {
@@ -160,7 +160,7 @@ export const issuesRoutes = new Elysia({ prefix: '/api/issues' })
         set.status = 401
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
-      const row = getIssue(params.issueId)
+      const row = await getIssue(params.issueId)
       if (!row) {
         set.status = 404
         return {
@@ -171,9 +171,26 @@ export const issuesRoutes = new Elysia({ prefix: '/api/issues' })
         }
       }
 
+      // Check if user has permission to update
+      // Must be issue author OR repo owner (repo format: owner/reponame)
+      const repoOwner = row.repo.split('/')[0]?.toLowerCase()
+      const isAuthor =
+        row.author.toLowerCase() === authResult.address.toLowerCase()
+      const isRepoOwner = repoOwner === authResult.address.toLowerCase()
+
+      if (!isAuthor && !isRepoOwner) {
+        set.status = 403
+        return {
+          error: {
+            code: 'FORBIDDEN',
+            message: 'Only the issue author or repository owner can update',
+          },
+        }
+      }
+
       // Validate and update the issue in the database
       const validated = expectValid(UpdateIssueBodySchema, body, 'request body')
-      const updated = updateIssue(params.issueId, validated)
+      const updated = await updateIssue(params.issueId, validated)
 
       return transformIssue(updated ?? row)
     },
@@ -187,7 +204,7 @@ export const issuesRoutes = new Elysia({ prefix: '/api/issues' })
         set.status = 401
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
-      const row = getIssue(params.issueId)
+      const row = await getIssue(params.issueId)
       if (!row) {
         set.status = 404
         return {
@@ -203,7 +220,7 @@ export const issuesRoutes = new Elysia({ prefix: '/api/issues' })
         'request body',
       )
 
-      const commentRow = dbCreateComment({
+      const commentRow = await dbCreateComment({
         issueId: params.issueId,
         author: authResult.address,
         body: validated.content,
@@ -217,7 +234,7 @@ export const issuesRoutes = new Elysia({ prefix: '/api/issues' })
   .get(
     '/:issueId/comments',
     async ({ params, set }) => {
-      const row = getIssue(params.issueId)
+      const row = await getIssue(params.issueId)
       if (!row) {
         set.status = 404
         return {
@@ -228,7 +245,7 @@ export const issuesRoutes = new Elysia({ prefix: '/api/issues' })
         }
       }
 
-      const comments = getIssueComments(params.issueId)
+      const comments = await getIssueComments(params.issueId)
       return {
         comments: comments.map(transformComment),
         total: comments.length,

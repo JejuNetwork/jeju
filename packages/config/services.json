@@ -28,8 +28,8 @@
     "rpcGateway": "http://127.0.0.1:4004",
     "bazaar": "http://127.0.0.1:4006",
     "storage": {
-      "api": "http://127.0.0.1:3100",
-      "ipfsGateway": "http://127.0.0.1:3100"
+      "api": "http://127.0.0.1:4030",
+      "ipfsGateway": "http://127.0.0.1:4030/cdn"
     },
     "compute": {
       "marketplace": "http://127.0.0.1:4007",
@@ -43,9 +43,9 @@
       "ui": "http://127.0.0.1:4005"
     },
     "monitoring": {
-      "api": "http://127.0.0.1:4060",
+      "api": "http://127.0.0.1:3002",
       "prometheus": "http://127.0.0.1:9090",
-      "grafana": "http://127.0.0.1:3000"
+      "grafana": "http://127.0.0.1:4010"
     },
     "crucible": {
       "api": "http://127.0.0.1:4020",
@@ -82,12 +82,15 @@
     },
     "oauth3": {
       "api": "http://127.0.0.1:4200",
-      "tee": "http://127.0.0.1:4201"
+      "tee": "http://127.0.0.1:4200"
     },
     "tee": {
       "mode": "simulated",
       "platform": "local",
-      "region": "local"
+      "region": "local",
+      "endpoint": "http://127.0.0.1:8000",
+      "verifierContract": "0x0000000000000000000000000000000000000000",
+      "registryContract": "0x0000000000000000000000000000000000000000"
     },
     "oracle": {
       "api": "http://127.0.0.1:4070",
@@ -106,7 +109,7 @@
     },
     "ipfs": {
       "api": "http://127.0.0.1:5001",
-      "gateway": "http://127.0.0.1:8080"
+      "gateway": "http://127.0.0.1:4030/cdn"
     },
     "agents": {
       "api": "http://127.0.0.1:4060",
@@ -157,8 +160,8 @@
     "rpcGateway": "https://testnet-rpc.jejunetwork.org",
     "bazaar": "https://bazaar.testnet.jejunetwork.org",
     "storage": {
-      "api": "https://storage.testnet.jejunetwork.org",
-      "ipfsGateway": "https://cloudflare-ipfs.com"
+      "api": "https://dws.testnet.jejunetwork.org/storage",
+      "ipfsGateway": "https://dws.testnet.jejunetwork.org/storage/ipfs"
     },
     "compute": {
       "marketplace": "https://compute.testnet.jejunetwork.org",
@@ -200,9 +203,9 @@
       "ceo": "https://autocrat.testnet.jejunetwork.org/ceo"
     },
     "kms": {
-      "api": "https://kms.testnet.jejunetwork.org",
-      "mpc": "https://kms.testnet.jejunetwork.org/mpc",
-      "defaultProvider": "aws"
+      "api": "https://dws.testnet.jejunetwork.org/kms",
+      "mpc": "https://dws.testnet.jejunetwork.org/kms",
+      "defaultProvider": "mpc"
     },
     "factory": {
       "ui": "https://factory.testnet.jejunetwork.org",
@@ -210,14 +213,17 @@
       "mcp": "https://factory.testnet.jejunetwork.org/api/mcp"
     },
     "oauth3": {
-      "api": "https://oauth3.testnet.jejunetwork.org",
-      "tee": "https://oauth3.testnet.jejunetwork.org/tee"
+      "api": "https://auth.testnet.jejunetwork.org",
+      "tee": "https://auth.testnet.jejunetwork.org"
     },
     "tee": {
       "mode": "phala",
       "platform": "phala",
       "region": "global",
-      "endpoint": "https://tee.testnet.jejunetwork.org"
+      "endpoint": "https://tee.testnet.jejunetwork.org",
+      "dstackEndpoint": "https://dstack.phala.network",
+      "verifierContract": "0x0000000000000000000000000000000000000000",
+      "registryContract": "0x0000000000000000000000000000000000000000"
     },
     "oracle": {
       "api": "https://oracle.testnet.jejunetwork.org",
@@ -235,8 +241,8 @@
       "psyche": "https://psyche.testnet.jejunetwork.org"
     },
     "ipfs": {
-      "api": "https://ipfs-api.testnet.jejunetwork.org",
-      "gateway": "https://ipfs.testnet.jejunetwork.org"
+      "api": "https://api.nft.storage",
+      "gateway": "https://w3s.link/ipfs"
     },
     "agents": {
       "api": "https://agents.testnet.jejunetwork.org",
@@ -288,8 +294,8 @@
     "rpcGateway": "https://rpc-gateway.jejunetwork.org",
     "bazaar": "https://bazaar.jejunetwork.org",
     "storage": {
-      "api": "https://storage.jejunetwork.org",
-      "ipfsGateway": "https://ipfs.jejunetwork.org"
+      "api": "https://dws.jejunetwork.org/storage",
+      "ipfsGateway": "https://dws.jejunetwork.org/storage/ipfs"
     },
     "compute": {
       "marketplace": "https://compute.jejunetwork.org",
@@ -331,9 +337,9 @@
       "ceo": "https://autocrat.jejunetwork.org/ceo"
     },
     "kms": {
-      "api": "https://kms.jejunetwork.org",
-      "mpc": "https://kms.jejunetwork.org/mpc",
-      "defaultProvider": "aws"
+      "api": "https://dws.jejunetwork.org/kms",
+      "mpc": "https://dws.jejunetwork.org/kms",
+      "defaultProvider": "mpc"
     },
     "factory": {
       "ui": "https://factory.jejunetwork.org",
@@ -341,14 +347,17 @@
       "mcp": "https://factory.jejunetwork.org/api/mcp"
     },
     "oauth3": {
-      "api": "https://oauth3.jejunetwork.org",
-      "tee": "https://oauth3.jejunetwork.org/tee"
+      "api": "https://auth.jejunetwork.org",
+      "tee": "https://auth.jejunetwork.org"
     },
     "tee": {
       "mode": "phala",
       "platform": "phala",
       "region": "global",
-      "endpoint": "https://tee.jejunetwork.org"
+      "endpoint": "https://tee.jejunetwork.org",
+      "dstackEndpoint": "https://dstack.phala.network",
+      "verifierContract": "0x0000000000000000000000000000000000000000",
+      "registryContract": "0x0000000000000000000000000000000000000000"
     },
     "oracle": {
       "api": "https://oracle.jejunetwork.org",
@@ -366,8 +375,8 @@
       "psyche": "https://psyche.jejunetwork.org"
     },
     "ipfs": {
-      "api": "https://ipfs-api.jejunetwork.org",
-      "gateway": "https://ipfs.jejunetwork.org"
+      "api": "https://dws.jejunetwork.org/storage/api/v0",
+      "gateway": "https://dws.jejunetwork.org/storage/ipfs"
     },
     "agents": {
       "api": "https://agents.jejunetwork.org",

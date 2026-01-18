@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useAccount } from 'wagmi'
 import {
   fetchActiveFlags,
   fetchModeratorLeaderboard,
@@ -51,10 +52,12 @@ interface LeaderboardEntry {
 }
 
 export default function ModerationPage() {
+  const { address, isConnected } = useAccount()
   const [flags, setFlags] = useState<ActiveFlag[]>([])
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [votingId, setVotingId] = useState<string | null>(null)
+  const [voteError, setVoteError] = useState<string | null>(null)
 
   // Moderator lookup state
   const [lookupAddress, setLookupAddress] = useState('')
@@ -85,13 +88,19 @@ export default function ModerationPage() {
   }, [loadData])
 
   const handleVote = async (flagId: string, upvote: boolean) => {
+    if (!isConnected || !address) {
+      setVoteError('Please connect your wallet to vote')
+      return
+    }
+
+    setVoteError(null)
     setVotingId(flagId)
-    await voteOnFlag(
-      flagId,
-      '0x0000000000000000000000000000000000000000', // Would come from wallet
-      upvote,
-    ).catch(() => null)
-    await loadData()
+    try {
+      await voteOnFlag(flagId, address, upvote)
+      await loadData()
+    } catch (err) {
+      setVoteError(err instanceof Error ? err.message : 'Vote failed')
+    }
     setVotingId(null)
   }
 
@@ -199,6 +208,12 @@ export default function ModerationPage() {
                       </div>
                     )}
 
+                    {voteError && (
+                      <div className="mb-3 p-2 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-sm">
+                        {voteError}
+                      </div>
+                    )}
+
                     <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-800">
                       <div className="flex items-center gap-4 text-sm text-gray-500">
                         <span>By: {formatAddress(flag.flagger)}</span>
@@ -208,8 +223,8 @@ export default function ModerationPage() {
                         <button
                           type="button"
                           onClick={() => handleVote(flag.id, true)}
-                          disabled={votingId === flag.id}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm bg-green-50 text-green-700 hover:bg-green-100 transition-colors"
+                          disabled={votingId === flag.id || !isConnected}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm bg-green-50 text-green-700 hover:bg-green-100 transition-colors disabled:opacity-50"
                         >
                           {votingId === flag.id ? (
                             <Loader2 className="animate-spin" size={14} />
@@ -221,8 +236,8 @@ export default function ModerationPage() {
                         <button
                           type="button"
                           onClick={() => handleVote(flag.id, false)}
-                          disabled={votingId === flag.id}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
+                          disabled={votingId === flag.id || !isConnected}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm bg-red-50 text-red-700 hover:bg-red-100 transition-colors disabled:opacity-50"
                         >
                           {votingId === flag.id ? (
                             <Loader2 className="animate-spin" size={14} />

@@ -12,14 +12,14 @@
   "localnet": {
     "chainId": 31337,
     "tokens": {
-      "jeju": "0xa82ff9afd8f496c3d6ac40e2a0f282e47488cfc9",
-      "usdc": "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82",
+      "jeju": "0x0B306BF915C4d645ff596e518fAf3F9669b97016",
+      "usdc": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
       "weth": "0x4200000000000000000000000000000000000006"
     },
     "registry": {
-      "identity": "0x0165878a594ca255338adfa4d48449f69242eb8f",
-      "reputation": "0x68B1D87F95878fE05B998F19b66F4baba5De1aed",
-      "validation": "0x3Aa5ebB10DC797CAC828524e59A333d0A371443c",
+      "identity": "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
+      "reputation": "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
+      "validation": "0x0165878A594ca255338adfa4d48449f69242Eb8F",
       "token": "0x322813Fd9A801c5507c9de605d63CEA4f2CE6c44",
       "app": "",
       "node": "",
@@ -29,64 +29,72 @@
       "staking": "0x95401dc811bb5740090279Ba06cfA8fcF6113778"
     },
     "moderation": {
-      "banManager": "0x0000000000000000000000000000000000000000",
-      "reportingSystem": "",
-      "reputationLabelManager": "0x0000000000000000000000000000000000000000",
-      "moderationMarketplace": ""
+      "banManager": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0",
+      "reportingSystem": "0x9A676e781A523b5d0C0e43731313A708CB607508",
+      "reputationLabelManager": "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82",
+      "moderationMarketplace": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0",
+      "evidenceRegistry": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0"
     },
     "bazaar": {
-      "marketplace": "0x0355B7B8cb128fA5692729Ab3AAa199C1753f726",
-      "simpleCollectible": "0xcd8a1c3ba11cf5ecfa6267617243239504a98d90",
-      "predictionMarket": "0x851356ae760d987e095750cceb3bc6014560891c",
-      "tokenFactory": "",
+      "marketplace": "0x2B0d36FACD61B71CC05ab8F3D2355ec3631C0dd5",
+      "simpleCollectible": "0xC9a43158891282A2B1475592D5719c001986Aaec",
+      "predictionMarket": "0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9",
+      "tokenFactory": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
       "featuredToken": "",
-      "predictionOracle": "0x1613beb3b2c4f22ee086b2b38c1476a3ce7f78e8"
+      "predictionOracle": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0"
     },
     "perps": {
-      "market": "0x36c02da8a0983159322a80ffe9f24b1acff8b570",
-      "marginManager": "0x9d4454b023096f34b160d6b654540c56a1f81688",
-      "insuranceFund": "0x5eb3bc0a489c5a8288765d2336659ebca68fcd00",
-      "priceOracle": "0x8f86403a4de0bb5791fa46b8e795c547942fe4cf"
+      "market": "0xA7c59f010700930003b33aB25a7a0679C860f29c",
+      "marginManager": "0x22753E4264FDDc6181dc7cce468904A80a363E44",
+      "insuranceFund": "0x07882Ae1ecB7429a84f1D53048d35c4bB2056877",
+      "priceOracle": "0xb7f8bc63bbcad18155201308c8f3540b07f84f5e"
     },
     "security": {
-      "bountyRegistry": "0x0B36Ef2cb78859C20c8C1380CeAdB75043aA92b3"
+      "bountyRegistry": "0x851356ae760d987E095750cCeb3bC6014560891C"
     },
     "nodeStaking": {
-      "manager": "0xa00F03Ea2d0a6e4961CaAFcA61A78334049c1848",
-      "performanceOracle": "0x998D98e9480A8f52A5252Faf316d129765773294"
+      "manager": "0xc5a5C42992dECbae36851359345FE25997F5C42d",
+      "performanceOracle": "0x09635F643e140090A9A8Dcd712eD6285858ceBef"
     },
     "jns": {
-      "registry": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
-      "resolver": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
+      "registry": "0x998abeb3E57409262aE5b751f60747921B33613E",
+      "resolver": "0x70e0bA845a1A0F2DA3359C97E0285013525FFC49",
       "registrar": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
-      "reverseRegistrar": "0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9"
+      "reverseRegistrar": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"
     },
     "oauth3": {
-      "teeVerifier": "0x0000000000000000000000000000000000000000",
-      "identityRegistry": "0x0000000000000000000000000000000000000000",
-      "appRegistry": "0x0000000000000000000000000000000000000000",
-      "staking": "0x0000000000000000000000000000000000000000"
+      "teeVerifier": "0xf4B146FbA71F41E0592668ffbF264F1D186b2Ca8",
+      "identityRegistry": "0x172076E0166D1F9Cc711C77Adf8488051744980C",
+      "appRegistry": "0x4EE6eCAD1c2Dae9f525404De8555724e3c35d07B",
+      "staking": "0xBEc49fA140aCaA83533fB00A2BB19bDdd0290f25"
     },
     "dws": {
-      "storageManager": "0x610178da211fef7d417bc0e6fed39f05609ad788",
-      "workerRegistry": "0xb7f8bc63bbcad18155201308c8f3540b07f84f5e",
-      "cdnRegistry": "0xa51c1fc2f0d1a1b8494ed1fe312d7c3a78ed91c0",
+      "storageManager": "0x8198f5d8F8CfFE8f9C413d98a0A55aEB8ab9FbB7",
+      "workerRegistry": "0x0355B7B8cb128fA5692729Ab3AAa199C1753f726",
+      "cdnRegistry": "0x202CCe504e04bEd6fC0521238dDf04Bc9E8E15aB",
       "repoRegistry": "0x0dcd1bf9a1b36ce34237eeafef220932846bcd82",
-      "packageRegistry": "0x3aa5ebb10dc797cac828524e59a333d0a371443c",
-      "managedDatabaseRegistry": "0x322813fd9a801c5507c9de605d63cea4f2ce6c44",
-      "gitRegistry": "0x68b1d87f95878fe05b998f19b66f4baba5de1aed",
-      "cacheManager": "0xc6e7df5e7b4f2a278906862b61205850344d4e7d",
-      "cronOrchestrator": "0x59b670e9fa9d0a427751af201d676719a970857b",
-      "containerRegistry": "0x4ed7c70f96b99c776995fb64377f0d4ab3b0e1c1"
+      "packageRegistry": "0x4bf010f1b9beda5450a8dd702ed602a104ff65ee",
+      "managedDatabaseRegistry": "0xde2bd2ffea002b8e84adea96e5976af664115e2c",
+      "gitRegistry": "0x0ed64d01d0b4b655e410ef1441dd677b695639e7",
+      "cacheManager": "0x40a42baf86fc821f972ad2ac878729063ceef403",
+      "cronOrchestrator": "0x96f3ce39ad2bfdcf92c0f6e2c2cabf83874660fc",
+      "containerRegistry": "0x986aaa537b8cc170761fdac6ac4fc7f9d8a20a8c",
+      "storageProviderRegistry": "0xdc64a140aa3e981100a9beca4e685f962f0cf6c9",
+      "identityRegistry": "0x5fc8d32690cc91d4c39d9d3abcbd16989f875707"
     },
     "payments": {
-      "creditManager": "0x67d269191c92Caf3cD7723F116c85e6E9bf55933",
-      "universalPaymaster": "0x84eA74d481Ee0A5332c457a4d796187F6Ba67fEB",
-      "paymasterFactory": "0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f"
+      "creditManager": "0x68B1D87F95878fE05B998F19b66F4baba5De1aed",
+      "universalPaymaster": "0x3Aa5ebB10DC797CAC828524e59A333d0A371443c",
+      "paymasterFactory": "0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e",
+      "feeConfig": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0",
+      "tokenRegistry": "0x610178dA211FEF7D417bC0e6FeD39F05609AD788",
+      "priceOracle": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+      "multiTokenPaymaster": "0x3Aa5ebB10DC797CAC828524e59A333d0A371443c"
     },
     "commerce": {
       "authCaptureEscrow": "",
-      "commerceOperator": ""
+      "commerceOperator": "",
+      "nftMarketplace": "0x59b670e9fa9d0a427751af201d676719a970857b"
     },
     "defi": {
       "poolManager": "",
@@ -101,19 +109,22 @@
       "inferenceServing": "0x08A90aF9A6eBBe11c322AD9930CC58E122231B5A",
       "staking": "0x7bdd3b028C4796eF0EAf07d11394d0d9d8c24139",
       "workerRegistry": "",
-      "cronTriggerRegistry": "0x59b670e9fa9d0a427751af201d676719a970857b"
+      "cronTriggerRegistry": "0x96f3ce39ad2bfdcf92c0f6e2c2cabf83874660fc"
     },
     "sequencer": {
-      "registry": "",
+      "registry": "0x3155755b79aA083bd953911C92705B7aA82a18F9",
       "thresholdBatchSubmitter": "",
-      "forcedInclusion": ""
+      "forcedInclusion": "0x5bf5b11053e734690269C6B9D438F8C9d48F528A",
+      "slashing": "0xffa7CA1AEEEbBc30C874d32C7e22F052BbEa0429"
     },
     "governance": {
       "governor": "",
       "timelock": "",
       "futarchyGovernor": "",
       "registryGovernance": "0x7E6C94173C264aaE66Bf36ce047b0Aef585C2181",
-      "autocrat": ""
+      "autocrat": "",
+      "daoRegistry": "0x6F6f570F45833E249e27022648a26F4076F48f78",
+      "daoFunding": "0xCA8c8688914e0F7096c920146cd0Ad85cD7Ae8b9"
     },
     "oif": {
       "solverRegistry": "0x13D5bd265A9FC5454e81bC05a5643fa4809A584b",
@@ -133,23 +144,25 @@
       "federationGovernance": ""
     },
     "liquidity": {
-      "riskSleeve": "",
-      "liquidityRouter": "",
-      "multiServiceStakeManager": "",
-      "liquidityVault": "",
+      "riskSleeve": "0x67d269191c92Caf3cD7723F116c85e6E9bf55933",
+      "liquidityRouter": "0x84eA74d481Ee0A5332c457a4d796187F6Ba67fEB",
+      "multiServiceStakeManager": "0xE6E340D132b5f46d1e472DebcD681B2aBc16e57E",
+      "liquidityVault": "0xc3e53F4d16Ae77Db1c982e75a937B9f60FE63690",
       "federatedLiquidity": ""
     },
     "fees": {
-      "feeConfig": "",
+      "feeConfig": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0",
       "feeDistributor": "",
-      "feeGovernance": ""
+      "feeGovernance": "",
+      "appFeeRegistry": ""
     },
     "oracle": {
       "feedRegistry": "",
       "reportVerifier": "",
       "attestationVerifier": "",
       "rewardManager": "",
-      "oracleNetworkConnector": "0xDb2f554A333D189ed59eA36020a83F7d6De14328"
+      "oracleNetworkConnector": "0xDb2f554A333D189ed59eA36020a83F7d6De14328",
+      "oracleRegistry": "0xD42912755319665397FF090fBB63B1a31aE87Cee"
     },
     "chainlink": {
       "vrfCoordinator": "",
@@ -164,19 +177,48 @@
       "nodeRegistry": ""
     },
     "training": {
-      "coordinator": "",
-      "rewards": "",
+      "coordinator": "0xfaAddC93baf78e89DCf37bA67943E1bE8F37Bb8c",
+      "rewards": "0xfaAddC93baf78e89DCf37bA67943E1bE8F37Bb8c",
       "modelRegistry": "",
       "teeRegistry": "",
-      "aiCeo": ""
+      "aiDirector": ""
     },
     "agents": {
-      "agent0Registry": ""
+      "agent0Registry": "",
+      "vault": "0xc96304e3c037f81dA488ed9dEa1D8F2a48278a75",
+      "roomRegistry": "0x34B40BA116d5Dec75548a9e9A8f15411461E8c70"
     },
     "cloud": {
       "serviceRegistry": "0x0B306BF915C4d645ff596e518fAf3F9669b97016",
       "creditManager": "0x67d269191c92Caf3cD7723F116c85e6E9bf55933"
-    }
+    },
+    "autocrat": {
+      "daoRegistry": "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82",
+      "daoFunding": "0x9A676e781A523b5d0C0e43731313A708CB607508",
+      "feeConfig": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0"
+    },
+    "vpn": {
+      "registry": "0xc0F115A19107322cFBf1cDBC7ea011C19EbDB4F8"
+    },
+    "otc": {},
+    "staking": {
+      "rpcProviderRegistry": "0xD0141E899a65C95a556fE2B27e5982A6DE7fDD7A"
+    },
+    "distributor": {
+      "airdropManager": "0x3347B4d90ebe72BeFb30444C9966B2B990aE9FcB",
+      "feeDistributor": "0x276C216D241856199A83bf27b2286659e5b877D3",
+      "appFeeRegistry": ""
+    },
+    "amm": {
+      "XLPRouter": "",
+      "XLPV2Factory": "",
+      "XLPV3Factory": "",
+      "XLPV3PositionManager": "",
+      "TFMMPool_JEJU_USDC": "0x02b0B4EFd909240FCB2Eb5FAe060dC60D112E3a4",
+      "weightUpdateRunner": "0x5302E909d1e93e30F05B5D6Eea766363D14F9892"
+    },
+    "messaging": {},
+    "bridge": {}
   },
   "testnet": {
     "chainId": 420690,
@@ -186,7 +228,7 @@
       "weth": "0x4200000000000000000000000000000000000006"
     },
     "registry": {
-      "identity": "",
+      "identity": "0x712516e61C8B383dF4A63CFe83d7701Bce54B03e",
       "app": "",
       "node": "",
       "token": "",
@@ -194,10 +236,11 @@
       "validation": ""
     },
     "moderation": {
-      "banManager": "0x0000000000000000000000000000000000000000",
+      "banManager": "",
       "moderationMarketplace": "",
       "reportingSystem": "0x0000000000000000000000000000000000000000",
-      "reputationLabelManager": "0x0000000000000000000000000000000000000000"
+      "reputationLabelManager": "0x0000000000000000000000000000000000000000",
+      "evidenceRegistry": ""
     },
     "bazaar": {
       "marketplace": "",
@@ -237,12 +280,13 @@
       "cronOrchestrator": ""
     },
     "payments": {
-      "paymasterFactory": "",
-      "priceOracle": "",
-      "creditManager": "",
-      "serviceRegistry": "",
-      "multiTokenPaymaster": "",
-      "x402Facilitator": ""
+      "feeConfig": "0x2a810409872AfC346F9B5b26571Fd6eC42EA4849",
+      "x402Facilitator": "0x62561FfEa8177B64f60755D1F5Bd78cb2A730e47"
+    },
+    "commerce": {
+      "authCaptureEscrow": "",
+      "commerceOperator": "",
+      "nftMarketplace": ""
     },
     "defi": {
       "poolManager": "",
@@ -252,12 +296,13 @@
       "stateView": ""
     },
     "compute": {
-      "registry": "",
+      "registry": "0x14e73B53d6703681116ACD323A126F3ef16456d5",
       "ledgerManager": "",
       "inferenceServing": "",
       "staking": "",
       "workerRegistry": "",
-      "cronTriggerRegistry": ""
+      "cronTriggerRegistry": "",
+      "dwsMarketplace": "0x96b238A30F95e9B0f34Bc82c5B55725531786f60"
     },
     "sequencer": {
       "registry": "",
@@ -269,7 +314,9 @@
       "timelock": "",
       "futarchyGovernor": "",
       "registryGovernance": "",
-      "autocrat": ""
+      "autocrat": "",
+      "daoRegistry": "0xb9bEECD1A582768711dE1EE7B0A1d582D9d72a6C",
+      "daoFunding": "0x8A93d247134d91e0de6f96547cB0204e5BE8e5D8"
     },
     "oif": {
       "solverRegistry": "",
@@ -298,7 +345,8 @@
     "fees": {
       "feeConfig": "",
       "feeDistributor": "",
-      "feeGovernance": ""
+      "feeGovernance": "",
+      "appFeeRegistry": ""
     },
     "oracle": {
       "feedRegistry": "",
@@ -323,10 +371,16 @@
       "rewards": "",
       "modelRegistry": "",
       "teeRegistry": "",
-      "aiCeo": ""
+      "aiDirector": ""
     },
     "agents": {
-      "agent0Registry": ""
+      "agent0Registry": "",
+      "vault": "0x8464135c8F25Da09e49BC8782676a84730C318bC",
+      "roomRegistry": "0x71C95911E9a5D330f4D621842EC243EE1343292e",
+      "triggerRegistry": "0x948B3c65b89DF0B4894ABE91E6D02FE579834F8F"
+    },
+    "cloud": {
+      "serviceRegistry": "0xbCF26943C0197d2eE0E5D05c716Be60cc2761508"
     }
   },
   "mainnet": {
@@ -348,7 +402,8 @@
       "banManager": "",
       "moderationMarketplace": "",
       "reportingSystem": "",
-      "reputationLabelManager": ""
+      "reputationLabelManager": "",
+      "evidenceRegistry": ""
     },
     "bazaar": {
       "marketplace": "",
@@ -438,7 +493,8 @@
     "fees": {
       "feeConfig": "",
       "feeDistributor": "",
-      "feeGovernance": ""
+      "feeGovernance": "",
+      "appFeeRegistry": ""
     },
     "oracle": {
       "feedRegistry": "",
@@ -463,7 +519,7 @@
       "rewards": "",
       "modelRegistry": "",
       "teeRegistry": "",
-      "aiCeo": ""
+      "aiDirector": ""
     },
     "agents": {
       "agent0Registry": ""

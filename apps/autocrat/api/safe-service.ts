@@ -885,7 +885,7 @@ export class AutocratSafeService {
 
     // Determine role based on Safe's relationship to DAO
     // This would ideally be passed in or looked up from DAO registry
-    const role: DAOSafeInfo['role'] = 'treasury' // Default, could be governance/security_council/operator
+    const role: DAOSafeInfo['role'] = 'treasury' // Default, could be governance/security_board/operator
 
     return {
       daoId,

@@ -1,7 +1,7 @@
 /**
  * TEE Encryption & Attestation Verification Test
  *
- * Run with: cd apps/council && bun run tests/tee-verification.ts
+ * Run with: cd apps/board && bun run tests/tee-verification.ts
  */
 
 import { toError } from '@jejunetwork/types'
@@ -60,7 +60,7 @@ async function testEncryption() {
 
   console.log('Test Context:')
   console.log(`  Proposal ID: ${context.proposalId.slice(0, 20)}...`)
-  console.log(`  Council Votes: ${context.autocratVotes.length}`)
+  console.log(`  Board Votes: ${context.autocratVotes.length}`)
   console.log(`  - Treasury: ${context.autocratVotes[0].vote}`)
   console.log(`  - Code: ${context.autocratVotes[1].vote}`)
   console.log(`  - Community: ${context.autocratVotes[2].vote}`)

@@ -105,3 +105,22 @@ export const TEST_CHAIN_IDS = {
   /** Another unconfigured chain for variety */
   UNCONFIGURED_2: 888888,
 } as const
+
+/**
+ * Creates a mock KMS signer for testing.
+ * The mock returns predictable values and is marked as initialized.
+ */
+export function createMockKMSSigner(initialized = true): {
+  isInitialized: () => boolean
+  getAddress: () => Promise<Address>
+  signTransaction: () => Promise<`0x${string}`>
+  signMessage: () => Promise<`0x${string}`>
+} {
+  const address = '0x1234567890123456789012345678901234567890' as Address
+  return {
+    isInitialized: () => initialized,
+    getAddress: async () => address,
+    signTransaction: async () => '0x1234' as `0x${string}`,
+    signMessage: async () => '0x5678' as `0x${string}`,
+  }
+}

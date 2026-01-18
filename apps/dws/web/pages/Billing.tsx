@@ -8,39 +8,42 @@ import {
   Download,
   Plus,
   RefreshCw,
+  Server,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
-import { useDeposit, useUserAccount } from '../hooks'
-import type { ViewMode } from '../types'
+import { SkeletonStatCard, SkeletonTable } from '../components/Skeleton'
+import { useToast } from '../context/AppContext'
+import { useDeposit, useTransactionHistory, useUserAccount } from '../hooks'
 
-interface BillingProps {
-  viewMode: ViewMode
-}
-
-interface Transaction {
-  id: string
-  type: 'deposit' | 'payment' | 'earning'
-  amount: string
-  service: string
-  timestamp: number
-  status: 'completed' | 'pending'
-}
-
-export default function BillingPage({ viewMode }: BillingProps) {
+export default function BillingPage() {
   const { isConnected, address } = useAccount()
+  const { showSuccess, showError } = useToast()
   const { data: account, isLoading: accountLoading, refetch } = useUserAccount()
+  const { data: txHistory, isLoading: txLoading } = useTransactionHistory()
   const deposit = useDeposit()
 
   const [showDepositModal, setShowDepositModal] = useState(false)
   const [depositAmount, setDepositAmount] = useState('0.01')
-  const [transactions] = useState<Transaction[]>([])
+
+  const transactions = txHistory?.transactions ?? []
 
   const handleDeposit = async (e: React.FormEvent) => {
     e.preventDefault()
-    await deposit.mutateAsync(depositAmount)
-    setShowDepositModal(false)
-    setDepositAmount('0.01')
+    const result = await deposit
+      .mutateAsync(depositAmount)
+      .catch((error: Error) => {
+        showError('Deposit failed', error.message)
+        return null
+      })
+    if (result) {
+      showSuccess(
+        'Deposit successful',
+        `Added ${depositAmount} ETH to your balance`,
+      )
+      setShowDepositModal(false)
+      setDepositAmount('0.01')
+    }
   }
 
   const formatEth = (wei: string) => {
@@ -60,9 +63,10 @@ export default function BillingPage({ viewMode }: BillingProps) {
         }}
       >
         <div>
-          <h1 className="page-title">
-            {viewMode === 'provider' ? 'Earnings & Payouts' : 'Billing & Usage'}
-          </h1>
+          <h1 className="page-title">Billing & Usage</h1>
+          <p className="page-subtitle">
+            Manage your x402 payment balance and view usage
+          </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
@@ -72,30 +76,27 @@ export default function BillingPage({ viewMode }: BillingProps) {
           >
             <RefreshCw size={16} /> Refresh
           </button>
-          {viewMode === 'consumer' && (
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => setShowDepositModal(true)}
-              disabled={!isConnected}
-            >
-              <Plus size={16} /> Add Credits
-            </button>
-          )}
-          {viewMode === 'provider' && (
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={!isConnected}
-            >
-              <ArrowUpRight size={16} /> Withdraw
-            </button>
-          )}
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setShowDepositModal(true)}
+            disabled={!isConnected}
+          >
+            <Plus size={16} /> Add Credits
+          </button>
         </div>
       </div>
 
+      {/* Stats Grid */}
       <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
-        {viewMode === 'consumer' ? (
+        {accountLoading ? (
+          <>
+            <SkeletonStatCard />
+            <SkeletonStatCard />
+            <SkeletonStatCard />
+            <SkeletonStatCard />
+          </>
+        ) : (
           <>
             <div className="stat-card">
               <div className="stat-icon compute">
@@ -104,9 +105,7 @@ export default function BillingPage({ viewMode }: BillingProps) {
               <div className="stat-content">
                 <div className="stat-label">x402 Balance</div>
                 <div className="stat-value">
-                  {accountLoading
-                    ? '—'
-                    : `${formatEth(account?.balance ?? '0')} ETH`}
+                  {formatEth(account?.balance ?? '0')} ETH
                 </div>
               </div>
             </div>
@@ -117,9 +116,7 @@ export default function BillingPage({ viewMode }: BillingProps) {
               <div className="stat-content">
                 <div className="stat-label">Total Spent</div>
                 <div className="stat-value">
-                  {accountLoading
-                    ? '—'
-                    : `${formatEth(account?.totalSpent ?? '0')} ETH`}
+                  {formatEth(account?.totalSpent ?? '0')} ETH
                 </div>
               </div>
             </div>
@@ -130,12 +127,7 @@ export default function BillingPage({ viewMode }: BillingProps) {
               <div className="stat-content">
                 <div className="stat-label">Total Requests</div>
                 <div className="stat-value">
-                  {accountLoading
-                    ? '—'
-                    : parseInt(
-                        account?.totalRequests ?? '0',
-                        10,
-                      ).toLocaleString()}
+                  {parseInt(account?.totalRequests ?? '0', 10).toLocaleString()}
                 </div>
               </div>
             </div>
@@ -161,48 +153,10 @@ export default function BillingPage({ viewMode }: BillingProps) {
               </div>
             </div>
           </>
-        ) : (
-          <>
-            <div className="stat-card">
-              <div className="stat-icon storage">
-                <DollarSign size={24} />
-              </div>
-              <div className="stat-content">
-                <div className="stat-label">Total Earnings</div>
-                <div className="stat-value">0.00 ETH</div>
-              </div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-icon compute">
-                <ArrowUpRight size={24} />
-              </div>
-              <div className="stat-content">
-                <div className="stat-label">Pending Payout</div>
-                <div className="stat-value">0.00 ETH</div>
-              </div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-icon network">
-                <Activity size={24} />
-              </div>
-              <div className="stat-content">
-                <div className="stat-label">Requests Served</div>
-                <div className="stat-value">0</div>
-              </div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-icon ai">
-                <Clock size={24} />
-              </div>
-              <div className="stat-content">
-                <div className="stat-label">This Month</div>
-                <div className="stat-value">0.00 ETH</div>
-              </div>
-            </div>
-          </>
         )}
       </div>
 
+      {/* Content Grid */}
       <div
         style={{
           display: 'grid',
@@ -210,23 +164,24 @@ export default function BillingPage({ viewMode }: BillingProps) {
           gap: '1.5rem',
         }}
       >
+        {/* Recent Transactions */}
         <div className="card">
           <div className="card-header">
             <h3 className="card-title">
-              <Activity size={18} />
-              {viewMode === 'provider'
-                ? 'Recent Earnings'
-                : 'Recent Transactions'}
+              <Activity size={18} /> Recent Transactions
             </h3>
             <button type="button" className="btn btn-ghost btn-sm">
               <Download size={14} /> Export
             </button>
           </div>
 
-          {transactions.length === 0 ? (
+          {txLoading ? (
+            <SkeletonTable rows={3} columns={3} />
+          ) : transactions.length === 0 ? (
             <div className="empty-state" style={{ padding: '2rem' }}>
               <Activity size={32} />
-              <p>No transactions</p>
+              <h3>No transactions yet</h3>
+              <p>Deposit credits to start using DWS services</p>
             </div>
           ) : (
             <div style={{ display: 'grid', gap: '0.5rem' }}>
@@ -307,6 +262,7 @@ export default function BillingPage({ viewMode }: BillingProps) {
           )}
         </div>
 
+        {/* x402 Info */}
         <div className="card">
           <div className="card-header">
             <h3 className="card-title">
@@ -314,6 +270,11 @@ export default function BillingPage({ viewMode }: BillingProps) {
             </h3>
           </div>
           <div style={{ display: 'grid', gap: '1rem' }}>
+            <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+              DWS uses the x402 protocol for micropayments. Add credits to your
+              balance, and payments are automatically deducted as you use
+              services.
+            </p>
             <div
               style={{
                 padding: '1rem',
@@ -321,6 +282,15 @@ export default function BillingPage({ viewMode }: BillingProps) {
                 borderRadius: 'var(--radius-md)',
               }}
             >
+              <div
+                style={{
+                  fontSize: '0.8rem',
+                  color: 'var(--text-muted)',
+                  marginBottom: '0.5rem',
+                }}
+              >
+                Example payment header:
+              </div>
               <code
                 style={{
                   display: 'block',
@@ -337,28 +307,47 @@ export default function BillingPage({ viewMode }: BillingProps) {
             </div>
           </div>
         </div>
+
+        {/* Provider CTA */}
+        <div
+          className="card"
+          style={{
+            background:
+              'linear-gradient(135deg, var(--accent-soft) 0%, var(--bg-elevated) 100%)',
+            border: '1px solid var(--accent)',
+          }}
+        >
+          <div className="card-header">
+            <h3 className="card-title">
+              <Server size={18} /> Running Nodes?
+            </h3>
+          </div>
+          <p
+            style={{
+              color: 'var(--text-secondary)',
+              marginBottom: '1rem',
+            }}
+          >
+            View your node earnings, pending rewards, and payout history in the
+            Provider section.
+          </p>
+          <a href="/provider/earnings" className="btn btn-primary">
+            <DollarSign size={16} /> View Earnings
+          </a>
+        </div>
       </div>
 
+      {/* Deposit Modal */}
       {showDepositModal && (
-        <div className="modal-overlay">
+        <div className="modal-overlay" role="dialog" aria-modal="true">
           <button
             type="button"
-            className="absolute inset-0 cursor-default"
+            className="modal-backdrop"
             onClick={() => setShowDepositModal(false)}
-            aria-label="Close modal"
+            tabIndex={-1}
+            aria-label="Close"
           />
-          <div
-            className="modal"
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => {
-              e.stopPropagation()
-              if (e.key === 'Escape') {
-                setShowDepositModal(false)
-              }
-            }}
-            role="dialog"
-            aria-modal="true"
-          >
+          <div className="modal">
             <div className="modal-header">
               <h3 className="modal-title">Add x402 Credits</h3>
               <button
@@ -440,7 +429,7 @@ export default function BillingPage({ viewMode }: BillingProps) {
                     >
                       {(
                         parseFloat(formatEth(account?.balance ?? '0')) +
-                        parseFloat(depositAmount ?? '0')
+                        parseFloat(depositAmount)
                       ).toFixed(4)}{' '}
                       ETH
                     </span>

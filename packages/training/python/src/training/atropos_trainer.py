@@ -128,7 +128,7 @@ class JejuAtroposTrainer:
     4. Periodically saves checkpoints and restarts vLLM
     """
 
-    # Note: Using Any for model/tokenizer types as transformers library
+    # Using Any for model/tokenizer types as transformers library
     # has incomplete type stubs for PyTorch-specific methods
 
     def __init__(self, config: AtroposTrainingConfig):

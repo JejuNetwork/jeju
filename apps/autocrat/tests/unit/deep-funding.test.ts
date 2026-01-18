@@ -282,11 +282,11 @@ describe('Deep Funding System', () => {
   })
 
   describe('Dispute Timeline', () => {
-    const COUNCIL_REVIEW_PERIOD = 7 * 24 * 60 * 60 * 1000 // 7 days
+    const BOARD_REVIEW_PERIOD = 7 * 24 * 60 * 60 * 1000 // 7 days
     const DISPUTE_PERIOD = 3 * 24 * 60 * 60 * 1000 // 3 days
 
-    test('council has 7 days to review', () => {
-      expect(COUNCIL_REVIEW_PERIOD).toBe(7 * 24 * 60 * 60 * 1000)
+    test('board has 7 days to review', () => {
+      expect(BOARD_REVIEW_PERIOD).toBe(7 * 24 * 60 * 60 * 1000)
     })
 
     test('dispute can be filed within 3 days of rejection', () => {
@@ -294,7 +294,7 @@ describe('Deep Funding System', () => {
     })
 
     test('total dispute resolution timeline', () => {
-      const totalTime = COUNCIL_REVIEW_PERIOD + DISPUTE_PERIOD
+      const totalTime = BOARD_REVIEW_PERIOD + DISPUTE_PERIOD
       expect(totalTime).toBe(10 * 24 * 60 * 60 * 1000) // 10 days max
     })
   })
@@ -384,7 +384,7 @@ describe('Deep Funding Integration', () => {
       expect(request.isRetroactive).toBe(false)
     })
 
-    test('council votes on request', async () => {
+    test('board votes on request', async () => {
       const votes = [
         { voter: '0x1', vote: 0, reason: 'Good work' }, // APPROVE
         { voter: '0x2', vote: 0, reason: 'Agreed' }, // APPROVE

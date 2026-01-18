@@ -20,7 +20,7 @@ class JsSpan: public jsg::Object {
   void end();
   // Sets an attribute on the span. Values can be string, number, boolean, or undefined.
   // If undefined is passed, the attribute is not set (allows optional chaining).
-  // Note: We intentionally don't support BigInt/int64_t. JavaScript numbers (doubles)
+  // We intentionally don't support BigInt/int64_t. JavaScript numbers (doubles)
   // are sufficient for most tracing use cases, and BigInt conversion to int64_t would
   // require handling truncation for values outside the int64_t range.
   void setAttribute(

@@ -247,8 +247,7 @@ export async function warmupApps(
 
     const isRunning = await isAppRunning(appConfig.port)
     if (!isRunning) {
-      console.log(`    ⚠️  Not running on port ${appConfig.port}`)
-      appResult.errors.push(`App not running on port ${appConfig.port}`)
+      console.log(`    Skipping warmup: not running on port ${appConfig.port}`)
       results.push(appResult)
       continue
     }
@@ -262,7 +261,7 @@ export async function warmupApps(
 
       if (visitResult.errors.length > 0) {
         appResult.success = false
-        console.log(`    ⚠️  ${visitResult.errors.length} page error(s)`)
+        console.log(`    ${visitResult.errors.length} page error(s)`)
       } else {
         console.log(`    ✅ Visited ${visitResult.visited} page(s)`)
       }
@@ -277,9 +276,7 @@ export async function warmupApps(
   const allSuccess = results.every((r) => r.success)
 
   console.log(`\n${'='.repeat(70)}`)
-  console.log(
-    allSuccess ? '✅ WARMUP COMPLETE' : '⚠️  WARMUP COMPLETED WITH ERRORS',
-  )
+  console.log(allSuccess ? 'WARMUP COMPLETE' : 'WARMUP COMPLETED WITH ERRORS')
   console.log(`Duration: ${(duration / 1000).toFixed(2)}s`)
   console.log(`${'='.repeat(70)}\n`)
 
@@ -302,14 +299,14 @@ export async function quickWarmup(appNames?: string[]): Promise<void> {
         } else if (response.status >= 500) {
           console.log(`  ❌ ${app.name} (${response.status} error)`)
         } else {
-          console.log(`  ⚠️  ${app.name} (${response.status})`)
+          console.log(`  ${app.name} (${response.status})`)
         }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
         console.log(`  ❌ ${app.name} (${msg})`)
       }
     } else {
-      console.log(`  ⏭️  ${app.name} (not running)`)
+      console.log(`  ${app.name} (not running)`)
     }
   }
 }

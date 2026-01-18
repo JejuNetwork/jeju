@@ -8,7 +8,8 @@
   "commands": {
     "dev": "bun run dev",
     "build": "bun run build",
-    "start": "bun run preview",
+    "start": "bun run start",
+    "start:worker": "bun run start:worker",
     "solver": "bun src/solver/index.ts"
   },
   "ports": {
@@ -45,7 +46,7 @@
     "url": "https://gateway.jejunetwork.org"
   },
   "healthCheck": {
-    "url": "http://localhost:4001/health",
+    "url": "http://localhost:4013/health",
     "interval": 30000
   },
   "agent": {
@@ -138,16 +139,45 @@
           "name": "gateway-cache-kv"
         }
       },
-      "secrets": [
-        "PRIVATE_KEY",
-        "RPC_URL"
-      ],
+      "kms": {
+        "serviceIds": [
+          "faucet",
+          "x402-facilitator",
+          "oracle-operator",
+          "oracle-worker",
+          "leaderboard-oracle"
+        ],
+        "secrets": [
+          "service-auth-secret",
+          "internal-rpc-api-key",
+          "github-token",
+          "openrouter-api-key"
+        ]
+      },
       "routes": [
+        {
+          "pattern": "/.well-known/*"
+        },
         {
           "pattern": "/api/*"
         },
         {
+          "pattern": "/rpc/*"
+        },
+        {
+          "pattern": "/x402/*"
+        },
+        {
+          "pattern": "/oracle/*"
+        },
+        {
+          "pattern": "/leaderboard/*"
+        },
+        {
           "pattern": "/a2a/*"
+        },
+        {
+          "pattern": "/mcp/*"
         },
         {
           "pattern": "/health"
@@ -231,8 +261,13 @@
   },
   "testing": {
     "unit": {
-      "command": "bun test tests/",
+      "command": "bun run test:unit",
       "timeout": 120000
+    },
+    "integration": {
+      "command": "bun run test:integration",
+      "timeout": 300000,
+      "requiresChain": true
     },
     "e2e": {
       "command": "bunx playwright test tests/synpress/",
@@ -252,6 +287,11 @@
       "builder": "bun",
       "entrypoint": "index.html",
       "outputDir": "dist"
+    },
+    "backend": {
+      "outputDir": "dist/worker",
+      "entrypoint": "api/worker.ts",
+      "startCmd": "dev:worker"
     }
   }
 }

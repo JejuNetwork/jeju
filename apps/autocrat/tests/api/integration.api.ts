@@ -148,7 +148,7 @@ Total: 75 ETH
     expect(votes.length).toBe(5)
     expect(deliberateData.recommendation).toBeDefined()
 
-    const decisionResponse = await sendA2A(request, 'ceo-decision', {
+    const decisionResponse = await sendA2A(request, 'director-decision', {
       proposalId,
     })
 
@@ -245,8 +245,8 @@ test.describe('REST API Integration', () => {
     expect(activeCount).toBeLessThanOrEqual(allCount)
   })
 
-  test('GET /api/v1/ceo returns status', async ({ request }) => {
-    const response = await request.get(`${AUTOCRAT_URL}/api/v1/ceo`)
+  test('GET /api/v1/director returns status', async ({ request }) => {
+    const response = await request.get(`${AUTOCRAT_URL}/api/v1/director`)
 
     expect(response.ok()).toBeTruthy()
     const data = await response.json()
@@ -261,7 +261,7 @@ test.describe('REST API Integration', () => {
     expect(response.ok()).toBeTruthy()
     const data = await response.json()
     expect(data.totalProposals).toBeDefined()
-    expect(data.ceo).toBeDefined()
+    expect(data.director).toBeDefined()
     expect(data.parameters).toBeDefined()
   })
 })
@@ -301,7 +301,7 @@ test.describe('Real Blockchain Integration', () => {
     expect(data.result).toBeDefined()
   })
 
-  test('council connects to live chain', async ({ request }) => {
+  test('board connects to live chain', async ({ request }) => {
     const response = await request.get(`${AUTOCRAT_URL}/health`)
     expect(response.ok()).toBeTruthy()
     const data = await response.json()

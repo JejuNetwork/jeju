@@ -34,3 +34,18 @@ export interface SIWFMessage {
   issuedAt: string
   expirationTime?: string
 }
+
+export type OAuth3Network = 'mainnet' | 'testnet' | 'localnet'
+
+export interface OAuth3AppConfig {
+  appId: string
+  redirectUri: string
+  chainId: number
+  rpcUrl: string
+  teeAgentUrl: string
+  decentralized?: boolean
+  network?: OAuth3Network
+  jnsGateway?: string
+  storageEndpoint?: string
+  mpcEndpoints?: string[]
+}

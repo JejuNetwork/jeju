@@ -1,0 +1,404 @@
+# Crucible
+
+Agent orchestration platform for deploying, funding, and managing AI agents on Jeju.
+
+## Overview
+
+Crucible provides the infrastructure for autonomous AI agent operation:
+
+| Feature | Description |
+|---------|-------------|
+| **Agent Vaults** | Secure funding with spend limits |
+| **60+ Actions** | DeFi, storage, compute, governance, cross-chain |
+| **Triggers** | Cron, webhook, and blockchain event triggers |
+| **Multi-Agent Rooms** | Collaborative agent spaces |
+| **ElizaOS Integration** | Full elizaos compatibility |
+
+## Quick Start
+
+### 1. Start Crucible
+
+```bash
+cd apps/crucible
+bun install
+bun run dev
+```
+
+Crucible runs at `http://localhost:4020`
+
+### 2. Chat with a Pre-built Agent
+
+```bash
+# Initialize runtimes
+curl -X POST http://localhost:4020/api/v1/chat/init
+
+# Chat with the project manager
+curl -X POST http://localhost:4020/api/v1/chat/project-manager \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "What can you help me with?",
+    "userId": "user-123",
+    "roomId": "room-456"
+  }'
+```
+
+## Pre-built Characters
+
+Crucible includes ready-to-use agent characters:
+
+| ID | Name | Specialty |
+|----|------|-----------|
+| `project-manager` | Jimmy | Coordination, task management |
+| `community-manager` | Eli5 | Community support, moderation |
+| `devrel` | Eddy | Technical support, documentation |
+| `red-team` | Phoenix | Security testing, vulnerability scanning |
+| `blue-team` | Shield | Defense, monitoring, incident response |
+
+## Agent Actions
+
+Agents can perform 60+ on-chain actions:
+
+### Compute
+
+```typescript
+// Rent GPU time
+await agent.execute('RENT_GPU', {
+  provider: '0x...',
+  durationHours: 2,
+  gpuType: 'A100',
+});
+
+// Run AI inference
+await agent.execute('RUN_INFERENCE', {
+  model: 'llama3.2',
+  prompt: 'Analyze this market data...',
+});
+
+// Create scheduled trigger
+await agent.execute('CREATE_TRIGGER', {
+  type: 'cron',
+  schedule: '0 * * * *', // Hourly
+  action: 'check_markets',
+});
+```
+
+### Storage
+
+```typescript
+// Upload file to IPFS
+await agent.execute('UPLOAD_FILE', {
+  content: fileBuffer,
+  name: 'analysis.json',
+});
+
+// Retrieve file
+await agent.execute('RETRIEVE_FILE', {
+  cid: 'Qm...',
+});
+
+// Pin content
+await agent.execute('PIN_CID', {
+  cid: 'Qm...',
+  duration: 30 * 24 * 60 * 60,
+});
+```
+
+### DeFi
+
+```typescript
+// Swap tokens
+await agent.execute('SWAP_TOKENS', {
+  tokenIn: 'USDC',
+  tokenOut: 'JEJU',
+  amountIn: parseUnits('100', 6),
+});
+
+// Add liquidity
+await agent.execute('ADD_LIQUIDITY', {
+  tokenA: 'USDC',
+  tokenB: 'JEJU',
+  amountA: parseUnits('100', 6),
+  amountB: parseEther('50'),
+});
+```
+
+### Cross-Chain
+
+```typescript
+// Bridge assets
+await agent.execute('CROSS_CHAIN_TRANSFER', {
+  from: 'base',
+  to: 'jeju',
+  token: 'ETH',
+  amount: parseEther('1'),
+});
+
+// Create intent
+await agent.execute('CREATE_INTENT', {
+  sourceChain: 8453,
+  destChain: 420691,
+  inputToken: '0x...',
+  outputToken: '0x...',
+  amount: parseUnits('100', 6),
+});
+```
+
+### Governance
+
+```typescript
+// Create proposal
+await agent.execute('CREATE_PROPOSAL', {
+  title: 'Increase staking rewards',
+  description: '...',
+  actions: [{ target, calldata }],
+});
+
+// Vote
+await agent.execute('VOTE', {
+  proposalId: 1,
+  support: true,
+});
+```
+
+### Agent-to-Agent (A2A)
+
+```typescript
+// Call another agent
+await agent.execute('CALL_AGENT', {
+  agentAddress: '0x...',
+  message: 'What is the current ETH price?',
+});
+
+// Discover agents
+await agent.execute('DISCOVER_AGENTS', {
+  labels: ['trading', 'analysis'],
+  limit: 10,
+});
+```
+
+## Deploying an Agent
+
+### Step 1: Define Character
+
+```json
+{
+  "name": "TradingBot",
+  "description": "Automated DeFi trading agent",
+  "personality": "analytical, precise, risk-aware",
+  "background": "Expert in DeFi protocols",
+  "skills": ["market-analysis", "trade-execution"],
+  "goals": ["Maximize returns", "Manage risk"],
+  "constraints": ["Max 5% per trade", "Verify contracts"]
+}
+```
+
+### Step 2: Register Agent
+
+```bash
+curl -X POST http://localhost:4020/api/v1/agents \
+  -H "Content-Type: application/json" \
+  -d '{
+    "character": {
+      "name": "TradingBot",
+      "description": "Automated DeFi trading",
+      "personality": "analytical, precise",
+      "skills": ["market-analysis", "trade-execution"]
+    },
+    "initialFunding": "100000000000000000"
+  }'
+```
+
+Response:
+
+```json
+{
+  "agentId": "1",
+  "address": "0x...",
+  "vaultAddress": "0x...",
+  "characterUri": "ipfs://Qm..."
+}
+```
+
+### Step 3: Add Triggers
+
+```bash
+# Cron trigger - check markets hourly
+curl -X POST http://localhost:4020/api/v1/triggers \
+  -d '{
+    "agentId": "1",
+    "type": "cron",
+    "config": { "schedule": "0 * * * *", "action": "check_markets" }
+  }'
+
+# Event trigger - react to swaps
+curl -X POST http://localhost:4020/api/v1/triggers \
+  -d '{
+    "agentId": "1",
+    "type": "event",
+    "config": {
+      "contract": "0x...",
+      "event": "Swap",
+      "filter": { "token0": "0x..." }
+    }
+  }'
+```
+
+### Step 4: Fund the Agent
+
+```bash
+curl -X POST http://localhost:4020/api/v1/agents/1/fund \
+  -d '{"amount": "100000000000000000"}'
+```
+
+## Multi-Agent Rooms
+
+Create collaborative spaces for agents:
+
+### Create Room
+
+```bash
+curl -X POST http://localhost:4020/api/v1/rooms \
+  -d '{
+    "name": "Trading Team",
+    "description": "Collaborative trading",
+    "roomType": "collaboration",
+    "config": { "maxMembers": 5 }
+  }'
+```
+
+### Add Agents
+
+```bash
+# Add analyst agent
+curl -X POST http://localhost:4020/api/v1/rooms/1/join \
+  -d '{"agentId": "1", "role": "analyst"}'
+
+# Add executor agent
+curl -X POST http://localhost:4020/api/v1/rooms/1/join \
+  -d '{"agentId": "2", "role": "executor"}'
+```
+
+### Send Messages
+
+```bash
+curl -X POST http://localhost:4020/api/v1/rooms/1/message \
+  -d '{
+    "agentId": "1",
+    "content": "Found opportunity in ETH/USDC pool"
+  }'
+```
+
+## Vault Management
+
+### Check Balance
+
+```bash
+curl http://localhost:4020/api/v1/agents/1/balance
+```
+
+### Set Spend Limits
+
+```typescript
+// Via contract
+await agentVault.setSpendLimit(agentId, parseEther('1')); // Max 1 ETH per tx
+```
+
+### Withdraw Funds
+
+```typescript
+// Owner withdraws from vault
+await agentVault.withdraw(agentId, parseEther('0.5'));
+```
+
+## Custom Plugins
+
+Extend agent capabilities with custom plugins:
+
+```typescript
+import { createPlugin, type Action } from '@jejunetwork/crucible';
+
+const myAction: Action = {
+  name: 'MY_ACTION',
+  description: 'Custom action',
+  handler: async (runtime, params) => {
+    // Your logic here
+    return { success: true, result: '...' };
+  },
+  validate: (params) => {
+    // Validation logic
+    return true;
+  },
+};
+
+const myPlugin = createPlugin({
+  name: 'my-plugin',
+  description: 'My custom plugin',
+  actions: [myAction],
+});
+
+// Use in runtime
+const runtime = await runtimeManager.createRuntime({
+  agentId: 'my-agent',
+  character: myCharacter,
+  plugins: [myPlugin],
+});
+```
+
+## API Reference
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/chat/init` | POST | Initialize runtimes |
+| `/api/v1/chat/:characterId` | POST | Chat with agent |
+| `/api/v1/characters` | GET | List characters |
+| `/api/v1/agents` | POST | Register agent |
+| `/api/v1/agents/:id` | GET | Get agent info |
+| `/api/v1/agents/:id/fund` | POST | Fund agent vault |
+| `/api/v1/agents/:id/balance` | GET | Check balance |
+| `/api/v1/triggers` | POST | Create trigger |
+| `/api/v1/rooms` | POST | Create room |
+| `/api/v1/rooms/:id/join` | POST | Join room |
+| `/api/v1/rooms/:id/message` | POST | Send message |
+| `/api/v1/execute` | POST | Execute action |
+
+## Environment Variables
+
+```bash
+# Required
+PRIVATE_KEY=0x...
+RPC_URL=http://127.0.0.1:9545
+NETWORK=localnet
+
+# Service URLs
+STORAGE_API_URL=http://127.0.0.1:3100
+COMPUTE_MARKETPLACE_URL=http://127.0.0.1:4007
+INDEXER_GRAPHQL_URL=http://127.0.0.1:4350/graphql
+
+# Optional
+PORT=4020
+LOG_LEVEL=info
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+## Monitoring Agents
+
+### Execution History
+
+```bash
+curl http://localhost:4020/api/v1/agents/1/executions
+```
+
+### Cost Tracking
+
+```bash
+curl http://localhost:4020/api/v1/agents/1/costs
+```
+
+## Best Practices
+
+1. **Start small** — Test with minimal funding on localnet first
+2. **Set limits** — Configure spend limits and permissions
+3. **Monitor** — Track execution logs and costs
+4. **Iterate** — Refine character and triggers based on results
+5. **Separate wallets** — Use dedicated keys for each agent

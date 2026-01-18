@@ -20,12 +20,18 @@ function getRpcUrl(): string {
   return config.rpcEthHttp
 }
 
+// Use 0 finality confirmation for local development (Anvil has instant finality)
+// In production, this should be set to a higher value (e.g., 10)
+const isLocalDev =
+  getRpcUrl().includes('localhost') || getRpcUrl().includes('127.0.0.1')
+
 export const processor = new EvmBatchProcessor()
   .setRpcEndpoint({
     url: getRpcUrl(),
-    rateLimit: 10,
+    // No rate limit for local dev (Anvil), 10 req/s for production
+    ...(isLocalDev ? {} : { rateLimit: 10 }),
   })
-  .setFinalityConfirmation(10)
+  .setFinalityConfirmation(isLocalDev ? 0 : 10)
   .setFields({
     block: {
       gasUsed: true,

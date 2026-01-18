@@ -251,8 +251,8 @@ contract MultiChainRPCRegistry is ProviderRegistryBase {
 
         ce.isActive = false;
 
-        // Note: We don't remove from arrays to avoid expensive array manipulation
-        // Inactive chains are filtered in queries
+        // We don't remove from arrays to avoid expensive array manipulation.
+        // Inactive chains are filtered in queries.
 
         emit ChainEndpointRemoved(msg.sender, chainId);
     }

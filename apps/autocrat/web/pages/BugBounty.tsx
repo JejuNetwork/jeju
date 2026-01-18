@@ -19,6 +19,7 @@ import {
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { formatEther, parseEther } from 'viem'
+import { useAccount } from 'wagmi'
 import {
   assessBugBounty,
   type BountyAssessment,
@@ -64,7 +65,7 @@ const STATUS_CONFIG = [
   { label: 'Pending', color: 'bg-gray-500' },
   { label: 'Validating', color: 'bg-blue-500' },
   { label: 'Guardian Review', color: 'bg-purple-500' },
-  { label: 'CEO Review', color: 'bg-indigo-500' },
+  { label: 'Director Review', color: 'bg-indigo-500' },
   { label: 'Approved', color: 'bg-green-500' },
   { label: 'Paid', color: 'bg-emerald-500' },
   { label: 'Rejected', color: 'bg-red-500' },
@@ -118,6 +119,7 @@ const VULN_TYPES = [
 
 export default function BugBountyPage() {
   const navigate = useNavigate()
+  const { address, isConnected } = useAccount()
   const [stats, setStats] = useState<BountyStats | null>(null)
   const [submissions, setSubmissions] = useState<BountySubmission[]>([])
   const [leaderboard, setLeaderboard] = useState<ResearcherLeaderboardEntry[]>(
@@ -159,13 +161,15 @@ export default function BugBountyPage() {
   }
 
   const handleSubmit = async () => {
+    if (!isConnected || !address) {
+      setSubmitError('Please connect your wallet to submit a bug report')
+      return
+    }
+
     setSubmitting(true)
     setSubmitError(null)
     try {
-      await submitBugBounty(
-        draft,
-        '0x0000000000000000000000000000000000000000', // Would come from wallet
-      )
+      await submitBugBounty(draft, address)
       setActiveTab('submissions')
       setDraft({
         title: '',
@@ -463,7 +467,7 @@ export default function BugBountyPage() {
                   {
                     step: 4,
                     title: 'Payout',
-                    desc: 'CEO approves, reward paid on-chain',
+                    desc: 'Director approves, reward paid on-chain',
                   },
                 ].map((item) => (
                   <div

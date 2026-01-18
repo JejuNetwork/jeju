@@ -320,7 +320,7 @@ Secrets are resolved in this order:
 4. Local file fallback (`.secrets/` directory)
 
 ```typescript
-// Note: secrets module is internal - import directly if needed in Node.js
+// Secrets module is internal - import directly if needed in Node.js
 import { getSecret, getActiveProvider } from '../secrets';
 
 // Check which provider is being used

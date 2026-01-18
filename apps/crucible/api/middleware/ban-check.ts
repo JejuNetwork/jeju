@@ -1,32 +1,54 @@
-import { getCurrentNetwork, getRpcUrl } from '@jejunetwork/config'
+/**
+ * Ban Check Middleware for DWS
+ * Uses @jejunetwork/shared for ban checking
+ */
+
+import {
+  getCurrentNetwork,
+  getLocalhostHost,
+  getRpcUrl,
+  tryGetContract,
+} from '@jejunetwork/config'
 import { type BanCheckConfig, BanChecker } from '@jejunetwork/shared'
+import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import { z } from 'zod'
 
-// Schema for address extraction from request body
-const AddressBodySchema = z
-  .object({
-    address: z.string().nullable(),
-    from: z.string().nullable(),
-    sender: z.string().nullable(),
-    agentOwner: z.string().nullable(),
-  })
-  .passthrough() // Allow other fields but only validate address-related ones
+// Schema for extracting address from request body
+const AddressFieldsSchema = z.object({
+  address: z.string().optional(),
+  from: z.string().optional(),
+  sender: z.string().optional(),
+  owner: z.string().optional(),
+})
 
-// Get config from centralized config
+// Get config from environment with config fallbacks
 const NETWORK = getCurrentNetwork()
-const RPC_URL = getRpcUrl(NETWORK)
+const BAN_MANAGER_ADDRESS =
+  ((typeof process !== 'undefined'
+    ? process.env.BAN_MANAGER_ADDRESS
+    : undefined) as Address | undefined) ??
+  (tryGetContract('moderation', 'banManager', NETWORK) as Address | undefined)
+const MODERATION_MARKETPLACE_ADDRESS =
+  ((typeof process !== 'undefined'
+    ? process.env.MODERATION_MARKETPLACE_ADDRESS
+    : undefined) as Address | undefined) ??
+  (tryGetContract('moderation', 'marketplace', NETWORK) as Address | undefined)
+const RPC_URL =
+  (typeof process !== 'undefined' ? process.env.RPC_URL : undefined) ??
+  (NETWORK === 'localnet'
+    ? `http://${getLocalhostHost()}:6545`
+    : getRpcUrl(NETWORK))
 
-import { config } from '../config'
-
-// Try to get contract addresses, but don't fail if not configured
-const BAN_MANAGER_ADDRESS = config.banManagerAddress as Address | undefined
-const MODERATION_MARKETPLACE_ADDRESS = config.moderationMarketplaceAddress as
-  | Address
-  | undefined
-
-// Skip paths that don't need ban checking
-const SKIP_PATHS = ['/health', '/info', '/metrics', '/.well-known']
+// Skip paths that don't need ban checking (public endpoints)
+const SKIP_PATHS = [
+  '/health',
+  '/info',
+  '/metrics',
+  '/.well-known',
+  '/storage/ipfs', // Public IPFS gateway reads
+  '/cdn', // Public CDN reads
+]
 
 // Create checker only if ban manager is configured
 let checker: BanChecker | null = null
@@ -43,87 +65,76 @@ if (BAN_MANAGER_ADDRESS) {
   checker = new BanChecker(config)
 }
 
-interface BanResponse {
-  error: string
-  message: string
-  banType: number | undefined
-  caseId: `0x${string}` | null | undefined
-  canAppeal: boolean | undefined
-}
-
-interface ElysiaContext {
-  request: Request
-  set: { status?: number | string }
-}
-
 /**
- * Elysia middleware that checks ban status
+ * Elysia plugin that checks ban status
  */
 export function banCheckMiddleware() {
-  return async (ctx: ElysiaContext): Promise<BanResponse | undefined> => {
-    const { request, set } = ctx
-    // Skip if no ban manager configured (local dev)
-    if (!checker) {
-      return undefined
-    }
+  return new Elysia({ name: 'ban-check' }).onBeforeHandle(
+    async ({ request, set }) => {
+      // Skip if no ban manager configured (local dev)
+      if (!checker) {
+        return
+      }
 
-    const url = new URL(request.url)
-    const path = url.pathname
+      const url = new URL(request.url)
+      const path = url.pathname
 
-    // Skip certain paths
-    if (SKIP_PATHS.some((skipPath) => path.startsWith(skipPath))) {
-      return undefined
-    }
+      // Skip certain paths
+      if (SKIP_PATHS.some((skipPath) => path.startsWith(skipPath))) {
+        return
+      }
 
-    // Extract address from various sources
-    // Note: x-jeju-address header is used (signature verified by ownership check)
-    let address: string | null =
-      request.headers.get('x-jeju-address') ?? url.searchParams.get('address')
+      // Skip GET requests on public read paths
+      if (request.method === 'GET' && path.startsWith('/storage/')) {
+        return
+      }
 
-    if (!address) {
-      // Try to get from JSON body with schema validation
-      const contentType = request.headers.get('content-type') ?? ''
-      if (contentType.includes('application/json')) {
-        const clonedRequest = request.clone()
-        const rawBody = await clonedRequest.json()
-        if (rawBody !== null) {
-          const parsed = AddressBodySchema.safeParse(rawBody)
-          if (parsed.success) {
-            address =
-              parsed.data.address ??
-              parsed.data.from ??
-              parsed.data.sender ??
-              parsed.data.agentOwner ??
-              null
+      // Extract address from various sources
+      let address =
+        request.headers.get('x-wallet-address') ??
+        url.searchParams.get('address')
+
+      if (!address) {
+        // Try to get from JSON body for POST/PUT/DELETE
+        if (['POST', 'PUT', 'DELETE'].includes(request.method)) {
+          const contentType = request.headers.get('content-type') ?? ''
+          if (contentType.includes('application/json')) {
+            const clonedRequest = request.clone()
+            const rawBody = await clonedRequest.json()
+            const parsed = AddressFieldsSchema.safeParse(rawBody)
+            if (parsed.success) {
+              const body = parsed.data
+              address =
+                body.address ?? body.from ?? body.sender ?? body.owner ?? null
+            }
           }
         }
       }
-    }
 
-    // No address to check - allow through
-    if (!address) {
-      return undefined
-    }
-
-    // Validate address format
-    if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
-      return undefined
-    }
-
-    const result = await checker.checkBan(address as Address)
-
-    if (!result.allowed) {
-      set.status = 403
-      return {
-        error: 'BANNED',
-        message:
-          result.status?.reason ?? 'User is banned from Crucible services',
-        banType: result.status?.banType,
-        caseId: result.status?.caseId,
-        canAppeal: result.status?.canAppeal,
+      // No address to check - allow through
+      if (!address) {
+        return
       }
-    }
 
-    return undefined
-  }
+      // Validate address format
+      if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        return
+      }
+
+      const result = await checker.checkBan(address as Address)
+
+      if (!result.allowed) {
+        set.status = 403
+        return {
+          error: 'BANNED',
+          message: result.status?.reason || 'User is banned from DWS services',
+          banType: result.status?.banType,
+          caseId: result.status?.caseId,
+          canAppeal: result.status?.canAppeal,
+        }
+      }
+
+      return undefined
+    },
+  )
 }

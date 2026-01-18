@@ -141,9 +141,9 @@ test.describe('MCP Resources', () => {
     expect(data.resources.length).toBeGreaterThan(0)
   })
 
-  test('council agents resource returns roles', async ({ request }) => {
+  test('board agents resource returns roles', async ({ request }) => {
     const response = await request.post(`${AUTOCRAT_URL}/mcp/resources/read`, {
-      data: { uri: 'autocrat://council/agents' },
+      data: { uri: 'autocrat://board/agents' },
     })
 
     expect(response.ok()).toBeTruthy()
@@ -184,7 +184,7 @@ test.describe('MCP Protocol', () => {
     const data = await response.json()
     expect(data.protocolVersion).toBe('2024-11-05')
     expect(data.serverInfo).toBeDefined()
-    expect(data.serverInfo.name).toBe('jeju-council')
+    expect(data.serverInfo.name).toBe('jeju-board')
     expect(data.capabilities.resources).toBe(true)
     expect(data.capabilities.tools).toBe(true)
   })
@@ -194,7 +194,7 @@ test.describe('MCP Protocol', () => {
     expect(response.ok()).toBeTruthy()
 
     const data = await response.json()
-    expect(data.server).toBe('jeju-council')
+    expect(data.server).toBe('jeju-board')
     expect(data.resources).toBeDefined()
     expect(data.tools).toBeDefined()
   })

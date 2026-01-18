@@ -68,7 +68,7 @@ fn main() -> Result<()> {
             };
 
             let mut deserializer = serde_json::Deserializer::from_reader(reader);
-            // Note: serde_json doesn't support custom recursion limits, only disabling.
+            // serde_json doesn't support custom recursion limits, only disabling.
             // We disable the limit to handle deeply nested AST structures (default 128 is
             // insufficient for the clang AST dump, which can be deeply nested).
             deserializer.disable_recursion_limit();

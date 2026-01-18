@@ -9,14 +9,23 @@ import { getSQLitBlockProducerUrl } from '@jejunetwork/config'
 import { z } from 'zod'
 import { createLogger, type Logger } from './logger'
 
-// SQLit query result schema
+// SQLit adapter response schemas
+const SQLitExecResultSchema = z.object({
+  success: z.boolean(),
+  rowsAffected: z.number().optional(),
+  lastInsertId: z.string().optional(),
+  error: z.string().optional(),
+})
+
 const SQLitQueryResultSchema = z.object({
+  success: z.boolean(),
   data: z
     .object({
       rows: z.array(z.record(z.string(), z.unknown())).nullable(),
     })
     .optional(),
-  status: z.string(),
+  // Alternative format from some SQLit endpoints
+  rows: z.array(z.record(z.string(), z.unknown())).optional(),
   error: z.string().optional(),
 })
 
@@ -79,7 +88,9 @@ export class CrucibleDatabase {
   constructor(config: DatabaseConfig = {}) {
     this.config = config
     this.log = config.logger ?? createLogger('Database')
-    this.endpoint = config.endpoint ?? getSQLitBlockProducerUrl()
+    // Check SQLIT_URL env var first, then use config, then fallback to default
+    this.endpoint =
+      config.endpoint ?? process.env.SQLIT_URL ?? getSQLitBlockProducerUrl()
     this.database = config.database ?? 'crucible'
     this.timeout = config.timeout ?? 30000
   }
@@ -124,9 +135,13 @@ export class CrucibleDatabase {
 
   /**
    * Initialize database schema
+   * Uses fetchQuery directly to avoid recursion during connect()
    */
   private async initSchema(): Promise<void> {
-    await this.exec(`
+    // Use fetchQuery directly since we're called from connect() before state is 'connected'
+    await this.fetchQuery(
+      'exec',
+      `
       CREATE TABLE IF NOT EXISTS agents (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         agent_id TEXT NOT NULL UNIQUE,
@@ -137,9 +152,12 @@ export class CrucibleDatabase {
         created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
         updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
       )
-    `)
+    `,
+    )
 
-    await this.exec(`
+    await this.fetchQuery(
+      'exec',
+      `
       CREATE TABLE IF NOT EXISTS rooms (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         room_id TEXT NOT NULL UNIQUE,
@@ -148,9 +166,12 @@ export class CrucibleDatabase {
         state_cid TEXT,
         created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
       )
-    `)
+    `,
+    )
 
-    await this.exec(`
+    await this.fetchQuery(
+      'exec',
+      `
       CREATE TABLE IF NOT EXISTS messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         room_id TEXT NOT NULL,
@@ -159,9 +180,12 @@ export class CrucibleDatabase {
         action TEXT,
         created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
       )
-    `)
+    `,
+    )
 
-    await this.exec(`
+    await this.fetchQuery(
+      'exec',
+      `
       CREATE TABLE IF NOT EXISTS triggers (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         trigger_id TEXT NOT NULL UNIQUE,
@@ -171,16 +195,24 @@ export class CrucibleDatabase {
         enabled INTEGER NOT NULL DEFAULT 1,
         created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
       )
-    `)
+    `,
+    )
 
     // Create indices
-    await this.exec(
+    await this.fetchQuery(
+      'exec',
       `CREATE INDEX IF NOT EXISTS idx_messages_room ON messages(room_id)`,
     )
-    await this.exec(
+    await this.fetchQuery(
+      'exec',
       `CREATE INDEX IF NOT EXISTS idx_messages_agent ON messages(agent_id)`,
     )
-    await this.exec(
+    await this.fetchQuery(
+      'exec',
+      `CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at DESC)`,
+    )
+    await this.fetchQuery(
+      'exec',
       `CREATE INDEX IF NOT EXISTS idx_triggers_agent ON triggers(agent_id)`,
     )
   }
@@ -263,16 +295,31 @@ export class CrucibleDatabase {
     }
 
     const result: unknown = await response.json()
+
+    // Handle exec responses (INSERT, UPDATE, DELETE, CREATE)
+    if (method === 'exec') {
+      const parsed = SQLitExecResultSchema.safeParse(result)
+      if (!parsed.success) {
+        throw new Error(`Invalid SQLit exec response: ${parsed.error.message}`)
+      }
+      if (parsed.data.error) {
+        throw new Error(`SQLit error: ${parsed.data.error}`)
+      }
+      return null
+    }
+
+    // Handle query responses (SELECT)
     const parsed = SQLitQueryResultSchema.safeParse(result)
     if (!parsed.success) {
-      throw new Error(`Invalid SQLit response: ${parsed.error.message}`)
+      throw new Error(`Invalid SQLit query response: ${parsed.error.message}`)
     }
 
     if (parsed.data.error) {
       throw new Error(`SQLit error: ${parsed.data.error}`)
     }
 
-    return parsed.data.data?.rows ?? null
+    // Handle both response formats
+    return parsed.data.rows ?? parsed.data.data?.rows ?? null
   }
 
   // ============================================
@@ -447,6 +494,20 @@ export class CrucibleDatabase {
     }
 
     return this.query<Message>(sql, values)
+  }
+
+  async getRecentMessages(
+    options: { limit?: number } = {},
+  ): Promise<Message[]> {
+    const limit = options.limit ?? 10
+    return this.query<Message>(
+      `SELECT * FROM messages ORDER BY created_at DESC LIMIT ?`,
+      [limit],
+    )
+  }
+
+  async clearMessages(roomId: string): Promise<void> {
+    await this.exec(`DELETE FROM messages WHERE room_id = ?`, [roomId])
   }
 
   // ============================================

@@ -27,6 +27,43 @@ const registryIntegration = getRegistryIntegrationClient(registryConfig)
 
 export const registryRoutes = new Elysia({ prefix: '/api/v1/registry' })
   .get(
+    '/',
+    async () => {
+      try {
+        return {
+          service: 'registry',
+          status: 'available',
+          contracts: {
+            identity: registryConfig.identityRegistry,
+            reputation: registryConfig.reputationRegistry,
+            delegation: registryConfig.delegationRegistry,
+          },
+          endpoints: {
+            profile: 'GET /api/v1/registry/profile/:agentId',
+            profiles: 'POST /api/v1/registry/profiles',
+            search: 'GET /api/v1/registry/search',
+            reputation: 'GET /api/v1/registry/reputation/:agentId',
+            leaderboard: 'GET /api/v1/registry/leaderboard',
+            category: 'GET /api/v1/registry/category/:category',
+            delegates: 'GET /api/v1/registry/delegates',
+          },
+        }
+      } catch (error) {
+        return {
+          service: 'registry',
+          status: 'unavailable',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Registry service unavailable',
+        }
+      }
+    },
+    {
+      detail: { tags: ['registry'], summary: 'Get registry service info' },
+    },
+  )
+  .get(
     '/profile/:agentId',
     async ({ params }) => {
       const agentId = BigInt(params.agentId)
@@ -264,24 +301,24 @@ export const registryRoutes = new Elysia({ prefix: '/api/v1/registry' })
     },
   )
   .get(
-    '/security-council',
+    '/security-board',
     async () => {
-      const council = await registryIntegration.getSecurityCouncil()
+      const board = await registryIntegration.getSecurityBoard()
       return {
-        members: council.map((m) => ({
+        members: board.map((m) => ({
           ...m,
           agentId: m.agentId.toString(),
         })),
       }
     },
     {
-      detail: { tags: ['registry'], summary: 'Get security council members' },
+      detail: { tags: ['registry'], summary: 'Get security board members' },
     },
   )
   .get(
-    '/is-council-member/:address',
+    '/is-board-member/:address',
     async ({ params }) => {
-      const isMember = await registryIntegration.isSecurityCouncilMember(
+      const isMember = await registryIntegration.isSecurityBoardMember(
         toAddress(params.address),
       )
       return { isMember }
@@ -290,7 +327,7 @@ export const registryRoutes = new Elysia({ prefix: '/api/v1/registry' })
       params: t.Object({ address: t.String() }),
       detail: {
         tags: ['registry'],
-        summary: 'Check if address is council member',
+        summary: 'Check if address is board member',
       },
     },
   )

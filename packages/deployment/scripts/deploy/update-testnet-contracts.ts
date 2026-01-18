@@ -179,7 +179,7 @@ const CONTRACT_CATEGORIES: Record<string, string> = {
   TrainingRewards: 'training.rewards',
   ModelRegistry: 'training.modelRegistry',
   TEERegistry: 'training.teeRegistry',
-  AICeo: 'training.aiCeo',
+  AIDirector: 'training.aiDirector',
 
   // Agents
   Agent0Registry: 'agents.agent0Registry',

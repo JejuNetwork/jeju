@@ -23,19 +23,60 @@ import { DEFAULT_POOL_CONFIG } from './types'
 // Runtime mode: 'bun' for direct Bun process spawning, 'workerd' for workerd V8 isolates
 type RuntimeMode = 'bun' | 'workerd'
 
-// Worker bootstrap - just sets env and imports the main module
-// Most worker code (like Factory) already starts its own server using PORT env var
+// SECURITY: List of env vars that are SAFE to pass to workers (non-sensitive config)
+// These are public network configuration that is not sensitive
+const SAFE_ENV_KEYS = new Set([
+  'PORT',
+  'NODE_ENV',
+  'NETWORK',
+  'JEJU_NETWORK',
+  'TEE_MODE',
+  'TEE_PLATFORM',
+  'TEE_REGION',
+  'RPC_URL',
+  'L2_RPC_URL',
+  'L1_RPC_URL',
+  'CHAIN_ID',
+  'L1_CHAIN_ID',
+  'DWS_URL',
+  'DWS_API_URL',
+  'DWS_REGION',
+  'DWS_CACHE_URL',
+  'GATEWAY_URL',
+  'INDEXER_URL',
+  'KMS_URL', // Workers need this to fetch secrets from KMS
+  'OAUTH3_URL',
+  'FUNCTION_ID',
+  'INSTANCE_ID',
+  'WORKER_ID',
+  'KMS_SECRET_IDS', // List of secret IDs to fetch from KMS
+  'OWNER_ADDRESS',
+  // SQLit configuration (non-sensitive URLs/IDs)
+  'SQLIT_ENDPOINT',
+  'SQLIT_DATABASE_ID',
+  'SQLIT_NODES',
+  'SQLIT_URL',
+  // Static assets
+  'STATIC_ASSETS_URL',
+  // OAuth3 worker config (non-secret config)
+  'SERVICE_AGENT_ID',
+  'ALLOWED_ORIGINS',
+  'MPC_REGISTRY_ADDRESS',
+  'IDENTITY_REGISTRY_ADDRESS',
+])
+
+// Worker bootstrap - sets env and imports the main module
+// SECURITY: No secrets are embedded - workers fetch secrets from KMS at runtime
 function createWorkerBootstrap(port: number, _handler: string): string {
   // Bootstrap that handles both standalone servers and fetch-export workers
   return `
 // DWS Worker Bootstrap - Starts worker on port ${port}
+// SECURITY: No secrets embedded - workers fetch from KMS at runtime
 const PORT = ${port};
 
-// Provide default environment for workers
-// These are the standard environment variables expected by Jeju workers
-// Note: Chain config should match packages/config/chain/*.json
+// SECURITY: Only non-sensitive config is passed via environment
+// Secrets MUST be fetched from KMS at runtime using KMS_SECRET_IDS
 const workerEnv = {
-  ...process.env,
   PORT: String(PORT),
   NODE_ENV: process.env.NODE_ENV || 'production',
   NETWORK: process.env.NETWORK || process.env.JEJU_NETWORK || 'testnet',
@@ -43,23 +84,44 @@ const workerEnv = {
   TEE_MODE: process.env.TEE_MODE || 'simulated',
   TEE_PLATFORM: process.env.TEE_PLATFORM || 'dws',
   TEE_REGION: process.env.TEE_REGION || 'global',
-  // Chain configuration - must match chain/*.json
+  // Chain configuration - public network info
   RPC_URL: process.env.RPC_URL || process.env.L2_RPC_URL || 'https://testnet-rpc.jejunetwork.org',
   L2_RPC_URL: process.env.L2_RPC_URL || process.env.RPC_URL || 'https://testnet-rpc.jejunetwork.org',
   L1_RPC_URL: process.env.L1_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com',
   CHAIN_ID: process.env.CHAIN_ID || '420690',
   L1_CHAIN_ID: process.env.L1_CHAIN_ID || '11155111',
-  // Service URLs
+  // Service URLs - public endpoints
   DWS_URL: process.env.DWS_URL || 'https://dws.testnet.jejunetwork.org',
   GATEWAY_URL: process.env.GATEWAY_URL || 'https://gateway.testnet.jejunetwork.org',
   INDEXER_URL: process.env.INDEXER_URL || 'https://indexer.testnet.jejunetwork.org/graphql',
-  KMS_URL: process.env.KMS_URL || 'https://kms.testnet.jejunetwork.org',
+  KMS_URL:
+    process.env.KMS_URL ||
+    (process.env.DWS_URL || 'https://dws.testnet.jejunetwork.org') + '/kms',
   OAUTH3_URL: process.env.OAUTH3_URL || 'https://oauth3.testnet.jejunetwork.org',
-  // SQLit
-  SQLIT_NODES: process.env.SQLIT_NODES || process.env.SQLIT_URL || '',
-  SQLIT_URL: process.env.SQLIT_URL || process.env.SQLIT_NODES || '',
+  // Worker identity for KMS auth
+  FUNCTION_ID: process.env.FUNCTION_ID || '',
+  INSTANCE_ID: process.env.INSTANCE_ID || '',
+  WORKER_ID: process.env.WORKER_ID || process.env.FUNCTION_ID || '',
+  OWNER_ADDRESS: process.env.OWNER_ADDRESS || '',
+  KMS_SECRET_IDS: process.env.KMS_SECRET_IDS || '',
+  // SQLit configuration (non-sensitive)
+  // SECURITY: SQLIT_PRIVATE_KEY must come from KMS in production
+  SQLIT_NODES:
+    process.env.SQLIT_NODES ||
+    process.env.SQLIT_URL ||
+    process.env.SQLIT_HTTP_URL ||
+    process.env.SQLIT_BLOCK_PRODUCER_ENDPOINT ||
+    process.env.SQLIT_MINER_ENDPOINT ||
+    '',
+  SQLIT_URL:
+    process.env.SQLIT_URL ||
+    process.env.SQLIT_NODES ||
+    process.env.SQLIT_HTTP_URL ||
+    process.env.SQLIT_BLOCK_PRODUCER_ENDPOINT ||
+    process.env.SQLIT_MINER_ENDPOINT ||
+    '',
   SQLIT_DATABASE_ID: process.env.SQLIT_DATABASE_ID || '',
-  SQLIT_PRIVATE_KEY: process.env.SQLIT_PRIVATE_KEY || '',
+  SQLIT_KMS_KEY_ID: process.env.SQLIT_KMS_KEY_ID || '',
   SQLIT_MINER_ENDPOINT: process.env.SQLIT_MINER_ENDPOINT || '',
 };
 
@@ -99,7 +161,7 @@ async function startWorker() {
     // Create a server wrapping the fetch handler
     console.log('[Bootstrap] Starting fetch-handler server on port ' + PORT);
     
-    const server = Bun.serve({
+    const _server = Bun.serve({
       port: PORT,
       async fetch(request) {
         try {
@@ -472,17 +534,42 @@ export class WorkerRuntime {
         `[WorkerRuntime] Starting worker ${fn.name} on port ${instance.port}...`,
       )
 
-      // Spawn the worker process
+      // SECURITY: Only pass safe environment variables to workers
+      // Sensitive secrets must be fetched from KMS at runtime
+      const safeEnv: Record<string, string> = {}
+      for (const key of SAFE_ENV_KEYS) {
+        const value = process.env[key]
+        if (value !== undefined && value !== '') {
+          safeEnv[key] = value
+        }
+      }
+
+      // Also pass any non-secret env vars from the worker's config
+      // SECURITY: fn.env should NOT contain secrets - they should be KMS IDs
+      if (fn.env) {
+        for (const [key, value] of Object.entries(fn.env)) {
+          if (value !== undefined && value !== '') {
+            safeEnv[key] = value
+          }
+        }
+      }
+
+      // Spawn the worker process with only safe environment variables
       const proc = Bun.spawn([bunPath, 'run', bootstrapPath], {
         env: {
-          ...process.env,
-          ...fn.env,
+          ...safeEnv,
           PORT: String(instance.port),
           FUNCTION_ID: fn.id,
           INSTANCE_ID: instance.id,
+          WORKER_ID: fn.id,
+          OWNER_ADDRESS: fn.owner,
           FUNCTION_MEMORY: String(fn.memory),
           FUNCTION_TIMEOUT: String(fn.timeout),
-          NODE_ENV: process.env.NODE_ENV || 'production',
+          NODE_ENV: process.env.NODE_ENV ?? 'production',
+          // Pass KMS endpoint so worker can fetch secrets
+          KMS_URL: process.env.KMS_URL ?? 'https://kms.testnet.jejunetwork.org',
+          KMS_ENDPOINT:
+            process.env.KMS_URL ?? 'https://kms.testnet.jejunetwork.org',
         },
         stdout: 'pipe',
         stderr: 'pipe',
@@ -552,20 +639,17 @@ export class WorkerRuntime {
     for (let attempt = 0; attempt < 100; attempt++) {
       const port = min + Math.floor(Math.random() * (max - min))
       if (!this.usedPorts.has(port)) {
-        // Reserve the port FIRST to prevent race conditions
-        this.usedPorts.add(port)
-
-        // Check if port is actually available on the system
+        // Check if port is actually available
         try {
           const server = Bun.serve({
             port,
             fetch: () => new Response('test'),
           })
           server.stop()
+          this.usedPorts.add(port)
           return port
         } catch {
-          // Port in use by another process, release and try another
-          this.usedPorts.delete(port)
+          // Port in use, try another
         }
       }
     }
@@ -696,8 +780,49 @@ export class WorkerRuntime {
 
     console.log(`[WorkerRuntime] Downloading code from storage: ${cid}`)
 
-    // Download from storage
-    const result = await this.backend.download(cid)
+    // Download from storage (with IPFS gateway fallback)
+    let result: { content: Buffer; backend: string }
+    try {
+      result = await this.backend.download(cid)
+    } catch (backendError) {
+      console.log(
+        `[WorkerRuntime] Backend download failed, trying IPFS gateway: ${cid}`,
+      )
+
+      // Try IPFS gateway as fallback
+      const ipfsGatewayUrls = [
+        `https://ipfs.testnet.jejunetwork.org/ipfs/${cid}`,
+        `https://ipfs.jejunetwork.org/ipfs/${cid}`,
+        `https://dweb.link/ipfs/${cid}`,
+        `https://cloudflare-ipfs.com/ipfs/${cid}`,
+      ]
+
+      let gatewayContent: Buffer | null = null
+      for (const gatewayUrl of ipfsGatewayUrls) {
+        try {
+          const response = await fetch(gatewayUrl, {
+            signal: AbortSignal.timeout(30000),
+          })
+          if (response.ok) {
+            gatewayContent = Buffer.from(await response.arrayBuffer())
+            console.log(
+              `[WorkerRuntime] Downloaded from IPFS gateway: ${gatewayUrl}`,
+            )
+            break
+          }
+        } catch {
+          // Try next gateway
+        }
+      }
+
+      if (!gatewayContent) {
+        throw new Error(
+          `Failed to download code: ${cid}. Backend error: ${backendError instanceof Error ? backendError.message : String(backendError)}`,
+        )
+      }
+
+      result = { content: gatewayContent, backend: 'ipfs-gateway' }
+    }
 
     // Create worker directory
     const tempDir = `/tmp/dws-workers/${cid}`

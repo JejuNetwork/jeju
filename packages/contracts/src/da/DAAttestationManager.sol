@@ -187,7 +187,7 @@ contract DAAttestationManager is IDATypes, ReentrancyGuard, Ownable {
         require(success, "Transfer failed");
 
         // Mark blob as unavailable
-        // Note: In production, would call blobRegistry to update status
+        // TODO: Call blobRegistry to update status
 
         emit ChallengeResolved(challengeId, true, challenge.challenger);
     }

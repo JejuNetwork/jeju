@@ -4,10 +4,10 @@
  * Native Tauri app testing is the default mode.
  * Set TAURI_WEB=1 to test web preview instead of native app.
  */
-import { CORE_PORTS } from '@jejunetwork/config/ports'
+import { getTestConfig } from '@jejunetwork/config/test-config'
 import { defineConfig, devices } from '@playwright/test'
 
-const PORT = CORE_PORTS.VPN_WEB.get()
+const config = getTestConfig('vpn')
 // Native mode is default for Tauri apps
 const isNativeMode = process.env.TAURI_WEB !== '1'
 
@@ -21,7 +21,7 @@ export default defineConfig({
   timeout: 120000,
 
   use: {
-    baseURL: isNativeMode ? undefined : `http://localhost:${PORT}`,
+    baseURL: isNativeMode ? undefined : config.baseURL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -44,12 +44,13 @@ export default defineConfig({
         },
       ],
 
+  // When testing against remote (testnet/mainnet) or native mode, no webserver is started
   webServer:
-    isNativeMode || process.env.SKIP_WEBSERVER
+    isNativeMode || config.skipWebServer
       ? undefined
       : {
           command: 'bun run dev:web',
-          url: `http://localhost:${PORT}`,
+          url: config.baseURL,
           reuseExistingServer: true,
           timeout: 180000,
         },

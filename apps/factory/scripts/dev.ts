@@ -48,6 +48,7 @@ const EXTERNALS = [
   'node:module',
   'node:worker_threads',
   '@jejunetwork/deployment',
+  '@jejunetwork/contracts',
   '@jejunetwork/db',
   '@jejunetwork/kms',
   '@jejunetwork/dws',

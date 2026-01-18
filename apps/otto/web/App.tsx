@@ -1,27 +1,49 @@
-import { useState } from 'react'
-import { Chat } from './pages/Chat'
-import { Configure } from './pages/Configure'
-import { Landing } from './pages/Landing'
-import { Onboard } from './pages/Onboard'
+/**
+ * Otto App - Main Application Component
+ */
 
-type Page = 'landing' | 'onboard' | 'configure' | 'chat'
+import { AuthCallback, useJejuAuth } from '@jejunetwork/auth/react'
+import { useCallback, useMemo, useState } from 'react'
+import { Chat } from './pages/Chat'
+import { Landing } from './pages/Landing'
+
+type Page = 'landing' | 'chat'
 
 export function App() {
   const [page, setPage] = useState<Page>('landing')
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const { walletAddress, loginWithWallet } = useJejuAuth()
 
-  const navigate = (to: Page) => setPage(to)
+  const handleStartChat = useCallback(() => {
+    // Create a new session
+    const newSessionId = crypto.randomUUID()
+    setSessionId(newSessionId)
+    setPage('chat')
+  }, [])
 
-  switch (page) {
-    case 'landing':
-      return <Landing onNavigate={navigate} />
-    case 'onboard':
-      return <Onboard onNavigate={navigate} onSessionCreated={setSessionId} />
-    case 'configure':
-      return <Configure onNavigate={navigate} sessionId={sessionId} />
-    case 'chat':
-      return <Chat onNavigate={navigate} sessionId={sessionId} />
-    default:
-      return <Landing onNavigate={navigate} />
+  const isCallbackRoute = useMemo(() => {
+    if (typeof window === 'undefined') return false
+    return window.location.pathname === '/auth/callback'
+  }, [])
+
+  const handleBack = useCallback(() => {
+    setPage('landing')
+  }, [])
+
+  if (isCallbackRoute) {
+    return <AuthCallback />
   }
+
+  if (page === 'chat' && sessionId) {
+    return (
+      <Chat
+        sessionId={sessionId}
+        walletAddress={walletAddress}
+        onConnect={loginWithWallet}
+        onBack={handleBack}
+      />
+    )
+  }
+
+  return <Landing onStartChat={handleStartChat} />
 }

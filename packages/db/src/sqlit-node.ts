@@ -343,7 +343,7 @@ export class SQLitNodeManager {
     // Build command line arguments (kept for future spawning implementation)
     // const args = this.buildCommandArgs()
 
-    // Note: In a real implementation, we'd spawn the process here
+    // In a real implementation, we'd spawn the process here
     // For now, we assume the node is managed externally (Docker/systemd)
     throw new Error(
       'Local SQLIT process spawning not implemented - use Docker or start manually',

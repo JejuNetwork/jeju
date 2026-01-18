@@ -37,8 +37,8 @@ const SUPERCHAIN_REQUIREMENTS = {
     description: 'Contract upgrades require 7+ day delay',
     required: true,
   },
-  securityCouncil: {
-    name: 'Security Council Multisig',
+  securityBoard: {
+    name: 'Security Board Multisig',
     description: '4/7 multisig for emergency actions',
     required: true,
   },
@@ -194,7 +194,7 @@ async function checkUpgradeTimelock(network: NetworkType): Promise<{
   return { status: 'pass', details: `${minDelayDays.toFixed(0)} day delay` }
 }
 
-async function checkSecurityCouncil(network: NetworkType): Promise<{
+async function checkSecurityBoard(network: NetworkType): Promise<{
   status: 'pass' | 'warn' | 'fail'
   details?: string
 }> {
@@ -210,10 +210,10 @@ async function checkSecurityCouncil(network: NetworkType): Promise<{
   }
 
   const deployment = JSON.parse(readFileSync(deploymentPath, 'utf-8'))
-  const councilAddress = deployment.SecurityCouncil
+  const boardAddress = deployment.SecurityBoard
 
-  if (!councilAddress) {
-    return { status: 'fail', details: 'SecurityCouncil not deployed' }
+  if (!boardAddress) {
+    return { status: 'fail', details: 'SecurityBoard not deployed' }
   }
 
   // Verify it's a multisig
@@ -221,14 +221,14 @@ async function checkSecurityCouncil(network: NetworkType): Promise<{
   const client = createPublicClient({ transport: http(rpcUrl) })
 
   const code = await client
-    .getCode({ address: councilAddress as `0x${string}` })
+    .getCode({ address: boardAddress as `0x${string}` })
     .catch(() => null)
 
   if (!code || code === '0x') {
-    return { status: 'fail', details: 'SecurityCouncil has no code' }
+    return { status: 'fail', details: 'SecurityBoard has no code' }
   }
 
-  // Note: Full verification would check threshold and owner count
+  // Full verification would check threshold and owner count
   return {
     status: 'warn',
     details: 'Deployed - verify 4/7 threshold manually',
@@ -342,8 +342,8 @@ async function checkRequirement(
       return checkSharedSequencer(network)
     case 'upgradeTimelock':
       return checkUpgradeTimelock(network)
-    case 'securityCouncil':
-      return checkSecurityCouncil(network)
+    case 'securityBoard':
+      return checkSecurityBoard(network)
     case 'faultProofs':
       return checkFaultProofs(network)
     case 'governance':

@@ -2,110 +2,141 @@
 // Unit tests for Bun runtime compatibility layer
 // Licensed under the Apache 2.0 license
 
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { mkdirSync, rmSync } from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import Bun, {
-  file,
-  write,
-  serve,
-  getServeHandler,
-  env,
-  version,
-  revision,
-  sleep,
-  sleepSync,
-  nanoseconds,
-  escapeHTML,
-  stringWidth,
+  ArrayBufferSink,
   deepEquals,
-  inspect,
+  dns,
+  env,
+  escapeHTML,
+  file,
+  fileURLToPath,
+  gc,
+  generateHeapSnapshot,
+  getServeHandler,
   hash,
+  inspect,
+  main,
+  nanoseconds,
+  openInEditor,
   password,
+  pathToFileURL,
+  peek,
+  randomUUIDv7,
   readableStreamToArray,
-  readableStreamToText,
   readableStreamToArrayBuffer,
   readableStreamToBlob,
   readableStreamToJSON,
-  ArrayBufferSink,
-  dns,
-  main,
-  randomUUIDv7,
-  peek,
-  gc,
+  readableStreamToText,
+  revision,
+  serve,
   shrink,
-  generateHeapSnapshot,
-  openInEditor,
-  fileURLToPath,
-  pathToFileURL,
+  sleep,
+  sleepSync,
+  stringWidth,
+  version,
+  write,
 } from './bun'
 
+type BunValue =
+  | string
+  | number
+  | boolean
+  | bigint
+  | symbol
+  | object
+  | null
+  | undefined
+
 describe('Bun Runtime', () => {
+  let tmpDir: string
+  const t = (p: string) => {
+    if (p.startsWith('/test/'))
+      return path.join(tmpDir, p.slice('/test/'.length))
+    if (p.startsWith('/concurrent/'))
+      return path.join(tmpDir, p.slice('/concurrent/'.length))
+    return path.join(tmpDir, p.startsWith('/') ? p.slice(1) : p)
+  }
+
+  beforeEach(() => {
+    tmpDir = path.join(os.tmpdir(), `workerd-bun-${crypto.randomUUID()}`)
+    mkdirSync(tmpDir, { recursive: true })
+  })
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true })
+  })
+
   describe('File Operations', () => {
     test('Bun.file creates a BunFile reference', () => {
-      const bunFile = file('/test/path.txt')
-      expect(bunFile.name).toBe('/test/path.txt') // name returns full path
+      const bunFile = file(t('/test/path.txt'))
+      expect(bunFile.name).toBe(t('/test/path.txt')) // name returns full path
       expect(bunFile.size).toBe(0) // No data written yet
     })
 
     test('Bun.file with URL', () => {
-      const bunFile = file(new URL('file:///test/path.txt'))
-      expect(bunFile.name).toBe('/test/path.txt') // name returns full path
+      const bunFile = file(new URL(`file://${t('/test/path.txt')}`))
+      expect(bunFile.name).toBe(t('/test/path.txt')) // name returns full path
     })
 
     test('Bun.file with custom type', () => {
-      const bunFile = file('/test/style.css', { type: 'text/css' })
+      const bunFile = file(t('/test/style.css'), { type: 'text/css' })
       expect(bunFile.type).toBe('text/css')
     })
 
     test('Bun.write writes string data', async () => {
-      const bytes = await write('/test/file.txt', 'Hello, World!')
+      const bytes = await write(t('/test/file.txt'), 'Hello, World!')
       expect(bytes).toBe(13)
 
-      const bunFile = file('/test/file.txt')
+      const bunFile = file(t('/test/file.txt'))
       expect(await bunFile.text()).toBe('Hello, World!')
     })
 
     test('Bun.write writes Uint8Array data', async () => {
       const data = new Uint8Array([72, 101, 108, 108, 111]) // "Hello"
-      const bytes = await write('/test/binary.bin', data)
+      const bytes = await write(t('/test/binary.bin'), data)
       expect(bytes).toBe(5)
 
-      const bunFile = file('/test/binary.bin')
+      const bunFile = file(t('/test/binary.bin'))
       const retrieved = await bunFile.bytes()
       expect(retrieved).toEqual(data)
     })
 
     test('Bun.write writes ArrayBuffer data', async () => {
       const data = new TextEncoder().encode('Test').buffer
-      const bytes = await write('/test/buffer.bin', data)
+      const bytes = await write(t('/test/buffer.bin'), data)
       expect(bytes).toBe(4)
     })
 
     test('BunFile.exists returns correct state', async () => {
-      expect(await file('/nonexistent').exists()).toBe(false)
+      expect(await file(t('/nonexistent')).exists()).toBe(false)
 
-      await write('/exists.txt', 'data')
-      expect(await file('/exists.txt').exists()).toBe(true)
+      await write(t('/exists.txt'), 'data')
+      expect(await file(t('/exists.txt')).exists()).toBe(true)
     })
 
     test('BunFile.json parses JSON content', async () => {
-      await write('/test/data.json', '{"name": "test", "value": 42}')
-      const bunFile = file('/test/data.json')
+      await write(t('/test/data.json'), '{"name": "test", "value": 42}')
+      const bunFile = file(t('/test/data.json'))
       const data = await bunFile.json<{ name: string; value: number }>()
       expect(data.name).toBe('test')
       expect(data.value).toBe(42)
     })
 
     test('BunFile.arrayBuffer returns ArrayBuffer', async () => {
-      await write('/test/ab.txt', 'ArrayBuffer')
-      const bunFile = file('/test/ab.txt')
+      await write(t('/test/ab.txt'), 'ArrayBuffer')
+      const bunFile = file(t('/test/ab.txt'))
       const ab = await bunFile.arrayBuffer()
       expect(ab).toBeInstanceOf(ArrayBuffer)
       expect(ab.byteLength).toBe(11)
     })
 
     test('BunFile.stream returns ReadableStream', async () => {
-      await write('/test/stream.txt', 'Stream content')
-      const bunFile = file('/test/stream.txt')
+      await write(t('/test/stream.txt'), 'Stream content')
+      const bunFile = file(t('/test/stream.txt'))
       const stream = bunFile.stream()
       expect(stream).toBeInstanceOf(ReadableStream)
 
@@ -114,14 +145,14 @@ describe('Bun Runtime', () => {
     })
 
     test('BunFile.slice creates sliced file', async () => {
-      await write('/test/slice.txt', 'Hello World')
-      const bunFile = file('/test/slice.txt')
+      await write(t('/test/slice.txt'), 'Hello World')
+      const bunFile = file(t('/test/slice.txt'))
       const sliced = bunFile.slice(0, 5)
       expect(await sliced.text()).toBe('Hello')
     })
 
     test('BunFile.writer creates FileSink', async () => {
-      const bunFile = file('/test/sink.txt')
+      const bunFile = file(t('/test/sink.txt'))
       const writer = bunFile.writer()
 
       writer.write('Part 1')
@@ -133,8 +164,8 @@ describe('Bun Runtime', () => {
 
     test('BunFile.lastModified returns timestamp', async () => {
       const before = Date.now()
-      await write('/test/time.txt', 'data')
-      const bunFile = file('/test/time.txt')
+      await write(t('/test/time.txt'), 'data')
+      const bunFile = file(t('/test/time.txt'))
       const after = Date.now()
 
       expect(bunFile.lastModified).toBeGreaterThanOrEqual(before)
@@ -142,56 +173,56 @@ describe('Bun Runtime', () => {
     })
 
     test('BunFile.text throws for non-existent file', async () => {
-      const bunFile = file('/does/not/exist.txt')
+      const bunFile = file(t('/does/not/exist.txt'))
       await expect(bunFile.text()).rejects.toThrow('ENOENT')
     })
 
     test('BunFile.bytes throws for non-existent file', async () => {
-      const bunFile = file('/does/not/exist/bytes.bin')
+      const bunFile = file(t('/does/not/exist/bytes.bin'))
       await expect(bunFile.bytes()).rejects.toThrow('ENOENT')
     })
 
     test('BunFile.arrayBuffer throws for non-existent file', async () => {
-      const bunFile = file('/does/not/exist/ab.bin')
+      const bunFile = file(t('/does/not/exist/ab.bin'))
       await expect(bunFile.arrayBuffer()).rejects.toThrow('ENOENT')
     })
 
     test('BunFile.stream throws for non-existent file', () => {
-      const bunFile = file('/does/not/exist/stream.txt')
+      const bunFile = file(t('/does/not/exist/stream.txt'))
       expect(() => bunFile.stream()).toThrow('ENOENT')
     })
 
     test('Bun.write writes Blob data', async () => {
       const blob = new Blob(['Blob content'], { type: 'text/plain' })
-      const bytes = await write('/test/blob.txt', blob)
+      const bytes = await write(t('/test/blob.txt'), blob)
       expect(bytes).toBe(12)
 
-      const bunFile = file('/test/blob.txt')
+      const bunFile = file(t('/test/blob.txt'))
       expect(await bunFile.text()).toBe('Blob content')
     })
 
     test('Bun.write writes Response data', async () => {
       const response = new Response('Response content')
-      const bytes = await write('/test/response.txt', response)
+      const bytes = await write(t('/test/response.txt'), response)
       expect(bytes).toBe(16)
 
-      const bunFile = file('/test/response.txt')
+      const bunFile = file(t('/test/response.txt'))
       expect(await bunFile.text()).toBe('Response content')
     })
 
     test('Bun.write writes BunFile data', async () => {
-      await write('/test/source.txt', 'Source content')
-      const sourceFile = file('/test/source.txt')
+      await write(t('/test/source.txt'), 'Source content')
+      const sourceFile = file(t('/test/source.txt'))
 
-      const bytes = await write('/test/dest.txt', sourceFile)
+      const bytes = await write(t('/test/dest.txt'), sourceFile)
       expect(bytes).toBe(14)
 
-      const destFile = file('/test/dest.txt')
+      const destFile = file(t('/test/dest.txt'))
       expect(await destFile.text()).toBe('Source content')
     })
 
     test('Bun.write to BunFile destination', async () => {
-      const destFile = file('/test/bunfile-dest.txt')
+      const destFile = file(t('/test/bunfile-dest.txt'))
       const bytes = await write(destFile, 'BunFile dest content')
       expect(bytes).toBe(20)
 
@@ -199,11 +230,11 @@ describe('Bun Runtime', () => {
     })
 
     test('Bun.write to URL destination', async () => {
-      const url = new URL('file:///test/url-dest.txt')
+      const url = new URL(`file://${t('/test/url-dest.txt')}`)
       const bytes = await write(url, 'URL dest content')
       expect(bytes).toBe(16)
 
-      const bunFile = file('/test/url-dest.txt')
+      const bunFile = file(t('/test/url-dest.txt'))
       expect(await bunFile.text()).toBe('URL dest content')
     })
   })
@@ -352,7 +383,18 @@ describe('Bun Runtime', () => {
       expect(deepEquals([1, 2, 3], [1, 2, 3])).toBe(true)
       expect(deepEquals([1, 2, 3], [1, 2, 4])).toBe(false)
       expect(deepEquals([1, 2], [1, 2, 3])).toBe(false)
-      expect(deepEquals([[1, 2], [3, 4]], [[1, 2], [3, 4]])).toBe(true)
+      expect(
+        deepEquals(
+          [
+            [1, 2],
+            [3, 4],
+          ],
+          [
+            [1, 2],
+            [3, 4],
+          ],
+        ),
+      ).toBe(true)
     })
 
     test('Bun.deepEquals compares objects', () => {
@@ -372,7 +414,7 @@ describe('Bun Runtime', () => {
     })
 
     test('Bun.inspect handles circular references', () => {
-      const obj: Record<string, unknown> = { a: 1 }
+      const obj: Record<string, BunValue> = { a: 1 }
       obj.self = obj
       expect(inspect(obj)).toContain('[Circular]')
     })
@@ -495,12 +537,11 @@ describe('Bun Runtime', () => {
     })
   })
 
-  describe('Password Hashing (Real bcrypt)', () => {
-    test('Bun.password.hash returns real bcrypt hash', async () => {
+  describe('Password Hashing (PBKDF2)', () => {
+    test('Bun.password.hash returns workerd PBKDF2 hash', async () => {
       const hashed = await password.hash('secret')
       expect(typeof hashed).toBe('string')
-      // Real bcrypt format: $2a$, $2b$, or $2y$
-      expect(hashed).toMatch(/^\$2[aby]\$\d{2}\$/)
+      expect(hashed).toMatch(/^\$workerd\$pbkdf2\$sha256\$\d+\$/)
     })
 
     test('Bun.password.verify verifies correct password', async () => {
@@ -513,10 +554,13 @@ describe('Bun Runtime', () => {
       expect(await password.verify('wrong', hashed)).toBe(false)
     })
 
-    test('Bun.password.hash with custom cost', async () => {
+    test('Bun.password.hash with custom cost affects iterations', async () => {
       const hashed = await password.hash('secret', { cost: 8 })
-      // bcrypt format includes cost: $2a$08$...
-      expect(hashed).toContain('$08$')
+      const parts = hashed.split('$')
+      // ['', 'workerd', 'pbkdf2', 'sha256', iterations, saltHex, hashHex]
+      expect(parts[2]).toBe('pbkdf2')
+      expect(parts[3]).toBe('sha256')
+      expect(parseInt(parts[4], 10)).toBe(2 ** 8 * 100)
       expect(await password.verify('secret', hashed)).toBe(true)
     })
 
@@ -533,28 +577,15 @@ describe('Bun Runtime', () => {
     })
 
     test('Bun.password.hash throws for argon2', async () => {
-      await expect(password.hash('test', { algorithm: 'argon2id' })).rejects.toThrow(
-        "Algorithm 'argon2id' is not available in workerd",
-      )
-    })
-
-    test('Bun.password.verify works with external bcrypt hashes', async () => {
-      // Hash generated by bcrypt (node-bcrypt compatible)
-      // This proves interoperability with real bcrypt implementations
-      const externalHash = '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
-      // Password is 'test'
-      expect(await password.verify('test', externalHash)).toBe(false) // wrong password
-      
-      // Hash our own and verify cross-compatibility
-      const ourHash = await password.hash('crosscompat')
-      expect(ourHash).toMatch(/^\$2[aby]\$10\$/) // default cost 10
-      expect(await password.verify('crosscompat', ourHash)).toBe(true)
+      await expect(
+        password.hash('test', { algorithm: 'argon2id' }),
+      ).rejects.toThrow("Algorithm 'argon2id' is not available in workerd")
     })
 
     test('Bun.password.verify rejects unknown hash format', async () => {
-      await expect(password.verify('test', 'invalid-hash-format')).rejects.toThrow(
-        'Unknown hash format',
-      )
+      await expect(
+        password.verify('test', 'invalid-hash-format'),
+      ).rejects.toThrow('Unknown hash format')
     })
   })
 
@@ -733,7 +764,9 @@ describe('Bun Runtime', () => {
     })
 
     test('openInEditor throws', () => {
-      expect(() => openInEditor('/some/path')).toThrow('not available in workerd')
+      expect(() => openInEditor('/some/path')).toThrow(
+        'not available in workerd',
+      )
     })
   })
 
@@ -873,9 +906,9 @@ describe('Bun Runtime', () => {
 
     test('test module spyOn throws', async () => {
       const testModule = await import('./test')
-      expect(() =>
-        testModule.spyOn({ method: () => {} }, 'method'),
-      ).toThrow('not available in workerd')
+      expect(() => testModule.spyOn({ method: () => {} }, 'method')).toThrow(
+        'not available in workerd',
+      )
     })
 
     test('test module setSystemTime throws', async () => {
@@ -907,49 +940,49 @@ describe('Bun Runtime', () => {
 
   describe('Edge Cases - File Operations', () => {
     test('Bun.write with empty string', async () => {
-      const bytes = await write('/test/empty.txt', '')
+      const bytes = await write(t('/test/empty.txt'), '')
       expect(bytes).toBe(0)
-      const bunFile = file('/test/empty.txt')
+      const bunFile = file(t('/test/empty.txt'))
       expect(await bunFile.text()).toBe('')
       expect(bunFile.size).toBe(0)
     })
 
     test('Bun.write overwrites existing file', async () => {
-      await write('/test/overwrite.txt', 'original content')
-      await write('/test/overwrite.txt', 'new content')
-      const bunFile = file('/test/overwrite.txt')
+      await write(t('/test/overwrite.txt'), 'original content')
+      await write(t('/test/overwrite.txt'), 'new content')
+      const bunFile = file(t('/test/overwrite.txt'))
       expect(await bunFile.text()).toBe('new content')
     })
 
     test('Bun.write with large data (1MB)', async () => {
       const largeData = 'x'.repeat(1024 * 1024)
-      const bytes = await write('/test/large.txt', largeData)
+      const bytes = await write(t('/test/large.txt'), largeData)
       expect(bytes).toBe(1024 * 1024)
-      const bunFile = file('/test/large.txt')
+      const bunFile = file(t('/test/large.txt'))
       expect(bunFile.size).toBe(1024 * 1024)
     })
 
     test('BunFile.json throws on invalid JSON', async () => {
-      await write('/test/invalid.json', 'not valid json {')
-      const bunFile = file('/test/invalid.json')
+      await write(t('/test/invalid.json'), 'not valid json {')
+      const bunFile = file(t('/test/invalid.json'))
       await expect(bunFile.json()).rejects.toThrow()
     })
 
     test('BunFile with unicode filename', async () => {
-      const path = '/test/文件名.txt'
-      await write(path, 'unicode content')
-      const bunFile = file(path)
+      const filePath = t('/test/文件名.txt')
+      await write(filePath, 'unicode content')
+      const bunFile = file(filePath)
       expect(await bunFile.text()).toBe('unicode content')
     })
 
     test('BunFile.slice with no data returns empty file reference', async () => {
-      const bunFile = file('/nonexistent/slice.txt')
+      const bunFile = file(t('/nonexistent/slice.txt'))
       const sliced = bunFile.slice(0, 10)
       expect(sliced).toBeDefined()
     })
 
     test('FileSink.write with mixed data types', async () => {
-      const bunFile = file('/test/mixed-sink.txt')
+      const bunFile = file(t('/test/mixed-sink.txt'))
       const writer = bunFile.writer()
       writer.write('string ')
       writer.write(new TextEncoder().encode('uint8array '))
@@ -959,7 +992,7 @@ describe('Bun Runtime', () => {
     })
 
     test('FileSink.flush persists data', async () => {
-      const bunFile = file('/test/flush-test.txt')
+      const bunFile = file(t('/test/flush-test.txt'))
       const writer = bunFile.writer()
       writer.write('flushed data')
       writer.flush()
@@ -969,11 +1002,13 @@ describe('Bun Runtime', () => {
 
   describe('Edge Cases - Environment', () => {
     test('env proxy has operation', () => {
-      expect('PATH' in env || 'HOME' in env || Object.keys(env).length >= 0).toBe(true)
+      expect(
+        'PATH' in env || 'HOME' in env || Object.keys(env).length >= 0,
+      ).toBe(true)
     })
 
     test('env set operation', () => {
-      env['TEST_VAR_12345'] = 'test-value'
+      env.TEST_VAR_12345 = 'test-value'
       // Set should not throw, but value may not persist in all environments
     })
   })
@@ -1009,11 +1044,10 @@ describe('Bun Runtime', () => {
     })
   })
 
-  describe('Edge Cases - Password (Real bcrypt)', () => {
+  describe('Edge Cases - Password (PBKDF2)', () => {
     test('password.hash with empty string', async () => {
       const hashed = await password.hash('')
-      // Real bcrypt format
-      expect(hashed).toMatch(/^\$2[aby]\$\d{2}\$/)
+      expect(hashed).toMatch(/^\$workerd\$pbkdf2\$sha256\$\d+\$/)
       expect(await password.verify('', hashed)).toBe(true)
     })
 
@@ -1024,31 +1058,45 @@ describe('Bun Runtime', () => {
       expect(await password.verify('wrong', hashed)).toBe(false)
     })
 
-    test('password.hash with very long password (72 chars - bcrypt max)', async () => {
-      // bcrypt only uses first 72 bytes of password
-      const longPwd = 'a'.repeat(72)
+    test('password.hash with very long password', async () => {
+      const longPwd = 'a'.repeat(2048)
       const hashed = await password.hash(longPwd)
       expect(await password.verify(longPwd, hashed)).toBe(true)
     })
 
     test('password.verify with invalid hash format throws', async () => {
-      await expect(password.verify('test', 'invalid-hash-format')).rejects.toThrow('Unknown hash format')
+      await expect(
+        password.verify('test', 'invalid-hash-format'),
+      ).rejects.toThrow('Unknown hash format')
     })
 
-    test('password.verify with malformed bcrypt hash returns false', async () => {
-      // Malformed bcrypt hash (wrong salt/hash length)
-      expect(await password.verify('test', '$2a$10$short')).toBe(false)
+    test('password.verify with malformed workerd PBKDF2 hash throws', async () => {
+      await expect(
+        password.verify('test', '$workerd$pbkdf2$sha256$not-a-number$aa$bb'),
+      ).rejects.toThrow('Invalid workerd hash format')
     })
 
-    test('password.verify with legacy workerd hash (backwards compatible)', async () => {
-      // Legacy $workerd$ format is still supported for verification
-      // This is a pre-generated PBKDF2 hash for 'test' with cost 10
-      // (Generated by old implementation)
-      const legacyHash = '$workerd$bcrypt$10$00112233445566778899aabb$e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
-      // Should return false (doesn't match) but not throw
-      // Note: this hash doesn't actually match 'test', just testing format acceptance
-      const result = await password.verify('test', legacyHash)
+    test('password.verify with valid legacy workerd PBKDF2 hash', async () => {
+      // Generate a hash using legacy format (cost instead of iterations)
+      // Format: $workerd$pbkdf2$<cost>$<saltHex>$<hashHex>
+      // This is a manually crafted valid legacy hash
+      const pwd = 'test-password'
+      const cost = 10
+      const saltHex = '00112233445566778899aabbccddeeff'
+      // Pre-computed expected hash for this salt/cost/password (for testing)
+      // We just verify it doesn't throw for valid format, not that it matches
+      const validLegacyFormat = `$workerd$pbkdf2$${cost}$${saltHex}$e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`
+      const result = await password.verify(pwd, validLegacyFormat)
       expect(typeof result).toBe('boolean')
+    })
+
+    test('password.verify throws for invalid legacy hash algorithm', async () => {
+      // bcrypt algorithm is not supported in legacy format
+      const invalidLegacyHash =
+        '$workerd$bcrypt$10$00112233445566778899aabb$e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+      await expect(password.verify('test', invalidLegacyHash)).rejects.toThrow(
+        "Unknown legacy hash algorithm: bcrypt",
+      )
     })
   })
 
@@ -1162,12 +1210,17 @@ describe('Bun Runtime', () => {
       try {
         peek(rejectedPromise)
       } catch (e) {
-        expect((e as Error).message).toBe('test rejection')
+        if (!(e instanceof Error)) {
+          throw new Error('Expected Error instance')
+        }
+        expect(e.message).toBe('test rejection')
       }
     })
 
     test('fileURLToPath with encoded characters', () => {
-      expect(fileURLToPath('file:///path/with%20space/file.txt')).toBe('/path/with%20space/file.txt')
+      expect(fileURLToPath('file:///path/with%20space/file.txt')).toBe(
+        '/path/with%20space/file.txt',
+      )
     })
 
     test('pathToFileURL with relative path', () => {
@@ -1204,7 +1257,9 @@ describe('Bun Runtime', () => {
     test('server.fetch throws after stop', async () => {
       server = serve({ fetch: () => new Response('OK') })
       server.stop()
-      await expect(server.fetch(new Request('http://localhost/'))).rejects.toThrow('Server is not running')
+      await expect(
+        server.fetch(new Request('http://localhost/')),
+      ).rejects.toThrow('Server is not running')
       server = null
     })
 
@@ -1229,8 +1284,8 @@ describe('Bun Runtime', () => {
 
     test('server.ref and unref are callable', () => {
       server = serve({ fetch: () => new Response('OK') })
-      expect(() => server!.ref()).not.toThrow()
-      expect(() => server!.unref()).not.toThrow()
+      expect(() => server?.ref()).not.toThrow()
+      expect(() => server?.unref()).not.toThrow()
     })
 
     test('async error handler', async () => {
@@ -1259,7 +1314,7 @@ describe('Bun Runtime', () => {
       expect(deepEquals(1, '1')).toBe(false)
       expect(deepEquals(null, {})).toBe(false)
       expect(deepEquals(undefined, null)).toBe(false)
-      // Note: [] and {} are both objects with no keys, so they are considered equal by this implementation
+      // [] and {} are both objects with no keys, so they're considered equal by this implementation
       expect(deepEquals([1], {})).toBe(false) // Different lengths
     })
 
@@ -1362,12 +1417,12 @@ describe('Bun Runtime', () => {
   describe('Concurrent Operations', () => {
     test('concurrent file writes do not corrupt', async () => {
       const writes = Array.from({ length: 10 }, (_, i) =>
-        write(`/concurrent/${i}.txt`, `content-${i}`)
+        write(t(`/concurrent/${i}.txt`), `content-${i}`),
       )
       await Promise.all(writes)
 
       for (let i = 0; i < 10; i++) {
-        const f = file(`/concurrent/${i}.txt`)
+        const f = file(t(`/concurrent/${i}.txt`))
         expect(await f.text()).toBe(`content-${i}`)
       }
     })
@@ -1375,8 +1430,8 @@ describe('Bun Runtime', () => {
     test('concurrent hash operations', async () => {
       const hashes = await Promise.all(
         Array.from({ length: 100 }, (_, i) =>
-          Promise.resolve(hash(`data-${i}`))
-        )
+          Promise.resolve(hash(`data-${i}`)),
+        ),
       )
       expect(hashes.length).toBe(100)
       expect(new Set(hashes).size).toBe(100) // All unique
@@ -1384,7 +1439,7 @@ describe('Bun Runtime', () => {
 
     test('concurrent password hashing', async () => {
       const hashes = await Promise.all(
-        Array.from({ length: 5 }, () => password.hash('same-password'))
+        Array.from({ length: 5 }, () => password.hash('same-password')),
       )
       expect(hashes.length).toBe(5)
       expect(new Set(hashes).size).toBe(5) // All different due to salt

@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import "../../src/bridge/zk/ZKBridge.sol";
 import "../../src/bridge/zk/GovernedZKBridge.sol";
 import "../../src/bridge/zk/SolanaLightClient.sol";
-import "../../src/governance/interfaces/ICouncilGovernance.sol";
+import "../../src/governance/interfaces/IBoardGovernance.sol";
 
 /**
  * @title ZKBridgeTest
@@ -91,8 +91,8 @@ contract MockSolanaLightClient is ISolanaLightClient {
     function updateState(uint64, bytes32, bytes32, uint256[8] calldata, uint256[] calldata) external {}
 }
 
-// Mock council for governance tests
-contract MockCouncil is ICouncilGovernance {
+// Mock board for governance tests
+contract MockBoard is IBoardGovernance {
     mapping(bytes32 => Proposal) private _proposals;
     mapping(bytes32 => bool) private _approved;
     mapping(bytes32 => bool) private _graceDone;
@@ -299,7 +299,7 @@ contract GovernedZKBridgeTest is Test {
     MockIdentityRegistry public identityRegistry;
     MockSolanaLightClient public lightClient;
     MockZKVerifier public verifier;
-    MockCouncil public council;
+    MockBoard public board;
     MockBridgeToken public token;
 
     address public guardian = address(0x1234);
@@ -311,14 +311,14 @@ contract GovernedZKBridgeTest is Test {
         identityRegistry = new MockIdentityRegistry();
         lightClient = new MockSolanaLightClient();
         verifier = new MockZKVerifier();
-        council = new MockCouncil();
+        board = new MockBoard();
         token = new MockBridgeToken();
 
         bridge = new GovernedZKBridge(
             address(lightClient),
             address(identityRegistry),
             address(verifier),
-            address(council),
+            address(board),
             guardian,
             0.001 ether,
             100 wei
@@ -329,7 +329,7 @@ contract GovernedZKBridgeTest is Test {
     }
 
     function test_GovernedInit() public view {
-        assertEq(address(bridge.council()), address(council));
+        assertEq(address(bridge.board()), address(board));
         assertEq(bridge.guardian(), guardian);
         assertEq(bridge.admin(), address(bridge)); // Self-admin
     }
@@ -337,9 +337,9 @@ contract GovernedZKBridgeTest is Test {
     function test_RegisterTokenGoverned() public {
         bytes32 proposalId = keccak256("register");
 
-        council.createProposal(proposalId, address(bridge));
-        council.approveProposal(proposalId);
-        council.completeGrace(proposalId);
+        board.createProposal(proposalId, address(bridge));
+        board.approveProposal(proposalId);
+        board.completeGrace(proposalId);
 
         bridge.registerTokenGoverned(proposalId, address(token), SOLANA_MINT, true);
 
@@ -348,9 +348,9 @@ contract GovernedZKBridgeTest is Test {
 
     function test_RevertWhen_NotApproved() public {
         bytes32 proposalId = keccak256("not-approved");
-        council.createProposal(proposalId, address(bridge));
+        board.createProposal(proposalId, address(bridge));
 
-        vm.expectRevert(GovernedZKBridge.NotCouncilApproved.selector);
+        vm.expectRevert(GovernedZKBridge.NotBoardApproved.selector);
         bridge.registerTokenGoverned(proposalId, address(token), SOLANA_MINT, true);
     }
 

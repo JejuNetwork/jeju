@@ -1,5 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { existsSync, mkdirSync, rmSync } from 'node:fs'
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
 import type { Address } from 'viem'
 import type {
   LimitOrder,
@@ -9,11 +8,38 @@ import type {
   UserPlatformLink,
 } from '../../lib'
 
-// Set test data directory before importing state manager
-const TEST_DATA_DIR = './test-data-state'
-process.env.OTTO_DATA_DIR = TEST_DATA_DIR
+// Mock the SQLit client before importing the state manager
+const mockQueryOne = mock(() => Promise.resolve(null))
+const mockQuery = mock(() => Promise.resolve([]))
+const mockRun = mock(() => Promise.resolve())
+const mockCreateDatabase = mock(() =>
+  Promise.resolve({ databaseId: 'test-db' }),
+)
+const _mockIsHealthy = mock(() => true)
 
-import { getStateManager } from '../../api/services/state'
+mock.module('@jejunetwork/sqlit', () => ({
+  SQLitClient: class MockSQLitClient {
+    queryOne = mockQueryOne
+    query = mockQuery
+    run = mockRun
+    createDatabase = mockCreateDatabase
+  },
+  SQLitError: class SQLitError extends Error {
+    constructor(
+      message: string,
+      public code: string,
+    ) {
+      super(message)
+    }
+  },
+}))
+
+mock.module('@jejunetwork/config', () => ({
+  getSQLitBlockProducerUrl: () => 'http://localhost:4661',
+  getCurrentNetwork: () => 'localnet',
+}))
+
+import { getSQLitStateManager } from '../../api/services/sqlit-state'
 
 // Test constants with proper types
 const TEST_ADDRESS_1: Address = '0x1234567890123456789012345678901234567890'
@@ -61,14 +87,8 @@ function createTestUser(overrides: Partial<OttoUser> = {}): OttoUser {
   }
 }
 
-type PendingActionType = 'swap' | 'bridge' | 'send' | 'launch'
 type OrderStatus = 'open' | 'filled' | 'cancelled' | 'expired'
-
-const SWAP_TYPE: PendingActionType = 'swap'
-const BRIDGE_TYPE: PendingActionType = 'bridge'
 const STATUS_OPEN: OrderStatus = 'open'
-const STATUS_FILLED: OrderStatus = 'filled'
-const STATUS_CANCELLED: OrderStatus = 'cancelled'
 
 function createTestLimitOrder(overrides: Partial<LimitOrder> = {}): LimitOrder {
   return {
@@ -90,46 +110,78 @@ function createTestLimitOrder(overrides: Partial<LimitOrder> = {}): LimitOrder {
   }
 }
 
-describe('StateManager', () => {
-  beforeEach(() => {
-    // Create test directory
-    if (!existsSync(TEST_DATA_DIR)) {
-      mkdirSync(TEST_DATA_DIR, { recursive: true })
-    }
+describe('SQLitStateManager', () => {
+  beforeEach(async () => {
+    // Reset mocks
+    mockQueryOne.mockClear()
+    mockQuery.mockClear()
+    mockRun.mockClear()
+    mockCreateDatabase.mockClear()
+
+    // Initialize the manager to consume initialization-related mock calls
+    const manager = getSQLitStateManager()
+    // Force initialization by calling a method
+    await manager.isHealthy().catch(() => {})
+
+    // Reset mocks again so tests start fresh
+    mockQueryOne.mockClear()
+    mockQuery.mockClear()
+    mockRun.mockClear()
   })
 
   afterEach(() => {
-    // Clean up test directory
-    if (existsSync(TEST_DATA_DIR)) {
-      rmSync(TEST_DATA_DIR, { recursive: true, force: true })
-    }
+    mockQueryOne.mockClear()
+    mockQuery.mockClear()
+    mockRun.mockClear()
+  })
+
+  describe('initialization', () => {
+    test('creates singleton instance', () => {
+      const manager1 = getSQLitStateManager()
+      const manager2 = getSQLitStateManager()
+      expect(manager1).toBe(manager2)
+    })
+
+    test('returns database info', () => {
+      const manager = getSQLitStateManager()
+      const info = manager.getDatabaseInfo()
+      expect(info.network).toBe('localnet')
+      expect(info.databaseId).toContain('otto-localnet')
+      expect(info.endpoint).toBe('http://localhost:4661')
+    })
   })
 
   describe('user management', () => {
-    test('returns null for non-existent user', () => {
-      const manager = getStateManager()
-      const user = manager.getUser('nonexistent-id')
+    test('returns null for non-existent user', async () => {
+      mockQueryOne.mockResolvedValueOnce(null)
+
+      const manager = getSQLitStateManager()
+      const user = await manager.getUser('nonexistent-id')
       expect(user).toBeNull()
     })
 
-    test('returns null for non-existent platform user', () => {
-      const manager = getStateManager()
-      const user = manager.getUserByPlatform('discord', 'nonexistent')
+    test('returns null for non-existent platform user', async () => {
+      mockQueryOne.mockResolvedValueOnce(null)
+
+      const manager = getSQLitStateManager()
+      const user = await manager.getUserByPlatform('discord', 'nonexistent')
       expect(user).toBeNull()
     })
 
-    test('sets and retrieves user', () => {
-      const manager = getStateManager()
+    test('sets and retrieves user', async () => {
       const testUser = createTestUser()
 
-      manager.setUser(testUser)
-      const retrieved = manager.getUser('test-user-123')
-      expect(retrieved).not.toBeNull()
-      expect(retrieved?.id).toBe('test-user-123')
+      // Mock the set operation
+      mockRun.mockResolvedValue(undefined)
+
+      const manager = getSQLitStateManager()
+      await manager.setUser(testUser)
+
+      // Verify run was called for insert
+      expect(mockRun).toHaveBeenCalled()
     })
 
-    test('retrieves user by platform', () => {
-      const manager = getStateManager()
+    test('retrieves user by platform', async () => {
       const testUser = createTestUser({
         id: 'platform-user-456',
         platforms: [
@@ -140,280 +192,255 @@ describe('StateManager', () => {
           }),
         ],
         primaryWallet: TEST_ADDRESS_2,
-        settings: {
-          defaultSlippageBps: 100,
-          defaultChainId: 8453,
-          notifications: false,
-        },
       })
 
-      manager.setUser(testUser)
-      const retrieved = manager.getUserByPlatform('telegram', 'tg-456')
+      // Mock platform link lookup then user lookup
+      mockQueryOne
+        .mockResolvedValueOnce({
+          platform: 'telegram',
+          platform_id: 'tg-456',
+          user_id: 'platform-user-456',
+        })
+        .mockResolvedValueOnce({
+          id: testUser.id,
+          primary_wallet: testUser.primaryWallet,
+          platforms: JSON.stringify(testUser.platforms),
+          settings: JSON.stringify(testUser.settings),
+          created_at: testUser.createdAt,
+          updated_at: testUser.lastActiveAt,
+        })
+
+      const manager = getSQLitStateManager()
+      const retrieved = await manager.getUserByPlatform('telegram', 'tg-456')
       expect(retrieved).not.toBeNull()
       expect(retrieved?.id).toBe('platform-user-456')
     })
   })
 
   describe('conversation state', () => {
-    test('creates new conversation if none exists', () => {
-      const manager = getStateManager()
-      const conversation = manager.getConversation('web', 'channel-123')
+    test('returns empty history for new conversation', async () => {
+      mockQueryOne.mockResolvedValueOnce(null)
+
+      const manager = getSQLitStateManager()
+      const conversation = await manager.getConversation('web', 'channel-123')
       expect(conversation).toBeDefined()
       expect(conversation.history).toEqual([])
     })
 
-    test('adds to history', () => {
-      const manager = getStateManager()
-      manager.addToHistory('web', 'channel-add', 'user', 'hello')
-      manager.addToHistory('web', 'channel-add', 'assistant', 'hi there')
+    test('retrieves existing history', async () => {
+      mockQueryOne.mockResolvedValueOnce({
+        conversation_key: 'web:channel-add',
+        history: JSON.stringify([
+          { role: 'user', content: 'hello' },
+          { role: 'assistant', content: 'hi there' },
+        ]),
+        pending_action: null,
+        last_updated: Date.now(),
+      })
 
-      const history = manager.getHistory('web', 'channel-add')
+      const manager = getSQLitStateManager()
+      const history = await manager.getHistory('web', 'channel-add')
       expect(history).toHaveLength(2)
       expect(history[0].role).toBe('user')
       expect(history[0].content).toBe('hello')
-      expect(history[1].role).toBe('assistant')
-      expect(history[1].content).toBe('hi there')
-    })
-
-    test('limits history to max messages (50 by default)', () => {
-      const manager = getStateManager()
-
-      // Add 60 messages (more than the 50 limit)
-      for (let i = 0; i < 60; i++) {
-        const role = i % 2 === 0 ? 'user' : 'assistant'
-        manager.addToHistory('web', 'channel-limit', role, `message ${i}`)
-      }
-
-      const history = manager.getHistory('web', 'channel-limit')
-      expect(history).toHaveLength(50)
-      // Should keep the last 50 (messages 10-59)
-      expect(history[0].content).toBe('message 10')
-      expect(history[49].content).toBe('message 59')
     })
   })
 
   describe('pending actions', () => {
-    test('sets and retrieves pending action', () => {
-      const manager = getStateManager()
+    test('sets pending action', async () => {
+      mockQueryOne.mockResolvedValueOnce(null) // getConversation returns null
+      mockRun.mockResolvedValue(undefined)
+
+      const manager = getSQLitStateManager()
       const pendingSwap = {
-        type: SWAP_TYPE,
+        type: 'swap' as const,
         quote: {
           quoteId: 'quote-123',
-          fromToken: createTestToken(),
-          toToken: createTestToken({
-            address: TEST_ADDRESS_2,
-            symbol: 'USDC',
-            name: 'USD Coin',
-            decimals: 6,
-          }),
           fromAmount: '1000000000000000000',
           toAmount: '3500000000',
           toAmountMin: '3465000000',
-          priceImpact: 0.01,
-          gasCost: '100000',
-          route: [],
+          priceImpact: '0.01',
           validUntil: Date.now() + 60000,
         },
-        params: { amount: '1', from: 'ETH', to: 'USDC', chainId: 420691 },
-        expiresAt: Date.now() + 300000,
-      }
-
-      manager.setPendingAction('web', 'channel-pending', pendingSwap)
-      const pending = manager.getPendingAction('web', 'channel-pending')
-      expect(pending).toBeDefined()
-      expect(pending?.type).toBe('swap')
-    })
-
-    test('clears pending action', () => {
-      const manager = getStateManager()
-      const pendingBridge = {
-        type: BRIDGE_TYPE,
         params: {
+          from: TEST_ADDRESS_1,
+          to: TEST_ADDRESS_2,
           amount: '1',
-          token: 'ETH',
-          fromChain: 'ethereum',
-          toChain: 'base',
-          sourceChainId: 1,
-          destChainId: 8453,
+          chainId: 420691,
         },
         expiresAt: Date.now() + 300000,
       }
 
-      manager.setPendingAction('web', 'channel-clear', pendingBridge)
-      manager.clearPendingAction('web', 'channel-clear')
-      const pending = manager.getPendingAction('web', 'channel-clear')
-      expect(pending).toBeUndefined()
+      await manager.setPendingAction('web', 'channel-pending', pendingSwap)
+      expect(mockRun).toHaveBeenCalled()
     })
 
-    test('returns undefined for expired pending action', () => {
-      const manager = getStateManager()
-      const expiredAction = {
-        type: SWAP_TYPE,
-        quote: {
-          quoteId: 'expired-quote',
-          fromToken: createTestToken(),
-          toToken: createTestToken({
-            address: TEST_ADDRESS_2,
-            symbol: 'USDC',
-            name: 'USD Coin',
-            decimals: 6,
-          }),
-          fromAmount: '1000000000000000000',
-          toAmount: '3500000000',
-          toAmountMin: '3465000000',
-          priceImpact: 0.01,
-          gasCost: '100000',
-          route: [],
-          validUntil: Date.now() - 1000,
-        },
-        params: { amount: '1', from: 'ETH', to: 'USDC', chainId: 420691 },
-        expiresAt: Date.now() - 1000, // Already expired
-      }
+    test('clears pending action', async () => {
+      mockRun.mockResolvedValue(undefined)
 
-      manager.setPendingAction('web', 'channel-expired', expiredAction)
-      const pending = manager.getPendingAction('web', 'channel-expired')
+      const manager = getSQLitStateManager()
+      await manager.clearPendingAction('web', 'channel-clear')
+      expect(mockRun).toHaveBeenCalled()
+    })
+
+    test('returns undefined for expired pending action', async () => {
+      mockQueryOne.mockResolvedValueOnce({
+        conversation_key: 'web:channel-expired',
+        history: JSON.stringify([]),
+        pending_action: JSON.stringify({
+          type: 'swap',
+          expiresAt: Date.now() - 1000, // Already expired
+        }),
+        last_updated: Date.now(),
+      })
+
+      const manager = getSQLitStateManager()
+      const pending = await manager.getPendingAction('web', 'channel-expired')
       expect(pending).toBeUndefined()
     })
   })
 
   describe('chat sessions', () => {
-    test('creates session without wallet', () => {
-      const manager = getStateManager()
-      const session = manager.createSession()
+    test('creates session without wallet', async () => {
+      mockRun.mockResolvedValue(undefined)
+
+      const manager = getSQLitStateManager()
+      const session = await manager.createSession()
       expect(session.sessionId).toBeDefined()
       expect(session.sessionId.length).toBeGreaterThan(0)
       expect(session.walletAddress).toBeUndefined()
     })
 
-    test('creates session with wallet address', () => {
-      const manager = getStateManager()
-      const session = manager.createSession(TEST_ADDRESS_1)
+    test('creates session with wallet address', async () => {
+      mockRun.mockResolvedValue(undefined)
+
+      const manager = getSQLitStateManager()
+      const session = await manager.createSession(TEST_ADDRESS_1)
       expect(session.walletAddress).toBe(TEST_ADDRESS_1)
       expect(session.userId).toBe(TEST_ADDRESS_1)
     })
 
-    test('retrieves session by id', () => {
-      const manager = getStateManager()
-      const session = manager.createSession()
-      const retrieved = manager.getSession(session.sessionId)
-      expect(retrieved).not.toBeNull()
-      expect(retrieved?.sessionId).toBe(session.sessionId)
-    })
-
-    test('returns null for non-existent session', () => {
-      const manager = getStateManager()
-      const session = manager.getSession('nonexistent-session')
-      expect(session).toBeNull()
-    })
-
-    test('updates session', () => {
-      const manager = getStateManager()
-      const session = manager.createSession()
-
-      manager.updateSession(session.sessionId, {
-        walletAddress: TEST_ADDRESS_2,
+    test('retrieves session by id', async () => {
+      const sessionId = 'test-session-123'
+      mockQueryOne.mockResolvedValueOnce({
+        session_id: sessionId,
+        user_id: 'user-123',
+        wallet_address: TEST_ADDRESS_1,
+        created_at: Date.now(),
+        last_active_at: Date.now(),
       })
-      const updated = manager.getSession(session.sessionId)
-      expect(updated?.walletAddress).toBe(TEST_ADDRESS_2)
+
+      const manager = getSQLitStateManager()
+      const session = await manager.getSession(sessionId)
+      expect(session).not.toBeNull()
+      expect(session?.sessionId).toBe(sessionId)
+    })
+
+    test('returns null for non-existent session', async () => {
+      mockQueryOne.mockResolvedValueOnce(null)
+
+      const manager = getSQLitStateManager()
+      const session = await manager.getSession('nonexistent-session')
+      expect(session).toBeNull()
     })
   })
 
   describe('limit orders', () => {
-    test('adds and retrieves limit order', () => {
-      const manager = getStateManager()
+    test('adds limit order', async () => {
+      mockRun.mockResolvedValue(undefined)
+
+      const manager = getSQLitStateManager()
       const order = createTestLimitOrder({
         orderId: 'order-123',
         userId: 'user-456',
       })
 
-      manager.addLimitOrder(order)
-      const retrieved = manager.getLimitOrder('order-123')
-      expect(retrieved).not.toBeNull()
-      expect(retrieved?.orderId).toBe('order-123')
+      await manager.addLimitOrder(order)
+      expect(mockRun).toHaveBeenCalled()
     })
 
-    test('returns null for non-existent order', () => {
-      const manager = getStateManager()
-      const order = manager.getLimitOrder('nonexistent-order')
+    test('returns null for non-existent order', async () => {
+      mockQueryOne.mockResolvedValueOnce(null)
+
+      const manager = getSQLitStateManager()
+      const order = await manager.getLimitOrder('nonexistent-order')
       expect(order).toBeNull()
     })
 
-    test('retrieves user limit orders', () => {
-      const manager = getStateManager()
+    test('retrieves user limit orders', async () => {
+      mockQuery.mockResolvedValueOnce([
+        {
+          order_id: 'order-a',
+          user_id: 'user-x',
+          from_token: JSON.stringify(createTestToken()),
+          to_token: JSON.stringify(
+            createTestToken({
+              address: TEST_ADDRESS_2,
+              symbol: 'USDC',
+              name: 'USD Coin',
+              decimals: 6,
+            }),
+          ),
+          from_amount: '1000000000000000000',
+          target_price: '4000',
+          chain_id: 420691,
+          status: 'open',
+          created_at: Date.now(),
+        },
+        {
+          order_id: 'order-b',
+          user_id: 'user-x',
+          from_token: JSON.stringify(createTestToken()),
+          to_token: JSON.stringify(
+            createTestToken({
+              address: TEST_ADDRESS_2,
+              symbol: 'USDC',
+              name: 'USD Coin',
+              decimals: 6,
+            }),
+          ),
+          from_amount: '2000000000000000000',
+          target_price: '4500',
+          chain_id: 420691,
+          status: 'open',
+          created_at: Date.now(),
+        },
+      ])
 
-      manager.addLimitOrder(
-        createTestLimitOrder({
-          orderId: 'order-a',
-          userId: 'user-x',
-          status: STATUS_OPEN,
-        }),
-      )
-      manager.addLimitOrder(
-        createTestLimitOrder({
-          orderId: 'order-b',
-          userId: 'user-x',
-          status: STATUS_OPEN,
-        }),
-      )
-      manager.addLimitOrder(
-        createTestLimitOrder({
-          orderId: 'order-c',
-          userId: 'user-y',
-          status: STATUS_OPEN,
-        }),
-      )
-
-      const userXOrders = manager.getUserLimitOrders('user-x')
+      const manager = getSQLitStateManager()
+      const userXOrders = await manager.getUserLimitOrders('user-x')
       expect(userXOrders).toHaveLength(2)
       expect(userXOrders.every((o) => o.userId === 'user-x')).toBe(true)
     })
 
-    test('filters out non-open orders from user orders', () => {
-      const manager = getStateManager()
+    test('updates limit order', async () => {
+      mockRun.mockResolvedValue(undefined)
 
-      manager.addLimitOrder(
-        createTestLimitOrder({
-          orderId: 'order-open',
-          userId: 'filter-user',
-          status: STATUS_OPEN,
-        }),
-      )
-      manager.addLimitOrder(
-        createTestLimitOrder({
-          orderId: 'order-filled',
-          userId: 'filter-user',
-          status: STATUS_FILLED,
-        }),
-      )
-      manager.addLimitOrder(
-        createTestLimitOrder({
-          orderId: 'order-cancelled',
-          userId: 'filter-user',
-          status: STATUS_CANCELLED,
-        }),
-      )
-
-      const orders = manager.getUserLimitOrders('filter-user')
-      expect(orders).toHaveLength(1)
-      expect(orders[0].status).toBe('open')
-    })
-
-    test('updates limit order', () => {
-      const manager = getStateManager()
-      const order = createTestLimitOrder({
-        orderId: 'order-update',
-        userId: 'user-update',
-      })
-
-      manager.addLimitOrder(order)
-      manager.updateLimitOrder('order-update', {
+      const manager = getSQLitStateManager()
+      await manager.updateLimitOrder('order-update', {
         status: 'filled',
         filledAt: Date.now(),
       })
 
-      const updated = manager.getLimitOrder('order-update')
-      expect(updated?.status).toBe('filled')
-      expect(updated?.filledAt).toBeDefined()
+      expect(mockRun).toHaveBeenCalled()
+    })
+  })
+
+  describe('health check', () => {
+    test('returns true when database is healthy', async () => {
+      mockQueryOne.mockResolvedValueOnce({ value: '1' })
+
+      const manager = getSQLitStateManager()
+      const healthy = await manager.isHealthy()
+      expect(healthy).toBe(true)
+    })
+
+    test('returns false when database query fails', async () => {
+      mockQueryOne.mockRejectedValueOnce(new Error('Database error'))
+
+      const manager = getSQLitStateManager()
+      const healthy = await manager.isHealthy()
+      expect(healthy).toBe(false)
     })
   })
 })

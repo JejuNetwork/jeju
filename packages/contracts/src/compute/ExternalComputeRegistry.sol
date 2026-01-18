@@ -118,7 +118,7 @@ contract ExternalComputeRegistry is Ownable, Pausable, ReentrancyGuard {
     /// @notice Governance parameters (DAO adjustable)
     GovernanceParams public governanceParams;
 
-    /// @notice DAO/Council address for governance
+    /// @notice DAO/Board address for governance
     address public governanceAddress;
 
     /// @notice Protocol fee recipient

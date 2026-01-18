@@ -3,7 +3,11 @@
 import { execSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { getIpfsApiUrlEnv, getLocalhostHost } from '@jejunetwork/config'
+import {
+  getIpfsApiUrlEnv,
+  getLocalhostHost,
+  getSQLitBlockProducerUrl,
+} from '@jejunetwork/config'
 import { AddressSchema, validateOrNull, ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
@@ -15,6 +19,10 @@ import {
 import { registerDWSNode } from '../lib/dws-node'
 import { logger } from '../lib/logger'
 import type { AppManifest } from '../types'
+import {
+  createSQLitProvisioningService,
+  type SQLitProvisioningService,
+} from './sqlit-provisioning'
 
 const DWSContractAddressesSchema = z.object({
   storageManager: AddressSchema,
@@ -34,8 +42,17 @@ function isValidDWSDeployment(contracts: DWSContractAddresses): boolean {
   const hasStorage =
     contracts.storageManager && contracts.storageManager !== ZERO_ADDRESS
   const hasCdn = contracts.cdnRegistry && contracts.cdnRegistry !== ZERO_ADDRESS
-  const hasJns = contracts.jnsRegistry && contracts.jnsRegistry !== ZERO_ADDRESS
-  return hasStorage || hasCdn || hasJns
+  const hasJnsRegistry =
+    contracts.jnsRegistry && contracts.jnsRegistry !== ZERO_ADDRESS
+  const hasJnsResolver =
+    contracts.jnsResolver && contracts.jnsResolver !== ZERO_ADDRESS
+  const hasJnsRegistrar =
+    contracts.jnsRegistrar && contracts.jnsRegistrar !== ZERO_ADDRESS
+
+  // App deployments require JNS registrar ownership of .jeju
+  const hasJns = hasJnsRegistry && hasJnsResolver && hasJnsRegistrar
+
+  return (hasStorage || hasCdn) && hasJns
 }
 
 interface LocalDeployConfig {
@@ -44,15 +61,115 @@ interface LocalDeployConfig {
   privateKey: Hex
   dwsPort: number
   ipfsApiUrl: string
+  sqlitEndpoint: string
 }
 
 export class LocalDeployOrchestrator {
   private config: LocalDeployConfig
   private dwsContracts: DWSContractAddresses | null = null
-  private deployedApps: Map<string, { cid: string; workerId?: Hex }> = new Map()
+  private deployedApps: Map<
+    string,
+    { cid: string; workerId?: Hex; databaseId?: string }
+  > = new Map()
+  private sqlitProvisioner: SQLitProvisioningService | null = null
 
   constructor(config: LocalDeployConfig) {
     this.config = config
+  }
+
+  /**
+   * Initialize SQLit provisioning service
+   */
+  private initSQLitProvisioner(): SQLitProvisioningService {
+    if (!this.dwsContracts) {
+      throw new Error('DWS contracts not deployed')
+    }
+
+    if (!this.sqlitProvisioner) {
+      this.sqlitProvisioner = createSQLitProvisioningService({
+        rpcUrl: this.config.rpcUrl,
+        privateKey: this.config.privateKey,
+        jnsResolverAddress: this.dwsContracts.jnsResolver,
+        sqlitEndpoint: this.config.sqlitEndpoint,
+      })
+    }
+
+    return this.sqlitProvisioner
+  }
+
+  /**
+   * Provision SQLit database for an app if it needs one
+   */
+  async provisionDatabaseForApp(
+    manifest: AppManifest,
+  ): Promise<string | undefined> {
+    // Check if app needs a database from dws config
+    const dbConfig = manifest.dws?.database
+
+    if (!dbConfig) {
+      return undefined
+    }
+
+    const provisioner = this.initSQLitProvisioner()
+    const jnsName = manifest.jns?.name ?? manifest.name
+
+    try {
+      const dbOptions = dbConfig as { consistency?: string }
+      const result = await provisioner.provisionDatabase(
+        manifest.name,
+        jnsName,
+        {
+          consistency:
+            (dbOptions.consistency as 'eventual' | 'strong') ?? 'eventual',
+          replication: 1,
+        },
+      )
+
+      logger.debug(
+        `Database provisioned for ${manifest.name}: ${result.databaseId}`,
+      )
+      return result.databaseId
+    } catch (error) {
+      logger.warn(`Failed to provision database for ${manifest.name}: ${error}`)
+      return undefined
+    }
+  }
+
+  /**
+   * Auto-recover database if lost
+   */
+  async autoRecoverDatabase(
+    manifest: AppManifest,
+  ): Promise<string | undefined> {
+    // Check if app needs a database from dws config
+    const dbConfig = manifest.dws?.database
+
+    if (!dbConfig) {
+      return undefined
+    }
+
+    const provisioner = this.initSQLitProvisioner()
+    const jnsName = manifest.jns?.name ?? manifest.name
+
+    try {
+      const result = await provisioner.autoRecover(manifest.name, jnsName)
+      if (result) {
+        return result.databaseId
+      }
+    } catch (error) {
+      logger.warn(
+        `Failed to auto-recover database for ${manifest.name}: ${error}`,
+      )
+    }
+
+    return undefined
+  }
+
+  /**
+   * Get the SQLit provisioning service
+   */
+  getSQLitProvisioner(): SQLitProvisioningService | null {
+    return this.sqlitProvisioner
   }
 
   async deployDWSContracts(): Promise<DWSContractAddresses> {
@@ -144,6 +261,9 @@ export class LocalDeployOrchestrator {
       )
     }
 
+    // Provision database if needed (before deploying worker)
+    const databaseId = await this.provisionDatabaseForApp(manifest)
+
     const deployConfig: DeployConfig = {
       rpcUrl: this.config.rpcUrl,
       privateKey: this.config.privateKey,
@@ -156,39 +276,42 @@ export class LocalDeployOrchestrator {
     this.deployedApps.set(manifest.name, {
       cid: result.frontendCid ?? '',
       workerId: result.workerId,
+      databaseId,
     })
   }
 
   async deployAllApps(
     apps: Array<{ dir: string; manifest: AppManifest }>,
   ): Promise<void> {
-    logger.step(`Deploying ${apps.length} apps on-chain in parallel...`)
+    logger.step(`Deploying ${apps.length} apps on-chain...`)
 
-    // Deploy all apps in parallel using Promise.allSettled to continue even if some fail
-    const deployResults = await Promise.allSettled(
-      apps.map(async ({ dir, manifest }) => {
+    // Deploy apps sequentially to avoid nonce race conditions
+    // (all apps use the same wallet, parallel deployment causes "nonce too low" errors)
+    for (const { dir, manifest } of apps) {
+      try {
         await this.deployApp(dir, manifest)
-        return manifest.name
-      }),
-    )
-
-    // Report failures
-    for (let i = 0; i < deployResults.length; i++) {
-      const result = deployResults[i]
-      if (result.status === 'rejected') {
-        const errorMsg =
-          result.reason instanceof Error
-            ? result.reason.message
-            : String(result.reason)
-        logger.warn(`Failed to deploy ${apps[i].manifest.name}: ${errorMsg}`)
+        logger.debug(`Deployed ${manifest.name}`)
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error)
+        logger.warn(`Failed to deploy ${manifest.name}: ${errorMsg}`)
       }
     }
 
     logger.success(`Deployed ${this.deployedApps.size} apps`)
   }
 
-  getDeployedApps(): Map<string, { cid: string; workerId?: Hex }> {
+  getDeployedApps(): Map<
+    string,
+    { cid: string; workerId?: Hex; databaseId?: string }
+  > {
     return this.deployedApps
+  }
+
+  /**
+   * Get database ID for a deployed app
+   */
+  getDatabaseId(appName: string): string | undefined {
+    return this.deployedApps.get(appName)?.databaseId
   }
 
   getContractAddresses(): DWSContractAddresses | null {
@@ -260,5 +383,6 @@ export function createLocalDeployOrchestrator(
     privateKey,
     dwsPort: 4030,
     ipfsApiUrl: getIpfsApiUrlEnv() ?? `http://${getLocalhostHost()}:5001`,
+    sqlitEndpoint: getSQLitBlockProducerUrl(),
   })
 }

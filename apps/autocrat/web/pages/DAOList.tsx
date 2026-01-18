@@ -3,7 +3,6 @@ import {
   Building2,
   Crown,
   Filter,
-  Loader2,
   Plus,
   RefreshCw,
   Rocket,
@@ -14,41 +13,16 @@ import {
 } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { getDAOStatusStyle } from '../constants/ui'
 import { useDAOs } from '../hooks/useDAO'
 import type { DAOListItem, DAOStatus } from '../types/dao'
-
-const STATUS_STYLES: Record<
-  DAOStatus,
-  { bg: string; text: string; label: string }
-> = {
-  active: {
-    bg: 'rgba(16, 185, 129, 0.12)',
-    text: 'var(--color-success)',
-    label: 'Active',
-  },
-  pending: {
-    bg: 'rgba(245, 158, 11, 0.12)',
-    text: 'var(--color-warning)',
-    label: 'Pending',
-  },
-  paused: {
-    bg: 'rgba(148, 163, 184, 0.12)',
-    text: 'var(--text-tertiary)',
-    label: 'Paused',
-  },
-  archived: {
-    bg: 'rgba(239, 68, 68, 0.12)',
-    text: 'var(--color-error)',
-    label: 'Archived',
-  },
-}
 
 interface DAOCardProps {
   dao: DAOListItem
 }
 
 function DAOCard({ dao }: DAOCardProps) {
-  const statusStyle = STATUS_STYLES[dao.status]
+  const statusStyle = getDAOStatusStyle(dao.status)
 
   return (
     <Link
@@ -115,7 +89,7 @@ function DAOCard({ dao }: DAOCardProps) {
             {dao.description}
           </p>
 
-          {/* CEO Info */}
+          {/* Director Info */}
           <div className="mt-3 flex items-center gap-2 text-sm">
             <div
               className="w-6 h-6 rounded-full flex items-center justify-center"
@@ -123,7 +97,9 @@ function DAOCard({ dao }: DAOCardProps) {
             >
               <Crown className="w-3 h-3 text-white" aria-hidden="true" />
             </div>
-            <span style={{ color: 'var(--text-primary)' }}>{dao.ceoName}</span>
+            <span style={{ color: 'var(--text-primary)' }}>
+              {dao.directorName}
+            </span>
             <span style={{ color: 'var(--text-tertiary)' }}>·</span>
             <span style={{ color: 'var(--text-tertiary)' }}>
               {dao.boardMemberCount} board members
@@ -144,7 +120,7 @@ function DAOCard({ dao }: DAOCardProps) {
               style={{ color: 'var(--text-secondary)' }}
             >
               <Users className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>{dao.memberCount.toLocaleString()} members</span>
+              <span>{(dao.memberCount ?? 0).toLocaleString()} members</span>
             </div>
             {dao.activeProposalCount > 0 && (
               <div
@@ -232,14 +208,87 @@ function EmptyState() {
   )
 }
 
+function DAOCardSkeleton() {
+  return (
+    <div
+      className="rounded-2xl p-5"
+      style={{
+        backgroundColor: 'var(--surface)',
+        border: '1px solid var(--border)',
+      }}
+    >
+      <div className="flex items-start gap-4">
+        {/* Avatar skeleton */}
+        <div
+          className="skeleton w-14 h-14 rounded-xl shrink-0"
+          style={{ backgroundColor: 'var(--bg-tertiary)' }}
+        />
+        <div className="flex-1 min-w-0 space-y-3">
+          {/* Title skeleton */}
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-2 flex-1">
+              <div
+                className="skeleton h-5 rounded-lg"
+                style={{
+                  width: '60%',
+                  backgroundColor: 'var(--bg-tertiary)',
+                }}
+              />
+              <div
+                className="skeleton h-4 rounded-lg"
+                style={{
+                  width: '30%',
+                  backgroundColor: 'var(--bg-tertiary)',
+                }}
+              />
+            </div>
+            <div
+              className="skeleton h-6 w-16 rounded-full shrink-0"
+              style={{ backgroundColor: 'var(--bg-tertiary)' }}
+            />
+          </div>
+          {/* Description skeleton */}
+          <div
+            className="skeleton h-10 rounded-lg"
+            style={{ backgroundColor: 'var(--bg-tertiary)' }}
+          />
+          {/* Director skeleton */}
+          <div className="flex items-center gap-2">
+            <div
+              className="skeleton w-6 h-6 rounded-full"
+              style={{ backgroundColor: 'var(--bg-tertiary)' }}
+            />
+            <div
+              className="skeleton h-4 w-24 rounded-lg"
+              style={{ backgroundColor: 'var(--bg-tertiary)' }}
+            />
+          </div>
+          {/* Stats skeleton */}
+          <div className="flex items-center gap-4">
+            <div
+              className="skeleton h-4 w-20 rounded-lg"
+              style={{ backgroundColor: 'var(--bg-tertiary)' }}
+            />
+            <div
+              className="skeleton h-4 w-20 rounded-lg"
+              style={{ backgroundColor: 'var(--bg-tertiary)' }}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Pre-generate stable keys for skeleton loading
+const SKELETON_IDS = ['sk-a', 'sk-b', 'sk-c', 'sk-d', 'sk-e', 'sk-f']
+
 function LoadingState() {
   return (
-    <div className="flex flex-col items-center justify-center py-16">
-      <Loader2
-        className="w-10 h-10 animate-spin mb-4"
-        style={{ color: 'var(--color-primary)' }}
-      />
-      <p style={{ color: 'var(--text-secondary)' }}>Loading organizations...</p>
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {SKELETON_IDS.map((id) => (
+        <DAOCardSkeleton key={id} />
+      ))}
     </div>
   )
 }

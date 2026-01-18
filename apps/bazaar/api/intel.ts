@@ -1,5 +1,5 @@
-import { getCacheClient } from '@jejunetwork/cache'
-import { getServiceUrl } from '@jejunetwork/config'
+import { getCacheClient, safeParseCached } from '@jejunetwork/cache'
+import { getDWSUrl } from '@jejunetwork/config'
 import { logger } from '@jejunetwork/shared'
 import { Elysia } from 'elysia'
 import { z } from 'zod'
@@ -84,8 +84,13 @@ interface InsightContext {
 async function generateAIInsights(
   context: InsightContext,
 ): Promise<MarketInsight[]> {
-  const computeUrl = getServiceUrl('compute')
-  if (!computeUrl) {
+  // Use DWS inference endpoint for AI completions, NOT the compute marketplace
+  // getServiceUrl('compute') returns compute.marketplace which is wrong (points to Bazaar's own port!)
+  const inferenceUrl = getDWSUrl()
+  if (!inferenceUrl) {
+    logger.warn(
+      '[Intel] DWS inference endpoint not configured, using rule-based insights',
+    )
     return generateRuleBasedInsights(context)
   }
 
@@ -134,7 +139,7 @@ Return ONLY a valid JSON array with objects having these fields:
 - confidence: number 0-100
 - tokens: array of relevant token symbols`
 
-  const response = await fetch(`${computeUrl}/v1/chat/completions`, {
+  const response = await fetch(`${inferenceUrl}/v1/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -311,9 +316,14 @@ async function getIntelData(): Promise<IntelResponse> {
   const cacheKey = 'intel:full'
 
   // Check DWS cache first
-  const cached = await cache.get(cacheKey).catch(() => null)
-  if (cached) {
-    return JSON.parse(cached) as IntelResponse
+  const cached = await cache.get(cacheKey).catch((err) => {
+    console.warn('[Bazaar] Intel cache read failed:', err)
+    return null
+  })
+  const cachedData = safeParseCached(cached, IntelResponseSchema)
+  if (cachedData) {
+    console.debug('[Bazaar] Intel cache hit')
+    return cachedData
   }
 
   const [marketStats, trending, gainers, losers, newTokens] = await Promise.all(
@@ -367,7 +377,10 @@ async function getIntelData(): Promise<IntelResponse> {
   }
 
   // Store in DWS cache
-  cache.set(cacheKey, JSON.stringify(response), INTEL_CACHE_TTL).catch(() => {})
+  console.debug('[Bazaar] Caching intel data')
+  cache
+    .set(cacheKey, JSON.stringify(response), INTEL_CACHE_TTL)
+    .catch((err) => console.warn('[Bazaar] Intel cache write failed:', err))
 
   return response
 }
@@ -378,7 +391,9 @@ export function createIntelRouter() {
     .get('/refresh', async () => {
       // Clear DWS cache and refresh
       const cache = getIntelCache()
-      await cache.delete('intel:full').catch(() => {})
+      await cache.delete('intel:full').catch((err) => {
+        console.warn('[Bazaar] Intel cache delete failed:', err)
+      })
       return getIntelData()
     })
     .get('/insights', async () => {

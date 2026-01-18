@@ -13,13 +13,8 @@ import {
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
 import { useAPIListings, useAPIProviders, useCreateListing } from '../../hooks'
-import type { ViewMode } from '../../types'
 
-interface ListingsPageProps {
-  viewMode: ViewMode
-}
-
-export default function ListingsPage({ viewMode }: ListingsPageProps) {
+export default function ListingsPage() {
   const { isConnected, address } = useAccount()
   const { data: providersData } = useAPIProviders()
   const { data: listingsData, isLoading, refetch } = useAPIListings()
@@ -72,13 +67,9 @@ export default function ListingsPage({ viewMode }: ListingsPageProps) {
         }}
       >
         <div>
-          <h1 className="page-title">
-            {viewMode === 'provider' ? 'My API Listings' : 'My Subscriptions'}
-          </h1>
+          <h1 className="page-title">My API Listings</h1>
           <p className="page-subtitle">
-            {viewMode === 'provider'
-              ? 'Manage your API listings and earnings'
-              : 'View your subscribed API services'}
+            Manage your API listings and earnings on the marketplace
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -89,74 +80,71 @@ export default function ListingsPage({ viewMode }: ListingsPageProps) {
           >
             <RefreshCw size={16} /> Refresh
           </button>
-          {viewMode === 'provider' && (
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => setShowModal(true)}
-              disabled={!isConnected}
-            >
-              <Plus size={16} /> New Listing
-            </button>
-          )}
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setShowModal(true)}
+            disabled={!isConnected}
+          >
+            <Plus size={16} /> New Listing
+          </button>
         </div>
       </div>
 
-      {viewMode === 'provider' && (
-        <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
-          <div className="stat-card">
-            <div className="stat-icon compute">
-              <LayoutList size={24} />
-            </div>
-            <div className="stat-content">
-              <div className="stat-label">Active Listings</div>
-              <div className="stat-value">{activeListings}</div>
-            </div>
+      {/* Stats Grid */}
+      <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
+        <div className="stat-card">
+          <div className="stat-icon compute">
+            <LayoutList size={24} />
           </div>
-          <div className="stat-card">
-            <div className="stat-icon storage">
-              <DollarSign size={24} />
-            </div>
-            <div className="stat-content">
-              <div className="stat-label">Total Revenue</div>
-              <div className="stat-value">
-                {(totalRevenue / 1e18).toFixed(4)} ETH
-              </div>
-            </div>
+          <div className="stat-content">
+            <div className="stat-label">Active Listings</div>
+            <div className="stat-value">{activeListings}</div>
           </div>
-          <div className="stat-card">
-            <div className="stat-icon network">
-              <Activity size={24} />
-            </div>
-            <div className="stat-content">
-              <div className="stat-label">Total Requests</div>
-              <div className="stat-value">{totalRequests.toLocaleString()}</div>
-            </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon storage">
+            <DollarSign size={24} />
           </div>
-          <div className="stat-card">
-            <div className="stat-icon ai">
-              <Star size={24} />
-            </div>
-            <div className="stat-content">
-              <div className="stat-label">Avg Rating</div>
-              <div className="stat-value">
-                {myListings.length > 0
-                  ? (
-                      myListings.reduce((sum, l) => sum + l.rating, 0) /
-                      myListings.length
-                    ).toFixed(1)
-                  : '—'}
-              </div>
+          <div className="stat-content">
+            <div className="stat-label">Total Revenue</div>
+            <div className="stat-value">
+              {(totalRevenue / 1e18).toFixed(4)} ETH
             </div>
           </div>
         </div>
-      )}
+        <div className="stat-card">
+          <div className="stat-icon network">
+            <Activity size={24} />
+          </div>
+          <div className="stat-content">
+            <div className="stat-label">Total Requests</div>
+            <div className="stat-value">{totalRequests.toLocaleString()}</div>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon ai">
+            <Star size={24} />
+          </div>
+          <div className="stat-content">
+            <div className="stat-label">Avg Rating</div>
+            <div className="stat-value">
+              {myListings.length > 0
+                ? (
+                    myListings.reduce((sum, l) => sum + l.rating, 0) /
+                    myListings.length
+                  ).toFixed(1)
+                : '—'}
+            </div>
+          </div>
+        </div>
+      </div>
 
+      {/* Listings Table */}
       <div className="card">
         <div className="card-header">
           <h3 className="card-title">
-            <LayoutList size={18} />
-            {viewMode === 'provider' ? 'Your Listings' : 'Subscriptions'}
+            <LayoutList size={18} /> Your Listings
           </h3>
         </div>
 
@@ -173,24 +161,16 @@ export default function ListingsPage({ viewMode }: ListingsPageProps) {
         ) : myListings.length === 0 ? (
           <div className="empty-state">
             <LayoutList size={48} />
-            <h3>
-              {viewMode === 'provider' ? 'No listings yet' : 'No subscriptions'}
-            </h3>
-            <p>
-              {viewMode === 'provider'
-                ? 'Create your first API listing to start earning'
-                : 'Browse the marketplace to find APIs'}
-            </p>
-            {viewMode === 'provider' && (
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => setShowModal(true)}
-                disabled={!isConnected}
-              >
-                <Plus size={16} /> New Listing
-              </button>
-            )}
+            <h3>No listings yet</h3>
+            <p>Create your first API listing to start earning</p>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => setShowModal(true)}
+              disabled={!isConnected}
+            >
+              <Plus size={16} /> New Listing
+            </button>
           </div>
         ) : (
           <div className="table-container">
@@ -292,6 +272,7 @@ export default function ListingsPage({ viewMode }: ListingsPageProps) {
         )}
       </div>
 
+      {/* Create Listing Modal */}
       {showModal && (
         <div className="modal-overlay">
           <button

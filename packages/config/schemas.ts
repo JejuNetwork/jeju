@@ -109,6 +109,7 @@ export type ContractCategory =
   | 'jns'
   | 'oauth3'
   | 'dws'
+  | 'cloud'
   | 'payments'
   | 'defi'
   | 'compute'
@@ -148,6 +149,7 @@ const NetworkContractsSchema = z.object({
   jns: ContractCategorySchema,
   oauth3: ContractCategorySchema.optional(),
   dws: ContractCategorySchema.optional(),
+  cloud: ContractCategorySchema.optional(),
   payments: ContractCategorySchema,
   defi: ContractCategorySchema,
   compute: ContractCategorySchema,
@@ -247,6 +249,7 @@ export const ServicesNetworkConfigSchema = z.object({
   indexer: z.object({
     api: UrlString.optional(),
     graphql: UrlString,
+    graphqlCors: UrlString.optional(),
     websocket: UrlString,
     rest: UrlString.optional(),
     dws: UrlString.optional(),
@@ -301,7 +304,7 @@ export const ServicesNetworkConfigSchema = z.object({
     api: UrlString,
     a2a: UrlString,
     mcp: UrlString.optional(),
-    ceo: UrlString.optional(),
+    director: UrlString.optional(),
   }),
   kms: z.object({
     api: UrlString,

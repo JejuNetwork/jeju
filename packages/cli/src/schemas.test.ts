@@ -448,18 +448,18 @@ describe('ChatMessageSchema', () => {
 describe('ChatRequestSchema', () => {
   test('validates minimal request', () => {
     const data = {
-      model: 'gpt-4',
+      model: 'gpt-5',
       messages: [{ role: 'user', content: 'Hello!' }],
     }
 
     const result = validate(data, ChatRequestSchema)
 
-    expect(result.model).toBe('gpt-4')
+    expect(result.model).toBe('gpt-5')
   })
 
   test('validates full request', () => {
     const data = {
-      model: 'gpt-4',
+      model: 'gpt-5',
       messages: [
         { role: 'system', content: 'You are helpful.' },
         { role: 'user', content: 'Hi!' },
@@ -479,7 +479,7 @@ describe('ChatRequestSchema', () => {
 
   test('rejects empty messages array', () => {
     const data = {
-      model: 'gpt-4',
+      model: 'gpt-5',
       messages: [],
     }
 
@@ -489,7 +489,7 @@ describe('ChatRequestSchema', () => {
 
   test('rejects out-of-range temperature', () => {
     const data = {
-      model: 'gpt-4',
+      model: 'gpt-5',
       messages: [{ role: 'user', content: 'Hi' }],
       temperature: 2.5, // Out of valid range (0-2)
     }
@@ -500,7 +500,7 @@ describe('ChatRequestSchema', () => {
 
   test('validates valid temperature range', () => {
     const data = {
-      model: 'gpt-4',
+      model: 'gpt-5',
       messages: [{ role: 'user', content: 'Hi' }],
       temperature: 1.5, // Within valid range (0-2)
     }
@@ -511,7 +511,7 @@ describe('ChatRequestSchema', () => {
 
   test('rejects invalid message role in array', () => {
     const data = {
-      model: 'gpt-4',
+      model: 'gpt-5',
       messages: [
         { role: 'user', content: 'Hi' },
         { role: 'invalid', content: 'Bad role' },

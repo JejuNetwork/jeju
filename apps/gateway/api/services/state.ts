@@ -35,7 +35,7 @@ async function getSQLitClient(): Promise<SQLitClient> {
   if (!sqlitClient) {
     sqlitClient = getSQLit({
       databaseId: SQLIT_DATABASE_ID,
-      timeout: 30000,
+      timeoutMs: 30000,
       debug: !isProductionEnv(),
     })
 
@@ -127,7 +127,9 @@ async function ensureTablesExist(): Promise<void> {
     `CREATE TABLE IF NOT EXISTS faucet_claims (
       address TEXT PRIMARY KEY,
       last_claim INTEGER NOT NULL,
-      total_claims INTEGER DEFAULT 1
+      total_claims INTEGER DEFAULT 1,
+      last_gas_grant INTEGER,
+      total_gas_grants INTEGER DEFAULT 0
     )`,
     `CREATE TABLE IF NOT EXISTS x402_credits (
       address TEXT PRIMARY KEY,
@@ -503,6 +505,18 @@ export const intentState = {
 }
 
 export const solverState = {
+  async delete(address: string): Promise<void> {
+    const addr = address.toLowerCase()
+    const cache = getCache()
+    const client = await getSQLitClient()
+    await client.exec(
+      'DELETE FROM solvers WHERE address = ?',
+      [addr],
+      SQLIT_DATABASE_ID,
+    )
+    await cache.delete(`solver:${addr}`)
+  },
+
   async save(solver: Solver): Promise<void> {
     const row = solverToRow(solver)
     const cache = getCache()
@@ -873,6 +887,50 @@ export const faucetState = {
     )
 
     await cache.set(`faucet:${addr}`, now.toString(), 3600)
+  },
+
+  async getLastGasGrant(address: string): Promise<number | null> {
+    const addr = address.toLowerCase()
+    const cache = getCache()
+    const cached = await cache.get(`faucet-gas:${addr}`)
+    if (cached) return parseInt(cached, 10)
+
+    const client = await getSQLitClient()
+    const result = await client.query<{
+      address: string
+      last_gas_grant: number | null
+    }>(
+      'SELECT last_gas_grant FROM faucet_claims WHERE address = ?',
+      [addr],
+      SQLIT_DATABASE_ID,
+    )
+    if (result.rows[0]?.last_gas_grant) {
+      await cache.set(
+        `faucet-gas:${addr}`,
+        result.rows[0].last_gas_grant.toString(),
+        3600,
+      )
+      return result.rows[0].last_gas_grant
+    }
+
+    return null
+  },
+
+  async recordGasGrant(address: string): Promise<void> {
+    const addr = address.toLowerCase()
+    const now = Date.now()
+    const cache = getCache()
+    const client = await getSQLitClient()
+
+    await client.exec(
+      `INSERT INTO faucet_claims (address, last_claim, total_claims, last_gas_grant, total_gas_grants)
+       VALUES (?, 0, 0, ?, 1)
+       ON CONFLICT(address) DO UPDATE SET last_gas_grant = ?, total_gas_grants = total_gas_grants + 1`,
+      [addr, now, now],
+      SQLIT_DATABASE_ID,
+    )
+
+    await cache.set(`faucet-gas:${addr}`, now.toString(), 3600)
   },
 }
 

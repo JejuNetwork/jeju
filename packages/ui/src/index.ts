@@ -1,3 +1,49 @@
+// Auth components and hooks (re-exported from @jejunetwork/auth)
+export {
+  AuthHeaderButton,
+  type AuthHeaderButtonProps,
+  ConnectedAccount,
+  type ConnectedAccountProps,
+  JejuAuthButton,
+  type JejuAuthButtonProps,
+  JejuAuthProvider,
+  type LinkedAccount,
+  LoginButton,
+  type LoginButtonProps,
+  LoginModal,
+  type LoginModalProps,
+  MFASetup,
+  type MFASetupProps,
+  type OAuth3ContextValue,
+  OAuth3Provider,
+  type OAuth3ProviderProps,
+  type TypedDataParams,
+  type UseCredentialsReturn,
+  type UseJejuAuthReturn,
+  type UseJejuWalletReturn,
+  type UseLoginOptions,
+  type UseLoginReturn,
+  type UseMFAOptions,
+  type UseMFAReturn,
+  type UseSessionReturn,
+  useCredentials,
+  useJejuAuth,
+  useJejuWallet,
+  useLogin,
+  useMFA,
+  useOAuth3,
+  useOAuth3Client,
+  useSession,
+} from './auth'
+// TrustCenter - TEE verification visualization
+export {
+  type AttestationRecord,
+  type AttestationStatus,
+  type ProviderInfo,
+  type TEEPlatform,
+  type TrustCenterProps,
+  TrustCenterWidget,
+} from './components/TrustCenter'
 export {
   type NetworkContextValue,
   NetworkProvider,
@@ -21,6 +67,14 @@ export {
   type RawPositionTuple,
 } from './hooks/liquidity-utils'
 export { type UseBalanceResult, useBalance } from './hooks/useBalance'
+// Bundler and Paymaster for Account Abstraction
+export {
+  getEntryPointAddress,
+  type PartialUserOperation,
+  type UseBundlerResult,
+  type UserOperation,
+  useBundler,
+} from './hooks/useBundler'
 export { type UseComputeResult, useCompute } from './hooks/useCompute'
 export { type UseCrossChainResult, useCrossChain } from './hooks/useCrossChain'
 export { type UseDefiResult, useDefi } from './hooks/useDefi'
@@ -34,6 +88,21 @@ export {
 } from './hooks/useLiquidityVaultContract'
 export { type UseNamesResult, useNames } from './hooks/useNames'
 export {
+  Region,
+  type RegionKey,
+  type RegionValue,
+  type RegisterNodeParams,
+  type UseNodeStakingResult,
+  useNodeStaking,
+} from './hooks/useNodeStaking'
+export {
+  formatEthGasCost,
+  type PaymasterCostEstimate,
+  type PaymasterInfo,
+  type UsePaymasterResult,
+  usePaymaster,
+} from './hooks/usePaymaster'
+export {
   type PaymasterDeployment,
   type UsePaymasterDeploymentResult,
   type UsePaymasterFactoryResult,
@@ -42,6 +111,16 @@ export {
 } from './hooks/usePaymasterFactoryContract'
 export { type UsePaymentsResult, usePayments } from './hooks/usePayments'
 export { type UseStorageResult, useStorage } from './hooks/useStorage'
+// Swap quotes aggregation
+export {
+  type CrossChainQuote,
+  type SupportedChain,
+  type SwapQuote,
+  type SwapQuoteParams,
+  type TransferParams,
+  type UseSwapQuotesResult,
+  useSwapQuotes,
+} from './hooks/useSwapQuotes'
 export {
   type TokenConfig,
   type TokenInfo,
@@ -51,7 +130,26 @@ export {
   useTokenRegistry,
 } from './hooks/useTokenRegistryContract'
 export { type AsyncState, requireClient, useAsyncState } from './hooks/utils'
-
+// Miniapp SDK for Telegram and Farcaster
+export {
+  applyMiniappTheme,
+  createFrameResponse,
+  createMiniappStorage,
+  detectMiniappPlatform,
+  type FarcasterFrameContext,
+  type FrameMetadata,
+  generateFrameMetaTags,
+  getFarcasterContext,
+  getMiniappThemeVars,
+  getTelegramTheme,
+  getTelegramUser,
+  haptic,
+  initTelegram,
+  isTelegramDarkMode,
+  type MiniappPlatform,
+  type MiniappStorage,
+  type TelegramWebApp,
+} from './miniapp'
 // Decentralized wallet module (no WalletConnect dependency)
 export {
   type ChainConfig,
@@ -63,24 +161,3 @@ export {
   WalletButton,
   type WalletButtonProps,
 } from './wallet'
-
-// Miniapp SDK for Telegram and Farcaster
-export {
-  applyMiniappTheme,
-  createFrameResponse,
-  createMiniappStorage,
-  detectMiniappPlatform,
-  generateFrameMetaTags,
-  getFarcasterContext,
-  getMiniappThemeVars,
-  getTelegramTheme,
-  getTelegramUser,
-  haptic,
-  initTelegram,
-  isTelegramDarkMode,
-  type FarcasterFrameContext,
-  type FrameMetadata,
-  type MiniappPlatform,
-  type MiniappStorage,
-  type TelegramWebApp,
-} from './miniapp'

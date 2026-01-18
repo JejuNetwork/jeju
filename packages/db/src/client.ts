@@ -1,38 +1,41 @@
 /**
- * SQLit Client with circuit breaker pattern
+ * SQLit Client
  *
- * Automatically uses network-aware configuration from @jejunetwork/config.
- * No env vars required - just set JEJU_NETWORK=localnet|testnet|mainnet.
+ * The main database client for Jeju Network applications.
+ * Uses SQLit distributed database infrastructure.
+ *
+ * @example
+ * ```typescript
+ * import { getSQLit } from '@jejunetwork/db'
+ *
+ * const db = getSQLit()
+ * const users = await db.query('SELECT * FROM users')
+ * await db.exec('INSERT INTO users (name) VALUES (?)', ['Alice'])
+ * ```
  */
 
 import {
   getLogLevel,
   getSQLitDatabaseId,
-  getSQLitKeyId,
-  getSQLitMinerUrl,
   getSQLitTimeout,
   getSQLitUrl,
   isSQLitDebug,
 } from '@jejunetwork/config'
-import { createPool, type Pool } from 'generic-pool'
+import {
+  type SQLitClientConfig,
+  SQLitClient as SQLitCoreClient,
+} from '@jejunetwork/sqlit/client'
 import pino from 'pino'
-import type { Address, Hex } from 'viem'
-import { isAddress, toHex } from 'viem'
-import { z } from 'zod'
+import type { Hex } from 'viem'
 import type {
   ACLRule,
-  BlockProducerInfo,
-  CreateRentalRequest,
   DatabaseConfig,
   DatabaseInfo,
   ExecResult,
   GrantRequest,
   QueryParam,
   QueryResult,
-  RentalInfo,
-  RentalPlan,
   RevokeRequest,
-  SQLitConfig,
   SQLitConnection,
   SQLitConnectionPool,
   SQLitTransaction,
@@ -42,1076 +45,489 @@ import type {
   VectorSearchRequest,
   VectorSearchResult,
 } from './types.js'
-import {
-  parseTimeout,
-  validateSQLIdentifier,
-  validateSQLIdentifiers,
-} from './utils.js'
-import {
-  generateCreateVectorTableSQL,
-  generateVectorInsertSQL,
-  parseVectorSearchResults,
-  serializeVector,
-  validateVectorValues,
-} from './vector.js'
-
-const AddressSchema = z.custom<Address>(
-  (val): val is Address => typeof val === 'string' && isAddress(val),
-  { message: 'Invalid address' },
-)
-
-const QueryResponseSchema = z
-  .object({
-    rows: z.preprocess(
-      (val) => (Array.isArray(val) ? val : []),
-      z.array(
-        z.record(
-          z.string(),
-          z.union([z.string(), z.number(), z.boolean(), z.null()]),
-        ),
-      ),
-    ),
-    rowCount: z.preprocess(
-      (val) => (typeof val === 'number' ? val : 0),
-      z.number().int().nonnegative(),
-    ),
-    columns: z.preprocess(
-      (val) => (Array.isArray(val) ? val : []),
-      z.array(z.string()),
-    ),
-    blockHeight: z.preprocess(
-      (val) => (typeof val === 'number' ? val : 0),
-      z.number().int().nonnegative(),
-    ),
-    executionTime: z.number().int().nonnegative().optional(),
-    success: z.boolean().optional(),
-  })
-  .passthrough()
-
-// Schema for sqlit-adapter response format
-const AdapterExecResponseSchema = z.object({
-  data: z.object({
-    affected_rows: z.number().int().nonnegative(),
-    last_insert_id: z.number().int().nonnegative(),
-  }),
-  status: z.string(),
-  success: z.boolean(),
-})
-
-// Schema for full SQLit chain response format
-const ChainExecResponseSchema = z
-  .object({
-    rowsAffected: z.number().int().nonnegative(),
-    lastInsertId: z.string().optional(),
-    txHash: z.string().min(1),
-    blockHeight: z.number().int().nonnegative(),
-    gasUsed: z.string().min(1),
-    // Additional fields for dev mode compatibility
-    success: z.boolean().optional(),
-    executionTime: z.number().int().nonnegative().optional(),
-  })
-  .passthrough()
-
-// Note: We parse each format individually for better type narrowing
-
-const DatabaseStatusSchema = z.enum([
-  'creating',
-  'running',
-  'stopped',
-  'migrating',
-  'error',
-])
-
-const DatabaseInfoSchema = z
-  .object({
-    id: z.string().min(1),
-    createdAt: z.number().int().nonnegative(),
-    owner: AddressSchema,
-    nodeCount: z.number().int().positive(),
-    consistencyMode: z.enum(['eventual', 'strong']),
-    status: DatabaseStatusSchema,
-    blockHeight: z.number().int().nonnegative(),
-    sizeBytes: z.number().int().nonnegative(),
-    monthlyCost: z.union([z.bigint(), z.string()]).transform((v) => BigInt(v)),
-  })
-  .strict()
-
-const DatabaseListResponseSchema = z
-  .object({
-    databases: z.array(DatabaseInfoSchema),
-  })
-  .strict()
-
-const ACLPermissionSchema = z.enum([
-  'SELECT',
-  'INSERT',
-  'UPDATE',
-  'DELETE',
-  'ALL',
-])
-
-const ACLRuleSchema = z.object({
-  grantee: z.union([AddressSchema, z.literal('*')]),
-  table: z.string(),
-  columns: z.union([z.array(z.string()), z.literal('*')]),
-  permissions: z.array(ACLPermissionSchema),
-  condition: z.string().optional(),
-})
-
-const ACLListResponseSchema = z
-  .object({
-    rules: z.array(ACLRuleSchema),
-  })
-  .strict()
-
-const RentalPlanSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  nodeCount: z.number(),
-  storageBytes: z.union([z.bigint(), z.string()]).transform((v) => BigInt(v)),
-  queriesPerMonth: z
-    .union([z.bigint(), z.string()])
-    .transform((v) => BigInt(v)),
-  pricePerMonth: z.union([z.bigint(), z.string()]).transform((v) => BigInt(v)),
-  paymentToken: AddressSchema,
-})
-
-const RentalPlanListResponseSchema = z
-  .object({
-    plans: z.array(RentalPlanSchema),
-  })
-  .strict()
-
-const RentalInfoSchema = z
-  .object({
-    id: z.string().min(1),
-    databaseId: z.string().min(1),
-    renter: AddressSchema,
-    planId: z.string().min(1),
-    startedAt: z.number().int().nonnegative(),
-    expiresAt: z.number().int().nonnegative(),
-    autoRenew: z.boolean(),
-    paymentStatus: z.enum(['current', 'overdue', 'cancelled']),
-  })
-  .strict()
-
-const BlockProducerInfoSchema = z
-  .object({
-    // Required fields
-    blockHeight: z.number().int().nonnegative(),
-    databases: z.number().int().nonnegative(),
-    status: z.string(),
-    // Optional fields (may not be present in dev mode)
-    address: AddressSchema.optional(),
-    endpoint: z.string().url().optional(),
-    stake: z
-      .union([z.bigint(), z.string()])
-      .transform((v) => BigInt(v))
-      .optional(),
-    // Dev server fields
-    type: z.string().optional(),
-    nodeCount: z.number().int().nonnegative().optional(),
-  })
-  .passthrough()
-
-const SQLitConfigSchema = z
-  .object({
-    blockProducerEndpoint: z.string().url(),
-    minerEndpoint: z.string().url().optional(),
-    keyId: z.string().min(1).optional(),
-    privateKey: z
-      .string()
-      .regex(/^0x[a-fA-F0-9]+$/)
-      .optional(),
-    databaseId: z.string().min(1).optional(),
-    timeout: z.number().int().positive().max(600000).optional(),
-    debug: z.boolean().optional(),
-  })
-  .strict()
+import { parseTimeout } from './utils.js'
 
 const log = pino({
-  name: 'sqlit',
+  name: 'sqlit-client',
   level: getLogLevel(),
 })
 
-// Native Circuit Breaker implementation
-interface CircuitState {
-  state: 'closed' | 'open' | 'half-open'
-  failures: number
-  lastFailure: number
-  halfOpenAttempts: number
-}
+const DEFAULT_TIMEOUT = 30000
 
-const circuitState: CircuitState = {
-  state: 'closed',
-  failures: 0,
-  lastFailure: 0,
-  halfOpenAttempts: 0,
-}
-
-const circuitConfig = {
-  failureThreshold: 5,
-  resetTimeout: 30000,
-  halfOpenRequests: 3,
-}
-
-class CircuitOpenError extends Error {
-  constructor() {
-    super('Circuit breaker is open')
-    this.name = 'CircuitOpenError'
-  }
-}
-
-const circuitBreaker = {
-  get opened() {
-    return circuitState.state === 'open'
-  },
-  get halfOpen() {
-    return circuitState.state === 'half-open'
-  },
-  stats: {
-    get failures() {
-      return circuitState.failures
-    },
-  },
-  async fire<T>(fn: () => Promise<T>): Promise<T> {
-    // Check state transitions
-    if (circuitState.state === 'open') {
-      if (Date.now() - circuitState.lastFailure >= circuitConfig.resetTimeout) {
-        circuitState.state = 'half-open'
-        circuitState.halfOpenAttempts = 0
-        log.info('Circuit breaker half-open, attempting recovery')
-      } else {
-        throw new CircuitOpenError()
-      }
-    }
-
-    if (circuitState.state === 'half-open') {
-      if (circuitState.halfOpenAttempts >= circuitConfig.halfOpenRequests) {
-        circuitState.state = 'open'
-        log.warn('Circuit breaker opened')
-        throw new CircuitOpenError()
-      }
-      circuitState.halfOpenAttempts++
-    }
-
-    try {
-      const result = await fn()
-      // Success - reset or close circuit
-      if (circuitState.state === 'half-open') {
-        circuitState.state = 'closed'
-        circuitState.failures = 0
-        log.info('Circuit breaker closed, service recovered')
-      } else {
-        circuitState.failures = 0
-      }
-      return result
-    } catch (error) {
-      circuitState.failures++
-      circuitState.lastFailure = Date.now()
-
-      if (circuitState.failures >= circuitConfig.failureThreshold) {
-        circuitState.state = 'open'
-        log.warn('Circuit breaker opened')
-      }
-
-      throw error
-    }
-  },
-}
-
-async function request<S extends z.ZodTypeAny>(
-  url: string,
-  schema: S,
-  options?: RequestInit,
-): Promise<z.output<S>> {
-  const response = await circuitBreaker.fire(async () => {
-    const res = await fetch(url, options)
-    if (!res.ok) throw new Error(`Request failed: ${res.status}`)
-    return res
-  })
-  const rawData: unknown = await response.json()
-  return schema.parse(rawData)
-}
-
-async function requestVoid(url: string, options?: RequestInit): Promise<void> {
-  await circuitBreaker.fire(async () => {
-    const response = await fetch(url, options)
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
-    return response
-  })
-}
-
-class SQLitConnectionImpl implements SQLitConnection {
-  id: string
-  databaseId: string
-  active = true
-  private endpoint: string
-  private timeout: number
-  private debug: boolean
-
-  constructor(id: string, databaseId: string, config: SQLitConfig) {
-    this.id = id
-    this.databaseId = databaseId
-    this.endpoint = config.minerEndpoint ?? config.blockProducerEndpoint
-    this.timeout = config.timeout ?? 30000
-    this.debug = config.debug ?? false
-  }
-
-  async query<T>(sql: string, params?: QueryParam[]): Promise<QueryResult<T>> {
-    return this.execute('query', sql, params) as Promise<QueryResult<T>>
-  }
-
-  async exec(sql: string, params?: QueryParam[]): Promise<ExecResult> {
-    return this.execute('exec', sql, params) as Promise<ExecResult>
-  }
-
-  async beginTransaction(): Promise<SQLitTransaction> {
-    const txId = `tx-${crypto.randomUUID()}`
-    await this.exec('BEGIN TRANSACTION')
-    return new SQLitTransactionImpl(txId, this)
-  }
-
-  async close(): Promise<void> {
-    this.active = false
-  }
-
-  private async execute(
-    type: 'query' | 'exec',
-    sql: string,
-    params?: QueryParam[],
-  ): Promise<QueryResult<unknown> | ExecResult> {
-    const startTime = Date.now()
-
-    // Use 'query' and 'args' field names for compatibility with Go sqlit-adapter
-    const payload = {
-      database: this.databaseId,
-      query: sql,
-      args: params?.map((p) =>
-        p === null || p === undefined
-          ? null
-          : typeof p === 'bigint'
-            ? p.toString()
-            : p instanceof Uint8Array
-              ? toHex(p)
-              : p,
-      ),
-      assoc: true,
-    }
-
-    const response = await fetch(`${this.endpoint}/v1/${type}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(this.timeout),
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      if (this.debug)
-        console.error(
-          `[SQLit] ${type} error: ${response.status} - ${errorText}`,
-        )
-      throw new Error(`SQLit ${type} failed: ${response.status}`)
-    }
-
-    const rawResult: unknown = await response.json()
-    const executionTime = Date.now() - startTime
-    if (this.debug)
-      console.log(
-        `[SQLit] ${type}: executed (${executionTime}ms, params: ${params?.length ?? 0})`,
-      )
-
-    // SQLit returns HTTP 200 with success: false for errors
-    if (
-      typeof rawResult === 'object' &&
-      rawResult !== null &&
-      'success' in rawResult &&
-      rawResult.success === false
-    ) {
-      const errorMsg =
-        'error' in rawResult ? String(rawResult.error) : 'Unknown error'
-      throw new Error(`SQLit ${type} failed: ${errorMsg}`)
-    }
-
-    if (type === 'query') {
-      // Handle response wrapped in 'data' or 'result' field
-      const responseData =
-        typeof rawResult === 'object' && rawResult !== null
-          ? 'data' in rawResult && typeof rawResult.data === 'object'
-            ? rawResult.data
-            : 'result' in rawResult && typeof rawResult.result === 'object'
-              ? rawResult.result
-              : rawResult
-          : rawResult
-      const parseResult = QueryResponseSchema.safeParse(responseData)
-      if (!parseResult.success && this.debug) {
-        console.error(
-          `[SQLit] Query response validation failed:`,
-          parseResult.error.issues,
-          `\nRaw response:`,
-          JSON.stringify(rawResult).slice(0, 500),
-        )
-      }
-      const result = parseResult.success
-        ? parseResult.data
-        : { rows: [], rowCount: 0, columns: [], blockHeight: 0 }
-      return {
-        rows: result.rows,
-        rowCount: result.rowCount,
-        columns: result.columns.map((name) => ({
-          name,
-          type: 'TEXT' as const,
-          nullable: true,
-          primaryKey: false,
-          autoIncrement: false,
-        })),
-        executionTime,
-        blockHeight: result.blockHeight,
-      }
-    } else {
-      // Try adapter format first: {data: {affected_rows, last_insert_id}, status, success}
-      const adapterResult = AdapterExecResponseSchema.safeParse(rawResult)
-      if (adapterResult.success) {
-        return {
-          rowsAffected: adapterResult.data.data.affected_rows,
-          lastInsertId:
-            adapterResult.data.data.last_insert_id > 0
-              ? BigInt(adapterResult.data.data.last_insert_id)
-              : undefined,
-          txHash: `0x${'0'.repeat(64)}` as Hex, // placeholder for adapter mode
-          blockHeight: 0,
-          gasUsed: 0n,
-        }
-      }
-
-      // Try chain format: {rowsAffected, lastInsertId, txHash, blockHeight, gasUsed}
-      const chainResult = ChainExecResponseSchema.safeParse(rawResult)
-      if (chainResult.success) {
-        return {
-          rowsAffected: chainResult.data.rowsAffected,
-          lastInsertId: chainResult.data.lastInsertId
-            ? BigInt(chainResult.data.lastInsertId)
-            : undefined,
-          txHash: chainResult.data.txHash as Hex,
-          blockHeight: chainResult.data.blockHeight,
-          gasUsed: BigInt(chainResult.data.gasUsed),
-        }
-      }
-
-      // Log parsing failure
-      if (this.debug) {
-        console.error(
-          `[SQLit] Exec response validation failed. Adapter:`,
-          adapterResult.error?.issues,
-          `Chain:`,
-          chainResult.error?.issues,
-          `\nRaw response:`,
-          JSON.stringify(rawResult).slice(0, 500),
-        )
-      }
-
-      // Fallback: return minimal response
-      return {
-        rowsAffected: 0,
-        lastInsertId: undefined,
-        txHash: `0x${'0'.repeat(64)}` as Hex,
-        blockHeight: 0,
-        gasUsed: 0n,
-      }
-    }
-  }
-}
-
-class SQLitTransactionImpl implements SQLitTransaction {
-  id: string
-  private conn: SQLitConnectionImpl
-  private done = false
-
-  constructor(id: string, conn: SQLitConnectionImpl) {
-    this.id = id
-    this.conn = conn
-  }
-
-  async query<T>(sql: string, params?: QueryParam[]): Promise<QueryResult<T>> {
-    if (this.done) throw new Error('Transaction completed')
-    return this.conn.query<T>(sql, params)
-  }
-
-  async exec(sql: string, params?: QueryParam[]): Promise<ExecResult> {
-    if (this.done) throw new Error('Transaction completed')
-    return this.conn.exec(sql, params)
-  }
-
-  async commit(): Promise<void> {
-    if (this.done) throw new Error('Transaction completed')
-    await this.conn.exec('COMMIT')
-    this.done = true
-  }
-
-  async rollback(): Promise<void> {
-    if (this.done) return
-    await this.conn.exec('ROLLBACK')
-    this.done = true
-  }
-}
-
-class SQLitConnectionPoolImpl implements SQLitConnectionPool {
-  private pool: Pool<SQLitConnectionImpl>
-
-  constructor(config: SQLitConfig, dbId: string, maxSize = 10) {
-    this.pool = createPool<SQLitConnectionImpl>(
-      {
-        create: async () => {
-          const id = `conn-${crypto.randomUUID()}`
-          return new SQLitConnectionImpl(id, dbId, config)
-        },
-        destroy: async (conn) => {
-          await conn.close()
-        },
-        validate: async (conn) => conn.active,
-      },
-      {
-        max: maxSize,
-        min: 2,
-        acquireTimeoutMillis: 10000,
-        idleTimeoutMillis: 30000,
-      },
-    )
-  }
-
-  async acquire(): Promise<SQLitConnection> {
-    const conn = await this.pool.acquire()
-    conn.active = true
-    return conn
-  }
-
-  release(conn: SQLitConnection): void {
-    const impl = conn as SQLitConnectionImpl
-    impl.active = false
-    this.pool.release(impl)
-  }
-
-  async close(): Promise<void> {
-    await this.pool.drain()
-    await this.pool.clear()
-  }
-
-  stats() {
-    return {
-      active: this.pool.borrowed,
-      idle: this.pool.available,
-      total: this.pool.size,
-    }
-  }
-}
-
+/**
+ * SQLit Client - Main database interface for Jeju Network apps
+ */
 export class SQLitClient {
-  private config: SQLitConfig
-  private pools = new Map<string, SQLitConnectionPool>()
-  private get endpoint() {
-    return this.config.blockProducerEndpoint
-  }
+  private client: SQLitCoreClient
+  private config: SQLitClientConfig
 
-  constructor(config: SQLitConfig) {
+  constructor(config: SQLitClientConfig) {
     this.config = config
+    this.client = new SQLitCoreClient(config)
   }
 
-  getPool(dbId: string): SQLitConnectionPool {
-    let pool = this.pools.get(dbId)
-    if (!pool) {
-      pool = new SQLitConnectionPoolImpl(this.config, dbId)
-      this.pools.set(dbId, pool)
-    }
-    return pool
+  /**
+   * Get the current endpoint URL
+   */
+  getEndpoint(): string {
+    return this.client.getEndpoint()
   }
 
-  async connect(dbId?: string): Promise<SQLitConnection> {
-    const id = dbId ?? this.config.databaseId
-    if (!id) throw new Error('Database ID required')
-    return this.getPool(id).acquire()
-  }
-
-  async query<T>(
+  /**
+   * Execute a query and return results
+   */
+  async query<T = Record<string, string | number | boolean | null>>(
     sql: string,
     params?: QueryParam[],
-    dbId?: string,
+    _dbId?: string,
   ): Promise<QueryResult<T>> {
-    const conn = await this.connect(dbId)
-    try {
-      return await conn.query<T>(sql, params)
-    } finally {
-      this.getPool(conn.databaseId).release(conn)
+    // Convert params to sqlit expected types (no Uint8Array support)
+    const convertedParams = params?.map((p) =>
+      p instanceof Uint8Array ? null : p,
+    )
+    const rows = await this.client.query<T & Record<string, unknown>>(
+      sql,
+      convertedParams,
+    )
+    return {
+      rows: rows as T[],
+      rowCount: rows.length,
+      columns: [],
+      executionTime: 0,
+      blockHeight: 0,
     }
   }
 
+  /**
+   * Execute a write query and return rows (for INSERT/UPDATE/DELETE with RETURNING)
+   */
+  async queryWrite<T = Record<string, string | number | boolean | null>>(
+    sql: string,
+    params?: QueryParam[],
+    _dbId?: string,
+  ): Promise<QueryResult<T>> {
+    // Convert params to sqlit expected types (no Uint8Array support)
+    const convertedParams = params?.map((p) =>
+      p instanceof Uint8Array ? null : p,
+    )
+    // Use execute() with queryType: 'write' to get rows from INSERT/UPDATE with RETURNING
+    const result = await this.client.execute(sql, convertedParams, {
+      queryType: 'write',
+    })
+    return {
+      rows: result.rows as T[],
+      rowCount: result.rows.length,
+      columns: [],
+      executionTime: result.executionTimeMs ?? 0,
+      blockHeight: 0,
+    }
+  }
+
+  /**
+   * Execute a write query
+   */
   async exec(
     sql: string,
     params?: QueryParam[],
-    dbId?: string,
+    _dbId?: string,
   ): Promise<ExecResult> {
-    const conn = await this.connect(dbId)
-    try {
-      return await conn.exec(sql, params)
-    } finally {
-      this.getPool(conn.databaseId).release(conn)
-    }
-  }
-
-  async createDatabase(config: DatabaseConfig): Promise<DatabaseInfo> {
-    return request(`${this.endpoint}/api/v1/databases`, DatabaseInfoSchema, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        nodeCount: config.nodeCount,
-        useEventualConsistency: config.useEventualConsistency ?? false,
-        regions: config.regions,
-        schema: config.schema,
-        owner: config.owner,
-        paymentToken: config.paymentToken,
-      }),
-    })
-  }
-
-  async getDatabase(id: string): Promise<DatabaseInfo> {
-    return request(
-      `${this.endpoint}/api/v1/databases/${id}`,
-      DatabaseInfoSchema,
+    // Convert params to sqlit expected types (no Uint8Array support)
+    const convertedParams = params?.map((p) =>
+      p instanceof Uint8Array ? null : p,
     )
-  }
-
-  async listDatabases(owner: Address): Promise<DatabaseInfo[]> {
-    const response = await request(
-      `${this.endpoint}/api/v1/databases?owner=${owner}`,
-      DatabaseListResponseSchema,
-    )
-    return response.databases
-  }
-
-  async deleteDatabase(id: string): Promise<void> {
-    return requestVoid(`${this.endpoint}/api/v1/databases/${id}`, {
-      method: 'DELETE',
-    })
-  }
-
-  async grant(dbId: string, req: GrantRequest): Promise<void> {
-    return requestVoid(`${this.endpoint}/api/v1/databases/${dbId}/acl/grant`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req),
-    })
-  }
-
-  async revoke(dbId: string, req: RevokeRequest): Promise<void> {
-    return requestVoid(`${this.endpoint}/api/v1/databases/${dbId}/acl/revoke`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req),
-    })
-  }
-
-  async listACL(dbId: string): Promise<ACLRule[]> {
-    const response = await request(
-      `${this.endpoint}/api/v1/databases/${dbId}/acl`,
-      ACLListResponseSchema,
-    )
-    return response.rules
-  }
-
-  async listPlans(): Promise<RentalPlan[]> {
-    const response = await request(
-      `${this.endpoint}/api/v1/plans`,
-      RentalPlanListResponseSchema,
-    )
-    return response.plans
-  }
-
-  async createRental(req: CreateRentalRequest): Promise<RentalInfo> {
-    return request(`${this.endpoint}/api/v1/rentals`, RentalInfoSchema, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req),
-    })
-  }
-
-  async getRental(id: string): Promise<RentalInfo> {
-    return request(`${this.endpoint}/api/v1/rentals/${id}`, RentalInfoSchema)
-  }
-
-  async extendRental(id: string, months: number): Promise<RentalInfo> {
-    return request(
-      `${this.endpoint}/api/v1/rentals/${id}/extend`,
-      RentalInfoSchema,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ months }),
-      },
-    )
-  }
-
-  async cancelRental(id: string): Promise<void> {
-    return requestVoid(`${this.endpoint}/api/v1/rentals/${id}`, {
-      method: 'DELETE',
-    })
-  }
-
-  async getBlockProducerInfo(): Promise<BlockProducerInfo> {
-    return request(`${this.endpoint}/api/v1/status`, BlockProducerInfoSchema)
-  }
-
-  async isHealthy(): Promise<boolean> {
-    const response = await circuitBreaker
-      .fire(async () => {
-        // Try /v1/status first, fall back to / for adapter compatibility
-        let res = await fetch(`${this.endpoint}/v1/status`, {
-          signal: AbortSignal.timeout(5000),
-        }).catch(() => null)
-        if (!res?.ok) {
-          res = await fetch(`${this.endpoint}/`, {
-            signal: AbortSignal.timeout(5000),
-          })
-        }
-        return res
-      })
-      .catch(() => null)
-    return response?.ok ?? false
-  }
-
-  getCircuitState(): {
-    state: 'open' | 'closed' | 'half-open'
-    failures: number
-  } {
+    const result = await this.client.execute(sql, convertedParams)
     return {
-      state: circuitBreaker.opened
-        ? 'open'
-        : circuitBreaker.halfOpen
-          ? 'half-open'
-          : 'closed',
-      failures: circuitBreaker.stats.failures,
+      rowsAffected: result.rowsAffected,
+      lastInsertId: result.lastInsertId,
+      txHash: `0x${'0'.repeat(64)}` as Hex,
+      blockHeight: 0,
+      gasUsed: BigInt(0),
     }
   }
-
-  async close(): Promise<void> {
-    await Promise.all(Array.from(this.pools.values()).map((p) => p.close()))
-    this.pools.clear()
-  }
-
-  // Vector Search Methods (powered by sqlite-vec)
 
   /**
-   * Create a vector index (vec0 virtual table)
-   *
-   * @example
-   * ```typescript
-   * await sqlit.createVectorIndex({
-   *   tableName: 'embeddings',
-   *   dimensions: 384,
-   *   metadataColumns: [
-   *     { name: 'title', type: 'TEXT' },
-   *     { name: 'source', type: 'TEXT' }
-   *   ]
-   * }, 'db-id')
-   * ```
+   * Create a new database
+   */
+  async createDatabase(config: DatabaseConfig): Promise<DatabaseInfo> {
+    const result = await this.client.createDatabase({
+      name: config.schema?.slice(0, 50) ?? 'database',
+      encryptionMode: 'none',
+      replication: { replicaCount: config.nodeCount ?? 2 },
+      schema: config.schema,
+    })
+
+    return {
+      id: result.databaseId,
+      createdAt: Date.now(),
+      owner: config.owner ?? (`0x${'0'.repeat(40)}` as `0x${string}`),
+      nodeCount: config.nodeCount ?? 2,
+      consistencyMode: config.useEventualConsistency ? 'eventual' : 'strong',
+      status: 'running',
+      blockHeight: 0,
+      sizeBytes: 0,
+      monthlyCost: BigInt(0),
+    }
+  }
+
+  /**
+   * Delete a database (uses the client's configured databaseId)
+   */
+  async deleteDatabase(_id: string): Promise<void> {
+    await this.client.deleteDatabase()
+  }
+
+  /**
+   * Get database info by ID
+   * Uses the SQLit v2 databases info endpoint
+   */
+  async getDatabase(databaseId: string): Promise<DatabaseInfo | null> {
+    const endpoint = this.client.getEndpoint()
+    const response = await fetch(`${endpoint}/v2/databases/${databaseId}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return null
+      }
+      throw new Error(`Failed to get database info: ${response.statusText}`)
+    }
+
+    const result = (await response.json()) as {
+      success: boolean
+      databaseId: string
+      owner?: string
+      createdAt?: number
+      nodeCount?: number
+      status?: string
+      blockHeight?: number
+      sizeBytes?: number
+    }
+
+    if (!result.success) {
+      return null
+    }
+
+    return {
+      id: result.databaseId,
+      createdAt: result.createdAt ?? Date.now(),
+      owner: (result.owner ?? `0x${'0'.repeat(40)}`) as `0x${string}`,
+      nodeCount: result.nodeCount ?? 2,
+      consistencyMode: 'strong',
+      status: (result.status ?? 'running') as 'running' | 'stopped' | 'error',
+      blockHeight: result.blockHeight ?? 0,
+      sizeBytes: result.sizeBytes ?? 0,
+      monthlyCost: BigInt(0),
+    }
+  }
+
+  /**
+   * List available rental plans
+   */
+  async listPlans(): Promise<
+    Array<{
+      id: string
+      name: string
+      storageGB: number
+      pricePerMonth: bigint
+    }>
+  > {
+    const endpoint = this.client.getEndpoint()
+    const response = await fetch(`${endpoint}/v2/plans`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    if (!response.ok) {
+      return []
+    }
+
+    const result = (await response.json()) as {
+      success: boolean
+      plans?: Array<{
+        id: string
+        name: string
+        storageGB: number
+        pricePerMonth: string
+      }>
+    }
+
+    if (!result.success || !result.plans) {
+      return []
+    }
+
+    return result.plans.map((p) => ({
+      id: p.id,
+      name: p.name,
+      storageGB: p.storageGB,
+      pricePerMonth: BigInt(p.pricePerMonth),
+    }))
+  }
+
+  /**
+   * Grant permissions
+   */
+  async grant(dbId: string, req: GrantRequest): Promise<void> {
+    await this.client.grant(dbId, {
+      grantee: req.grantee,
+      permissions: req.permissions.map((p) =>
+        p === 'SELECT'
+          ? 'read'
+          : p === 'INSERT' || p === 'UPDATE' || p === 'DELETE'
+            ? 'write'
+            : 'admin',
+      ) as Array<'read' | 'write' | 'admin'>,
+    })
+  }
+
+  /**
+   * Revoke permissions
+   */
+  async revoke(dbId: string, req: RevokeRequest): Promise<void> {
+    await this.client.revoke(dbId, {
+      grantee: req.grantee,
+      permissions: req.permissions?.map((p) =>
+        p === 'SELECT'
+          ? 'read'
+          : p === 'INSERT' || p === 'UPDATE' || p === 'DELETE'
+            ? 'write'
+            : 'admin',
+      ) as Array<'read' | 'write' | 'admin'>,
+    })
+  }
+
+  /**
+   * List ACL rules
+   */
+  async listACL(dbId: string): Promise<ACLRule[]> {
+    const rules = await this.client.listACL(dbId)
+    return rules.map((r) => ({
+      grantee: r.grantee,
+      table: '*',
+      columns: '*',
+      permissions: r.permissions.map((p) =>
+        p === 'read'
+          ? ('SELECT' as const)
+          : p === 'write'
+            ? ('INSERT' as const)
+            : ('ALL' as const),
+      ),
+    }))
+  }
+
+  /**
+   * Create a vector index
    */
   async createVectorIndex(
     config: VectorIndexConfig,
     dbId?: string,
   ): Promise<ExecResult> {
-    const sql = generateCreateVectorTableSQL(config)
-    return this.exec(sql, undefined, dbId)
+    const id = dbId ?? this.config.databaseId ?? 'default'
+    await this.client.createVectorIndex(id, {
+      tableName: config.tableName,
+      dimensions: config.dimensions,
+      metadataColumns: config.metadataColumns,
+      partitionKey: config.partitionKey,
+    })
+    return {
+      rowsAffected: 0,
+      lastInsertId: BigInt(0),
+      txHash: `0x${'0'.repeat(64)}` as Hex,
+      blockHeight: 0,
+      gasUsed: BigInt(0),
+    }
   }
 
   /**
-   * Insert a vector into a vec0 table
-   *
-   * @example
-   * ```typescript
-   * await sqlit.insertVector({
-   *   tableName: 'embeddings',
-   *   vector: [0.1, 0.2, 0.3, ...], // 384 dimensions
-   *   metadata: { title: 'My Document', source: 'wiki' }
-   * }, 'db-id')
-   * ```
+   * Insert a vector
    */
   async insertVector(
     request: VectorInsertRequest,
     dbId?: string,
   ): Promise<ExecResult> {
-    const { tableName, rowid, vector, metadata, partitionValue } = request
-
-    validateVectorValues(vector)
-
-    const blob = serializeVector(vector, 'float32')
-    const params: QueryParam[] = []
-
-    if (rowid !== undefined) {
-      params.push(rowid)
+    const id = dbId ?? this.config.databaseId ?? 'default'
+    const result = await this.client.insertVector(id, {
+      tableName: request.tableName,
+      vector: request.vector,
+      rowid: request.rowid,
+      metadata: request.metadata,
+      partitionValue: request.partitionValue,
+    })
+    return {
+      rowsAffected: 1,
+      lastInsertId: BigInt(result.rowid),
+      txHash: `0x${'0'.repeat(64)}` as Hex,
+      blockHeight: 0,
+      gasUsed: BigInt(0),
     }
-    params.push(blob)
-
-    const metadataColumns = metadata ? Object.keys(metadata) : []
-    if (metadata) {
-      for (const key of metadataColumns) {
-        const value = metadata[key]
-        params.push(value === null ? null : (value as QueryParam))
-      }
-    }
-
-    if (partitionValue !== undefined) {
-      params.push(partitionValue as QueryParam)
-    }
-
-    const sql = generateVectorInsertSQL(
-      tableName,
-      rowid !== undefined,
-      metadataColumns,
-      partitionValue !== undefined ? 'partition_key' : undefined,
-    )
-
-    return this.exec(sql, params, dbId)
   }
 
   /**
-   * Batch insert vectors into a vec0 table
-   *
-   * @example
-   * ```typescript
-   * await sqlit.insertVectorBatch({
-   *   tableName: 'embeddings',
-   *   vectors: [
-   *     { vector: [...], metadata: { title: 'Doc 1' } },
-   *     { vector: [...], metadata: { title: 'Doc 2' } },
-   *   ]
-   * }, 'db-id')
-   * ```
+   * Batch insert vectors
    */
   async insertVectorBatch(
     request: VectorBatchInsertRequest,
     dbId?: string,
   ): Promise<ExecResult[]> {
-    const results: ExecResult[] = []
-
-    for (const item of request.vectors) {
-      const result = await this.insertVector(
-        {
-          tableName: request.tableName,
-          rowid: item.rowid,
-          vector: item.vector,
-          metadata: item.metadata,
-          partitionValue: item.partitionValue,
-        },
-        dbId,
-      )
-      results.push(result)
-    }
-
-    return results
+    const id = dbId ?? this.config.databaseId ?? 'default'
+    const result = await this.client.batchInsertVectors(id, {
+      tableName: request.tableName,
+      vectors: request.vectors.map((v) => ({
+        vector: v.vector,
+        rowid: v.rowid,
+        metadata: v.metadata,
+        partitionValue: v.partitionValue,
+      })),
+    })
+    return result.rowids.map((rowid) => ({
+      rowsAffected: 1,
+      lastInsertId: BigInt(rowid),
+      txHash: `0x${'0'.repeat(64)}` as Hex,
+      blockHeight: 0,
+      gasUsed: BigInt(0),
+    }))
   }
 
   /**
-   * Search for similar vectors using KNN
-   *
-   * @example
-   * ```typescript
-   * const results = await sqlit.searchVectors({
-   *   tableName: 'embeddings',
-   *   vector: queryEmbedding,
-   *   k: 10,
-   *   includeMetadata: true
-   * }, 'db-id')
-   *
-   * for (const result of results) {
-   *   console.log(`Row ${result.rowid}: distance ${result.distance}`)
-   *   console.log(`  Title: ${result.metadata?.title}`)
-   * }
-   * ```
+   * Search for similar vectors
    */
   async searchVectors(
     request: VectorSearchRequest,
     dbId?: string,
-    metadataColumns: string[] = [],
   ): Promise<VectorSearchResult[]> {
-    const {
-      tableName,
-      vector,
-      k,
-      partitionValue,
-      metadataFilter,
-      includeMetadata,
-    } = request
-
-    // Validate inputs to prevent SQL injection
-    validateSQLIdentifier(tableName, 'table')
-    if (metadataColumns.length > 0) {
-      validateSQLIdentifiers(metadataColumns, 'column')
-    }
-    if (!Number.isInteger(k) || k <= 0 || k > 10000) {
-      throw new Error(
-        `Invalid k value: ${k}, must be positive integer <= 10000`,
-      )
-    }
-
-    validateVectorValues(vector)
-
-    const blob = serializeVector(vector, 'float32')
-    const params: QueryParam[] = [blob]
-
-    if (partitionValue !== undefined) {
-      params.push(partitionValue as QueryParam)
-    }
-
-    // Build SELECT columns
-    const selectCols = ['rowid', 'distance']
-    if (includeMetadata && metadataColumns.length > 0) {
-      for (const col of metadataColumns) {
-        selectCols.push(col)
-      }
-    }
-
-    // sqlite-vec uses MATCH syntax for KNN
-    let sql = `SELECT ${selectCols.join(', ')}
-FROM ${tableName}
-WHERE embedding MATCH ?
-  AND k = ${k}`
-
-    if (partitionValue !== undefined) {
-      sql += '\n  AND partition_key = ?'
-    }
-
-    if (metadataFilter) {
-      // Note: metadataFilter is caller-constructed SQL - callers must use parameters
-      sql += `\n  AND ${metadataFilter}`
-    }
-
-    sql += '\nORDER BY distance'
-
-    const result = await this.query<
-      Record<string, string | number | boolean | null>
-    >(sql, params, dbId)
-
-    return parseVectorSearchResults(
-      result.rows,
-      includeMetadata ? metadataColumns : [],
-    )
+    const id = dbId ?? this.config.databaseId ?? 'default'
+    const results = await this.client.searchVectors(id, {
+      tableName: request.tableName,
+      vector: request.vector,
+      k: request.k,
+      partitionValue: request.partitionValue,
+      metadataFilter: request.metadataFilter,
+      includeMetadata: request.includeMetadata,
+    })
+    return results.map((r) => ({
+      rowid: r.rowid,
+      distance: r.distance,
+      metadata: r.metadata,
+    }))
   }
 
   /**
-   * Delete vectors from a vec0 table
-   *
-   * @example
-   * ```typescript
-   * await sqlit.deleteVectors('embeddings', [1, 2, 3], 'db-id')
-   * ```
+   * Check if the database is healthy
    */
-  async deleteVectors(
-    tableName: string,
-    rowids: number[],
-    dbId?: string,
-  ): Promise<ExecResult> {
-    validateSQLIdentifier(tableName, 'table')
-    if (rowids.length === 0) {
-      // No-op: nothing to delete
-      return {
-        rowsAffected: 0,
-        txHash: '0x' as Hex,
-        blockHeight: 0,
-        gasUsed: 0n,
-      }
-    }
-    const placeholders = rowids.map(() => '?').join(', ')
-    const sql = `DELETE FROM ${tableName} WHERE rowid IN (${placeholders})`
-    return this.exec(sql, rowids, dbId)
+  async isHealthy(): Promise<boolean> {
+    return this.client.isHealthy()
   }
 
   /**
-   * Get vector count in a vec0 table
+   * Connect to the database (returns a connection-like wrapper)
    */
-  async getVectorCount(tableName: string, dbId?: string): Promise<number> {
-    validateSQLIdentifier(tableName, 'table')
-    const result = await this.query<{ count: number }>(
-      `SELECT COUNT(*) as count FROM ${tableName}`,
-      undefined,
-      dbId,
-    )
-    const firstRow = result.rows[0]
-    if (!firstRow || typeof firstRow.count !== 'number') {
-      throw new Error('Unexpected COUNT(*) result structure')
+  async connect(_dbId?: string): Promise<SQLitConnection> {
+    const dbId = _dbId ?? this.config.databaseId ?? 'default'
+    const connId = `conn-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    // Return a connection wrapper that delegates to the client
+    return {
+      id: connId,
+      databaseId: dbId,
+      active: true,
+      query: <T = Record<string, string | number | boolean | null>>(
+        sql: string,
+        params?: QueryParam[],
+      ) => this.query<T>(sql, params, _dbId),
+      exec: (sql: string, params?: QueryParam[]) =>
+        this.exec(sql, params, _dbId),
+      beginTransaction: async () => this.beginTransaction(_dbId),
+      close: async () => {},
     }
-    return firstRow.count
   }
 
   /**
-   * Check if sqlite-vec extension is available
+   * Get connection pool (returns a minimal pool interface)
    */
-  async checkVecExtension(
-    dbId?: string,
-  ): Promise<{ available: boolean; version?: string }> {
-    const result = await this.query<{ version: string }>(
-      `SELECT vec_version() as version`,
-      undefined,
-      dbId,
-    ).catch(() => null)
-
-    if (result?.rows[0]) {
-      return { available: true, version: result.rows[0].version }
+  getPool(_dbId?: string): SQLitConnectionPool {
+    return {
+      release: () => {},
+      acquire: async () => this.connect(_dbId),
+      close: async () => {},
+      stats: () => ({ active: 0, idle: 1, total: 1 }),
     }
-    return { available: false }
+  }
+
+  /**
+   * Get circuit breaker state (not applicable for HTTP client)
+   */
+  getCircuitState(): {
+    state: 'open' | 'closed' | 'half-open'
+    failures: number
+  } {
+    return { state: 'closed', failures: 0 }
+  }
+
+  /**
+   * Begin a transaction
+   */
+  private async beginTransaction(_dbId?: string): Promise<SQLitTransaction> {
+    const txId = `tx-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    // Begin transaction on the v2 client
+    await this.client.execute('BEGIN TRANSACTION')
+    return {
+      id: txId,
+      query: <T = Record<string, string | number | boolean | null>>(
+        sql: string,
+        params?: QueryParam[],
+      ) => this.query<T>(sql, params, _dbId),
+      exec: (sql: string, params?: QueryParam[]) =>
+        this.exec(sql, params, _dbId),
+      commit: async () => {
+        await this.client.execute('COMMIT')
+      },
+      rollback: async () => {
+        await this.client.execute('ROLLBACK')
+      },
+    }
+  }
+
+  /**
+   * Close the client
+   */
+  async close(): Promise<void> {
+    // SQLitCoreClient doesn't need explicit close
   }
 }
 
-let sqlitClient: SQLitClient | null = null
+// Use types from ./types.ts for SQLitConnection, SQLitConnectionPool, SQLitTransaction
 
-const DEFAULT_TIMEOUT = 30000
+// Singleton instance
+let sqlitClient: SQLitClient | null = null
 
 /**
  * Get a SQLit client with automatic network-aware configuration.
- * Configuration is resolved in this order:
- * 1. Explicit config parameter
- * 2. Environment variable override
- * 3. Network-based config from services.json (based on JEJU_NETWORK)
  */
-export function getSQLit(config?: Partial<SQLitConfig>): SQLitClient {
+export function getSQLit(config?: Partial<SQLitClientConfig>): SQLitClient {
   if (!sqlitClient) {
-    const blockProducerEndpoint = config?.blockProducerEndpoint ?? getSQLitUrl()
-    const minerEndpoint = config?.minerEndpoint ?? getSQLitMinerUrl()
+    const endpoint =
+      config?.endpoint ?? getSQLitUrl() ?? 'http://localhost:8546'
+    const databaseId = config?.databaseId ?? getSQLitDatabaseId() ?? 'default'
+    const timeout =
+      config?.timeoutMs ?? parseTimeout(getSQLitTimeout(), DEFAULT_TIMEOUT)
+    const debug = config?.debug ?? isSQLitDebug()
 
-    if (!blockProducerEndpoint) {
-      throw new Error(
-        'SQLit blockProducerEndpoint is required. Set via config, SQLIT_BLOCK_PRODUCER_ENDPOINT env var, or JEJU_NETWORK.',
-      )
+    const resolvedConfig: SQLitClientConfig = {
+      endpoint,
+      databaseId,
+      timeoutMs: timeout,
+      debug,
     }
 
-    // Support either KMS keyId (production) or privateKey (local development)
-    const keyId = config?.keyId ?? getSQLitKeyId()
-    const privateKey =
-      config?.privateKey ??
-      (process.env.SQLIT_PRIVATE_KEY as `0x${string}` | undefined)
-
-    if (!keyId && !privateKey) {
-      throw new Error(
-        'SQLit requires either keyId (for KMS) or privateKey (for local dev). Set via config, SQLIT_KEY_ID, or SQLIT_PRIVATE_KEY env var.',
-      )
-    }
-
-    const resolvedConfig: SQLitConfig = {
-      blockProducerEndpoint,
-      minerEndpoint,
-      keyId,
-      privateKey,
-      databaseId: config?.databaseId ?? getSQLitDatabaseId(),
-      timeout:
-        config?.timeout ?? parseTimeout(getSQLitTimeout(), DEFAULT_TIMEOUT),
-      debug: config?.debug ?? isSQLitDebug(),
-    }
-
-    const validated = SQLitConfigSchema.parse(resolvedConfig)
-
-    sqlitClient = new SQLitClient(validated as SQLitConfig)
+    log.debug({ config: resolvedConfig }, 'Creating SQLit client')
+    sqlitClient = new SQLitClient(resolvedConfig)
   }
   return sqlitClient
 }
 
+/**
+ * Reset the singleton client
+ */
 export async function resetSQLit(): Promise<void> {
   if (sqlitClient) {
     await sqlitClient.close()

@@ -12,9 +12,9 @@ import {PackedUserOperation} from "account-abstraction/interfaces/PackedUserOper
  */
 contract SimplePaymaster is BasePaymaster {
     constructor(IEntryPoint _entryPoint, address _owner) BasePaymaster(_entryPoint) {
-        // Transfer ownership if specified different from deployer
-        if (_owner != msg.sender) {
-            _transferOwnership(_owner);
+        address resolvedOwner = _owner == address(0) ? msg.sender : _owner;
+        if (resolvedOwner != msg.sender) {
+            _transferOwnership(resolvedOwner);
         }
     }
 

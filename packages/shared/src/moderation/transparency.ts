@@ -110,8 +110,14 @@ export function recordMetric(entry: Omit<MetricEntry, 'timestamp'>): void {
 
   // Keep bounded (last 30 days)
   const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000
-  while (metrics.length > 0 && metrics[0].timestamp < thirtyDaysAgo) {
+  let firstEntry = metrics[0]
+  while (
+    metrics.length > 0 &&
+    firstEntry &&
+    firstEntry.timestamp < thirtyDaysAgo
+  ) {
     metrics.shift()
+    firstEntry = metrics[0]
   }
 }
 

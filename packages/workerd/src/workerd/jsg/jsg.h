@@ -997,8 +997,8 @@ void MemoryTracker::trackField(
 // In C++, this has the same usage as kj::Maybe<T>. However, a null kj::Maybe<T> corresponds to
 // `null` in JavaScript, whereas a null Optional<T> corresponds to `undefined` in JavaScript.
 //
-// Note: Due to Web IDL's undefined-to-nullable coercion rule, a null Maybe<T> can also unwrap
-//   from an `undefined` value explicitly passed to a non-optional nullable.
+// Due to Web IDL's undefined-to-nullable coercion rule, a null Maybe<T> can also unwrap
+// from an `undefined` value explicitly passed to a non-optional nullable.
 //
 // There are two main use cases for Optional<T>: optional function/method parameters and optional
 // JSG_STRUCT members. In both cases, a null value in C++ corresponds to the parameter/field not
@@ -1100,7 +1100,7 @@ class DOMString: public kj::String {
 // A Dict<V, K> in C++ corresponds to a JavaScript object that is being used as a string -> value
 // map, where all the values are of type T.
 //
-// Note: A Dict<V, K> corresponds to a record<K, V> in the Web IDL language.
+// A Dict<V, K> corresponds to a record<K, V> in the Web IDL language.
 template <typename Value, typename Key = kj::String>
 struct Dict {
   // TODO(someday): Maybe make this a map and not an array? Current use case doesn't care, though.

@@ -230,7 +230,7 @@ class PriceStreamingService {
     tokens: Array<{ chainId: number; address: string }>,
   ): Promise<Map<string, TokenPrice>> {
     const keys = tokens.map((t) => priceKey(t.chainId, t.address))
-    const results = await this.cache.mget(keys)
+    const results = await this.cache.mget(...keys)
 
     const prices = new Map<string, TokenPrice>()
     for (const [key, value] of results) {

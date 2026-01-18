@@ -25,9 +25,9 @@ const L2_RPC = process.env.L2_RPC_URL || 'http://127.0.0.1:6546'
 const L1_CHAIN_ID = parseInt(process.env.L1_CHAIN_ID || '1337', 10)
 const L2_CHAIN_ID = parseInt(process.env.L2_CHAIN_ID || '31337', 10)
 
-// Relayer account - uses Anvil account #9 (different from deployer)
+// Relayer account - uses Anvil account #1 (same as authorized in deploy-crosschain.ts)
 const RELAYER_PRIVATE_KEY = (process.env.RELAYER_PRIVATE_KEY ||
-  '0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6') as Hex
+  '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d') as Hex
 
 // Deployed contract addresses (set via environment or discovered)
 function getMessengerAddresses(): {
@@ -195,8 +195,8 @@ class MessageRelayer {
       transport: http(config.targetRpc),
     })
 
-    // Poll for new events
-    let lastBlock = await sourceClient.getBlockNumber()
+    // Poll for new events - start from block 0 to catch all messages
+    let lastBlock = 0n
 
     while (this.isRunning) {
       try {

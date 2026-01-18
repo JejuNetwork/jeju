@@ -2,6 +2,5 @@
   "name": "bigint-buffer",
   "version": "1.1.5",
   "description": "Safe shim for bigint-buffer that uses native BigInt",
-  "main": "index.js",
-  "types": "index.d.ts"
+  "main": "index.js"
 }

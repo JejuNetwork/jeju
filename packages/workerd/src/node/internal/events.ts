@@ -403,7 +403,7 @@ EventEmitter.prototype.emit = function emit(
         // pass
       }
 
-      // Note: The comments on the `throw` lines are intentional, they show
+      // The comments on the `throw` lines are intentional, they show
       // up in Node's output if this results in an unhandled exception.
       throw er // Unhandled 'error' event
     }

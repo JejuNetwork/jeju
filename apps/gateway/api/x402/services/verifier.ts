@@ -125,13 +125,19 @@ function validateAgainstRequirements(
   return { valid: true }
 }
 
+/**
+ * SECURITY: Validate payment timestamp
+ * - Only allow 5 seconds of clock skew tolerance for future timestamps (was 60s)
+ * - This prevents replay attacks with timestamps set far in the future
+ */
 function validateTimestamp(timestamp: number): {
   valid: boolean
   error?: string
 } {
   const now = Math.floor(Date.now() / 1000)
   const age = now - timestamp
-  if (age < -60)
+  // SECURITY: Reduced future tolerance from 60s to 5s to prevent timestamp manipulation
+  if (age < -5)
     return { valid: false, error: 'Payment timestamp is in the future' }
   if (age > config().maxPaymentAge)
     return {

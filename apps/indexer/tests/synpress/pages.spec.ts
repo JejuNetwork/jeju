@@ -5,19 +5,16 @@
  * Covers blockchain explorer, transaction history, and analytics.
  */
 
+import { getTestConfig } from '@jejunetwork/config/test-config'
 import { runFullAppCrawl } from '@jejunetwork/tests/e2e/full-app-crawler'
 import { expect, test } from '@playwright/test'
 
-const INDEXER_PORT = parseInt(process.env.INDEXER_PORT || '4001', 10)
-const BASE_URL = `http://localhost:${INDEXER_PORT}`
+const config = getTestConfig('indexer')
+const BASE_URL = process.env.INDEXER_BASE_URL || config.baseURL
 
 test.describe('Indexer - Full Page Coverage', () => {
   test.beforeEach(async ({ page }) => {
-    try {
-      await page.goto(BASE_URL, { timeout: 10000 })
-    } catch {
-      test.skip(true, 'Indexer not running')
-    }
+    await page.goto(BASE_URL, { timeout: 30000 })
   })
 
   test('should load home page correctly', async ({ page }) => {

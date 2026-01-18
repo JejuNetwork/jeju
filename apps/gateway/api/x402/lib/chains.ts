@@ -34,8 +34,11 @@ function getAddressEnvOrConfig(
 
 function getEnvRpcUrl(envKey: string, defaultUrl: string): string {
   const isProduction = process.env.NODE_ENV === 'production'
+  const isDeployment = process.env.DWS_DEPLOYMENT === 'true'
   const url = process.env[envKey]
-  if (!url && isProduction) {
+
+  // Only enforce env var requirement in actual DWS deployments, not local production mode
+  if (!url && isProduction && isDeployment) {
     throw new Error(`${envKey} must be set in production`)
   }
   return url || defaultUrl

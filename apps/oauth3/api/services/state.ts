@@ -25,19 +25,17 @@ async function getSQLitClient(): Promise<SQLitClient> {
     const { getSQLit } = await import('@jejunetwork/db')
     sqlitClient = getSQLit({
       databaseId: SQLIT_DATABASE_ID,
-      timeout: 30000,
-      debug: !isProductionEnv(),
+      timeoutMs: 30000,
+      debug: true,
     })
-
-    const healthy = await sqlitClient.isHealthy()
-    if (!healthy) {
-      throw new Error('SQLit client not available')
-    }
-
-    await ensureTablesExist()
   }
 
   if (!sqlitClient) {
+    throw new Error('SQLit client not available')
+  }
+
+  const healthy = await sqlitClient.isHealthy()
+  if (!healthy) {
     throw new Error('SQLit client not available')
   }
 
@@ -51,15 +49,11 @@ function getCache(): CacheClient {
   return cacheClient
 }
 
+
 async function ensureTablesExist(): Promise<void> {
   if (initialized) return
 
   const client = await getSQLitClient()
-  if (!client) {
-    initialized = true
-    console.log('[OAuth3] Using in-memory storage')
-    return
-  }
 
   const tables = [
     `CREATE TABLE IF NOT EXISTS sessions (
@@ -133,11 +127,35 @@ async function ensureTablesExist(): Promise<void> {
       expires_at INTEGER NOT NULL
     )`,
 
+    `CREATE TABLE IF NOT EXISTS passkeys (
+      credential_id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      rp_id TEXT NOT NULL,
+      public_key TEXT NOT NULL,
+      counter INTEGER NOT NULL,
+      device_name TEXT NOT NULL,
+      transports TEXT,
+      created_at INTEGER NOT NULL,
+      last_used_at INTEGER NOT NULL
+    )`,
+
+    `CREATE TABLE IF NOT EXISTS passkey_challenges (
+      challenge_id TEXT PRIMARY KEY,
+      user_id TEXT,
+      challenge TEXT NOT NULL,
+      origin TEXT NOT NULL,
+      type TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL
+    )`,
+
     // Indexes
     `CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)`,
     `CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at)`,
     `CREATE INDEX IF NOT EXISTS idx_auth_codes_expires ON auth_codes(expires_at)`,
     `CREATE INDEX IF NOT EXISTS idx_refresh_tokens_session ON refresh_tokens(session_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_passkeys_user ON passkeys(user_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_passkey_challenges_expires ON passkey_challenges(expires_at)`,
   ]
 
   for (const sql of tables) {
@@ -479,6 +497,13 @@ export const oauthStateStore = {
   ): Promise<void> {
     const client = await getSQLitClient()
 
+    // SECURITY: Encrypt PKCE code verifier before storing
+    let encryptedVerifier: string | null = null
+    if (data.codeVerifier) {
+      const { encryptCodeVerifier } = await import('./kms')
+      encryptedVerifier = await encryptCodeVerifier(data.codeVerifier, state)
+    }
+
     await client.exec(
       `INSERT INTO oauth_states (state, nonce, provider, client_id, redirect_uri, code_verifier, created_at, expires_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -488,7 +513,7 @@ export const oauthStateStore = {
         data.provider,
         data.clientId,
         data.redirectUri,
-        data.codeVerifier ?? null,
+        encryptedVerifier,
         Date.now(),
         data.expiresAt,
       ],
@@ -514,12 +539,20 @@ export const oauthStateStore = {
     if (!result.rows[0]) return null
 
     const row = result.rows[0]
+
+    // SECURITY: Decrypt PKCE code verifier
+    let codeVerifier: string | undefined
+    if (row.code_verifier) {
+      const { decryptCodeVerifier } = await import('./kms')
+      codeVerifier = await decryptCodeVerifier(row.code_verifier, state)
+    }
+
     return {
       nonce: row.nonce,
       provider: row.provider,
       clientId: row.client_id,
       redirectUri: row.redirect_uri,
-      codeVerifier: row.code_verifier ?? undefined,
+      codeVerifier,
     }
   },
 
@@ -528,6 +561,196 @@ export const oauthStateStore = {
     await client.exec(
       'DELETE FROM oauth_states WHERE state = ?',
       [state],
+      SQLIT_DATABASE_ID,
+    )
+  },
+}
+
+export type PasskeyChallengeType = 'registration' | 'authentication'
+
+export interface PasskeyCredentialRecord {
+  credentialId: string
+  userId: string
+  rpId: string
+  publicKey: string
+  counter: number
+  deviceName: string
+  transports: string[]
+  createdAt: number
+  lastUsedAt: number
+}
+
+export interface PasskeyChallengeRecord {
+  challengeId: string
+  userId: string | null
+  challenge: string
+  origin: string
+  type: PasskeyChallengeType
+  createdAt: number
+  expiresAt: number
+}
+
+export const passkeyState = {
+  async saveChallenge(challenge: PasskeyChallengeRecord): Promise<void> {
+    const client = await getSQLitClient()
+    await client.exec(
+      `INSERT INTO passkey_challenges (challenge_id, user_id, challenge, origin, type, created_at, expires_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        challenge.challengeId,
+        challenge.userId,
+        challenge.challenge,
+        challenge.origin,
+        challenge.type,
+        challenge.createdAt,
+        challenge.expiresAt,
+      ],
+      SQLIT_DATABASE_ID,
+    )
+  },
+
+  async getChallenge(challengeId: string): Promise<PasskeyChallengeRecord | null> {
+    const client = await getSQLitClient()
+    const result = await client.query<{
+      challenge_id: string
+      user_id: string | null
+      challenge: string
+      origin: string
+      type: string
+      created_at: number
+      expires_at: number
+    }>(
+      'SELECT * FROM passkey_challenges WHERE challenge_id = ?',
+      [challengeId],
+      SQLIT_DATABASE_ID,
+    )
+    const row = result.rows[0]
+    if (!row) return null
+    if (row.expires_at < Date.now()) {
+      await this.deleteChallenge(challengeId)
+      return null
+    }
+    const type =
+      row.type === 'registration' || row.type === 'authentication'
+        ? row.type
+        : null
+    if (!type) {
+      throw new Error('Invalid passkey challenge type')
+    }
+    return {
+      challengeId: row.challenge_id,
+      userId: row.user_id,
+      challenge: row.challenge,
+      origin: row.origin,
+      type,
+      createdAt: row.created_at,
+      expiresAt: row.expires_at,
+    }
+  },
+
+  async deleteChallenge(challengeId: string): Promise<void> {
+    const client = await getSQLitClient()
+    await client.exec(
+      'DELETE FROM passkey_challenges WHERE challenge_id = ?',
+      [challengeId],
+      SQLIT_DATABASE_ID,
+    )
+  },
+
+  async saveCredential(credential: PasskeyCredentialRecord): Promise<void> {
+    const client = await getSQLitClient()
+    await client.exec(
+      `INSERT INTO passkeys (credential_id, user_id, rp_id, public_key, counter, device_name, transports, created_at, last_used_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(credential_id) DO UPDATE SET
+        counter = excluded.counter, last_used_at = excluded.last_used_at`,
+      [
+        credential.credentialId,
+        credential.userId,
+        credential.rpId,
+        credential.publicKey,
+        credential.counter,
+        credential.deviceName,
+        JSON.stringify(credential.transports),
+        credential.createdAt,
+        credential.lastUsedAt,
+      ],
+      SQLIT_DATABASE_ID,
+    )
+  },
+
+  async getCredential(
+    credentialId: string,
+  ): Promise<PasskeyCredentialRecord | null> {
+    const client = await getSQLitClient()
+    const result = await client.query<{
+      credential_id: string
+      user_id: string
+      rp_id: string
+      public_key: string
+      counter: number
+      device_name: string
+      transports: string | null
+      created_at: number
+      last_used_at: number
+    }>(
+      'SELECT * FROM passkeys WHERE credential_id = ?',
+      [credentialId],
+      SQLIT_DATABASE_ID,
+    )
+    const row = result.rows[0]
+    if (!row) return null
+    return {
+      credentialId: row.credential_id,
+      userId: row.user_id,
+      rpId: row.rp_id,
+      publicKey: row.public_key,
+      counter: row.counter,
+      deviceName: row.device_name,
+      transports: row.transports ? (JSON.parse(row.transports) as string[]) : [],
+      createdAt: row.created_at,
+      lastUsedAt: row.last_used_at,
+    }
+  },
+
+  async listCredentialsByRpId(rpId: string): Promise<PasskeyCredentialRecord[]> {
+    const client = await getSQLitClient()
+    const result = await client.query<{
+      credential_id: string
+      user_id: string
+      rp_id: string
+      public_key: string
+      counter: number
+      device_name: string
+      transports: string | null
+      created_at: number
+      last_used_at: number
+    }>(
+      'SELECT * FROM passkeys WHERE rp_id = ?',
+      [rpId],
+      SQLIT_DATABASE_ID,
+    )
+    return result.rows.map((row) => ({
+      credentialId: row.credential_id,
+      userId: row.user_id,
+      rpId: row.rp_id,
+      publicKey: row.public_key,
+      counter: row.counter,
+      deviceName: row.device_name,
+      transports: row.transports ? (JSON.parse(row.transports) as string[]) : [],
+      createdAt: row.created_at,
+      lastUsedAt: row.last_used_at,
+    }))
+  },
+
+  async updateCredentialCounter(
+    credentialId: string,
+    counter: number,
+  ): Promise<void> {
+    const client = await getSQLitClient()
+    await client.exec(
+      'UPDATE passkeys SET counter = ?, last_used_at = ? WHERE credential_id = ?',
+      [counter, Date.now(), credentialId],
       SQLIT_DATABASE_ID,
     )
   },
@@ -545,20 +768,76 @@ export async function initializeState(): Promise<void> {
     version: 1,
   }
 
+  // SECURITY: Default clients have restricted redirect URIs
+  // Production should use explicit redirect URIs per client registration
+  const isDevMode = !isProductionEnv()
+
   // Ensure default client exists
   const defaultClient = await clientState.get('jeju-default')
   if (!defaultClient) {
+    // All Jeju domains for mainnet, testnet, and localhost
+    const defaultRedirectUris = [
+      // Mainnet
+      'https://auth.jejunetwork.org/callback',
+      'https://auth.jejunetwork.org/auth/callback',
+      'https://crucible.jejunetwork.org/callback',
+      'https://crucible.jejunetwork.org/auth/callback',
+      'https://autocrat.jejunetwork.org/callback',
+      'https://autocrat.jejunetwork.org/auth/callback',
+      'https://factory.jejunetwork.org/callback',
+      'https://factory.jejunetwork.org/auth/callback',
+      'https://gateway.jejunetwork.org/callback',
+      'https://gateway.jejunetwork.org/auth/callback',
+      'https://bazaar.jejunetwork.org/callback',
+      'https://bazaar.jejunetwork.org/auth/callback',
+      'https://dws.jejunetwork.org/callback',
+      'https://dws.jejunetwork.org/auth/callback',
+      'https://cloud.jejunetwork.org/callback',
+      'https://cloud.jejunetwork.org/auth/callback',
+      'https://wallet.jejunetwork.org/callback',
+      'https://wallet.jejunetwork.org/auth/callback',
+      // Testnet
+      'https://auth.testnet.jejunetwork.org/callback',
+      'https://auth.testnet.jejunetwork.org/auth/callback',
+      'https://crucible.testnet.jejunetwork.org/callback',
+      'https://crucible.testnet.jejunetwork.org/auth/callback',
+      'https://autocrat.testnet.jejunetwork.org/callback',
+      'https://autocrat.testnet.jejunetwork.org/auth/callback',
+      'https://factory.testnet.jejunetwork.org/callback',
+      'https://factory.testnet.jejunetwork.org/auth/callback',
+      'https://gateway.testnet.jejunetwork.org/callback',
+      'https://gateway.testnet.jejunetwork.org/auth/callback',
+      'https://bazaar.testnet.jejunetwork.org/callback',
+      'https://bazaar.testnet.jejunetwork.org/auth/callback',
+      'https://dws.testnet.jejunetwork.org/callback',
+      'https://dws.testnet.jejunetwork.org/auth/callback',
+      'https://cloud.testnet.jejunetwork.org/callback',
+      'https://cloud.testnet.jejunetwork.org/auth/callback',
+      'https://wallet.testnet.jejunetwork.org/callback',
+      'https://wallet.testnet.jejunetwork.org/auth/callback',
+      // Localhost for development
+      `http://localhost:3000/callback`,
+      `http://localhost:3001/callback`,
+      `http://localhost:4200/callback`,
+      `http://localhost:3000/auth/callback`,
+      `http://localhost:3001/auth/callback`,
+      `http://localhost:4200/auth/callback`,
+      `http://${getLocalhostHost()}:3000/callback`,
+      `http://${getLocalhostHost()}:3001/callback`,
+      `http://${getLocalhostHost()}:4200/callback`,
+      `http://${getLocalhostHost()}:3000/auth/callback`,
+      `http://${getLocalhostHost()}:3001/auth/callback`,
+      `http://${getLocalhostHost()}:4200/auth/callback`,
+    ]
+
     await clientState.save({
       clientId: 'jeju-default',
       clientSecretHash: publicClientSecretHash,
       name: 'Jeju Network Apps',
-      redirectUris: [
-        'https://*.jejunetwork.org/*',
-        `http://localhost:*/*`,
-        `http://${getLocalhostHost()}:*/*`,
-      ],
+      redirectUris: defaultRedirectUris,
       allowedProviders: [
         'wallet',
+        'passkey',
         'farcaster',
         'github',
         'google',
@@ -572,22 +851,110 @@ export async function initializeState(): Promise<void> {
     console.log('[OAuth3] Default client created')
   }
 
+  // Create app-specific clients for each Jeju app
+  const jejuApps = [
+    { id: 'crucible.apps.jeju', name: 'Crucible', host: 'crucible' },
+    { id: 'autocrat.apps.jeju', name: 'Autocrat', host: 'autocrat' },
+    { id: 'factory.apps.jeju', name: 'Factory', host: 'factory' },
+    { id: 'gateway.apps.jeju', name: 'Gateway', host: 'gateway' },
+    { id: 'bazaar.apps.jeju', name: 'Bazaar', host: 'bazaar' },
+    { id: 'dws.apps.jeju', name: 'DWS', host: 'dws' },
+    { id: 'wallet.apps.jeju', name: 'Wallet', host: 'wallet' },
+    { id: 'cloud.apps.jeju', name: 'Cloud', host: 'cloud' },
+    { id: 'crucible', name: 'Crucible (Legacy)', host: 'crucible' },
+    { id: 'autocrat', name: 'Autocrat (Legacy)', host: 'autocrat' },
+    { id: 'factory', name: 'Factory (Legacy)', host: 'factory' },
+    { id: 'gateway', name: 'Gateway (Legacy)', host: 'gateway' },
+    { id: 'bazaar', name: 'Bazaar (Legacy)', host: 'bazaar' },
+    { id: 'dws', name: 'DWS (Legacy)', host: 'dws' },
+    { id: 'wallet', name: 'Wallet (Legacy)', host: 'wallet' },
+    { id: 'cloud', name: 'Cloud (Legacy)', host: 'cloud' },
+  ]
+
+  for (const app of jejuApps) {
+    // Each app gets its own client with appropriate redirect URIs
+    const appRedirectUris = [
+      `https://${app.host}.jejunetwork.org/callback`,
+      `https://${app.host}.testnet.jejunetwork.org/callback`,
+      `http://localhost:3000/callback`,
+      `http://localhost:3001/callback`,
+      `http://localhost:4200/callback`,
+      `https://${app.host}.jejunetwork.org/auth/callback`,
+      `https://${app.host}.testnet.jejunetwork.org/auth/callback`,
+      `http://localhost:3000/auth/callback`,
+      `http://localhost:3001/auth/callback`,
+      `http://localhost:4200/auth/callback`,
+      `http://${getLocalhostHost()}:3000/callback`,
+      `http://${getLocalhostHost()}:3001/callback`,
+      `http://${getLocalhostHost()}:4200/callback`,
+      `http://${getLocalhostHost()}:3000/auth/callback`,
+      `http://${getLocalhostHost()}:3001/auth/callback`,
+      `http://${getLocalhostHost()}:4200/auth/callback`,
+    ]
+
+    const existingClient = await clientState.get(app.id)
+    if (!existingClient) {
+      await clientState.save({
+        clientId: app.id,
+        clientSecretHash: publicClientSecretHash,
+        name: app.name,
+        redirectUris: appRedirectUris,
+        allowedProviders: [
+          'wallet',
+          'passkey',
+          'farcaster',
+          'github',
+          'google',
+          'twitter',
+          'discord',
+        ] as AuthProvider[],
+        owner: '0x0000000000000000000000000000000000000000' as Address,
+        createdAt: Date.now(),
+        active: true,
+      })
+      console.log(`[OAuth3] ${app.name} client created`)
+    } else {
+      // Update existing client to ensure all redirect URIs are present
+      const existingUris = new Set(existingClient.redirectUris)
+      const missingUris = appRedirectUris.filter((uri) => !existingUris.has(uri))
+      if (missingUris.length > 0) {
+        await clientState.save({
+          ...existingClient,
+          redirectUris: [...existingClient.redirectUris, ...missingUris],
+        })
+        console.log(`[OAuth3] ${app.name} client updated with ${missingUris.length} new redirect URIs`)
+      }
+    }
+  }
+
   // Ensure eliza-cloud client exists (for Eliza Cloud app)
   const elizaCloudClient = await clientState.get('eliza-cloud')
   if (!elizaCloudClient) {
+    // SECURITY: Explicit redirect URIs, no wildcards
+    const elizaRedirectUris = isDevMode
+      ? [
+          'https://cloud.elizaos.com/callback',
+          'https://cloud.elizaos.com/auth/callback',
+          'https://eliza.cloud/callback',
+          'https://eliza.cloud/auth/callback',
+          `http://${getLocalhostHost()}:3000/callback`,
+          `http://${getLocalhostHost()}:3001/callback`,
+        ]
+      : [
+          'https://cloud.elizaos.com/callback',
+          'https://cloud.elizaos.com/auth/callback',
+          'https://eliza.cloud/callback',
+          'https://eliza.cloud/auth/callback',
+        ]
+
     await clientState.save({
       clientId: 'eliza-cloud',
       clientSecretHash: publicClientSecretHash,
       name: 'Eliza Cloud',
-      redirectUris: [
-        'https://cloud.elizaos.com/*',
-        'https://eliza.cloud/*',
-        'https://*.elizaos.ai/*',
-        `http://${getLocalhostHost()}:3000/*`,
-        `http://${getLocalhostHost()}:3001/*`,
-      ],
+      redirectUris: elizaRedirectUris,
       allowedProviders: [
         'wallet',
+        'passkey',
         'farcaster',
         'github',
         'google',

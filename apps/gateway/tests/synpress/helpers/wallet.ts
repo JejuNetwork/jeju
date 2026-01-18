@@ -15,9 +15,14 @@ export async function connectWallet(
 ): Promise<void> {
   await page.waitForLoadState('networkidle')
 
-  const connectButton = page.locator('button:has-text("Connect")').first()
+  const connectButton = page.getByRole('button', { name: /sign in/i }).first()
   await connectButton.click()
   await page.waitForTimeout(1000)
+
+  const walletOption = page.getByRole('button', { name: /connect wallet/i })
+  if (await walletOption.isVisible().catch(() => false)) {
+    await walletOption.click()
+  }
 
   await metamask.connectToDapp()
   await page.waitForSelector('button:has-text(/0x/)', { timeout: 15000 })

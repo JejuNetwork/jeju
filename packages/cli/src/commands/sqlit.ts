@@ -198,7 +198,7 @@ sqlitCommand
       process.exit(1)
     }
 
-    logger.info('Note: SQLIT operators register in the unified ComputeRegistry')
+    logger.info('SQLIT operators register in the unified ComputeRegistry')
     logger.info('      with serviceType = keccak256("database")')
     logger.newline()
 
@@ -424,3 +424,294 @@ async function checkMiner(
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
+
+sqlitCommand
+  .command('provision')
+  .description('Provision a SQLit database for an app (permissionless)')
+  .requiredOption('--app <name>', 'App name')
+  .option('--jns <name>', 'JNS name (default: app name)')
+  .option('--consistency <type>', 'Consistency: eventual | strong', 'eventual')
+  .option(
+    '--private-key <key>',
+    'Private key (or set DEPLOYER_PRIVATE_KEY env)',
+  )
+  .option(
+    '--network <network>',
+    'Network: localnet, testnet, mainnet',
+    'localnet',
+  )
+  .action(async (options) => {
+    logger.header('SQLIT PROVISION')
+
+    const network = options.network as NetworkType
+    const privateKey = options.privateKey ?? process.env.DEPLOYER_PRIVATE_KEY
+
+    if (!privateKey) {
+      logger.error(
+        'Private key required. Set --private-key or DEPLOYER_PRIVATE_KEY env',
+      )
+      process.exit(1)
+    }
+
+    const rootDir = findMonorepoRoot()
+    const { createSQLitProvisioningService } = await import(
+      '../services/sqlit-provisioning'
+    )
+
+    // Load JNS resolver from deployments
+    const deploymentFile = join(
+      rootDir,
+      `packages/contracts/deployments/dws-${network}.json`,
+    )
+
+    if (!existsSync(deploymentFile)) {
+      logger.error(`DWS contracts not deployed on ${network}`)
+      logger.info(`Deploy with: jeju deploy dws --network ${network}`)
+      process.exit(1)
+    }
+
+    const contracts = JSON.parse(readFileSync(deploymentFile, 'utf-8'))
+    const rpcUrl = getConfigRpcUrl(network)
+
+    const service = createSQLitProvisioningService({
+      rpcUrl,
+      privateKey: privateKey as `0x${string}`,
+      jnsResolverAddress: contracts.jnsResolver,
+      sqlitEndpoint: getSQLitBlockProducerUrl(),
+    })
+
+    const jnsName = options.jns ?? options.app
+    logger.keyValue('App', options.app)
+    logger.keyValue('JNS', jnsName)
+    logger.keyValue('Consistency', options.consistency)
+    logger.newline()
+
+    try {
+      const result = await service.provisionDatabase(options.app, jnsName, {
+        consistency: options.consistency as 'eventual' | 'strong',
+      })
+
+      logger.success('Database provisioned')
+      logger.keyValue('Database ID', result.databaseId)
+      logger.keyValue('Endpoint', result.endpoint)
+      logger.keyValue('Is New', result.isNew ? 'Yes' : 'No (existing)')
+    } catch (error) {
+      logger.error(`Failed to provision: ${error}`)
+      process.exit(1)
+    }
+  })
+
+sqlitCommand
+  .command('backup')
+  .description('Backup a SQLit database to IPFS')
+  .requiredOption('--database <id>', 'Database ID')
+  .requiredOption('--app <name>', 'App name (for JNS record)')
+  .option('--jns <name>', 'JNS name (default: app name)')
+  .option(
+    '--private-key <key>',
+    'Private key (or set DEPLOYER_PRIVATE_KEY env)',
+  )
+  .option(
+    '--network <network>',
+    'Network: localnet, testnet, mainnet',
+    'localnet',
+  )
+  .action(async (options) => {
+    logger.header('SQLIT BACKUP')
+
+    const network = options.network as NetworkType
+    const privateKey = options.privateKey ?? process.env.DEPLOYER_PRIVATE_KEY
+
+    if (!privateKey) {
+      logger.error(
+        'Private key required. Set --private-key or DEPLOYER_PRIVATE_KEY env',
+      )
+      process.exit(1)
+    }
+
+    const rootDir = findMonorepoRoot()
+    const { createSQLitProvisioningService } = await import(
+      '../services/sqlit-provisioning'
+    )
+
+    // Load JNS resolver
+    const deploymentFile = join(
+      rootDir,
+      `packages/contracts/deployments/dws-${network}.json`,
+    )
+
+    if (!existsSync(deploymentFile)) {
+      logger.error(`DWS contracts not deployed on ${network}`)
+      process.exit(1)
+    }
+
+    const contracts = JSON.parse(readFileSync(deploymentFile, 'utf-8'))
+    const rpcUrl = getConfigRpcUrl(network)
+
+    const service = createSQLitProvisioningService({
+      rpcUrl,
+      privateKey: privateKey as `0x${string}`,
+      jnsResolverAddress: contracts.jnsResolver,
+      sqlitEndpoint: getSQLitBlockProducerUrl(),
+    })
+
+    logger.keyValue('Database', options.database)
+    logger.newline()
+
+    try {
+      const backupCid = await service.backupDatabase(options.database)
+      logger.success('Backup complete')
+      logger.keyValue('IPFS CID', backupCid)
+      logger.info(
+        `\nRestore with: jeju sqlit restore --app ${options.app} --backup ${backupCid}`,
+      )
+    } catch (error) {
+      logger.error(`Backup failed: ${error}`)
+      process.exit(1)
+    }
+  })
+
+sqlitCommand
+  .command('restore')
+  .description('Restore a SQLit database from IPFS backup')
+  .requiredOption('--app <name>', 'App name')
+  .requiredOption('--backup <cid>', 'IPFS CID of backup')
+  .option('--jns <name>', 'JNS name (default: app name)')
+  .option(
+    '--private-key <key>',
+    'Private key (or set DEPLOYER_PRIVATE_KEY env)',
+  )
+  .option(
+    '--network <network>',
+    'Network: localnet, testnet, mainnet',
+    'localnet',
+  )
+  .action(async (options) => {
+    logger.header('SQLIT RESTORE')
+
+    const network = options.network as NetworkType
+    const privateKey = options.privateKey ?? process.env.DEPLOYER_PRIVATE_KEY
+
+    if (!privateKey) {
+      logger.error(
+        'Private key required. Set --private-key or DEPLOYER_PRIVATE_KEY env',
+      )
+      process.exit(1)
+    }
+
+    const rootDir = findMonorepoRoot()
+    const { createSQLitProvisioningService } = await import(
+      '../services/sqlit-provisioning'
+    )
+
+    // Load JNS resolver
+    const deploymentFile = join(
+      rootDir,
+      `packages/contracts/deployments/dws-${network}.json`,
+    )
+
+    if (!existsSync(deploymentFile)) {
+      logger.error(`DWS contracts not deployed on ${network}`)
+      process.exit(1)
+    }
+
+    const contracts = JSON.parse(readFileSync(deploymentFile, 'utf-8'))
+    const rpcUrl = getConfigRpcUrl(network)
+
+    const service = createSQLitProvisioningService({
+      rpcUrl,
+      privateKey: privateKey as `0x${string}`,
+      jnsResolverAddress: contracts.jnsResolver,
+      sqlitEndpoint: getSQLitBlockProducerUrl(),
+    })
+
+    const jnsName = options.jns ?? options.app
+    logger.keyValue('App', options.app)
+    logger.keyValue('Backup CID', options.backup)
+    logger.newline()
+
+    try {
+      const result = await service.restoreDatabase(
+        options.app,
+        jnsName,
+        options.backup,
+      )
+      logger.success('Database restored')
+      logger.keyValue('New Database ID', result.databaseId)
+      logger.keyValue('Endpoint', result.endpoint)
+    } catch (error) {
+      logger.error(`Restore failed: ${error}`)
+      process.exit(1)
+    }
+  })
+
+sqlitCommand
+  .command('health')
+  .description('Check health of all provisioned databases')
+  .option(
+    '--network <network>',
+    'Network: localnet, testnet, mainnet',
+    'localnet',
+  )
+  .action(async (_options) => {
+    logger.header('SQLIT HEALTH CHECK')
+
+    const rootDir = findMonorepoRoot()
+
+    // Load provisioning state
+    const stateFile = join(rootDir, '.jeju/sqlit-provisioning.json')
+
+    if (!existsSync(stateFile)) {
+      logger.info('No provisioned databases found')
+      return
+    }
+
+    const state = JSON.parse(readFileSync(stateFile, 'utf-8'))
+    const databases = Object.values(state.databases) as Array<{
+      databaseId: string
+      appName: string
+      endpoint: string
+    }>
+
+    if (databases.length === 0) {
+      logger.info('No provisioned databases found')
+      return
+    }
+
+    logger.info(`Checking ${databases.length} databases...\n`)
+
+    for (const db of databases) {
+      try {
+        const response = await fetch(
+          `${db.endpoint}/v2/databases/${db.databaseId}`,
+          { signal: AbortSignal.timeout(5000) },
+        )
+
+        if (response.ok) {
+          logger.table([
+            {
+              label: db.appName,
+              value: db.databaseId,
+              status: 'ok' as const,
+            },
+          ])
+        } else {
+          logger.table([
+            {
+              label: db.appName,
+              value: `UNHEALTHY (${response.status})`,
+              status: 'error' as const,
+            },
+          ])
+        }
+      } catch {
+        logger.table([
+          {
+            label: db.appName,
+            value: 'UNREACHABLE',
+            status: 'error' as const,
+          },
+        ])
+      }
+    }
+  })

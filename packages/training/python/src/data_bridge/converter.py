@@ -360,8 +360,8 @@ TIME WINDOW: {trajectory.window_id}
         if len(trajectories) > max_per_group:
             indices = random.sample(range(len(trajectories)), max_per_group)
             sampled = [trajectories[i] for i in indices]
-            # Note: We ignore incoming 'scores' list if we are calculating them internally via The Judge
-            # However, if scores were passed in, we filter them to match sample
+            # We ignore incoming 'scores' list if calculating them via The Judge.
+            # However, if scores were passed in, filter them to match sample.
             if scores:
                 scores = [scores[i] for i in indices]
         else:

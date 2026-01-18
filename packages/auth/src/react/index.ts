@@ -12,6 +12,8 @@ export {
   ConnectedAccount,
   type ConnectedAccountProps,
 } from './components/ConnectedAccount'
+export { AuthCallback } from './components/AuthCallback'
+export { AuthProvider } from '../types.js'
 // UI Components
 export { LoginButton, type LoginButtonProps } from './components/LoginButton'
 export { LoginModal, type LoginModalProps } from './components/LoginModal'

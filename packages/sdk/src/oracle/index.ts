@@ -11,7 +11,7 @@
 import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex } from 'viem'
 import { z } from 'zod'
-import { requireContract } from '../config'
+import { safeGetContract } from '../config'
 import type { BaseWallet } from '../wallet'
 
 // Contract return type schema
@@ -339,11 +339,22 @@ export function createOracleModule(
   wallet: BaseWallet,
   network: NetworkType,
 ): OracleModule {
-  const oracleRegistryAddress = requireContract(
+  // Use safe getter - contracts may not be deployed on all networks
+  const oracleRegistryAddressOpt = safeGetContract(
     'oracle',
     'OracleRegistry',
     network,
   )
+
+  // Lazy-load contract address - throw on method call if not deployed
+  const getOracleRegistryAddress = () => {
+    if (!oracleRegistryAddressOpt) {
+      throw new Error(
+        'Oracle OracleRegistry contract not deployed on this network',
+      )
+    }
+    return oracleRegistryAddressOpt
+  }
 
   const MAX_PRICE_AGE = 3600n // 1 hour
   const MIN_OBSERVATIONS = 10
@@ -431,7 +442,7 @@ export function createOracleModule(
 
     async getTWAP(poolAddress, period) {
       return wallet.publicClient.readContract({
-        address: oracleRegistryAddress,
+        address: getOracleRegistryAddress(),
         abi: ORACLE_REGISTRY_ABI,
         functionName: 'getTWAP',
         args: [poolAddress, Number(period)],
@@ -481,7 +492,7 @@ export function createOracleModule(
 
     async listFeeds() {
       const addresses = await wallet.publicClient.readContract({
-        address: oracleRegistryAddress,
+        address: getOracleRegistryAddress(),
         abi: ORACLE_REGISTRY_ABI,
         functionName: 'getAllOracles',
       })
@@ -496,7 +507,7 @@ export function createOracleModule(
 
     async getFeedByPair(baseToken, quoteToken) {
       const address = (await wallet.publicClient.readContract({
-        address: oracleRegistryAddress,
+        address: getOracleRegistryAddress(),
         abi: ORACLE_REGISTRY_ABI,
         functionName: 'getFeedByPair',
         args: [baseToken, quoteToken],
@@ -522,14 +533,14 @@ export function createOracleModule(
       })
 
       return wallet.sendTransaction({
-        to: oracleRegistryAddress,
+        to: getOracleRegistryAddress(),
         data,
       })
     },
 
     async getOracleConfig(oracleAddress) {
       const result = await wallet.publicClient.readContract({
-        address: oracleRegistryAddress,
+        address: getOracleRegistryAddress(),
         abi: ORACLE_REGISTRY_ABI,
         functionName: 'getOracleConfig',
         args: [oracleAddress],
@@ -552,7 +563,7 @@ export function createOracleModule(
 
     async listOracles() {
       const addresses = await wallet.publicClient.readContract({
-        address: oracleRegistryAddress,
+        address: getOracleRegistryAddress(),
         abi: ORACLE_REGISTRY_ABI,
         functionName: 'getAllOracles',
       })
@@ -573,7 +584,7 @@ export function createOracleModule(
       })
 
       return wallet.sendTransaction({
-        to: oracleRegistryAddress,
+        to: getOracleRegistryAddress(),
         data,
       })
     },
@@ -586,7 +597,7 @@ export function createOracleModule(
       })
 
       return wallet.sendTransaction({
-        to: oracleRegistryAddress,
+        to: getOracleRegistryAddress(),
         data,
       })
     },
@@ -599,7 +610,7 @@ export function createOracleModule(
       })
 
       return wallet.sendTransaction({
-        to: oracleRegistryAddress,
+        to: getOracleRegistryAddress(),
         data,
       })
     },

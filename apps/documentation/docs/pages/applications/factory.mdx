@@ -1,0 +1,165 @@
+# Factory
+
+Developer coordination hub for bounties, jobs, git repositories, packages, containers, models, and project management.
+
+## Overview
+
+Factory is a decentralized developer platform providing:
+
+- **Bounties** - Post and claim development bounties
+- **Jobs** - Developer job listings and applications
+- **Git Repositories** - Decentralized git hosting
+- **Package Registry** - npm/bun package hosting
+- **Container Registry** - Docker/OCI container hosting
+- **Model Registry** - AI model hosting (HuggingFace-like)
+- **Project Management** - On-chain project coordination
+- **CI/CD** - Decentralized build and deployment
+
+## Quick Start
+
+```bash
+cd apps/factory
+bun install
+bun run dev
+```
+
+Factory runs on http://localhost:4009
+
+## Features
+
+### Bounties
+
+Create and claim development bounties:
+
+```typescript
+import { createJejuClient } from '@jejunetwork/sdk';
+
+const jeju = await createJejuClient({ network: 'mainnet', privateKey });
+
+// Create bounty
+await jeju.work.createBounty({
+  title: 'Implement ERC-4337 bundler',
+  description: 'Build a bundler for account abstraction',
+  reward: parseUnits('5000', 6), // 5000 USDC
+  token: USDC_ADDRESS,
+  deadline: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days
+});
+
+// Claim bounty
+await jeju.work.claimBounty({
+  bountyId: 1,
+  submission: 'https://github.com/user/bundler',
+});
+```
+
+### Git Repositories
+
+Host repositories on decentralized storage:
+
+```typescript
+// Create repository
+await jeju.git.createRepo({
+  name: 'my-project',
+  description: 'A cool project',
+  visibility: 'public',
+});
+
+// Push uses standard git with Jeju remote
+// git remote add jeju jeju://myname.jeju/my-project
+// git push jeju main
+```
+
+### Package Registry
+
+Publish packages to decentralized registry:
+
+```typescript
+// Publish package
+await jeju.packages.publish({
+  name: '@myorg/my-package',
+  version: '1.0.0',
+  tarball: tarballBuffer,
+});
+
+// Install in project
+// bun add @myorg/my-package --registry https://pkg.jejunetwork.org
+```
+
+### Container Registry
+
+Push and pull OCI containers:
+
+```typescript
+// Create repository
+await jeju.containers.createRepository({
+  name: 'my-app',
+  visibility: 'public',
+});
+
+// Push uses standard docker/podman
+// docker tag myapp registry.jejunetwork.org/myname/my-app:latest
+// docker push registry.jejunetwork.org/myname/my-app:latest
+```
+
+### Model Registry
+
+Host AI models (HuggingFace-compatible):
+
+```typescript
+// Upload model
+await jeju.models.upload({
+  name: 'my-classifier',
+  framework: 'pytorch',
+  files: modelFiles,
+  metadata: {
+    task: 'text-classification',
+    accuracy: 0.95,
+  },
+});
+
+// Download model
+const model = await jeju.models.download('myname/my-classifier');
+```
+
+### CI/CD
+
+Decentralized build pipelines:
+
+```typescript
+// Create pipeline
+await jeju.cicd.createPipeline({
+  repo: 'myname/my-project',
+  config: {
+    build: 'bun run build',
+    test: 'bun test',
+    deploy: 'jeju deploy',
+  },
+});
+```
+
+## On-Chain Features
+
+All Factory features are backed by smart contracts:
+
+| Contract | Purpose |
+|----------|---------|
+| `BountyRegistry` | Bounty escrow and payouts |
+| `RepoRegistry` | Repository ownership |
+| `PackageRegistry` | Package metadata |
+| `ContainerRegistry` | Container manifests |
+| `ModelRegistry` | Model metadata |
+
+## Development
+
+```bash
+bun run dev           # Development server
+bun run build         # Production build
+bun run test:e2e      # E2E tests
+bun run test:wallet   # Wallet integration tests
+```
+
+## Related
+
+- [SDK Work Module](/packages/sdk#work) - Bounties and projects
+- [SDK Git Module](/packages/sdk#git) - Repository management
+- [SDK Containers](/packages/sdk#containers) - Container registry

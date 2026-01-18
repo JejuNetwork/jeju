@@ -173,6 +173,84 @@ export function createCDNRouter() {
         cache.clear()
         return { success: true, entriesPurged: stats.entries }
       })
+      .post(
+        '/configure',
+        async ({ body }) => {
+          // Register app assets with CDN cache
+          const registry = getAppRegistry()
+
+          // Register or update app in registry
+          const existingApp = registry.getApp(body.name)
+          if (existingApp) {
+            // Update existing app with new CID/assets
+            console.log(`[CDN] Updating app: ${body.name}`)
+          } else {
+            console.log(`[CDN] Registering new app: ${body.name}`)
+          }
+
+          // Pre-warm cache with assets if provided
+          if (body.assets && Array.isArray(body.assets)) {
+            let cached = 0
+            for (const asset of body.assets) {
+              if (asset.cid && asset.path) {
+                const cacheKey = cache.generateKey({
+                  path: `/apps/${body.name}${asset.path}`,
+                })
+                // Store reference in cache metadata (actual content fetched on demand)
+                cache.set(cacheKey, Buffer.from(''), {
+                  contentType: asset.contentType || 'application/octet-stream',
+                  headers: { 'x-cid': asset.cid },
+                  immutable: asset.immutable || false,
+                })
+                cached++
+              }
+            }
+            console.log(
+              `[CDN] Cached ${cached} asset references for ${body.name}`,
+            )
+          }
+
+          return {
+            success: true,
+            app: body.name,
+            domain: body.domain,
+            assetsRegistered: body.assets?.length || 0,
+          }
+        },
+        {
+          body: t.Object({
+            name: t.String(),
+            domain: t.Optional(t.String()),
+            spa: t.Optional(
+              t.Object({
+                enabled: t.Boolean(),
+                fallback: t.Optional(t.String()),
+                routes: t.Optional(t.Array(t.String())),
+              }),
+            ),
+            assets: t.Optional(
+              t.Array(
+                t.Object({
+                  path: t.String(),
+                  cid: t.String(),
+                  contentType: t.Optional(t.String()),
+                  immutable: t.Optional(t.Boolean()),
+                }),
+              ),
+            ),
+            cacheRules: t.Optional(
+              t.Array(
+                t.Object({
+                  pattern: t.String(),
+                  ttl: t.Number(),
+                  immutable: t.Optional(t.Boolean()),
+                  staleWhileRevalidate: t.Optional(t.Number()),
+                }),
+              ),
+            ),
+          }),
+        },
+      )
       .get('/ipfs/:cid', async ({ params, request, set }) => {
         const cid = params.cid
         const url = new URL(request.url)

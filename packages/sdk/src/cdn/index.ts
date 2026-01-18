@@ -10,7 +10,7 @@
 
 import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, parseEther } from 'viem'
-import { requireContract } from '../config'
+import { safeGetContract } from '../config'
 import { parseIdFromLogs } from '../shared/api'
 import type { BaseWallet } from '../wallet'
 
@@ -400,7 +400,16 @@ export function createCDNModule(
   wallet: BaseWallet,
   network: NetworkType,
 ): CDNModule {
-  const cdnRegistryAddress = requireContract('cdn', 'CDNRegistry', network)
+  // Use safe getter - contracts may not be deployed on all networks
+  const cdnRegistryAddressOpt = safeGetContract('cdn', 'CDNRegistry', network)
+
+  // Lazy-load contract address - throw on method call if not deployed
+  const getCdnRegistryAddress = () => {
+    if (!cdnRegistryAddressOpt) {
+      throw new Error('CDN CDNRegistry contract not deployed on this network')
+    }
+    return cdnRegistryAddressOpt
+  }
 
   const MIN_NODE_STAKE = parseEther('0.001')
   const MIN_PROVIDER_STAKE = parseEther('0.1')
@@ -416,7 +425,7 @@ export function createCDNModule(
         args: [params.name, params.endpoint, params.providerType],
       })
       return wallet.sendTransaction({
-        to: cdnRegistryAddress,
+        to: getCdnRegistryAddress(),
         data,
         value: params.stake,
       })
@@ -424,7 +433,7 @@ export function createCDNModule(
 
     async getProvider(address) {
       const result = await wallet.publicClient.readContract({
-        address: cdnRegistryAddress,
+        address: getCdnRegistryAddress(),
         abi: CDN_REGISTRY_ABI,
         functionName: 'getProvider',
         args: [address],
@@ -441,7 +450,7 @@ export function createCDNModule(
 
     async listProviders() {
       const count = await wallet.publicClient.readContract({
-        address: cdnRegistryAddress,
+        address: getCdnRegistryAddress(),
         abi: CDN_REGISTRY_ABI,
         functionName: 'getProviderCount',
         args: [],
@@ -450,7 +459,7 @@ export function createCDNModule(
       const providers: CDNProvider[] = []
       for (let i = 0n; i < count; i++) {
         const providerAddr = await wallet.publicClient.readContract({
-          address: cdnRegistryAddress,
+          address: getCdnRegistryAddress(),
           abi: CDN_REGISTRY_ABI,
           functionName: 'getProviderAtIndex',
           args: [i],
@@ -471,7 +480,7 @@ export function createCDNModule(
         functionName: 'updateProviderEndpoint',
         args: [endpoint],
       })
-      return wallet.sendTransaction({ to: cdnRegistryAddress, data })
+      return wallet.sendTransaction({ to: getCdnRegistryAddress(), data })
     },
 
     async deactivateProvider() {
@@ -480,7 +489,7 @@ export function createCDNModule(
         functionName: 'deactivateProvider',
         args: [],
       })
-      return wallet.sendTransaction({ to: cdnRegistryAddress, data })
+      return wallet.sendTransaction({ to: getCdnRegistryAddress(), data })
     },
 
     async registerNode(params) {
@@ -491,7 +500,7 @@ export function createCDNModule(
       })
 
       const txHash = await wallet.sendTransaction({
-        to: cdnRegistryAddress,
+        to: getCdnRegistryAddress(),
         data,
         value: params.stake,
       })
@@ -509,7 +518,7 @@ export function createCDNModule(
 
     async getNode(nodeId) {
       const result = await wallet.publicClient.readContract({
-        address: cdnRegistryAddress,
+        address: getCdnRegistryAddress(),
         abi: CDN_REGISTRY_ABI,
         functionName: 'getNode',
         args: [nodeId],
@@ -524,7 +533,7 @@ export function createCDNModule(
 
     async listNodes() {
       const count = await wallet.publicClient.readContract({
-        address: cdnRegistryAddress,
+        address: getCdnRegistryAddress(),
         abi: CDN_REGISTRY_ABI,
         functionName: 'getNodeCount',
         args: [],
@@ -533,7 +542,7 @@ export function createCDNModule(
       const nodes: EdgeNode[] = []
       for (let i = 0n; i < count; i++) {
         const nodeId = await wallet.publicClient.readContract({
-          address: cdnRegistryAddress,
+          address: getCdnRegistryAddress(),
           abi: CDN_REGISTRY_ABI,
           functionName: 'getNodeAtIndex',
           args: [i],
@@ -550,7 +559,7 @@ export function createCDNModule(
 
     async listNodesByRegion(region) {
       const nodeIds = await wallet.publicClient.readContract({
-        address: cdnRegistryAddress,
+        address: getCdnRegistryAddress(),
         abi: CDN_REGISTRY_ABI,
         functionName: 'getNodesByRegion',
         args: [region],
@@ -573,7 +582,7 @@ export function createCDNModule(
         functionName: 'updateNodeEndpoint',
         args: [nodeId, endpoint],
       })
-      return wallet.sendTransaction({ to: cdnRegistryAddress, data })
+      return wallet.sendTransaction({ to: getCdnRegistryAddress(), data })
     },
 
     async heartbeat(nodeId) {
@@ -582,7 +591,7 @@ export function createCDNModule(
         functionName: 'heartbeat',
         args: [nodeId],
       })
-      return wallet.sendTransaction({ to: cdnRegistryAddress, data })
+      return wallet.sendTransaction({ to: getCdnRegistryAddress(), data })
     },
 
     async deactivateNode(nodeId) {
@@ -591,7 +600,7 @@ export function createCDNModule(
         functionName: 'deactivateNode',
         args: [nodeId],
       })
-      return wallet.sendTransaction({ to: cdnRegistryAddress, data })
+      return wallet.sendTransaction({ to: getCdnRegistryAddress(), data })
     },
 
     async createSite(params) {
@@ -607,7 +616,7 @@ export function createCDNModule(
       })
 
       const txHash = await wallet.sendTransaction({
-        to: cdnRegistryAddress,
+        to: getCdnRegistryAddress(),
         data,
       })
 
@@ -624,7 +633,7 @@ export function createCDNModule(
 
     async getSite(siteId) {
       const result = await wallet.publicClient.readContract({
-        address: cdnRegistryAddress,
+        address: getCdnRegistryAddress(),
         abi: CDN_REGISTRY_ABI,
         functionName: 'getSite',
         args: [siteId],
@@ -639,7 +648,7 @@ export function createCDNModule(
 
     async listMySites() {
       const siteIds = await wallet.publicClient.readContract({
-        address: cdnRegistryAddress,
+        address: getCdnRegistryAddress(),
         abi: CDN_REGISTRY_ABI,
         functionName: 'getSitesByOwner',
         args: [wallet.address],
@@ -674,7 +683,7 @@ export function createCDNModule(
           updates.enableCompression ?? currentSite.enableCompression,
         ],
       })
-      return wallet.sendTransaction({ to: cdnRegistryAddress, data })
+      return wallet.sendTransaction({ to: getCdnRegistryAddress(), data })
     },
 
     async deleteSite(siteId) {
@@ -683,7 +692,7 @@ export function createCDNModule(
         functionName: 'deleteSite',
         args: [siteId],
       })
-      return wallet.sendTransaction({ to: cdnRegistryAddress, data })
+      return wallet.sendTransaction({ to: getCdnRegistryAddress(), data })
     },
 
     async invalidateCache(siteId, paths) {
@@ -692,7 +701,7 @@ export function createCDNModule(
         functionName: 'invalidateCache',
         args: [siteId, paths],
       })
-      return wallet.sendTransaction({ to: cdnRegistryAddress, data })
+      return wallet.sendTransaction({ to: getCdnRegistryAddress(), data })
     },
 
     async purgeAllCache(siteId) {
@@ -701,12 +710,12 @@ export function createCDNModule(
         functionName: 'purgeAllCache',
         args: [siteId],
       })
-      return wallet.sendTransaction({ to: cdnRegistryAddress, data })
+      return wallet.sendTransaction({ to: getCdnRegistryAddress(), data })
     },
 
     async getNodeMetrics(nodeId) {
       const result = await wallet.publicClient.readContract({
-        address: cdnRegistryAddress,
+        address: getCdnRegistryAddress(),
         abi: CDN_REGISTRY_ABI,
         functionName: 'getNodeMetrics',
         args: [nodeId],
@@ -720,7 +729,7 @@ export function createCDNModule(
 
     async getSiteMetrics(siteId) {
       const result = await wallet.publicClient.readContract({
-        address: cdnRegistryAddress,
+        address: getCdnRegistryAddress(),
         abi: CDN_REGISTRY_ABI,
         functionName: 'getSiteMetrics',
         args: [siteId],

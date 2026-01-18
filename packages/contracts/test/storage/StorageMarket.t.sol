@@ -15,16 +15,16 @@ contract StorageMarketTest is Test {
     address public treasury;
     address public provider;
     address public user;
-    address public council;
-    address public ceo;
+    address public board;
+    address public director;
 
     function setUp() public {
         owner = address(this);
         treasury = makeAddr("treasury");
         provider = makeAddr("provider");
         user = makeAddr("user");
-        council = makeAddr("council");
-        ceo = makeAddr("ceo");
+        board = makeAddr("board");
+        director = makeAddr("ceo");
 
         vm.deal(user, 100 ether);
         vm.deal(provider, 10 ether);
@@ -33,7 +33,7 @@ contract StorageMarketTest is Test {
         registry = new StorageProviderRegistry(owner, address(0), address(0), 0.1 ether);
 
         // Deploy FeeConfig (2% storage upload fee by default)
-        feeConfig = new FeeConfig(council, ceo, treasury, owner);
+        feeConfig = new FeeConfig(board, director, treasury, owner);
 
         // Deploy market
         market = new StorageMarket(address(registry), treasury, owner);
@@ -99,7 +99,7 @@ contract StorageMarketTest is Test {
     }
 
     function test_SetFeeConfig() public {
-        FeeConfig newConfig = new FeeConfig(council, ceo, treasury, owner);
+        FeeConfig newConfig = new FeeConfig(board, director, treasury, owner);
         market.setFeeConfig(address(newConfig));
         assertEq(address(market.feeConfig()), address(newConfig));
     }

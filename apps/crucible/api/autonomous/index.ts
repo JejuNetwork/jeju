@@ -6,12 +6,15 @@ import {
   type TrajectoryBatchReference,
   TrajectoryRecorder,
 } from '@jejunetwork/training'
+import type { JsonValue } from '@jejunetwork/types'
 import { checkDWSHealth, getSharedDWSClient } from '../client/dws'
+import { getDatabase, type Message } from '../sdk/database'
 import {
   type CrucibleAgentRuntime,
   createCrucibleRuntime,
 } from '../sdk/eliza-runtime'
 import { createLogger } from '../sdk/logger'
+import { getAlertService } from './alert-service'
 import type {
   ActivityEntry,
   AgentTickContext,
@@ -20,6 +23,7 @@ import type {
   AutonomousRunnerStatus,
   AvailableAction,
   NetworkState,
+  PendingMessage,
 } from './types'
 
 export type {
@@ -27,6 +31,7 @@ export type {
   AutonomousRunnerConfig,
   AutonomousRunnerStatus,
 }
+export { createAutonomousRouter } from './router'
 export { DEFAULT_AUTONOMOUS_CONFIG } from './types'
 
 const log = createLogger('AutonomousRunner')
@@ -35,7 +40,7 @@ const log = createLogger('AutonomousRunner')
  * Extended config with archetype for trajectory recording
  */
 export interface ExtendedAgentConfig extends AutonomousAgentConfig {
-  /** Agent archetype for training (blue-team, red-team, etc.) */
+  /** Agent archetype for training (watcher, auditor, moderator, etc.) */
   archetype?: string
   /** Enable trajectory recording for this agent */
   recordTrajectories?: boolean
@@ -45,13 +50,13 @@ interface RegisteredAgent {
   config: ExtendedAgentConfig
   runtime: CrucibleAgentRuntime | null
   lastTick: number
+  previousTick: number
   tickCount: number
   errorCount: number
   lastError: string | null
   backoffMs: number
   intervalId: ReturnType<typeof setInterval> | null
   recentActivity: ActivityEntry[]
-  /** Active trajectory ID for current tick */
   currentTrajectoryId: string | null
 }
 
@@ -68,8 +73,12 @@ const MAX_BACKOFF_MS = 300000 // 5 minutes max
 export class AutonomousAgentRunner {
   private agents: Map<string, RegisteredAgent> = new Map()
   private running = false
-  private config: Required<Omit<ExtendedRunnerConfig, 'onBatchFlushed'>> & {
+  private config: Required<
+    Omit<ExtendedRunnerConfig, 'onBatchFlushed' | 'privateKey' | 'network'>
+  > & {
     onBatchFlushed?: (batch: TrajectoryBatchReference) => Promise<void>
+    privateKey?: `0x${string}`
+    network?: 'localnet' | 'testnet' | 'mainnet'
   }
   private trajectoryRecorder: TrajectoryRecorder
   private storage: StaticTrajectoryStorage
@@ -81,6 +90,8 @@ export class AutonomousAgentRunner {
       maxConcurrentAgents: config.maxConcurrentAgents ?? 10,
       enableTrajectoryRecording: config.enableTrajectoryRecording ?? true,
       onBatchFlushed: config.onBatchFlushed,
+      privateKey: config.privateKey,
+      network: config.network,
     }
 
     // Initialize static storage for trajectories
@@ -113,11 +124,22 @@ export class AutonomousAgentRunner {
       await this.initializeAgentRuntime(agent)
       this.startAgentTicks(agentId, agent)
     }
+
+    // Start alert escalation loop
+    const alertService = getAlertService()
+    alertService.setPostToRoom(async (roomId, agentId, content, action) => {
+      await this.postToRoom(agentId, roomId, content, action)
+    })
+    alertService.startEscalationLoop()
   }
 
   async stop(): Promise<void> {
     this.running = false
     log.info('Stopping autonomous runner')
+
+    // Stop alert escalation
+    const alertService = getAlertService()
+    alertService.stopEscalationLoop()
 
     // Stop all agent tick loops
     for (const agent of this.agents.values()) {
@@ -148,6 +170,7 @@ export class AutonomousAgentRunner {
       config,
       runtime: null,
       lastTick: 0,
+      previousTick: 0,
       tickCount: 0,
       errorCount: 0,
       lastError: null,
@@ -192,6 +215,7 @@ export class AutonomousAgentRunner {
         character: agent.config.character.name,
         lastTick: agent.lastTick,
         tickCount: agent.tickCount,
+        recentActivity: agent.recentActivity.slice(-10),
       })),
     }
   }
@@ -289,10 +313,10 @@ export class AutonomousAgentRunner {
     agent: RegisteredAgent,
   ): Promise<{ reward: number }> {
     const agentId = agent.config.agentId
+    agent.previousTick = agent.lastTick
     agent.lastTick = Date.now()
     agent.tickCount++
 
-    // Start trajectory recording for this tick
     const shouldRecord =
       this.config.enableTrajectoryRecording &&
       (agent.config.recordTrajectories ?? true)
@@ -352,6 +376,8 @@ export class AutonomousAgentRunner {
     agent.runtime = createCrucibleRuntime({
       agentId: agent.config.agentId,
       character: agent.config.character,
+      privateKey: this.config.privateKey,
+      network: this.config.network,
     })
 
     await agent.runtime.initialize()
@@ -372,10 +398,10 @@ export class AutonomousAgentRunner {
         }
       }
 
+      agent.previousTick = agent.lastTick
       agent.lastTick = Date.now()
       agent.tickCount++
 
-      // Start trajectory recording for this tick
       const shouldRecord =
         this.config.enableTrajectoryRecording &&
         (agent.config.recordTrajectories ?? true)
@@ -563,6 +589,7 @@ export class AutonomousAgentRunner {
     // Calculate reward for this tick
     let tickReward = 0
     const actionsExecuted: string[] = []
+    const actionResults: Array<{ action: string; response: string }> = []
 
     // Execute any parsed actions
     if (response.actions && response.actions.length > 0) {
@@ -570,16 +597,51 @@ export class AutonomousAgentRunner {
         0,
         config.maxActionsPerTick,
       )) {
+        const enrichedParams = { ...action.params }
+        if (
+          action.type.toUpperCase().includes('POLL') &&
+          agent.previousTick > 0
+        ) {
+          enrichedParams.sinceTimestamp = Math.floor(
+            agent.previousTick / 1000,
+          ).toString()
+        }
+
         const actionResult = await this.executeAction(
           agent,
-          action.name,
-          action.params,
+          action.type,
+          enrichedParams,
           trajectoryId,
         )
-        actionsExecuted.push(action.name)
+        actionsExecuted.push(action.type)
         // Reward for successful actions
         if (actionResult.success) {
-          tickReward += this.calculateActionReward(action.name)
+          tickReward += this.calculateActionReward(action.type)
+          const resultResponse = (actionResult.result as { response?: string })
+            ?.response
+          if (resultResponse) {
+            actionResults.push({
+              action: action.type,
+              response: resultResponse,
+            })
+          }
+        }
+      }
+    }
+
+    if (config.postToRoom && actionResults.length > 0) {
+      for (const result of actionResults) {
+        const contentToPost = this.extractPostableContent(
+          result.response,
+          config.agentId,
+        )
+        if (contentToPost) {
+          await this.postToRoom(
+            config.agentId,
+            config.postToRoom,
+            contentToPost,
+            result.action,
+          )
         }
       }
     }
@@ -656,13 +718,130 @@ export class AutonomousAgentRunner {
     const networkState = await this.getNetworkState()
     const availableActions = this.getAvailableActions(agent.config.capabilities)
 
+    let pendingMessages: PendingMessage[] = []
+    if (agent.config.watchRoom) {
+      pendingMessages = await this.fetchPendingMessages(
+        agent.config.agentId,
+        agent.config.watchRoom,
+        agent.previousTick,
+      )
+    }
+
     return {
       availableActions,
       recentActivity: agent.recentActivity.slice(-10),
       pendingGoals: agent.config.goals ?? [],
-      pendingMessages: [],
+      pendingMessages,
       networkState,
     }
+  }
+
+  private async fetchPendingMessages(
+    agentId: string,
+    roomId: string,
+    sinceTimestamp: number,
+  ): Promise<PendingMessage[]> {
+    try {
+      const db = getDatabase()
+      const sinceSeconds = Math.floor(sinceTimestamp / 1000)
+      const messages = await db.getMessages(roomId, {
+        limit: 20,
+        since: sinceSeconds,
+      })
+
+      // Check for ACK patterns in incoming messages
+      const alertService = getAlertService()
+      for (const msg of messages) {
+        if (msg.agent_id !== agentId) {
+          alertService.processMessageForAck(msg.content, msg.agent_id)
+        }
+      }
+
+      return messages
+        .filter((msg: Message) => msg.agent_id !== agentId)
+        .map((msg: Message) => ({
+          id: String(msg.id),
+          from: msg.agent_id,
+          content: msg.content,
+          timestamp: msg.created_at * 1000,
+          roomId: msg.room_id,
+          requiresResponse:
+            msg.content.includes('blockscout.com/address/') ||
+            msg.content.toLowerCase().includes('audit request'),
+        }))
+    } catch (err) {
+      log.warn('Failed to fetch pending messages', {
+        roomId,
+        error: String(err),
+      })
+      return []
+    }
+  }
+
+  async postToRoom(
+    agentId: string,
+    roomId: string,
+    content: string,
+    action?: string,
+  ): Promise<void> {
+    try {
+      const db = getDatabase()
+      await db.createMessage({ roomId, agentId, content, action })
+    } catch (err) {
+      log.warn('Failed to post to room', { roomId, error: String(err) })
+    }
+  }
+
+  private extractPostableContent(
+    responseText: string,
+    agentId: string,
+  ): string | null {
+    // Monitoring agents: post snapshot/probe/analysis output
+    if (
+      agentId.includes('monitor') ||
+      agentId.includes('prober') ||
+      agentId.includes('analyzer')
+    ) {
+      if (
+        responseText.includes('[NODE_SNAPSHOT') ||
+        responseText.includes('[ENDPOINT_PROBE') ||
+        responseText.includes('[INFRA_ANALYSIS') ||
+        responseText.includes('Infrastructure Status')
+      ) {
+        return responseText
+      }
+    }
+
+    if (agentId.includes('watcher') || agentId.includes('base')) {
+      const auditLines = responseText
+        .split('\n')
+        .filter(
+          (line) =>
+            line.includes('Audit request:') ||
+            line.includes('blockscout.com/address/'),
+        )
+      if (auditLines.length > 0) return auditLines.join('\n')
+    }
+
+    if (
+      agentId.includes('security') ||
+      agentId.includes('analyst') ||
+      agentId.includes('auditor')
+    ) {
+      if (
+        responseText.includes('Audit complete') ||
+        responseText.includes('Risk Level:')
+      ) {
+        return responseText
+      }
+    }
+
+    const lower = responseText.toLowerCase()
+    if (lower.includes('no new') || lower.includes('nothing to')) return null
+    if (responseText.includes('[ACTION:') || responseText.length > 200)
+      return responseText
+
+    return null
   }
 
   private async getNetworkState(): Promise<NetworkState> {
@@ -692,18 +871,10 @@ export class AutonomousAgentRunner {
   ): AvailableAction[] {
     const actions: AvailableAction[] = []
 
-    if (capabilities.canChat) {
-      actions.push({
-        name: 'RESPOND',
-        description: 'Generate a response or message',
-        category: 'communication',
-      })
-    }
-
     if (capabilities.canTrade) {
       actions.push(
         {
-          name: 'SWAP',
+          name: 'SWAP_TOKENS',
           description: 'Execute a token swap',
           category: 'defi',
           parameters: [
@@ -729,7 +900,7 @@ export class AutonomousAgentRunner {
           requiresApproval: true,
         },
         {
-          name: 'PROVIDE_LIQUIDITY',
+          name: 'ADD_LIQUIDITY',
           description: 'Add liquidity to a pool',
           category: 'defi',
           requiresApproval: true,
@@ -739,7 +910,7 @@ export class AutonomousAgentRunner {
 
     if (capabilities.canPropose) {
       actions.push({
-        name: 'PROPOSE',
+        name: 'CREATE_PROPOSAL',
         description: 'Create a governance proposal',
         category: 'governance',
         requiresApproval: true,
@@ -748,7 +919,7 @@ export class AutonomousAgentRunner {
 
     if (capabilities.canVote) {
       actions.push({
-        name: 'VOTE',
+        name: 'VOTE_PROPOSAL',
         description: 'Vote on a proposal',
         category: 'governance',
         parameters: [
@@ -768,18 +939,19 @@ export class AutonomousAgentRunner {
       })
     }
 
-    if (capabilities.canStake) {
-      actions.push({
-        name: 'STAKE',
-        description: 'Stake tokens',
-        category: 'defi',
-        requiresApproval: true,
-      })
-    }
+    // TODO: STAKE action not implemented in eliza-plugin yet
+    // if (capabilities.canStake) {
+    //   actions.push({
+    //     name: 'STAKE',
+    //     description: 'Stake tokens',
+    //     category: 'defi',
+    //     requiresApproval: true,
+    //   })
+    // }
 
     if (capabilities.a2a) {
       actions.push({
-        name: 'A2A_MESSAGE',
+        name: 'CALL_AGENT',
         description: 'Send a message to another agent',
         category: 'communication',
       })
@@ -787,8 +959,8 @@ export class AutonomousAgentRunner {
 
     if (capabilities.compute) {
       actions.push({
-        name: 'RUN_COMPUTE',
-        description: 'Execute a compute job on DWS',
+        name: 'RUN_INFERENCE',
+        description: 'Run AI inference on the network',
         category: 'compute',
       })
     }
@@ -808,24 +980,9 @@ export class AutonomousAgentRunner {
     parts.push('')
 
     // Archetype-specific instructions
-    if (config.archetype === 'blue-team') {
-      parts.push('## Objective: Blue Team Defense')
-      parts.push(
-        'Your mission is to protect the network, identify vulnerabilities, and propose security improvements.',
-      )
-      parts.push(
-        'Focus on: monitoring suspicious activity, voting for security proposals, delegating to trusted validators.',
-      )
-      parts.push('')
-    } else if (config.archetype === 'red-team') {
-      parts.push('## Objective: Red Team Testing')
-      parts.push(
-        'Your mission is to test network resilience by identifying weaknesses and proposing stress tests.',
-      )
-      parts.push(
-        'Focus on: exploring edge cases, testing governance limits, identifying potential attack vectors (for reporting).',
-      )
-      parts.push('')
+    // Reserved for future archetype-specific prompts (watcher, auditor, etc.)
+    if (config.archetype) {
+      // Placeholder for future archetype prompts
     }
 
     // Goals
@@ -856,6 +1013,23 @@ export class AutonomousAgentRunner {
     }
     parts.push('')
 
+    // Pending messages from watched room
+    if (context.pendingMessages.length > 0) {
+      parts.push('## Pending Messages')
+      parts.push('The following messages require your attention:')
+      parts.push('')
+
+      for (const msg of context.pendingMessages) {
+        const time = new Date(msg.timestamp).toISOString()
+        parts.push(`**From:** ${msg.from} (${time})`)
+        parts.push(`> ${msg.content}`)
+        if (msg.requiresResponse) {
+          parts.push('*This message requires your response.*')
+        }
+        parts.push('')
+      }
+    }
+
     // Network state
     parts.push('## Network State')
     parts.push(`Network: ${context.networkState.network}`)
@@ -877,7 +1051,7 @@ export class AutonomousAgentRunner {
     actionName: string,
     params: Record<string, string>,
     trajectoryId: string | null,
-  ): Promise<{ success: boolean; error?: string }> {
+  ): Promise<{ success: boolean; error?: string; result?: JsonValue }> {
     log.info('Executing action', {
       agentId: agent.config.agentId,
       action: actionName,
@@ -965,7 +1139,11 @@ export class AutonomousAgentRunner {
       ...(result.error && { error: result.error }),
     })
 
-    return { success: result.success, error: result.error }
+    return {
+      success: result.success,
+      error: result.error,
+      result: result.result,
+    }
   }
 
   private getActionCategory(actionName: string): string {

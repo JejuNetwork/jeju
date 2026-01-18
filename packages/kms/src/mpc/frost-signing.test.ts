@@ -405,8 +405,7 @@ describe('FROST Signing Primitives', () => {
   })
 
   describe('verifySignature', () => {
-    // Note: verifySignature has edge cases with zero scalars
-    // The FROSTCoordinator.sign() handles this correctly
+    // verifySignature has edge cases with zero scalars - FROSTCoordinator.sign() handles correctly
     test('verifies signature via coordinator', async () => {
       const coordinator = new FROSTCoordinator('verify-test', 2, 3)
       await coordinator.initializeCluster()

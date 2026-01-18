@@ -693,7 +693,7 @@ describe('Property-based Tests', () => {
   test('momentum is directionally correct', () => {
     // If prices go 100 -> 200 (100% up), and 200 -> 100 (50% down)
     // The momentum calculations should reflect these directions correctly
-    // Note: Need 3 prices for period=2 (compares index length-1 to index length-period)
+    // Need 3 prices for period=2 (compares index length-1 to index length-period)
 
     const upPrices = [100n, 150n, 200n]
     const downPrices = [200n, 150n, 100n]

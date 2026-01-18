@@ -40,13 +40,13 @@ describe('WalletService', () => {
       expect(user).toBeNull()
     })
 
-    test('returns null for non-existent user by id', () => {
-      const user = service.getUser('nonexistent')
+    test('returns null for non-existent user by id', async () => {
+      const user = await service.getUser('nonexistent')
       expect(user).toBeNull()
     })
 
-    test('returns null for non-existent user by platform', () => {
-      const user = service.getUserByPlatform('discord', 'nonexistent')
+    test('returns null for non-existent user by platform', async () => {
+      const user = await service.getUserByPlatform('discord', 'nonexistent')
       expect(user).toBeNull()
     })
   })
@@ -91,14 +91,14 @@ describe('WalletService', () => {
   })
 
   describe('settings', () => {
-    test('throws for non-existent user', () => {
-      expect(() => service.getSettings('nonexistent')).toThrow(
+    test('throws for non-existent user', async () => {
+      await expect(service.getSettings('nonexistent')).rejects.toThrow(
         'User not found: nonexistent',
       )
     })
 
-    test('returns false when updating non-existent user', () => {
-      const result = service.updateSettings('nonexistent', {
+    test('returns false when updating non-existent user', async () => {
+      const result = await service.updateSettings('nonexistent', {
         notifications: false,
       })
       expect(result).toBe(false)

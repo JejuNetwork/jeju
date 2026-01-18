@@ -1,10 +1,6 @@
 import { Elysia } from 'elysia'
 import { getFactoryConfig } from '../config'
 
-const config = getFactoryConfig()
-const DWS_API_URL = config.dwsUrl
-const RPC_URL = config.rpcUrl
-
 async function checkServiceHealth(
   url: string,
   options?: RequestInit,
@@ -23,6 +19,10 @@ async function checkServiceHealth(
 export const healthRoutes = new Elysia({ prefix: '/api/health' }).get(
   '/',
   async () => {
+    const config = getFactoryConfig()
+    const DWS_API_URL = config.dwsUrl
+    const RPC_URL = config.rpcUrl
+
     const services: Record<string, boolean> = {
       factory: true,
       dws: false,

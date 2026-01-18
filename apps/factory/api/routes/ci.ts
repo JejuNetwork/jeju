@@ -62,7 +62,7 @@ export const ciRoutes = new Elysia({ prefix: '/api/ci' })
       const validated = expectValid(CIQuerySchema, query, 'query params')
       const page = parseInt(validated.page || '1', 10)
 
-      const result = dbListCIRuns({
+      const result = await dbListCIRuns({
         repo: validated.repo,
         status: validated.status,
         branch: validated.branch,
@@ -95,7 +95,7 @@ export const ciRoutes = new Elysia({ prefix: '/api/ci' })
         'request body',
       )
 
-      const row = dbCreateCIRun({
+      const row = await dbCreateCIRun({
         workflow: validated.workflow,
         repo: validated.repo,
         branch: validated.branch,
@@ -117,7 +117,7 @@ export const ciRoutes = new Elysia({ prefix: '/api/ci' })
     '/:runId',
     async ({ params, set }) => {
       const validated = expectValid(CIRunParamsSchema, params, 'params')
-      const row = getCIRun(validated.runId)
+      const row = await getCIRun(validated.runId)
       if (!row) {
         set.status = 404
         return {

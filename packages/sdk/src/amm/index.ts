@@ -11,7 +11,7 @@
 
 import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, parseEther } from 'viem'
-import { requireContract, safeGetContract } from '../config'
+import { safeGetContract } from '../config'
 import type { BaseWallet } from '../wallet'
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -668,14 +668,46 @@ export function createAMMModule(
   wallet: BaseWallet,
   network: NetworkType,
 ): AMMModule {
-  const routerAddress = requireContract('amm', 'XLPRouter', network)
-  const v2FactoryAddress = requireContract('amm', 'XLPV2Factory', network)
-  const v3FactoryAddress = safeGetContract('amm', 'XLPV3Factory', network)
-  const v3PositionManagerAddress = safeGetContract(
+  // Use safe getters - contracts may not be deployed on all networks
+  const routerAddressOpt = safeGetContract('amm', 'XLPRouter', network)
+  const v2FactoryAddressOpt = safeGetContract('amm', 'XLPV2Factory', network)
+  const v3FactoryAddressOpt = safeGetContract('amm', 'XLPV3Factory', network)
+  const v3PositionManagerAddressOpt = safeGetContract(
     'amm',
     'XLPV3PositionManager',
     network,
   )
+
+  // Lazy-load contract addresses - throw on method call if not deployed
+  const getRouterAddress = () => {
+    if (!routerAddressOpt) {
+      throw new Error('AMM XLPRouter contract not deployed on this network')
+    }
+    return routerAddressOpt
+  }
+
+  const getV2FactoryAddress = () => {
+    if (!v2FactoryAddressOpt) {
+      throw new Error('AMM XLPV2Factory contract not deployed on this network')
+    }
+    return v2FactoryAddressOpt
+  }
+
+  const getV3FactoryAddress = () => {
+    if (!v3FactoryAddressOpt) {
+      throw new Error('AMM XLPV3Factory contract not deployed on this network')
+    }
+    return v3FactoryAddressOpt
+  }
+
+  const getV3PositionManagerAddress = () => {
+    if (!v3PositionManagerAddressOpt) {
+      throw new Error(
+        'AMM XLPV3PositionManager contract not deployed on this network',
+      )
+    }
+    return v3PositionManagerAddressOpt
+  }
 
   const defaultDeadline = () => BigInt(Math.floor(Date.now() / 1000) + 1800) // 30 minutes
   const MAX_UINT128 = (1n << 128n) - 1n
@@ -683,7 +715,7 @@ export function createAMMModule(
   return {
     async getQuote(tokenIn, tokenOut, amountIn) {
       const result = await wallet.publicClient.readContract({
-        address: routerAddress,
+        address: getRouterAddress(),
         abi: XLP_ROUTER_ABI,
         functionName: 'quoteForRouter',
         args: [tokenIn, tokenOut, amountIn],
@@ -699,7 +731,7 @@ export function createAMMModule(
         // Get spot price by quoting a small amount
         const smallAmount = amountIn / 1000n > 0n ? amountIn / 1000n : 1n
         const smallQuote = await wallet.publicClient.readContract({
-          address: routerAddress,
+          address: getRouterAddress(),
           abi: XLP_ROUTER_ABI,
           functionName: 'quoteForRouter',
           args: [tokenIn, tokenOut, smallAmount],
@@ -729,7 +761,7 @@ export function createAMMModule(
 
     async getAmountsOutV2(amountIn, path) {
       const result = await wallet.publicClient.readContract({
-        address: routerAddress,
+        address: getRouterAddress(),
         abi: XLP_ROUTER_ABI,
         functionName: 'getAmountsOutV2',
         args: [amountIn, path],
@@ -739,7 +771,7 @@ export function createAMMModule(
 
     async getAmountsInV2(amountOut, path) {
       const result = await wallet.publicClient.readContract({
-        address: routerAddress,
+        address: getRouterAddress(),
         abi: XLP_ROUTER_ABI,
         functionName: 'getAmountsInV2',
         args: [amountOut, path],
@@ -761,7 +793,7 @@ export function createAMMModule(
       })
 
       return wallet.sendTransaction({
-        to: routerAddress,
+        to: getRouterAddress(),
         data,
       })
     },
@@ -780,7 +812,7 @@ export function createAMMModule(
       })
 
       return wallet.sendTransaction({
-        to: routerAddress,
+        to: getRouterAddress(),
         data,
       })
     },
@@ -798,7 +830,7 @@ export function createAMMModule(
       })
 
       return wallet.sendTransaction({
-        to: routerAddress,
+        to: getRouterAddress(),
         data,
         value: params.amountIn,
       })
@@ -818,7 +850,7 @@ export function createAMMModule(
       })
 
       return wallet.sendTransaction({
-        to: routerAddress,
+        to: getRouterAddress(),
         data,
       })
     },
@@ -840,7 +872,7 @@ export function createAMMModule(
       })
 
       return wallet.sendTransaction({
-        to: routerAddress,
+        to: getRouterAddress(),
         data,
       })
     },
@@ -862,7 +894,7 @@ export function createAMMModule(
       })
 
       return wallet.sendTransaction({
-        to: routerAddress,
+        to: getRouterAddress(),
         data,
       })
     },
@@ -884,7 +916,7 @@ export function createAMMModule(
       })
 
       const txHash = await wallet.sendTransaction({
-        to: routerAddress,
+        to: getRouterAddress(),
         data,
       })
 
@@ -917,7 +949,7 @@ export function createAMMModule(
       })
 
       const txHash = await wallet.sendTransaction({
-        to: routerAddress,
+        to: getRouterAddress(),
         data,
       })
 
@@ -953,7 +985,7 @@ export function createAMMModule(
       })
 
       const txHash = await wallet.sendTransaction({
-        to: routerAddress,
+        to: getRouterAddress(),
         data,
         value: params.ethAmount,
       })
@@ -970,7 +1002,7 @@ export function createAMMModule(
     },
 
     async addLiquidityV3(params) {
-      if (!v3PositionManagerAddress) {
+      if (!getV3PositionManagerAddress()) {
         throw new Error('V3 Position Manager not deployed on this network')
       }
 
@@ -995,7 +1027,7 @@ export function createAMMModule(
       })
 
       const txHash = await wallet.sendTransaction({
-        to: v3PositionManagerAddress,
+        to: getV3PositionManagerAddress(),
         data,
       })
 
@@ -1018,7 +1050,7 @@ export function createAMMModule(
     },
 
     async increaseLiquidityV3(tokenId, amount0Desired, amount1Desired) {
-      if (!v3PositionManagerAddress) {
+      if (!getV3PositionManagerAddress()) {
         throw new Error('V3 Position Manager not deployed on this network')
       }
 
@@ -1038,13 +1070,13 @@ export function createAMMModule(
       })
 
       return wallet.sendTransaction({
-        to: v3PositionManagerAddress,
+        to: getV3PositionManagerAddress(),
         data,
       })
     },
 
     async decreaseLiquidityV3(tokenId, liquidity) {
-      if (!v3PositionManagerAddress) {
+      if (!getV3PositionManagerAddress()) {
         throw new Error('V3 Position Manager not deployed on this network')
       }
 
@@ -1063,13 +1095,13 @@ export function createAMMModule(
       })
 
       return wallet.sendTransaction({
-        to: v3PositionManagerAddress,
+        to: getV3PositionManagerAddress(),
         data,
       })
     },
 
     async collectFeesV3(tokenId) {
-      if (!v3PositionManagerAddress) {
+      if (!getV3PositionManagerAddress()) {
         throw new Error('V3 Position Manager not deployed on this network')
       }
 
@@ -1087,7 +1119,7 @@ export function createAMMModule(
       })
 
       const txHash = await wallet.sendTransaction({
-        to: v3PositionManagerAddress,
+        to: getV3PositionManagerAddress(),
         data,
       })
 
@@ -1109,7 +1141,7 @@ export function createAMMModule(
 
     async getV2Pool(tokenA, tokenB) {
       const pairAddress = (await wallet.publicClient.readContract({
-        address: v2FactoryAddress,
+        address: getV2FactoryAddress(),
         abi: V2_FACTORY_ABI,
         functionName: 'getPair',
         args: [tokenA, tokenB],
@@ -1156,12 +1188,12 @@ export function createAMMModule(
     },
 
     async getV3Pool(tokenA, tokenB, fee) {
-      if (!v3FactoryAddress) {
+      if (!getV3FactoryAddress()) {
         return null
       }
 
       const poolAddress = (await wallet.publicClient.readContract({
-        address: v3FactoryAddress,
+        address: getV3FactoryAddress(),
         abi: V3_FACTORY_ABI,
         functionName: 'getPool',
         args: [tokenA, tokenB, fee],
@@ -1229,12 +1261,12 @@ export function createAMMModule(
     },
 
     async getV3Position(tokenId) {
-      if (!v3PositionManagerAddress) {
+      if (!getV3PositionManagerAddress()) {
         return null
       }
 
       const result = await wallet.publicClient.readContract({
-        address: v3PositionManagerAddress,
+        address: getV3PositionManagerAddress(),
         abi: V3_POSITION_MANAGER_ABI,
         functionName: 'positions',
         args: [tokenId],
@@ -1289,12 +1321,12 @@ export function createAMMModule(
     },
 
     async getMyV3Positions() {
-      if (!v3PositionManagerAddress) {
+      if (!getV3PositionManagerAddress()) {
         return []
       }
 
       const balance = await wallet.publicClient.readContract({
-        address: v3PositionManagerAddress,
+        address: getV3PositionManagerAddress(),
         abi: V3_POSITION_MANAGER_ABI,
         functionName: 'balanceOf',
         args: [wallet.address],
@@ -1305,7 +1337,7 @@ export function createAMMModule(
 
       for (let i = 0; i < balanceNum; i++) {
         const tokenId = await wallet.publicClient.readContract({
-          address: v3PositionManagerAddress,
+          address: getV3PositionManagerAddress(),
           abi: V3_POSITION_MANAGER_ABI,
           functionName: 'tokenOfOwnerByIndex',
           args: [wallet.address, BigInt(i)],
@@ -1333,13 +1365,13 @@ export function createAMMModule(
       })
 
       const txHash = await wallet.sendTransaction({
-        to: v2FactoryAddress,
+        to: getV2FactoryAddress(),
         data,
       })
 
       // Get the created pair address
       const pairAddress = (await wallet.publicClient.readContract({
-        address: v2FactoryAddress,
+        address: getV2FactoryAddress(),
         abi: V2_FACTORY_ABI,
         functionName: 'getPair',
         args: [tokenA, tokenB],
@@ -1349,7 +1381,7 @@ export function createAMMModule(
     },
 
     async createV3Pool(tokenA, tokenB, fee) {
-      if (!v3FactoryAddress) {
+      if (!getV3FactoryAddress()) {
         throw new Error('V3 Factory not deployed on this network')
       }
 
@@ -1360,13 +1392,13 @@ export function createAMMModule(
       })
 
       const txHash = await wallet.sendTransaction({
-        to: v3FactoryAddress,
+        to: getV3FactoryAddress(),
         data,
       })
 
       // Get the created pool address
       const poolAddress = (await wallet.publicClient.readContract({
-        address: v3FactoryAddress,
+        address: getV3FactoryAddress(),
         abi: V3_FACTORY_ABI,
         functionName: 'getPool',
         args: [tokenA, tokenB, fee],

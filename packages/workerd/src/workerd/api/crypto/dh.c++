@@ -57,7 +57,7 @@ kj::Own<DH> initDhGroup(kj::StringPtr name) {
   const int kStandardizedGenerator = 2;
   auto dh = OSSL_NEW(DH);
 
-  // Note: We're deliberately not using kj::Own/OSSL_NEW() here as DH_set0_pqg() takes ownership
+  // We're deliberately not using kj::Own/OSSL_NEW() here as DH_set0_pqg() takes ownership
   // of the key, so there is no need to free it if the operation succeeds.
   UniqueBignum bn_g(BN_new(), &BN_clear_free);
   if (!BN_set_word(bn_g.get(), kStandardizedGenerator) ||

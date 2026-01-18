@@ -489,7 +489,7 @@ class ReadableSourceImpl: public ReadableSource {
       kj::Own<kj::AsyncInputStream> stream, WritableSink& output, EndAfterPump end) {
     // These are fairly arbitrary but reasonable buffer size choices.
 
-    // Note: this intentionally contains code that is similar to the
+    // This intentionally contains code that is similar to the
     // ReadableSourceKjAdapter::pumpToImpl impl in readable-source-adapter.c++.
     // The optimizations are generally the same but the targets are a bit different
     // (ReadableStream vs. kj::AsyncInputStream).

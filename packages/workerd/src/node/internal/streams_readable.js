@@ -268,8 +268,8 @@ export function ReadableState(options, _stream, isDuplex) {
 
   if (isDuplex && options?.readableObjectMode) this[kState] |= kObjectMode;
 
-  // The point at which it stops calling _read() to fill the buffer
-  // Note: 0 is a valid value, means "don't call _read preemptively ever"
+  // The point at which it stops calling _read() to fill the buffer.
+  // 0 is a valid value, means "don't call _read preemptively ever"
   this.highWaterMark = options
     ? getHighWaterMark(this, options, 'readableHighWaterMark', isDuplex)
     : getDefaultHighWaterMark(false);

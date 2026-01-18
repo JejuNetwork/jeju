@@ -14,7 +14,10 @@
 
 import { expect, test } from '@playwright/test'
 
-const BASE_URL = process.env.OTTO_URL || 'http://127.0.0.1:4051'
+const BASE_URL =
+  process.env.OTTO_URL ||
+  process.env.PLAYWRIGHT_BASE_URL ||
+  'http://127.0.0.1:4060'
 
 test.describe('Otto Landing Page', () => {
   test.beforeEach(async ({ page }) => {

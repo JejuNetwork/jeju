@@ -54,7 +54,7 @@ import {
   validateName,
   // Validation helpers
   validateRegistrationInput,
-} from '../jns'
+} from '../../lib/jns'
 
 // CONSTANTS TESTS
 

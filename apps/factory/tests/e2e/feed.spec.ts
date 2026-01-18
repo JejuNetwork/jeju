@@ -1,3 +1,8 @@
+// Check if running against testnet/mainnet
+const isRemote =
+  process.env.JEJU_NETWORK === 'testnet' ||
+  process.env.JEJU_NETWORK === 'mainnet'
+
 /**
  * Feed E2E Tests
  * Tests developer feed, casting, and channel interactions
@@ -6,6 +11,7 @@
 import { expect, test } from '@playwright/test'
 
 test.describe('Developer Feed', () => {
+  test.skip(isRemote, 'Skipping on remote network')
   test('displays feed page with heading', async ({ page }) => {
     await page.goto('/feed')
     await expect(page.getByRole('heading', { name: /feed/i })).toBeVisible()
@@ -32,6 +38,7 @@ test.describe('Developer Feed', () => {
 })
 
 test.describe('Feed Channels', () => {
+  test.skip(isRemote, 'Skipping on remote network')
   test('displays channel list', async ({ page }) => {
     await page.goto('/feed')
     const channels = page
@@ -54,6 +61,7 @@ test.describe('Feed Channels', () => {
 })
 
 test.describe('Feed Interactions', () => {
+  test.skip(isRemote, 'Skipping on remote network')
   test('shows cast cards', async ({ page }) => {
     await page.goto('/feed')
     const casts = page.locator('.card, [class*="cast"], [class*="post"]')
@@ -73,6 +81,7 @@ test.describe('Feed Interactions', () => {
 })
 
 test.describe('Compose Cast', () => {
+  test.skip(isRemote, 'Skipping on remote network')
   test('opens compose modal or shows compose area', async ({ page }) => {
     await page.goto('/feed')
     const composeBtn = page.getByRole('button', { name: /compose|cast|post/i })
@@ -93,6 +102,7 @@ test.describe('Compose Cast', () => {
 })
 
 test.describe('Feed Farcaster Integration', () => {
+  test.skip(isRemote, 'Skipping on remote network')
   test('shows Farcaster connect prompt when not connected', async ({
     page,
   }) => {

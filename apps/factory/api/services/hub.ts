@@ -1,4 +1,4 @@
-import { getCacheClient } from '@jejunetwork/cache'
+import { getCacheClient, safeParseCached } from '@jejunetwork/cache'
 import { getFarcasterHubUrl } from '@jejunetwork/config'
 import {
   type CastFilter,
@@ -6,6 +6,7 @@ import {
   FarcasterClient,
   type FarcasterLink,
   type FarcasterProfile,
+  FarcasterProfileSchema,
   type FarcasterReaction,
   HubError,
   type PaginatedResponse,
@@ -74,9 +75,14 @@ async function getCachedProfile(fid: number): Promise<FarcasterProfile | null> {
   const cacheKey = `profile:${fid}`
 
   // Check DWS cache first
-  const cached = await cache.get(cacheKey).catch(() => null)
-  if (cached) {
-    return JSON.parse(cached) as FarcasterProfile
+  const cached = await cache.get(cacheKey).catch((err) => {
+    log.warn('Cache read failed', { error: String(err) })
+    return null
+  })
+  const cachedProfile = safeParseCached(cached, FarcasterProfileSchema)
+  if (cachedProfile) {
+    log.debug('Cache hit for profile', { fid })
+    return cachedProfile
   }
 
   const hub = getHubClient()
@@ -84,9 +90,10 @@ async function getCachedProfile(fid: number): Promise<FarcasterProfile | null> {
   try {
     const profile = await hub.getProfile(fid)
     if (profile) {
+      log.debug('Cache miss, caching profile', { fid })
       cache
         .set(cacheKey, JSON.stringify(profile), PROFILE_CACHE_TTL)
-        .catch(() => {})
+        .catch((err) => log.warn('Cache write failed', { error: String(err) }))
     }
     return profile
   } catch (error) {

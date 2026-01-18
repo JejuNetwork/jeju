@@ -1,14 +1,87 @@
 /**
  * Leaderboard Configuration
  *
- * SECURITY: This module no longer stores private keys.
- * Oracle signing is delegated to the KMS service (MPC or TEE).
+ * SECURITY: This module no longer stores private keys or API tokens directly.
+ * - Oracle signing is delegated to the KMS service (MPC or TEE).
+ * - API tokens (GitHub, OpenRouter) are stored in KMS SecretVault.
  */
 
-import { getDWSUrl, getLocalhostHost, getSQLitUrl } from '@jejunetwork/config'
+import {
+  getDWSUrl,
+  getLocalhostHost,
+  getSQLitUrl,
+  isProductionEnv,
+} from '@jejunetwork/config'
+import { getSecretVault } from '@jejunetwork/kms'
+import { zeroAddress } from 'viem'
 import { CHAIN_ID, CONTRACTS, NETWORK } from '../../lib/config'
 import { CHAIN_IDS } from '../../lib/config/networks'
 import { config } from '../config'
+
+/**
+ * Cached API tokens from KMS vault
+ */
+const tokenCache = {
+  github: null as string | null,
+  openrouter: null as string | null,
+  loaded: false,
+}
+
+/**
+ * Load API tokens from KMS vault
+ *
+ * SECURITY: API tokens are stored encrypted in KMS SecretVault.
+ * In development, falls back to environment variables for local testing only.
+ */
+async function loadTokensFromKMS(): Promise<void> {
+  if (tokenCache.loaded) return
+
+  try {
+    const vault = getSecretVault()
+    await vault.initialize()
+
+    try {
+      tokenCache.github = await vault.getSecret('github-token', zeroAddress)
+    } catch {
+      if (isProductionEnv()) {
+        console.warn('[Leaderboard] GitHub token not found in KMS vault')
+      }
+    }
+
+    try {
+      tokenCache.openrouter = await vault.getSecret(
+        'openrouter-api-key',
+        zeroAddress,
+      )
+    } catch {
+      if (isProductionEnv()) {
+        console.warn('[Leaderboard] OpenRouter API key not found in KMS vault')
+      }
+    }
+  } catch {
+    if (isProductionEnv()) {
+      console.warn('[Leaderboard] Failed to connect to KMS vault for tokens')
+    }
+  }
+
+  tokenCache.loaded = true
+}
+
+/**
+ * Get GitHub token from KMS vault (async)
+ */
+export async function getGitHubToken(): Promise<string | undefined> {
+  await loadTokensFromKMS()
+  return tokenCache.github ?? undefined
+}
+
+/**
+ * Get OpenRouter API key from KMS vault (async)
+ */
+export async function getOpenRouterApiKey(): Promise<string | undefined> {
+  await loadTokensFromKMS()
+  return tokenCache.openrouter ?? undefined
+}
 
 export const LEADERBOARD_DB = {
   databaseId: config.leaderboardSQLitDatabaseId,
@@ -82,9 +155,6 @@ export const LEADERBOARD_TOKENS = {
 } as const
 
 export const LEADERBOARD_GITHUB = {
-  get token(): string | undefined {
-    return config.githubToken
-  },
   get repositories(): string[] {
     return config.leaderboardRepositories.split(',')
   },
@@ -100,9 +170,6 @@ export const LEADERBOARD_STORAGE = {
 } as const
 
 export const LEADERBOARD_LLM = {
-  get openRouterApiKey(): string | undefined {
-    return config.openrouterApiKey
-  },
   get model(): string {
     return config.leaderboardLlmModel
   },

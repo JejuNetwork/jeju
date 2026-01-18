@@ -6,25 +6,21 @@
  * and configures JNS and CDN routing.
  */
 
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
+import { getL2RpcUrl, getServicesConfig } from '@jejunetwork/config'
 import {
-  getCurrentNetwork,
-  getL2RpcUrl,
-  getServicesConfig,
-} from '@jejunetwork/config'
-import {
+  type Address,
   createPublicClient,
   createWalletClient,
+  type Hex,
   http,
   keccak256,
   stringToBytes,
-  type Address,
-  type Hex,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { baseSepolia, base } from 'viem/chains'
+import { base, baseSepolia } from 'viem/chains'
 import { z } from 'zod'
 
 const APPS = ['otto', 'vpn', 'wallet', 'node'] as const
@@ -102,7 +98,9 @@ async function main() {
   }
 
   if (options.app && !APPS.includes(options.app)) {
-    console.error(`Invalid app: ${options.app}. Must be one of: ${APPS.join(', ')}`)
+    console.error(
+      `Invalid app: ${options.app}. Must be one of: ${APPS.join(', ')}`,
+    )
     process.exit(1)
   }
 
@@ -128,9 +126,17 @@ async function main() {
   console.log('╔════════════════════════════════════════════════════════════╗')
   console.log('║                  Deployment Complete                        ║')
   console.log('╠════════════════════════════════════════════════════════════╣')
+  const domainSuffix =
+    options.network === 'mainnet'
+      ? 'jejunetwork.org'
+      : options.network === 'testnet'
+        ? 'testnet.jejunetwork.org'
+        : 'local.jejunetwork.org'
   for (const appName of appsToProcess) {
     const appConfig = APP_CONFIGS[appName]
-    console.log(`║  ${appConfig.jnsName.padEnd(15)} -> ${appConfig.name}.jejunetwork.org`.padEnd(60) + '║')
+    console.log(
+      `${`║  ${appConfig.jnsName.padEnd(15)} -> ${appConfig.name}.${domainSuffix}`.padEnd(60)}║`,
+    )
   }
   console.log('╚════════════════════════════════════════════════════════════╝')
 }
@@ -143,7 +149,9 @@ interface DeployConfig {
 }
 
 function getDeployConfig(network: string): DeployConfig {
-  const services = getServicesConfig(network as 'localnet' | 'testnet' | 'mainnet')
+  const services = getServicesConfig(
+    network as 'localnet' | 'testnet' | 'mainnet',
+  )
 
   const privateKey = process.env.DEPLOYER_PRIVATE_KEY ?? process.env.PRIVATE_KEY
   if (!privateKey) {
@@ -208,7 +216,12 @@ async function deployApp(
 
   // Upload files to DWS storage
   console.log(`[${appName}] Uploading to DWS storage...`)
-  const uploadedFiles = await uploadDirectory(config.dwsUrl, distDir, `${appName}-lander`, options.dryRun)
+  const uploadedFiles = await uploadDirectory(
+    config.dwsUrl,
+    distDir,
+    `${appName}-lander`,
+    options.dryRun,
+  )
   console.log(`[${appName}] Uploaded ${uploadedFiles.size} files`)
 
   // Get index.html CID
@@ -218,12 +231,58 @@ async function deployApp(
     return
   }
 
-  // Configure CDN
+  // Register app with DWS for routing
+  console.log(`[${appName}] Registering app with DWS...`)
+  if (!options.dryRun) {
+    // Convert uploadedFiles map to staticFiles object
+    const staticFiles: Record<string, string> = {}
+    for (const [path, cid] of uploadedFiles.entries()) {
+      staticFiles[path] = cid
+    }
+
+    const appDeployment = {
+      name: appName,
+      jnsName: appConfig.jnsName,
+      frontendCid: indexCid, // Main CID for fallback
+      staticFiles, // Individual file CIDs for serving
+      backendWorkerId: appConfig.hasWorker ? `${appName}-worker` : null,
+      backendEndpoint: null,
+      apiPaths: ['/api/', '/health', '/a2a/', '/mcp/'],
+      spa: true,
+      enabled: true,
+    }
+
+    try {
+      const response = await fetch(`${config.dwsUrl}/apps/deployed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(appDeployment),
+      })
+      if (response.ok) {
+        console.log(`[${appName}] App registered with DWS`)
+      } else {
+        const errorText = await response.text()
+        console.warn(
+          `[${appName}] App registration returned ${response.status}: ${errorText}`,
+        )
+      }
+    } catch (e) {
+      console.warn(`[${appName}] App registration failed: ${e}`)
+    }
+  }
+
+  // Configure CDN (legacy, kept for backward compatibility)
   console.log(`[${appName}] Configuring CDN...`)
   if (!options.dryRun) {
+    const networkSuffix =
+      options.network === 'mainnet'
+        ? 'jejunetwork.org'
+        : options.network === 'testnet'
+          ? 'testnet.jejunetwork.org'
+          : 'local.jejunetwork.org'
     const cdnConfig = {
       name: appName,
-      domain: `${appName}.jejunetwork.org`,
+      domain: `${appName}.${networkSuffix}`,
       jnsName: appConfig.jnsName,
       spa: {
         enabled: true,
@@ -234,7 +293,10 @@ async function deployApp(
         { path: '/storage/*', backend: 'dws-storage' },
         ...(appConfig.hasMiniapp
           ? [
-              { path: '/miniapp', static: `${appName}-lander/miniapp/index.html` },
+              {
+                path: '/miniapp',
+                static: `${appName}-lander/miniapp/index.html`,
+              },
               { path: '/miniapp/*', static: `${appName}-lander/miniapp/` },
             ]
           : []),
@@ -248,8 +310,10 @@ async function deployApp(
         body: JSON.stringify(cdnConfig),
       })
       console.log(`[${appName}] CDN configured`)
-    } catch (e) {
-      console.warn(`[${appName}] CDN configuration failed (may not be available)`)
+    } catch (_e) {
+      console.warn(
+        `[${appName}] CDN configuration failed (may not be available)`,
+      )
     }
   }
 
@@ -275,7 +339,10 @@ async function uploadDirectory(
 ): Promise<Map<string, string>> {
   const results = new Map<string, string>()
 
-  async function uploadFile(filePath: string, relativePath: string): Promise<void> {
+  async function uploadFile(
+    filePath: string,
+    relativePath: string,
+  ): Promise<void> {
     const key = relativePath
 
     if (dryRun) {
@@ -283,27 +350,56 @@ async function uploadDirectory(
       return
     }
 
+    // Skip source maps to reduce upload size and avoid timeouts
+    if (relativePath.endsWith('.map')) {
+      console.log(`   Skipping source map: ${relativePath}`)
+      return
+    }
+
     const content = readFileSync(filePath)
-    const formData = new FormData()
-    formData.append('file', new Blob([content]), `${prefix}/${relativePath}`)
-    formData.append('name', `${prefix}/${relativePath}`)
 
-    const response = await fetch(`${dwsUrl}/storage/upload`, {
-      method: 'POST',
-      body: formData,
-    })
+    // Retry logic for transient failures
+    let lastError: Error | null = null
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const formData = new FormData()
+        formData.append(
+          'file',
+          new Blob([content]),
+          `${prefix}/${relativePath}`,
+        )
+        formData.append('name', `${prefix}/${relativePath}`)
 
-    if (!response.ok) {
-      throw new Error(`Upload failed for ${relativePath}: ${response.status}`)
+        const response = await fetch(`${dwsUrl}/storage/upload`, {
+          method: 'POST',
+          body: formData,
+        })
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          throw new Error(
+            `Upload failed for ${relativePath}: ${response.status} - ${errorText}`,
+          )
+        }
+
+        const rawJson = await response.json()
+        const parsed = UploadResponseSchema.safeParse(rawJson)
+        if (!parsed.success) {
+          throw new Error(`Invalid upload response for ${relativePath}`)
+        }
+
+        results.set(key, parsed.data.cid)
+        return
+      } catch (e) {
+        lastError = e instanceof Error ? e : new Error(String(e))
+        if (attempt < 2) {
+          console.log(`   Retry ${attempt + 1}/3 for ${relativePath}...`)
+          await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)))
+        }
+      }
     }
 
-    const rawJson = await response.json()
-    const parsed = UploadResponseSchema.safeParse(rawJson)
-    if (!parsed.success) {
-      throw new Error(`Invalid upload response for ${relativePath}`)
-    }
-
-    results.set(key, parsed.data.cid)
+    throw lastError
   }
 
   async function processDir(dir: string, baseDir: string): Promise<void> {
@@ -502,7 +598,10 @@ function encodeIPFSContenthash(cid: string): Hex {
 function findMonorepoRoot(): string {
   let dir = process.cwd()
   while (dir !== '/') {
-    if (existsSync(join(dir, 'package.json')) && existsSync(join(dir, 'apps'))) {
+    if (
+      existsSync(join(dir, 'package.json')) &&
+      existsSync(join(dir, 'apps'))
+    ) {
       return dir
     }
     dir = resolve(dir, '..')

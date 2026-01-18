@@ -1,53 +1,50 @@
-/**
- * Browser shim for node:crypto
- * Uses Web Crypto API as a fallback
- */
-
-// Export webcrypto as the default crypto
-export const webcrypto = globalThis.crypto
-export const randomBytes = (size: number): Uint8Array => {
-  const bytes = new Uint8Array(size)
-  globalThis.crypto.getRandomValues(bytes)
-  return bytes
+// Browser shim for node:crypto using Web Crypto API
+export function randomBytes(size: number): Uint8Array {
+  const buffer = new Uint8Array(size)
+  crypto.getRandomValues(buffer)
+  return buffer
 }
 
-/**
- * Simple hash creator using Web Crypto API
- * Returns a hash object with update/digest methods compatible with Node.js crypto
- */
+export function randomUUID(): string {
+  return crypto.randomUUID()
+}
+
 export function createHash(algorithm: string) {
-  const algo = algorithm === 'sha256' ? 'SHA-256' : algorithm.toUpperCase()
-  let data = new Uint8Array(0)
+  const data: Uint8Array[] = []
 
   return {
     update(input: string | Uint8Array) {
-      const bytes =
-        typeof input === 'string' ? new TextEncoder().encode(input) : input
-      const newData = new Uint8Array(data.length + bytes.length)
-      newData.set(data)
-      newData.set(bytes, data.length)
-      data = newData
+      if (typeof input === 'string') {
+        data.push(new TextEncoder().encode(input))
+      } else {
+        data.push(input)
+      }
       return this
     },
-    async digest(encoding?: 'hex' | 'base64') {
-      const hashBuffer = await globalThis.crypto.subtle.digest(algo, data)
-      const hashArray = new Uint8Array(hashBuffer)
+    async digest(encoding?: 'hex'): Promise<string | ArrayBuffer> {
+      const totalLength = data.reduce((sum, arr) => sum + arr.length, 0)
+      const combined = new Uint8Array(totalLength)
+      let offset = 0
+      for (const arr of data) {
+        combined.set(arr, offset)
+        offset += arr.length
+      }
+
+      const hashAlgorithm = algorithm === 'sha256' ? 'SHA-256' : 'SHA-256'
+      const hashBuffer = await crypto.subtle.digest(hashAlgorithm, combined)
+
       if (encoding === 'hex') {
-        return Array.from(hashArray)
+        return Array.from(new Uint8Array(hashBuffer))
           .map((b) => b.toString(16).padStart(2, '0'))
           .join('')
       }
-      if (encoding === 'base64') {
-        return btoa(String.fromCharCode(...hashArray))
-      }
-      return hashArray
+      return hashBuffer
     },
   }
 }
 
-// Default export compatible with @noble/hashes expectations
 export default {
-  webcrypto: globalThis.crypto,
   randomBytes,
+  randomUUID,
   createHash,
 }

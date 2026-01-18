@@ -17,15 +17,16 @@ import type {
 import { expect, expectTrue } from '../schemas'
 import type { AgentSDK } from './agent'
 import type { CrucibleCompute } from './compute'
+import { runtimeManager } from './eliza-runtime'
 import type { KMSSigner } from './kms-signer'
 import { createLogger, type Logger } from './logger'
 import type { RoomSDK } from './room'
 import type { CrucibleStorage } from './storage'
 
 const TRIGGER_REGISTRY_ABI = parseAbi([
-  'function registerTrigger(string name, uint8 triggerType, string cronExpression, string endpoint, uint256 timeout, uint8 paymentMode, uint256 pricePerExecution) external returns (bytes32 triggerId)',
-  'function registerTriggerWithAgent(string name, uint8 triggerType, string cronExpression, string endpoint, uint256 timeout, uint8 paymentMode, uint256 pricePerExecution, uint256 agentId) external returns (bytes32 triggerId)',
-  'function getTrigger(bytes32 triggerId) external view returns (address owner, uint8 triggerType, string name, string endpoint, bool active, uint256 executionCount)',
+  'function registerTriggerWithAgent(string name, string description, uint8 triggerType, string cronExpression, string endpoint, uint256 timeout, uint8 paymentMode, uint256 pricePerExecution, uint256 agentId) external returns (bytes32 triggerId)',
+  'function setTriggerActive(bytes32 triggerId, bool active) external',
+  'function getTrigger(bytes32 triggerId) external view returns (address owner, uint8 triggerType, string name, string endpoint, bool active, uint256 executionCount, uint256 lastExecutedAt, uint256 agentId)',
   'function recordExecution(bytes32 triggerId, bool success, bytes32 outputHash) external returns (bytes32 executionId)',
   'function getAgentTriggers(uint256 agentId) external view returns (bytes32[])',
   'event TriggerRegistered(bytes32 indexed triggerId, address owner, string name)',
@@ -252,7 +253,7 @@ export class ExecutorSDK {
     if (request.input.roomId) {
       const message = await this.roomSdk.postMessage(
         BigInt(request.input.roomId),
-        request.agentId,
+        request.agentId.toString(),
         inferenceResult.content,
         actions[0].type,
       )
@@ -415,7 +416,7 @@ export class ExecutorSDK {
       abi: TRIGGER_REGISTRY_ABI,
       functionName: 'getTrigger',
       args: [asHex(triggerId)],
-    })) as [Address, number, string, string, boolean, bigint]
+    })) as [Address, number, string, string, boolean, bigint, bigint, bigint]
 
     expect(active, `Trigger not active: ${triggerId}`)
 
@@ -463,11 +464,12 @@ export class ExecutorSDK {
       functionName: 'registerTriggerWithAgent',
       args: [
         name,
+        `Autonomous trigger for agent ${agentId.toString()}`,
         0,
         cronExpression,
         `agent://${agentId}`,
         300n,
-        2,
+        0,
         options?.pricePerExecution ?? 0n,
         agentId,
       ],
@@ -505,7 +507,16 @@ export class ExecutorSDK {
           abi: TRIGGER_REGISTRY_ABI,
           functionName: 'getTrigger',
           args: [triggerId],
-        })) as [Address, number, string, string, boolean, bigint]
+        })) as [
+          Address,
+          number,
+          string,
+          string,
+          boolean,
+          bigint,
+          bigint,
+          bigint,
+        ]
 
       const triggerTypes = ['cron', 'webhook', 'event', 'room_message'] as const
       if (triggerType < 0 || triggerType >= triggerTypes.length) {
@@ -523,6 +534,19 @@ export class ExecutorSDK {
       })
     }
     return triggers
+  }
+
+  async setTriggerActive(triggerId: string, active: boolean): Promise<void> {
+    if (!this.canWrite()) throw new Error('KMS signer required')
+    expect(triggerId, 'Trigger ID is required')
+    expectTrue(triggerId.length > 0, 'Trigger ID cannot be empty')
+
+    await this.executeWrite({
+      address: this.config.contracts.triggerRegistry,
+      abi: TRIGGER_REGISTRY_ABI,
+      functionName: 'setTriggerActive',
+      args: [asHex(triggerId), active],
+    })
   }
 
   private async buildContext(
@@ -646,7 +670,7 @@ export class ExecutorSDK {
         if (roomId && action.params?.content) {
           await this.roomSdk.postMessage(
             BigInt(roomId),
-            agentId,
+            agentId.toString(),
             String(action.params.content),
           )
           return true
@@ -719,14 +743,77 @@ export class ExecutorSDK {
         return false
 
       default:
-        // Action not handled - log it but don't fail silently
-        this.log.debug('Unhandled action type', {
-          type,
-          params: JSON.stringify(action.params ?? {}),
-          hint: 'This action may need to be routed to the Jeju plugin runtime',
-        })
-        return false
+        // Route to Jeju plugin runtime for DeFi, compute, governance, etc.
+        return this.executePluginAction(agentId, type, action.params ?? {})
     }
+  }
+
+  /**
+   * Execute an action via the Jeju plugin runtime
+   * Handles DeFi, compute, storage, governance, moderation, A2A actions
+   */
+  private async executePluginAction(
+    agentId: bigint,
+    actionType: string,
+    params: ActionParams,
+  ): Promise<boolean> {
+    // Get or create runtime for this agent
+    const agentIdStr = agentId.toString()
+    let runtime = runtimeManager.getRuntime(agentIdStr)
+
+    if (!runtime) {
+      // Try to load agent and create runtime
+      const agent = await this.agentSdk.getAgent(agentId)
+      if (!agent?.characterCid) {
+        this.log.debug(
+          'Cannot execute plugin action - agent not found or no character',
+          {
+            agentId: agentIdStr,
+            actionType,
+          },
+        )
+        return false
+      }
+
+      const character = await this.agentSdk.loadCharacter(agentId)
+      runtime = await runtimeManager.createRuntime({
+        agentId: agentIdStr,
+        character,
+      })
+    }
+
+    // Check if this action exists in the plugin
+    if (!runtime.actionHasHandler(actionType)) {
+      this.log.debug('Action not found in Jeju plugin', {
+        actionType,
+        availableActions: runtime.getExecutableActions().slice(0, 10),
+      })
+      return false
+    }
+
+    // Execute via runtime
+    const stringParams: Record<string, string> = {}
+    for (const [key, value] of Object.entries(params)) {
+      stringParams[key] = String(value)
+    }
+
+    const result = await runtime.executeAction(actionType, stringParams)
+
+    if (result.success) {
+      this.log.info('Plugin action executed', {
+        agentId: agentIdStr,
+        actionType,
+        result: JSON.stringify(result.result ?? {}).slice(0, 200),
+      })
+    } else {
+      this.log.warn('Plugin action failed', {
+        agentId: agentIdStr,
+        actionType,
+        error: result.error ?? 'Unknown error',
+      })
+    }
+
+    return result.success
   }
 
   private estimateCost(maxTokens: number = 2048): bigint {

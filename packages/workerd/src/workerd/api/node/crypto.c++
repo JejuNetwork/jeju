@@ -64,7 +64,7 @@ jsg::BufferSource CryptoImpl::getPbkdf(jsg::Lock& js,
       digest, TypeError, "Invalid Pbkdf2 digest: ", name, internalDescribeOpensslErrors());
   JSG_REQUIRE(password.size() <= INT32_MAX, RangeError, "Pbkdf2 failed: password is too large");
   JSG_REQUIRE(salt.size() <= INT32_MAX, RangeError, "Pbkdf2 failed: salt is too large");
-  // Note: The user could DoS us by selecting a very high iteration count. As with the Web Crypto
+  // The user could DoS us by selecting a very high iteration count. As with the Web Crypto
   // API, intentionally limit the maximum iteration count.
   checkPbkdfLimits(js, num_iterations);
 
@@ -1044,7 +1044,7 @@ jsg::Ref<CryptoImpl::AeadHandle> CryptoImpl::AeadHandle::construct(jsg::Lock& js
 
   bool encrypt = mode == CipherMode::CIPHER;
 
-  // Note: kNoAuthTagLength is -1, and is used within the implementation of the node:crypto API,
+  // kNoAuthTagLength is -1, and is used within the implementation of the node:crypto API,
   // while EVP_AEAD_DEFAULT_TAG_LENGTH is 0 and is used when communicating with BoringSSL
 
   auto ctx = ncrypto::AeadCtxPointer::New(aead, encrypt, keyData.begin(), keyData.size(),

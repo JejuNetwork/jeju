@@ -7,25 +7,29 @@
  * - Docker services (SQLit, IPFS)
  * - Contract bootstrap
  *
+ * CRITICAL: This setup REQUIRES contracts to be deployed.
+ * Tests will NOT skip if contracts are missing - they will FAIL HARD.
+ *
  * Usage in bunfig.toml:
  *   preload = ["@jejunetwork/tests/bun-global-setup"]
  */
 
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   CORE_PORTS,
   getDWSComputeUrl,
-  getDwsApiUrl,
+  getDWSUrl,
   getIpfsApiUrl,
   getLocalhostHost,
   getServiceUrl,
   getSQLitBlockProducerUrl,
   getStorageApiEndpoint,
   INFRA_PORTS,
+  TEST_ACCOUNTS,
 } from '@jejunetwork/config'
-
 import type { Subprocess } from 'bun'
+import { execa } from 'execa'
 import type { InfraStatus } from './schemas'
 import {
   checkContractsDeployed,
@@ -33,6 +37,12 @@ import {
   isRpcAvailable,
   isServiceAvailable,
 } from './utils'
+
+// Well-known dev deployer private key (Anvil default)
+const DEPLOYER_KEY =
+  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
+
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 // Infrastructure state
 let jejuDevProcess: Subprocess | null = null
@@ -57,8 +67,8 @@ const DOCKER_SERVICES = {
   },
 } as const
 
-// Environment URLs
-const DWS_URL = getDwsApiUrl()
+// Environment URLs - use network-aware config for localnet
+const DWS_URL = getDWSUrl('localnet')
 
 async function checkDockerService(
   port: number,
@@ -131,12 +141,26 @@ async function startJejuDev(rootDir: string): Promise<boolean> {
     if (await isRpcAvailable(l2RpcUrl)) {
       console.log('  ✅ Localnet ready')
 
-      // Also check if contracts are deployed
-      if (await checkContractsDeployed(l2RpcUrl)) {
+      // Wait for contracts to be deployed (jeju dev should handle this)
+      console.log('  Waiting for contracts...')
+      for (let j = 0; j < 60; j++) {
+        if (await checkContractsDeployed(l2RpcUrl)) {
+          console.log('  ✅ Contracts deployed')
+          return true
+        }
+        await Bun.sleep(1000)
+      }
+      console.log('  ⚠️  Contracts not deployed after 60s, will deploy now...')
+
+      // Deploy contracts ourselves if jeju dev didn't do it
+      const deployed = await deployContractsIfNeeded(rootDir, l2RpcUrl)
+      if (deployed) {
         console.log('  ✅ Contracts deployed')
+        return true
       }
 
-      return true
+      console.error('❌ Failed to deploy contracts')
+      return false
     }
     await Bun.sleep(1000)
   }
@@ -155,6 +179,174 @@ async function stopProcess(proc: Subprocess | null): Promise<void> {
   } catch {
     // Process may already be dead
   }
+}
+
+/**
+ * Verify contracts are deployed ON-CHAIN, not just that the file exists.
+ * This catches cases where chain was reset but deployment file still exists.
+ */
+async function verifyContractsOnChain(
+  rootDir: string,
+  rpcUrl: string,
+): Promise<{ verified: boolean; error?: string }> {
+  const bootstrapFile = join(
+    rootDir,
+    'packages/contracts/deployments/localnet-complete.json',
+  )
+
+  // Check 1: Bootstrap file must exist
+  if (!existsSync(bootstrapFile)) {
+    return {
+      verified: false,
+      error: `Bootstrap file not found: ${bootstrapFile}`,
+    }
+  }
+
+  // Check 2: Bootstrap file must have valid contracts
+  const data = JSON.parse(readFileSync(bootstrapFile, 'utf-8'))
+  const contracts = data?.contracts
+  if (
+    !contracts ||
+    !contracts.jnsRegistry ||
+    contracts.jnsRegistry === ZERO_ADDRESS
+  ) {
+    return {
+      verified: false,
+      error: 'JNS Registry not found in bootstrap file',
+    }
+  }
+
+  // Check 3: Verify contract is actually deployed on-chain
+  const contractAddress = contracts.jnsRegistry as string
+  try {
+    const response = await fetch(rpcUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_getCode',
+        params: [contractAddress, 'latest'],
+        id: 1,
+      }),
+      signal: AbortSignal.timeout(10000),
+    })
+
+    if (!response.ok) {
+      return {
+        verified: false,
+        error: `RPC request failed: ${response.status}`,
+      }
+    }
+
+    const result = await response.json()
+    const code = result.result as string
+
+    if (!code || code === '0x' || code.length < 4) {
+      return {
+        verified: false,
+        error: `JNS Registry at ${contractAddress} has no code on-chain (chain may have been reset)`,
+      }
+    }
+
+    return { verified: true }
+  } catch (error) {
+    return {
+      verified: false,
+      error: `Failed to verify contract: ${error instanceof Error ? error.message : String(error)}`,
+    }
+  }
+}
+
+/**
+ * Deploy contracts if they aren't already deployed ON-CHAIN
+ */
+async function deployContractsIfNeeded(
+  rootDir: string,
+  rpcUrl: string,
+): Promise<boolean> {
+  // Check if already deployed ON-CHAIN (not just file exists)
+  const verification = await verifyContractsOnChain(rootDir, rpcUrl)
+  if (verification.verified) {
+    return true
+  }
+  console.log(`  Contracts need deployment: ${verification.error}`)
+
+  const bootstrapScript = join(
+    rootDir,
+    'packages/deployment/scripts/bootstrap-localnet-complete.ts',
+  )
+
+  // Run bootstrap script
+  if (!existsSync(bootstrapScript)) {
+    console.error(`Bootstrap script not found: ${bootstrapScript}`)
+    return false
+  }
+
+  try {
+    console.log('  Running bootstrap script...')
+    await execa('bun', ['run', bootstrapScript], {
+      cwd: rootDir,
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        JEJU_RPC_URL: rpcUrl,
+        L2_RPC_URL: rpcUrl,
+        DEPLOYER_PRIVATE_KEY: DEPLOYER_KEY,
+      },
+      timeout: 900000, // 15 minute timeout (full bootstrap can be slow on CI)
+    })
+
+    // Verify deployment ON-CHAIN
+    const postDeployVerification = await verifyContractsOnChain(rootDir, rpcUrl)
+    if (!postDeployVerification.verified) {
+      console.error(
+        '  Contract deployment verification failed:',
+        postDeployVerification.error,
+      )
+      return false
+    }
+    return true
+  } catch (error) {
+    console.error('Contract deployment failed:', error)
+    return false
+  }
+}
+
+/**
+ * Wait for contracts to be deployed ON-CHAIN, or deploy them
+ * This performs actual on-chain verification, not just file checks.
+ */
+async function ensureContractsDeployed(
+  rootDir: string,
+  rpcUrl: string,
+): Promise<boolean> {
+  // First check if already deployed ON-CHAIN
+  const initialCheck = await verifyContractsOnChain(rootDir, rpcUrl)
+  if (initialCheck.verified) {
+    return true
+  }
+
+  // Wait a bit for jeju dev to deploy them
+  console.log('Waiting for contracts to be deployed on-chain...')
+  for (let i = 0; i < 30; i++) {
+    const check = await verifyContractsOnChain(rootDir, rpcUrl)
+    if (check.verified) {
+      return true
+    }
+    await Bun.sleep(1000)
+  }
+
+  // Deploy ourselves if still not deployed
+  console.log('Contracts not deployed on-chain, deploying now...')
+  const deployed = await deployContractsIfNeeded(rootDir, rpcUrl)
+
+  if (!deployed) {
+    // Final verification to provide clear error
+    const finalCheck = await verifyContractsOnChain(rootDir, rpcUrl)
+    console.error('  Final verification:', finalCheck.error)
+  }
+
+  return deployed
 }
 
 /**
@@ -271,6 +463,39 @@ export async function setup(): Promise<void> {
     )
   }
 
+  // Contracts MUST be deployed - enforce this
+  const contractsReady = await ensureContractsDeployed(rootDir, status.rpcUrl)
+  if (!contractsReady) {
+    console.error('')
+    console.error(
+      '╔══════════════════════════════════════════════════════════════╗',
+    )
+    console.error(
+      '║  ❌ TESTS CANNOT RUN: Contracts not deployed                 ║',
+    )
+    console.error(
+      '╠══════════════════════════════════════════════════════════════╣',
+    )
+    console.error(
+      '║  Contracts are required for tests to run.                    ║',
+    )
+    console.error(
+      '║                                                              ║',
+    )
+    console.error(
+      '║  Start with: bun run jeju dev                                ║',
+    )
+    console.error(
+      '║  Or deploy:  bun run packages/deployment/scripts/bootstrap-localnet-complete.ts ║',
+    )
+    console.error(
+      '╚══════════════════════════════════════════════════════════════╝',
+    )
+    console.error('')
+    throw new Error('Contracts not deployed. Run: bun run jeju dev')
+  }
+  console.log('✅ Contracts deployed and verified')
+
   setEnvVars(status)
 
   // Create test output directory
@@ -308,6 +533,10 @@ function setEnvVars(status: InfraStatus): void {
   process.env.JEJU_RPC_URL = status.rpcUrl
   process.env.JEJU_L1_RPC_URL = `http://${host}:${L1_PORT}`
   process.env.DWS_URL = status.dwsUrl
+
+  // Standard localnet test wallet (Anvil default)
+  process.env.DEPLOYER_PRIVATE_KEY = TEST_ACCOUNTS.DEPLOYER.privateKey
+  process.env.TEST_WALLET_ADDRESS = TEST_ACCOUNTS.DEPLOYER.address
 
   // Use config helpers for service URLs
   process.env.STORAGE_API_URL =

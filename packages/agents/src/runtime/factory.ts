@@ -225,8 +225,8 @@ Your capabilities include:
 
 Always act in accordance with your goals and directives while respecting risk limits.`
 
-    // Note: Character.plugins is for plugin names (string[]), not Plugin objects
-    // The actual Plugin objects are passed to the runtime separately via options.plugins
+    // Character.plugins is for plugin names (string[]), not Plugin objects.
+    // The actual Plugin objects are passed to the runtime separately via options.plugins.
     const pluginNames = plugins.map((p) => p.name)
 
     return {

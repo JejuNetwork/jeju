@@ -14,7 +14,7 @@ test.describe('Smoke Tests', () => {
 
     const data = await response.json()
     expect(data.status).toBe('ok')
-    expect(data.service).toBe('jeju-council')
+    expect(data.service).toBe('jeju-board')
     expect(data.tee).toBeDefined()
   })
 
@@ -47,7 +47,7 @@ test.describe('Smoke Tests', () => {
     expect(response.ok()).toBeTruthy()
 
     const data = await response.json()
-    expect(data.server).toBe('jeju-council')
+    expect(data.server).toBe('jeju-board')
     expect(data.version).toBeDefined()
     expect(data.resources).toBeDefined()
     expect(data.tools).toBeDefined()

@@ -15,6 +15,7 @@ import type {
   RoomPhase,
   RoomState,
   RoomType,
+  SearchResult,
 } from '../../lib/types'
 import { expect, expectTrue } from '../schemas'
 import type { KMSSigner } from './kms-signer'
@@ -59,6 +60,7 @@ const ROOM_REGISTRY_ABI = parseAbi([
   'function getMembers(uint256 roomId) external view returns (uint256[], uint8[])',
   'function getMember(uint256 roomId, uint256 agentId) external view returns ((uint256 agentId, uint8 role, int256 score, uint256 joinedAt, uint256 lastActiveAt, uint256 messageCount, bool active))',
   'function setPhase(uint256 roomId, uint8 phase) external',
+  'function nextRoomId() external view returns (uint256)',
   'function rooms(uint256 roomId) external view returns (uint256 roomId, address owner, string name, string description, string stateCid, uint8 roomType, uint8 phase, uint256 maxMembers, bool turnBased, uint256 turnTimeout, uint256 createdAt, uint256 updatedAt, bool active)',
   'event RoomCreated(uint256 indexed roomId, address owner, string name)',
   'event MemberJoined(uint256 indexed roomId, uint256 indexed agentId, uint8 role)',
@@ -85,7 +87,6 @@ export class RoomSDK {
     this.config = sdkConfig.crucibleConfig
     this.storage = sdkConfig.storage
     this.publicClient = sdkConfig.publicClient
-    this.kmsSigner = sdkConfig.kmsSigner
     this.kmsSigner = sdkConfig.kmsSigner
     this.log = sdkConfig.logger ?? createLogger('RoomSDK')
   }
@@ -165,8 +166,85 @@ export class RoomSDK {
     }
     const roomId = BigInt(topic)
 
+    // Update the room state on-chain with the IPFS CID
+    await this.executeWrite({
+      address: this.config.contracts.roomRegistry,
+      abi: ROOM_REGISTRY_ABI,
+      functionName: 'updateRoomState',
+      args: [roomId, stateCid],
+    })
+
     this.log.info('Room created', { roomId: roomId.toString(), stateCid })
     return { roomId, stateCid }
+  }
+
+  /**
+   * Search for rooms with optional filters
+   */
+  async searchRooms(filters: {
+    name?: string
+    roomType?: RoomType
+    active?: boolean
+    limit?: number
+    offset?: number
+  }): Promise<SearchResult<Room>> {
+    const limit = filters.limit ?? 20
+    const offset = filters.offset ?? 0
+
+    this.log.debug('Searching rooms', filters)
+
+    // For now, we'll iterate through room IDs and filter
+    // In production, this would use an indexer/subgraph
+    const rooms: Room[] = []
+    let total = 0
+    const maxIterations = 1000 // Safety limit
+
+    const nextRoomId = (await this.publicClient.readContract({
+      address: this.config.contracts.roomRegistry,
+      abi: ROOM_REGISTRY_ABI,
+      functionName: 'nextRoomId',
+    })) as bigint
+
+    if (nextRoomId <= 1n) {
+      return { items: [], total: 0, hasMore: false }
+    }
+
+    const lastRoomId = nextRoomId - 1n
+    const maxRoomId =
+      lastRoomId > BigInt(maxIterations) ? BigInt(maxIterations) : lastRoomId
+    let roomId = 1n
+
+    while (rooms.length < limit + offset && roomId <= maxRoomId) {
+      const room = await this.getRoom(roomId)
+      roomId++
+
+      if (!room) continue
+
+      // Apply filters
+      if (
+        filters.name &&
+        !room.name.toLowerCase().includes(filters.name.toLowerCase())
+      ) {
+        continue
+      }
+      if (filters.roomType && room.roomType !== filters.roomType) {
+        continue
+      }
+      if (filters.active !== undefined && room.active !== filters.active) {
+        continue
+      }
+
+      total++
+      if (total > offset) {
+        rooms.push(room)
+      }
+    }
+
+    return {
+      items: rooms.slice(0, limit),
+      total,
+      hasMore: rooms.length > limit,
+    }
   }
 
   async getRoom(roomId: bigint): Promise<Room | null> {
@@ -296,7 +374,7 @@ export class RoomSDK {
 
   async postMessage(
     roomId: bigint,
-    agentId: bigint,
+    agentId: string,
     content: string,
     action?: string,
   ): Promise<RoomMessage> {
@@ -304,7 +382,7 @@ export class RoomSDK {
       throw new Error('Signer required for post message (KMS or wallet)')
     }
     expectTrue(roomId > 0n, 'Room ID must be greater than 0')
-    expectTrue(agentId > 0n, 'Agent ID must be greater than 0')
+    expect(agentId, 'Agent ID is required')
     expect(content, 'Message content is required')
     expectTrue(
       content.length > 0 && content.length <= 10000,
@@ -313,13 +391,13 @@ export class RoomSDK {
 
     this.log.debug('Posting message', {
       roomId: roomId.toString(),
-      agentId: agentId.toString(),
+      agentId,
     })
 
     const state = await this.loadState(roomId)
     const message: RoomMessage = {
       id: crypto.randomUUID(),
-      agentId: agentId.toString(),
+      agentId,
       content,
       timestamp: Date.now(),
       action,
@@ -430,11 +508,11 @@ export class RoomSDK {
   }
 
   private roomTypeToNumber(type: RoomType): number {
-    return { collaboration: 0, adversarial: 1, debate: 2, council: 3 }[type]
+    return { collaboration: 0, adversarial: 1, debate: 2, board: 3 }[type]
   }
 
   private numberToRoomType(num: number): RoomType {
-    const types = ['collaboration', 'adversarial', 'debate', 'council'] as const
+    const types = ['collaboration', 'adversarial', 'debate', 'board'] as const
     if (num < 0 || num >= types.length) {
       throw new Error(
         `Invalid room type number: ${num}. Must be 0-${types.length - 1}`,

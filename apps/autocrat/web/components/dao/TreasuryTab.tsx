@@ -405,7 +405,7 @@ export function TreasuryTab({ dao }: TreasuryTabProps) {
               {dao.fundingConfig.quadraticEnabled ? 'Enabled' : 'Disabled'}
             </span>
             <span style={{ color: 'var(--text-tertiary)' }}>
-              CEO Weight Cap: {dao.fundingConfig.ceoWeightCap}%
+              Director Weight Cap: {dao.fundingConfig.directorWeightCap}%
             </span>
           </div>
         </div>

@@ -2,11 +2,7 @@
  * Wallet authentication flow tests with Synpress
  */
 
-// Must import zod-compat before synpress for Zod 4 compatibility
-import '@jejunetwork/tests/zod-compat'
 import { defineWalletSetup, testWithSynpress } from '@synthetixio/synpress'
-// Must import zod-compat before synpress for Zod 4 compatibility
-import '@jejunetwork/tests/zod-compat'
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright'
 
 const SEED_PHRASE =

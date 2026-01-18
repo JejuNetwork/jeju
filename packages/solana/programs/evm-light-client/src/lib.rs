@@ -36,8 +36,8 @@ use solana_program::keccak;
 mod verification_key;
 use verification_key as vk;
 
-/// CPI helpers module for cross-program invocation
-/// Note: Named `cpi_helpers` to avoid conflict with Anchor's generated `cpi` module
+/// CPI helpers module for cross-program invocation.
+/// Named `cpi_helpers` to avoid conflict with Anchor's generated `cpi` module.
 #[cfg(feature = "cpi")]
 pub mod cpi_helpers;
 

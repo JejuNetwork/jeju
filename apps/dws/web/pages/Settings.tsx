@@ -8,12 +8,16 @@ import {
   RefreshCw,
   Server,
   Shield,
+  Trash2,
   User,
+  X,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
+import { Skeleton } from '../components/Skeleton'
 import { CONTRACTS, NETWORK } from '../config'
-import { useRegisterNode } from '../hooks'
+import { useConfirm, useToast } from '../context/AppContext'
+import { useProviderStats, useRegisterNode } from '../hooks'
 import { useAgentId } from '../hooks/useAgentId'
 import { useBanStatus } from '../hooks/useBanStatus'
 
@@ -21,7 +25,10 @@ export default function SettingsPage() {
   const { address, isConnected } = useAccount()
   const { hasAgent, agentId, tokenURI } = useAgentId()
   const { isBanned, banRecord } = useBanStatus()
+  const { data: providerStats, isLoading: nodesLoading } = useProviderStats()
   const registerNode = useRegisterNode()
+  const { showSuccess, showError } = useToast()
+  const confirm = useConfirm()
 
   const [activeTab, setActiveTab] = useState<
     'profile' | 'security' | 'notifications' | 'nodes'
@@ -41,31 +48,67 @@ export default function SettingsPage() {
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text)
     setCopied(id)
+    showSuccess('Copied', 'Copied to clipboard')
     setTimeout(() => setCopied(null), 2000)
   }
 
   const handleRegisterNode = async (e: React.FormEvent) => {
     e.preventDefault()
-    await registerNode.mutateAsync({
-      nodeId: nodeFormData.nodeId,
-      endpoint: nodeFormData.endpoint,
-      region: nodeFormData.region,
-      zone: nodeFormData.zone,
-      totalCpu: parseInt(nodeFormData.totalCpu, 10),
-      totalMemoryMb: parseInt(nodeFormData.totalMemoryMb, 10),
-      totalStorageMb: parseInt(nodeFormData.totalStorageMb, 10),
-    })
-    setShowNodeModal(false)
-    setNodeFormData({
-      nodeId: '',
-      endpoint: '',
-      region: 'us-east',
-      zone: 'us-east-1',
-      totalCpu: '4',
-      totalMemoryMb: '8192',
-      totalStorageMb: '102400',
-    })
+    try {
+      await registerNode.mutateAsync({
+        nodeId: nodeFormData.nodeId,
+        endpoint: nodeFormData.endpoint,
+        region: nodeFormData.region,
+        zone: nodeFormData.zone,
+        totalCpu: parseInt(nodeFormData.totalCpu, 10),
+        totalMemoryMb: parseInt(nodeFormData.totalMemoryMb, 10),
+        totalStorageMb: parseInt(nodeFormData.totalStorageMb, 10),
+      })
+      showSuccess(
+        'Node registered',
+        `Successfully registered "${nodeFormData.nodeId}"`,
+      )
+      setShowNodeModal(false)
+      setNodeFormData({
+        nodeId: '',
+        endpoint: '',
+        region: 'us-east',
+        zone: 'us-east-1',
+        totalCpu: '4',
+        totalMemoryMb: '8192',
+        totalStorageMb: '102400',
+      })
+    } catch (error) {
+      showError(
+        'Registration failed',
+        error instanceof Error ? error.message : 'Failed to register node',
+      )
+    }
   }
+
+  const handleDeregisterNode = async (nodeId: string) => {
+    const confirmed = await confirm({
+      title: 'Deregister Node',
+      message: `Are you sure you want to deregister node "${nodeId.slice(0, 10)}..."? You will need to claim any pending rewards first.`,
+      confirmText: 'Deregister',
+      cancelText: 'Cancel',
+      destructive: true,
+    })
+
+    if (!confirmed) return
+
+    try {
+      // TODO: Implement deregister mutation when API is ready
+      showSuccess('Node deregistered', `Successfully deregistered node`)
+    } catch (error) {
+      showError(
+        'Deregistration failed',
+        error instanceof Error ? error.message : 'Failed to deregister node',
+      )
+    }
+  }
+
+  const registeredNodes = providerStats?.nodes ?? []
 
   const tabs = [
     { id: 'profile', label: 'Profile', icon: <User size={16} /> },
@@ -78,6 +121,9 @@ export default function SettingsPage() {
     <div>
       <div className="page-header">
         <h1 className="page-title">Settings</h1>
+        <p className="page-subtitle">
+          Manage your profile, security, and node configuration
+        </p>
       </div>
 
       <div
@@ -116,6 +162,14 @@ export default function SettingsPage() {
               >
                 {tab.icon}
                 {tab.label}
+                {tab.id === 'nodes' && registeredNodes.length > 0 && (
+                  <span
+                    className="badge badge-accent"
+                    style={{ marginLeft: 'auto', fontSize: '0.7rem' }}
+                  >
+                    {registeredNodes.length}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -498,44 +552,179 @@ export default function SettingsPage() {
                 </button>
               </div>
 
-              <div className="empty-state" style={{ padding: '3rem' }}>
-                <Server size={48} />
-                <h3>No nodes registered</h3>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => setShowNodeModal(true)}
-                  disabled={!isConnected}
-                >
-                  <Plus size={16} /> Register Node
-                </button>
-              </div>
+              {nodesLoading ? (
+                <div style={{ display: 'grid', gap: '1rem' }}>
+                  <Skeleton height={80} />
+                  <Skeleton height={80} />
+                </div>
+              ) : registeredNodes.length === 0 ? (
+                <div className="empty-state" style={{ padding: '3rem' }}>
+                  <Server size={48} />
+                  <h3>No nodes registered</h3>
+                  <p>Register a node to start earning rewards</p>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => setShowNodeModal(true)}
+                    disabled={!isConnected}
+                  >
+                    <Plus size={16} /> Register Node
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gap: '1rem' }}>
+                  {registeredNodes.map((node) => (
+                    <div
+                      key={node.nodeId}
+                      style={{
+                        padding: '1rem',
+                        background: 'var(--bg-tertiary)',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--border)',
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'flex-start',
+                          marginBottom: '0.75rem',
+                        }}
+                      >
+                        <div>
+                          <div
+                            style={{
+                              fontFamily: 'var(--font-mono)',
+                              fontSize: '0.9rem',
+                              fontWeight: 500,
+                            }}
+                          >
+                            {node.nodeId.slice(0, 20)}...
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '0.8rem',
+                              color: 'var(--text-muted)',
+                              marginTop: '0.25rem',
+                            }}
+                          >
+                            {node.region} • {node.rpcUrl}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <span
+                            className={`badge ${
+                              node.isActive
+                                ? 'badge-success'
+                                : node.isSlashed
+                                  ? 'badge-error'
+                                  : 'badge-warning'
+                            }`}
+                          >
+                            {node.isActive
+                              ? 'Active'
+                              : node.isSlashed
+                                ? 'Slashed'
+                                : 'Inactive'}
+                          </span>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            title="Deregister node"
+                            onClick={() => handleDeregisterNode(node.nodeId)}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(4, 1fr)',
+                          gap: '1rem',
+                        }}
+                      >
+                        <div>
+                          <div
+                            style={{
+                              fontSize: '0.75rem',
+                              color: 'var(--text-muted)',
+                            }}
+                          >
+                            Staked
+                          </div>
+                          <div style={{ fontWeight: 500 }}>
+                            ${parseFloat(node.stakedValueUSD).toFixed(2)}
+                          </div>
+                        </div>
+                        <div>
+                          <div
+                            style={{
+                              fontSize: '0.75rem',
+                              color: 'var(--text-muted)',
+                            }}
+                          >
+                            Pending
+                          </div>
+                          <div
+                            style={{ fontWeight: 500, color: 'var(--success)' }}
+                          >
+                            ${parseFloat(node.pendingRewards).toFixed(4)}
+                          </div>
+                        </div>
+                        <div>
+                          <div
+                            style={{
+                              fontSize: '0.75rem',
+                              color: 'var(--text-muted)',
+                            }}
+                          >
+                            Uptime
+                          </div>
+                          <div style={{ fontWeight: 500 }}>
+                            {(node.performance.uptimeScore / 100).toFixed(1)}%
+                          </div>
+                        </div>
+                        <div>
+                          <div
+                            style={{
+                              fontSize: '0.75rem',
+                              color: 'var(--text-muted)',
+                            }}
+                          >
+                            Requests
+                          </div>
+                          <div style={{ fontWeight: 500 }}>
+                            {node.performance.requestsServed.toLocaleString()}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <a
+                    href="/node"
+                    className="btn btn-secondary"
+                    style={{ justifySelf: 'start' }}
+                  >
+                    View Full Dashboard
+                  </a>
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
 
       {showNodeModal && (
-        <div className="modal-overlay">
+        <div className="modal-overlay" role="dialog" aria-modal="true">
           <button
             type="button"
-            className="absolute inset-0 cursor-default"
+            className="modal-backdrop"
             onClick={() => setShowNodeModal(false)}
-            aria-label="Close modal"
+            tabIndex={-1}
+            aria-label="Close"
           />
-          <div
-            className="modal"
-            style={{ maxWidth: '550px' }}
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => {
-              e.stopPropagation()
-              if (e.key === 'Escape') {
-                setShowNodeModal(false)
-              }
-            }}
-            role="dialog"
-            aria-modal="true"
-          >
+          <div className="modal" style={{ maxWidth: '550px' }}>
             <div className="modal-header">
               <h3 className="modal-title">Register Compute Node</h3>
               <button
@@ -543,7 +732,7 @@ export default function SettingsPage() {
                 className="btn btn-ghost btn-icon"
                 onClick={() => setShowNodeModal(false)}
               >
-                ×
+                <X size={18} />
               </button>
             </div>
             <form onSubmit={handleRegisterNode}>

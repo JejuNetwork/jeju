@@ -95,7 +95,7 @@ contract CloudReputationProvider is IReputationProvider, Ownable, Pausable, Reen
     uint8 public autobanThreshold = 20; // Score below 20/100
 
     // ============ Events ============
-    // Note: ReputationSet, ViolationRecorded (with uint8), and BanProposalRequested (with uint8)
+    // ReputationSet, ViolationRecorded (with uint8), and BanProposalRequested (with uint8)
     // are inherited from IReputationProvider
 
     event ViolationRecorded(

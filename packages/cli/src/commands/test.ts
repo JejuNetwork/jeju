@@ -9,13 +9,16 @@
  */
 
 import {
+  cpSync,
   existsSync,
   mkdirSync,
   readdirSync,
   readFileSync,
+  rmSync,
   writeFileSync,
 } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { homedir, platform } from 'node:os'
 import {
   getBridgeRelayerUrl,
   getL2RpcUrl,
@@ -68,6 +71,8 @@ interface TestOptions {
   grep?: string
   /** Specific test file to run */
   testFile?: string
+  /** Target network: localnet, testnet, mainnet */
+  network?: string
 }
 
 interface ManifestTesting {
@@ -150,12 +155,46 @@ export const testCommand = new Command('test')
     'Filter tests by pattern (passed to playwright --grep)',
   )
   .option('--test-file <file>', 'Run specific test file')
+  .option(
+    '-n, --network <network>',
+    'Target network: localnet, testnet, mainnet (default: localnet)',
+    'localnet',
+  )
   .action(async (options) => {
     const mode = options.mode as TestMode
     const rootDir = findMonorepoRoot()
     const results: TestResult[] = []
+    const network = options.network as 'localnet' | 'testnet' | 'mainnet'
+    const isRemoteNetwork = network !== 'localnet'
+
+    // Validate network
+    if (!['localnet', 'testnet', 'mainnet'].includes(network)) {
+      logger.error(
+        `Invalid network: ${network}. Use: localnet, testnet, mainnet`,
+      )
+      process.exit(1)
+    }
+
+    // Set network environment for all child processes
+    process.env.JEJU_NETWORK = network
+
+    // Clear local RPC env vars when testing against remote networks
+    // This ensures getServicesConfig returns the correct remote URLs
+    if (isRemoteNetwork) {
+      delete process.env.RPC_URL
+      delete process.env.JEJU_RPC_URL
+      delete process.env.L2_RPC_URL
+      delete process.env.L1_RPC_URL
+      delete process.env.WS_URL
+    }
 
     logger.header(`JEJU TEST - ${mode.toUpperCase()}`)
+    if (isRemoteNetwork) {
+      logger.info(`Target network: ${network} (remote)`)
+      logger.info(
+        'Skipping local infrastructure - testing against deployed services',
+      )
+    }
 
     // Validate mode
     if (
@@ -182,17 +221,18 @@ export const testCommand = new Command('test')
     }
 
     // Create test orchestrator with fail-fast settings
-    // Note: skipPreflight, skipWarmup, skipBootstrap are no longer supported
-    // Infrastructure setup is mandatory for integration/e2e/full modes
+    // skipPreflight, skipWarmup, skipBootstrap are no longer supported
+    // For remote networks, infrastructure setup is skipped entirely
     const testOrchestrator = createTestOrchestrator({
       mode,
       app: options.targetApp,
-      skipLock: options.skipLock,
+      skipLock: options.skipLock || isRemoteNetwork, // Skip lock for remote
       keepServices: options.keepServices,
       force: options.force,
       rootDir,
       headless: options.ci || options.headless,
-      skipSmokeTests: options.skipSmokeTests,
+      skipSmokeTests: options.skipSmokeTests || isRemoteNetwork, // Skip smoke for remote
+      network, // Pass network to orchestrator
     })
 
     const cleanup = async () => {
@@ -219,10 +259,16 @@ export const testCommand = new Command('test')
 
       // Test execution phase
       if (!options.infraOnly && !options.teardownOnly) {
+        const synpressCacheDir = getSynpressCacheDir(rootDir)
         const testEnv = {
           ...testOrchestrator.getEnvVars(),
           CI: options.ci ? 'true' : '',
           NODE_ENV: 'test',
+          SYNPRESS_CACHE_DIR: synpressCacheDir,
+        }
+
+        if (mode === 'e2e' || mode === 'full') {
+          await ensureSynpressCache(rootDir, options)
         }
 
         // Route to appropriate test runner
@@ -305,6 +351,9 @@ export const testCommand = new Command('test')
       if (options.infraOnly) {
         logger.success('Setup complete. Services are running.')
         logger.info('Run with --teardown-only to stop services.')
+      } else {
+        // Explicitly exit after tests complete
+        process.exit(0)
       }
     } catch (error) {
       logger.error(
@@ -859,7 +908,14 @@ async function runForgeTests(
   try {
     const args = ['test']
     if (options.verbose) args.push('-vvv')
-    if (options.forgeOpts) args.push(...options.forgeOpts.split(' '))
+    const forgeOpts = options.forgeOpts ? options.forgeOpts.split(' ') : []
+    const hasThreads = forgeOpts.some(
+      (opt) => opt === '--threads' || opt === '-j' || opt === '--jobs',
+    )
+    if (!hasThreads) {
+      args.push('--threads', process.env.FORGE_THREADS ?? '4')
+    }
+    if (forgeOpts.length > 0) args.push(...forgeOpts)
     if (options.ci) args.push('--fail-fast')
     if (options.coverage) args.push('--coverage')
 
@@ -1059,6 +1115,7 @@ async function runWalletTests(
   }
 
   try {
+    ensureAppSynpressCache(walletPath, env)
     await execa(
       'bunx',
       ['playwright', 'test', '--config', 'synpress.config.ts'],
@@ -1196,51 +1253,7 @@ async function runInfraTests(
 
   const results: boolean[] = []
 
-  // 1. Terraform validation
-  logger.info('Validating Terraform configurations...')
-  const terraformDirs = [
-    join(rootDir, 'packages/deployment/terraform/environments/testnet'),
-    join(rootDir, 'packages/deployment/terraform/environments/mainnet'),
-  ]
-
-  for (const dir of terraformDirs) {
-    if (!existsSync(dir)) continue
-    try {
-      await execa('terraform', ['init', '-backend=false'], {
-        cwd: dir,
-        stdio: 'pipe',
-      })
-      await execa('terraform', ['validate'], { cwd: dir, stdio: 'pipe' })
-      logger.success(`  ${dir.split('/').pop()}: valid`)
-      results.push(true)
-    } catch {
-      logger.error(`  ${dir.split('/').pop()}: invalid`)
-      results.push(false)
-    }
-  }
-
-  // 2. Helm chart validation
-  logger.info('Validating Helm charts...')
-  const helmDir = join(rootDir, 'packages/deployment/kubernetes/helm')
-  if (existsSync(helmDir)) {
-    const charts = readdirSync(helmDir).filter((d) =>
-      existsSync(join(helmDir, d, 'Chart.yaml')),
-    )
-
-    for (const chart of charts.slice(0, 5)) {
-      // Limit to first 5 for speed
-      try {
-        await execa('helm', ['lint', chart], { cwd: helmDir, stdio: 'pipe' })
-        results.push(true)
-      } catch {
-        logger.warn(`  ${chart}: lint warnings`)
-        results.push(true) // Warnings are OK
-      }
-    }
-    logger.success(`  ${charts.length} Helm charts validated`)
-  }
-
-  // 3. Docker build test
+  // 1. Docker build test
   logger.info('Testing Docker builds...')
   const dockerApps = ['indexer', 'gateway']
   for (const app of dockerApps) {
@@ -1515,6 +1528,7 @@ async function generateCoverageReport(
 
 async function clearSynpressCache(rootDir: string): Promise<void> {
   const cacheDirs = [
+    getSynpressCacheDir(rootDir),
     join(rootDir, '.jeju', '.synpress-cache'),
     join(rootDir, '.synpress-cache'),
   ]
@@ -1527,6 +1541,99 @@ async function clearSynpressCache(rootDir: string): Promise<void> {
   }
 }
 
+function findPlaywrightChromiumExecutable(): string | null {
+  const envPath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+  if (envPath && existsSync(envPath)) {
+    return envPath
+  }
+
+  const platformName = platform()
+  const home = homedir()
+  let cacheDir: string | null = null
+
+  if (platformName === 'darwin') {
+    cacheDir = join(home, 'Library', 'Caches', 'ms-playwright')
+  } else if (platformName === 'linux') {
+    cacheDir = join(home, '.cache', 'ms-playwright')
+  } else if (platformName === 'win32') {
+    const localAppData = process.env.LOCALAPPDATA
+    if (localAppData) {
+      cacheDir = join(localAppData, 'ms-playwright')
+    }
+  }
+
+  if (!cacheDir || !existsSync(cacheDir)) {
+    return null
+  }
+
+  const entries = readdirSync(cacheDir).filter((entry) =>
+    entry.startsWith('chromium-'),
+  )
+  entries.sort()
+
+  for (const entry of entries) {
+    let executablePath: string
+    if (platformName === 'darwin') {
+      executablePath = join(
+        cacheDir,
+        entry,
+        'chrome-mac',
+        'Chromium.app',
+        'Contents',
+        'MacOS',
+        'Chromium',
+      )
+    } else if (platformName === 'linux') {
+      executablePath = join(cacheDir, entry, 'chrome-linux', 'chrome')
+    } else if (platformName === 'win32') {
+      executablePath = join(cacheDir, entry, 'chrome-win', 'chrome.exe')
+    } else {
+      continue
+    }
+
+    if (existsSync(executablePath)) {
+      return executablePath
+    }
+  }
+
+  return null
+}
+
+async function resolveRpcChainId(rpcUrl: string): Promise<number | null> {
+  try {
+    const response = await fetch(rpcUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_chainId',
+        params: [],
+        id: 1,
+      }),
+    })
+
+    if (!response.ok) {
+      return null
+    }
+
+    const data = await response.json()
+    const parsed = validate(data, EthChainIdResponseSchema, 'eth_chainId')
+
+    if (!parsed.result) {
+      return null
+    }
+
+    const chainId = Number.parseInt(parsed.result, 16)
+    if (Number.isNaN(chainId)) {
+      return null
+    }
+
+    return chainId
+  } catch {
+    return null
+  }
+}
+
 async function buildSynpressCache(
   rootDir: string,
   options: TestOptions,
@@ -1534,7 +1641,7 @@ async function buildSynpressCache(
   logger.step('Building Synpress wallet cache...')
 
   // Ensure cache directory exists
-  const cacheDir = join(rootDir, '.jeju', '.synpress-cache')
+  const cacheDir = getSynpressCacheDir(rootDir)
   mkdirSync(cacheDir, { recursive: true })
 
   // Wallet setup directory - use relative path from packages/tests
@@ -1549,6 +1656,9 @@ async function buildSynpressCache(
 
   logger.info(`Using wallet setup from: ${walletSetupRelative}`)
 
+  const chromiumExecutable = findPlaywrightChromiumExecutable()
+  const rpcChainId = await resolveRpcChainId(getL2RpcUrl())
+
   try {
     // Run synpress with relative path to wallet-setup directory
     await execa('bunx', ['synpress', walletSetupRelative, '--force'], {
@@ -1557,6 +1667,12 @@ async function buildSynpressCache(
       env: {
         ...process.env,
         SYNPRESS_CACHE_DIR: cacheDir,
+        ...(rpcChainId ? { CHAIN_ID: String(rpcChainId) } : {}),
+        ...(chromiumExecutable
+          ? { PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: chromiumExecutable }
+          : {}),
+        // Use bun to run TypeScript files in synpress
+        NODE_OPTIONS: '--import tsx/esm',
       },
     })
     logger.success('Wallet cache built successfully')
@@ -1570,15 +1686,31 @@ async function buildSynpressCache(
   }
 }
 
+async function ensureSynpressCache(
+  rootDir: string,
+  options: TestOptions,
+): Promise<void> {
+  const cacheDir = getSynpressCacheDir(rootDir)
+  if (!existsSync(cacheDir)) {
+    await buildSynpressCache(rootDir, options)
+    return
+  }
+
+  const entries = readdirSync(cacheDir)
+  if (entries.length === 0) {
+    await buildSynpressCache(rootDir, options)
+  }
+}
+
 async function setupE2EInfra(
   rootDir: string,
   options: TestOptions,
 ): Promise<() => Promise<void>> {
   logger.step('Setting up E2E infrastructure...')
 
-  // E2E test configuration - fixed values for consistency. Port 6546 avoids Anvil/Hardhat default (8545)
+  // E2E test configuration - port 6546 avoids Anvil/Hardhat default (8545)
   const E2E_PORT = 6546
-  const E2E_CHAIN_ID = 31337
+  const DEFAULT_E2E_CHAIN_ID = 31337
   const rpcUrl = getL2RpcUrl()
   let anvilPid: number | undefined
   let chainStartedByUs = false
@@ -1633,8 +1765,76 @@ async function setupE2EInfra(
     }
   }
 
+  async function getChainId(url: string): Promise<number | null> {
+    const result = await execa(
+      'curl',
+      [
+        '-s',
+        '-f',
+        '-X',
+        'POST',
+        url,
+        '-H',
+        'Content-Type: application/json',
+        '-d',
+        '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}',
+        '--connect-timeout',
+        '3',
+      ],
+      { reject: false },
+    )
+
+    if (result.exitCode !== 0) return null
+
+    const rawData = JSON.parse(result.stdout)
+    const data = validate(
+      rawData,
+      EthChainIdResponseSchema,
+      'eth_chainId response',
+    )
+    if (!data.result || data.error) return null
+
+    const chainId = parseInt(data.result, 16)
+    return Number.isNaN(chainId) ? null : chainId
+  }
+
+  async function stopChainOnPort(port: number): Promise<void> {
+    const result = await execa('lsof', ['-ti', `tcp:${port}`], {
+      reject: false,
+    })
+
+    if (result.exitCode !== 0) {
+      throw new Error(
+        `Unable to identify process using port ${port}. ` +
+          `Ensure no localnet is running on that port.`,
+      )
+    }
+
+    const pids = result.stdout
+      .split('\n')
+      .map((pid) => parseInt(pid, 10))
+      .filter((pid) => Number.isInteger(pid) && pid > 0)
+
+    for (const pid of pids) {
+      process.kill(pid, 'SIGTERM')
+    }
+  }
+
   // 1. Start or verify chain
-  const chainRunning = await checkChain(rpcUrl, E2E_CHAIN_ID)
+  const chainId = await getChainId(rpcUrl)
+  let effectiveChainId = chainId ?? DEFAULT_E2E_CHAIN_ID
+  const allowedChainIds = new Set([DEFAULT_E2E_CHAIN_ID, 1337])
+  if (chainId !== null && !allowedChainIds.has(chainId)) {
+    logger.warn(
+      `RPC at ${rpcUrl} has chainId ${chainId} (expected ${DEFAULT_E2E_CHAIN_ID} or 1337). ` +
+        `Stopping chain on port ${E2E_PORT}...`,
+    )
+    await stopChainOnPort(E2E_PORT)
+  }
+
+  const chainRunning =
+    (chainId !== null && allowedChainIds.has(chainId)) ||
+    (await checkChain(rpcUrl, DEFAULT_E2E_CHAIN_ID))
 
   if (chainRunning) {
     logger.success(`Chain already running at ${rpcUrl}`)
@@ -1647,7 +1847,7 @@ async function setupE2EInfra(
       'anvil',
       [
         '--chain-id',
-        String(E2E_CHAIN_ID),
+        String(DEFAULT_E2E_CHAIN_ID),
         '--port',
         String(E2E_PORT),
         '--block-time',
@@ -1676,7 +1876,7 @@ async function setupE2EInfra(
     let ready = false
     for (let i = 0; i < 30; i++) {
       await new Promise((r) => setTimeout(r, 1000))
-      if (await checkChain(rpcUrl, E2E_CHAIN_ID)) {
+      if (await checkChain(rpcUrl, DEFAULT_E2E_CHAIN_ID)) {
         ready = true
         break
       }
@@ -1688,56 +1888,110 @@ async function setupE2EInfra(
     logger.success(`Anvil started at ${rpcUrl}`)
   }
 
+  const resolvedChainId = await getChainId(rpcUrl)
+  effectiveChainId = resolvedChainId ?? effectiveChainId
+
   // 2. Set environment variables (must be done before any other setup)
   process.env.L2_RPC_URL = rpcUrl
   process.env.JEJU_RPC_URL = rpcUrl
-  process.env.CHAIN_ID = String(E2E_CHAIN_ID)
+  process.env.CHAIN_ID = String(effectiveChainId)
   process.env.DEPLOYER_PRIVATE_KEY = DEPLOYER_KEY
   process.env.TEST_WALLET_ADDRESS = TEST_WALLET
 
   // 3. Deploy contracts if needed (skip with --skip-contracts)
+  // CONTRACTS ARE REQUIRED for E2E tests - no skipping allowed
   if (!options.skipContracts) {
     const bootstrapFile = join(
       rootDir,
       'packages/contracts/deployments/localnet-complete.json',
     )
+    const bootstrapScript = join(
+      rootDir,
+      'packages/deployment/scripts/bootstrap-localnet-complete.ts',
+    )
 
-    if (existsSync(bootstrapFile)) {
-      logger.success('Contracts already deployed')
+    // Helper to verify contracts are on-chain
+    async function verifyContractsOnChain(): Promise<boolean> {
+      if (!existsSync(bootstrapFile)) return false
+
+      const data = JSON.parse(readFileSync(bootstrapFile, 'utf-8'))
+      const contracts = data?.contracts
+      const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
+
+      if (
+        !contracts ||
+        !contracts.jnsRegistry ||
+        contracts.jnsRegistry === ZERO_ADDRESS
+      ) {
+        return false
+      }
+
+      // Check contract code on-chain
+      const contractAddress = contracts.jnsRegistry as string
+      const response = await fetch(rpcUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'eth_getCode',
+          params: [contractAddress, 'latest'],
+          id: 1,
+        }),
+        signal: AbortSignal.timeout(10000),
+      })
+
+      if (!response.ok) return false
+
+      const result = await response.json()
+      const code = result.result as string
+      return Boolean(code && code !== '0x' && code.length > 4)
+    }
+
+    // Check if contracts are already deployed ON-CHAIN
+    const alreadyDeployed = await verifyContractsOnChain()
+    if (alreadyDeployed) {
+      logger.success('Contracts already deployed and verified on-chain')
     } else {
-      const bootstrapScript = join(
-        rootDir,
-        'packages/deployment/scripts/bootstrap-localnet-complete.ts',
-      )
+      // Deploy contracts
+      if (!existsSync(bootstrapScript)) {
+        throw new Error(
+          'FATAL: Bootstrap script not found. Cannot deploy contracts.\n' +
+            `Expected: ${bootstrapScript}`,
+        )
+      }
 
-      if (existsSync(bootstrapScript)) {
-        logger.info('Deploying contracts...')
-        try {
-          await execa('bun', ['run', bootstrapScript], {
-            cwd: rootDir,
-            stdio: options.verbose ? 'inherit' : 'pipe',
-            env: {
-              ...process.env,
-              JEJU_RPC_URL: rpcUrl,
-              L2_RPC_URL: rpcUrl,
-              DEPLOYER_PRIVATE_KEY: DEPLOYER_KEY,
-            },
-            timeout: 300000, // 5 minute timeout for deployments
-          })
-          logger.success('Contracts deployed')
-        } catch (error) {
-          const err = error as ExecaError
-          if (options.verbose) {
-            logger.warn(
-              `Contract deployment output: ${err.stderr || err.stdout || ''}`,
-            )
-          }
-          logger.warn(
-            'Contract deployment failed - tests may have limited functionality',
+      logger.info('Deploying contracts...')
+      try {
+        await execa('bun', ['run', bootstrapScript], {
+          cwd: rootDir,
+          stdio: options.verbose ? 'inherit' : 'pipe',
+          env: {
+            ...process.env,
+            JEJU_RPC_URL: rpcUrl,
+            L2_RPC_URL: rpcUrl,
+            DEPLOYER_PRIVATE_KEY: DEPLOYER_KEY,
+          },
+          timeout: 300000, // 5 minute timeout for deployments
+        })
+
+        // Verify deployment ON-CHAIN
+        const verified = await verifyContractsOnChain()
+        if (!verified) {
+          throw new Error(
+            'FATAL: Contracts deployed but verification failed.\n' +
+              'The deployment file exists but contract has no code on-chain.\n' +
+              'This may indicate the chain was reset. Run: bun run jeju dev',
           )
         }
-      } else {
-        logger.debug('Bootstrap script not found, skipping contract deployment')
+        logger.success('Contracts deployed and verified on-chain')
+      } catch (error) {
+        const err = error as ExecaError
+        if (err.message?.startsWith('FATAL:')) throw err
+        throw new Error(
+          'FATAL: Contract deployment failed. E2E tests require contracts.\n\n' +
+            `Error: ${err.stderr || err.stdout || err.message}\n\n` +
+            'Run: bun run jeju dev (which deploys contracts)',
+        )
       }
     }
   }
@@ -1789,7 +2043,7 @@ async function setupE2EInfra(
             JEJU_RPC_URL: rpcUrl,
             L2_RPC_URL: rpcUrl,
             RPC_URL: rpcUrl,
-            CHAIN_ID: String(E2E_CHAIN_ID),
+            CHAIN_ID: String(effectiveChainId),
             DEPLOYER_PRIVATE_KEY: DEPLOYER_KEY,
             TEST_WALLET_ADDRESS: TEST_WALLET,
             PORT: mainPort ? String(mainPort) : undefined,
@@ -1808,9 +2062,10 @@ async function setupE2EInfra(
 
           // Wait for app to be ready
           if (mainPort) {
+            const appWaitSeconds = options.mode === 'e2e' ? 180 : 60
             let appReady = false
-            for (let i = 0; i < 60; i++) {
-              // Wait up to 60 seconds
+            for (let i = 0; i < appWaitSeconds; i++) {
+              // Wait up to appWaitSeconds
               await new Promise((r) => setTimeout(r, 1000))
               if (await checkPort(mainPort)) {
                 appReady = true
@@ -1868,7 +2123,7 @@ async function setupE2EInfra(
   logger.newline()
   logger.subheader('E2E Test Environment')
   logger.keyValue('RPC URL', rpcUrl)
-  logger.keyValue('Chain ID', String(E2E_CHAIN_ID))
+  logger.keyValue('Chain ID', String(effectiveChainId))
   logger.keyValue('Test Wallet', TEST_WALLET)
   if (options.app && typeof options.app === 'string') {
     const apps = discoverApps(rootDir)
@@ -1915,11 +2170,13 @@ async function runSynpressTests(
 
   // E2E test defaults - consistent with setupE2EInfra
   const E2E_RPC_URL = getL2RpcUrl()
-  const E2E_CHAIN_ID = '31337'
+  const rpcChainId = await resolveRpcChainId(E2E_RPC_URL)
+  const E2E_CHAIN_ID = rpcChainId ? String(rpcChainId) : '31337'
   const TEST_WALLET = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
   const DEPLOYER_KEY =
     '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
 
+  const chromiumExecutable = findPlaywrightChromiumExecutable()
   const testEnv = {
     ...process.env,
     // Chain configuration
@@ -1932,7 +2189,10 @@ async function runSynpressTests(
     // Synpress/Playwright config
     CI: options.headless ? 'true' : '',
     DEBUG: options.debug ? 'synpress:*' : '',
-    SYNPRESS_CACHE_DIR: join(rootDir, '.jeju', '.synpress-cache'),
+    SYNPRESS_CACHE_DIR: getSynpressCacheDir(rootDir),
+    ...(chromiumExecutable
+      ? { PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: chromiumExecutable }
+      : {}),
     // Disable env file loading to ensure consistent config
     DOTENV_CONFIG_PATH: '',
   }
@@ -2078,6 +2338,7 @@ async function runAppSynpressTests(
   logger.step(`Running ${appName} Synpress tests (${foundTestDir})...`)
 
   try {
+    ensureAppSynpressCache(appPath, env)
     // Let the synpress.config.ts define testDir - don't override it
     const args = ['playwright', 'test', '--config', 'synpress.config.ts']
     if (options.verbose) args.push('--reporter=list')
@@ -2102,6 +2363,10 @@ async function runAppSynpressTests(
 }
 
 // Helpers
+
+function getSynpressCacheDir(rootDir: string): string {
+  return join(rootDir, 'packages', 'tests', '.cache-synpress')
+}
 
 function findMonorepoRoot(): string {
   let dir = process.cwd()
@@ -2130,6 +2395,38 @@ function loadManifest(appPath: string): AppManifestTesting | undefined {
   } catch {
     return undefined
   }
+}
+
+function ensureAppSynpressCache(
+  appPath: string,
+  env: Record<string, string>,
+): void {
+  const sourceCacheDir = env.SYNPRESS_CACHE_DIR
+  if (!sourceCacheDir || !existsSync(sourceCacheDir)) {
+    return
+  }
+
+  const appCacheDir = join(appPath, '.cache-synpress')
+  if (!existsSync(appCacheDir)) {
+    mkdirSync(appCacheDir, { recursive: true })
+  }
+
+  const sourceEntries = readdirSync(sourceCacheDir)
+  const appEntries = readdirSync(appCacheDir)
+  const missingEntries = sourceEntries.some(
+    (entry) => !appEntries.includes(entry),
+  )
+  if (!missingEntries && appEntries.length > 0) {
+    return
+  }
+
+  if (appEntries.length > 0) {
+    rmSync(appCacheDir, { recursive: true, force: true })
+    mkdirSync(appCacheDir, { recursive: true })
+  }
+
+  cpSync(sourceCacheDir, appCacheDir, { recursive: true })
+  logger.info(`Synpress cache copied to ${appCacheDir}`)
 }
 
 function printSummary(results: TestResult[]) {

@@ -1,5 +1,6 @@
 import { Brain, Check, Copy, Send, Trash2 } from 'lucide-react'
 import { useState } from 'react'
+import { useToast } from '../../context/AppContext'
 import { useInference } from '../../hooks'
 
 interface Message {
@@ -7,8 +8,28 @@ interface Message {
   content: string
 }
 
+// Current models per network rules
+const MODELS = [
+  { id: 'gpt-5.2', name: 'GPT-5.2', provider: 'OpenAI' },
+  { id: 'gpt-5.2-mini', name: 'GPT-5.2 Mini', provider: 'OpenAI' },
+  { id: 'claude-opus-4.5', name: 'Claude Opus 4.5', provider: 'Anthropic' },
+  { id: 'claude-sonnet-4.5', name: 'Claude Sonnet 4.5', provider: 'Anthropic' },
+  { id: 'gemini3', name: 'Gemini 3', provider: 'Google' },
+  {
+    id: 'llama-4-maverick-17b-128e-instruct',
+    name: 'Llama 4 Maverick',
+    provider: 'Meta',
+  },
+  {
+    id: 'llama-4-scout-17b-16e-instruct',
+    name: 'Llama 4 Scout',
+    provider: 'Meta',
+  },
+]
+
 export default function InferencePage() {
   const inference = useInference()
+  const { showError, showSuccess } = useToast()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [model, setModel] = useState('gpt-5.2')
@@ -23,29 +44,44 @@ export default function InferencePage() {
     setMessages(newMessages)
     setInput('')
 
-    const result = await inference.mutateAsync({
-      model,
-      messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
-    })
+    try {
+      const result = await inference.mutateAsync({
+        model,
+        messages: newMessages.map((m) => ({
+          role: m.role,
+          content: m.content,
+        })),
+      })
 
-    const choice = result.choices[0]
-    if (choice.message.content) {
-      setMessages([
-        ...newMessages,
-        { role: 'assistant', content: choice.message.content },
-      ])
+      const choice = result.choices[0]
+      if (choice.message.content) {
+        setMessages([
+          ...newMessages,
+          { role: 'assistant', content: choice.message.content },
+        ])
+      }
+    } catch (error) {
+      showError(
+        'Inference failed',
+        error instanceof Error ? error.message : 'Failed to get response',
+      )
+      // Remove the user message on error
+      setMessages(messages)
     }
   }
 
   const handleCopy = (text: string, index: number) => {
     navigator.clipboard.writeText(text)
     setCopied(index)
+    showSuccess('Copied', 'Message copied to clipboard')
     setTimeout(() => setCopied(null), 2000)
   }
 
   const handleClear = () => {
     setMessages([])
   }
+
+  const selectedModel = MODELS.find((m) => m.id === model)
 
   return (
     <div>
@@ -61,19 +97,45 @@ export default function InferencePage() {
       >
         <div>
           <h1 className="page-title">AI Inference</h1>
+          <p className="page-subtitle">
+            Chat with state-of-the-art AI models via OpenAI-compatible API
+          </p>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <select
             className="input"
             value={model}
             onChange={(e) => setModel(e.target.value)}
-            style={{ width: 'auto' }}
+            style={{ width: 'auto', minWidth: '200px' }}
           >
-            <option value="gpt-5.2">GPT-5.2</option>
-            <option value="claude-sonnet-4-5">Claude Sonnet 4.5</option>
-            <option value="claude-opus-4-1">Claude Opus 4.1</option>
-            <option value="llama-3.3-70b">Llama 3.3 70B</option>
-            <option value="mixtral-8x7b">Mixtral 8x7B</option>
+            <optgroup label="OpenAI">
+              {MODELS.filter((m) => m.provider === 'OpenAI').map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="Anthropic">
+              {MODELS.filter((m) => m.provider === 'Anthropic').map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="Google">
+              {MODELS.filter((m) => m.provider === 'Google').map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="Meta">
+              {MODELS.filter((m) => m.provider === 'Meta').map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </optgroup>
           </select>
           <button
             type="button"
@@ -89,7 +151,8 @@ export default function InferencePage() {
       <div
         className="card"
         style={{
-          height: 'calc(100vh - 280px)',
+          height: 'calc(100vh - 320px)',
+          minHeight: '400px',
           display: 'flex',
           flexDirection: 'column',
         }}
@@ -115,7 +178,10 @@ export default function InferencePage() {
               }}
             >
               <Brain size={48} />
-              <h3>Start chatting</h3>
+              <h3>Start a conversation</h3>
+              <p>
+                Using {selectedModel?.name} ({selectedModel?.provider})
+              </p>
               <div
                 style={{
                   display: 'grid',
@@ -127,7 +193,7 @@ export default function InferencePage() {
               >
                 {[
                   'Explain quantum computing',
-                  'Write a Python function',
+                  'Write a TypeScript function',
                   'What is blockchain?',
                   'Help me debug code',
                 ].map((prompt) => (
@@ -145,7 +211,7 @@ export default function InferencePage() {
           ) : (
             messages.map((message, i) => (
               <div
-                key={`${message.role}-${message.content.slice(0, 50)}-${i}`}
+                key={`${message.role}-${i}`}
                 style={{
                   display: 'flex',
                   justifyContent:
@@ -196,9 +262,17 @@ export default function InferencePage() {
                   padding: '1rem',
                   borderRadius: 'var(--radius-lg)',
                   background: 'var(--bg-tertiary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
                 }}
               >
                 <div className="spinner" style={{ width: 20, height: 20 }} />
+                <span
+                  style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}
+                >
+                  Thinking...
+                </span>
               </div>
             </div>
           )}

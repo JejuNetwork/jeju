@@ -17,6 +17,7 @@ import {
   type TreasuryWithdrawRequest,
 } from '../../lib/safe-types'
 import { getSafeService } from '../safe-service'
+import { auditLog } from '../security'
 
 // ============================================================================
 // Types for Request/Response
@@ -30,6 +31,26 @@ const HexSchema = t.String({ pattern: '^0x[a-fA-F0-9]*$' })
 // ============================================================================
 
 export const safeRoutes = new Elysia({ prefix: '/api/v1/safe' })
+  // Root endpoint
+  .get(
+    '/',
+    () => ({
+      service: 'safe',
+      status: 'available',
+      description: 'Safe multisig wallet integration service',
+      endpoints: {
+        info: 'GET /api/v1/safe/info/:address',
+        isSafe: 'GET /api/v1/safe/is-safe/:address',
+        owners: 'GET /api/v1/safe/owners/:address',
+        transactions: 'GET /api/v1/safe/transactions/:address',
+        propose: 'POST /api/v1/safe/transactions/propose',
+        submit: 'POST /api/v1/safe/transactions/submit',
+      },
+    }),
+    {
+      detail: { tags: ['safe'], summary: 'Get Safe service info' },
+    },
+  )
   // ==========================================================================
   // Safe Info
   // ==========================================================================
@@ -200,7 +221,14 @@ export const safeRoutes = new Elysia({ prefix: '/api/v1/safe' })
 
   .post(
     '/transactions/propose',
-    async ({ body }) => {
+    async ({ body, request }) => {
+      auditLog('safe_transaction_propose', body.proposer, request, true, {
+        safeAddress: body.safeAddress,
+        to: body.to,
+        value: body.value,
+        title: body.title?.slice(0, 50) ?? '',
+      })
+
       const service = getSafeService()
       const proposal: SafeTransactionProposal = {
         safeAddress: body.safeAddress as Address,
@@ -271,7 +299,14 @@ export const safeRoutes = new Elysia({ prefix: '/api/v1/safe' })
 
   .post(
     '/transactions/submit',
-    async ({ body }) => {
+    async ({ body, request }) => {
+      auditLog('safe_transaction_submit', body.sender, request, true, {
+        safeAddress: body.safeAddress,
+        safeTxHash: body.safeTxHash,
+        to: body.to,
+        value: body.value,
+      })
+
       const service = getSafeService()
 
       // Verify the signature is valid and submit to Safe TX Service
@@ -325,7 +360,11 @@ export const safeRoutes = new Elysia({ prefix: '/api/v1/safe' })
 
   .post(
     '/transactions/:safeTxHash/confirm',
-    async ({ params, body }) => {
+    async ({ params, body, request }) => {
+      auditLog('safe_transaction_confirm', body.signer, request, true, {
+        safeTxHash: params.safeTxHash,
+      })
+
       const service = getSafeService()
 
       // Signer adapter that uses the pre-signed signature from the client
@@ -391,8 +430,15 @@ export const safeRoutes = new Elysia({ prefix: '/api/v1/safe' })
 
   .post(
     '/treasury/propose-withdraw',
-    async ({ body }) => {
-      const request: TreasuryWithdrawRequest = {
+    async ({ body, request }) => {
+      auditLog('treasury_withdraw_propose', body.proposer, request, true, {
+        daoId: body.daoId,
+        token: body.token,
+        amount: body.amount,
+        recipient: body.recipient,
+      })
+
+      const withdrawRequest: TreasuryWithdrawRequest = {
         daoId: body.daoId,
         token: body.token as Address,
         amount: BigInt(body.amount),
@@ -404,20 +450,24 @@ export const safeRoutes = new Elysia({ prefix: '/api/v1/safe' })
 
       // Build the withdrawal calldata
       const isEth =
-        request.token === '0x0000000000000000000000000000000000000000'
+        withdrawRequest.token === '0x0000000000000000000000000000000000000000'
 
       return {
         success: true,
         data: {
           request: {
-            ...request,
-            amount: request.amount.toString(),
+            ...withdrawRequest,
+            amount: withdrawRequest.amount.toString(),
           },
           calldata: {
             functionName: isEth ? 'withdrawETH' : 'withdrawToken',
             args: isEth
-              ? [request.amount.toString(), request.recipient]
-              : [request.token, request.amount.toString(), request.recipient],
+              ? [withdrawRequest.amount.toString(), withdrawRequest.recipient]
+              : [
+                  withdrawRequest.token,
+                  withdrawRequest.amount.toString(),
+                  withdrawRequest.recipient,
+                ],
           },
           message: 'Use this data to propose a Safe transaction',
         },
@@ -443,7 +493,14 @@ export const safeRoutes = new Elysia({ prefix: '/api/v1/safe' })
 
   .post(
     '/treasury/propose-transfer',
-    async ({ body }) => {
+    async ({ body, request }) => {
+      auditLog('treasury_transfer_propose', 'client', request, true, {
+        safeAddress: body.safeAddress,
+        token: body.token,
+        to: body.to,
+        amount: body.amount,
+      })
+
       const isEth = body.token === '0x0000000000000000000000000000000000000000'
 
       return {
@@ -492,7 +549,13 @@ export const safeRoutes = new Elysia({ prefix: '/api/v1/safe' })
 
   .post(
     '/governance/propose',
-    async ({ body }) => {
+    async ({ body, request }) => {
+      auditLog('governance_propose', body.proposer, request, true, {
+        daoId: body.daoId,
+        target: body.target,
+        description: body.description?.slice(0, 50) ?? '',
+      })
+
       const proposal: GovernanceProposal = {
         daoId: body.daoId,
         target: body.target as Address,

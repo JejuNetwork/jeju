@@ -157,12 +157,12 @@ export function createCrossChainModule(
   wallet: BaseWallet,
   network: NetworkType,
 ): CrossChainModule {
-  const xlpStakeManagerAddress = requireContract(
-    'eil',
-    'l1StakeManager',
-    network,
-  )
   const services = getServicesConfig(network)
+
+  // Lazy-load contract addresses - throw on method call if not deployed
+  const getXlpStakeManagerAddress = (): Address => {
+    return requireContract('eil', 'l1StakeManager', network)
+  }
 
   async function getQuote(params: TransferParams): Promise<CrossChainQuote> {
     const quotes = await getQuotes(params)
@@ -342,7 +342,7 @@ export function createCrossChainModule(
     })
 
     return wallet.sendTransaction({
-      to: xlpStakeManagerAddress,
+      to: getXlpStakeManagerAddress(),
       data,
       value: stakeAmount,
     })
@@ -361,7 +361,7 @@ export function createCrossChainModule(
     })
 
     return wallet.sendTransaction({
-      to: xlpStakeManagerAddress,
+      to: getXlpStakeManagerAddress(),
       data,
       value: amount,
     })

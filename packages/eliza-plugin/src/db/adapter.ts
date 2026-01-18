@@ -1191,7 +1191,7 @@ export class SQLitDatabaseAdapter extends DatabaseAdapter<SQLitClient> {
 
   /**
    * Get cached value with optional schema validation
-   * Note: For type safety with external data, provide a schema parameter
+   * For type safety with external data, provide a schema parameter
    */
   async getCache<T>(key: string, schema?: ZodType<T>): Promise<T | undefined> {
     const entry = this.cacheStore.get(key)

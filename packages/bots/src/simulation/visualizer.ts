@@ -7,7 +7,7 @@
  * - Performance dashboards
  * - Risk metrics visualizations
  *
- * Note: This module is serverless-compatible. HTML reports are returned as strings.
+ * This module is serverless-compatible. HTML reports are returned as strings.
  * Use JejuStorageClient or your storage service to persist reports.
  */
 

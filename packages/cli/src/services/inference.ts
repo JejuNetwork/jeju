@@ -2,10 +2,17 @@
 
 import { cors } from '@elysiajs/cors'
 import { getDWSUrl, getLocalhostHost } from '@jejunetwork/config'
-import { Elysia } from 'elysia'
+import { type AnyElysia, Elysia } from 'elysia'
 import { logger } from '../lib/logger'
 
 export type ProviderType = string // Any provider name - not restricted
+
+type JsonPrimitive = string | number | boolean | null
+type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue }
+
+type OpenAIErrorResponse = {
+  error: { message: string; type: 'invalid_request_error' | 'server_error' }
+}
 
 export interface InferenceConfig {
   port: number
@@ -30,6 +37,8 @@ import {
   GeminiResponseSchema,
   type OpenAIResponse,
   OpenAIResponseSchema,
+  type ProviderResponse,
+  ProviderResponseSchema,
   validate,
 } from '../schemas'
 
@@ -82,7 +91,7 @@ const MODEL_PATTERNS: Array<{ pattern: RegExp; provider: string }> = [
   { pattern: /^grok-/i, provider: 'xai' },
   { pattern: /^command-/i, provider: 'cohere' },
   { pattern: /^jamba-/i, provider: 'ai21' },
-  { pattern: /^llama-.*-versatile|^mixtral-/i, provider: 'groq' },
+  { pattern: /^llama-|^mixtral-/i, provider: 'groq' },
   { pattern: /^accounts\/fireworks\//i, provider: 'fireworks' },
   { pattern: /^mistral-|^codestral-/i, provider: 'mistral' },
   { pattern: /^deepseek-/i, provider: 'deepseek' },
@@ -106,6 +115,14 @@ const API_KEY_VARS: Record<string, string> = {
   openrouter: 'OPENROUTER_API_KEY',
 }
 
+const MODEL_VENDOR_ALIASES: Record<string, string> = {
+  qwen: 'groq',
+  meta: 'groq',
+  llama: 'groq',
+  deepseek: 'deepseek',
+  mistral: 'mistral',
+}
+
 class LocalInferenceServer {
   private app: Elysia
   private customProviders: InferenceProvider[]
@@ -117,7 +134,8 @@ class LocalInferenceServer {
     this.customProviders = config.providers ?? []
     this.defaultProvider =
       config.defaultProvider ?? this.detectDefaultProvider()
-    this.app = new Elysia().use(cors())
+    const corsPlugin = cors() as unknown as AnyElysia
+    this.app = new Elysia().use(corsPlugin)
     this.setupRoutes()
   }
 
@@ -159,7 +177,19 @@ class LocalInferenceServer {
 
     if (model.includes('/') && !model.startsWith('accounts/')) {
       const [provider, ...rest] = model.split('/')
-      return { provider, model: rest.join('/') }
+      if (provider in PROVIDER_ENDPOINTS) {
+        return { provider, model: rest.join('/') }
+      }
+      const customProvider = this.customProviders.find(
+        (p) => p.name === provider,
+      )
+      if (customProvider) {
+        return { provider, model: rest.join('/') }
+      }
+      const aliased = MODEL_VENDOR_ALIASES[provider]
+      if (aliased) {
+        return { provider: aliased, model }
+      }
     }
 
     for (const { pattern, provider } of MODEL_PATTERNS) {
@@ -213,25 +243,24 @@ class LocalInferenceServer {
         }
       }
 
-      models.push({
-        id: 'local-fallback',
-        object: 'model',
-        created: Date.now(),
-        owned_by: 'jeju',
-      })
-
       return { object: 'list', data: models }
     })
 
-    this.app.post('/v1/chat/completions', async ({ body }) => {
+    this.app.post('/v1/chat/completions', async ({ body, set }) => {
       const validatedBody = validate(
         body,
         ChatRequestSchema,
         'chat completions request',
       )
 
-      if (!validatedBody.model || validatedBody.model === 'local-fallback') {
-        return this.localFallback(validatedBody)
+      if (!validatedBody.model) {
+        set.status = 400
+        return {
+          error: {
+            message: 'Missing required field: model',
+            type: 'invalid_request_error',
+          },
+        } satisfies OpenAIErrorResponse
       }
 
       const { provider, model } = this.resolveModelProvider(
@@ -242,13 +271,25 @@ class LocalInferenceServer {
 
       if (!endpoint) {
         logger.warn(`Unknown provider: ${provider}`)
-        return this.localFallback(validatedBody, provider)
+        set.status = 400
+        return {
+          error: {
+            message: `Unknown provider: ${provider}`,
+            type: 'invalid_request_error',
+          },
+        } satisfies OpenAIErrorResponse
       }
 
       const apiKey = provider === 'dws' ? 'dws' : this.getApiKey(provider)
       if (!apiKey) {
         logger.warn(`No API key for provider: ${provider}`)
-        return this.localFallback(validatedBody, provider)
+        set.status = 503
+        return {
+          error: {
+            message: `No API key configured for provider: ${provider}`,
+            type: 'server_error',
+          },
+        } satisfies OpenAIErrorResponse
       }
 
       const providerConfig: InferenceProvider = {
@@ -333,7 +374,7 @@ class LocalInferenceServer {
   private async proxyToProvider(
     provider: InferenceProvider,
     request: ChatRequest,
-  ): Promise<object> {
+  ): Promise<OpenAIResponse | OpenAIErrorResponse> {
     const { url, headers, body } = this.buildProviderRequest(provider, request)
 
     const response = await fetch(url, {
@@ -347,14 +388,20 @@ class LocalInferenceServer {
       logger.error(
         `Provider ${provider.name} error: ${response.status} - ${errorText}`,
       )
-      return this.localFallback(
-        request,
-        provider.name,
-        `${response.status}: ${errorText.slice(0, 200)}`,
-      )
+      return {
+        error: {
+          message: `${provider.name} error (${response.status}): ${errorText.slice(0, 500)}`,
+          type: 'server_error',
+        },
+      }
     }
 
-    const rawData: unknown = await response.json()
+    const jsonData = await response.json()
+    const rawData = validate(
+      jsonData,
+      ProviderResponseSchema,
+      `provider ${provider.name} response`,
+    )
     return this.normalizeResponse(provider, rawData, request.model)
   }
 
@@ -364,7 +411,7 @@ class LocalInferenceServer {
   ): {
     url: string
     headers: Record<string, string>
-    body: Record<string, unknown>
+    body: Record<string, JsonValue>
   } {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -456,7 +503,7 @@ class LocalInferenceServer {
 
   private normalizeResponse(
     provider: InferenceProvider,
-    rawData: unknown,
+    rawData: ProviderResponse,
     model: string,
   ): OpenAIResponse {
     if (provider.type === 'anthropic') {
@@ -552,80 +599,9 @@ class LocalInferenceServer {
     if (result.success) {
       return result.data
     }
-    logger.warn(`OpenAI response validation failed: ${result.error.message}`)
-
-    if (rawData && typeof rawData === 'object') {
-      return rawData as OpenAIResponse
-    }
-
-    throw new Error(`Invalid provider response format`)
-  }
-
-  private localFallback(
-    _request: ChatRequest,
-    provider?: string,
-    error?: string,
-  ): OpenAIResponse {
-    const content = this.generateLocalResponse(provider, error)
-
-    return {
-      id: `local-${Date.now()}`,
-      object: 'chat.completion',
-      model: 'local-fallback',
-      created: Math.floor(Date.now() / 1000),
-      choices: [
-        {
-          index: 0,
-          message: { role: 'assistant', content },
-          finish_reason: 'stop',
-        },
-      ],
-      usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
-    }
-  }
-
-  private generateLocalResponse(provider?: string, error?: string): string {
-    if (provider && error) {
-      return `**Provider Error: ${provider}**
-
-${error}
-
-Check your API key for ${provider.toUpperCase()}_API_KEY or try a different model/provider.
-
-**Usage:** Specify models as "model-name" or "provider/model-name"
-Examples: "gpt-5.2", "anthropic/claude-opus-4-5", "groq/llama-3.3-70b-versatile"`
-    }
-
-    if (provider) {
-      const keyVar =
-        API_KEY_VARS[provider] || `${provider.toUpperCase()}_API_KEY`
-      return `**No API key for provider: ${provider}**
-
-Set ${keyVar} environment variable to use this provider.
-
-Or try one of these configured providers:
-${
-  Object.entries(API_KEY_VARS)
-    .filter(([_, v]) => process.env[v])
-    .map(([p]) => `- ${p}`)
-    .join('\n') ?? '(none configured)'
-}`
-    }
-
-    return `**AI Service - No Provider Configured**
-
-Set any provider API key. Examples:
-- GROQ_API_KEY (free tier at console.groq.com)
-- OPENAI_API_KEY
-- ANTHROPIC_API_KEY
-
-**Model Format:** "model-name" or "provider/model-name"
-- "gpt-5.2" → routes to OpenAI
-- "claude-opus-4-5" → routes to Anthropic
-- "groq/llama-3.3-70b-versatile" → explicit Groq
-- "openrouter/meta-llama/llama-3.1-405b" → OpenRouter
-
-Any model works - the system routes by pattern or explicit prefix.`
+    throw new Error(
+      `OpenAI response validation failed: ${result.error.message}`,
+    )
   }
 
   async start(): Promise<void> {

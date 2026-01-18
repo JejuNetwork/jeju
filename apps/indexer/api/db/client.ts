@@ -66,16 +66,12 @@ export async function initializeSchema(): Promise<void> {
     }
   }
 
-  // Create indexes
+  // Create indexes (silently skip errors for missing columns - tables may have fewer columns)
   for (const idx of INDEX_DDL) {
     try {
       await sqlit.exec(idx, [], DATABASE_ID)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      // Ignore "index already exists" errors
-      if (!message.includes('already exists')) {
-        console.error(`[SQLit] Index error: ${message}`)
-      }
+    } catch {
+      // Indexes are optional - silently skip errors for missing columns or already exists
     }
   }
 
@@ -103,19 +99,33 @@ export async function exec(
   await getClient().exec(sqlStr, params, DATABASE_ID)
 }
 
+// Allowed characters in table names (alphanumeric and underscore only)
+const TABLE_NAME_REGEX = /^[a-z][a-z0-9_]*$/
+
 /**
  * Get table name from entity class name
+ * Throws if the resulting name contains invalid characters to prevent SQL injection
  */
 export function getTableName(entityName: string): TableName {
   const name = TABLE_NAMES[entityName as keyof typeof TABLE_NAMES]
-  if (!name) {
-    // Convert PascalCase to snake_case
-    return entityName
-      .replace(/([a-z\d])([A-Z])/g, '$1_$2')
-      .replace(/([A-Z]+)([A-Z][a-z])/g, '$1_$2')
-      .toLowerCase() as TableName
+  if (name) {
+    return name
   }
-  return name
+
+  // Convert PascalCase to snake_case
+  const snakeName = entityName
+    .replace(/([a-z\d])([A-Z])/g, '$1_$2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1_$2')
+    .toLowerCase()
+
+  // Validate the generated table name to prevent SQL injection
+  if (!TABLE_NAME_REGEX.test(snakeName)) {
+    throw new Error(
+      `Invalid table name derived from entity "${entityName}": "${snakeName}"`,
+    )
+  }
+
+  return snakeName as TableName
 }
 
 // Query builder helpers
@@ -174,7 +184,7 @@ export async function find<T>(
   }
 
   const result = await query<T>(sqlStr, params)
-  return result.rows.map((row) => toCamelCase(row) as T)
+  return result.rows.map((row: T) => toCamelCase(row))
 }
 
 /**

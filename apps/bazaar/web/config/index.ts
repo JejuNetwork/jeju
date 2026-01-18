@@ -1,30 +1,25 @@
 import {
   getApiKey,
-  getChainId,
   getContractsConfig,
-  getCurrentNetwork,
   getOAuth3Url,
-  getRpcUrl,
-  getServicesConfig,
-  type NetworkType,
 } from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import type { Address } from 'viem'
 
-// Network from config
-export const NETWORK: NetworkType = getCurrentNetwork()
-export const NETWORK_NAME = 'Jeju'
+// Re-export network constants from network.ts to avoid circular deps
+export {
+  CHAIN_ID,
+  EXPLORER_URL,
+  INDEXER_URL,
+  NETWORK,
+  NETWORK_NAME,
+  OIF_AGGREGATOR_URL,
+  RPC_URL,
+} from './network'
 
-// Chain configuration from config
-export const CHAIN_ID = getChainId(NETWORK)
-export const RPC_URL = getRpcUrl(NETWORK)
+import { NETWORK, RPC_URL } from './network'
 
-// Service URLs from config
-const services = getServicesConfig(NETWORK)
-
-export const INDEXER_URL = services.indexer.graphql || ''
-export const EXPLORER_URL = services.explorer || ''
-export const OIF_AGGREGATOR_URL = services.oif.aggregator || ''
+// OAuth3 URL
 export const OAUTH3_AGENT_URL = getOAuth3Url(NETWORK)
 
 // Contract addresses from config

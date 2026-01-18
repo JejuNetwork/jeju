@@ -17,10 +17,6 @@
 import type { Address } from 'viem'
 import { logger } from '../logger'
 import {
-  type AWSRekognitionConfig,
-  AWSRekognitionProvider,
-} from './providers/aws-rekognition'
-import {
   HashModerationProvider,
   type HashProviderConfig,
 } from './providers/hash'
@@ -83,7 +79,6 @@ export interface PipelineConfig {
   nsfw?: NSFWProviderConfig
   openai?: OpenAIModerationConfig
   hive?: HiveProviderConfig
-  awsRekognition?: AWSRekognitionConfig
   reputationProvider?: ReputationProvider
   /** NCMEC/IWF reporting config (MANDATORY for production) */
   reporting?: ReportingConfig
@@ -98,7 +93,6 @@ export class ContentModerationPipeline {
   private nsfwProvider: NSFWDetectionProvider
   private openaiProvider?: OpenAIModerationProvider
   private hiveProvider?: HiveModerationProvider
-  private awsProvider?: AWSRekognitionProvider
   private reportingService: CSAMReportingService
 
   constructor(config: PipelineConfig = {}) {
@@ -114,9 +108,6 @@ export class ContentModerationPipeline {
     if (config.hive?.apiKey) {
       this.hiveProvider = new HiveModerationProvider(config.hive)
     }
-    if (config.awsRekognition?.accessKeyId) {
-      this.awsProvider = new AWSRekognitionProvider(config.awsRekognition)
-    }
   }
 
   async initialize(): Promise<void> {
@@ -127,7 +118,7 @@ export class ContentModerationPipeline {
     ])
 
     const stats = this.hashProvider.getStats()
-    const hasImageCsam = !!(this.hiveProvider || this.awsProvider)
+    const hasImageCsam = !!this.hiveProvider
     const hasTextCsam = !!this.openaiProvider
     const hasHashDb = stats.csamCount > 0 || stats.phashCount > 0
     const hasReporting = !!(
@@ -136,7 +127,7 @@ export class ContentModerationPipeline {
 
     if (!hasImageCsam) {
       logger.warn(
-        '[ModerationPipeline] No image CSAM AI configured. Set HIVE_API_KEY or AWS_ACCESS_KEY_ID.',
+        '[ModerationPipeline] No image CSAM AI configured. Set HIVE_API_KEY.',
       )
     }
     if (!hasTextCsam) {
@@ -325,12 +316,9 @@ export class ContentModerationPipeline {
       })
     }
 
-    // CSAM verification via external AI (Hive/AWS)
+    // CSAM verification via external AI (Hive/OpenAI)
     if (needsCsamVerification(nsfw) || nsfwDetected) {
-      for (const [provider, api] of [
-        ['hive', this.hiveProvider] as const,
-        ['aws-rekognition', this.awsProvider] as const,
-      ]) {
+      for (const [provider, api] of [['hive', this.hiveProvider] as const]) {
         if (!api) continue
         const result = await api.moderateImage(buffer).catch((err) => {
           logger.warn(`[ModerationPipeline] ${provider} failed`, {
@@ -475,7 +463,6 @@ export class ContentModerationPipeline {
       providers: {
         openai: !!this.openaiProvider,
         hive: !!this.hiveProvider,
-        aws: !!this.awsProvider,
       },
     }
   }
@@ -497,14 +484,6 @@ export function getContentModerationPipeline(): ContentModerationPipeline {
       hive: process.env.HIVE_API_KEY
         ? { apiKey: process.env.HIVE_API_KEY }
         : undefined,
-      awsRekognition:
-        process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY
-          ? {
-              accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-              secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-              region: process.env.AWS_REGION ?? 'us-east-1',
-            }
-          : undefined,
     })
   }
   return instance

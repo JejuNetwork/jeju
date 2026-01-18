@@ -49,7 +49,7 @@ export interface Repository {
   updatedAt: string
   pushedAt?: string
   reputationScore?: number
-  councilProposalId?: string
+  boardProposalId?: string
   verified: boolean
   headCid: string
 }
@@ -204,7 +204,7 @@ const GIT_REGISTRY_ABI = [
   },
   {
     type: 'function',
-    name: 'linkCouncilProposal',
+    name: 'linkBoardProposal',
     inputs: [
       { name: 'repoId', type: 'bytes32' },
       { name: 'proposalId', type: 'uint256' },
@@ -235,7 +235,7 @@ const GIT_REGISTRY_ABI = [
           { name: 'cloneCount', type: 'uint256' },
           { name: 'forkedFrom', type: 'bytes32' },
           { name: 'reputationScore', type: 'uint256' },
-          { name: 'councilProposalId', type: 'uint256' },
+          { name: 'boardProposalId', type: 'uint256' },
           { name: 'verified', type: 'bool' },
           { name: 'archived', type: 'bool' },
         ],
@@ -266,7 +266,7 @@ const GIT_REGISTRY_ABI = [
           { name: 'cloneCount', type: 'uint256' },
           { name: 'forkedFrom', type: 'bytes32' },
           { name: 'reputationScore', type: 'uint256' },
-          { name: 'councilProposalId', type: 'uint256' },
+          { name: 'boardProposalId', type: 'uint256' },
           { name: 'verified', type: 'bool' },
           { name: 'archived', type: 'bool' },
         ],
@@ -764,7 +764,7 @@ export class JejuGitSDK {
     return hash
   }
 
-  async linkCouncilProposal(repoId: Hex, proposalId: bigint): Promise<Hex> {
+  async linkBoardProposal(repoId: Hex, proposalId: bigint): Promise<Hex> {
     if (!this.walletClient || !this.account || !this.config.registryAddress) {
       throw new Error(
         'Wallet client, account, and registry address required for on-chain operations',
@@ -774,7 +774,7 @@ export class JejuGitSDK {
     const hash = await this.walletClient.writeContract({
       address: this.config.registryAddress,
       abi: GIT_REGISTRY_ABI,
-      functionName: 'linkCouncilProposal',
+      functionName: 'linkBoardProposal',
       args: [repoId, proposalId],
       account: this.account,
       chain: null,

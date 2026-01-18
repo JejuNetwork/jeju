@@ -40,11 +40,12 @@ test.describe('Wallet Connection', () => {
     await page.waitForLoadState('networkidle')
 
     // Verify initially disconnected
-    await verifyDisconnected(page, { connectButtonText: 'Connect' })
+    await verifyDisconnected(page, { connectButtonText: 'Sign In' })
 
     // Connect wallet
     await connectAndVerify(page, metamask, {
-      connectButtonText: 'Connect',
+      connectButtonText: 'Sign In',
+      walletOptionText: 'Connect Wallet',
     })
 
     // Verify connected state persists
@@ -70,7 +71,8 @@ test.describe('Wallet Connection', () => {
 
     // Connect
     await connectAndVerify(page, metamask, {
-      connectButtonText: 'Connect',
+      connectButtonText: 'Sign In',
+      walletOptionText: 'Connect Wallet',
     })
 
     // Navigate to proposals
@@ -108,7 +110,8 @@ test.describe('Wallet Connection', () => {
 
     // Connect from create page
     await connectAndVerify(page, metamask, {
-      connectButtonText: 'Connect',
+      connectButtonText: 'Sign In',
+      walletOptionText: 'Connect Wallet',
     })
 
     // Verify connected
@@ -160,7 +163,7 @@ test.describe('Auth Button Options', () => {
     await page.waitForLoadState('networkidle')
 
     // Click connect to open modal
-    await page.getByRole('button', { name: 'Connect' }).click()
+    await page.getByRole('button', { name: 'Sign In' }).click()
 
     // Wait for modal
     await page.waitForTimeout(500)

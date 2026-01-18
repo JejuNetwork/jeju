@@ -596,8 +596,8 @@ pub mod agent_registry {
         // [...] metadataUriLen: u16  
         // [...] metadataUri: bytes
 
-        // Note: In production, this would call wormhole.publishMessage()
-        // For now, we emit an event that relayers can observe
+        // TODO: Call wormhole.publishMessage() for cross-chain communication.
+        // For now, we emit an event that relayers can observe.
 
         emit!(CrossChainPublished {
             agent_id: ctx.accounts.agent.agent_id,

@@ -1,5 +1,5 @@
+import { type CacheClient, getCacheClient } from '@jejunetwork/cache'
 import { getChainlinkFeed, hasChainlinkSupport } from '@jejunetwork/config'
-import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import { AddressSchema, validateOrThrow } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import {
@@ -239,8 +239,12 @@ async function getStakeTier(address: string): Promise<RateTier> {
   // Check distributed cache
   const cached = await cache.get(cacheKey)
   if (cached) {
-    const parsed = JSON.parse(cached) as StakeTierCache
-    if (parsed.expiresAt > Date.now()) return parsed.tier
+    try {
+      const tierCache = JSON.parse(cached) as StakeTierCache
+      if (tierCache.expiresAt > Date.now()) return tierCache.tier
+    } catch {
+      // Cache corrupted - refresh from chain
+    }
   }
 
   const { publicClient, identityAddress, banAddress, stakingAddress } =
@@ -400,7 +404,15 @@ export function stakeRateLimiter(options: RateLimitOptions = {}) {
 
         // Get rate limit record from cache
         const cached = await cache.get(cacheKey)
-        let record: RateLimitRecord | null = cached ? JSON.parse(cached) : null
+        let record: RateLimitRecord | null = null
+
+        if (cached) {
+          try {
+            record = JSON.parse(cached) as RateLimitRecord
+          } catch {
+            // Cache corrupted - create new record
+          }
+        }
 
         if (!record || now > record.resetAt) {
           record = { count: 0, resetAt: now + WINDOW_MS, tier }

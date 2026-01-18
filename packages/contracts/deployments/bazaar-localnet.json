@@ -1,42 +1,32 @@
 {
-  "chainId": 31337,
-  "network": "localnet",
-  "deployedAt": "2026-01-02T02:37:26.425Z",
-  "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-  "contracts": {
-    "jeju": "0xa82ff9afd8f496c3d6ac40e2a0f282e47488cfc9",
-    "usdc": "0x953F6516E5d2864cE7f13186B45dE418EA665EB2",
-    "predictionOracle": "0x1613beb3b2c4f22ee086b2b38c1476a3ce7f78e8",
-    "predictionMarket": "0x851356ae760d987e095750cceb3bc6014560891c",
-    "perpetualMarket": "0x36c02da8a0983159322a80ffe9f24b1acff8b570",
-    "marginManager": "0x9d4454b023096f34b160d6b654540c56a1f81688",
-    "insuranceFund": "0x5eb3bc0a489c5a8288765d2336659ebca68fcd00",
-    "priceOracle": "0x8f86403a4de0bb5791fa46b8e795c547942fe4cf",
-    "simpleCollectible": "0xcd8a1c3ba11cf5ecfa6267617243239504a98d90"
-  },
-  "markets": {
-    "predictions": [
-      {
-        "sessionId": "0x0000000000000000000000000000000000000000000000000000000000000001",
-        "question": "Will Jeju Network go mainnet in 2026?",
-        "liquidity": "10000000000000000000000"
-      },
-      {
-        "sessionId": "0x0000000000000000000000000000000000000000000000000000000000000002",
-        "question": "Will JEJU token reach $10 by end of 2026?",
-        "liquidity": "5000000000000000000000"
-      },
-      {
-        "sessionId": "0x0000000000000000000000000000000000000000000000000000000000000003",
-        "question": "Will Jeju have 100+ active validators by Q2 2026?",
-        "liquidity": "3000000000000000000000"
-      }
-    ],
-    "perps": [
-      {
-        "marketId": "market-0",
-        "symbol": "JEJU-USD"
-      }
-    ]
-  }
+  "predictionOracle": "0x4b6aB5F819A515382B0dEB6935D793817bB4af28",
+  "predictionMarket": "0xF8e31cb472bc70500f08Cd84917E5A1912Ec8397",
+  "markets": [
+    {
+      "sessionId": "0x0000000000000000000000000000000000000000000000000000000000000001",
+      "question": "Will Bitcoin hit $150,000 by end of 2025?",
+      "liquidity": "1000000000000000000000"
+    },
+    {
+      "sessionId": "0x0000000000000000000000000000000000000000000000000000000000000002",
+      "question": "Will Ethereum 3.0 launch in Q1 2026?",
+      "liquidity": "1000000000000000000000"
+    },
+    {
+      "sessionId": "0x0000000000000000000000000000000000000000000000000000000000000003",
+      "question": "Will a major AI lab release AGI by 2027?",
+      "liquidity": "500000000000000000000"
+    },
+    {
+      "sessionId": "0x0000000000000000000000000000000000000000000000000000000000000004",
+      "question": "Will the US Federal Reserve cut rates in January 2026?",
+      "liquidity": "1000000000000000000000"
+    },
+    {
+      "sessionId": "0x0000000000000000000000000000000000000000000000000000000000000005",
+      "question": "Will Jeju Network reach 10,000 daily active users?",
+      "liquidity": "2000000000000000000000"
+    }
+  ],
+  "deployedAt": "2026-01-07T03:45:21.695Z"
 }

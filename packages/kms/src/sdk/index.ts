@@ -84,6 +84,30 @@ export {
 } from './wallet-client.js'
 
 // ═══════════════════════════════════════════════════════════════════════════
+//                    WORKER SECRETS (TEE/KMS-BACKED)
+// ═══════════════════════════════════════════════════════════════════════════
+// Use these for secure secret management in workers. Secrets are fetched
+// from KMS at runtime, never embedded in bundles or config files.
+
+export {
+  deleteSecret,
+  getSecret,
+  getSecretEnv,
+  getSecretsConfig,
+  initWorkerSecrets,
+  isSecretsInitialized,
+  type RegisterSecretParams,
+  type RegisterSecretResult,
+  registerSecret,
+  requireSecret,
+  resetWorkerSecrets,
+  rotateSecret,
+  type SecretRef,
+  type TEEAttestation,
+  type WorkerSecretsConfig,
+} from './worker-secrets.js'
+
+// ═══════════════════════════════════════════════════════════════════════════
 //                    MIGRATION UTILITIES
 // ═══════════════════════════════════════════════════════════════════════════
 // Use these during the migration from raw private keys to KMS.

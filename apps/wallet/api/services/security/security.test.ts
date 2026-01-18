@@ -2,7 +2,7 @@
  * Security Engine Tests
  */
 
-import { beforeEach, describe, expect, it, mock } from 'bun:test'
+import { afterAll, beforeEach, describe, expect, it, mock } from 'bun:test'
 import type { Address, Hex } from 'viem'
 import { SecurityEngine, type TransactionToAnalyze } from './index'
 
@@ -37,6 +37,11 @@ describe('SecurityEngine', () => {
     engine = new SecurityEngine()
     mockCall.mockClear()
     mockEstimateGas.mockClear()
+  })
+
+  afterAll(() => {
+    // Ensure module mocks do not leak into other test files
+    mock.restore()
   })
 
   describe('analyzeTransaction', () => {

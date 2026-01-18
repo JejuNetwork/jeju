@@ -68,7 +68,7 @@ contract ComputeOutputSettler is BaseOutputSettler {
     error ComputeRentalNotSet();
     error InferenceServingNotSet();
     error RentalCreationFailed();
-    // Note: OrderAlreadyFilled, InsufficientLiquidity, etc. inherited from BaseOutputSettler
+    // OrderAlreadyFilled, InsufficientLiquidity, etc. inherited from BaseOutputSettler
 
     // ============ Constructor ============
 

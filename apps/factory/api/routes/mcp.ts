@@ -249,7 +249,7 @@ async function handleResourceRead(uri: string): Promise<{
       break
     }
     case 'factory://git/issues': {
-      const result = listIssues({ status: 'open' })
+      const result = await listIssues({ status: 'open' })
       contents = {
         issues: result.issues.map((i) => ({
           id: i.id,
@@ -263,7 +263,7 @@ async function handleResourceRead(uri: string): Promise<{
       break
     }
     case 'factory://git/pulls': {
-      const result = listPullRequests({ status: 'open' })
+      const result = await listPullRequests({ status: 'open' })
       contents = {
         pulls: result.pulls.map((p) => ({
           id: p.id,
@@ -289,7 +289,7 @@ async function handleResourceRead(uri: string): Promise<{
       break
     }
     case 'factory://models': {
-      const models = listModels({})
+      const models = await listModels({})
       contents = {
         models: models.map((m) => ({
           id: m.id,
@@ -303,7 +303,7 @@ async function handleResourceRead(uri: string): Promise<{
       break
     }
     case 'factory://bounties': {
-      const result = listBounties({ status: 'open' })
+      const result = await listBounties({ status: 'open' })
       contents = {
         bounties: result.bounties.map((b) => ({
           id: b.id,
@@ -317,7 +317,7 @@ async function handleResourceRead(uri: string): Promise<{
       break
     }
     case 'factory://jobs': {
-      const result = listJobs({ status: 'open' })
+      const result = await listJobs({ status: 'open' })
       contents = {
         jobs: result.jobs.map((j) => ({
           id: j.id,
@@ -331,7 +331,7 @@ async function handleResourceRead(uri: string): Promise<{
       break
     }
     case 'factory://ci/runs': {
-      const result = listCIRuns({})
+      const result = await listCIRuns({})
       contents = {
         runs: result.runs.map((r) => ({
           id: r.id,
@@ -344,7 +344,7 @@ async function handleResourceRead(uri: string): Promise<{
       break
     }
     case 'factory://agents': {
-      const agents = listAgents({ active: true })
+      const agents = await listAgents({ active: true })
       contents = {
         agents: agents.map((a) => ({
           agentId: a.agent_id,
@@ -401,7 +401,7 @@ async function handleToolCall(
       break
     }
     case 'create_issue': {
-      const issue = createIssue({
+      const issue = await createIssue({
         repo: args.repo as string,
         title: args.title as string,
         body: (args.body as string) ?? '',
@@ -430,7 +430,7 @@ async function handleToolCall(
       break
     }
     case 'search_models': {
-      const models = listModels({
+      const models = await listModels({
         type: args.type as string | undefined,
       })
       result = {
@@ -445,7 +445,7 @@ async function handleToolCall(
       break
     }
     case 'list_bounties': {
-      const bountyResult = listBounties({
+      const bountyResult = await listBounties({
         status: args.status as string | undefined,
         skill: args.skill as string | undefined,
       })
@@ -462,7 +462,7 @@ async function handleToolCall(
       break
     }
     case 'create_bounty': {
-      const bounty = createBounty({
+      const bounty = await createBounty({
         title: args.title as string,
         description: args.description as string,
         reward: args.reward as string,
@@ -482,7 +482,7 @@ async function handleToolCall(
       break
     }
     case 'trigger_workflow': {
-      const run = createCIRun({
+      const run = await createCIRun({
         repo: args.repo as string,
         workflow: args.workflow as string,
         branch: (args.branch as string) ?? 'main',
@@ -578,7 +578,7 @@ export const mcpRoutes = new Elysia({ prefix: '/api/mcp' })
     '/tools/call',
     async ({ body }) => {
       const validated = expectValid(MCPToolCallBodySchema, body, 'request body')
-      return handleToolCall(validated.name, validated.arguments)
+      return await handleToolCall(validated.name, validated.arguments)
     },
     {
       detail: {

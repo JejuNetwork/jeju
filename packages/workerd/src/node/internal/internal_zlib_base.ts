@@ -431,7 +431,7 @@ export class ZlibBase extends Transform {
     this._maxOutputLength = maxOutputLength
   }
 
-  // Note: This is intentionally a getter that shadows the property from Transform
+  // This is intentionally a getter that shadows the property from Transform
   get _closed(): boolean {
     return this._handle == null
   }

@@ -33,8 +33,8 @@ class WritableStreamDefaultWriter: public jsg::Object, public WritableStreamCont
   // is one side of a transform stream, then its close algorithm causes the transform's readable
   // side to become closed.
   //
-  // Note: According to my reading of the Streams spec, if `writer.close()` is called on a
-  //   transform stream while the readable side has readable chunks in its queue, those chunks get
+  // According to my reading of the Streams spec, if `writer.close()` is called on a
+  // transform stream while the readable side has readable chunks in its queue, those chunks get
   //   lost. This seems like a bug to me. Why would we wait for all present write requests to
   //   complete on this side if we don't care that they're actually read?
   jsg::Promise<void> close(jsg::Lock& js);

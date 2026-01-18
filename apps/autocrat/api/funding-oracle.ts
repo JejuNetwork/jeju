@@ -1,7 +1,7 @@
 import { type Address, formatEther, parseEther } from 'viem'
 import type {
-  CEOPersona,
   DAOFull,
+  DirectorPersona,
   FundingAllocation,
   FundingEpoch,
   FundingProject,
@@ -35,7 +35,7 @@ export interface EpochSummary {
   status: 'active' | 'pending_finalization' | 'finalized'
 }
 
-export interface CEOFundingRecommendation {
+export interface DirectorFundingRecommendation {
   daoId: string
   epochId: number
   recommendations: FundingAnalysis[]
@@ -111,9 +111,9 @@ export class FundingOracle {
       status,
     }
   }
-  async generateCEORecommendations(
+  async generateDirectorRecommendations(
     daoId: string,
-  ): Promise<CEOFundingRecommendation> {
+  ): Promise<DirectorFundingRecommendation> {
     const daoFull = await this.daoService.getDAOFull(daoId)
     const projects = await this.daoService.getActiveProjects(daoId)
     const epoch = await this.daoService.getCurrentEpoch(daoId)
@@ -167,7 +167,7 @@ export class FundingOracle {
       linkedPackages.includes(project.registryId) ||
       linkedRepos.includes(project.registryId)
 
-    const prompt = `As ${persona.name}, analyze this funding project and recommend a CEO weight (0-${knobs.maxDirectorWeight / 100}%).
+    const prompt = `As ${persona.name}, analyze this funding project and recommend a Director weight (0-${knobs.maxDirectorWeight / 100}%).
 
 PROJECT:
 Name: ${project.name}
@@ -405,16 +405,16 @@ Return JSON:
       return { approved: true, reason: 'Sufficient community stake' }
     }
 
-    // Check if proposer is council member
-    const councilMembers = await this.daoService.getBoardMembers(daoId)
-    const isCouncilProposal = councilMembers.some(
+    // Check if proposer is board member
+    const boardMembers = await this.daoService.getBoardMembers(daoId)
+    const isBoardProposal = boardMembers.some(
       (m) => m.member === project.proposer,
     )
-    if (isCouncilProposal) {
-      return { approved: true, reason: 'Proposed by council member' }
+    if (isBoardProposal) {
+      return { approved: true, reason: 'Proposed by board member' }
     }
 
-    return { approved: false, reason: 'Requires council/CEO review' }
+    return { approved: false, reason: 'Requires board/Director review' }
   }
   async canFinalizeEpoch(
     daoId: string,
@@ -455,8 +455,8 @@ Return JSON:
     // For now, return empty array - to be implemented with model marketplace
     return []
   }
-  private buildPersonaSystemPrompt(persona: CEOPersona): string {
-    return `You are ${persona.name}, the AI CEO of a DAO.
+  private buildPersonaSystemPrompt(persona: DirectorPersona): string {
+    return `You are ${persona.name}, the AI Director of a DAO.
 
 ${persona.description}
 

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { Elysia, t } from 'elysia'
+import { getKMSSecret } from '../shared/kms-secrets'
 
 type DeploymentState = 'QUEUED' | 'BUILDING' | 'READY' | 'ERROR' | 'CANCELED'
 type DeploymentTarget = 'production' | 'preview'
@@ -544,8 +545,8 @@ export function createGitHubIntegrationRouter() {
         const event = headers['x-github-event']
         const signature = headers['x-hub-signature-256']
 
-        // Verify webhook signature with secret (if configured)
-        const secret = process.env.GITHUB_WEBHOOK_SECRET
+        // Verify webhook signature with secret from KMS (if configured)
+        const secret = await getKMSSecret('github_webhook')
         if (secret && signature) {
           const crypto = await import('node:crypto')
           const expectedSignature = `sha256=${crypto

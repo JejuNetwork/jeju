@@ -28,7 +28,7 @@ contract FederationGovernanceTest is Test {
     address operator2;
     address operator3;
     address aiOracle;
-    address councilGovernance;
+    address boardGovernance;
     address treasury;
     address guardian1;
     address guardian2;
@@ -44,7 +44,7 @@ contract FederationGovernanceTest is Test {
         operator2 = makeAddr("operator2");
         operator3 = makeAddr("operator3");
         aiOracle = makeAddr("aiOracle");
-        councilGovernance = makeAddr("councilGovernance");
+        boardGovernance = makeAddr("boardGovernance");
         treasury = makeAddr("treasury");
         guardian1 = makeAddr("guardian1");
         guardian2 = makeAddr("guardian2");
@@ -62,7 +62,7 @@ contract FederationGovernanceTest is Test {
         // Deploy FederationGovernance
         governance = new FederationGovernance(
             address(registry),
-            councilGovernance,
+            boardGovernance,
             address(0), // prediction market
             aiOracle,
             treasury
@@ -169,7 +169,7 @@ contract FederationGovernanceTest is Test {
         assertEq(uint8(status), uint8(FederationGovernance.ProposalStatus.AUTOCRAT_REVIEW));
 
         // Step 5: Autocrat approves (this sets timelockEnds = now + 7 days)
-        vm.startPrank(councilGovernance);
+        vm.startPrank(boardGovernance);
         governance.submitAutocratDecision(
             proposalId, true, keccak256("AI approved this network"), "Network meets all quality criteria"
         );
@@ -528,7 +528,7 @@ contract FederationGovernanceTest is Test {
         governance.resolveMarketVoting(proposalId);
 
         // Autocrat approves (sets timelockEnds = now + 7 days)
-        vm.startPrank(councilGovernance);
+        vm.startPrank(boardGovernance);
         governance.submitAutocratDecision(proposalId, true, keccak256("approved"), "Approved by AI DAO");
         vm.stopPrank();
 

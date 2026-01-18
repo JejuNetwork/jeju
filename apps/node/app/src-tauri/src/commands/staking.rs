@@ -158,7 +158,7 @@ pub async fn stake(
 ) -> Result<StakeResult, String> {
     let inner = state.inner.read().await;
 
-    let wallet_manager = inner
+    let _wallet_manager = inner
         .wallet_manager
         .as_ref()
         .ok_or("Wallet not connected")?;

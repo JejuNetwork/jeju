@@ -1,27 +1,27 @@
-# Jeju AI Council
+# Jeju AI Board
 
-AI-powered DAO governance with council deliberation, CEO decisions, and on-chain proposal submission.
+AI-powered DAO governance with board deliberation, Director decisions, and on-chain proposal submission.
 
 ## Quick Start
 
 ```bash
-./scripts/start-council-dev.sh        # Anvil + Contracts + API
-./scripts/start-council-dev.sh --ui   # With frontend
+./scripts/start-board-dev.sh        # Anvil + Contracts + API
+./scripts/start-board-dev.sh --ui   # With frontend
 ```
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     Council API (port 8010)                  │
+│                     Board API (port 8010)                  │
 ├─────────────────┬─────────────────┬─────────────────────────┤
-│ ProposalAssist  │  ResearchAgent  │     CouncilAgents       │
+│ ProposalAssist  │  ResearchAgent  │     BoardAgents       │
 │ - Quality Score │  - Deep Analysis│     - Treasury          │
 │ - Attestation   │  - Compute Mkt  │     - Code              │
 │                 │  - Ollama       │     - Community         │
 │                 │                 │     - Security          │
 ├─────────────────┴─────────────────┴─────────────────────────┤
-│                    TEE Service (CEO Decisions)               │
+│                    TEE Service (Director Decisions)               │
 │                - Hardware TEE (Phala Cloud)                  │
 │                - Simulated TEE (local dev)                   │
 │                - Jeju KMS (encryption)                       │
@@ -30,7 +30,7 @@ AI-powered DAO governance with council deliberation, CEO decisions, and on-chain
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    Smart Contracts (Anvil/Base)              │
-│  Council.sol  │  CEOAgent.sol  │  QualityOracle.sol         │
+│  Board.sol  │  DirectorAgent.sol  │  QualityOracle.sol         │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -44,7 +44,7 @@ AI-powered DAO governance with council deliberation, CEO decisions, and on-chain
 
 ### TEE (Trusted Execution Environment)
 
-For production CEO decision-making with hardware attestation:
+For production Director decision-making with hardware attestation:
 
 ```bash
 # Set environment variables for Phala Cloud TEE
@@ -74,8 +74,8 @@ export COMPUTE_MODEL=claude-3-opus
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `RPC_URL` | Yes | `http://localhost:6546` | Blockchain RPC endpoint |
-| `COUNCIL_ADDRESS` | Yes | - | Deployed Council contract |
-| `CEO_AGENT_ADDRESS` | Yes | - | Deployed CEOAgent contract |
+| `BOARD_ADDRESS` | Yes | - | Deployed Board contract |
+| `DIRECTOR_AGENT_ADDRESS` | Yes | - | Deployed DirectorAgent contract |
 | `QUALITY_ORACLE_ADDRESS` | Yes | - | Deployed QualityOracle contract |
 | `OLLAMA_URL` | No | `http://localhost:11434` | Ollama API endpoint |
 | `OLLAMA_MODEL` | No | `llama3.2:3b` | Ollama model to use |
@@ -87,7 +87,7 @@ export COMPUTE_MODEL=claude-3-opus
 
 ## Security
 
-The council package has no known vulnerabilities. Monorepo-level audit shows 7 vulnerabilities in other workspaces (`eliza-otc-desk`, `eliza-cloud-v2`, `@safe-global`) that do not affect this package.
+The board package has no known vulnerabilities. Monorepo-level audit shows 7 vulnerabilities in other workspaces (`eliza-otc-desk`, `eliza-cloud-v2`, `@safe-global`) that do not affect this package.
 
 ```bash
 bun audit  # Check vulnerabilities
@@ -104,7 +104,7 @@ bun test tests/synpress/             # API tests
 bun test tests/integration/          # Integration tests
 
 # Run contract tests
-cd ../../packages/contracts && forge test --match-contract "Council|QualityOracle"
+cd ../../packages/contracts && forge test --match-contract "Board|QualityOracle"
 ```
 
 ## API Endpoints
@@ -114,7 +114,7 @@ cd ../../packages/contracts && forge test --match-contract "Council|QualityOracl
 | `/health` | GET | Service health check |
 | `/api/v1/proposals/assess` | POST | Assess proposal quality |
 | `/api/v1/governance/stats` | GET | Get governance statistics |
-| `/api/v1/ceo` | GET | Get CEO status |
+| `/api/v1/director` | GET | Get Director status |
 | `/mcp/tools/list` | POST | List MCP tools |
 | `/mcp/tools/call` | POST | Call MCP tool |
 | `/a2a` | POST | Agent-to-agent messaging |
@@ -164,7 +164,7 @@ const response = await fetch(`${JEJU_COMPUTE_API_URL}/rlaif/runs`, {
 ### Localnet (Development)
 
 ```bash
-./scripts/start-council-dev.sh
+./scripts/start-board-dev.sh
 ```
 
 ### Testnet (Base Sepolia)

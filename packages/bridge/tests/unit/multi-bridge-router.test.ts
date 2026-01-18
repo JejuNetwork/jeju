@@ -190,7 +190,7 @@ describe('MultiBridgeRouter', () => {
           enableMEV: false,
           minArbProfitBps: 50,
         },
-        // Note: wormholeConfig not provided, so wormhole won't be available
+        // wormholeConfig not provided, so wormhole won't be available
       })
 
       const params: TransferParams = {

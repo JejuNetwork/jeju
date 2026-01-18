@@ -58,7 +58,7 @@ export const modelsRoutes = new Elysia({ prefix: '/api/models' })
     async ({ query }) => {
       const validated = expectValid(ModelsQuerySchema, query, 'query params')
 
-      const modelRows = dbListModels({
+      const modelRows = await dbListModels({
         type: validated.type,
         org: validated.org,
       })
@@ -85,7 +85,7 @@ export const modelsRoutes = new Elysia({ prefix: '/api/models' })
 
       const validated = expectValid(CreateModelBodySchema, body, 'request body')
 
-      const row = dbCreateModel({
+      const row = await dbCreateModel({
         name: validated.name,
         organization: validated.organization,
         description: validated.description,
@@ -109,7 +109,7 @@ export const modelsRoutes = new Elysia({ prefix: '/api/models' })
     '/:org/:name',
     async ({ params, set }) => {
       const validated = expectValid(ModelParamsSchema, params, 'params')
-      const row = getModel(validated.org, validated.name)
+      const row = await getModel(validated.org, validated.name)
       if (!row) {
         set.status = 404
         return {
@@ -145,7 +145,7 @@ export const modelsRoutes = new Elysia({ prefix: '/api/models' })
       )
 
       // Check if model exists
-      const row = getModel(validatedParams.org, validatedParams.name)
+      const row = await getModel(validatedParams.org, validatedParams.name)
       if (!row) {
         set.status = 404
         return {
@@ -177,7 +177,7 @@ export const modelsRoutes = new Elysia({ prefix: '/api/models' })
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
       const validated = expectValid(ModelParamsSchema, params, 'params')
-      const row = getModel(validated.org, validated.name)
+      const row = await getModel(validated.org, validated.name)
       if (!row) {
         set.status = 404
         return {
@@ -187,7 +187,7 @@ export const modelsRoutes = new Elysia({ prefix: '/api/models' })
           },
         }
       }
-      dbStarModel(validated.org, validated.name)
+      await dbStarModel(validated.org, validated.name)
       return { success: true, model: `${validated.org}/${validated.name}` }
     },
     { detail: { tags: ['models'], summary: 'Star model' } },

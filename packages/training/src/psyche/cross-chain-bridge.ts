@@ -21,6 +21,7 @@ import {
   type Hex,
   http,
   keccak256,
+  type PublicClient,
   type WalletClient,
 } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
@@ -186,7 +187,7 @@ export interface CheckpointData {
 // Cross-Chain Bridge
 
 export class CrossChainTrainingBridge {
-  private evmPublicClient: ReturnType<typeof createPublicClient>
+  private evmPublicClient: PublicClient
   private evmWalletClient: WalletClient | null = null
   private evmAccount: PrivateKeyAccount | null = null
   private solanaKeypair: Keypair | null = null

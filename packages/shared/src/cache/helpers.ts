@@ -9,8 +9,13 @@
  * - Token price caching (cachedTokenPrice)
  */
 
-import { createHash } from 'node:crypto'
-import { type CacheClient, getCacheClient } from '@jejunetwork/cache'
+import {
+  type CacheClient,
+  getCacheClient,
+  safeParseCached,
+} from '@jejunetwork/cache'
+import { z } from 'zod'
+import { createHash } from '../crypto/universal'
 
 /**
  * Cache configuration for different data types
@@ -40,7 +45,7 @@ export const CacheTTL = {
  * Hash a value to create a cache key
  */
 export function hashKey(value: string): string {
-  return createHash('sha256').update(value).digest('hex').slice(0, 16)
+  return createHash('sha256').update(value).digestHex().slice(0, 16)
 }
 
 /**
@@ -74,7 +79,10 @@ export async function withCache<T>(
   const serialize = options?.serialize ?? JSON.stringify
   const deserialize = options?.deserialize ?? JSON.parse
 
-  const cached = await cache.get(key).catch(() => null)
+  const cached = await cache.get(key).catch((err) => {
+    console.warn(`[Cache] Failed to get ${key}:`, err)
+    return null
+  })
   if (cached !== null) {
     return deserialize(cached) as T
   }
@@ -108,10 +116,17 @@ export async function withJsonCache<T>(
   fn: () => Promise<T>,
   ttlSeconds: number,
 ): Promise<T> {
-  const cached = await cache.get(key).catch(() => null)
+  const cached = await cache.get(key).catch((err) => {
+    console.warn(`[Cache] Failed to get ${key}:`, err)
+    return null
+  })
   if (cached !== null) {
-    const parsed = schema.parse(JSON.parse(cached))
-    return parsed
+    try {
+      const parsed = schema.parse(JSON.parse(cached))
+      return parsed
+    } catch (err) {
+      console.warn(`[Cache] Failed to parse cached value for ${key}:`, err)
+    }
   }
 
   const result = await fn()
@@ -202,17 +217,24 @@ function getProfileCache(): CacheClient {
 }
 
 /**
+ * Farcaster profile schema for validation
+ */
+const CachedFarcasterProfileSchema = z.object({
+  fid: z.number(),
+  username: z.string(),
+  displayName: z.string(),
+  pfpUrl: z.string(),
+  bio: z.string(),
+  followerCount: z.number().optional(),
+  followingCount: z.number().optional(),
+})
+
+/**
  * Farcaster profile interface
  */
-export interface CachedFarcasterProfile {
-  fid: number
-  username: string
-  displayName: string
-  pfpUrl: string
-  bio: string
-  followerCount?: number
-  followingCount?: number
-}
+export type CachedFarcasterProfile = z.infer<
+  typeof CachedFarcasterProfileSchema
+>
 
 /**
  * Get a cached Farcaster profile
@@ -227,14 +249,20 @@ export async function getCachedProfile(
   const cache = getProfileCache()
   const key = `profile:${fid}`
 
-  const cached = await cache.get(key).catch(() => null)
-  if (cached !== null) {
-    return JSON.parse(cached) as CachedFarcasterProfile
+  const cached = await cache.get(key).catch((err) => {
+    console.warn(`[Cache] Failed to read profile ${fid}:`, err)
+    return null
+  })
+  const parsedProfile = safeParseCached(cached, CachedFarcasterProfileSchema)
+  if (parsedProfile) {
+    return parsedProfile
   }
 
   const profile = await fetcher()
   if (profile) {
-    cache.set(key, JSON.stringify(profile), CacheTTL.PROFILE).catch(() => {})
+    cache.set(key, JSON.stringify(profile), CacheTTL.PROFILE).catch((err) => {
+      console.warn(`[Cache] Failed to cache profile ${fid}:`, err)
+    })
   }
 
   return profile
@@ -271,14 +299,19 @@ export async function getCachedTokenPrice(
   const cache = getPriceCache()
   const key = `price:${symbol.toUpperCase()}`
 
-  const cached = await cache.get(key).catch(() => null)
+  const cached = await cache.get(key).catch((err) => {
+    console.warn(`[Cache] Failed to get price ${symbol}:`, err)
+    return null
+  })
   if (cached !== null) {
     return parseFloat(cached)
   }
 
   const price = await fetcher()
   if (price !== null) {
-    cache.set(key, price.toString(), CacheTTL.TOKEN_PRICE).catch(() => {})
+    cache.set(key, price.toString(), CacheTTL.TOKEN_PRICE).catch((err) => {
+      console.warn(`[Cache] Failed to cache price ${symbol}:`, err)
+    })
   }
 
   return price
@@ -299,7 +332,10 @@ export async function getCachedTokenPrices(
   for (const symbol of symbols) {
     const cached = await cache
       .get(`price:${symbol.toUpperCase()}`)
-      .catch(() => null)
+      .catch((err) => {
+        console.warn(`[Cache] Failed to get price ${symbol}:`, err)
+        return null
+      })
     if (cached !== null) {
       result.set(symbol, parseFloat(cached))
     } else {
@@ -318,7 +354,9 @@ export async function getCachedTokenPrices(
           price.toString(),
           CacheTTL.TOKEN_PRICE,
         )
-        .catch(() => {})
+        .catch((err) => {
+          console.warn(`[Cache] Failed to cache price ${symbol}:`, err)
+        })
     }
   }
 
@@ -336,18 +374,23 @@ function getTokenInfoCache(): CacheClient {
 }
 
 /**
+ * Token info schema for validation
+ */
+const CachedTokenInfoSchema = z.object({
+  address: z.string(),
+  chainId: z.number(),
+  symbol: z.string(),
+  name: z.string(),
+  decimals: z.number(),
+  logoUrl: z.string().optional(),
+  price: z.number().optional(),
+  priceChange24h: z.number().optional(),
+})
+
+/**
  * Token info interface
  */
-export interface CachedTokenInfo {
-  address: string
-  chainId: number
-  symbol: string
-  name: string
-  decimals: number
-  logoUrl?: string
-  price?: number
-  priceChange24h?: number
-}
+export type CachedTokenInfo = z.infer<typeof CachedTokenInfoSchema>
 
 /**
  * Get cached token info
@@ -360,14 +403,20 @@ export async function getCachedTokenInfo(
   const cache = getTokenInfoCache()
   const key = `token:${chainId}:${addressOrSymbol.toLowerCase()}`
 
-  const cached = await cache.get(key).catch(() => null)
-  if (cached !== null) {
-    return JSON.parse(cached) as CachedTokenInfo
+  const cached = await cache.get(key).catch((err) => {
+    console.warn(`[Cache] Failed to read token ${addressOrSymbol}:`, err)
+    return null
+  })
+  const parsedToken = safeParseCached(cached, CachedTokenInfoSchema)
+  if (parsedToken) {
+    return parsedToken
   }
 
   const token = await fetcher()
   if (token) {
-    cache.set(key, JSON.stringify(token), CacheTTL.TOKEN_INFO).catch(() => {})
+    cache.set(key, JSON.stringify(token), CacheTTL.TOKEN_INFO).catch((err) => {
+      console.warn(`[Cache] Failed to cache token ${addressOrSymbol}:`, err)
+    })
   }
 
   return token
@@ -424,7 +473,10 @@ export function createHybridCache(
       localCache.delete(key)
 
       // Check DWS
-      const remote = await dwsCache.get(key).catch(() => null)
+      const remote = await dwsCache.get(key).catch((err) => {
+        console.warn(`[HybridCache] Failed to get ${key} from DWS:`, err)
+        return null
+      })
       if (remote !== null) {
         // Store locally for fast access
         localCache.set(key, {

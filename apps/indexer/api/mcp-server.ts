@@ -265,7 +265,7 @@ const PROMPTS = [
   },
 ]
 
-import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
+import { type CacheClient, getCacheClient } from '@jejunetwork/cache'
 
 const MAX_BODY_SIZE = 1024 * 1024
 const MCP_RATE_LIMIT = 100
@@ -339,9 +339,15 @@ export function createIndexerMCPServer() {
       const cacheKey = `mcp-rl:${clientKey}`
 
       const cached = await cache.get(cacheKey)
-      let record: { count: number; resetAt: number } | null = cached
-        ? JSON.parse(cached)
-        : null
+      let record: { count: number; resetAt: number } | null = null
+
+      if (cached) {
+        try {
+          record = JSON.parse(cached) as { count: number; resetAt: number }
+        } catch {
+          // Cache corrupted - create new record
+        }
+      }
 
       if (!record || now > record.resetAt) {
         record = { count: 0, resetAt: now + MCP_RATE_WINDOW }
@@ -417,7 +423,7 @@ export function createIndexerMCPServer() {
           contents = {
             note: 'Query active proposals via GraphQL',
             query:
-              'query { councilProposals(where: { status_eq: "ACTIVE" }) { proposalId title votesFor votesAgainst } }',
+              'query { boardProposals(where: { status_eq: "ACTIVE" }) { proposalId title votesFor votesAgainst } }',
           }
           break
 

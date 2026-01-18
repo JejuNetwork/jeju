@@ -33,7 +33,7 @@ const TEST_CONFIG = {
   storageUrl: getServiceUrl('storage') ?? `http://${host}:3100`,
   bazaarUrl: getServiceUrl('bazaar') ?? `http://${host}:3000`,
   indexerUrl: getServiceUrl('indexer', 'graphql') ?? `http://${host}:4000`,
-  councilUrl: getServiceUrl('council') ?? `http://${host}:3200`,
+  boardUrl: getServiceUrl('board') ?? `http://${host}:3200`,
 }
 
 // SQLit Tests

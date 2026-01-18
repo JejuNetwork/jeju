@@ -49,7 +49,7 @@ describe('Version Validation', () => {
     '1.0.0-alpha',
     '2.0.0-beta1',
     '3.0.0-rc2',
-  ])('accepts valid version: %s', (version) => {
+  ])('accepts valid version: %s', (version: string) => {
     expect(validateVersion(version)).toBe(true)
   })
 
@@ -61,7 +61,7 @@ describe('Version Validation', () => {
     '1.0.0.0',
     '',
     '1.0.0-',
-  ])('rejects invalid version: %s', (version) => {
+  ])('rejects invalid version: %s', (version: string) => {
     expect(validateVersion(version)).toBe(false)
   })
 })

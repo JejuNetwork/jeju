@@ -258,7 +258,7 @@ export const CORE_PORTS = {
     get: () => safeParsePort(process.env.AUTOCRAT_PORT, 4040),
   },
 
-  /** Autocrat CEO - CEO agent server */
+  /** Autocrat Director - Director agent server */
   AUTOCRAT_AGENT: {
     DEFAULT: 4041,
     ENV_VAR: 'AUTOCRAT_AGENT_PORT',

@@ -2,10 +2,12 @@
 /**
  * OAuth3 Deployment Script
  *
- * Deploys OAuth3 to DWS infrastructure (decentralized):
+ * Deploys OAuth3 to DWS infrastructure (fully decentralized):
  * 1. Builds frontend and API
  * 2. Uploads static assets to IPFS/DWS storage
- * 3. Registers app with DWS deployed apps
+ * 3. Deploys API as a DWS worker (NOT K8s!)
+ * 4. Registers app with DWS deployed apps using worker ID
+ * 5. Sets JNS records for decentralized routing
  */
 
 import { existsSync } from 'node:fs'
@@ -13,15 +15,24 @@ import { readdir, readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { getCurrentNetwork, type NetworkType } from '@jejunetwork/config'
 import { $ } from 'bun'
+import type { Address } from 'viem'
 import { z } from 'zod'
 
 const APP_DIR = resolve(import.meta.dir, '..')
 
-// Response schema
+// Response schemas
 const StorageUploadResponseSchema = z.object({
   cid: z.string(),
   size: z.number().optional(),
   backends: z.array(z.string()).optional(),
+})
+
+const WorkerDeployResponseSchema = z.object({
+  functionId: z.string(),
+  name: z.string(),
+  codeCid: z.string(),
+  status: z.string(),
+  cronsRegistered: z.number().optional(),
 })
 
 // Configuration
@@ -56,7 +67,7 @@ async function ensureBuild(): Promise<void> {
   const requiredFiles = [
     join(APP_DIR, 'dist/web/index.html'),
     join(APP_DIR, 'dist/web/app.js'),
-    join(APP_DIR, 'dist/api/index.js'),
+    join(APP_DIR, 'dist/api/worker.js'), // Use worker.js for DWS deployment
   ]
 
   for (const file of requiredFiles) {
@@ -173,32 +184,85 @@ async function uploadDirectory(
   return { files, totalSize }
 }
 
+/**
+ * Deploy API as a DWS worker (serverless function)
+ * This is the key for permissionless deployment - no K8s needed!
+ */
+async function deployWorker(
+  config: DeployConfig,
+  apiCid: string,
+  owner: Address,
+): Promise<string> {
+  console.log('\n[Worker] Deploying API as DWS worker...')
+  console.log(`   codeCid: ${apiCid}`)
+  console.log(`   owner: ${owner}`)
+
+  const response = await fetch(`${config.dwsUrl}/workers`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-jeju-address': owner,
+    },
+    body: JSON.stringify({
+      name: 'oauth3-api',
+      runtime: 'bun',
+      handler: 'index.handler',
+      codeCid: apiCid,
+      memory: 512,
+      timeout: 30000,
+      env: {
+        NODE_ENV: 'production',
+        JEJU_NETWORK: config.network,
+      },
+    }),
+  })
+
+  if (!response.ok) {
+    const error = await response.text()
+    throw new Error(`Worker deployment failed: ${error}`)
+  }
+
+  const result = WorkerDeployResponseSchema.parse(await response.json())
+  console.log('[Worker] ✅ Deployed as DWS worker')
+  console.log(`   functionId: ${result.functionId}`)
+  console.log(`   status: ${result.status}`)
+
+  return result.functionId
+}
+
 // Register app with DWS
 async function registerApp(
   config: DeployConfig,
   staticFiles: Map<string, string>,
-  _apiCid: string,
+  workerId: string,
 ): Promise<void> {
   const indexCid = staticFiles.get('index.html')
   if (!indexCid) {
     throw new Error('index.html not found in uploaded files')
   }
 
+  // Use the worker ID for backend routing - NO hardcoded K8s URLs!
   const appConfig = {
     name: 'oauth3',
     jnsName: 'auth.jeju',
     frontendCid: null, // Use staticFiles map instead of directory CID
     staticFiles: Object.fromEntries(staticFiles),
-    backendWorkerId: null,
-    backendEndpoint: 'https://oauth3.testnet.jejunetwork.org', // K8s backend
+    backendWorkerId: workerId, // DWS worker ID for serverless routing
+    backendEndpoint: null, // No direct endpoint - route through DWS workers
     apiPaths: [
-      '/api/',
-      '/oauth/',
+      '/api/*',
+      '/oauth/*',
       '/session',
+      '/session/*',
       '/health',
       '/callback',
-      '/wallet/',
-      '/farcaster/',
+      '/callback/*',
+      '/wallet/*',
+      '/farcaster/*',
+      '/client/*',
+      '/auth/*',
+      '/webhook/*',
+      '/.well-known/*',
     ],
     spa: true,
     enabled: true,
@@ -208,6 +272,7 @@ async function registerApp(
   console.log(`   name: ${appConfig.name}`)
   console.log(`   jnsName: ${appConfig.jnsName}`)
   console.log(`   staticFiles: ${staticFiles.size} files`)
+  console.log(`   backendWorkerId: ${appConfig.backendWorkerId}`)
   console.log(`   spa: ${appConfig.spa}`)
 
   const response = await fetch(`${config.dwsUrl}/apps/deployed`, {
@@ -233,6 +298,10 @@ async function deploy(): Promise<void> {
   console.log(`Network: ${config.network}`)
   console.log(`DWS URL: ${config.dwsUrl}\n`)
 
+  // Get deployer address from environment or use default dev address
+  const deployerAddress = (process.env.DEPLOYER_ADDRESS ??
+    '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266') as Address
+
   // Build
   await ensureBuild()
 
@@ -245,34 +314,42 @@ async function deploy(): Promise<void> {
   console.log(`   Total: ${(staticResult.totalSize / 1024).toFixed(1)} KB`)
   console.log(`   Files: ${staticResult.files.size}`)
 
-  // Upload API bundle
+  // Upload API bundle to storage first (use worker.js for DWS worker deployment)
   console.log('\n[Upload] API bundle...')
-  const apiContent = await readFile(join(APP_DIR, 'dist/api/index.js'))
+  const apiContent = await readFile(join(APP_DIR, 'dist/api/worker.js'))
   const apiResult = await uploadFile(
     config.dwsUrl,
     Buffer.from(apiContent),
     'oauth3-api.js',
   )
-  console.log(`   API CID: ${apiResult.cid.slice(0, 16)}...`)
+  console.log(`   API CID: ${apiResult.cid}`)
 
-  // Register app with DWS
+  // Deploy API as DWS worker (NOT K8s!)
+  const workerId = await deployWorker(config, apiResult.cid, deployerAddress)
+
+  // Register app with DWS using the worker ID
   console.log('\n[Register] Registering app with DWS...')
-  await registerApp(config, staticResult.files, apiResult.cid)
+  await registerApp(config, staticResult.files, workerId)
 
   // Summary
   const indexCid = staticResult.files.get('index.html')
   const appJsCid = staticResult.files.get('app.js')
 
   console.log('\n================================')
-  console.log('Deployment Complete')
+  console.log('✅ Deployment Complete')
   console.log('================================')
-  console.log(`Frontend URL: https://oauth3.testnet.jejunetwork.org`)
-  console.log(`index.html CID: ${indexCid}`)
-  console.log(`app.js CID: ${appJsCid}`)
-  console.log(`API CID: ${apiResult.cid}`)
+  console.log(`Network: ${config.network}`)
+  console.log(`Frontend:`)
+  console.log(`   index.html CID: ${indexCid}`)
+  console.log(`   app.js CID: ${appJsCid}`)
+  console.log(`Backend:`)
+  console.log(`   Worker ID: ${workerId}`)
+  console.log(`   API CID: ${apiResult.cid}`)
   console.log('')
-  console.log('Files are stored on IPFS via DWS storage.')
-  console.log('DWS will serve frontend from IPFS using staticFiles map.')
+  console.log('🌐 Fully decentralized deployment:')
+  console.log('   - Frontend served from IPFS via DWS storage')
+  console.log('   - Backend runs as DWS serverless worker')
+  console.log('   - NO K8s or AWS infrastructure required!')
 }
 
 deploy().catch((error) => {

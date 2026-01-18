@@ -46,17 +46,6 @@
 	path = packages/contracts/lib/openzeppelin-contracts-upgradeable
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable
 
-# Vendor apps (private - will skip for users without access)
-[submodule "vendor/babylon"]
-	path = vendor/babylon
-	url = git@github.com:elizaos/babylon.git
-	ignore = untracked
-
-[submodule "vendor/eliza"]
-	path = vendor/eliza
-	url = git@github.com:elizaos/eliza.git
-	ignore = untracked
-
 [submodule "packages/bridge/contracts/lib/forge-std"]
 	path = packages/bridge/contracts/lib/forge-std
 	url = https://github.com/foundry-rs/forge-std

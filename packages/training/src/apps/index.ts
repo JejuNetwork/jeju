@@ -57,7 +57,7 @@ export interface Trajectory<
 /**
  * Trajectory step for app adapters.
  *
- * Note: This is a simplified step type for app integrations.
+ * This is a simplified step type for app integrations.
  * For Zod-validated storage types, use TrajectoryStep from @jejunetwork/training schemas.
  */
 export interface AppTrajectoryStep {
@@ -98,7 +98,7 @@ export type TrajectoryStatus =
 /**
  * Trajectory context for app adapters.
  *
- * Note: This is for app integrations. For LLM judging context,
+ * This is for app integrations. For LLM judging context,
  * use TrajectoryContext from @jejunetwork/training scoring module.
  */
 export interface AppTrajectoryContext {

@@ -35,10 +35,10 @@
  *    For ML/AI workloads, use Workers AI bindings.
  *
  * Common WASM alternatives:
- * - bcryptjs (pure JS bcrypt) - already included in this bundle
+ * - pbkdf2 (WebCrypto) - available via crypto.subtle
  * - argon2-browser (WASM argon2)
  * - @aspect/crypto-wasm (general crypto)
- * - @aspect/sqlite-wasm (SQLite) - or use SQLit HTTP client
+ * - @aspect/sqlite-wasm (SQLite)
  */
 
 export type FFIType =
@@ -67,8 +67,17 @@ export interface FFISymbols {
   [name: string]: FFIFunction
 }
 
+export type FFIValue =
+  | string
+  | number
+  | bigint
+  | boolean
+  | ArrayBuffer
+  | Uint8Array
+  | null
+
 export interface FFILibrary {
-  symbols: Record<string, (...args: unknown[]) => unknown>
+  symbols: Record<string, (...args: FFIValue[]) => FFIValue>
   close(): void
 }
 
@@ -102,14 +111,14 @@ export function ptr(_data: ArrayBuffer | Uint8Array): number {
 /**
  * Read memory at a pointer
  */
-export function read(_ptr: number, _type: FFIType): unknown {
+export function read(_ptr: number, _type: FFIType): FFIValue {
   notAvailable('read')
 }
 
 /**
  * Write memory at a pointer
  */
-export function write(_ptr: number, _value: unknown, _type: FFIType): void {
+export function write(_ptr: number, _value: FFIValue, _type: FFIType): void {
   notAvailable('write')
 }
 
@@ -131,7 +140,7 @@ export function free(_ptr: number): void {
  * Create a JSCallback for passing to native code
  */
 export function callback(
-  _fn: (...args: unknown[]) => unknown,
+  _fn: (...args: FFIValue[]) => FFIValue,
   _definition: FFIFunction,
 ): number {
   notAvailable('callback')

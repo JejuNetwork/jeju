@@ -33,19 +33,19 @@ function getDWSUrlForNetwork(network: NetworkType): string {
     case 'mainnet':
       return (
         process.env.MAINNET_DWS_URL ??
-        getDWSUrl() ??
+        getDWSUrl(network) ??
         'https://dws.jejunetwork.org'
       )
     case 'testnet':
       return (
         process.env.TESTNET_DWS_URL ??
-        getDWSUrl() ??
+        getDWSUrl(network) ??
         'https://dws.testnet.jejunetwork.org'
       )
     default:
       return (
         process.env.DWS_URL ??
-        getDWSUrl() ??
+        getDWSUrl(network) ??
         `http://${getLocalhostHost()}:4030`
       )
   }

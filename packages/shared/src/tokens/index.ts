@@ -18,7 +18,7 @@ let encoding: Tiktoken | null = null
 async function getEncoding(): Promise<Tiktoken> {
   if (!encoding) {
     const { encodingForModel } = await import('js-tiktoken')
-    encoding = encodingForModel('gpt-4')
+    encoding = encodingForModel('gpt-5')
   }
   return encoding
 }
@@ -162,16 +162,15 @@ export function truncateToTokenLimitSync(
 }
 
 /**
- * Model-specific INPUT CONTEXT token limits
- *
- * Note: Output limits are separate from input limits on modern models.
+ * Model-specific INPUT CONTEXT token limits.
+ * Output limits are separate from input limits on modern models.
  */
 export const MODEL_TOKEN_LIMITS: Record<string, number> = {
   // OpenAI
   'gpt-5.1': 128000,
   'gpt-5-nano': 128000,
   'gpt-5.1-turbo': 128000,
-  'gpt-4': 8192,
+  'gpt-5': 8192,
   'gpt-5.2': 128000,
   'gpt-3.5-turbo': 16385,
   'gpt-3.5-turbo-16k': 16385,
@@ -285,4 +284,52 @@ export function budgetTokens(
   }
 
   return budget
+}
+
+/**
+ * Models requiring max_completion_tokens instead of max_tokens
+ *
+ * GPT-5.x and reasoning models (o1, o3, o4) use max_completion_tokens
+ * to separately track reasoning tokens vs output tokens.
+ */
+const MODELS_REQUIRING_MAX_COMPLETION_TOKENS = ['gpt-5', 'o1', 'o3', 'o4']
+
+/**
+ * Check if a model requires max_completion_tokens parameter
+ *
+ * @param model - Model identifier (e.g., "gpt-5.2", "o1-mini")
+ * @returns true if model requires max_completion_tokens
+ */
+export function requiresMaxCompletionTokens(model: string): boolean {
+  return MODELS_REQUIRING_MAX_COMPLETION_TOKENS.some((prefix) =>
+    model.startsWith(prefix),
+  )
+}
+
+/**
+ * Build token limit parameter for OpenAI-compatible API request
+ *
+ * Automatically uses correct parameter name based on model.
+ *
+ * @param model - Model identifier
+ * @param maxTokens - Maximum tokens to generate
+ * @returns Object with correct parameter name
+ *
+ * @example
+ * ```typescript
+ * const body = {
+ *   model: 'gpt-5.2',
+ *   messages: [...],
+ *   ...buildMaxTokensParam('gpt-5.2', 4096)
+ * }
+ * // Returns: { max_completion_tokens: 4096 }
+ * ```
+ */
+export function buildMaxTokensParam(
+  model: string,
+  maxTokens: number,
+): { max_tokens: number } | { max_completion_tokens: number } {
+  return requiresMaxCompletionTokens(model)
+    ? { max_completion_tokens: maxTokens }
+    : { max_tokens: maxTokens }
 }

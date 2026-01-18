@@ -40,6 +40,7 @@ import {
 } from './utils'
 
 const TEST_ADDRESS = TEST_WALLET_ADDRESS as Address
+const LOCALNET_CHAIN_IDS = new Set([31337, 1337])
 
 const DEFAULT_CONFIG: PreflightConfig = {
   rpcUrl: getRpcUrl(),
@@ -70,9 +71,9 @@ export async function runPreflightChecks(
   console.log('='.repeat(70))
   console.log(`RPC: ${cfg.rpcUrl} | Chain ID: ${cfg.chainId}\n`)
 
-  const chain = createChain(cfg.rpcUrl, cfg.chainId)
-  const publicClient = createPublicClient({
-    chain,
+  const initialChain = createChain(cfg.rpcUrl, cfg.chainId)
+  let publicClient = createPublicClient({
+    chain: initialChain,
     transport: http(cfg.rpcUrl, { timeout: cfg.timeout }),
   })
 
@@ -95,19 +96,36 @@ export async function runPreflightChecks(
 
   // Check 2: Chain ID
   console.log('2/6 Chain ID...')
+  let effectiveChainId = cfg.chainId
   try {
     const actualChainId = await publicClient.getChainId()
     if (actualChainId !== cfg.chainId) {
-      return fail(
-        'Chain ID',
-        `Mismatch: expected ${cfg.chainId}, got ${actualChainId}`,
-      )
+      if (
+        LOCALNET_CHAIN_IDS.has(cfg.chainId) &&
+        LOCALNET_CHAIN_IDS.has(actualChainId)
+      ) {
+        effectiveChainId = actualChainId
+        publicClient = createPublicClient({
+          chain: createChain(cfg.rpcUrl, effectiveChainId),
+          transport: http(cfg.rpcUrl, { timeout: cfg.timeout }),
+        })
+      } else {
+        return fail(
+          'Chain ID',
+          `Mismatch: expected ${cfg.chainId}, got ${actualChainId}`,
+        )
+      }
     }
-    checks.push({ name: 'Chain ID', passed: true, message: `${actualChainId}` })
+    checks.push({
+      name: 'Chain ID',
+      passed: true,
+      message: `${actualChainId}`,
+    })
     console.log(`    ✅ ${actualChainId}`)
   } catch (e) {
     return fail('Chain ID', `Failed: ${e instanceof Error ? e.message : e}`)
   }
+  const chain = createChain(cfg.rpcUrl, effectiveChainId)
 
   // Check 3: Balance
   console.log('3/6 Test account balance...')

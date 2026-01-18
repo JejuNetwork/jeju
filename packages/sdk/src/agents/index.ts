@@ -12,7 +12,7 @@
 import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, parseEther } from 'viem'
 import { z } from 'zod'
-import { requireContract } from '../config'
+import { safeGetContract } from '../config'
 import { parseIdFromLogs } from '../shared/api'
 import type { BaseWallet } from '../wallet'
 
@@ -373,8 +373,30 @@ export function createAgentsModule(
   wallet: BaseWallet,
   network: NetworkType,
 ): AgentsModule {
-  const agentVaultAddress = requireContract('agents', 'AgentVault', network)
-  const roomRegistryAddress = requireContract('agents', 'RoomRegistry', network)
+  // Use safe getters - contracts may not be deployed on all networks
+  const agentVaultAddressOpt = safeGetContract('agents', 'AgentVault', network)
+  const roomRegistryAddressOpt = safeGetContract(
+    'agents',
+    'RoomRegistry',
+    network,
+  )
+
+  // Lazy-load contract addresses - throw on method call if not deployed
+  const getAgentVaultAddress = () => {
+    if (!agentVaultAddressOpt) {
+      throw new Error('Agents AgentVault contract not deployed on this network')
+    }
+    return agentVaultAddressOpt
+  }
+
+  const getRoomRegistryAddress = () => {
+    if (!roomRegistryAddressOpt) {
+      throw new Error(
+        'Agents RoomRegistry contract not deployed on this network',
+      )
+    }
+    return roomRegistryAddressOpt
+  }
 
   const DEFAULT_SPEND_LIMIT = parseEther('0.01')
   const MIN_VAULT_BALANCE = parseEther('0.001')
@@ -391,13 +413,13 @@ export function createAgentsModule(
       })
 
       const txHash = await wallet.sendTransaction({
-        to: agentVaultAddress,
+        to: getAgentVaultAddress(),
         data,
         value: params.initialDeposit ?? 0n,
       })
 
       const vaultAddress = (await wallet.publicClient.readContract({
-        address: agentVaultAddress,
+        address: getAgentVaultAddress(),
         abi: AGENT_VAULT_ABI,
         functionName: 'getVault',
         args: [params.agentId],
@@ -412,7 +434,7 @@ export function createAgentsModule(
 
     async getVaultAddress(agentId) {
       const address = (await wallet.publicClient.readContract({
-        address: agentVaultAddress,
+        address: getAgentVaultAddress(),
         abi: AGENT_VAULT_ABI,
         functionName: 'getVault',
         args: [agentId],
@@ -426,7 +448,7 @@ export function createAgentsModule(
 
     async getBalance(agentId) {
       return wallet.publicClient.readContract({
-        address: agentVaultAddress,
+        address: getAgentVaultAddress(),
         abi: AGENT_VAULT_ABI,
         functionName: 'getBalance',
         args: [agentId],
@@ -435,7 +457,7 @@ export function createAgentsModule(
 
     async getVaultInfo(agentId) {
       const result = await wallet.publicClient.readContract({
-        address: agentVaultAddress,
+        address: getAgentVaultAddress(),
         abi: AGENT_VAULT_ABI,
         functionName: 'getVaultInfo',
         args: [agentId],
@@ -456,7 +478,7 @@ export function createAgentsModule(
       })
 
       return wallet.sendTransaction({
-        to: agentVaultAddress,
+        to: getAgentVaultAddress(),
         data,
         value: amount,
       })
@@ -470,7 +492,7 @@ export function createAgentsModule(
       })
 
       return wallet.sendTransaction({
-        to: agentVaultAddress,
+        to: getAgentVaultAddress(),
         data,
       })
     },
@@ -483,14 +505,14 @@ export function createAgentsModule(
       })
 
       return wallet.sendTransaction({
-        to: agentVaultAddress,
+        to: getAgentVaultAddress(),
         data,
       })
     },
 
     async getSpendHistory(agentId, limit = 100) {
       const result = await wallet.publicClient.readContract({
-        address: agentVaultAddress,
+        address: getAgentVaultAddress(),
         abi: AGENT_VAULT_ABI,
         functionName: 'getSpendHistory',
         args: [agentId, BigInt(limit)],
@@ -507,7 +529,7 @@ export function createAgentsModule(
       })
 
       return wallet.sendTransaction({
-        to: agentVaultAddress,
+        to: getAgentVaultAddress(),
         data,
       })
     },
@@ -520,14 +542,14 @@ export function createAgentsModule(
       })
 
       return wallet.sendTransaction({
-        to: agentVaultAddress,
+        to: getAgentVaultAddress(),
         data,
       })
     },
 
     async isApprovedSpender(agentId, spender) {
       return wallet.publicClient.readContract({
-        address: agentVaultAddress,
+        address: getAgentVaultAddress(),
         abi: AGENT_VAULT_ABI,
         functionName: 'isApprovedSpender',
         args: [agentId, spender],
@@ -542,7 +564,7 @@ export function createAgentsModule(
       })
 
       return wallet.sendTransaction({
-        to: agentVaultAddress,
+        to: getAgentVaultAddress(),
         data,
       })
     },
@@ -555,7 +577,7 @@ export function createAgentsModule(
       })
 
       return wallet.sendTransaction({
-        to: agentVaultAddress,
+        to: getAgentVaultAddress(),
         data,
       })
     },
@@ -568,7 +590,7 @@ export function createAgentsModule(
       })
 
       return wallet.sendTransaction({
-        to: agentVaultAddress,
+        to: getAgentVaultAddress(),
         data,
       })
     },
@@ -582,7 +604,7 @@ export function createAgentsModule(
       })
 
       const txHash = await wallet.sendTransaction({
-        to: roomRegistryAddress,
+        to: getRoomRegistryAddress(),
         data,
       })
 
@@ -599,7 +621,7 @@ export function createAgentsModule(
 
     async getRoom(roomId) {
       const result = await wallet.publicClient.readContract({
-        address: roomRegistryAddress,
+        address: getRoomRegistryAddress(),
         abi: ROOM_REGISTRY_ABI,
         functionName: 'getRoom',
         args: [roomId],
@@ -625,7 +647,7 @@ export function createAgentsModule(
       })
 
       return wallet.sendTransaction({
-        to: roomRegistryAddress,
+        to: getRoomRegistryAddress(),
         data,
       })
     },
@@ -638,7 +660,7 @@ export function createAgentsModule(
       })
 
       return wallet.sendTransaction({
-        to: roomRegistryAddress,
+        to: getRoomRegistryAddress(),
         data,
       })
     },
@@ -651,7 +673,7 @@ export function createAgentsModule(
       })
 
       return wallet.sendTransaction({
-        to: roomRegistryAddress,
+        to: getRoomRegistryAddress(),
         data,
       })
     },
@@ -660,7 +682,7 @@ export function createAgentsModule(
       if (!owner) return []
 
       const roomIds = await wallet.publicClient.readContract({
-        address: roomRegistryAddress,
+        address: getRoomRegistryAddress(),
         abi: ROOM_REGISTRY_ABI,
         functionName: 'getRoomsByOwner',
         args: [owner],
@@ -680,7 +702,7 @@ export function createAgentsModule(
 
     async getRoomMembers(roomId) {
       const members = await wallet.publicClient.readContract({
-        address: roomRegistryAddress,
+        address: getRoomRegistryAddress(),
         abi: ROOM_REGISTRY_ABI,
         functionName: 'getRoomMembers',
         args: [roomId],
@@ -690,7 +712,7 @@ export function createAgentsModule(
 
     async getTotalVaults() {
       return wallet.publicClient.readContract({
-        address: agentVaultAddress,
+        address: getAgentVaultAddress(),
         abi: AGENT_VAULT_ABI,
         functionName: 'totalVaults',
       })
@@ -698,7 +720,7 @@ export function createAgentsModule(
 
     async getTotalValueLocked() {
       return wallet.publicClient.readContract({
-        address: agentVaultAddress,
+        address: getAgentVaultAddress(),
         abi: AGENT_VAULT_ABI,
         functionName: 'totalValueLocked',
       })

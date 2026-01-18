@@ -16,10 +16,13 @@ import {
   Sparkles,
   Trash2,
   Users,
+  Wallet,
   X,
 } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useAccount, useConnect, useSignMessage } from 'wagmi'
+import { injected } from 'wagmi/connectors'
 import {
   DECISION_STYLE_OPTIONS,
   MODEL_OPTIONS,
@@ -35,11 +38,11 @@ import {
   DEFAULT_GOVERNANCE_PARAMS,
 } from '../types/dao'
 
-type WizardStep = 'basics' | 'ceo' | 'board' | 'governance' | 'review'
+type WizardStep = 'basics' | 'director' | 'board' | 'governance' | 'review'
 
 const STEPS: { id: WizardStep; label: string; icon: typeof Bot }[] = [
   { id: 'basics', label: 'Basics', icon: Settings },
-  { id: 'ceo', label: 'CEO', icon: Crown },
+  { id: 'director', label: 'Director', icon: Crown },
   { id: 'board', label: 'Board', icon: Users },
   { id: 'governance', label: 'Governance', icon: Shield },
   { id: 'review', label: 'Review', icon: Check },
@@ -54,9 +57,9 @@ const BOARD_ROLE_OPTIONS: AgentRole[] = [
   'CUSTOM',
 ]
 
-function createEmptyCEO(): CreateAgentDraft {
+function createEmptyDirector(): CreateAgentDraft {
   return {
-    role: 'CEO',
+    role: 'Director',
     persona: {
       name: '',
       avatarCid: '',
@@ -99,14 +102,14 @@ function createBoardMember(role: AgentRole): CreateAgentDraft {
 interface AgentFormProps {
   agent: CreateAgentDraft
   onChange: (agent: CreateAgentDraft) => void
-  isCEO?: boolean
+  isDirector?: boolean
   onRemove?: () => void
 }
 
 function AgentForm({
   agent,
   onChange,
-  isCEO = false,
+  isDirector = false,
   onRemove,
 }: AgentFormProps) {
   const [expanded, setExpanded] = useState(true)
@@ -159,12 +162,12 @@ function AgentForm({
           <div
             className="w-10 h-10 rounded-lg flex items-center justify-center"
             style={{
-              background: isCEO
+              background: isDirector
                 ? 'var(--gradient-accent)'
                 : 'var(--gradient-secondary)',
             }}
           >
-            {isCEO ? (
+            {isDirector ? (
               <Crown className="w-5 h-5 text-white" aria-hidden="true" />
             ) : (
               <Bot className="w-5 h-5 text-white" aria-hidden="true" />
@@ -175,15 +178,15 @@ function AgentForm({
               className="font-semibold"
               style={{ color: 'var(--text-primary)' }}
             >
-              {agent.persona.name || (isCEO ? 'CEO' : preset.name)}
+              {agent.persona.name || (isDirector ? 'Director' : preset.name)}
             </p>
             <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-              {isCEO ? 'Chief Executive Officer' : preset.description}
+              {isDirector ? 'Chief Executive Officer' : preset.description}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {!isCEO && onRemove && (
+          {!isDirector && onRemove && (
             <button
               type="button"
               onClick={(e) => {
@@ -217,8 +220,8 @@ function AgentForm({
           className="p-4 pt-0 space-y-4 border-t"
           style={{ borderColor: 'var(--border)' }}
         >
-          {/* Role Selection (for non-CEO) */}
-          {!isCEO && (
+          {/* Role Selection (for non-Director) */}
+          {!isDirector && (
             <div>
               <label
                 htmlFor={`role-${agent.persona.name}`}
@@ -268,19 +271,19 @@ function AgentForm({
           {/* Name */}
           <div>
             <label
-              htmlFor={`agent-name-${isCEO ? 'ceo' : 'board'}`}
+              htmlFor={`agent-name-${isDirector ? 'director' : 'board'}`}
               className="block text-sm font-medium mb-2"
               style={{ color: 'var(--text-primary)' }}
             >
               Agent Name
             </label>
             <input
-              id={`agent-name-${isCEO ? 'ceo' : 'board'}`}
+              id={`agent-name-${isDirector ? 'director' : 'board'}`}
               type="text"
               value={agent.persona.name}
               onChange={(e) => updatePersona({ name: e.target.value })}
               placeholder={
-                isCEO ? 'e.g., Eliza, Atlas' : `e.g., ${preset.name}`
+                isDirector ? 'e.g., Eliza, Atlas' : `e.g., ${preset.name}`
               }
               className="input"
             />
@@ -289,14 +292,14 @@ function AgentForm({
           {/* Bio */}
           <div>
             <label
-              htmlFor={`agent-bio-${isCEO ? 'ceo' : 'board'}`}
+              htmlFor={`agent-bio-${isDirector ? 'director' : 'board'}`}
               className="block text-sm font-medium mb-2"
               style={{ color: 'var(--text-primary)' }}
             >
               Bio
             </label>
             <textarea
-              id={`agent-bio-${isCEO ? 'ceo' : 'board'}`}
+              id={`agent-bio-${isDirector ? 'director' : 'board'}`}
               value={agent.persona.bio}
               onChange={(e) => updatePersona({ bio: e.target.value })}
               placeholder="What this agent focuses on and how they contribute"
@@ -308,14 +311,14 @@ function AgentForm({
           {/* Personality */}
           <div>
             <label
-              htmlFor={`agent-personality-${isCEO ? 'ceo' : 'board'}`}
+              htmlFor={`agent-personality-${isDirector ? 'director' : 'board'}`}
               className="block text-sm font-medium mb-2"
               style={{ color: 'var(--text-primary)' }}
             >
               Personality
             </label>
             <textarea
-              id={`agent-personality-${isCEO ? 'ceo' : 'board'}`}
+              id={`agent-personality-${isDirector ? 'director' : 'board'}`}
               value={agent.persona.personality}
               onChange={(e) => updatePersona({ personality: e.target.value })}
               placeholder="How this agent approaches decisions and communicates"
@@ -425,14 +428,14 @@ function AgentForm({
           {/* Communication Tone */}
           <div>
             <label
-              htmlFor={`comm-tone-${isCEO ? 'ceo' : 'board'}`}
+              htmlFor={`comm-tone-${isDirector ? 'director' : 'board'}`}
               className="block text-sm font-medium mb-2"
               style={{ color: 'var(--text-primary)' }}
             >
               Communication Tone
             </label>
             <select
-              id={`comm-tone-${isCEO ? 'ceo' : 'board'}`}
+              id={`comm-tone-${isDirector ? 'director' : 'board'}`}
               value={agent.persona.communicationTone}
               onChange={(e) =>
                 updatePersona({
@@ -496,8 +499,8 @@ function AgentForm({
             </div>
           </div>
 
-          {/* Weight (for non-CEO) */}
-          {!isCEO && (
+          {/* Weight (for non-Director) */}
+          {!isDirector && (
             <div>
               <label
                 htmlFor={`weight-${agent.persona.name}`}
@@ -541,6 +544,14 @@ export default function CreateDAOPage() {
   const [step, setStep] = useState<WizardStep>('basics')
   const createDAOMutation = useCreateDAO()
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [signatureStatus, setSignatureStatus] = useState<
+    'idle' | 'signing' | 'signed'
+  >('idle')
+
+  // Wallet hooks
+  const { address, isConnected } = useAccount()
+  const { connect, isPending: isConnecting } = useConnect()
+  const { signMessageAsync } = useSignMessage()
 
   // Form state
   const [name, setName] = useState('')
@@ -549,7 +560,9 @@ export default function CreateDAOPage() {
   const [farcasterChannel, setFarcasterChannel] = useState('')
   const [tags, setTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
-  const [ceo, setCeo] = useState<CreateAgentDraft>(createEmptyCEO())
+  const [director, setDirector] = useState<CreateAgentDraft>(
+    createEmptyDirector(),
+  )
   const [board, setBoard] = useState<CreateAgentDraft[]>([
     createBoardMember('TREASURY'),
     createBoardMember('CODE'),
@@ -609,6 +622,25 @@ export default function CreateDAOPage() {
   const handleSubmit = useCallback(async () => {
     setSubmitError(null)
 
+    // Require wallet connection
+    if (!isConnected || !address) {
+      setSubmitError('Please connect your wallet to create a DAO')
+      return
+    }
+
+    // Request signature to verify ownership
+    setSignatureStatus('signing')
+    const message = `Create DAO "${displayName}" on Jeju Network\n\nName: ${name}\nCreator: ${address}\nTimestamp: ${Date.now()}`
+
+    try {
+      await signMessageAsync({ message })
+      setSignatureStatus('signed')
+    } catch {
+      setSignatureStatus('idle')
+      setSubmitError('Signature required to create DAO')
+      return
+    }
+
     const draft: CreateDAODraft = {
       name,
       displayName,
@@ -616,8 +648,8 @@ export default function CreateDAOPage() {
       avatarCid: '',
       bannerCid: '',
       visibility: 'public',
-      treasury: '0x0000000000000000000000000000000000000000' as `0x${string}`,
-      ceo,
+      treasury: address, // Use connected wallet as initial treasury
+      director,
       board,
       governanceParams,
       farcasterChannel: farcasterChannel || undefined,
@@ -633,6 +665,7 @@ export default function CreateDAOPage() {
         setSubmitError(
           error instanceof Error ? error.message : 'Failed to create DAO',
         )
+        setSignatureStatus('idle')
       },
     })
   }, [
@@ -641,23 +674,32 @@ export default function CreateDAOPage() {
     description,
     farcasterChannel,
     tags,
-    ceo,
+    director,
     board,
     governanceParams,
+    isConnected,
+    address,
+    signMessageAsync,
     createDAOMutation,
     navigate,
   ])
+
+  const totalBoardWeight = useMemo(
+    () => board.reduce((sum, b) => sum + b.weight, 0),
+    [board],
+  )
 
   const isStepValid = useMemo((): boolean => {
     switch (step) {
       case 'basics':
         return name.trim().length >= 3 && displayName.trim().length >= 2
-      case 'ceo':
-        return ceo.persona.name.trim().length >= 2
+      case 'director':
+        return director.persona.name.trim().length >= 2
       case 'board':
         return (
           board.length >= 3 &&
-          board.every((b) => b.persona.name.trim().length >= 2)
+          board.every((b) => b.persona.name.trim().length >= 2) &&
+          totalBoardWeight === 100
         )
       case 'governance':
         return true
@@ -666,7 +708,7 @@ export default function CreateDAOPage() {
       default:
         return false
     }
-  }, [step, name, displayName, ceo, board])
+  }, [step, name, displayName, director, board, totalBoardWeight])
 
   return (
     <div
@@ -907,29 +949,51 @@ export default function CreateDAOPage() {
           </div>
         )}
 
-        {/* Step: CEO */}
-        {step === 'ceo' && (
+        {/* Step: Director */}
+        {step === 'director' && (
           <div className="space-y-6 animate-in">
             <h2
               className="text-2xl font-bold mb-6"
               style={{ color: 'var(--text-primary)' }}
             >
-              CEO configuration
+              Director configuration
             </h2>
 
-            <AgentForm agent={ceo} onChange={setCeo} isCEO />
+            <AgentForm agent={director} onChange={setDirector} isDirector />
           </div>
         )}
 
         {/* Step: Board */}
         {step === 'board' && (
           <div className="space-y-6 animate-in">
-            <h2
-              className="text-2xl font-bold mb-6"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              Board members
-            </h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2
+                className="text-2xl font-bold"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                Board members
+              </h2>
+              <div
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium"
+                style={{
+                  backgroundColor:
+                    totalBoardWeight === 100
+                      ? 'rgba(16, 185, 129, 0.12)'
+                      : 'rgba(239, 68, 68, 0.12)',
+                  color:
+                    totalBoardWeight === 100
+                      ? 'var(--color-success)'
+                      : 'var(--color-error)',
+                }}
+              >
+                Total Weight: {totalBoardWeight}%
+                {totalBoardWeight !== 100 && (
+                  <span className="text-xs">
+                    ({totalBoardWeight < 100 ? 'need more' : 'too high'})
+                  </span>
+                )}
+              </div>
+            </div>
 
             <div className="space-y-4">
               {board.map((agent, index) => (
@@ -1038,11 +1102,11 @@ export default function CreateDAOPage() {
                     type="number"
                     min="1"
                     max="30"
-                    value={governanceParams.councilVotingPeriod / 86400}
+                    value={governanceParams.boardVotingPeriod / 86400}
                     onChange={(e) =>
                       setGovernanceParams({
                         ...governanceParams,
-                        councilVotingPeriod:
+                        boardVotingPeriod:
                           Number.parseInt(e.target.value, 10) * 86400,
                       })
                     }
@@ -1079,17 +1143,17 @@ export default function CreateDAOPage() {
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={governanceParams.ceoVetoEnabled}
+                    checked={governanceParams.directorVetoEnabled}
                     onChange={(e) =>
                       setGovernanceParams({
                         ...governanceParams,
-                        ceoVetoEnabled: e.target.checked,
+                        directorVetoEnabled: e.target.checked,
                       })
                     }
                     className="w-5 h-5 rounded accent-[var(--color-primary)]"
                   />
                   <span style={{ color: 'var(--text-primary)' }}>
-                    Enable CEO Veto Power
+                    Enable Director Veto Power
                   </span>
                 </label>
                 <label className="flex items-center gap-3 cursor-pointer">
@@ -1174,7 +1238,7 @@ export default function CreateDAOPage() {
                 )}
               </div>
 
-              {/* CEO */}
+              {/* Director */}
               <div
                 className="p-5 border-b"
                 style={{ borderColor: 'var(--border)' }}
@@ -1183,7 +1247,7 @@ export default function CreateDAOPage() {
                   className="text-sm font-medium uppercase tracking-wider mb-3"
                   style={{ color: 'var(--text-tertiary)' }}
                 >
-                  CEO
+                  Director
                 </h4>
                 <div className="flex items-center gap-3">
                   <div
@@ -1197,14 +1261,17 @@ export default function CreateDAOPage() {
                       className="font-medium"
                       style={{ color: 'var(--text-primary)' }}
                     >
-                      {ceo.persona.name}
+                      {director.persona.name}
                     </p>
                     <p
                       className="text-xs"
                       style={{ color: 'var(--text-tertiary)' }}
                     >
-                      {MODEL_OPTIONS.find((m) => m.id === ceo.modelId)?.name} ·{' '}
-                      {ceo.decisionStyle}
+                      {
+                        MODEL_OPTIONS.find((m) => m.id === director.modelId)
+                          ?.name
+                      }{' '}
+                      · {director.decisionStyle}
                     </p>
                   </div>
                 </div>
@@ -1283,13 +1350,17 @@ export default function CreateDAOPage() {
                       Voting Period
                     </p>
                     <p style={{ color: 'var(--text-primary)' }}>
-                      {governanceParams.councilVotingPeriod / 86400} days
+                      {governanceParams.boardVotingPeriod / 86400} days
                     </p>
                   </div>
                   <div>
-                    <p style={{ color: 'var(--text-tertiary)' }}>CEO Veto</p>
+                    <p style={{ color: 'var(--text-tertiary)' }}>
+                      Director Veto
+                    </p>
                     <p style={{ color: 'var(--text-primary)' }}>
-                      {governanceParams.ceoVetoEnabled ? 'Enabled' : 'Disabled'}
+                      {governanceParams.directorVetoEnabled
+                        ? 'Enabled'
+                        : 'Disabled'}
                     </p>
                   </div>
                 </div>
@@ -1301,13 +1372,13 @@ export default function CreateDAOPage() {
 
       {/* Footer Navigation */}
       <footer
-        className="fixed bottom-0 left-0 right-0 backdrop-blur-xl border-t"
+        className="fixed bottom-0 left-0 right-0 backdrop-blur-xl border-t fixed-bottom"
         style={{
           backgroundColor: 'rgba(var(--bg-primary-rgb, 250, 251, 255), 0.95)',
           borderColor: 'var(--border)',
         }}
       >
-        <div className="container mx-auto py-4 max-w-2xl flex justify-between">
+        <div className="container mx-auto py-4 px-4 max-w-2xl flex flex-col sm:flex-row justify-between gap-3">
           <button
             type="button"
             onClick={goPrev}
@@ -1324,7 +1395,7 @@ export default function CreateDAOPage() {
           </button>
 
           {step === 'review' ? (
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row items-center gap-3">
               {submitError && (
                 <div
                   className="flex items-center gap-2 text-sm"
@@ -1334,28 +1405,63 @@ export default function CreateDAOPage() {
                   {submitError}
                 </div>
               )}
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={createDAOMutation.isPending}
-                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-white transition-all disabled:opacity-60"
-                style={{ background: 'var(--gradient-primary)' }}
-              >
-                {createDAOMutation.isPending ? (
-                  <>
-                    <Loader2
-                      className="w-4 h-4 animate-spin"
-                      aria-hidden="true"
-                    />
-                    Creating...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4" aria-hidden="true" />
-                    Launch DAO
-                  </>
-                )}
-              </button>
+              {!isConnected ? (
+                <button
+                  type="button"
+                  onClick={() => connect({ connector: injected() })}
+                  disabled={isConnecting}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-white transition-all disabled:opacity-60"
+                  style={{ background: 'var(--gradient-secondary)' }}
+                >
+                  {isConnecting ? (
+                    <>
+                      <Loader2
+                        className="w-4 h-4 animate-spin"
+                        aria-hidden="true"
+                      />
+                      Connecting...
+                    </>
+                  ) : (
+                    <>
+                      <Wallet className="w-4 h-4" aria-hidden="true" />
+                      Connect Wallet to Create
+                    </>
+                  )}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={
+                    createDAOMutation.isPending || signatureStatus === 'signing'
+                  }
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-white transition-all disabled:opacity-60"
+                  style={{ background: 'var(--gradient-primary)' }}
+                >
+                  {signatureStatus === 'signing' ? (
+                    <>
+                      <Loader2
+                        className="w-4 h-4 animate-spin"
+                        aria-hidden="true"
+                      />
+                      Sign to confirm...
+                    </>
+                  ) : createDAOMutation.isPending ? (
+                    <>
+                      <Loader2
+                        className="w-4 h-4 animate-spin"
+                        aria-hidden="true"
+                      />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" aria-hidden="true" />
+                      Launch DAO
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           ) : (
             <button

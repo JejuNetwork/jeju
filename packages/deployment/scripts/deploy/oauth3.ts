@@ -7,7 +7,7 @@
  * - OAuth3AppRegistry
  * - AccountFactory
  *
- * Also registers default OAuth3 apps for Jeju and Eliza councils.
+ * Also registers default OAuth3 apps for Jeju and Eliza boards.
  * Vendor apps should register their own OAuth3 apps.
  */
 
@@ -34,28 +34,28 @@ interface OAuth3Deployment {
   timestamp: number
 }
 
-interface CouncilAppConfig {
+interface BoardAppConfig {
   name: string
   description: string
-  council: Address
+  board: Address
   redirectUris: string[]
 }
 
-const DEFAULT_COUNCILS: Record<string, CouncilAppConfig> = {
+const DEFAULT_BOARDS: Record<string, BoardAppConfig> = {
   jeju: {
     name: 'Jeju Network',
     description: 'Official OAuth3 app for Jeju Network governance',
-    council: '0x0000000000000000000000000000000000000000' as Address,
+    board: '0x0000000000000000000000000000000000000000' as Address,
     redirectUris: [
       'https://jejunetwork.org/auth/callback',
-      'https://council.jejunetwork.org/auth/callback',
+      'https://board.jejunetwork.org/auth/callback',
       'http://localhost:3000/auth/callback',
     ],
   },
   eliza: {
     name: 'ElizaOS',
     description: 'Official OAuth3 app for ElizaOS AI agent framework',
-    council: '0x0000000000000000000000000000000000000000' as Address,
+    board: '0x0000000000000000000000000000000000000000' as Address,
     redirectUris: [
       'https://eliza.jejunetwork.org/auth/callback',
       'https://agents.eliza.jejunetwork.org/auth/callback',
@@ -185,8 +185,8 @@ async function deployOAuth3(): Promise<OAuth3Deployment> {
   })
   console.log('  ✓ TEE Verifier updated')
 
-  console.log('\nRegistering default council OAuth3 apps...')
-  for (const [councilName, config] of Object.entries(DEFAULT_COUNCILS)) {
+  console.log('\nRegistering default board OAuth3 apps...')
+  for (const [boardName, config] of Object.entries(DEFAULT_BOARDS)) {
     const tx = await walletClient.writeContract({
       address: appRegistry,
       abi: OAuth3AppRegistryABI,
@@ -194,7 +194,7 @@ async function deployOAuth3(): Promise<OAuth3Deployment> {
       args: [
         config.name,
         config.description,
-        config.council,
+        config.board,
         {
           redirectUris: config.redirectUris,
           allowedProviders: [0, 1, 2, 3, 4, 5, 6],
@@ -207,7 +207,7 @@ async function deployOAuth3(): Promise<OAuth3Deployment> {
     })
 
     await publicClient.waitForTransactionReceipt({ hash: tx })
-    console.log(`  ✓ ${councilName} app registered`)
+    console.log(`  ✓ ${boardName} app registered`)
   }
 
   const deployment: OAuth3Deployment = {
@@ -276,7 +276,7 @@ const OAuth3AppRegistryABI = [
     inputs: [
       { name: 'name', type: 'string' },
       { name: 'description', type: 'string' },
-      { name: 'council', type: 'address' },
+      { name: 'board', type: 'address' },
       {
         name: 'config',
         type: 'tuple',

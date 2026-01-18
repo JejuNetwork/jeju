@@ -173,7 +173,7 @@ async function getTorrentSQLitClient(): Promise<SQLitClient> {
   if (!sqlitClient) {
     sqlitClient = getSQLit({
       databaseId: TORRENT_DB_ID,
-      timeout: 30000,
+      timeoutMs: 30000,
       debug: process.env.NODE_ENV !== 'production',
     })
   }
@@ -379,7 +379,7 @@ export class WebTorrentBackend extends WorkerdEventEmitter {
     }
 
     // Config injection for workerd compatibility
-    // Note: Environment variables can still be used via configureWebTorrentBackend
+    // Environment variables can still be used via configureWebTorrentBackend
   }
 
   /** Initialize storage bucket */

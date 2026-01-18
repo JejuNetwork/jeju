@@ -179,8 +179,7 @@ describe('SolanaClient', () => {
     it('should handle zero keypair (all zeros)', () => {
       // Create keypair from zero seed - this should work but produce a specific key
       const zeroSeed = new Uint8Array(32).fill(0)
-      // Note: Keypair.fromSeed would normally work but may produce insecure keys
-      // Just verify the structure
+      // Keypair.fromSeed would work but may produce insecure keys - just verify structure
       expect(zeroSeed.length).toBe(32)
     })
 

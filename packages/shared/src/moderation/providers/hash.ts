@@ -158,8 +158,10 @@ function hammingDistance(hash1: string, hash2: string): number {
 
   let distance = 0
   for (let i = 0; i < hash1.length; i++) {
-    const b1 = parseInt(hash1[i], 16)
-    const b2 = parseInt(hash2[i], 16)
+    const char1 = hash1.charAt(i)
+    const char2 = hash2.charAt(i)
+    const b1 = parseInt(char1, 16)
+    const b2 = parseInt(char2, 16)
     // Count differing bits
     let xor = b1 ^ b2
     while (xor) {
@@ -260,7 +262,7 @@ export class HashModerationProvider {
 
   /**
    * Add a detected banned image to the perceptual hash database
-   * Call this when external moderation (Hive/AWS) confirms CSAM
+   * Call this when external moderation (Hive/OpenAI) confirms CSAM
    */
   async addBannedImage(
     buffer: Buffer,

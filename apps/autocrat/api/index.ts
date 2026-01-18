@@ -12,8 +12,8 @@ import {
 import { expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import {
+  type BoardConfig,
   CasualProposalCategorySchema,
-  type CouncilConfig,
   ProposalTypeSchema,
 } from '../lib'
 import { createAutocratA2AServer } from './a2a-server'
@@ -152,13 +152,13 @@ const agent = (id: string, name: string, prompt: string) => ({
   systemPrompt: prompt,
 })
 
-function getConfig(): CouncilConfig {
+function getConfig(): BoardConfig {
   return {
     rpcUrl: getRpcUrl(),
     daoId: autocratConfig.defaultDao,
     contracts: {
-      board: getContractAddr('governance', 'council'),
-      directorAgent: getContractAddr('governance', 'ceoAgent'),
+      board: getContractAddr('governance', 'board'),
+      directorAgent: getContractAddr('governance', 'directorAgent'),
       treasury: getContractAddr('governance', 'treasury'),
       feeConfig: getContractAddr('payments', 'feeConfig'),
       daoRegistry: getContractAddr('governance', 'daoRegistry'),
@@ -193,7 +193,7 @@ function getConfig(): CouncilConfig {
       minQualityScore: 70,
       boardVotingPeriod: 259200,
       gracePeriod: 86400,
-      minProposalStake: BigInt('10000000000000000'),
+      minProposalStake: '10000000000000000',
       quorumBps: 5000,
     },
     directorPersona: {
@@ -287,8 +287,8 @@ const predictionMarketAddr =
     : undefined
 const futarchyConfig: FutarchyConfig = {
   rpcUrl: config.rpcUrl,
-  councilAddress: config.contracts.council
-    ? toAddress(config.contracts.council)
+  boardAddress: config.contracts.board
+    ? toAddress(config.contracts.board)
     : ZERO_ADDRESS,
   predictionMarketAddress:
     typeof predictionMarketAddr === 'string'
@@ -385,15 +385,15 @@ const app = new Elysia()
     const result = await callA2AInternal('get-proposal', { proposalId })
     return result
   })
-  .get('/api/v1/ceo', async () => callA2AInternal('get-ceo-status'))
+  .get('/api/v1/director', async () => callA2AInternal('get-director-status'))
   .get('/api/v1/governance/stats', async () =>
     callA2AInternal('get-governance-stats'),
   )
-  .get('/api/v1/ceo/models', async () => {
+  .get('/api/v1/director/models', async () => {
     const models = await blockchain.getModelCandidates()
     return { models }
   })
-  .get('/api/v1/ceo/decisions', async ({ query }) => {
+  .get('/api/v1/director/decisions', async ({ query }) => {
     const limitSchema = z
       .string()
       .regex(/^\d+$/)
@@ -710,7 +710,7 @@ const app = new Elysia()
     const persona = await service.getDirectorPersona(params.daoId)
     return persona
   })
-  .get('/api/v1/dao/:daoId/council', async ({ params, set }) => {
+  .get('/api/v1/dao/:daoId/board', async ({ params, set }) => {
     const service = initDAOService()
     if (!service) {
       set.status = 503
@@ -781,9 +781,8 @@ const app = new Elysia()
         set.status = 503
         return { error: 'DAO Registry not deployed' }
       }
-      const recommendations = await fundingOracle.generateCEORecommendations(
-        params.daoId,
-      )
+      const recommendations =
+        await fundingOracle.generateDirectorRecommendations(params.daoId)
       return recommendations
     },
   )
@@ -1013,10 +1012,10 @@ const app = new Elysia()
       ),
     }
   })
-  .get('/api/v1/registry/security-council', async () => {
-    const council = await registryIntegration.getSecurityCouncil()
+  .get('/api/v1/registry/security-board', async () => {
+    const board = await registryIntegration.getSecurityBoard()
     return {
-      members: council.map(
+      members: board.map(
         (m: {
           member: string
           agentId: bigint
@@ -1029,19 +1028,19 @@ const app = new Elysia()
       ),
     }
   })
-  .get('/api/v1/registry/is-council-member/:address', async ({ params }) => {
+  .get('/api/v1/registry/is-board-member/:address', async ({ params }) => {
     const addressParam = z
       .string()
       .regex(/^0x[a-fA-F0-9]{40}$/)
       .parse(params.address)
-    const isMember = await registryIntegration.isSecurityCouncilMember(
+    const isMember = await registryIntegration.isSecurityBoardMember(
       toAddress(addressParam),
     )
     return { isMember }
   })
   .get('/health', () => ({
     status: 'ok',
-    service: 'jeju-council',
+    service: 'jeju-board',
     version: '3.0.0',
     mode: 'multi-tenant',
     tee: getTEEMode(),
@@ -1055,7 +1054,7 @@ const app = new Elysia()
       validation: erc8004.validationDeployed,
     },
     futarchy: {
-      council: futarchy.councilDeployed,
+      board: futarchy.boardDeployed,
       predictionMarket: futarchy.predictionMarketDeployed,
     },
     registry: {
@@ -1079,28 +1078,28 @@ const app = new Elysia()
     const orch = orchestrator?.getStatus()
     const activeFlags = (await moderation.getActiveFlags()).length
     const lines = [
-      '# HELP council_requests_total Total HTTP requests',
-      '# TYPE council_requests_total counter',
-      `council_requests_total ${metricsData.requests}`,
-      '# HELP council_errors_total Total errors',
-      '# TYPE council_errors_total counter',
-      `council_errors_total ${metricsData.errors}`,
-      '# HELP council_uptime_seconds Service uptime',
-      '# TYPE council_uptime_seconds gauge',
-      `council_uptime_seconds ${uptime.toFixed(0)}`,
-      '# HELP council_memory_bytes Memory usage',
-      '# TYPE council_memory_bytes gauge',
-      `council_memory_bytes{type="heap"} ${mem.heapUsed}`,
-      `council_memory_bytes{type="rss"} ${mem.rss}`,
-      '# HELP council_orchestrator_cycles Total orchestrator cycles',
-      '# TYPE council_orchestrator_cycles counter',
-      `council_orchestrator_cycles ${orch?.cycleCount ?? 0}`,
-      '# HELP council_proposals_processed Total proposals processed',
-      '# TYPE council_proposals_processed counter',
-      `council_proposals_processed ${orch?.totalProcessed ?? 0}`,
-      '# HELP council_moderation_flags_active Active moderation flags',
-      '# TYPE council_moderation_flags_active gauge',
-      `council_moderation_flags_active ${activeFlags}`,
+      '# HELP board_requests_total Total HTTP requests',
+      '# TYPE board_requests_total counter',
+      `board_requests_total ${metricsData.requests}`,
+      '# HELP board_errors_total Total errors',
+      '# TYPE board_errors_total counter',
+      `board_errors_total ${metricsData.errors}`,
+      '# HELP board_uptime_seconds Service uptime',
+      '# TYPE board_uptime_seconds gauge',
+      `board_uptime_seconds ${uptime.toFixed(0)}`,
+      '# HELP board_memory_bytes Memory usage',
+      '# TYPE board_memory_bytes gauge',
+      `board_memory_bytes{type="heap"} ${mem.heapUsed}`,
+      `board_memory_bytes{type="rss"} ${mem.rss}`,
+      '# HELP board_orchestrator_cycles Total orchestrator cycles',
+      '# TYPE board_orchestrator_cycles counter',
+      `board_orchestrator_cycles ${orch?.cycleCount ?? 0}`,
+      '# HELP board_proposals_processed Total proposals processed',
+      '# TYPE board_proposals_processed counter',
+      `board_proposals_processed ${orch?.totalProcessed ?? 0}`,
+      '# HELP board_moderation_flags_active Active moderation flags',
+      '# TYPE board_moderation_flags_active gauge',
+      `board_moderation_flags_active ${activeFlags}`,
     ]
     return new Response(lines.join('\n'), {
       headers: { 'Content-Type': 'text/plain' },
@@ -1109,10 +1108,11 @@ const app = new Elysia()
   .get('/', () => ({
     name: `${getNetworkName()} Autocrat`,
     version: '3.0.0',
-    description: 'Multi-tenant DAO governance with AI CEOs and deep funding',
+    description:
+      'Multi-tenant DAO governance with AI Directors and deep funding',
     features: [
       'Multi-DAO support (Jeju DAO, custom DAOs)',
-      'CEO personas with unique personalities',
+      'Director personas with unique personalities',
       'Casual proposal flow (opinions, suggestions, applications)',
       'Deep funding with quadratic matching',
       'Package and repo funding integration',
@@ -1131,7 +1131,7 @@ const app = new Elysia()
       futarchy: '/api/v1/futarchy',
       moderation: '/api/v1/moderation',
       registry: '/api/v1/registry',
-      ceo: '/api/v1/ceo',
+      director: '/api/v1/director',
       health: '/health',
     },
   }))
@@ -1140,18 +1140,15 @@ const port = CORE_PORTS.AUTOCRAT_API.get()
 
 async function start() {
   // Initialize config from environment variables
+  // Secrets (API keys, private keys) are managed via KMS SecretVault in api/secrets.ts
   configureAutocrat({
     rpcUrl: getRpcUrl(),
     network: getCurrentNetwork(),
     defaultDao: getEnvVar('DEFAULT_DAO'),
     directorModelId: getEnvVar('DIRECTOR_MODEL_ID'),
-    operatorKey: getEnvVar('OPERATOR_KEY'),
-    privateKey: getEnvVar('PRIVATE_KEY'),
     sqlitDatabaseId: getEnvVar('SQLIT_DATABASE_ID'),
-    autocratApiKey: getEnvVar('AUTOCRAT_API_KEY'),
-    cloudApiKey: getEnvVar('CLOUD_API_KEY'),
     teePlatform: getEnvVar('TEE_PLATFORM'),
-    teeEncryptionSecret: getEnvVar('TEE_ENCRYPTION_SECRET'),
+    teeEncryptionKeyId: getEnvVar('TEE_ENCRYPTION_KEY_ID'),
     ollamaUrl: getEnvVar('OLLAMA_URL'),
     ollamaModel: getEnvVar('OLLAMA_MODEL'),
     computeModel: getEnvVar('COMPUTE_MODEL'),
@@ -1162,6 +1159,10 @@ async function start() {
     farcasterHubUrl: getEnvVar('FARCASTER_HUB_URL'),
     nodeEnv: getEnvVar('NODE_ENV'),
   })
+
+  // Initialize secrets from KMS SecretVault
+  const { initializeSecrets } = await import('./secrets')
+  await initializeSecrets()
 
   await initLocalServices()
   await initModeration()
@@ -1176,11 +1177,9 @@ async function start() {
     triggerMode = 'compute'
   }
 
-  console.log(
-    `[Council] port=${port} tee=${getTEEMode()} trigger=${triggerMode}`,
-  )
+  console.log(`[Board] port=${port} tee=${getTEEMode()} trigger=${triggerMode}`)
 
-  if (blockchain.councilDeployed) {
+  if (blockchain.boardDeployed) {
     const orchestratorConfig: import('./orchestrator').AutocratConfig = {
       rpcUrl: config.rpcUrl,
       daoRegistry: config.contracts.daoRegistry,
@@ -1200,12 +1199,11 @@ async function start() {
 
 start()
 
-export default { port, fetch: app.fetch }
-export { app, config }
+export { app, config, port }
 export type {
+  BoardConfig,
   CasualProposalCategory,
-  CEOPersona,
-  CouncilConfig,
+  DirectorPersona,
   FundingConfig,
   GovernanceParams,
 } from '../lib'
@@ -1220,8 +1218,8 @@ export { createAutocratA2AServer } from './a2a-server'
 export {
   type AgentVote,
   autocratAgentRuntime,
-  type CEODecisionRequest,
   type DeliberationRequest,
+  type DirectorDecisionRequest,
 } from './agents/runtime'
 export { autocratAgentTemplates, getAgentByRole } from './agents/templates'
 export { AutocratBlockchain, getBlockchain } from './blockchain'
@@ -1239,7 +1237,7 @@ export {
   getERC8004Client,
 } from './erc8004'
 export {
-  type CEOFundingRecommendation,
+  type DirectorFundingRecommendation,
   type EpochSummary,
   type FundingAnalysis,
   type FundingOracle,

@@ -2,8 +2,8 @@
  * Autocrat DAO Types - Multi-tenant Version
  *
  * Terminology:
- * - Director: The AI or human executive decision maker (formerly CEO)
- * - Board: The advisory/oversight body (formerly Council)
+ * - Director: The AI or human executive decision maker (formerly Director)
+ * - Board: The advisory/oversight body (formerly Board)
  */
 
 import type { Address } from 'viem'
@@ -37,9 +37,9 @@ export type ProposalStatus =
 
 // Legacy alias
 export const LegacyProposalStatus = {
-  COUNCIL_REVIEW: ProposalStatus.BOARD_REVIEW,
-  COUNCIL_FINAL: ProposalStatus.BOARD_FINAL,
-  CEO_QUEUE: ProposalStatus.DIRECTOR_QUEUE,
+  BOARD_REVIEW: ProposalStatus.BOARD_REVIEW,
+  BOARD_FINAL: ProposalStatus.BOARD_FINAL,
+  DIRECTOR_QUEUE: ProposalStatus.DIRECTOR_QUEUE,
 } as const
 
 export const ProposalType = {
@@ -99,12 +99,11 @@ export interface DirectorPersona {
   decisionFallbackDays: number // 1-30 days before fallback (0 = no fallback)
 }
 
-// Legacy alias
-export type CEOPersona = DirectorPersona
+// Legacy alias - DirectorPersona is already the canonical name
 
 export interface BoardMemberConfig {
   member: Address
-  agentId: bigint // EIP-8004 ID for AI, 0n for human
+  agentId: string // EIP-8004 ID for AI (as string for JSON), "0" for human
   role: string
   weight: number
   addedAt: number
@@ -112,17 +111,14 @@ export interface BoardMemberConfig {
   isHuman: boolean
 }
 
-// Legacy alias
-export type CouncilMemberConfig = BoardMemberConfig
-
 export interface GovernanceParams {
   minQualityScore: number
   boardVotingPeriod: number
   autocratVotingPeriod?: number
   gracePeriod: number
-  minProposalStake: bigint
+  minProposalStake: string // In wei, as string for JSON
   minBackers?: number
-  minStakeForVeto?: bigint
+  minStakeForVeto?: string // In wei, as string for JSON
   vetoThreshold?: number
   quorumBps: number
 }
@@ -142,19 +138,15 @@ export interface DAO {
   displayName: string
   description: string
   treasury: Address
-  board: Address // Board governance contract (formerly council)
-  directorAgent: Address // Director agent contract (formerly ceoAgent)
+  board: Address // Board governance contract (formerly board)
+  directorAgent: Address // Director agent contract (formerly directorAgent)
   feeConfig: Address
-  directorModelId: string // AI model ID (formerly ceoModelId)
+  directorModelId: string // AI model ID (formerly directorModelId)
   manifestCid: string
   status: DAOStatus
   createdAt: number
   updatedAt: number
   creator: Address
-  // Legacy accessors
-  council?: Address
-  ceoAgent?: Address
-  ceoModelId?: string
 }
 
 export interface DAOFull {
@@ -164,9 +156,6 @@ export interface DAOFull {
   boardMembers: BoardMemberConfig[]
   linkedPackages: string[]
   linkedRepos: string[]
-  // Legacy accessors
-  ceoPersona?: DirectorPersona
-  councilMembers?: BoardMemberConfig[]
 }
 
 export interface DAOConfig {
@@ -178,13 +167,11 @@ export interface DAOConfig {
   fundingConfig: FundingConfig
   contracts: DAOContracts
   agents: DAOAgents
-  // Legacy
-  ceoPersona?: DirectorPersona
 }
 
 export interface DAOContracts {
-  board: Address // Board governance contract (formerly council)
-  directorAgent: Address // Director agent contract (formerly ceoAgent)
+  board: Address // Board governance contract (formerly board)
+  directorAgent: Address // Director agent contract (formerly directorAgent)
   treasury: Address
   feeConfig: Address
   daoRegistry: Address
@@ -194,20 +181,14 @@ export interface DAOContracts {
   packageRegistry: Address
   repoRegistry: Address
   modelRegistry: Address
-  // Legacy accessors
-  council?: Address
-  ceoAgent?: Address
 }
 
 export interface DAOAgents {
-  director: AgentConfig // Formerly ceo
-  board: AgentConfig[] // Formerly council
+  director: AgentConfig // Formerly director
+  board: AgentConfig[] // Formerly board
   proposalAgent: AgentConfig
   researchAgent: AgentConfig
   fundingAgent: AgentConfig
-  // Legacy accessors
-  ceo?: AgentConfig
-  council?: AgentConfig[]
 }
 
 export interface FundingConfig {
@@ -217,7 +198,7 @@ export interface FundingConfig {
   cooldownPeriod: number
   matchingMultiplier: number
   quadraticEnabled: boolean
-  directorWeightCap: number // Formerly ceoWeightCap
+  directorWeightCap: number // Formerly directorWeightCap
 }
 
 export interface FundingProject {
@@ -230,15 +211,13 @@ export interface FundingProject {
   primaryRecipient: Address
   additionalRecipients: Address[]
   recipientShares: number[]
-  directorWeight: number // Formerly ceoWeight
+  directorWeight: number // Formerly directorWeight
   communityStake: bigint
   totalFunded: bigint
   status: FundingStatus
   createdAt: number
   lastFundedAt: number
   proposer: Address
-  // Legacy accessor
-  ceoWeight?: number
 }
 
 export interface FundingEpoch {
@@ -262,13 +241,11 @@ export interface FundingStake {
 export interface FundingAllocation {
   projectId: string
   projectName: string
-  directorWeight: number // Formerly ceoWeight
+  directorWeight: number
   communityStake: bigint
   stakerCount: number
   allocation: bigint
   allocationPercentage: number
-  // Legacy accessor
-  ceoWeight?: number
 }
 
 export interface Proposal {
@@ -287,9 +264,9 @@ export interface Proposal {
   relevanceScore: number
   createdAt: number
   submittedAt: number
-  boardVoteStart: number // Formerly councilVoteStart
-  boardVoteEnd: number // Formerly councilVoteEnd
-  directorDecisionAt: number // Formerly ceoDecisionAt
+  boardVoteStart: number // Formerly boardVoteStart
+  boardVoteEnd: number // Formerly boardVoteEnd
+  directorDecisionAt: number // Formerly directorDecisionAt
   gracePeriodEnd: number
   executedAt: number
   ipfsHash: string
@@ -301,21 +278,15 @@ export interface Proposal {
   backerReputations: Map<Address, number>
   totalStaked: bigint
   totalReputation: number
-  boardVotes: BoardVote[] // Formerly councilVotes
+  boardVotes: BoardVote[] // Formerly boardVotes
   researchReport: ResearchReport | null
-  directorDecision: DirectorDecision | null // Formerly ceoDecision
+  directorDecision: DirectorDecision | null // Formerly directorDecision
   vetoVotes: VetoVote[]
   commentary: ProposalComment[]
   tags: string[]
   relatedProposals: string[]
   linkedPackage: string | null
   linkedRepo: string | null
-  // Legacy accessors
-  councilVoteStart?: number
-  councilVoteEnd?: number
-  ceoDecisionAt?: number
-  councilVotes?: BoardVote[]
-  ceoDecision?: DirectorDecision
 }
 
 export interface CasualProposal {
@@ -331,16 +302,13 @@ export interface CasualProposal {
   clarityScore: number
   status: 'pending' | 'reviewing' | 'accepted' | 'rejected' | 'needs_revision'
   aiAssessment: AIAssessment | null
-  boardFeedback: string[] // Formerly councilFeedback
-  directorFeedback: string | null // Formerly ceoFeedback
+  boardFeedback: string[] // Formerly boardFeedback
+  directorFeedback: string | null // Formerly directorFeedback
   linkedPackageId: string | null
   linkedRepoId: string | null
   createdAt: number
   updatedAt: number
   convertedToProposalId: string | null
-  // Legacy accessors
-  councilFeedback?: string[]
-  ceoFeedback?: string | null
 }
 
 export interface AIAssessment {
@@ -398,10 +366,6 @@ export const BoardRole = {
 } as const
 export type BoardRole = (typeof BoardRole)[keyof typeof BoardRole]
 
-// Legacy alias
-export const CouncilRole = BoardRole
-export type CouncilRole = BoardRole
-
 export interface BoardAgent {
   id: string
   daoId: string
@@ -418,9 +382,6 @@ export interface BoardAgent {
   lastActive: number
 }
 
-// Legacy alias
-export type CouncilAgent = BoardAgent
-
 export const VoteType = {
   APPROVE: 0,
   REJECT: 1,
@@ -432,7 +393,7 @@ export type VoteType = (typeof VoteType)[keyof typeof VoteType]
 export interface BoardVote {
   proposalId: string
   daoId: string
-  boardAgentId: string // Formerly councilAgentId
+  boardAgentId: string
   role: BoardRole
   vote: VoteType
   reasoning: string
@@ -441,12 +402,7 @@ export interface BoardVote {
   votedAt: number
   weight: number
   isHuman: boolean
-  // Legacy accessor
-  councilAgentId?: string
 }
-
-// Legacy alias
-export type CouncilVote = BoardVote
 
 export interface BoardDeliberation {
   proposalId: string
@@ -459,9 +415,6 @@ export interface BoardDeliberation {
   summary: string
   requiredChanges: string[]
 }
-
-// Legacy alias
-export type CouncilDeliberation = BoardDeliberation
 
 export interface DirectorDecision {
   proposalId: string
@@ -478,9 +431,6 @@ export interface DirectorDecision {
   personaResponse: string
   isHumanDecision?: boolean
 }
-
-// Legacy alias
-export type CEODecision = DirectorDecision
 
 export interface DirectorState {
   daoId: string
@@ -499,9 +449,6 @@ export interface DirectorState {
   decisionFallbackDays: number
 }
 
-// Legacy alias
-export type CEOState = DirectorState
-
 export interface DirectorModelCandidate {
   modelId: string
   name: string
@@ -513,9 +460,6 @@ export interface DirectorModelCandidate {
   delegations: number
   status: 'candidate' | 'active' | 'deprecated'
 }
-
-// Legacy alias
-export type CEOModelCandidate = DirectorModelCandidate
 
 export interface ProposerReputation {
   address: Address
@@ -683,9 +627,6 @@ export interface DirectorDecisionStorage {
   isHumanDecision?: boolean
 }
 
-// Legacy alias
-export type CEODecisionStorage = DirectorDecisionStorage
-
 // Detailed vote storage from orchestrator (includes agent info for on-chain)
 export interface AutocratVoteDetailStorage {
   type: 'autocrat_vote_detail'
@@ -730,9 +671,6 @@ export interface DirectorAnalysisResult {
   isHumanDecision?: boolean
 }
 
-// Legacy alias
-export type CEOAnalysisResult = DirectorAnalysisResult
-
 // Director decision detail storage from orchestrator (includes TEE data)
 export interface DirectorDecisionDetailStorage {
   type: 'director_decision_detail'
@@ -744,9 +682,6 @@ export interface DirectorDecisionDetailStorage {
   decidedAt: number
   isHumanDecision?: boolean
 }
-
-// Legacy alias
-export type CEODecisionDetailStorage = DirectorDecisionDetailStorage
 
 export type StoredObject =
   | VoteStorage
@@ -891,9 +826,6 @@ export interface AutocratConfig {
   indexerUrl?: string
   ethPriceUsd?: number
   proposalBond?: bigint
-  // Legacy
-  ceoPersona?: DirectorPersona
-  ceoModelId?: string
 }
 
 export interface BoardConfig {
@@ -908,13 +840,7 @@ export interface BoardConfig {
   cloudEndpoint: string
   computeEndpoint: string
   storageEndpoint: string
-  // Legacy
-  ceoPersona?: DirectorPersona
-  ceoModelId?: string
 }
-
-// Legacy alias
-export type CouncilConfig = BoardConfig
 
 export interface AgentConfig {
   id: string
@@ -1008,18 +934,12 @@ export interface BoardVoteCastEventData {
   isHuman: boolean
 }
 
-// Legacy alias
-export type CouncilVoteCastEventData = BoardVoteCastEventData
-
 export interface DirectorDecisionMadeEventData {
   proposalId: string
   approved: boolean
   confidenceScore: number
   isHumanDecision?: boolean
 }
-
-// Legacy alias
-export type CEODecisionMadeEventData = DirectorDecisionMadeEventData
 
 export interface VetoCastEventData {
   proposalId: string
@@ -1075,11 +995,9 @@ export interface DAOStats {
   uniqueProposers: number
   averageQualityScore: number
   averageApprovalTime: number
-  directorApprovalRate: number // Formerly ceoApprovalRate
+  directorApprovalRate: number
   linkedPackages: number
   linkedRepos: number
-  // Legacy accessor
-  ceoApprovalRate?: number
 }
 
 export interface FundingStats {
@@ -1122,7 +1040,7 @@ export const BountySubmissionStatus = {
   PENDING: 0,
   VALIDATING: 1,
   GUARDIAN_REVIEW: 2,
-  DIRECTOR_REVIEW: 3, // Formerly CEO_REVIEW
+  DIRECTOR_REVIEW: 3, // Formerly DIRECTOR_REVIEW
   APPROVED: 4,
   REJECTED: 5,
   PAID: 6,

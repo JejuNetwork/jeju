@@ -2,13 +2,11 @@
  * Utility Functions
  */
 
-import { keccak_256 } from '@noble/hashes/sha3'
+import { keccak_256 } from '@noble/hashes/sha3.js'
 import pRetry from 'p-retry'
 
 export { createLogger, type Logger, type LogLevel } from './logger.js'
 export {
-  type AWSNitroConfig as ValidationAWSNitroConfig,
-  AWSNitroConfigSchema,
   type BatchProofResponse,
   BatchProofResponseSchema,
   ConsensusSnapshotSchema,

@@ -59,17 +59,30 @@ function getConfig(): DeployConfig {
     },
   }
 
+  // SECURITY NOTE: This is a deployment script that runs on the developer's machine.
+  // For production deployments, prefer using KMS via 'jeju deploy' CLI command.
   const privateKey = process.env.DEPLOYER_PRIVATE_KEY || process.env.PRIVATE_KEY
-  if (!privateKey) {
+  const kmsKeyId = process.env.DEPLOYER_KMS_KEY_ID
+
+  if (!privateKey && !kmsKeyId) {
     throw new Error(
-      'DEPLOYER_PRIVATE_KEY or PRIVATE_KEY environment variable required',
+      'DEPLOYER_KMS_KEY_ID (recommended) or DEPLOYER_PRIVATE_KEY/PRIVATE_KEY required. ' +
+        'KMS is recommended for production deployments.',
+    )
+  }
+
+  if (privateKey && network === 'mainnet') {
+    console.warn(
+      '[Deploy] WARNING: Using direct DEPLOYER_PRIVATE_KEY for mainnet deployment. ' +
+        'Consider using DEPLOYER_KMS_KEY_ID for enhanced security.',
     )
   }
 
   return {
     network,
     ...configs[network],
-    privateKey: privateKey as `0x${string}`,
+    privateKey: privateKey as `0x${string}` | undefined,
+    kmsKeyId,
   } as DeployConfig
 }
 
@@ -96,7 +109,7 @@ async function uploadFile(
   dwsUrl: string,
   content: Buffer,
   filename: string,
-  retries = 3,
+  retries = 8,
 ): Promise<{ cid: string; size: number }> {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
@@ -104,11 +117,15 @@ async function uploadFile(
       formData.append('file', new Blob([content]), filename)
       formData.append('tier', 'popular')
       formData.append('category', 'app')
+      formData.append('backends', 'ipfs')
 
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 180_000)
       const response = await fetch(`${dwsUrl}/storage/upload`, {
         method: 'POST',
         body: formData,
-      })
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timeout))
 
       if (!response.ok) {
         const error = await response.text()
@@ -120,7 +137,7 @@ async function uploadFile(
     } catch (err) {
       if (attempt === retries) throw err
       console.log(`   ⚠️  Retry ${attempt}/${retries} for ${filename}...`)
-      await new Promise((r) => setTimeout(r, 1000 * attempt))
+      await new Promise((r) => setTimeout(r, 4000 * attempt))
     }
   }
   throw new Error(`Failed to upload ${filename} after ${retries} attempts`)
@@ -156,10 +173,11 @@ async function uploadDirectory(
         const content = await readFile(fullPath)
         totalSize += content.length
 
+        const uploadName = relativePath.replaceAll('/', '_')
         const result = await uploadFile(
           dwsUrl,
           Buffer.from(content),
-          relativePath,
+          uploadName,
         )
         files.set(relativePath, result.cid)
         console.log(`   📄 ${relativePath} -> ${result.cid.slice(0, 16)}...`)
@@ -190,7 +208,68 @@ async function registerApp(
     displayName: 'Decentralized Web Services',
     staticCid: indexCid,
     apiCid,
-    apiPaths: ['/api', '/health'],
+    apiPaths: [
+      '/api/',
+      '/health',
+      '/storage',
+      '/storage/*',
+      '/compute',
+      '/compute/*',
+      '/cdn',
+      '/cdn/*',
+      '/git',
+      '/git/*',
+      '/pkg',
+      '/pkg/*',
+      '/ci',
+      '/ci/*',
+      '/oauth3',
+      '/oauth3/*',
+      '/containers',
+      '/containers/*',
+      '/a2a',
+      '/a2a/*',
+      '/mcp',
+      '/mcp/*',
+      '/funding',
+      '/funding/*',
+      '/registry',
+      '/registry/*',
+      '/workerd',
+      '/workerd/*',
+      '/workers',
+      '/workers/*',
+      '/sqlit',
+      '/sqlit/*',
+      '/nodes',
+      '/nodes/*',
+      '/kms',
+      '/kms/*',
+      '/auth',
+      '/auth/*',
+      '/account',
+      '/account/*',
+      '/secrets',
+      '/secrets/*',
+      '/logs',
+      '/logs/*',
+      '/previews',
+      '/previews/*',
+      '/vault',
+      '/vault/*',
+      '/apps',
+      '/apps/*',
+      '/faucet',
+      '/faucet/*',
+      '/triggers',
+      '/triggers/*',
+      '/gateway',
+      '/gateway/*',
+      '/cache',
+      '/cache/*',
+      '/inference',
+      '/inference/*',
+    ],
     spa: true,
     staticFiles: Object.fromEntries(staticFiles),
     deployer: account.address,
@@ -227,7 +306,7 @@ async function deploy(): Promise<void> {
   const staticResult = await uploadDirectory(
     config.dwsUrl,
     join(DWS_DIR, 'dist'),
-    ['index.js'],
+    ['index.js', '.map', 'dev/'],
   )
   console.log(`   Total: ${(staticResult.totalSize / 1024).toFixed(1)} KB`)
   console.log(`   Files: ${staticResult.files.size}\n`)

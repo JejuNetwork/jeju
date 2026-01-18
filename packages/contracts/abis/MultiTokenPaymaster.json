@@ -134,6 +134,19 @@
     },
     {
       "type": "function",
+      "name": "feeDistributor",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "contract IFeeDistributor"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "feeMargin",
       "inputs": [],
       "outputs": [
@@ -310,6 +323,19 @@
       "inputs": [
         {
           "name": "newManager",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setFeeDistributor",
+      "inputs": [
+        {
+          "name": "newDistributor",
           "type": "address",
           "internalType": "address"
         }
@@ -567,6 +593,25 @@
           "type": "uint256",
           "indexed": false,
           "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "FeeDistributorUpdated",
+      "inputs": [
+        {
+          "name": "oldDistributor",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "newDistributor",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
         }
       ],
       "anonymous": false

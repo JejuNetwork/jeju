@@ -12,9 +12,9 @@
     "test": "bun run test"
   },
   "ports": {
-    "main": 4050,
+    "main": 4060,
     "api": 4050,
-    "webhooks": 4051
+    "webhooks": 4050
   },
   "dependencies": [
     "contracts",
@@ -247,8 +247,6 @@
     }
   },
   "architecture": {
-    "type": "hybrid",
-    "frontend": { "outputDir": "dist/web" },
-    "backend": { "outputDir": "dist/worker" }
+    "type": "hybrid"
   }
 }

@@ -12,7 +12,7 @@ import { beforeAll, describe, expect, test } from 'bun:test'
 import { FROSTCoordinator, generateKeyShares } from '@jejunetwork/kms'
 import { type Address, type Hex, keccak256, toBytes } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
-import { createMultiTenantCouncilManager } from '../src/council/multi-tenant.js'
+import { createMultiTenantBoardManager } from '../src/board/multi-tenant.js'
 import {
   credentialToOnChainAttestation,
   didFromAddress,
@@ -244,57 +244,57 @@ describe('Verifiable Credentials', () => {
   })
 })
 
-describe('Multi-tenant Council', () => {
-  let manager: MultiTenantCouncilManager
+describe('Multi-tenant Board', () => {
+  let manager: MultiTenantBoardManager
 
   beforeAll(async () => {
-    manager = await createMultiTenantCouncilManager(
+    manager = await createMultiTenantBoardManager(
       '0x0000000000000000000000000000000000000001' as Address,
       '0x0000000000000000000000000000000000000002' as Address,
       TEST_CHAIN_ID,
     )
   })
 
-  test('initializes default councils', () => {
-    const councils = manager.getAllCouncils()
-    expect(councils).toHaveLength(2)
+  test('initializes default boards', () => {
+    const boards = manager.getAllBoards()
+    expect(boards).toHaveLength(2)
 
-    const councilTypes = councils.map((c) => c.councilType)
-    expect(councilTypes).toContain('jeju')
-    expect(councilTypes).toContain('eliza')
+    const boardTypes = boards.map((c) => c.boardType)
+    expect(boardTypes).toContain('jeju')
+    expect(boardTypes).toContain('eliza')
   })
 
-  test('each council has unique config', () => {
-    const jeju = manager.getCouncil('jeju' as const)
-    const eliza = manager.getCouncil('eliza' as const)
+  test('each board has unique config', () => {
+    const jeju = manager.getBoard('jeju' as const)
+    const eliza = manager.getBoard('eliza' as const)
 
-    expect(jeju?.config.name).toBe('Jeju Network Council')
-    expect(eliza?.config.name).toBe('ElizaOS Council')
+    expect(jeju?.config.name).toBe('Jeju Network Board')
+    expect(eliza?.config.name).toBe('ElizaOS Board')
 
-    expect(jeju?.config.councilId).not.toBe(eliza?.config.councilId)
+    expect(jeju?.config.boardId).not.toBe(eliza?.config.boardId)
   })
 
-  test('each council has OAuth3 app', () => {
-    const councils = manager.getAllCouncils()
+  test('each board has OAuth3 app', () => {
+    const boards = manager.getAllBoards()
 
-    for (const council of councils) {
-      expect(council.oauth3App).toBeDefined()
-      expect(council.oauth3App.appId).toMatch(/^0x[a-fA-F0-9]{64}$/)
-      expect(council.oauth3App.allowedProviders.length).toBeGreaterThan(0)
+    for (const board of boards) {
+      expect(board.oauth3App).toBeDefined()
+      expect(board.oauth3App.appId).toMatch(/^0x[a-fA-F0-9]{64}$/)
+      expect(board.oauth3App.allowedProviders.length).toBeGreaterThan(0)
     }
   })
 
-  test('each council has CEO and agents', () => {
-    const councils = manager.getAllCouncils()
+  test('each board has Director and agents', () => {
+    const boards = manager.getAllBoards()
 
-    for (const council of councils) {
-      expect(council.ceo).toBeDefined()
-      expect(council.ceo.name).toBeDefined()
-      expect(council.ceo.modelProvider).toBe('anthropic')
+    for (const board of boards) {
+      expect(board.director).toBeDefined()
+      expect(board.director.name).toBeDefined()
+      expect(board.director.modelProvider).toBe('anthropic')
 
-      expect(council.agents.length).toBeGreaterThan(0)
+      expect(board.agents.length).toBeGreaterThan(0)
 
-      const totalWeight = council.agents.reduce(
+      const totalWeight = board.agents.reduce(
         (sum, a) => sum + a.votingWeight,
         0,
       )
@@ -302,19 +302,19 @@ describe('Multi-tenant Council', () => {
     }
   })
 
-  test('validates council access', async () => {
-    const jeju = manager.getCouncil('jeju' as const)
-    if (!jeju) throw new Error('Jeju council not found')
+  test('validates board access', async () => {
+    const jeju = manager.getBoard('jeju' as const)
+    if (!jeju) throw new Error('Jeju board not found')
 
-    const ceoAccess = await manager.validateCouncilAccess(
+    const directorAccess = await manager.validateBoardAccess(
       'jeju' as const,
-      jeju.ceo.address,
+      jeju.director.address,
     )
 
-    expect(ceoAccess.hasAccess).toBe(true)
-    expect(ceoAccess.roles).toContain('ceo')
+    expect(directorAccess.hasAccess).toBe(true)
+    expect(directorAccess.roles).toContain('director')
 
-    const randomAccess = await manager.validateCouncilAccess(
+    const randomAccess = await manager.validateBoardAccess(
       'jeju' as const,
       '0x1234567890123456789012345678901234567890' as Address,
     )
@@ -323,22 +323,22 @@ describe('Multi-tenant Council', () => {
     expect(randomAccess.roles).toHaveLength(0)
   })
 
-  test('updates council CEO', async () => {
-    await manager.updateCouncilCEO('jeju' as const, {
+  test('updates board Director', async () => {
+    await manager.updateBoardDirector('jeju' as const, {
       modelId: 'claude-opus-4-5',
     })
 
-    const jeju = manager.getCouncil('jeju' as const)
-    if (!jeju) throw new Error('Jeju council not found')
-    expect(jeju.ceo.modelId).toBe('claude-sonnet-4-20250514')
+    const jeju = manager.getBoard('jeju' as const)
+    if (!jeju) throw new Error('Jeju board not found')
+    expect(jeju.director.modelId).toBe('claude-sonnet-4-20250514')
   })
 
-  test('gets council stats', () => {
-    const stats = manager.getCouncilStats()
+  test('gets board stats', () => {
+    const stats = manager.getBoardStats()
 
-    expect(stats.totalCouncils).toBe(3)
+    expect(stats.totalBoards).toBe(3)
     expect(stats.totalAgents).toBeGreaterThan(0)
-    expect(Object.keys(stats.councilBreakdown)).toHaveLength(3)
+    expect(Object.keys(stats.boardBreakdown)).toHaveLength(3)
   })
 })
 

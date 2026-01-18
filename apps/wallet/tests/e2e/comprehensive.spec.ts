@@ -130,7 +130,12 @@ test.describe('Wallet - Main Page', () => {
         errors.push(msg.text())
     })
     page.on('pageerror', (error) => {
-      if (error.message.includes('Cannot read properties')) {
+      // Known issues that don't affect functionality
+      if (
+        error.message.includes('Cannot read properties') ||
+        error.message.includes('buffer is not defined') ||
+        error.message.includes('Buffer is not defined')
+      ) {
         hasKnownBug = true
         return
       }

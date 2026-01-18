@@ -1,10 +1,11 @@
-import { OAuth3Provider } from '@jejunetwork/auth/react'
+import { AuthCallback, OAuth3Provider } from '@jejunetwork/auth/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { lazy, Suspense, useMemo } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { Header } from './components/Header'
 import { LoadingSpinner } from './components/LoadingSpinner'
+import { OnboardingModal } from './components/OnboardingModal'
 import { getOAuth3Config } from './config'
 
 // Lazy load pages for better performance
@@ -12,7 +13,11 @@ const HomePage = lazy(() => import('./pages/Home'))
 const AgentsPage = lazy(() => import('./pages/Agents'))
 const AgentDetailPage = lazy(() => import('./pages/AgentDetail'))
 const CreateAgentPage = lazy(() => import('./pages/CreateAgent'))
+const RoomsPage = lazy(() => import('./pages/Rooms'))
+const RoomPage = lazy(() => import('./pages/Room'))
 const ChatPage = lazy(() => import('./pages/Chat'))
+const AutonomousPage = lazy(() => import('./pages/Autonomous'))
+const BotsPage = lazy(() => import('./pages/Bots'))
 const NotFoundPage = lazy(() => import('./pages/NotFound'))
 
 function PageLoader() {
@@ -42,7 +47,7 @@ function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <OAuth3Provider config={oauth3Config}>
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </OAuth3Provider>
   )
 }
@@ -68,12 +73,6 @@ function Layout({ children }: { children: React.ReactNode }) {
                 Crucible
               </span>
             </div>
-            <p
-              className="text-sm text-center md:text-right"
-              style={{ color: 'var(--text-tertiary)' }}
-            >
-              Decentralized AI Agents
-            </p>
           </div>
         </div>
       </footer>
@@ -89,6 +88,7 @@ function Layout({ children }: { children: React.ReactNode }) {
           },
         }}
       />
+      <OnboardingModal />
     </div>
   )
 }
@@ -101,11 +101,16 @@ export function App() {
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/" element={<HomePage />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/agents" element={<AgentsPage />} />
               <Route path="/agents/new" element={<CreateAgentPage />} />
               <Route path="/agents/:id" element={<AgentDetailPage />} />
+              <Route path="/rooms" element={<RoomsPage />} />
+              <Route path="/rooms/:roomId" element={<RoomPage />} />
               <Route path="/chat" element={<ChatPage />} />
               <Route path="/chat/:roomId" element={<ChatPage />} />
+              <Route path="/autonomous" element={<AutonomousPage />} />
+              <Route path="/bots" element={<BotsPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </Suspense>

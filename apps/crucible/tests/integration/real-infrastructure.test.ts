@@ -12,10 +12,8 @@ import {
 } from '../../api/sdk/eliza-runtime'
 import { createStorage } from '../../api/sdk/storage'
 
-// Skip E2E tests if RUN_E2E is not set
-const RUN_E2E = process.env.RUN_E2E === 'true'
-
-describe.skipIf(!RUN_E2E)('Real Infrastructure E2E', () => {
+// Infrastructure is REQUIRED - tests fail if not running
+describe('Real Infrastructure E2E', () => {
   beforeAll(async () => {
     // These tests REQUIRE infrastructure - fail fast if not available
     console.log(`[E2E] Testing against DWS at: ${getDWSEndpoint()}`)
@@ -109,9 +107,11 @@ describe.skipIf(!RUN_E2E)('Real Infrastructure E2E', () => {
 
   describe('IPFS Storage', () => {
     test('should upload and retrieve content from IPFS', async () => {
+      // Use the storage API from DWS (port 4030), not the compute endpoint
+      const storageApi = 'http://127.0.0.1:4030/storage'
       const storage = createStorage({
-        apiUrl: getDWSEndpoint(),
-        ipfsGateway: `${getDWSEndpoint()}/storage`,
+        apiUrl: storageApi,
+        ipfsGateway: 'http://127.0.0.1:4030/cdn',
         enableCache: false, // Test raw IPFS without cache
       })
 
@@ -140,7 +140,7 @@ describe.skipIf(!RUN_E2E)('Real Infrastructure E2E', () => {
 
       expect(retrieved.id).toBe(testContent.id)
       expect(retrieved.name).toBe(testContent.name)
-    }, 30000)
+    }, 120000) // Increase timeout for IPFS operations
   })
 
   describe('Full Runtime Flow', () => {

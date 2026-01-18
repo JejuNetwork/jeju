@@ -16,7 +16,7 @@ contract MockReputationProvider {
     }
 }
 
-contract MockCouncilGovernance {
+contract MockBoardGovernance {
     ReputationProviderRegistry public registry;
 
     function setRegistry(address _registry) external {
@@ -24,13 +24,13 @@ contract MockCouncilGovernance {
     }
 
     function submitDecision(bytes32 proposalId, bool approved, bytes32 decisionHash, string calldata reason) external {
-        registry.submitCouncilDecision(proposalId, approved, decisionHash, reason);
+        registry.submitBoardDecision(proposalId, approved, decisionHash, reason);
     }
 }
 
 contract ReputationProviderRegistryTest is Test {
     ReputationProviderRegistry public registry;
-    MockCouncilGovernance public council;
+    MockBoardGovernance public board;
     MockReputationProvider public provider1;
     MockReputationProvider public provider2;
     MockReputationProvider public provider3;
@@ -52,19 +52,19 @@ contract ReputationProviderRegistryTest is Test {
         uint256 stake
     );
     event ProposalVoted(bytes32 indexed proposalId, address indexed voter, bool inFavor, uint256 stake);
-    event CouncilDecision(bytes32 indexed proposalId, bool approved, bytes32 decisionHash, string reason);
+    event BoardDecision(bytes32 indexed proposalId, bool approved, bytes32 decisionHash, string reason);
     event ProposalCancelled(bytes32 indexed proposalId, address indexed proposer, uint256 penaltyAmount);
 
     function setUp() public {
-        council = new MockCouncilGovernance();
+        board = new MockBoardGovernance();
         provider1 = new MockReputationProvider();
         provider2 = new MockReputationProvider();
         provider3 = new MockReputationProvider();
 
         vm.prank(owner);
-        registry = new ReputationProviderRegistry(address(council), treasury, owner);
+        registry = new ReputationProviderRegistry(address(board), treasury, owner);
 
-        council.setRegistry(address(registry));
+        board.setRegistry(address(registry));
 
         // Fund test accounts
         vm.deal(alice, 100 ether);
@@ -309,7 +309,7 @@ contract ReputationProviderRegistryTest is Test {
         vm.warp(block.timestamp + 8 days);
 
         // Advance should auto-reject due to quorum
-        registry.advanceToCouncilReview(proposalId);
+        registry.advanceToBoardReview(proposalId);
 
         ReputationProviderRegistry.Proposal memory p = registry.getProposal(proposalId);
         assertEq(uint256(p.status), uint256(ReputationProviderRegistry.ProposalStatus.REJECTED));
@@ -327,7 +327,7 @@ contract ReputationProviderRegistryTest is Test {
         vm.warp(block.timestamp + 8 days);
 
         // Advance should auto-reject due to quorum
-        registry.advanceToCouncilReview(proposalId);
+        registry.advanceToBoardReview(proposalId);
 
         ReputationProviderRegistry.Proposal memory p = registry.getProposal(proposalId);
         assertEq(uint256(p.status), uint256(ReputationProviderRegistry.ProposalStatus.REJECTED));
@@ -349,10 +349,10 @@ contract ReputationProviderRegistryTest is Test {
         registry.vote{value: 0.03 ether}(proposalId, true);
 
         vm.warp(block.timestamp + 8 days);
-        registry.advanceToCouncilReview(proposalId);
+        registry.advanceToBoardReview(proposalId);
 
         ReputationProviderRegistry.Proposal memory p = registry.getProposal(proposalId);
-        assertEq(uint256(p.status), uint256(ReputationProviderRegistry.ProposalStatus.COUNCIL_REVIEW));
+        assertEq(uint256(p.status), uint256(ReputationProviderRegistry.ProposalStatus.BOARD_REVIEW));
     }
 
     function test_IsQuorumReached() public {
@@ -423,7 +423,7 @@ contract ReputationProviderRegistryTest is Test {
         registry.vote{value: 0.03 ether}(proposalId, true);
 
         vm.warp(block.timestamp + 8 days);
-        registry.advanceToCouncilReview(proposalId);
+        registry.advanceToBoardReview(proposalId);
 
         vm.prank(alice);
         vm.expectRevert(ReputationProviderRegistry.CannotCancelAfterReview.selector);
@@ -431,10 +431,10 @@ contract ReputationProviderRegistryTest is Test {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    //                         COUNCIL DECISION TESTS
+    //                         BOARD DECISION TESTS
     // ═══════════════════════════════════════════════════════════════════════
 
-    function test_AdvanceToCouncilReview() public {
+    function test_AdvanceToBoardReview() public {
         vm.prank(alice);
         bytes32 proposalId =
             registry.proposeAddProvider{value: 0.01 ether}(address(provider1), "New Provider", "Description", 3000);
@@ -449,19 +449,19 @@ contract ReputationProviderRegistryTest is Test {
 
         // Cannot advance before challenge period ends
         vm.expectRevert(ReputationProviderRegistry.ChallengePeriodActive.selector);
-        registry.advanceToCouncilReview(proposalId);
+        registry.advanceToBoardReview(proposalId);
 
         // Skip challenge period (7 days)
         vm.warp(block.timestamp + 8 days);
 
         // Now can advance
-        registry.advanceToCouncilReview(proposalId);
+        registry.advanceToBoardReview(proposalId);
 
         ReputationProviderRegistry.Proposal memory p = registry.getProposal(proposalId);
-        assertEq(uint256(p.status), uint256(ReputationProviderRegistry.ProposalStatus.COUNCIL_REVIEW));
+        assertEq(uint256(p.status), uint256(ReputationProviderRegistry.ProposalStatus.BOARD_REVIEW));
     }
 
-    function test_CouncilApproval() public {
+    function test_BoardApproval() public {
         vm.prank(alice);
         bytes32 proposalId = registry.proposeAddProvider{value: 0.01 ether}(
             address(provider1), "New Provider", "A great new provider", 3000
@@ -476,17 +476,17 @@ contract ReputationProviderRegistryTest is Test {
         registry.vote{value: 0.03 ether}(proposalId, true);
 
         vm.warp(block.timestamp + 8 days);
-        registry.advanceToCouncilReview(proposalId);
+        registry.advanceToBoardReview(proposalId);
 
-        // Council approves
-        council.submitDecision(proposalId, true, keccak256("decision-reasoning"), "Approved after careful review");
+        // Board approves
+        board.submitDecision(proposalId, true, keccak256("decision-reasoning"), "Approved after careful review");
 
         ReputationProviderRegistry.Proposal memory p = registry.getProposal(proposalId);
         assertEq(uint256(p.status), uint256(ReputationProviderRegistry.ProposalStatus.APPROVED));
         assertTrue(p.timelockEnds > block.timestamp);
     }
 
-    function test_CouncilRejection() public {
+    function test_BoardRejection() public {
         vm.prank(alice);
         bytes32 proposalId =
             registry.proposeAddProvider{value: 0.01 ether}(address(provider1), "New Provider", "Description", 3000);
@@ -500,15 +500,15 @@ contract ReputationProviderRegistryTest is Test {
         registry.vote{value: 0.03 ether}(proposalId, true);
 
         vm.warp(block.timestamp + 8 days);
-        registry.advanceToCouncilReview(proposalId);
+        registry.advanceToBoardReview(proposalId);
 
-        council.submitDecision(proposalId, false, keccak256("rejection-reasoning"), "Does not meet quality standards");
+        board.submitDecision(proposalId, false, keccak256("rejection-reasoning"), "Does not meet quality standards");
 
         ReputationProviderRegistry.Proposal memory p = registry.getProposal(proposalId);
         assertEq(uint256(p.status), uint256(ReputationProviderRegistry.ProposalStatus.REJECTED));
     }
 
-    function test_OnlyCouncilCanDecide() public {
+    function test_OnlyBoardCanDecide() public {
         vm.prank(alice);
         bytes32 proposalId =
             registry.proposeAddProvider{value: 0.01 ether}(address(provider1), "New Provider", "Description", 3000);
@@ -522,17 +522,17 @@ contract ReputationProviderRegistryTest is Test {
         registry.vote{value: 0.03 ether}(proposalId, true);
 
         vm.warp(block.timestamp + 8 days);
-        registry.advanceToCouncilReview(proposalId);
+        registry.advanceToBoardReview(proposalId);
 
         // Random address tries to decide
         vm.prank(eve);
         vm.expectRevert(ReputationProviderRegistry.NotAuthorized.selector);
-        registry.submitCouncilDecision(proposalId, true, keccak256("fake"), "Fake approval");
+        registry.submitBoardDecision(proposalId, true, keccak256("fake"), "Fake approval");
 
         // Even owner cannot bypass
         vm.prank(owner);
         vm.expectRevert(ReputationProviderRegistry.NotAuthorized.selector);
-        registry.submitCouncilDecision(proposalId, true, keccak256("fake"), "Owner bypass");
+        registry.submitBoardDecision(proposalId, true, keccak256("fake"), "Owner bypass");
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -553,9 +553,9 @@ contract ReputationProviderRegistryTest is Test {
         registry.vote{value: 0.03 ether}(proposalId, true);
 
         vm.warp(block.timestamp + 8 days);
-        registry.advanceToCouncilReview(proposalId);
+        registry.advanceToBoardReview(proposalId);
 
-        council.submitDecision(proposalId, true, keccak256("approved"), "Approved");
+        board.submitDecision(proposalId, true, keccak256("approved"), "Approved");
 
         // Cannot execute before timelock
         vm.expectRevert(ReputationProviderRegistry.TimelockNotComplete.selector);
@@ -595,8 +595,8 @@ contract ReputationProviderRegistryTest is Test {
         registry.vote{value: 0.03 ether}(proposalId, true);
 
         vm.warp(block.timestamp + 8 days);
-        registry.advanceToCouncilReview(proposalId);
-        council.submitDecision(proposalId, true, keccak256("approved"), "Remove");
+        registry.advanceToBoardReview(proposalId);
+        board.submitDecision(proposalId, true, keccak256("approved"), "Remove");
         vm.warp(block.timestamp + 3 days);
         registry.executeProposal(proposalId);
 
@@ -626,8 +626,8 @@ contract ReputationProviderRegistryTest is Test {
         registry.vote{value: 0.04 ether}(proposalId, false);
 
         vm.warp(block.timestamp + 8 days);
-        registry.advanceToCouncilReview(proposalId);
-        council.submitDecision(proposalId, true, keccak256("approved"), "Approved");
+        registry.advanceToBoardReview(proposalId);
+        board.submitDecision(proposalId, true, keccak256("approved"), "Approved");
         vm.warp(block.timestamp + 3 days);
         registry.executeProposal(proposalId);
 
@@ -656,8 +656,8 @@ contract ReputationProviderRegistryTest is Test {
         registry.vote{value: 0.04 ether}(proposalId, false);
 
         vm.warp(block.timestamp + 8 days);
-        registry.advanceToCouncilReview(proposalId);
-        council.submitDecision(proposalId, true, keccak256("approved"), "Approved");
+        registry.advanceToBoardReview(proposalId);
+        board.submitDecision(proposalId, true, keccak256("approved"), "Approved");
         vm.warp(block.timestamp + 3 days);
         registry.executeProposal(proposalId);
 
@@ -682,8 +682,8 @@ contract ReputationProviderRegistryTest is Test {
         registry.vote{value: 0.02 ether}(proposalId, false);
 
         vm.warp(block.timestamp + 8 days);
-        registry.advanceToCouncilReview(proposalId);
-        council.submitDecision(proposalId, true, keccak256("approved"), "Approved");
+        registry.advanceToBoardReview(proposalId);
+        board.submitDecision(proposalId, true, keccak256("approved"), "Approved");
         vm.warp(block.timestamp + 3 days);
         registry.executeProposal(proposalId);
 
@@ -711,8 +711,8 @@ contract ReputationProviderRegistryTest is Test {
         registry.addOpinion{value: 0.01 ether}(proposalId, true, "QmHash", "Great idea");
 
         vm.warp(block.timestamp + 8 days);
-        registry.advanceToCouncilReview(proposalId);
-        council.submitDecision(proposalId, true, keccak256("approved"), "Approved");
+        registry.advanceToBoardReview(proposalId);
+        board.submitDecision(proposalId, true, keccak256("approved"), "Approved");
         vm.warp(block.timestamp + 3 days);
         registry.executeProposal(proposalId);
 
@@ -743,8 +743,8 @@ contract ReputationProviderRegistryTest is Test {
         assertEq(claimable, 0);
 
         vm.warp(block.timestamp + 8 days);
-        registry.advanceToCouncilReview(proposalId);
-        council.submitDecision(proposalId, true, keccak256("approved"), "Approved");
+        registry.advanceToBoardReview(proposalId);
+        board.submitDecision(proposalId, true, keccak256("approved"), "Approved");
         vm.warp(block.timestamp + 3 days);
         registry.executeProposal(proposalId);
 
@@ -810,13 +810,13 @@ contract ReputationProviderRegistryTest is Test {
         registry.proposeAddProvider{value: 0.01 ether}(address(provider1), "New Provider", "Description", 3000);
     }
 
-    function test_SetCouncilGovernance() public {
-        address newCouncil = address(100);
+    function test_SetBoardGovernance() public {
+        address newBoard = address(100);
 
         vm.prank(owner);
-        registry.setCouncilGovernance(newCouncil);
+        registry.setBoardGovernance(newBoard);
 
-        assertEq(registry.councilGovernance(), newCouncil);
+        assertEq(registry.boardGovernance(), newBoard);
     }
 
     function test_SetTreasury() public {
@@ -847,8 +847,8 @@ contract ReputationProviderRegistryTest is Test {
         registry.vote{value: 0.02 ether}(proposalId, false);
 
         vm.warp(block.timestamp + 8 days);
-        registry.advanceToCouncilReview(proposalId);
-        council.submitDecision(proposalId, true, keccak256("approved"), "Approved");
+        registry.advanceToBoardReview(proposalId);
+        board.submitDecision(proposalId, true, keccak256("approved"), "Approved");
         vm.warp(block.timestamp + 3 days);
         registry.executeProposal(proposalId);
 

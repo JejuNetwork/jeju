@@ -17,7 +17,7 @@ import {IDAORegistry} from "../governance/interfaces/IDAORegistry.sol";
  * Key Features:
  * - Full-time, part-time, contract, bounty-based, and retainer agreements
  * - Clear scope definition with IPFS-stored details
- * - Dispute escalation: Council (7 days) -> Futarchy market
+ * - Dispute escalation: Board (7 days) -> Futarchy market
  * - Linked bounties and payment requests
  * - Milestone tracking and payment schedules
  *
@@ -49,7 +49,7 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
 
     enum DisputeStatus {
         NONE,
-        COUNCIL_REVIEW,
+        BOARD_REVIEW,
         FUTARCHY_PENDING,
         RESOLVED
     }
@@ -101,9 +101,9 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
         string reason;
         string evidenceUri;
         DisputeStatus status;
-        uint256 councilDeadline;
-        uint256 councilApprovals;
-        uint256 councilRejections;
+        uint256 boardDeadline;
+        uint256 boardApprovals;
+        uint256 boardRejections;
         bytes32 futarchyCaseId;
         uint256 createdAt;
         uint256 resolvedAt;
@@ -112,8 +112,8 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
 
     // ============ Constants ============
 
-    uint256 public constant COUNCIL_REVIEW_PERIOD = 7 days;
-    uint256 public constant MIN_COUNCIL_VOTES = 3;
+    uint256 public constant BOARD_REVIEW_PERIOD = 7 days;
+    uint256 public constant MIN_BOARD_VOTES = 3;
     uint256 public constant SUPERMAJORITY_BPS = 6700; // 67%
 
     // ============ State ============
@@ -128,7 +128,7 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
     mapping(bytes32 => bytes32[]) private _linkedPaymentRequests;
 
     mapping(bytes32 => Dispute) private _disputes;
-    mapping(bytes32 => mapping(address => bool)) private _councilVoted;
+    mapping(bytes32 => mapping(address => bool)) private _boardVoted;
 
     mapping(bytes32 => bytes32[]) private _daoAgreements;
     mapping(address => bytes32[]) private _contributorAgreements;
@@ -156,7 +156,7 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
 
     event DisputeRaised(bytes32 indexed disputeId, bytes32 indexed agreementId, address indexed initiator);
 
-    event DisputeCouncilVote(bytes32 indexed disputeId, address indexed voter, bool inFavorOfContributor);
+    event DisputeBoardVote(bytes32 indexed disputeId, address indexed voter, bool inFavorOfContributor);
 
     event DisputeEscalated(bytes32 indexed disputeId, bytes32 indexed futarchyCaseId);
 
@@ -179,9 +179,9 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
     error DisputeExists();
     error DisputeNotFound();
     error NotDisputeParty();
-    error NotCouncilMember();
+    error NotBoardMember();
     error AlreadyVoted();
-    error CouncilPeriodNotEnded();
+    error BoardPeriodNotEnded();
     error NotFutarchyContract();
     error InvalidDuration();
 
@@ -518,10 +518,10 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
             initiator: msg.sender,
             reason: reason,
             evidenceUri: evidenceUri,
-            status: DisputeStatus.COUNCIL_REVIEW,
-            councilDeadline: block.timestamp + COUNCIL_REVIEW_PERIOD,
-            councilApprovals: 0,
-            councilRejections: 0,
+            status: DisputeStatus.BOARD_REVIEW,
+            boardDeadline: block.timestamp + BOARD_REVIEW_PERIOD,
+            boardApprovals: 0,
+            boardRejections: 0,
             futarchyCaseId: bytes32(0),
             createdAt: block.timestamp,
             resolvedAt: 0,
@@ -534,26 +534,26 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
     }
 
     /**
-     * @notice Council votes on dispute
+     * @notice Board votes on dispute
      */
     function voteOnDispute(bytes32 disputeId, bool inFavorOfContributor) external {
         Dispute storage d = _disputes[disputeId];
         if (d.createdAt == 0) revert DisputeNotFound();
-        if (d.status != DisputeStatus.COUNCIL_REVIEW) revert InvalidStatus();
+        if (d.status != DisputeStatus.BOARD_REVIEW) revert InvalidStatus();
 
         Agreement memory a = _agreements[d.agreementId];
-        if (!daoRegistry.isCouncilMember(a.daoId, msg.sender)) revert NotCouncilMember();
-        if (_councilVoted[disputeId][msg.sender]) revert AlreadyVoted();
+        if (!daoRegistry.isBoardMember(a.daoId, msg.sender)) revert NotBoardMember();
+        if (_boardVoted[disputeId][msg.sender]) revert AlreadyVoted();
 
-        _councilVoted[disputeId][msg.sender] = true;
+        _boardVoted[disputeId][msg.sender] = true;
 
         if (inFavorOfContributor) {
-            d.councilApprovals++;
+            d.boardApprovals++;
         } else {
-            d.councilRejections++;
+            d.boardRejections++;
         }
 
-        emit DisputeCouncilVote(disputeId, msg.sender, inFavorOfContributor);
+        emit DisputeBoardVote(disputeId, msg.sender, inFavorOfContributor);
 
         // Check for supermajority
         _checkDisputeQuorum(disputeId);
@@ -561,13 +561,13 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
 
     function _checkDisputeQuorum(bytes32 disputeId) internal {
         Dispute storage d = _disputes[disputeId];
-        uint256 totalVotes = d.councilApprovals + d.councilRejections;
+        uint256 totalVotes = d.boardApprovals + d.boardRejections;
 
-        if (totalVotes < MIN_COUNCIL_VOTES) return;
+        if (totalVotes < MIN_BOARD_VOTES) return;
 
         uint256 threshold = (totalVotes * SUPERMAJORITY_BPS) / 10000;
 
-        if (d.councilApprovals > threshold) {
+        if (d.boardApprovals > threshold) {
             // Supermajority in favor of contributor
             d.status = DisputeStatus.RESOLVED;
             d.resolvedAt = block.timestamp;
@@ -576,7 +576,7 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
             _agreements[d.agreementId].status = AgreementStatus.ACTIVE;
 
             emit DisputeResolved(disputeId, true);
-        } else if (d.councilRejections > threshold) {
+        } else if (d.boardRejections > threshold) {
             // Supermajority against contributor
             d.status = DisputeStatus.RESOLVED;
             d.resolvedAt = block.timestamp;
@@ -587,13 +587,13 @@ contract WorkAgreementRegistry is Ownable, Pausable, ReentrancyGuard {
     }
 
     /**
-     * @notice Escalate dispute to futarchy after council period
+     * @notice Escalate dispute to futarchy after board period
      */
     function escalateToFutarchy(bytes32 disputeId) external {
         Dispute storage d = _disputes[disputeId];
         if (d.createdAt == 0) revert DisputeNotFound();
-        if (d.status != DisputeStatus.COUNCIL_REVIEW) revert InvalidStatus();
-        if (block.timestamp < d.councilDeadline) revert CouncilPeriodNotEnded();
+        if (d.status != DisputeStatus.BOARD_REVIEW) revert InvalidStatus();
+        if (block.timestamp < d.boardDeadline) revert BoardPeriodNotEnded();
 
         // No supermajority reached, escalate to futarchy
         d.status = DisputeStatus.FUTARCHY_PENDING;

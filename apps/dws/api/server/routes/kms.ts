@@ -2,9 +2,11 @@
  * KMS API Routes
  * Key Management Service integration for DWS
  *
- * Uses real FROST threshold signing from @jejunetwork/kms
+ * Uses FROST threshold signing from @jejunetwork/kms.
+ * In-process MPC for testnet, distributed parties for mainnet.
  */
 
+import { getSQLit, type SQLitClient } from '@jejunetwork/db'
 import { FROSTCoordinator } from '@jejunetwork/kms'
 import { decryptAesGcm, encryptAesGcm, randomUUID } from '@jejunetwork/shared'
 import { expectValid } from '@jejunetwork/types'
@@ -21,7 +23,10 @@ import {
   signRequestSchema,
   updateKmsKeyRequestSchema,
 } from '../../shared'
-import { getAddressFromRequest } from '../../shared/utils/type-guards'
+import {
+  getAddressFromRequest,
+  parseAddress,
+} from '../../shared/utils/type-guards'
 
 // MPC Configuration
 const MPC_CONFIG = {
@@ -30,6 +35,57 @@ const MPC_CONFIG = {
   minStake: BigInt(100),
   sessionTimeout: 300000, // 5 minutes
   maxConcurrentSessions: 100,
+}
+
+// Determine network
+const NETWORK = (process.env.NETWORK ??
+  process.env.JEJU_NETWORK ??
+  'localnet') as 'localnet' | 'testnet' | 'mainnet'
+
+const SQLIT_DATABASE_ID = process.env.SQLIT_DATABASE_ID ?? 'dws'
+
+let sqlitClient: SQLitClient | null = null
+let tablesInitialized = false
+
+async function getSQLitClient(): Promise<SQLitClient> {
+  if (!sqlitClient) {
+    sqlitClient = getSQLit({
+      databaseId: SQLIT_DATABASE_ID,
+      timeoutMs: 30000,
+      debug: process.env.NODE_ENV !== 'production',
+    })
+    const healthy = await sqlitClient.isHealthy()
+    if (!healthy) {
+      throw new Error('[KMS] SQLit is required for vault storage')
+    }
+    await ensureTablesExist()
+  }
+  return sqlitClient
+}
+
+async function ensureTablesExist(): Promise<void> {
+  if (tablesInitialized) return
+  const client = sqlitClient
+  if (!client) return
+
+  const tables = [
+    `CREATE TABLE IF NOT EXISTS kms_secrets (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      owner TEXT NOT NULL,
+      encrypted_value TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      expires_at INTEGER,
+      metadata TEXT
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_kms_secrets_owner ON kms_secrets(owner)`,
+    `CREATE INDEX IF NOT EXISTS idx_kms_secrets_name ON kms_secrets(name)`,
+  ]
+  for (const ddl of tables) {
+    await client.exec(ddl, [], SQLIT_DATABASE_ID)
+  }
+  tablesInitialized = true
 }
 
 // FROST coordinators per key (threshold signing clusters)
@@ -59,6 +115,21 @@ interface Secret {
   metadata: Record<string, string>
 }
 
+interface SecretRow {
+  id: string
+  name: string
+  owner: string
+  encrypted_value: string
+  created_at: number
+  updated_at: number
+  expires_at: number | null
+  metadata: string | null
+}
+
+const RevealByNameSchema = z.object({
+  name: z.string().min(1),
+})
+
 const keys = new Map<string, StoredKey>()
 const secrets = new Map<string, Secret>()
 const signingSessions = new Map<
@@ -74,38 +145,91 @@ const signingSessions = new Map<
   }
 >()
 
+const serviceKeyIndex = new Map<string, string>()
+
+const serviceKeyRequestSchema = z.object({
+  serviceId: z.string().min(1),
+  action: z.enum(['get-or-create']).optional(),
+  threshold: z.number().int().min(2).optional(),
+  totalParties: z.number().int().positive().optional(),
+  metadata: z.record(z.string(), z.string()).optional(),
+  acknowledgeInsecureCentralized: z.boolean().optional(),
+})
+
+const createKeyRequestSchema = z.union([
+  createKmsKeyRequestSchema.extend({
+    threshold: z.number().int().min(2).optional(),
+    totalParties: z.number().int().positive().optional(),
+    metadata: z.record(z.string(), z.string()).optional(),
+    acknowledgeInsecureCentralized: z.boolean().optional(),
+  }),
+  serviceKeyRequestSchema,
+])
+
+function getOwnerFromRequest(request: Request): Address | null {
+  const owner = getAddressFromRequest(request)
+  if (owner) return owner
+  const serviceId = request.headers.get('x-service-id')
+  if (!serviceId) return null
+  const hash = keccak256(toBytes(serviceId))
+  const candidate = `0x${hash.slice(-40)}`
+  return parseAddress(candidate)
+}
+
 export function createKMSRouter() {
   return (
     new Elysia({ name: 'kms', prefix: '/kms' })
       .get('/health', () => {
+        const activeSessions = Array.from(signingSessions.values()).filter(
+          (s) => s.status === 'pending' || s.status === 'signing',
+        ).length
         return {
+          healthy: true,
           status: 'healthy',
           service: 'dws-kms',
+          mode: 'frost',
+          network: NETWORK,
           keys: keys.size,
           secrets: secrets.size,
-          activeSessions: Array.from(signingSessions.values()).filter(
-            (s) => s.status === 'pending' || s.status === 'signing',
-          ).length,
+          activeSessions,
           config: {
-            defaultThreshold: MPC_CONFIG.defaultThreshold,
-            defaultParties: MPC_CONFIG.defaultParties,
+            threshold: MPC_CONFIG.defaultThreshold,
+            parties: MPC_CONFIG.defaultParties,
           },
         }
       })
       // Generate new MPC key using FROST threshold signing
       .post('/keys', async ({ body, request, set }) => {
-        const owner = getAddressFromRequest(request)
-        if (!owner) throw new Error('Missing x-jeju-address header')
+        const owner = getOwnerFromRequest(request)
+        if (!owner) {
+          throw new Error('Missing x-jeju-address or x-service-id header')
+        }
 
         const validBody = expectValid(
-          createKmsKeyRequestSchema.extend({
-            threshold: z.number().int().min(2).optional(),
-            totalParties: z.number().int().positive().optional(),
-            metadata: z.record(z.string(), z.string()).optional(),
-          }),
+          createKeyRequestSchema,
           body,
           'Create KMS key request',
         )
+
+        const serviceId = 'serviceId' in validBody ? validBody.serviceId : null
+        if (serviceId) {
+          const existingKeyId = serviceKeyIndex.get(serviceId)
+          if (existingKeyId) {
+            const existingKey = keys.get(existingKeyId)
+            if (existingKey) {
+              return {
+                keyId: existingKey.keyId,
+                publicKey: existingKey.publicKey,
+                address: existingKey.address,
+                threshold: existingKey.threshold,
+                totalParties: existingKey.totalParties,
+                createdAt: existingKey.createdAt,
+                mode: 'frost',
+              }
+            }
+            serviceKeyIndex.delete(serviceId)
+          }
+        }
 
         const threshold = validBody.threshold ?? MPC_CONFIG.defaultThreshold
         const totalParties = validBody.totalParties ?? MPC_CONFIG.defaultParties
@@ -121,12 +245,29 @@ export function createKMSRouter() {
 
         const keyId = randomUUID()
 
-        // Create FROST coordinator for this key - real threshold signing
-        const coordinator = new FROSTCoordinator(keyId, threshold, totalParties)
+        // Auto-acknowledge insecure centralized for non-mainnet
+        const ackInsecure =
+          validBody.acknowledgeInsecureCentralized ?? NETWORK !== 'mainnet'
+
+        // Create FROST coordinator for threshold signing
+        const coordinator = new FROSTCoordinator(
+          keyId,
+          threshold,
+          totalParties,
+          {
+            network: NETWORK,
+            acknowledgeInsecureCentralized: ackInsecure,
+          },
+        )
         const cluster = await coordinator.initializeCluster()
 
         // Store the coordinator for signing operations
         frostCoordinators.set(keyId, coordinator)
+
+        const metadata = validBody.metadata ? { ...validBody.metadata } : {}
+        if (serviceId) {
+          metadata.serviceId = serviceId
+        }
 
         const key: StoredKey = {
           keyId,
@@ -137,10 +278,13 @@ export function createKMSRouter() {
           totalParties,
           createdAt: Date.now(),
           version: 1,
-          metadata: validBody.metadata ?? {},
+          metadata,
         }
 
         keys.set(keyId, key)
+        if (serviceId) {
+          serviceKeyIndex.set(serviceId, keyId)
+        }
 
         set.status = 201
         return {
@@ -150,7 +294,7 @@ export function createKMSRouter() {
           threshold,
           totalParties,
           createdAt: key.createdAt,
-          mode: 'frost', // Using real FROST threshold signing
+          mode: 'frost',
         }
       })
       // List keys
@@ -198,7 +342,7 @@ export function createKMSRouter() {
       })
       // Rotate key
       .post('/keys/:keyId/rotate', async ({ params, body, request }) => {
-        const owner = getAddressFromRequest(request)
+        const owner = getOwnerFromRequest(request)
         if (!owner) throw new Error('Missing x-jeju-address header')
 
         const { keyId } = expectValid(
@@ -234,7 +378,7 @@ export function createKMSRouter() {
       })
       // Delete key
       .delete('/keys/:keyId', ({ params, request }) => {
-        const owner = getAddressFromRequest(request)
+        const owner = getOwnerFromRequest(request)
         if (!owner) throw new Error('Missing x-jeju-address header')
 
         const { keyId } = expectValid(
@@ -257,7 +401,7 @@ export function createKMSRouter() {
       })
       // Request signature using FROST threshold signing
       .post('/sign', async ({ body, request }) => {
-        const owner = getAddressFromRequest(request)
+        const owner = getOwnerFromRequest(request)
         if (!owner) throw new Error('Missing x-jeju-address header')
 
         const validBody = expectValid(
@@ -284,7 +428,7 @@ export function createKMSRouter() {
             ? (validBody.messageHash as Hex)
             : toHex(new TextEncoder().encode(validBody.messageHash))
 
-        // Sign using FROST - real threshold signing where private key is never reconstructed
+        // Sign using FROST threshold signing
         const frostSig = await coordinator.sign(messageHex)
 
         // Combine into standard Ethereum signature format
@@ -296,7 +440,7 @@ export function createKMSRouter() {
           keyId: key.keyId,
           address: key.address,
           signedAt: Date.now(),
-          mode: 'frost', // Using real FROST threshold signing
+          mode: 'frost',
         }
       })
       .post('/encrypt', async ({ body }) => {
@@ -381,7 +525,7 @@ export function createKMSRouter() {
       })
       // Store secret
       .post('/vault/secrets', async ({ body, request, set }) => {
-        const owner = getAddressFromRequest(request)
+        const owner = getOwnerFromRequest(request)
         if (!owner) {
           set.status = 401
           return { error: 'Missing x-jeju-address header' }
@@ -426,6 +570,22 @@ export function createKMSRouter() {
           metadata: validBody.metadata ?? {},
         }
 
+        const client = await getSQLitClient()
+        await client.exec(
+          `INSERT INTO kms_secrets (id, name, owner, encrypted_value, created_at, updated_at, expires_at, metadata)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            secret.id,
+            secret.name,
+            secret.owner.toLowerCase(),
+            secret.encryptedValue,
+            secret.createdAt,
+            secret.updatedAt,
+            secret.expiresAt ?? null,
+            JSON.stringify(secret.metadata),
+          ],
+          SQLIT_DATABASE_ID,
+        )
         secrets.set(id, secret)
 
         set.status = 201
@@ -438,75 +598,146 @@ export function createKMSRouter() {
       })
       // List secrets
       .get('/vault/secrets', ({ request }) => {
-        const owner = request.headers.get('x-jeju-address')?.toLowerCase()
-
-        let secretList = Array.from(secrets.values())
-        if (owner) {
-          secretList = secretList.filter((s) => s.owner.toLowerCase() === owner)
-        }
-
-        // Filter expired secrets
-        const now = Date.now()
-        secretList = secretList.filter((s) => !s.expiresAt || s.expiresAt > now)
-
-        return {
-          secrets: secretList.map((s) => ({
-            id: s.id,
-            name: s.name,
-            createdAt: s.createdAt,
-            updatedAt: s.updatedAt,
-            expiresAt: s.expiresAt,
-          })),
-        }
+        return (async () => {
+          const owner = getOwnerFromRequest(request)?.toLowerCase() ?? null
+          const client = await getSQLitClient()
+          const rows = await client.query<SecretRow>(
+            owner
+              ? 'SELECT * FROM kms_secrets WHERE owner = ? ORDER BY created_at DESC'
+              : 'SELECT * FROM kms_secrets ORDER BY created_at DESC',
+            owner ? [owner] : [],
+            SQLIT_DATABASE_ID,
+          )
+          const now = Date.now()
+          const secretList = rows.rows.filter(
+            (s) => !s.expires_at || s.expires_at > now,
+          )
+          return {
+            secrets: secretList.map((s) => ({
+              id: s.id,
+              name: s.name,
+              createdAt: s.created_at,
+              updatedAt: s.updated_at,
+              expiresAt: s.expires_at ?? undefined,
+            })),
+          }
+        })()
       })
       // Get secret (returns metadata only, not value)
       .get('/vault/secrets/:id', ({ params, request, set }) => {
-        const owner = request.headers.get('x-jeju-address')?.toLowerCase()
-        const secret = secrets.get(params.id)
-
-        if (!secret) {
-          set.status = 404
-          return { error: 'Secret not found' }
-        }
-        if (secret.owner.toLowerCase() !== owner) {
-          set.status = 403
-          return { error: 'Not authorized' }
-        }
-        if (secret.expiresAt && secret.expiresAt < Date.now()) {
-          set.status = 410
-          return { error: 'Secret expired' }
-        }
-
-        return {
-          id: secret.id,
-          name: secret.name,
-          createdAt: secret.createdAt,
-          updatedAt: secret.updatedAt,
-          expiresAt: secret.expiresAt,
-          metadata: secret.metadata,
-        }
+        return (async () => {
+          const owner = getOwnerFromRequest(request)?.toLowerCase() ?? null
+          const client = await getSQLitClient()
+          const rows = await client.query<SecretRow>(
+            'SELECT * FROM kms_secrets WHERE id = ? LIMIT 1',
+            [params.id],
+            SQLIT_DATABASE_ID,
+          )
+          const secret = rows.rows[0]
+          if (!secret) {
+            set.status = 404
+            return { error: 'Secret not found' }
+          }
+          if (!owner || secret.owner.toLowerCase() !== owner) {
+            set.status = 403
+            return { error: 'Not authorized' }
+          }
+          if (secret.expires_at && secret.expires_at < Date.now()) {
+            set.status = 410
+            return { error: 'Secret expired' }
+          }
+          return {
+            id: secret.id,
+            name: secret.name,
+            createdAt: secret.created_at,
+            updatedAt: secret.updated_at,
+            expiresAt: secret.expires_at ?? undefined,
+            metadata: secret.metadata ? JSON.parse(secret.metadata) : {},
+          }
+        })()
       })
       // Reveal secret value (requires authentication)
       .post('/vault/secrets/:id/reveal', async ({ params, request, set }) => {
-        const owner = request.headers.get('x-jeju-address')?.toLowerCase()
-        const secret = secrets.get(params.id)
+        const owner = getOwnerFromRequest(request)?.toLowerCase() ?? null
+        const client = await getSQLitClient()
+        const rows = await client.query<SecretRow>(
+          'SELECT * FROM kms_secrets WHERE id = ? LIMIT 1',
+          [params.id],
+          SQLIT_DATABASE_ID,
+        )
+        const secret = rows.rows[0]
 
         if (!secret) {
           set.status = 404
           return { error: 'Secret not found' }
         }
-        if (secret.owner.toLowerCase() !== owner) {
+        if (!owner || secret.owner.toLowerCase() !== owner) {
           set.status = 403
           return { error: 'Not authorized' }
         }
-        if (secret.expiresAt && secret.expiresAt < Date.now()) {
+        if (secret.expires_at && secret.expires_at < Date.now()) {
           set.status = 410
           return { error: 'Secret expired' }
         }
 
         // Decrypt the value with AES-256-GCM
         const data = new Uint8Array(
-          atob(secret.encryptedValue)
+          atob(secret.encrypted_value)
+            .split('')
+            .map((c) => c.charCodeAt(0)),
+        )
+        const iv = data.subarray(0, 12)
+        const authTag = data.subarray(12, 28)
+        const ciphertext = data.subarray(28)
+
+        const derivedKey = new Uint8Array(
+          Buffer.from(keccak256(toBytes(secret.id)).slice(2), 'hex'),
+        )
+        const decryptedBytes = await decryptAesGcm(
+          ciphertext,
+          derivedKey,
+          iv,
+          authTag,
+        )
+        const decrypted = new TextDecoder().decode(decryptedBytes)
+
+        return {
+          id: secret.id,
+          name: secret.name,
+          value: decrypted,
+        }
+      })
+      .post('/vault/secrets/reveal', async ({ body, request, set }) => {
+        const owner = getOwnerFromRequest(request)?.toLowerCase() ?? null
+        if (!owner) {
+          set.status = 401
+          return { error: 'Missing x-jeju-address or x-service-id header' }
+        }
+
+        const parsed = RevealByNameSchema.safeParse(body)
+        if (!parsed.success) {
+          set.status = 400
+          return { error: 'Invalid request', details: parsed.error.issues }
+        }
+
+        const client = await getSQLitClient()
+        const rows = await client.query<SecretRow>(
+          'SELECT * FROM kms_secrets WHERE name = ? AND owner = ? ORDER BY updated_at DESC LIMIT 1',
+          [parsed.data.name, owner],
+          SQLIT_DATABASE_ID,
+        )
+        const secret = rows.rows[0]
+        if (!secret) {
+          set.status = 404
+          return { error: 'Secret not found' }
+        }
+        if (secret.expires_at && secret.expires_at < Date.now()) {
+          set.status = 410
+          return { error: 'Secret expired' }
+        }
+
+        const data = new Uint8Array(
+          atob(secret.encrypted_value)
             .split('')
             .map((c) => c.charCodeAt(0)),
         )
@@ -533,20 +764,31 @@ export function createKMSRouter() {
       })
       // Delete secret
       .delete('/vault/secrets/:id', ({ params, request, set }) => {
-        const owner = request.headers.get('x-jeju-address')?.toLowerCase()
-        const secret = secrets.get(params.id)
-
-        if (!secret) {
-          set.status = 404
-          return { error: 'Secret not found' }
-        }
-        if (secret.owner.toLowerCase() !== owner) {
-          set.status = 403
-          return { error: 'Not authorized' }
-        }
-
-        secrets.delete(secret.id)
-        return { success: true }
+        return (async () => {
+          const owner = getOwnerFromRequest(request)?.toLowerCase() ?? null
+          const client = await getSQLitClient()
+          const rows = await client.query<SecretRow>(
+            'SELECT * FROM kms_secrets WHERE id = ? LIMIT 1',
+            [params.id],
+            SQLIT_DATABASE_ID,
+          )
+          const secret = rows.rows[0]
+          if (!secret) {
+            set.status = 404
+            return { error: 'Secret not found' }
+          }
+          if (!owner || secret.owner.toLowerCase() !== owner) {
+            set.status = 403
+            return { error: 'Not authorized' }
+          }
+          await client.exec(
+            'DELETE FROM kms_secrets WHERE id = ?',
+            [params.id],
+            SQLIT_DATABASE_ID,
+          )
+          secrets.delete(secret.id)
+          return { success: true }
+        })()
       })
   )
 }

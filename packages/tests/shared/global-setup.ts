@@ -25,6 +25,7 @@ import type { FullConfig } from '@playwright/test'
 
 const DEFAULT_RPC = `http://${getLocalhostHost()}:6546`
 const DEFAULT_CHAIN_ID = 31337
+const LOCALNET_CHAIN_IDS = new Set([31337, 1337])
 
 /** JSON-RPC response with result */
 interface JsonRpcResponse {
@@ -159,7 +160,11 @@ async function globalSetup(_config: FullConfig) {
         const data: JsonRpcResponse = await response.json()
         const remoteChainId = parseInt(data.result, 16)
 
-        if (remoteChainId === CHAIN_ID) {
+        if (
+          remoteChainId === CHAIN_ID ||
+          (LOCALNET_CHAIN_IDS.has(CHAIN_ID) &&
+            LOCALNET_CHAIN_IDS.has(remoteChainId))
+        ) {
           chainReady = true
           console.log(`✅ Chain ready (ID: ${remoteChainId})`)
           break

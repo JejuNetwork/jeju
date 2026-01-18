@@ -4,6 +4,23 @@ import { getResearchAgent, type ResearchRequest } from '../research-agent'
 const researchAgent = getResearchAgent()
 
 export const researchRoutes = new Elysia({ prefix: '/api/v1/research' })
+  .get(
+    '/',
+    () => {
+      return {
+        service: 'research',
+        status: 'available',
+        endpoints: {
+          conduct: 'POST /api/v1/research/conduct',
+          quickScreen: 'POST /api/v1/research/quick-screen',
+        },
+        description: 'AI-powered research service for proposal analysis',
+      }
+    },
+    {
+      detail: { tags: ['research'], summary: 'Get research service info' },
+    },
+  )
   .post(
     '/conduct',
     async ({ body }) => {

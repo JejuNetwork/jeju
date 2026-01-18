@@ -17,8 +17,8 @@
     "governance": {
       "timelockDelay": 2592000,
       "emergencyMinDelay": 604800,
-      "securityCouncilThreshold": 3,
-      "securityCouncilSize": 5
+      "securityBoardThreshold": 3,
+      "securityBoardSize": 5
     },
     "sequencer": {
       "batchInbox": "0xff00000000000000000000000000000000420690",
@@ -43,8 +43,8 @@
     "governance": {
       "timelockDelay": 2592000,
       "emergencyMinDelay": 604800,
-      "securityCouncilThreshold": 4,
-      "securityCouncilSize": 7
+      "securityBoardThreshold": 4,
+      "securityBoardSize": 7
     },
     "sequencer": {
       "batchInbox": "0xff00000000000000000000000000000000420691",
@@ -69,8 +69,8 @@
     "governance": {
       "timelockDelay": 2592000,
       "emergencyMinDelay": 604800,
-      "securityCouncilThreshold": 3,
-      "securityCouncilSize": 5
+      "securityBoardThreshold": 3,
+      "securityBoardSize": 5
     },
     "sequencer": {
       "batchInbox": "0x4200000000000000000000000000000000000015",
@@ -94,8 +94,8 @@
     "governance": {
       "timelockDelay": 2592000,
       "emergencyMinDelay": 604800,
-      "securityCouncilThreshold": 3,
-      "securityCouncilSize": 5
+      "securityBoardThreshold": 3,
+      "securityBoardSize": 5
     },
     "sequencer": {
       "batchInbox": "0x4200000000000000000000000000000000000015",
@@ -120,8 +120,8 @@
     "governance": {
       "timelockDelay": 7200,
       "emergencyMinDelay": 3600,
-      "securityCouncilThreshold": 1,
-      "securityCouncilSize": 1
+      "securityBoardThreshold": 1,
+      "securityBoardSize": 1
     },
     "sequencer": {
       "batchInbox": "0x4200000000000000000000000000000000000015",

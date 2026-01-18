@@ -14,7 +14,7 @@ import {
   type PublicClient,
   toHex,
 } from 'viem'
-import { requireContract } from '../config'
+import { safeGetContract } from '../config'
 import type { BaseWallet } from '../wallet'
 
 export interface ValidationRequest {
@@ -192,8 +192,23 @@ export function createValidationModule(
   network: NetworkType,
   publicClient?: PublicClient,
 ): ValidationModule {
-  const validationAddress = requireContract('registry', 'validation', network)
+  // Use safe getter - contracts may not be deployed on all networks
+  const validationAddressOpt = safeGetContract(
+    'registry',
+    'validation',
+    network,
+  )
   const client = publicClient ?? wallet.publicClient
+
+  // Lazy-load contract address - throw on method call if not deployed
+  const getValidationAddress = () => {
+    if (!validationAddressOpt) {
+      throw new Error(
+        'Validation registry contract not deployed on this network',
+      )
+    }
+    return validationAddressOpt
+  }
 
   async function requestValidation(
     params: RequestValidationParams,
@@ -217,7 +232,7 @@ export function createValidationModule(
       ],
     })
 
-    return wallet.sendTransaction({ to: validationAddress, data })
+    return wallet.sendTransaction({ to: getValidationAddress(), data })
   }
 
   async function respondToValidation(
@@ -244,14 +259,14 @@ export function createValidationModule(
       ],
     })
 
-    return wallet.sendTransaction({ to: validationAddress, data })
+    return wallet.sendTransaction({ to: getValidationAddress(), data })
   }
 
   async function getStatus(requestHash: Hex): Promise<ValidationStatus | null> {
     if (!publicClient) throw new Error('Public client required for reads')
 
     const result = (await publicClient.readContract({
-      address: validationAddress,
+      address: getValidationAddress(),
       abi: VALIDATION_REGISTRY_ABI,
       functionName: 'getValidationStatus',
       args: [requestHash],
@@ -278,7 +293,7 @@ export function createValidationModule(
     requestHash: Hex,
   ): Promise<ValidationRequest | null> {
     const result = (await client.readContract({
-      address: validationAddress,
+      address: getValidationAddress(),
       abi: VALIDATION_REGISTRY_ABI,
       functionName: 'getRequest',
       args: [requestHash],
@@ -305,7 +320,7 @@ export function createValidationModule(
     if (!publicClient) throw new Error('Public client required for reads')
 
     const result = (await publicClient.readContract({
-      address: validationAddress,
+      address: getValidationAddress(),
       abi: VALIDATION_REGISTRY_ABI,
       functionName: 'getSummary',
       args: [agentId, validatorAddresses ?? [], tag ?? ZERO_BYTES32],
@@ -322,7 +337,7 @@ export function createValidationModule(
 
   async function getAgentValidations(agentId: bigint): Promise<Hex[]> {
     const result = await client.readContract({
-      address: validationAddress,
+      address: getValidationAddress(),
       abi: VALIDATION_REGISTRY_ABI,
       functionName: 'getAgentValidations',
       args: [agentId],
@@ -337,7 +352,7 @@ export function createValidationModule(
     if (!publicClient) throw new Error('Public client required for reads')
 
     const result = await publicClient.readContract({
-      address: validationAddress,
+      address: getValidationAddress(),
       abi: VALIDATION_REGISTRY_ABI,
       functionName: 'getValidatorRequests',
       args: [validatorAddress],
@@ -348,7 +363,7 @@ export function createValidationModule(
 
   async function requestExists(requestHash: Hex): Promise<boolean> {
     return client.readContract({
-      address: validationAddress,
+      address: getValidationAddress(),
       abi: VALIDATION_REGISTRY_ABI,
       functionName: 'requestExists',
       args: [requestHash],

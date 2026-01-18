@@ -9,7 +9,7 @@ import { checkApi } from '../setup'
 
 setDefaultTimeout(30000)
 
-const API_URL = process.env.API_URL || 'http://127.0.0.1:8010'
+const API_URL = process.env.API_URL || 'http://127.0.0.1:4040'
 let apiRunning = false
 
 beforeAll(async () => {

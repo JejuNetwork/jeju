@@ -147,8 +147,8 @@ describe('ServicesOrchestrator', () => {
     }
   })
 
-  // Note: SQLit service (packages/db) is tested separately in integration tests
-  // as it requires spawning a bun subprocess which can be slow
+  // SQLit service (packages/db) is tested separately in integration tests
+  // (requires spawning a bun subprocess which can be slow)
 
   describe('Oracle Service', () => {
     it('should respond to health check', async () => {
@@ -290,6 +290,6 @@ describe('ServicesOrchestrator', () => {
     })
   })
 
-  // Note: Cron and CVM services require DWS/dstack infrastructure
+  // Cron and CVM services require DWS/dstack infrastructure
   // and are tested in integration tests with full infrastructure
 })

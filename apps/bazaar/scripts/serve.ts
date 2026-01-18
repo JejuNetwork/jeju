@@ -29,6 +29,7 @@ import { getSQLit, type SQLitClient } from '@jejunetwork/db'
 import type { Subprocess } from 'bun'
 import { z } from 'zod'
 import { createBazaarApp, initializeDatabase } from '../api/worker'
+import { getSqlitPrivateKey } from '../lib/secrets'
 
 const APP_DIR = resolve(import.meta.dir, '..')
 const DIST_STATIC = join(APP_DIR, 'dist/static')
@@ -157,7 +158,7 @@ async function uploadToIPFS(filePath: string, name: string): Promise<string> {
   const content = await readFile(filePath)
 
   const formData = new FormData()
-  formData.append('file', new Blob([content]), name)
+  formData.append('file', new Blob([new Uint8Array(content)]), name)
   formData.append('tier', 'popular')
   formData.append('category', 'app')
 
@@ -268,7 +269,7 @@ async function deployWorkerToWorkerd(): Promise<void> {
   const codeFormData = new FormData()
   codeFormData.append(
     'file',
-    new Blob([workerCode], { type: 'application/javascript' }),
+    new Blob([new Uint8Array(workerCode)], { type: 'application/javascript' }),
     'bazaar-api-worker.js',
   )
   codeFormData.append('tier', 'compute')
@@ -350,12 +351,12 @@ async function deployWorkerToWorkerd(): Promise<void> {
 async function initializeSQLitDatabase(): Promise<void> {
   console.log('[Bazaar] Initializing SQLit database...')
 
-  const blockProducerEndpoint = getSQLitBlockProducerUrl()
+  const endpoint = getSQLitBlockProducerUrl()
   const databaseId = process.env.SQLIT_DATABASE_ID || 'bazaar-db'
 
   try {
     state.sqlit = getSQLit({
-      blockProducerEndpoint,
+      endpoint,
       databaseId,
       debug: network === 'localnet',
     })
@@ -370,7 +371,7 @@ async function initializeSQLitDatabase(): Promise<void> {
     await initializeDatabase(state.sqlit)
 
     console.log(`[Bazaar] SQLit database initialized: ${databaseId}`)
-    console.log(`[Bazaar] SQLit endpoint: ${blockProducerEndpoint}`)
+    console.log(`[Bazaar] SQLit endpoint: ${endpoint}`)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     throw new Error(`SQLit initialization failed: ${message}`)
@@ -427,7 +428,8 @@ async function startStandaloneFallback(): Promise<void> {
     INDEXER_URL: getIndexerGraphqlUrl(),
     SQLIT_NODES: getSQLitBlockProducerUrl(),
     SQLIT_DATABASE_ID: process.env.SQLIT_DATABASE_ID || 'bazaar-db',
-    SQLIT_PRIVATE_KEY: process.env.SQLIT_PRIVATE_KEY || '',
+    // SQLit private key retrieved through secrets module
+    SQLIT_PRIVATE_KEY: getSqlitPrivateKey() ?? '',
   })
 
   const host = getLocalhostHost()
@@ -460,6 +462,8 @@ async function startStandaloneFallback(): Promise<void> {
 
       // Normalize path
       if (path === '/') path = '/index.html'
+      // Redirect favicon.ico to favicon.svg
+      if (path === '/favicon.ico') path = '/favicon.svg'
 
       // Serve static file
       const file = Bun.file(`${DIST_STATIC}${path}`)

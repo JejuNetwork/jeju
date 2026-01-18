@@ -87,7 +87,6 @@ describe('Compute Service', () => {
     })
 
     ;(globalThis as Record<string, unknown>)._testMockServer = mockServer
-    _mockServerStarted = true
 
     // Register mock inference node
     registerNode({

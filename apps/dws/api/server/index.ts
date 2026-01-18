@@ -32,7 +32,7 @@ import {
   isProductionEnv,
   tryGetContract,
 } from '@jejunetwork/config'
-import { Elysia, type Context } from 'elysia'
+import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
 import {
   getLocalCDNServer,
@@ -66,11 +66,16 @@ import {
   type DistributedRateLimiter,
   type P2PCoordinator,
 } from '../decentralized'
+import { createCLIRoutes } from '../cli/routes'
 import {
   createAppDeployerRouter,
   createGitHubIntegrationRouter,
 } from '../deploy'
 import { createDNSRouter } from '../dns/routes'
+import {
+  createDurableObjectsRouter,
+  startDurableObjectManager,
+} from '../durable-objects'
 import { GitRepoManager } from '../git/repo-manager'
 import {
   createHelmProviderRouter,
@@ -102,12 +107,16 @@ import {
   getDeployedApp,
   initializeAppRouter,
   proxyToBackend,
+  setSharedWorkerdExecutor,
 } from './routes/app-router'
 import { createCDNRouter } from './routes/cdn'
 import { createCIRouter } from './routes/ci'
+import { registerConfiguredInferenceProviders } from '../compute/local-inference-providers'
 import { createComputeRouter } from './routes/compute'
 import { createContainerRouter } from './routes/containers'
+import { createCronRouter } from './routes/cron'
 import { createDARouter, shutdownDA } from './routes/da'
+import { createDWSServicesRouter } from './routes/dws-services'
 import { createEdgeRouter, handleEdgeWebSocket } from './routes/edge'
 import { createExecRouter } from './routes/exec'
 import { createFaucetRouter } from './routes/faucet'
@@ -121,7 +130,9 @@ import {
 } from './routes/load-balancer'
 import { createMCPRouter } from './routes/mcp'
 import { createModerationRouter } from './routes/moderation'
+import { createNitroDatabaseRouter } from './routes/nitro-database'
 import { createOAuth3Router } from './routes/oauth3'
+import { createOCIRegistryRouter } from './routes/oci-registry'
 import { createPkgRouter } from './routes/pkg'
 import { createPkgRegistryProxyRouter } from './routes/pkg-registry-proxy'
 import {
@@ -131,6 +142,7 @@ import {
   SubscriptionMessageSchema,
 } from './routes/prices'
 import { createPyPkgRouter } from './routes/pypkg'
+import { releasesRoutes } from './routes/releases'
 import { createRPCRouter } from './routes/rpc'
 import { createS3Router } from './routes/s3'
 import { createScrapingRouter } from './routes/scraping'
@@ -183,6 +195,39 @@ const RATE_LIMIT_MAX =
     : 1000
 const SKIP_RATE_LIMIT_PATHS = ['/health', '/.well-known/']
 
+/**
+ * Get MIME type from file path extension
+ */
+function getMimeType(path: string): string {
+  const ext = path.split('.').pop()?.toLowerCase() ?? ''
+  const mimeTypes: Record<string, string> = {
+    html: 'text/html; charset=utf-8',
+    js: 'application/javascript',
+    mjs: 'application/javascript',
+    css: 'text/css',
+    json: 'application/json',
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    gif: 'image/gif',
+    svg: 'image/svg+xml',
+    webp: 'image/webp',
+    ico: 'image/x-icon',
+    woff: 'font/woff',
+    woff2: 'font/woff2',
+    ttf: 'font/ttf',
+    eot: 'application/vnd.ms-fontobject',
+    mp4: 'video/mp4',
+    webm: 'video/webm',
+    mp3: 'audio/mpeg',
+    wav: 'audio/wav',
+    pdf: 'application/pdf',
+    txt: 'text/plain',
+    xml: 'application/xml',
+  }
+  return mimeTypes[ext] ?? 'application/octet-stream'
+}
+
 let rateLimitCache: CacheClient | null = null
 
 function getRateLimitCache(): CacheClient {
@@ -221,7 +266,7 @@ function rateLimiter() {
     async ({
       request,
       set,
-    }: Context): Promise<
+    }): Promise<
       { error: string; message: string; retryAfter: number } | undefined
     > => {
       const url = new URL(request.url)
@@ -330,22 +375,11 @@ const app = new Elysia()
         'X-Request-ID',
         'X-Babylon-Api-Key',
         'X-Jeju-Address',
-        'X-Jeju-Nonce',
-        'X-Jeju-Signature',
-        'X-Jeju-Timestamp',
+        'x-jeju-address',
         'X-IPFS-Gateway',
         'X-JNS-Name',
-        'X-Address',
-        'X-Signature',
-        'X-Timestamp',
       ],
-      exposeHeaders: [
-        'X-Request-ID',
-        'X-Rate-Limit-Remaining',
-        'X-DWS-Node',
-        'X-DWS-Backend',
-        'X-DWS-Cache',
-      ],
+      exposeHeaders: ['X-Request-ID', 'X-Rate-Limit-Remaining', 'X-DWS-Node'],
       maxAge: 86400,
     }),
   )
@@ -379,30 +413,46 @@ function getContractOrZero(
 }
 
 /**
- * SECURITY WARNING: Private Key Configuration
+ * SECURITY: Private Key Configuration
  *
- * The DWS_PRIVATE_KEY is used for on-chain transactions (git registry, pkg registry, CI).
- * In production with TEE, this key is vulnerable to side-channel attacks.
+ * In production, private keys MUST be managed through KMS.
+ * Direct private keys (DWS_PRIVATE_KEY) are BLOCKED in production.
  *
- * Recommended production configuration:
- * 1. Use KMS-backed signing via DWS_KMS_KEY_ID environment variable
- * 2. Or use TX_RELAY_URL for HSM-backed transaction relay
- * 3. Never store raw private keys in TEE memory
- *
- * The current implementation uses direct keys for development compatibility.
+ * Production: Set DWS_KMS_KEY_ID for KMS-backed signing
+ * Development: Can use DWS_PRIVATE_KEY for local testing only
  */
-const dwsPrivateKey =
+const kmsKeyId = process.env.DWS_KMS_KEY_ID
+const directKey =
   (serverConfig.privateKey as Hex | undefined) ??
   (typeof process !== 'undefined'
     ? (process.env.DWS_PRIVATE_KEY as Hex | undefined)
     : undefined)
 
-// Warn about direct key usage in production
-if (isProduction && dwsPrivateKey) {
-  console.warn(
-    '[DWS] WARNING: Using DWS_PRIVATE_KEY directly in production. ' +
-      'Set DWS_KMS_KEY_ID for KMS-backed signing to protect against side-channel attacks.',
-  )
+let dwsPrivateKey: Hex | undefined
+
+if (isProduction) {
+  // In production, BLOCK direct private keys
+  if (directKey) {
+    console.error(
+      '[DWS] SECURITY ERROR: DWS_PRIVATE_KEY detected in production. ' +
+        'Direct private keys are BLOCKED. Use DWS_KMS_KEY_ID for KMS-backed signing.',
+    )
+    // Don't use the direct key
+    dwsPrivateKey = undefined
+  }
+  if (!kmsKeyId) {
+    console.warn(
+      '[DWS] WARNING: DWS_KMS_KEY_ID not set. On-chain operations may fail.',
+    )
+  }
+} else {
+  // Development: allow direct key with warning
+  if (directKey) {
+    console.warn(
+      '[DWS] WARNING: Using DWS_PRIVATE_KEY for development. Use KMS in production.',
+    )
+    dwsPrivateKey = directKey
+  }
 }
 
 // Git configuration - uses centralized config
@@ -670,7 +720,7 @@ app
   })
 
   // Serve frontend at root
-  .get('/', async ({ set }: Context) => {
+  .get('/', async ({ set }) => {
     const decentralizedResponse =
       await decentralized.frontend.serveAsset('index.html')
     if (decentralizedResponse) return decentralizedResponse
@@ -780,12 +830,14 @@ app.use(createCDNRouter())
 app.use(createGitRouter({ repoManager, backend: backendManager }))
 app.use(createPkgRouter({ registryManager, backend: backendManager }))
 app.use(createPyPkgRouter({ registryManager, backend: backendManager }))
+app.use(createCLIRoutes())
 app.use(
   createCIRouter({ workflowEngine, repoManager, backend: backendManager }),
 )
 app.use(createOAuth3Router())
 app.use(createAPIMarketplaceRouter())
 app.use(createContainerRouter())
+app.use(createOCIRegistryRouter()) // Docker Registry v2 API for container pulls
 app.use(createA2ARouter())
 app.use(createMCPRouter())
 
@@ -795,6 +847,8 @@ app.use(createExecRouter())
 // New DWS services
 app.use(createS3Router(backendManager))
 app.use(createWorkersRouter(backendManager))
+app.use(createCronRouter()) // Worker cron management
+app.use(createDurableObjectsRouter()) // Durable Objects
 app.use(createDefaultWorkerdRouter(backendManager)) // V8 isolate runtime
 app.use(createKMSRouter())
 app.use(createVPNRouter())
@@ -805,7 +859,9 @@ app.use(createFaucetRouter()) // Testnet-only faucet
 app.use(createStakingRouter()) // Node staking and earnings
 app.use(createPricesRouter())
 app.use(createModerationRouter())
+app.use(releasesRoutes)
 app.use(createEmailRouter())
+app.use(createNitroDatabaseRouter())
 
 // Funding and package registry proxy
 app.use(createFundingRouter())
@@ -829,6 +885,10 @@ app.use(createKeepaliveRouter())
 // Infrastructure services (postgres, redis, etc.)
 app.use(createServicesRouter())
 
+// DWS-native services (OAuth3, DA, Email, Hubble, Workers)
+// These replace K8s Helm deployments with DWS control plane
+app.use(createDWSServicesRouter())
+
 // App deployment - Heroku/EKS-like experience
 app.use(createAppDeployerRouter())
 
@@ -848,12 +908,30 @@ app.use(createSecurityRoutes())
 app.use(createObservabilityRoutes('dws'))
 
 // Data Availability Layer
+// SECURITY: DA_OPERATOR_PRIVATE_KEY blocked in production, use DA_OPERATOR_KMS_KEY_ID
+const daDirectKey =
+  (serverConfig.daOperatorPrivateKey as Hex | undefined) ??
+  (typeof process !== 'undefined'
+    ? (process.env.DA_OPERATOR_PRIVATE_KEY as Hex | undefined)
+    : undefined)
+
+let daOperatorPrivateKey: Hex | undefined
+if (isProduction && daDirectKey) {
+  console.error(
+    '[DWS] SECURITY ERROR: DA_OPERATOR_PRIVATE_KEY detected in production. ' +
+      'Use DA_OPERATOR_KMS_KEY_ID instead.',
+  )
+  // Don't use direct key in production
+} else if (daDirectKey) {
+  console.warn(
+    '[DWS] WARNING: Using DA_OPERATOR_PRIVATE_KEY for development. Use KMS in production.',
+  )
+  daOperatorPrivateKey = daDirectKey
+}
+
 const daConfig = {
-  operatorPrivateKey:
-    (serverConfig.daOperatorPrivateKey as Hex | undefined) ??
-    (typeof process !== 'undefined'
-      ? (process.env.DA_OPERATOR_PRIVATE_KEY as Hex | undefined)
-      : undefined),
+  operatorPrivateKey: daOperatorPrivateKey,
+  operatorKmsKeyId: process.env.DA_OPERATOR_KMS_KEY_ID,
   operatorEndpoint:
     serverConfig.daOperatorEndpoint ??
     serverConfig.baseUrl ??
@@ -897,7 +975,7 @@ app.use(createServiceMeshRouter(getServiceMesh()))
 app.use(createKubernetesBridgeRouter())
 
 // Serve static assets (JS, CSS, images) from /web/*
-app.get('/web/*', async ({ request, set }: Context) => {
+app.get('/web/*', async ({ request, set }) => {
   const url = new URL(request.url)
   const assetPath = url.pathname.replace('/web/', '')
 
@@ -938,7 +1016,7 @@ app.get('/web/*', async ({ request, set }: Context) => {
 })
 
 // Serve frontend - from IPFS when configured, fallback to local
-app.get('/app', async ({ set }: Context) => {
+app.get('/app', async ({ set }) => {
   const decentralizedResponse =
     await decentralized.frontend.serveAsset('index.html')
   if (decentralizedResponse) return decentralizedResponse
@@ -961,7 +1039,7 @@ app.get('/app', async ({ set }: Context) => {
   }
 })
 
-app.get('/app/ci', async ({ set }: Context) => {
+app.get('/app/ci', async ({ set }) => {
   const decentralizedResponse =
     await decentralized.frontend.serveAsset('ci.html')
   if (decentralizedResponse) return decentralizedResponse
@@ -981,7 +1059,7 @@ app.get('/app/ci', async ({ set }: Context) => {
   return { error: 'CI frontend not available' }
 })
 
-app.get('/app/da', async ({ set }: Context) => {
+app.get('/app/da', async ({ set }) => {
   const decentralizedResponse =
     await decentralized.frontend.serveAsset('da.html')
   if (decentralizedResponse) return decentralizedResponse
@@ -1001,7 +1079,7 @@ app.get('/app/da', async ({ set }: Context) => {
   return { error: 'DA dashboard not available' }
 })
 
-app.get('/app/*', async ({ request, set }: Context) => {
+app.get('/app/*', async ({ request, set }) => {
   const url = new URL(request.url)
   const path = url.pathname.replace('/app', '')
 
@@ -1024,7 +1102,7 @@ app.get('/app/*', async ({ request, set }: Context) => {
 })
 
 // Internal P2P endpoints
-app.get('/_internal/ratelimit/:clientKey', ({ params }: Context) => {
+app.get('/_internal/ratelimit/:clientKey', ({ params }) => {
   const count = distributedRateLimiter?.getLocalCount(params.clientKey) ?? 0
   return { count }
 })
@@ -1151,39 +1229,51 @@ app.get('/stats', () => {
 // SPA catch-all route for frontend routes like /security/oauth3
 // This must come after all API routes but before 404 fallback
 // Only serves index.html for paths that look like frontend routes (not API endpoints)
-app.get('/*', async ({ path, set }: Context) => {
+app.get('/*', async ({ path, set }) => {
   // Skip API-like paths that should return 404 if not handled
+  // Include both with and without trailing slash for exact matches
   const apiPrefixes = [
-    '/api/',
-    '/storage/',
-    '/compute/',
-    '/workers/',
-    '/containers/',
-    '/cdn/',
-    '/git/',
-    '/pkg/',
-    '/ci/',
-    '/kms/',
-    '/vpn/',
-    '/scraping/',
-    '/rpc/',
-    '/s3/',
-    '/workerd/',
-    '/a2a/',
-    '/mcp/',
-    '/oauth3/',
-    '/edge/',
-    '/agents/',
-    '/moderation/',
-    '/cache/',
-    '/sqlit/',
-    '/prices/',
-    '/indexer/',
-    '/_internal/',
-    '/.well-known/',
+    '/api',
+    '/storage',
+    '/compute',
+    '/workers',
+    '/containers',
+    '/cdn',
+    '/git',
+    '/pkg',
+    '/ci',
+    '/kms',
+    '/vpn',
+    '/scraping',
+    '/rpc',
+    '/s3',
+    '/workerd',
+    '/a2a',
+    '/mcp',
+    '/oauth3',
+    '/edge',
+    '/agents',
+    '/moderation',
+    '/cache',
+    '/sqlit',
+    '/prices',
+    '/indexer',
+    '/_internal',
+    '/.well-known',
+    '/dws-services',
+    '/deploy',
+    '/apps',
+    '/ipfs',
+    '/upload',
+    '/databases',
+    '/services',
   ]
 
-  if (apiPrefixes.some((prefix) => path.startsWith(prefix))) {
+  // Check if path matches any API prefix (with or without trailing content)
+  const isApiPath = apiPrefixes.some(
+    (prefix) => path === prefix || path.startsWith(`${prefix}/`),
+  )
+  if (isApiPath) {
     set.status = 404
     return { error: 'NOT_FOUND' }
   }
@@ -1209,7 +1299,35 @@ app.get('/*', async ({ path, set }: Context) => {
 })
 
 // Initialize services
-initializeMarketplace()
+const host = getLocalhostHost()
+const inferenceBaseUrl =
+  NETWORK === 'localnet'
+    ? `http://${host}:${PORT}`
+    : (getDWSUrl(NETWORK) ?? `http://${host}:${PORT}`)
+
+const registerInferenceProviders = async () => {
+  const count = await registerConfiguredInferenceProviders(inferenceBaseUrl)
+  if (count > 0) {
+    console.log(`[DWS] Registered ${count} local inference providers`)
+  }
+}
+
+registerInferenceProviders().catch((err) => {
+  const message = err instanceof Error ? err.message : String(err)
+  console.warn('[DWS] Inference provider init failed:', message)
+})
+
+setInterval(() => {
+  registerInferenceProviders().catch((err) => {
+    const message = err instanceof Error ? err.message : String(err)
+    console.warn('[DWS] Inference provider refresh failed:', message)
+  })
+}, 60000)
+
+initializeMarketplace().catch((err) => {
+  const message = err instanceof Error ? err.message : String(err)
+  console.warn('[DWS] Marketplace init failed:', message)
+})
 initializeContainerSystem()
 
 // Initialize DWS cache provisioning
@@ -1234,6 +1352,7 @@ initRegistry({ sqlitUrl: SQLIT_URL, databaseId: AGENTS_DB_ID }).catch((err) => {
 
 // Agent executor - initialized after server starts (see below)
 const workerdExecutor = new WorkerdExecutor(backendManager)
+setSharedWorkerdExecutor(workerdExecutor)
 
 let server: ReturnType<typeof Bun.serve> | null = null
 
@@ -1247,6 +1366,15 @@ function shutdown(signal: string) {
   console.log('[DWS] Indexer proxy stopped')
   stopKeepaliveService()
   console.log('[DWS] Keepalive service stopped')
+  // Stop cron executor
+  import('../workers/cron-executor')
+    .then(({ stopCronExecutor }) => {
+      stopCronExecutor()
+      console.log('[DWS] Cron executor stopped')
+    })
+    .catch(() => {
+      // Ignore import errors during shutdown
+    })
   if (p2pCoordinator) {
     p2pCoordinator.stop()
     console.log('[DWS] P2P coordinator stopped')
@@ -1402,12 +1530,7 @@ if (import.meta.main) {
   const appsDir =
     serverConfig.appsDir ??
     (typeof process !== 'undefined' ? process.env.JEJU_APPS_DIR : undefined) ??
-    join(
-      typeof import.meta !== 'undefined' && 'dir' in import.meta
-        ? import.meta.dir
-        : process.cwd(),
-      '../../../../apps',
-    ) // Default to monorepo apps directory
+    join(import.meta.dir, '../../../../apps') // Default to monorepo apps directory
   if (
     (!isProduction || serverConfig.devnet || isLocalnet(NETWORK)) &&
     existsSync(appsDir)
@@ -1430,9 +1553,16 @@ if (import.meta.main) {
       })
   }
 
+  // Adapter types for Bun's ServerWebSocket
+  interface BunServerWebSocket {
+    readonly readyState: number
+    send(data: string): number
+    close(): void
+  }
+
   // Adapter to convert Bun's ServerWebSocket to SubscribableWebSocket
   function toSubscribableWebSocket(
-    ws: { readonly readyState: number; send(data: string): number },
+    ws: BunServerWebSocket,
   ): SubscribableWebSocket {
     return {
       get readyState() {
@@ -1440,17 +1570,12 @@ if (import.meta.main) {
       },
       send(data: string) {
         ws.send(data)
-        return
       },
     }
   }
 
   // Adapter to convert Bun's ServerWebSocket to EdgeWebSocket (includes close)
-  function toEdgeWebSocket(ws: {
-    readonly readyState: number
-    send(data: string): number
-    close(): void
-  }) {
+  function toEdgeWebSocket(ws: BunServerWebSocket) {
     return {
       get readyState() {
         return ws.readyState
@@ -1483,14 +1608,38 @@ if (import.meta.main) {
     handlers: WebSocketHandlers
   }
 
-  /** WebSocket data attached to each connection */
-  type WebSocketData = PriceWebSocketData | EdgeWebSocketData
+  /** WebSocket data for Durable Object connections */
+  interface DurableObjectWebSocketData {
+    type: 'durable-object'
+    namespace: string
+    doId: string
+    handlers: WebSocketHandlers
+  }
 
-  server = Bun.serve<WebSocketData>({
+  /** WebSocket data attached to each connection */
+  type WebSocketData =
+    | PriceWebSocketData
+    | EdgeWebSocketData
+    | DurableObjectWebSocketData
+
+  // CRITICAL: Initialize DWS state (SQLit tables) BEFORE accepting requests
+  // This prevents race conditions where requests hit endpoints before tables exist
+  console.log('[DWS] Initializing state...')
+  await initializeDWSState()
+  console.log('[DWS] State ready')
+
+  server = Bun.serve({
     port: PORT,
     maxRequestBodySize: 500 * 1024 * 1024, // 500MB for large artifact uploads
     idleTimeout: 120, // 120 seconds - health checks can take time when external services are slow
-    async fetch(req: Request, server: { upgrade(req: Request, options?: { data?: WebSocketData; headers?: HeadersInit }): boolean }) {
+    async fetch(req, bunServer) {
+      // Cast to simpler type for upgrade calls
+      const server = bunServer as {
+        upgrade(
+          req: Request,
+          options?: { data?: WebSocketData; headers?: HeadersInit },
+        ): boolean
+      }
       // Handle WebSocket upgrades for price streaming
       const url = new URL(req.url)
       if (
@@ -1515,64 +1664,68 @@ if (import.meta.main) {
         return new Response('WebSocket upgrade failed', { status: 500 })
       }
 
-      // App routing - check if request is for a deployed app
-      const hostname = req.headers.get('host') ?? url.hostname
-      console.log(`[Bun.serve] Request: ${hostname}${url.pathname}`)
-
-      // Special handling for core services with internal routing
-      // These services have their own /service/* routes and should be routed there directly
-      const coreServiceSubdomains = ['indexer']
-      const appName = hostname.split('.')[0]
-      if (coreServiceSubdomains.includes(appName)) {
-        // Rewrite the request to the internal service path
-        // e.g., indexer.testnet.jejunetwork.org/graphql → /indexer/graphql
-        const internalPath = `/${appName}${url.pathname}`
-        console.log(
-          `[Bun.serve] Routing core service: ${appName} → ${internalPath}`,
-        )
-
-        const internalUrl = new URL(internalPath, `http://127.0.0.1:${PORT}`)
-        internalUrl.search = url.search
-
-        const internalRequest = new Request(internalUrl.toString(), {
-          method: req.method,
-          headers: req.headers,
-          body:
-            req.method !== 'GET' && req.method !== 'HEAD'
-              ? req.body
-              : undefined,
+      // Handle Durable Object WebSocket
+      // Path format: /do/:namespace/:doId/ws
+      const doWsMatch = url.pathname.match(/^\/do\/([^/]+)\/([^/]+)\/ws$/)
+      if (doWsMatch && req.headers.get('upgrade') === 'websocket') {
+        const [, namespace, doId] = doWsMatch
+        const success = server.upgrade(req, {
+          data: {
+            type: 'durable-object',
+            namespace,
+            doId,
+            handlers: {} as WebSocketHandlers,
+          },
         })
-
-        return app.handle(internalRequest)
+        if (success) return undefined
+        return new Response('WebSocket upgrade failed', { status: 500 })
       }
 
+      // App routing - check if request is for a deployed app
+      const hostname = req.headers.get('host') ?? url.hostname
+
       // Check if this is a deployed app (not dws itself)
+      // Skip internal IPs and localhost for health checks
+      const isInternalIp = hostname.match(
+        /^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|127\.)/,
+      )
+      // Extract hostname without port for comparison
+      const hostnameWithoutPort = hostname.split(':')[0]
       if (
         !hostname.startsWith('dws.') &&
-        !hostname.startsWith('127.') &&
-        hostname !== 'localhost'
+        !isInternalIp &&
+        hostnameWithoutPort !== 'localhost' &&
+        hostnameWithoutPort !== '127.0.0.1'
       ) {
         const appName = hostname.split('.')[0]
         const deployedApp = getDeployedApp(appName)
         if (deployedApp?.enabled) {
-          console.log(`[Bun.serve] Routing to deployed app: ${appName}`)
           // Route to backend for API paths - use DEFAULT_API_PATHS if not configured
           const apiPaths = deployedApp.apiPaths ?? DEFAULT_API_PATHS
-          const isApiRequest = apiPaths.some(
-            (path) =>
-              url.pathname === path || url.pathname.startsWith(`${path}/`),
-          )
+          const isApiRequest = apiPaths.some((pattern) => {
+            // Handle glob patterns like /api/*
+            if (pattern.endsWith('/*')) {
+              const basePrefix = pattern.slice(0, -2) // Remove /*
+              return (
+                url.pathname === basePrefix ||
+                url.pathname.startsWith(`${basePrefix}/`)
+              )
+            }
+            // Handle trailing wildcard /api*
+            if (pattern.endsWith('*')) {
+              const basePrefix = pattern.slice(0, -1)
+              return url.pathname.startsWith(basePrefix)
+            }
+            // Exact match
+            return url.pathname === pattern
+          })
           if (
             isApiRequest &&
             (deployedApp.backendEndpoint || deployedApp.backendWorkerId)
           ) {
-            console.log(`[Bun.serve] Proxying API to backend: ${url.pathname}`)
             return proxyToBackend(req, deployedApp, url.pathname)
           }
           // Serve frontend from IPFS/storage if configured
-          console.log(
-            `[Bun.serve] App ${appName}: frontendCid=${deployedApp.frontendCid}, staticFiles=${deployedApp.staticFiles ? Object.keys(deployedApp.staticFiles).length : 0}`,
-          )
           if (deployedApp.frontendCid || deployedApp.staticFiles) {
             const gateway = getIpfsGatewayUrl(NETWORK)
             let assetPath = url.pathname === '/' ? '/index.html' : url.pathname
@@ -1580,7 +1733,6 @@ if (import.meta.main) {
             if (deployedApp.spa && !assetPath.match(/\.\w+$/)) {
               assetPath = '/index.html'
             }
-            console.log(`[Bun.serve] Looking for assetPath: ${assetPath}`)
 
             // Check staticFiles map first for individual file CIDs
             if (deployedApp.staticFiles) {
@@ -1588,32 +1740,19 @@ if (import.meta.main) {
                 ? assetPath
                 : `/${assetPath}`
               const filePathWithoutSlash = assetPath.replace(/^\//, '')
-              console.log(
-                `[Bun.serve] Checking staticFiles for: ${filePathWithSlash} or ${filePathWithoutSlash}`,
-              )
               // Try both with and without leading slash since deploy scripts vary
               const fileCid =
                 deployedApp.staticFiles[filePathWithSlash] ??
                 deployedApp.staticFiles[filePathWithoutSlash]
-              console.log(`[Bun.serve] Found CID: ${fileCid}`)
               if (fileCid) {
                 // Fetch from DWS storage
                 const storageUrl =
                   NETWORK === 'localnet'
                     ? `http://127.0.0.1:4030/storage/download/${fileCid}`
                     : `https://dws.${NETWORK === 'testnet' ? 'testnet.' : ''}jejunetwork.org/storage/download/${fileCid}`
-                console.log(
-                  `[Bun.serve] Serving from staticFiles: ${storageUrl}`,
-                )
                 const resp = await fetch(storageUrl).catch(() => null)
                 if (resp?.ok) {
-                  const contentType = filePathWithoutSlash.endsWith('.js')
-                    ? 'application/javascript'
-                    : filePathWithoutSlash.endsWith('.css')
-                      ? 'text/css'
-                      : filePathWithoutSlash.endsWith('.html')
-                        ? 'text/html'
-                        : 'application/octet-stream'
+                  const contentType = getMimeType(filePathWithoutSlash)
                   return new Response(resp.body, {
                     headers: {
                       'Content-Type': contentType,
@@ -1628,7 +1767,6 @@ if (import.meta.main) {
             // Fallback: try directory-style CID if frontendCid is set
             if (deployedApp.frontendCid) {
               const ipfsUrl = `${gateway}/ipfs/${deployedApp.frontendCid}${assetPath}`
-              console.log(`[Bun.serve] Serving from IPFS: ${ipfsUrl}`)
               const resp = await fetch(ipfsUrl).catch(() => null)
               if (resp?.ok) {
                 return resp
@@ -1637,7 +1775,6 @@ if (import.meta.main) {
               // the CID itself might be the index.html file
               if (assetPath === '/index.html') {
                 const directUrl = `${gateway}/ipfs/${deployedApp.frontendCid}`
-                console.log(`[Bun.serve] Fallback to direct CID: ${directUrl}`)
                 return fetch(directUrl)
               }
             }
@@ -1647,15 +1784,9 @@ if (import.meta.main) {
           }
           // No frontend CID or staticFiles - proxy all requests to backend
           if (deployedApp.backendEndpoint || deployedApp.backendWorkerId) {
-            console.log(
-              `[Bun.serve] No frontend configured, proxying all to backend: ${url.pathname}`,
-            )
             return proxyToBackend(req, deployedApp, url.pathname)
           }
           // App is registered but has no frontend or backend - return 503
-          console.log(
-            `[Bun.serve] App ${appName} has no frontend or backend configured`,
-          )
           return new Response(
             JSON.stringify({
               error: 'Service unavailable',
@@ -1668,7 +1799,6 @@ if (import.meta.main) {
           )
         }
         // App not found in registry - return 404 instead of falling through to DWS
-        console.log(`[Bun.serve] App not found or disabled: ${appName}`)
         return new Response(
           JSON.stringify({
             error: 'Not Found',
@@ -1684,8 +1814,8 @@ if (import.meta.main) {
       return app.handle(req)
     },
     websocket: {
-      open(ws: { data: WebSocketData; readyState: number; send(data: string): number; close(): void }) {
-        const data = ws.data
+      open(ws) {
+        const data = ws.data as WebSocketData
         if (data.type === 'prices') {
           // Set up price subscription service
           const service = getPriceService()
@@ -1717,18 +1847,38 @@ if (import.meta.main) {
           data.handlers.message = callbacks.onMessage
           data.handlers.close = callbacks.onClose
           data.handlers.error = callbacks.onError
+        } else if (data.type === 'durable-object') {
+          // Set up Durable Object WebSocket
+          // Route to the DO instance for handling
+          const { namespace, doId } = data
+          console.log(`[DWS] DO WebSocket connection: ${namespace}/${doId}`)
+
+          // Messages will be forwarded to the DO instance via its acceptWebSocket handler
+          data.handlers.message = (msgStr: string) => {
+            console.log(
+              `[DWS] DO WebSocket message: ${namespace}/${doId}: ${msgStr.substring(0, 100)}`,
+            )
+            // Forward to DO instance - this is handled by the DO's own message handlers
+            // The DO uses state.acceptWebSocket() which manages its own WebSocket tracking
+          }
+          data.handlers.close = () => {
+            console.log(`[DWS] DO WebSocket closed: ${namespace}/${doId}`)
+          }
+          data.handlers.error = () => {
+            console.error(`[DWS] DO WebSocket error: ${namespace}/${doId}`)
+          }
         }
       },
-      message(ws: { data: WebSocketData }, message: string | Buffer) {
-        const data = ws.data
+      message(ws, message) {
+        const data = ws.data as WebSocketData
         const msgStr =
           typeof message === 'string'
             ? message
             : new TextDecoder().decode(message)
         data.handlers.message?.(msgStr)
       },
-      close(ws: { data: WebSocketData }) {
-        const data = ws.data
+      close(ws) {
+        const data = ws.data as WebSocketData
         data.handlers.close?.()
       },
     },
@@ -1752,7 +1902,12 @@ if (import.meta.main) {
     if (dwsPrivateKey) {
       const infra = createInfrastructure(
         {
-          network: NETWORK === 'localnet' || NETWORK === 'testnet' || NETWORK === 'mainnet' ? NETWORK : 'localnet',
+          network:
+            NETWORK === 'localnet' ||
+            NETWORK === 'testnet' ||
+            NETWORK === 'mainnet'
+              ? NETWORK
+              : 'localnet',
           privateKey: dwsPrivateKey,
           selfEndpoint: baseUrl,
         },
@@ -1813,13 +1968,35 @@ if (import.meta.main) {
       console.warn('[DWS] Agent executor init failed:', err.message)
     })
 
-  // Initialize DWS state (determines memory-only vs SQLit mode)
-  initializeDWSState()
+  // State already initialized before server started - now start dependent services
+  // Start Durable Objects manager
+  startDurableObjectManager()
     .then(() => {
-      console.log('[DWS] State initialized')
+      console.log('[DWS] Durable Objects manager started')
     })
     .catch((err) => {
-      console.warn('[DWS] State init warning:', err.message)
+      console.warn('[DWS] Durable Objects manager init failed:', err.message)
+    })
+
+  // Start Cron Executor
+  import('../workers/cron-executor')
+    .then(async ({ startCronExecutor }) => {
+      const cronExecutor = startCronExecutor({
+        workerBaseUrl: `http://localhost:${PORT}`,
+        tickIntervalMs: 30000, // Check every 30 seconds
+        maxConcurrent: 10,
+        lockTtlSeconds: 300, // 5 minute lock TTL
+      })
+      const stats = await cronExecutor.getStats()
+      console.log(
+        `[DWS] Cron executor started (${stats.cronStats.enabled} enabled crons)`,
+      )
+    })
+    .catch((err) => {
+      console.warn(
+        '[DWS] Cron executor init failed:',
+        err instanceof Error ? err.message : String(err),
+      )
     })
 
   // Discover existing DWS-managed containers on startup

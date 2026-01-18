@@ -6,6 +6,7 @@
 import { existsSync } from 'node:fs'
 import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import { reportBundleSizes } from '@jejunetwork/shared'
 
 const APP_DIR = resolve(import.meta.dir, '..')
 const outdir = resolve(APP_DIR, 'dist')
@@ -33,7 +34,10 @@ async function build() {
       target: 'browser',
       minify: true,
       sourcemap: 'external',
-      splitting: true,
+      splitting: false,
+      packages: 'bundle',
+      external: ['pino'],
+      drop: ['debugger'],
       naming: {
         entry: '[name]-[hash].js',
         chunk: 'chunks/[name]-[hash].js',
@@ -41,6 +45,8 @@ async function build() {
       },
       define: {
         'process.env.NODE_ENV': JSON.stringify('production'),
+        'process.env': JSON.stringify({}),
+        process: JSON.stringify({ env: {} }),
       },
     })
 
@@ -51,6 +57,8 @@ async function build() {
       }
       process.exit(1)
     }
+
+    reportBundleSizes(webResult, 'Otto Frontend')
 
     // Find the main entry file
     const mainEntry = webResult.outputs.find(
@@ -82,6 +90,7 @@ async function build() {
     target: 'bun',
     minify: true,
     sourcemap: 'external',
+    drop: ['debugger'],
     naming: 'server.js',
   })
 
@@ -92,6 +101,7 @@ async function build() {
     }
     process.exit(1)
   }
+  reportBundleSizes(serverResult, 'Otto Server')
   console.log('[Otto] Server built successfully')
 
   // Build main index
@@ -102,6 +112,7 @@ async function build() {
     target: 'bun',
     minify: true,
     sourcemap: 'external',
+    drop: ['debugger'],
     naming: 'index.js',
   })
 
@@ -122,6 +133,7 @@ async function build() {
     target: 'bun',
     minify: true,
     sourcemap: 'external',
+    drop: ['debugger'],
     naming: 'worker.js',
   })
 
@@ -132,6 +144,8 @@ async function build() {
     }
     process.exit(1)
   }
+
+  reportBundleSizes(workerResult, 'Otto Worker')
 
   // Create worker metadata
   const metadata = {
@@ -155,6 +169,7 @@ async function build() {
   console.log('  dist/server.js    - Main server')
   console.log('  dist/index.js     - Library entry')
   console.log('  dist/worker/      - Worker bundle')
+  process.exit(0)
 }
 
 build().catch((err) => {

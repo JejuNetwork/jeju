@@ -1,8 +1,7 @@
-/** Database Client Tests */
+/** Database Client Tests - Async SQLit Version */
 
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
-import { unlinkSync } from 'node:fs'
-import { join } from 'node:path'
+import { configureFactory } from '../../api/config'
 import {
   addPackageMaintainer,
   addRepoCollaborator,
@@ -35,6 +34,7 @@ import {
   getProjectTasks,
   getRepoCollaborators,
   getRepoWebhooks,
+  initDB,
   listAgents,
   listBounties,
   listDatasets,
@@ -54,32 +54,31 @@ import {
   upsertRepoSettings,
 } from '../../api/db/client'
 
-// Set test data directory
-const TEST_DATA_DIR = join(process.cwd(), 'test-data')
-process.env.FACTORY_DATA_DIR = TEST_DATA_DIR
+// Configure for test environment - use SQLit server on default test port
+const SQLIT_TEST_ENDPOINT =
+  process.env.SQLIT_ENDPOINT || 'http://127.0.0.1:4661'
+const SQLIT_TEST_DB = `factory-test-${Date.now()}`
 
 describe('Factory DB Client', () => {
-  beforeAll(() => {
-    // Clean up any existing test database
-    try {
-      unlinkSync(join(TEST_DATA_DIR, 'factory.sqlite'))
-    } catch {
-      // File doesn't exist, that's fine
-    }
+  beforeAll(async () => {
+    // Configure Factory to use test SQLit database
+    configureFactory({
+      sqlitEndpoint: SQLIT_TEST_ENDPOINT,
+      sqlitDatabaseId: SQLIT_TEST_DB,
+      isDev: true,
+    })
+
+    // Initialize database (auto-provisions if needed)
+    await initDB()
   })
 
-  afterAll(() => {
-    closeDB()
-    try {
-      unlinkSync(join(TEST_DATA_DIR, 'factory.sqlite'))
-    } catch {
-      // Ignore cleanup errors
-    }
+  afterAll(async () => {
+    await closeDB()
   })
 
   describe('Bounties', () => {
-    it('should create and retrieve a bounty', () => {
-      const bounty = createBounty({
+    it('should create and retrieve a bounty', async () => {
+      const bounty = await createBounty({
         title: 'Test Bounty',
         description: 'Test description',
         reward: '1000',
@@ -93,19 +92,19 @@ describe('Factory DB Client', () => {
       expect(bounty.title).toBe('Test Bounty')
       expect(bounty.status).toBe('open')
 
-      const retrieved = getBounty(bounty.id)
+      const retrieved = await getBounty(bounty.id)
       expect(retrieved).not.toBeNull()
       expect(retrieved?.title).toBe('Test Bounty')
     })
 
-    it('should list bounties with filters', () => {
-      const result = listBounties({ status: 'open' })
+    it('should list bounties with filters', async () => {
+      const result = await listBounties({ status: 'open' })
       expect(result.bounties.length).toBeGreaterThan(0)
       expect(result.total).toBeGreaterThan(0)
     })
 
-    it('should update bounty status', () => {
-      const bounty = createBounty({
+    it('should update bounty status', async () => {
+      const bounty = await createBounty({
         title: 'Status Test',
         description: 'Test',
         reward: '500',
@@ -115,17 +114,17 @@ describe('Factory DB Client', () => {
         creator: '0x1234',
       })
 
-      const updated = updateBountyStatus(bounty.id, 'in_progress')
+      const updated = await updateBountyStatus(bounty.id, 'in_progress')
       expect(updated).toBe(true)
 
-      const retrieved = getBounty(bounty.id)
+      const retrieved = await getBounty(bounty.id)
       expect(retrieved?.status).toBe('in_progress')
     })
   })
 
   describe('Jobs', () => {
-    it('should create and retrieve a job', () => {
-      const job = createJob({
+    it('should create and retrieve a job', async () => {
+      const job = await createJob({
         title: 'Senior Developer',
         company: 'Test Corp',
         type: 'full-time',
@@ -141,20 +140,20 @@ describe('Factory DB Client', () => {
       expect(job.title).toBe('Senior Developer')
       expect(job.salary_min).toBe(100000)
 
-      const retrieved = getJob(job.id)
+      const retrieved = await getJob(job.id)
       expect(retrieved).not.toBeNull()
       expect(retrieved?.company).toBe('Test Corp')
     })
 
-    it('should list jobs with filters', () => {
-      const result = listJobs({ remote: true })
+    it('should list jobs with filters', async () => {
+      const result = await listJobs({ remote: true })
       expect(result.jobs.length).toBeGreaterThan(0)
     })
   })
 
   describe('Projects', () => {
-    it('should create a project with tasks', () => {
-      const project = createProject({
+    it('should create a project with tasks', async () => {
+      const project = await createProject({
         name: 'Test Project',
         description: 'A test project',
         visibility: 'public',
@@ -164,7 +163,7 @@ describe('Factory DB Client', () => {
       expect(project.id).toStartWith('project-')
       expect(project.name).toBe('Test Project')
 
-      const task = createTask({
+      const task = await createTask({
         projectId: project.id,
         title: 'Task 1',
         assignee: '0xdev',
@@ -173,38 +172,38 @@ describe('Factory DB Client', () => {
       expect(task.id).toStartWith('task-')
       expect(task.status).toBe('pending')
 
-      const tasks = getProjectTasks(project.id)
+      const tasks = await getProjectTasks(project.id)
       expect(tasks.length).toBe(1)
     })
 
-    it('should update task status', () => {
-      const project = createProject({
+    it('should update task status', async () => {
+      const project = await createProject({
         name: 'Task Test',
         description: 'Test',
         visibility: 'private',
         owner: '0x',
       })
 
-      const task = createTask({
+      const task = await createTask({
         projectId: project.id,
         title: 'Update Test',
       })
 
-      const updated = updateTask(task.id, { status: 'completed' })
+      const updated = await updateTask(task.id, { status: 'completed' })
       expect(updated?.status).toBe('completed')
     })
   })
 
   describe('Issues', () => {
-    it('should create issues with sequential numbers per repo', () => {
-      const issue1 = createIssue({
+    it('should create issues with sequential numbers per repo', async () => {
+      const issue1 = await createIssue({
         repo: 'test/repo1',
         title: 'Issue 1',
         body: 'First issue',
         author: '0xauthor',
       })
 
-      const issue2 = createIssue({
+      const issue2 = await createIssue({
         repo: 'test/repo1',
         title: 'Issue 2',
         body: 'Second issue',
@@ -214,15 +213,15 @@ describe('Factory DB Client', () => {
       expect(issue2.number).toBe(issue1.number + 1)
     })
 
-    it('should list issues with filters', () => {
-      const result = listIssues({ status: 'open' })
+    it('should list issues with filters', async () => {
+      const result = await listIssues({ status: 'open' })
       expect(result.issues.length).toBeGreaterThan(0)
     })
   })
 
   describe('Pull Requests', () => {
-    it('should create pull requests with sequential numbers', () => {
-      const pr1 = createPullRequest({
+    it('should create pull requests with sequential numbers', async () => {
+      const pr1 = await createPullRequest({
         repo: 'test/prrepo',
         title: 'PR 1',
         body: 'First PR',
@@ -231,7 +230,7 @@ describe('Factory DB Client', () => {
         author: '0xauthor',
       })
 
-      const pr2 = createPullRequest({
+      const pr2 = await createPullRequest({
         repo: 'test/prrepo',
         title: 'PR 2',
         body: 'Second PR',
@@ -245,8 +244,8 @@ describe('Factory DB Client', () => {
   })
 
   describe('Discussions', () => {
-    it('should create and list discussions', () => {
-      const discussion = createDiscussion({
+    it('should create and list discussions', async () => {
+      const discussion = await createDiscussion({
         title: 'Test Discussion',
         content: 'Discussion content',
         category: 'general',
@@ -259,14 +258,14 @@ describe('Factory DB Client', () => {
       expect(discussion.id).toStartWith('discussion-')
       expect(discussion.category).toBe('general')
 
-      const result = listDiscussions({ category: 'general' })
+      const result = await listDiscussions({ category: 'general' })
       expect(result.discussions.length).toBeGreaterThan(0)
     })
   })
 
   describe('CI Runs', () => {
-    it('should create and retrieve CI runs', () => {
-      const run = createCIRun({
+    it('should create and retrieve CI runs', async () => {
+      const run = await createCIRun({
         workflow: 'test-workflow',
         repo: 'test/ci-repo',
         branch: 'main',
@@ -278,17 +277,17 @@ describe('Factory DB Client', () => {
       expect(run.id).toStartWith('run-')
       expect(run.status).toBe('queued')
 
-      const retrieved = getCIRun(run.id)
+      const retrieved = await getCIRun(run.id)
       expect(retrieved).not.toBeNull()
       expect(retrieved?.workflow).toBe('test-workflow')
     })
   })
 
   describe('Agents', () => {
-    it('should create and list agents', () => {
+    it('should create and list agents', async () => {
       const agentId = `0xagent_${Date.now()}`
 
-      const agent = createAgent({
+      const agent = await createAgent({
         agentId,
         owner: '0xowner',
         name: 'Test Agent',
@@ -302,17 +301,17 @@ describe('Factory DB Client', () => {
       expect(agent.agent_id).toBe(agentId)
       expect(agent.active).toBe(1)
 
-      const agents = listAgents({ active: true })
+      const agents = await listAgents({ active: true })
       expect(agents.length).toBeGreaterThan(0)
 
-      const retrieved = getAgent(agentId)
+      const retrieved = await getAgent(agentId)
       expect(retrieved?.name).toBe('Test Agent')
     })
   })
 
   describe('Containers', () => {
-    it('should create containers and instances', () => {
-      const container = createContainer({
+    it('should create containers and instances', async () => {
+      const container = await createContainer({
         name: 'test-container',
         tag: 'v1.0.0',
         digest: 'sha256:abc123',
@@ -324,7 +323,7 @@ describe('Factory DB Client', () => {
       expect(container.id).toStartWith('container-')
       expect(container.name).toBe('test-container')
 
-      const instance = createContainerInstance({
+      const instance = await createContainerInstance({
         containerId: container.id,
         name: 'test-instance',
         cpu: '2',
@@ -334,7 +333,7 @@ describe('Factory DB Client', () => {
 
       expect(instance.status).toBe('building')
 
-      const updated = updateContainerInstanceStatus(
+      const updated = await updateContainerInstanceStatus(
         instance.id,
         'running',
         'https://test.jejunetwork.org',
@@ -344,8 +343,8 @@ describe('Factory DB Client', () => {
   })
 
   describe('Datasets', () => {
-    it('should create and list datasets', () => {
-      const dataset = createDataset({
+    it('should create and list datasets', async () => {
+      const dataset = await createDataset({
         name: 'test-dataset',
         organization: 'test-org',
         description: 'Test dataset',
@@ -357,17 +356,17 @@ describe('Factory DB Client', () => {
       expect(dataset.id).toStartWith('dataset-')
       expect(dataset.status).toBe('processing')
 
-      const datasets = listDatasets({ type: 'code' })
+      const datasets = await listDatasets({ type: 'code' })
       expect(datasets.length).toBeGreaterThan(0)
     })
   })
 
   describe('Models', () => {
-    it('should create and retrieve models', () => {
+    it('should create and retrieve models', async () => {
       const modelName = `test-model-${Date.now()}`
       const org = `test-org-${Date.now()}`
 
-      const model = createModel({
+      const model = await createModel({
         name: modelName,
         organization: org,
         description: 'Test model',
@@ -379,17 +378,17 @@ describe('Factory DB Client', () => {
       expect(model.id).toBe(`${org}/${modelName}`)
       expect(model.status).toBe('processing')
 
-      const retrieved = getModel(org, modelName)
+      const retrieved = await getModel(org, modelName)
       expect(retrieved?.description).toBe('Test model')
     })
   })
 
   describe('Leaderboard', () => {
-    it('should update and retrieve leaderboard entries', () => {
+    it('should update and retrieve leaderboard entries', async () => {
       // Use a unique address for this test
       const address = `0xleader_${Date.now()}`
 
-      const entry = updateLeaderboardScore(address, {
+      const entry = await updateLeaderboardScore(address, {
         name: 'Leader Test',
         scoreIncrement: 500,
         contributionsIncrement: 10,
@@ -399,25 +398,25 @@ describe('Factory DB Client', () => {
       expect(entry.tier).toBe('bronze')
 
       // Update to gold tier
-      updateLeaderboardScore(address, { scoreIncrement: 5000 })
-      const updated = getLeaderboardEntry(address)
+      await updateLeaderboardScore(address, { scoreIncrement: 5000 })
+      const updated = await getLeaderboardEntry(address)
       expect(updated?.tier).toBe('gold')
 
-      const leaderboard = getLeaderboard(10)
+      const leaderboard = await getLeaderboard(10)
       expect(leaderboard.length).toBeGreaterThan(0)
     })
   })
 
   describe('Repo Settings', () => {
-    it('should manage repo settings and collaborators', () => {
-      const settings = upsertRepoSettings('owner', 'repo', {
+    it('should manage repo settings and collaborators', async () => {
+      const settings = await upsertRepoSettings('owner', 'repo', {
         description: 'Test repo',
         visibility: 'public',
       })
 
       expect(settings.description).toBe('Test repo')
 
-      const collaborator = addRepoCollaborator('owner', 'repo', {
+      const collaborator = await addRepoCollaborator('owner', 'repo', {
         login: 'dev1',
         avatar: 'https://example.com/avatar.png',
         permission: 'write',
@@ -425,42 +424,42 @@ describe('Factory DB Client', () => {
 
       expect(collaborator.login).toBe('dev1')
 
-      const collaborators = getRepoCollaborators('owner', 'repo')
+      const collaborators = await getRepoCollaborators('owner', 'repo')
       expect(collaborators.length).toBe(1)
 
-      const removed = removeRepoCollaborator('owner', 'repo', 'dev1')
+      const removed = await removeRepoCollaborator('owner', 'repo', 'dev1')
       expect(removed).toBe(true)
 
-      const afterRemove = getRepoCollaborators('owner', 'repo')
+      const afterRemove = await getRepoCollaborators('owner', 'repo')
       expect(afterRemove.length).toBe(0)
     })
 
-    it('should manage webhooks', () => {
-      const webhook = addRepoWebhook('owner', 'repo', {
+    it('should manage webhooks', async () => {
+      const webhook = await addRepoWebhook('owner', 'repo', {
         url: 'https://example.com/webhook',
         events: ['push', 'pull_request'],
       })
 
       expect(webhook.url).toBe('https://example.com/webhook')
 
-      const webhooks = getRepoWebhooks('owner', 'repo')
+      const webhooks = await getRepoWebhooks('owner', 'repo')
       expect(webhooks.length).toBe(1)
 
-      const removed = removeRepoWebhook(webhook.id)
+      const removed = await removeRepoWebhook(webhook.id)
       expect(removed).toBe(true)
     })
   })
 
   describe('Package Settings', () => {
-    it('should manage package settings and maintainers', () => {
-      const settings = upsertPackageSettings('@test', 'package', {
+    it('should manage package settings and maintainers', async () => {
+      const settings = await upsertPackageSettings('@test', 'package', {
         description: 'Test package',
         visibility: 'public',
       })
 
       expect(settings.description).toBe('Test package')
 
-      const maintainer = addPackageMaintainer('@test', 'package', {
+      const maintainer = await addPackageMaintainer('@test', 'package', {
         login: 'maintainer1',
         avatar: 'https://example.com/avatar.png',
         role: 'maintainer',
@@ -468,39 +467,51 @@ describe('Factory DB Client', () => {
 
       expect(maintainer.login).toBe('maintainer1')
 
-      const maintainers = getPackageMaintainers('@test', 'package')
+      const maintainers = await getPackageMaintainers('@test', 'package')
       expect(maintainers.length).toBe(1)
 
-      const removed = removePackageMaintainer('@test', 'package', 'maintainer1')
+      const removed = await removePackageMaintainer(
+        '@test',
+        'package',
+        'maintainer1',
+      )
       expect(removed).toBe(true)
     })
 
-    it('should deprecate and undeprecate packages', () => {
-      upsertPackageSettings('@test', 'deprecatable', {})
+    it('should deprecate and undeprecate packages', async () => {
+      await upsertPackageSettings('@test', 'deprecatable', {})
 
-      deprecatePackage('@test', 'deprecatable', 'This package is deprecated')
-      let settings = getPackageSettings('@test', 'deprecatable')
+      await deprecatePackage(
+        '@test',
+        'deprecatable',
+        'This package is deprecated',
+      )
+      let settings = await getPackageSettings('@test', 'deprecatable')
       expect(settings?.deprecated).toBe(1)
       expect(settings?.deprecation_message).toBe('This package is deprecated')
 
-      undeprecatePackage('@test', 'deprecatable')
-      settings = getPackageSettings('@test', 'deprecatable')
+      await undeprecatePackage('@test', 'deprecatable')
+      settings = await getPackageSettings('@test', 'deprecatable')
       expect(settings?.deprecated).toBe(0)
     })
 
-    it('should manage access tokens', () => {
-      upsertPackageSettings('@test', 'tokentest', {})
+    it('should manage access tokens', async () => {
+      await upsertPackageSettings('@test', 'tokentest', {})
 
-      const { row, plainToken } = createPackageToken('@test', 'tokentest', {
-        tokenName: 'CI Token',
-        permissions: ['read', 'write'],
-        expiresAt: Date.now() + 86400000,
-      })
+      const { row, plainToken } = await createPackageToken(
+        '@test',
+        'tokentest',
+        {
+          tokenName: 'CI Token',
+          permissions: ['read', 'write'],
+          expiresAt: Date.now() + 86400000,
+        },
+      )
 
       expect(row.token_name).toBe('CI Token')
       expect(plainToken).toStartWith('pkg_')
 
-      const revoked = revokePackageToken(row.id)
+      const revoked = await revokePackageToken(row.id)
       expect(revoked).toBe(true)
     })
   })

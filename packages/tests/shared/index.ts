@@ -33,15 +33,20 @@ export * from './constants'
 // Infrastructure & Setup
 // ============================================================================
 
+// Contracts required - FAIL-FAST contract verification
+export {
+  assertContractsDeployedSync,
+  type DeployedContracts,
+  getContractsIfDeployed,
+  getRequiredContract,
+  requireContracts,
+} from './contracts-required'
 // Dev startup
 export { cleanup as devCleanup, ensureInfra } from './dev-startup'
-
 // Global setup
 export { default as globalSetup, setupTestEnvironment } from './global-setup'
-
 // Test infrastructure
 export { LockManager, withTestLock } from './lock-manager'
-
 // Preflight checks
 export { quickHealthCheck, runPreflightChecks, waitForChain } from './preflight'
 

@@ -2,28 +2,69 @@
  * Database Manager Tests
  *
  * Live integration tests for DatabaseManager class.
- * Requires SQLit or mock-sqlit-server to be running.
+ * Requires SQLit server to be running.
  *
  * Set SQLIT_AVAILABLE=true to force running, or tests auto-detect SQLit availability.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from 'bun:test'
 import { resetSQLit } from './client.js'
 import { DatabaseManager, type DatabaseManagerConfig } from './manager'
 
-// SQLit endpoint
-const SQLIT_ENDPOINT = process.env.SQLIT_ENDPOINT ?? 'http://localhost:4661'
+// SQLit endpoint - use same default as client
+const SQLIT_ENDPOINT = process.env.SQLIT_ENDPOINT ?? 'http://localhost:8546'
 
 // Check if SQLit is reachable
 async function isSQLitAvailable(): Promise<boolean> {
-  try {
-    const response = await fetch(`${SQLIT_ENDPOINT}/v1/status`, {
-      signal: AbortSignal.timeout(2000),
-    })
-    return response.ok
-  } catch {
-    return false
+  // Try multiple health endpoints
+  const endpoints = [
+    `${SQLIT_ENDPOINT}/health`,
+    `${SQLIT_ENDPOINT}/v2/health`,
+    `${SQLIT_ENDPOINT}/v1/status`,
+  ]
+
+  for (const ep of endpoints) {
+    try {
+      const response = await fetch(ep, {
+        signal: AbortSignal.timeout(2000),
+      })
+      if (response.ok) return true
+    } catch {
+      // Try next endpoint
+    }
   }
+  return false
+}
+
+// Create a database on the SQLit server and return the databaseId
+async function createDatabase(name: string): Promise<string> {
+  const response = await fetch(`${SQLIT_ENDPOINT}/v2/databases`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name,
+      encryptionMode: 'none',
+      replication: { replicaCount: 1 },
+    }),
+  })
+  if (!response.ok) {
+    const text = await response.text()
+    // Ignore "already exists" errors
+    if (!text.includes('already exists')) {
+      throw new Error(`Failed to create database: ${text}`)
+    }
+    // Return a generated ID for already existing case
+    return name
+  }
+  const result = (await response.json()) as { databaseId: string }
+  return result.databaseId
 }
 
 // Auto-detect SQLit availability at test load time
@@ -33,17 +74,27 @@ const SQLIT_RUNNING =
 
 describe.skipIf(!SQLIT_RUNNING)('DatabaseManager (Live Integration)', () => {
   let manager: DatabaseManager
-  const testDbId = `test-manager-${Date.now()}`
+  let testDbId: string
 
-  const defaultConfig: DatabaseManagerConfig = {
-    appName: 'test-app',
-    databaseId: testDbId,
-    healthCheckInterval: 100, // Short interval for tests
-    maxRetries: 3,
-    baseRetryDelay: 10, // Short delay for tests
-    maxRetryDelay: 100,
-    debug: false,
-  }
+  let defaultConfig: DatabaseManagerConfig
+
+  beforeAll(async () => {
+    // Create the test database on the server
+    testDbId = await createDatabase(`test-manager-${Date.now()}`)
+
+    defaultConfig = {
+      appName: 'test-app',
+      databaseId: testDbId,
+      healthCheckInterval: 100, // Short interval for tests
+      maxRetries: 3,
+      baseRetryDelay: 10, // Short delay for tests
+      maxRetryDelay: 100,
+      debug: false,
+      sqlitConfig: {
+        endpoint: SQLIT_ENDPOINT,
+      },
+    }
+  })
 
   beforeEach(async () => {
     await resetSQLit()

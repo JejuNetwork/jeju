@@ -10,7 +10,8 @@ export function expectValid<T>(
   data: unknown,
   message?: string,
 ): T {
-  const result = schema.safeParse(data)
+  const normalized = Array.isArray(data) ? {} : data
+  const result = schema.safeParse(normalized)
   if (!result.success) {
     const errorMessage =
       message ?? result.error.issues[0].message ?? 'Validation failed'
@@ -77,6 +78,7 @@ export const AgentIdParamSchema = z.object({
 export const BountiesQuerySchema = PaginationQuerySchema.extend({
   status: z.string().optional(),
   skill: z.string().optional(),
+  q: z.string().optional(),
 })
 
 export const CreateBountyBodySchema = z.object({
@@ -107,6 +109,7 @@ export const JobsQuerySchema = PaginationQuerySchema.extend({
   type: z.string().optional(),
   remote: z.string().optional(),
   skill: z.string().optional(),
+  q: z.string().optional(),
 })
 
 export const JobTypeSchema = z.enum([
@@ -230,6 +233,7 @@ export const CIQuerySchema = PaginationQuerySchema.extend({
   repo: z.string().optional(),
   status: z.string().optional(),
   branch: z.string().optional(),
+  q: z.string().optional(),
 })
 
 export const TriggerWorkflowBodySchema = z.object({
@@ -262,6 +266,7 @@ export const IssuesQuerySchema = PaginationQuerySchema.extend({
   status: z.string().optional(),
   label: z.string().optional(),
   assignee: z.string().optional(),
+  q: z.string().optional(),
 })
 
 export const CreateIssueBodySchema = z.object({
@@ -284,6 +289,7 @@ export const PullsQuerySchema = PaginationQuerySchema.extend({
   repo: z.string().optional(),
   status: z.string().optional(),
   author: z.string().optional(),
+  q: z.string().optional(),
 })
 
 export const CreatePullBodySchema = z.object({
@@ -311,6 +317,7 @@ export const CreateCastBodySchema = z.object({
 export const ProjectsQuerySchema = PaginationQuerySchema.extend({
   status: z.string().optional(),
   owner: z.string().optional(),
+  q: z.string().optional(),
 })
 
 export const ProjectVisibilitySchema = z.enum(['public', 'private', 'internal'])
@@ -391,6 +398,7 @@ export const MCPPromptGetBodySchema = z.object({
 
 export const DiscussionsQuerySchema = PaginationQuerySchema.extend({
   category: z.string().optional(),
+  q: z.string().optional(),
 })
 
 export const DiscussionCategorySchema = z.enum([

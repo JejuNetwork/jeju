@@ -398,9 +398,8 @@ export const preserveTimestampsTests = {
     cpSync(pathA, pathH, { preserveTimestamps: true });
     const preservedStat = lstatSync(pathH);
 
-    // The preserved timestamps should match the original
-    // Note: This test depends on the implementation actually preserving timestamps
-    // Since the implementation is noted as having this option, we test it
+    // The preserved timestamps should match the original.
+    // This test depends on the implementation actually preserving timestamps.
     ok(
       Math.abs(preservedStat.mtime.getTime() - originalMtime.getTime()) < 1000
     );
@@ -485,8 +484,7 @@ export const pathTypeTests = {
     const bufferSrc = Buffer.from('/tmp/a');
     const bufferDest = Buffer.from('/tmp/g');
 
-    // Note: The implementation uses normalizePath which should handle Buffer inputs
-    // This tests the path normalization behavior
+    // The implementation uses normalizePath which should handle Buffer inputs
     cpSync(bufferSrc, bufferDest);
     ok(existsSync(pathG));
     deepStrictEqual(readFileSync(pathG, 'utf8'), 'foo');

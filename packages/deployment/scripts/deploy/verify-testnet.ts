@@ -757,7 +757,7 @@ class TestnetVerifier {
 
       if (categories.has('Contracts')) {
         console.log(
-          '  1. Deploy missing contracts: bun run scripts/deploy/testnet-dws-infrastructure.ts',
+          '  1. Deploy missing contracts: NETWORK=testnet bun run packages/deployment/scripts/deploy/testnet-babylon-full.ts',
         )
       }
       if (categories.has('DWS Health')) {

@@ -10,7 +10,7 @@
 
 import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, parseEther } from 'viem'
-import { getServicesConfig, requireContract } from '../config'
+import { getServicesConfig, safeGetContract } from '../config'
 import { NodesListSchema, StakingStatsResponseSchema } from '../shared/schemas'
 import type { BaseWallet } from '../wallet'
 
@@ -412,17 +412,44 @@ export function createStakingModule(
 ): StakingModule {
   const services = getServicesConfig(network)
 
-  const stakingAddress = requireContract('staking', 'Staking', network)
-  const nodeStakingAddress = requireContract(
+  // Use safe getters - contracts may not be deployed on all networks
+  const stakingAddressOpt = safeGetContract('staking', 'Staking', network)
+  const nodeStakingAddressOpt = safeGetContract(
     'staking',
     'NodeStakingManager',
     network,
   )
-  const rpcProviderAddress = requireContract(
+  const rpcProviderAddressOpt = safeGetContract(
     'rpc',
     'RPCProviderRegistry',
     network,
   )
+
+  // Lazy-load contract addresses - throw on method call if not deployed
+  const getStakingAddress = () => {
+    if (!stakingAddressOpt) {
+      throw new Error('Staking contract not deployed on this network')
+    }
+    return stakingAddressOpt
+  }
+
+  const getNodeStakingAddress = () => {
+    if (!nodeStakingAddressOpt) {
+      throw new Error(
+        'NodeStakingManager contract not deployed on this network',
+      )
+    }
+    return nodeStakingAddressOpt
+  }
+
+  const getRpcProviderAddress = () => {
+    if (!rpcProviderAddressOpt) {
+      throw new Error(
+        'RPCProviderRegistry contract not deployed on this network',
+      )
+    }
+    return rpcProviderAddressOpt
+  }
 
   const MIN_STAKE = parseEther('100') // 100 JEJU
   const UNBONDING_PERIOD = 604800n // 7 days
@@ -443,7 +470,7 @@ export function createStakingModule(
       })
 
       return wallet.sendTransaction({
-        to: stakingAddress,
+        to: getStakingAddress(),
         data,
       })
     },
@@ -456,7 +483,7 @@ export function createStakingModule(
       })
 
       return wallet.sendTransaction({
-        to: stakingAddress,
+        to: getStakingAddress(),
         data,
       })
     },
@@ -469,7 +496,7 @@ export function createStakingModule(
       })
 
       return wallet.sendTransaction({
-        to: stakingAddress,
+        to: getStakingAddress(),
         data,
       })
     },
@@ -480,7 +507,7 @@ export function createStakingModule(
 
     async getStake(address) {
       const result = await wallet.publicClient.readContract({
-        address: stakingAddress,
+        address: getStakingAddress(),
         abi: STAKING_ABI,
         functionName: 'getStakeInfo',
         args: [address],
@@ -501,7 +528,7 @@ export function createStakingModule(
 
     async getTier(address) {
       const result = await wallet.publicClient.readContract({
-        address: stakingAddress,
+        address: getStakingAddress(),
         abi: STAKING_ABI,
         functionName: 'getTier',
         args: [address ?? wallet.address],
@@ -512,7 +539,7 @@ export function createStakingModule(
 
     async getPendingRewards(address) {
       return wallet.publicClient.readContract({
-        address: stakingAddress,
+        address: getStakingAddress(),
         abi: STAKING_ABI,
         functionName: 'getPendingRewards',
         args: [address ?? wallet.address],
@@ -521,7 +548,7 @@ export function createStakingModule(
 
     async getStats() {
       const totalStaked = await wallet.publicClient.readContract({
-        address: stakingAddress,
+        address: getStakingAddress(),
         abi: STAKING_ABI,
         functionName: 'totalStaked',
         args: [],
@@ -561,7 +588,7 @@ export function createStakingModule(
       })
 
       return wallet.sendTransaction({
-        to: nodeStakingAddress,
+        to: getNodeStakingAddress(),
         data,
         value: stake,
       })
@@ -575,7 +602,7 @@ export function createStakingModule(
       })
 
       return wallet.sendTransaction({
-        to: nodeStakingAddress,
+        to: getNodeStakingAddress(),
         data,
         value: amount,
       })
@@ -589,7 +616,7 @@ export function createStakingModule(
       })
 
       return wallet.sendTransaction({
-        to: nodeStakingAddress,
+        to: getNodeStakingAddress(),
         data,
       })
     },
@@ -602,7 +629,7 @@ export function createStakingModule(
       })
 
       return wallet.sendTransaction({
-        to: nodeStakingAddress,
+        to: getNodeStakingAddress(),
         data,
       })
     },
@@ -615,14 +642,14 @@ export function createStakingModule(
       })
 
       return wallet.sendTransaction({
-        to: nodeStakingAddress,
+        to: getNodeStakingAddress(),
         data,
       })
     },
 
     async getMyNodeStake() {
       const result = await wallet.publicClient.readContract({
-        address: nodeStakingAddress,
+        address: getNodeStakingAddress(),
         abi: NODE_STAKING_ABI,
         functionName: 'getNodeInfo',
         args: [wallet.address],
@@ -658,7 +685,7 @@ export function createStakingModule(
 
     async getMinNodeStake(nodeType) {
       return wallet.publicClient.readContract({
-        address: nodeStakingAddress,
+        address: getNodeStakingAddress(),
         abi: NODE_STAKING_ABI,
         functionName: 'getMinStake',
         args: [nodeType],
@@ -677,7 +704,7 @@ export function createStakingModule(
       })
 
       return wallet.sendTransaction({
-        to: rpcProviderAddress,
+        to: getRpcProviderAddress(),
         data,
         value: stake,
       })
@@ -691,7 +718,7 @@ export function createStakingModule(
       })
 
       return wallet.sendTransaction({
-        to: rpcProviderAddress,
+        to: getRpcProviderAddress(),
         data,
       })
     },
@@ -704,7 +731,7 @@ export function createStakingModule(
       })
 
       return wallet.sendTransaction({
-        to: rpcProviderAddress,
+        to: getRpcProviderAddress(),
         data,
         value: amount,
       })
@@ -718,7 +745,7 @@ export function createStakingModule(
       })
 
       return wallet.sendTransaction({
-        to: rpcProviderAddress,
+        to: getRpcProviderAddress(),
         data,
       })
     },
@@ -731,14 +758,14 @@ export function createStakingModule(
       })
 
       return wallet.sendTransaction({
-        to: rpcProviderAddress,
+        to: getRpcProviderAddress(),
         data,
       })
     },
 
     async getRPCProvider(operator) {
       const result = await wallet.publicClient.readContract({
-        address: rpcProviderAddress,
+        address: getRpcProviderAddress(),
         abi: RPC_PROVIDER_ABI,
         functionName: 'getProvider',
         args: [operator],
@@ -760,7 +787,7 @@ export function createStakingModule(
 
     async listRPCProviders() {
       const addresses = await wallet.publicClient.readContract({
-        address: rpcProviderAddress,
+        address: getRpcProviderAddress(),
         abi: RPC_PROVIDER_ABI,
         functionName: 'getActiveProviders',
         args: [],
@@ -780,7 +807,7 @@ export function createStakingModule(
 
     async getBestRPCEndpoint() {
       return wallet.publicClient.readContract({
-        address: rpcProviderAddress,
+        address: getRpcProviderAddress(),
         abi: RPC_PROVIDER_ABI,
         functionName: 'getBestProvider',
         args: [],

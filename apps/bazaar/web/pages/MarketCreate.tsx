@@ -33,7 +33,40 @@ interface MarketForm {
   resolutionType: ResolutionType
   resolutionDate: string
   initialLiquidity: string
+  // Oracle settings
+  oracleSource: string
+  oracleAsset: string
+  oracleCondition: 'above' | 'below' | 'equals'
+  oracleValue: string
 }
+
+const ORACLE_SOURCES = [
+  {
+    value: 'chainlink',
+    label: 'Chainlink',
+    description: 'Decentralized price feeds',
+  },
+  {
+    value: 'pyth',
+    label: 'Pyth Network',
+    description: 'High-fidelity market data',
+  },
+  { value: 'api3', label: 'API3', description: 'First-party oracles' },
+  {
+    value: 'custom',
+    label: 'Custom Oracle',
+    description: 'Specify your own oracle address',
+  },
+]
+
+const ORACLE_ASSETS = [
+  { value: 'BTC/USD', label: 'BTC/USD' },
+  { value: 'ETH/USD', label: 'ETH/USD' },
+  { value: 'SOL/USD', label: 'SOL/USD' },
+  { value: 'MATIC/USD', label: 'MATIC/USD' },
+  { value: 'LINK/USD', label: 'LINK/USD' },
+  { value: 'AVAX/USD', label: 'AVAX/USD' },
+]
 
 const CATEGORIES = [
   { value: 'crypto', label: 'Crypto', emoji: '₿' },
@@ -55,6 +88,11 @@ export default function MarketCreatePage() {
     resolutionType: 'date',
     resolutionDate: '',
     initialLiquidity: '100',
+    // Oracle defaults
+    oracleSource: 'chainlink',
+    oracleAsset: 'BTC/USD',
+    oracleCondition: 'above',
+    oracleValue: '',
   })
 
   const { writeContract, data: txHash, isPending, error } = useWriteContract()
@@ -311,15 +349,24 @@ export default function MarketCreatePage() {
               </button>
               <button
                 type="button"
-                disabled
-                className="w-full text-left px-4 py-3 rounded-xl border border-transparent opacity-50 cursor-not-allowed"
-                style={{ backgroundColor: 'var(--bg-secondary)' }}
+                onClick={() => updateForm('resolutionType', 'oracle')}
+                className={`w-full text-left px-4 py-3 rounded-xl border transition-all ${
+                  form.resolutionType === 'oracle'
+                    ? 'border-bazaar-primary bg-bazaar-primary/10'
+                    : 'border-transparent'
+                }`}
+                style={{
+                  backgroundColor:
+                    form.resolutionType !== 'oracle'
+                      ? 'var(--bg-secondary)'
+                      : undefined,
+                }}
               >
                 <p
                   className="font-medium text-sm"
                   style={{ color: 'var(--text-primary)' }}
                 >
-                  By oracle (coming soon)
+                  By oracle
                 </p>
                 <p
                   className="text-xs"
@@ -348,6 +395,127 @@ export default function MarketCreatePage() {
                 onChange={(e) => updateForm('resolutionDate', e.target.value)}
                 min={minDateStr}
               />
+            </div>
+          )}
+
+          {form.resolutionType === 'oracle' && (
+            <div className="space-y-4 animate-fade-in">
+              <div>
+                <label
+                  htmlFor="oracle-source"
+                  className="text-sm block mb-1.5 font-medium"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  Oracle Source *
+                </label>
+                <select
+                  id="oracle-source"
+                  className="input"
+                  value={form.oracleSource}
+                  onChange={(e) => updateForm('oracleSource', e.target.value)}
+                >
+                  {ORACLE_SOURCES.map((source) => (
+                    <option key={source.value} value={source.value}>
+                      {source.label} - {source.description}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="oracle-asset"
+                  className="text-sm block mb-1.5 font-medium"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  Price Feed *
+                </label>
+                <select
+                  id="oracle-asset"
+                  className="input"
+                  value={form.oracleAsset}
+                  onChange={(e) => updateForm('oracleAsset', e.target.value)}
+                >
+                  {ORACLE_ASSETS.map((asset) => (
+                    <option key={asset.value} value={asset.value}>
+                      {asset.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label
+                    htmlFor="oracle-condition"
+                    className="text-sm block mb-1.5 font-medium"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
+                    Condition *
+                  </label>
+                  <select
+                    id="oracle-condition"
+                    className="input"
+                    value={form.oracleCondition}
+                    onChange={(e) =>
+                      updateForm(
+                        'oracleCondition',
+                        e.target.value as 'above' | 'below' | 'equals',
+                      )
+                    }
+                  >
+                    <option value="above">Price Above</option>
+                    <option value="below">Price Below</option>
+                    <option value="equals">Price Equals</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="oracle-value"
+                    className="text-sm block mb-1.5 font-medium"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
+                    Target Price ($) *
+                  </label>
+                  <input
+                    id="oracle-value"
+                    type="number"
+                    className="input"
+                    placeholder="100000"
+                    value={form.oracleValue}
+                    onChange={(e) => updateForm('oracleValue', e.target.value)}
+                    min="0"
+                    step="0.01"
+                  />
+                </div>
+              </div>
+
+              <div
+                className="p-3 rounded-lg text-sm"
+                style={{
+                  backgroundColor: 'var(--bg-secondary)',
+                  color: 'var(--text-secondary)',
+                }}
+              >
+                <p
+                  className="font-medium mb-1"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  Resolution Condition:
+                </p>
+                <p>
+                  Market resolves YES if {form.oracleAsset} is{' '}
+                  <span className="font-semibold">
+                    {form.oracleCondition === 'above'
+                      ? 'above'
+                      : form.oracleCondition === 'below'
+                        ? 'below'
+                        : 'equal to'}
+                  </span>{' '}
+                  ${form.oracleValue || '...'} at resolution time.
+                </p>
+              </div>
             </div>
           )}
         </div>
@@ -438,7 +606,7 @@ export default function MarketCreatePage() {
           className="btn-primary w-full py-3 text-lg font-semibold disabled:opacity-50"
         >
           {!isConnected
-            ? 'Connect Wallet'
+            ? 'Sign In'
             : isPending
               ? 'Confirm in Wallet...'
               : isConfirming

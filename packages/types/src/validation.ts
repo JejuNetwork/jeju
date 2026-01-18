@@ -196,7 +196,7 @@ export const ChainIdSchema = z.number().int().positive()
  * Convert an unknown caught error to a proper Error instance.
  * Use this in catch blocks to safely convert unknown to Error.
  *
- * Note: `unknown` is necessary here because JavaScript allows throwing
+ * `unknown` is necessary here because JavaScript allows throwing
  * any value. This function provides a type-safe way to handle caught errors.
  *
  * Handles:
@@ -557,7 +557,7 @@ export function getAddress(
   if (typeof value !== 'string' || !isAddress(value)) {
     throw new Error(`${key} must be a valid address`)
   }
-  return value
+  return value as Address
 }
 
 /**
@@ -570,7 +570,7 @@ export function getOptionalAddress(
 ): Address {
   const value = params[key]
   if (typeof value === 'string' && isAddress(value)) {
-    return value
+    return value as Address
   }
   return ZERO_ADDRESS
 }
@@ -675,7 +675,7 @@ export function parseEnvAddress(
     return defaultAddress
   }
   if (isAddress(envValue)) {
-    return envValue
+    return envValue as Address
   }
   console.warn(`Invalid address in environment variable: ${envValue}`)
   return defaultAddress
@@ -700,7 +700,7 @@ export function parseOptionalAddress(
   value: string | null | undefined,
 ): Address | undefined {
   if (!value) return undefined
-  return isAddress(value) ? value : undefined
+  return isAddress(value) ? (value as Address) : undefined
 }
 
 /**
@@ -942,7 +942,7 @@ export function asAddress(value: unknown): Address {
   if (typeof value !== 'string' || !isAddress(value)) {
     throw new Error(`Expected address, got: ${typeof value}`)
   }
-  return value
+  return value as Address
 }
 
 /**
@@ -1015,7 +1015,7 @@ export function asAddressArray(value: unknown): Address[] {
     if (typeof v !== 'string' || !isAddress(v)) {
       throw new Error(`Expected address at index ${i}, got: ${typeof v}`)
     }
-    return v
+    return v as Address
   })
 }
 

@@ -106,10 +106,6 @@ export {
   type RoutingDecision,
 } from './policy-engine'
 export {
-  type AWSRekognitionConfig,
-  AWSRekognitionProvider,
-} from './providers/aws-rekognition'
-export {
   CloudflareModerationProvider,
   type CloudflareProviderConfig,
 } from './providers/cloudflare'

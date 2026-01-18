@@ -18,8 +18,8 @@ contract GovernanceMixinHarness {
         gov.setGovernance(addr);
     }
 
-    function setSecurityCouncil(address addr) external {
-        gov.setSecurityCouncil(addr);
+    function setSecurityBoard(address addr) external {
+        gov.setSecurityBoard(addr);
     }
 
     function setTimelock(address addr) external {
@@ -34,8 +34,8 @@ contract GovernanceMixinHarness {
         gov.requireGovernance();
     }
 
-    function requireSecurityCouncil() external view {
-        gov.requireSecurityCouncil();
+    function requireSecurityBoard() external view {
+        gov.requireSecurityBoard();
     }
 
     function requireTimelock() external view {
@@ -46,16 +46,16 @@ contract GovernanceMixinHarness {
         gov.requireGovernanceOrOwner(owner);
     }
 
-    function requireSecurityCouncilOrOwner() external view {
-        gov.requireSecurityCouncilOrOwner(owner);
+    function requireSecurityBoardOrOwner() external view {
+        gov.requireSecurityBoardOrOwner(owner);
     }
 
     function isGovernance() external view returns (bool) {
         return gov.isGovernance();
     }
 
-    function isSecurityCouncil() external view returns (bool) {
-        return gov.isSecurityCouncil();
+    function isSecurityBoard() external view returns (bool) {
+        return gov.isSecurityBoard();
     }
 
     function canExecute() external view returns (bool) {
@@ -63,20 +63,20 @@ contract GovernanceMixinHarness {
     }
 
     function getData() external view returns (address, address, address, bool) {
-        return (gov.governance, gov.securityCouncil, gov.timelock, gov.enabled);
+        return (gov.governance, gov.securityBoard, gov.timelock, gov.enabled);
     }
 }
 
 contract GovernanceMixinTest is Test {
     GovernanceMixinHarness harness;
     address governance = makeAddr("governance");
-    address securityCouncil = makeAddr("securityCouncil");
+    address securityBoard = makeAddr("securityBoard");
     address timelock = makeAddr("timelock");
     address owner;
     address attacker = makeAddr("attacker");
 
     event GovernanceSet(address indexed governance);
-    event SecurityCouncilSet(address indexed council);
+    event SecurityBoardSet(address indexed board);
     event TimelockSet(address indexed timelock);
     event GovernanceEnabledChanged(bool enabled);
 
@@ -94,13 +94,13 @@ contract GovernanceMixinTest is Test {
         assertEq(g, governance);
     }
 
-    function test_SetSecurityCouncil_EmitsEvent() public {
+    function test_SetSecurityBoard_EmitsEvent() public {
         vm.expectEmit(true, false, false, false);
-        emit SecurityCouncilSet(securityCouncil);
-        harness.setSecurityCouncil(securityCouncil);
+        emit SecurityBoardSet(securityBoard);
+        harness.setSecurityBoard(securityBoard);
 
         (, address sc,,) = harness.getData();
-        assertEq(sc, securityCouncil);
+        assertEq(sc, securityBoard);
     }
 
     function test_SetTimelock_EmitsEvent() public {
@@ -154,19 +154,19 @@ contract GovernanceMixinTest is Test {
         harness.requireGovernance(); // Should not revert
     }
 
-    function test_RequireSecurityCouncil_BlocksUnauthorized() public {
-        harness.setSecurityCouncil(securityCouncil);
+    function test_RequireSecurityBoard_BlocksUnauthorized() public {
+        harness.setSecurityBoard(securityBoard);
 
         vm.prank(attacker);
-        vm.expectRevert(GovernanceMixin.NotSecurityCouncil.selector);
-        harness.requireSecurityCouncil();
+        vm.expectRevert(GovernanceMixin.NotSecurityBoard.selector);
+        harness.requireSecurityBoard();
     }
 
-    function test_RequireSecurityCouncil_AllowsCouncil() public {
-        harness.setSecurityCouncil(securityCouncil);
+    function test_RequireSecurityBoard_AllowsBoard() public {
+        harness.setSecurityBoard(securityBoard);
 
-        vm.prank(securityCouncil);
-        harness.requireSecurityCouncil(); // Should not revert
+        vm.prank(securityBoard);
+        harness.requireSecurityBoard(); // Should not revert
     }
 
     function test_RequireTimelock_BlocksUnauthorized() public {
@@ -217,22 +217,22 @@ contract GovernanceMixinTest is Test {
         harness.requireGovernanceOrOwner();
     }
 
-    function test_RequireSecurityCouncilOrOwner_AllowsBoth() public {
-        harness.setSecurityCouncil(securityCouncil);
+    function test_RequireSecurityBoardOrOwner_AllowsBoth() public {
+        harness.setSecurityBoard(securityBoard);
 
-        vm.prank(securityCouncil);
-        harness.requireSecurityCouncilOrOwner();
+        vm.prank(securityBoard);
+        harness.requireSecurityBoardOrOwner();
 
         vm.prank(owner);
-        harness.requireSecurityCouncilOrOwner();
+        harness.requireSecurityBoardOrOwner();
     }
 
-    function test_RequireSecurityCouncilOrOwner_BlocksOthers() public {
-        harness.setSecurityCouncil(securityCouncil);
+    function test_RequireSecurityBoardOrOwner_BlocksOthers() public {
+        harness.setSecurityBoard(securityBoard);
 
         vm.prank(attacker);
-        vm.expectRevert(GovernanceMixin.NotSecurityCouncil.selector);
-        harness.requireSecurityCouncilOrOwner();
+        vm.expectRevert(GovernanceMixin.NotSecurityBoard.selector);
+        harness.requireSecurityBoardOrOwner();
     }
 
     function test_IsGovernance_ReturnsTrueForGovernance() public {
@@ -256,14 +256,14 @@ contract GovernanceMixinTest is Test {
         assertFalse(harness.isGovernance());
     }
 
-    function test_IsSecurityCouncil_ReturnsCorrectly() public {
-        harness.setSecurityCouncil(securityCouncil);
+    function test_IsSecurityBoard_ReturnsCorrectly() public {
+        harness.setSecurityBoard(securityBoard);
 
-        vm.prank(securityCouncil);
-        assertTrue(harness.isSecurityCouncil());
+        vm.prank(securityBoard);
+        assertTrue(harness.isSecurityBoard());
 
         vm.prank(attacker);
-        assertFalse(harness.isSecurityCouncil());
+        assertFalse(harness.isSecurityBoard());
     }
 
     function test_CanExecute_DisabledReturnsTrue() public {
@@ -284,7 +284,7 @@ contract GovernanceMixinTest is Test {
 
     function test_ZeroAddresses_StillWork() public {
         harness.setGovernance(address(0));
-        harness.setSecurityCouncil(address(0));
+        harness.setSecurityBoard(address(0));
         harness.setTimelock(address(0));
 
         (address g, address sc, address tl,) = harness.getData();
@@ -313,7 +313,7 @@ contract GovernanceMixinTest is Test {
 
     function testFuzz_SetAddresses(address g, address sc, address tl) public {
         harness.setGovernance(g);
-        harness.setSecurityCouncil(sc);
+        harness.setSecurityBoard(sc);
         harness.setTimelock(tl);
 
         (address gotG, address gotSC, address gotTL,) = harness.getData();

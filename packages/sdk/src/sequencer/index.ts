@@ -10,7 +10,7 @@
 
 import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, parseEther } from 'viem'
-import { requireContract } from '../config'
+import { safeGetContract } from '../config'
 import { parseIdFromLogs } from '../shared/api'
 import type { BaseWallet } from '../wallet'
 
@@ -352,21 +352,48 @@ export function createSequencerModule(
   wallet: BaseWallet,
   network: NetworkType,
 ): SequencerModule {
-  const sequencerRegistryAddress = requireContract(
+  // Use safe getters - contracts may not be deployed on all networks
+  const sequencerRegistryAddressOpt = safeGetContract(
     'sequencer',
     'SequencerRegistry',
     network,
   )
-  const forcedInclusionAddress = requireContract(
+  const forcedInclusionAddressOpt = safeGetContract(
     'sequencer',
     'ForcedInclusion',
     network,
   )
-  const slashingAddress = requireContract(
+  const slashingAddressOpt = safeGetContract(
     'sequencer',
     'SlashingContract',
     network,
   )
+
+  // Lazy-load contract addresses - throw on method call if not deployed
+  const getSequencerRegistryAddress = () => {
+    if (!sequencerRegistryAddressOpt) {
+      throw new Error(
+        'Sequencer SequencerRegistry contract not deployed on this network',
+      )
+    }
+    return sequencerRegistryAddressOpt
+  }
+
+  const getForcedInclusionAddress = () => {
+    if (!forcedInclusionAddressOpt) {
+      throw new Error(
+        'Sequencer ForcedInclusion contract not deployed on this network',
+      )
+    }
+    return forcedInclusionAddressOpt
+  }
+
+  const getSlashingAddress = () => {
+    if (!slashingAddressOpt) {
+      throw new Error('Sequencer SlashingContract not deployed on this network')
+    }
+    return slashingAddressOpt
+  }
 
   const MIN_SEQUENCER_STAKE = parseEther('1')
   const SLOT_DURATION = 12n // 12 seconds
@@ -385,7 +412,7 @@ export function createSequencerModule(
       })
 
       return wallet.sendTransaction({
-        to: sequencerRegistryAddress,
+        to: getSequencerRegistryAddress(),
         data,
         value: params.stake,
       })
@@ -398,7 +425,7 @@ export function createSequencerModule(
       })
 
       return wallet.sendTransaction({
-        to: sequencerRegistryAddress,
+        to: getSequencerRegistryAddress(),
         data,
       })
     },
@@ -410,7 +437,7 @@ export function createSequencerModule(
       })
 
       return wallet.sendTransaction({
-        to: sequencerRegistryAddress,
+        to: getSequencerRegistryAddress(),
         data,
         value: amount,
       })
@@ -424,7 +451,7 @@ export function createSequencerModule(
       })
 
       return wallet.sendTransaction({
-        to: sequencerRegistryAddress,
+        to: getSequencerRegistryAddress(),
         data,
       })
     },
@@ -433,7 +460,7 @@ export function createSequencerModule(
       const addr = address ?? wallet.address
 
       const result = await wallet.publicClient.readContract({
-        address: sequencerRegistryAddress,
+        address: getSequencerRegistryAddress(),
         abi: SEQUENCER_REGISTRY_ABI,
         functionName: 'getSequencer',
         args: [addr],
@@ -444,7 +471,7 @@ export function createSequencerModule(
 
     async getActiveSequencers() {
       const addresses = await wallet.publicClient.readContract({
-        address: sequencerRegistryAddress,
+        address: getSequencerRegistryAddress(),
         abi: SEQUENCER_REGISTRY_ABI,
         functionName: 'getActiveSequencers',
       })
@@ -459,7 +486,7 @@ export function createSequencerModule(
 
     async getAllSequencers() {
       const addresses = await wallet.publicClient.readContract({
-        address: sequencerRegistryAddress,
+        address: getSequencerRegistryAddress(),
         abi: SEQUENCER_REGISTRY_ABI,
         functionName: 'getAllSequencers',
       })
@@ -474,7 +501,7 @@ export function createSequencerModule(
 
     async getCurrentSequencer() {
       return (await wallet.publicClient.readContract({
-        address: sequencerRegistryAddress,
+        address: getSequencerRegistryAddress(),
         abi: SEQUENCER_REGISTRY_ABI,
         functionName: 'getCurrentSequencer',
       })) as Address
@@ -482,7 +509,7 @@ export function createSequencerModule(
 
     async getNextSequencer() {
       return (await wallet.publicClient.readContract({
-        address: sequencerRegistryAddress,
+        address: getSequencerRegistryAddress(),
         abi: SEQUENCER_REGISTRY_ABI,
         functionName: 'getNextSequencer',
       })) as Address
@@ -547,7 +574,7 @@ export function createSequencerModule(
       })
 
       const txHash = await wallet.sendTransaction({
-        to: forcedInclusionAddress,
+        to: getForcedInclusionAddress(),
         data,
         value: params.value ?? 0n,
       })
@@ -565,7 +592,7 @@ export function createSequencerModule(
 
     async getForcedInclusionRequest(requestId) {
       const result = await wallet.publicClient.readContract({
-        address: forcedInclusionAddress,
+        address: getForcedInclusionAddress(),
         abi: FORCED_INCLUSION_ABI,
         functionName: 'getRequest',
         args: [requestId],
@@ -580,7 +607,7 @@ export function createSequencerModule(
 
     async getMyForcedInclusionRequests() {
       const requestIds = await wallet.publicClient.readContract({
-        address: forcedInclusionAddress,
+        address: getForcedInclusionAddress(),
         abi: FORCED_INCLUSION_ABI,
         functionName: 'getRequestsBySender',
         args: [wallet.address],
@@ -602,7 +629,7 @@ export function createSequencerModule(
       })
 
       return wallet.sendTransaction({
-        to: forcedInclusionAddress,
+        to: getForcedInclusionAddress(),
         data,
       })
     },
@@ -621,14 +648,14 @@ export function createSequencerModule(
 
     async getSlotDuration() {
       return wallet.publicClient.readContract({
-        address: sequencerRegistryAddress,
+        address: getSequencerRegistryAddress(),
         abi: SEQUENCER_REGISTRY_ABI,
         functionName: 'slotDuration',
       })
     },
 
     async reportMissedBlock(sequencer, blockNumber) {
-      // Note: This requires the caller to be an authorized reporter
+      // This requires the caller to be an authorized reporter
       // Proof would be generated from the L1 chain to prove the block was missed
       const data = encodeFunctionData({
         abi: SLASHING_ABI,
@@ -637,14 +664,14 @@ export function createSequencerModule(
       })
 
       return wallet.sendTransaction({
-        to: slashingAddress,
+        to: getSlashingAddress(),
         data,
       })
     },
 
     async getSlashingHistory(sequencer) {
       const result = await wallet.publicClient.readContract({
-        address: slashingAddress,
+        address: getSlashingAddress(),
         abi: SLASHING_ABI,
         functionName: 'getSlashingHistory',
         args: [sequencer],

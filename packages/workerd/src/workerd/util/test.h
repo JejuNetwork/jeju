@@ -9,7 +9,7 @@ namespace workerd {
 
 // Checks that code throws a kj::Exception matching the type and message of the given exception.
 //
-// Note: Performs no special handling for JsExceptionThrown, so tests that need to explicitly
+// Performs no special handling for JsExceptionThrown, so tests that need to explicitly
 // detect thrown JS exceptions will probably want to use a separate macro.
 #define WD_EXPECT_THROW(expException, code, ...)                                                   \
   do {                                                                                             \

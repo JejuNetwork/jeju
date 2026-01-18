@@ -52,9 +52,9 @@ class DatabaseServiceImpl implements DatabaseService {
     const validated = DatabaseConfigSchema.parse(config)
     this.config = validated
     this.client = getSQLit({
-      blockProducerEndpoint: validated.endpoint,
+      endpoint: validated.endpoint,
       databaseId: validated.databaseId,
-      timeout: validated.timeout,
+      timeoutMs: validated.timeout,
       debug: validated.debug,
     })
   }

@@ -1,6 +1,6 @@
 /** Clean build artifacts */
 
-import { existsSync, rmSync } from 'node:fs'
+import { existsSync, readdirSync, rmSync } from 'node:fs'
 import { $ } from 'bun'
 import { Command } from 'commander'
 import { logger } from '../lib/logger'
@@ -9,8 +9,14 @@ import { findMonorepoRoot } from '../lib/system'
 export const cleanCommand = new Command('clean')
   .description('Clean build artifacts and stop running services')
   .option('--deep', 'Deep clean (includes Docker and node_modules)')
+  .option(
+    '--reset-localnet',
+    'Reset localnet state (clears deployment state and kurtosis enclave)',
+  )
   .action(async (options) => {
-    logger.header(`CLEAN${options.deep ? ' (DEEP)' : ''}`)
+    logger.header(
+      `CLEAN${options.deep ? ' (DEEP)' : ''}${options.resetLocalnet ? ' (RESET LOCALNET)' : ''}`,
+    )
 
     const rootDir = findMonorepoRoot()
 
@@ -89,6 +95,40 @@ export const cleanCommand = new Command('clean')
       logger.newline()
     }
 
+    if (options.resetLocalnet || options.deep) {
+      logger.step('Resetting Localnet State...')
+
+      // Clean localnet deployment state files
+      const deploymentsDir = `${rootDir}/packages/contracts/deployments`
+      if (existsSync(deploymentsDir)) {
+        try {
+          const files = readdirSync(deploymentsDir)
+          let cleanedDeployments = 0
+          for (const file of files) {
+            if (file.includes('localnet') || file.startsWith('localnet-')) {
+              rmSync(`${deploymentsDir}/${file}`, { force: true })
+              logger.info(`Removed ${file}`)
+              cleanedDeployments++
+            }
+          }
+          if (cleanedDeployments > 0) {
+            logger.success(
+              `Cleaned ${cleanedDeployments} localnet deployment files`,
+            )
+          }
+        } catch (_e) {
+          logger.warn('Failed to clean deployment files')
+        }
+      }
+
+      // Reset kurtosis enclave
+      logger.info('Resetting Kurtosis enclave...')
+      await $`kurtosis enclave rm -f jeju-localnet`.nothrow().quiet()
+      await $`kurtosis engine restart`.nothrow().quiet()
+      logger.success('Kurtosis enclave reset')
+      logger.newline()
+    }
+
     logger.step('Removing Log Files...')
 
     const logPaths = ['logs']
@@ -119,6 +159,12 @@ export const cleanCommand = new Command('clean')
       logger.newline()
     }
 
-    logger.info('Next: jeju build')
-    logger.newline()
+    if (options.resetLocalnet) {
+      logger.info('Next: jeju dev (localnet will start fresh)')
+      logger.newline()
+    } else {
+      logger.info('Next: jeju build')
+      logger.info('Tip: Use --reset-localnet to fix nonce errors')
+      logger.newline()
+    }
   })

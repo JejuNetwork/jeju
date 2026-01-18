@@ -5,7 +5,12 @@
 
 import { expect, test } from '@playwright/test'
 
+const isRemote =
+  process.env.JEJU_NETWORK === 'testnet' ||
+  process.env.JEJU_NETWORK === 'mainnet'
+
 test.describe('Repository List', () => {
+  test.skip(isRemote, 'Skipping on remote network')
   test('displays repository list', async ({ page }) => {
     await page.goto('/git')
     await expect(
@@ -58,6 +63,7 @@ test.describe('Repository List', () => {
 })
 
 test.describe('Repository Detail', () => {
+  test.skip(isRemote, 'Skipping repository detail on remote network')
   test('displays repository page', async ({ page }) => {
     await page.goto('/git/jeju/factory')
     await expect(page.getByRole('main')).toBeVisible()
@@ -82,6 +88,7 @@ test.describe('Repository Detail', () => {
 })
 
 test.describe('Issues', () => {
+  test.skip(isRemote, 'Skipping issues on remote network')
   test('displays issues list', async ({ page }) => {
     await page.goto('/git/jeju/factory')
     await page.getByRole('button', { name: /issues/i }).click()
@@ -141,6 +148,7 @@ test.describe('Issues', () => {
 })
 
 test.describe('Pull Requests', () => {
+  test.skip(isRemote, 'Skipping pull requests on remote network')
   test('displays pull requests list', async ({ page }) => {
     await page.goto('/git/jeju/factory')
     await page.getByRole('button', { name: /pull requests/i }).click()
@@ -194,6 +202,7 @@ test.describe('Pull Requests', () => {
 })
 
 test.describe('Actions Tab', () => {
+  test.skip(isRemote, 'Skipping actions tab on remote network')
   test('displays workflow runs', async ({ page }) => {
     await page.goto('/git/jeju/factory')
     await page.getByRole('button', { name: /actions/i }).click()
@@ -204,6 +213,7 @@ test.describe('Actions Tab', () => {
 })
 
 test.describe('Repository Settings', () => {
+  test.skip(isRemote, 'Skipping repository settings on remote network')
   test('displays settings page', async ({ page }) => {
     await page.goto('/git/jeju/factory/settings')
     await expect(
@@ -240,6 +250,7 @@ test.describe('Repository Settings', () => {
 })
 
 test.describe('Create Repository', () => {
+  test.skip(isRemote, 'Skipping repository creation on remote network')
   test('displays new repository form', async ({ page }) => {
     await page.goto('/git/new')
     await expect(

@@ -403,10 +403,9 @@ export class TwitterProvider extends OAuthProvider {
   }
 
   /**
-   * Generate authorization URL with proper SHA-256 PKCE code challenge
-   * SECURITY: Uses SHA-256 as required by RFC 7636 for PKCE
-   *
-   * Note: This is an async override because Twitter requires PKCE with SHA-256
+   * Generate authorization URL with proper SHA-256 PKCE code challenge.
+   * SECURITY: Uses SHA-256 as required by RFC 7636 for PKCE.
+   * This is async because Twitter requires PKCE with SHA-256.
    */
   async getAuthorizationUrl(state: OAuthState): Promise<string> {
     const codeVerifier = toHex(

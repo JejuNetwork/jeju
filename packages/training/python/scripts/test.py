@@ -110,7 +110,7 @@ def load_mlx_model(adapter_path: str, base_model: str):
     logger.info(f"Base model: {base_model}")
     logger.info(f"Adapter: {adapter_path}")
 
-    model, tokenizer = load(base_model, adapter_path=adapter_path)
+    model, tokenizer, *_ = load(base_model, adapter_path=adapter_path)
     logger.info("Model loaded successfully")
 
     return model, tokenizer, "mlx"

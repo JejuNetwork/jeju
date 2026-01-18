@@ -194,7 +194,7 @@ class JsRpcPromise: public JsRpcClientProvider {
   // allocated before the promise itself is actually created, and filled in later. This is needed
   // to solve cyclic initialization challenges in `callImpl()`.
   struct WeakRef: public kj::AtomicRefcounted {
-    // Note: The contents of `WeakRef` can only be accessed under isolate lock, but `WeakRef`'s
+    // The contents of `WeakRef` can only be accessed under isolate lock, but `WeakRef`'s
     // refcount is not protected by any lock, hence why it is AtomicRefcounted. This also implies
     // that it can be destroyed without a lock.
 
@@ -262,8 +262,8 @@ class JsRpcPromise: public JsRpcClientProvider {
 
     // Dummy IoPtr to self, used only to verify that we're running in the correct context.
     // (Dereferencing from the wrong context would throw an exception.)
-    // Note: Can't use IoContext::WeakRef here because it's not thread-safe (it's only intended to
-    //   be held from KJ I/O objects, but this is a JSG object).
+    // Can't use IoContext::WeakRef here because it's not thread-safe (it's only intended to
+    // be held from KJ I/O objects, but this is a JSG object).
     IoPtr<JsRpcPromise> ctxCheck;
   };
   struct Disposed {};

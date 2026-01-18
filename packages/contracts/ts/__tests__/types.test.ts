@@ -56,7 +56,7 @@ describe('types.ts - Type Utilities and Constants', () => {
     })
 
     test('returns true for any non-zero address starting with 0x', () => {
-      // Note: This function does basic validation, not full EIP-55 checksum
+      // This function does basic validation, not full EIP-55 checksum
       const validAddress = '0x0000000000000000000000000000000000000001'
       expect(isValidAddress(validAddress)).toBe(true)
     })

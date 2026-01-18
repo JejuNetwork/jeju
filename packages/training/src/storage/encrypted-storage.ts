@@ -6,7 +6,7 @@
  */
 
 import {
-  getAiCeoAddress,
+  getAiDirectorAddress,
   getChainId,
   getMinTeeStakeUsd,
   getMpcParties,
@@ -65,7 +65,7 @@ const defaultConfig: StorageConfig = {
   storageEndpoint: getServicesConfig().storage.api,
   chainId: String(getChainId()),
   trainingOrchestratorAddress: getTrainingOrchestratorAddress() as Address,
-  aiCEOAddress: getAiCeoAddress() as Address,
+  aiDirectorAddress: getAiDirectorAddress() as Address,
   teeRegistryAddress: getTeeRegistryAddress() as Address,
   minTEEStakeUSD: getMinTeeStakeUsd(),
   useMPC: isUseMpcEncryption(),
@@ -425,12 +425,12 @@ export class EncryptedTrajectoryStorage {
         address: this.config.teeRegistryAddress,
         role: 'TEE_WORKER',
       },
-      // AI CEO
+      // AI Director
       {
         type: 'role',
         chainId: this.config.chainId,
         address: this.config.trainingOrchestratorAddress,
-        role: 'AI_CEO',
+        role: 'AI_Director',
       },
     ]
 

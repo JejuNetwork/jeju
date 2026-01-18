@@ -577,7 +577,7 @@ export class ArbitrageExecutor {
       console.log(`   ✓ HL buy order: ${orderResult.orderId}`)
 
       // Bridge USDC from HL to EVM to complete the arb
-      // Note: HL uses HyperEVM which connects via CCIP
+      // HL uses HyperEVM which connects via CCIP
       const bridgeTx = await this.bridgeFromHyperliquid(
         evmChainId,
         positionSizeUsd,

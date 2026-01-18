@@ -4,6 +4,7 @@ import { decryptAesGcm, encryptAesGcm, hash256 } from '@jejunetwork/shared'
 import type { Address } from 'viem'
 import { z } from 'zod'
 import { getHSMKDF, isHSMAvailable } from '../shared/hsm-kdf'
+import { getKMSSecret } from '../shared/kms-secrets'
 import { PROVIDERS_BY_ID } from './providers'
 import type { VaultDecryptRequest, VaultKey } from './types'
 
@@ -18,7 +19,7 @@ async function getSQLitClient(): Promise<SQLitClient> {
   if (!sqlitClient) {
     sqlitClient = getSQLit({
       databaseId: SQLIT_DATABASE_ID,
-      timeout: 30000,
+      timeoutMs: 30000,
       debug: process.env.NODE_ENV !== 'production',
     })
 
@@ -94,45 +95,47 @@ const AttestationResponseSchema = z.object({
 
 // Encryption Helpers (AES-256-GCM)
 
-/** Track if we've warned about missing secret */
-let warnedAboutMissingSecret = false
+/** Cached secret for synchronous operations after first async init */
+let cachedVaultSecret: string | null = null
+let secretInitialized = false
 
 /**
- * Derive encryption key from server secret + keyId
- *
- * SECURITY NOTES:
- * - VAULT_ENCRYPTION_SECRET MUST be set in production
- * - When HSM_ENDPOINT is configured, keys are derived inside the HSM
- *   and NEVER enter TEE memory (side-channel protected)
- * - Without HSM, derived keys exist in memory and are vulnerable
- *   to side-channel attacks (power analysis, timing, memory dumps)
- *
- * Priority:
- * 1. HSM-backed key derivation (maximum security)
- * 2. VAULT_ENCRYPTION_SECRET (acceptable for data-at-rest)
- * 3. Development fallback (INSECURE)
+ * Initialize the vault secret from KMS (must be called before sync operations)
+ */
+export async function initializeVaultSecret(): Promise<void> {
+  if (secretInitialized) return
+
+  const secret = await getKMSSecret('vault_encryption')
+  if (secret) {
+    cachedVaultSecret = secret
+  }
+  secretInitialized = true
+}
+
+// Key derivation uses the synchronous deriveKey() function below.
+// Initialization must happen first via initializeVaultSecret().
+
+/**
+ * Derive encryption key synchronously (requires prior initialization)
  */
 function deriveKey(keyId: string): Uint8Array {
-  const serverSecret = process.env.VAULT_ENCRYPTION_SECRET
   const isProduction = isProductionEnv()
   const isTest = isTestMode()
 
-  if (!serverSecret) {
+  if (!cachedVaultSecret) {
     if (isProduction) {
       throw new Error(
-        'CRITICAL: VAULT_ENCRYPTION_SECRET must be set in production. API keys cannot be secured without it.',
+        'CRITICAL: Vault encryption secret not initialized. Call initializeVaultSecret() first.',
       )
     }
-    if (!isTest && !warnedAboutMissingSecret) {
-      warnedAboutMissingSecret = true
+    if (!isTest) {
       console.warn(
-        '[Key Vault] WARNING: VAULT_ENCRYPTION_SECRET not set. Using development-only key. Set VAULT_ENCRYPTION_SECRET for production.',
+        '[Key Vault] WARNING: Vault encryption secret not set. Using development-only key.',
       )
     }
-    // Development-only fallback - keys are ephemeral and insecure
     return hash256(`DEV_ONLY_INSECURE_KEY:${keyId}`)
   }
-  return hash256(`${serverSecret}:${keyId}`)
+  return hash256(`${cachedVaultSecret}:${keyId}`)
 }
 
 /**
@@ -505,7 +508,6 @@ export async function getAccessLogByRequester(
 // TEE Attestation
 
 const TEE_ENDPOINT = process.env.TEE_ATTESTATION_ENDPOINT
-const TEE_API_KEY = process.env.TEE_ATTESTATION_API_KEY
 
 /**
  * Generate a TEE attestation for a key
@@ -515,10 +517,11 @@ async function generateAttestation(keyId: string): Promise<string> {
   const timestamp = Date.now()
 
   // Use real TEE attestation if endpoint is configured
-  if (TEE_ENDPOINT && TEE_API_KEY) {
+  const teeApiKey = await getKMSSecret('tee_attestation_api_key')
+  if (TEE_ENDPOINT && teeApiKey) {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'X-API-Key': TEE_API_KEY,
+      'X-API-Key': teeApiKey,
     }
 
     const response = await fetch(`${TEE_ENDPOINT}/attestation/generate`, {

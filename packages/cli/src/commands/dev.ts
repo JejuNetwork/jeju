@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   getDWSUrl,
@@ -31,6 +31,18 @@ import {
   type ServicesOrchestrator,
 } from '../services/orchestrator'
 import { type AppManifest, DOMAIN_CONFIG, WELL_KNOWN_KEYS } from '../types'
+
+async function pollForHealth(url: string, timeoutMs: number): Promise<boolean> {
+  const start = Date.now()
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(500) })
+      if (res.ok) return true
+    } catch {}
+    await new Promise((r) => setTimeout(r, 200))
+  }
+  return false
+}
 
 interface RunningService {
   name: string
@@ -118,6 +130,20 @@ async function startDev(options: {
     logger.step('Bootstrapping contracts...')
     await bootstrapContracts(rootDir, l2RpcUrl)
     didBootstrap = true
+
+    // CRITICAL: Verify contracts are actually deployed on-chain
+    // This catches cases where bootstrap ran but chain was reset
+    logger.step('Verifying contracts on-chain...')
+    const verification = await infrastructureService.verifyContractsDeployed()
+    if (!verification.verified) {
+      logger.error(`Contract verification failed: ${verification.error}`)
+      logger.error('Contracts must be deployed before dev mode can proceed.')
+      process.exit(1)
+    }
+    logger.success('Contracts verified on-chain')
+
+    // Sync contract addresses to config after successful bootstrap
+    syncContractAddresses(rootDir)
   } else {
     logger.debug('Skipping bootstrap (--no-bootstrap)')
   }
@@ -206,8 +232,14 @@ async function deployAppsOnchain(
         JNS_REGISTRY_ADDRESS: dwsContracts.jnsRegistry,
         JNS_RESOLVER_ADDRESS: dwsContracts.jnsResolver,
         FARCASTER_HUB_URL: getFarcasterHubUrl(),
+        // SQLit config for DWS workers (inherits to all workers via SAFE_ENV_KEYS)
+        SQLIT_ENDPOINT: getSQLitBlockProducerUrl(),
+        SQLIT_NODES: getSQLitBlockProducerUrl(),
+        SQLIT_URL: getSQLitBlockProducerUrl(),
+        // Workers derive their database ID from app name or use this default
+        SQLIT_DATABASE_ID: process.env.SQLIT_DATABASE_ID ?? 'dws-localnet',
       },
-      stdio: 'pipe',
+      stdio: 'inherit',
     })
 
     runningServices.push({
@@ -216,9 +248,47 @@ async function deployAppsOnchain(
       process: dwsProc,
     })
 
-    // Wait for DWS to start
-    await new Promise((r) => setTimeout(r, 5000))
-    logger.success('DWS server running on port 4030')
+    // Wait for DWS to be ready
+    const dwsReady = await pollForHealth('http://127.0.0.1:4030/health', 10000)
+    if (dwsReady) {
+      logger.success('DWS server running on port 4030')
+
+      // Register CLI inference server with DWS
+      const inferenceHost = getLocalhostHost()
+      const inferenceEndpoint = `http://${inferenceHost}:4100`
+      try {
+        const registerRes = await fetch(
+          'http://127.0.0.1:4030/compute/nodes/register',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              address: 'cli-inference-node',
+              endpoint: inferenceEndpoint,
+              gpuTier: 0,
+              capabilities: ['inference'],
+              models: ['*'],
+              provider: 'cli-multi-provider',
+              region: 'local',
+              maxConcurrent: 100,
+            }),
+          },
+        )
+        if (registerRes.ok) {
+          logger.success(`Inference node registered at ${inferenceEndpoint}`)
+        } else {
+          logger.warn(
+            `Failed to register inference node: ${await registerRes.text()}`,
+          )
+        }
+      } catch (err) {
+        logger.warn(
+          `Could not register inference node: ${(err as Error).message}`,
+        )
+      }
+    } else {
+      logger.warn('DWS server may not be fully ready')
+    }
   }
 
   // Start OAuth3 authentication gateway (required for auth flows)
@@ -233,7 +303,7 @@ async function deployAppsOnchain(
         RPC_URL: rpcUrl,
         NODE_ENV: 'development',
       },
-      stdio: 'pipe',
+      stdio: 'inherit',
     })
 
     runningServices.push({
@@ -256,23 +326,22 @@ async function deployAppsOnchain(
       : join(rootDir, 'apps', folderName)
     return { dir, manifest: app }
   })
-
+  logger.step('Registering apps on-chain...')
   await localDeployOrchestrator.deployAllApps(appsWithDirs)
 
-  // Start vendor app backend workers in parallel
-  logger.step('Starting vendor app backends in parallel...')
-  const vendorAppsWithBackend = appsWithDirs.filter(
-    ({ manifest }) =>
-      manifest.type === 'vendor' && manifest.architecture?.backend,
+  // Start app backend workers in parallel (for apps with backend architecture)
+  logger.step('Starting app backends in parallel...')
+  const appsWithBackend = appsWithDirs.filter(
+    ({ manifest }) => manifest.architecture?.backend,
   )
 
-  const backendStartTasks = vendorAppsWithBackend.map(({ dir, manifest }) => {
+  const backendStartTasks = appsWithBackend.map(({ dir, manifest }) => {
     const backend = manifest.architecture?.backend
     const commands = manifest.commands as Record<string, string> | undefined
     const startCmd =
       typeof backend === 'object' && 'startCmd' in backend
         ? (backend.startCmd as string)
-        : commands?.['start:worker']
+        : (commands?.['dev:worker'] ?? commands?.['start:worker'])
 
     if (!startCmd) {
       logger.debug(`  ${manifest.name}: No backend start command found`)
@@ -284,7 +353,28 @@ async function deployAppsOnchain(
 
     logger.debug(`  Starting ${manifest.name} backend on port ${apiPort}...`)
 
-    const workerProc = execa('bun', ['run', startCmd.replace('bun run ', '')], {
+    // Parse the start command - handle different formats:
+    // - "bun api/server.ts" -> execa('bun', ['api/server.ts'])
+    // - "bun run start:worker" -> execa('bun', ['run', 'start:worker'])
+    // - "start:worker" -> execa('bun', ['run', 'start:worker'])
+    let bunArgs: string[]
+    if (startCmd.startsWith('bun run ')) {
+      // Full "bun run script" command
+      bunArgs = ['run', startCmd.slice(8)]
+    } else if (startCmd.startsWith('bun ')) {
+      // Direct "bun file.ts" command - run as-is
+      bunArgs = startCmd.slice(4).split(' ')
+    } else {
+      // Assume it's a package.json script name
+      bunArgs = ['run', startCmd]
+    }
+
+    // Get app-specific database ID (provisioned during deployAllApps)
+    // localDeployOrchestrator is guaranteed to be non-null here since we're inside deployAppsOnchain
+    const appDatabaseId = localDeployOrchestrator?.getDatabaseId(manifest.name)
+    const databaseId = appDatabaseId ?? `${manifest.name}-db`
+
+    const workerProc = execa('bun', bunArgs, {
       cwd: dir,
       env: {
         ...process.env,
@@ -293,7 +383,12 @@ async function deployAppsOnchain(
         JEJU_DWS_ENDPOINT: `http://${getLocalhostHost()}:4030`,
         JEJU_NETWORK: 'localnet',
         TEE_PROVIDER: 'local',
+        // SQLit config - app-specific database
+        SQLIT_ENDPOINT: getSQLitBlockProducerUrl(),
+        SQLIT_URL: getSQLitBlockProducerUrl(),
         SQLIT_BLOCK_PRODUCER_ENDPOINT: getSQLitBlockProducerUrl(),
+        SQLIT_DATABASE_ID: databaseId,
+        // DWS contract addresses
         WORKER_REGISTRY_ADDRESS: dwsContracts.workerRegistry,
         STORAGE_MANAGER_ADDRESS: dwsContracts.storageManager,
         CDN_REGISTRY_ADDRESS: dwsContracts.cdnRegistry,
@@ -309,7 +404,7 @@ async function deployAppsOnchain(
         BASE_SEPOLIA_RPC_URL:
           process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org',
       },
-      stdio: 'pipe',
+      stdio: 'inherit',
     })
 
     runningServices.push({
@@ -409,9 +504,8 @@ function setupSignalHandlers(): void {
         service.process.kill('SIGTERM')
       }
     }
-
     await execa('docker', ['compose', 'down'], {
-      cwd: join(process.cwd(), 'apps/monitoring'),
+      cwd: join(findMonorepoRoot(), 'packages/monitoring'),
       reject: false,
     }).catch(() => undefined)
 
@@ -527,7 +621,56 @@ async function printReady(
   orchestrator: ServicesOrchestrator | null,
   deployedApps: AppManifest[],
 ): Promise<void> {
-  console.clear()
+  // Check for failed or excluded services
+  const failedServices: Array<{ name: string; reason: string }> = []
+
+  // Check running services for failed processes
+  for (const service of services) {
+    if (service.process) {
+      // Check if process has exited (exitCode is set when process terminates)
+      const exitCode = service.process.exitCode
+      if (exitCode !== null && exitCode !== undefined) {
+        failedServices.push({
+          name: service.name,
+          reason: `exited with code ${exitCode}`,
+        })
+      }
+    }
+  }
+
+  // Check orchestrated services for health issues
+  if (orchestrator) {
+    const orchestratedServices = orchestrator.getRunningServices()
+    for (const [_key, service] of orchestratedServices) {
+      if (service.process) {
+        const exitCode = service.process.exitCode
+        if (exitCode !== null && exitCode !== undefined && exitCode !== 0) {
+          // Avoid duplicates
+          if (!failedServices.some((f) => f.name === service.name)) {
+            failedServices.push({
+              name: service.name,
+              reason: `exited with code ${exitCode}`,
+            })
+          }
+        }
+      }
+    }
+  }
+
+  // Show warning section if any services failed
+  if (failedServices.length > 0) {
+    logger.newline()
+    logger.warn('Some services failed to start:')
+    for (const failed of failedServices) {
+      logger.table([
+        {
+          label: failed.name,
+          value: failed.reason,
+          status: 'error' as const,
+        },
+      ])
+    }
+  }
 
   logger.header('READY')
   logger.info('Press Ctrl+C to stop\n')
@@ -675,7 +818,7 @@ async function runAppSeeds(rootDir: string, rpcUrl: string): Promise<void> {
           ...process.env,
           JEJU_RPC_URL: rpcUrl,
         },
-        stdio: 'pipe',
+        stdio: 'inherit',
       })
       logger.success(`Seeded ${appName}`)
     } catch (_error) {
@@ -689,6 +832,136 @@ async function waitForever(): Promise<void> {
   await new Promise(() => {
     /* never resolves */
   })
+}
+
+/**
+ * Sync contract addresses from deployment output to config.
+ * Called automatically after bootstrap to keep contracts.json up to date.
+ */
+function syncContractAddresses(rootDir: string): void {
+  const deploymentFile = join(
+    rootDir,
+    'packages/contracts/deployments/localnet-complete.json',
+  )
+  const configFile = join(rootDir, 'packages/config/contracts.json')
+
+  if (!existsSync(deploymentFile)) {
+    logger.warn('No deployment file found, skipping address sync')
+    return
+  }
+
+  if (!existsSync(configFile)) {
+    logger.warn('Config file not found, skipping address sync')
+    return
+  }
+
+  interface BootstrapContracts {
+    jeju?: string
+    usdc?: string
+    identityRegistry?: string
+    reputationRegistry?: string
+    validationRegistry?: string
+    banManager?: string
+    reputationLabelManager?: string
+    nodeStakingManager?: string
+    nodePerformanceOracle?: string
+    tokenRegistry?: string
+    paymasterFactory?: string
+    priceOracle?: string
+    universalPaymaster?: string
+    jnsRegistry?: string
+    jnsResolver?: string
+    computeRegistry?: string
+    ledgerManager?: string
+    inferenceServing?: string
+    computeStaking?: string
+  }
+
+  interface BootstrapResult {
+    contracts: BootstrapContracts
+  }
+
+  const deployment: BootstrapResult = JSON.parse(
+    readFileSync(deploymentFile, 'utf-8'),
+  )
+  const config = JSON.parse(readFileSync(configFile, 'utf-8'))
+  const contracts = deployment.contracts
+
+  // Update tokens
+  if (isValidAddress(contracts.jeju)) {
+    config.localnet.tokens.jeju = contracts.jeju
+  }
+  if (isValidAddress(contracts.usdc)) {
+    config.localnet.tokens.usdc = contracts.usdc
+  }
+
+  // Update registry
+  if (isValidAddress(contracts.identityRegistry)) {
+    config.localnet.registry.identity = contracts.identityRegistry
+  }
+  if (isValidAddress(contracts.reputationRegistry)) {
+    config.localnet.registry.reputation = contracts.reputationRegistry
+  }
+  if (isValidAddress(contracts.validationRegistry)) {
+    config.localnet.registry.validation = contracts.validationRegistry
+  }
+
+  // Update moderation
+  if (isValidAddress(contracts.banManager)) {
+    config.localnet.moderation.banManager = contracts.banManager
+  }
+  if (isValidAddress(contracts.reputationLabelManager)) {
+    config.localnet.moderation.reputationLabelManager =
+      contracts.reputationLabelManager
+  }
+
+  // Update nodeStaking
+  if (isValidAddress(contracts.nodeStakingManager)) {
+    config.localnet.nodeStaking.manager = contracts.nodeStakingManager
+  }
+  if (isValidAddress(contracts.nodePerformanceOracle)) {
+    config.localnet.nodeStaking.performanceOracle =
+      contracts.nodePerformanceOracle
+  }
+
+  // Update payments
+  if (isValidAddress(contracts.tokenRegistry)) {
+    config.localnet.payments.tokenRegistry = contracts.tokenRegistry
+  }
+  if (isValidAddress(contracts.paymasterFactory)) {
+    config.localnet.payments.paymasterFactory = contracts.paymasterFactory
+  }
+  if (isValidAddress(contracts.priceOracle)) {
+    config.localnet.payments.priceOracle = contracts.priceOracle
+  }
+  if (isValidAddress(contracts.universalPaymaster)) {
+    config.localnet.payments.multiTokenPaymaster = contracts.universalPaymaster
+  }
+
+  // Update JNS
+  if (isValidAddress(contracts.jnsRegistry)) {
+    config.localnet.jns.registry = contracts.jnsRegistry
+  }
+  if (isValidAddress(contracts.jnsResolver)) {
+    config.localnet.jns.resolver = contracts.jnsResolver
+  }
+
+  // Update compute
+  if (isValidAddress(contracts.computeRegistry)) {
+    config.localnet.compute.registry = contracts.computeRegistry
+  }
+  if (isValidAddress(contracts.ledgerManager)) {
+    config.localnet.compute.ledgerManager = contracts.ledgerManager
+  }
+  if (isValidAddress(contracts.inferenceServing)) {
+    config.localnet.compute.inferenceServing = contracts.inferenceServing
+  }
+  if (isValidAddress(contracts.computeStaking)) {
+    config.localnet.compute.staking = contracts.computeStaking
+  }
+
+  writeFileSync(configFile, `${JSON.stringify(config, null, 2)}\n`)
+  logger.debug('Synced contract addresses to config')
 }
 
 devCommand

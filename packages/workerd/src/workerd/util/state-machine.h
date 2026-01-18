@@ -466,7 +466,7 @@ struct TerminalStates {
 };
 
 // Marker type to specify the error state (enables isErrored(), tryGetErrorUnsafe(), etc.)
-// Note: Error states are implicitly terminal - you cannot transition out of an error state
+// Error states are implicitly terminal - you cannot transition out of an error state
 // using normal transitions. Use forceTransitionTo() if you need to reset from an error.
 template <typename T>
 struct ErrorState {
@@ -1054,7 +1054,7 @@ class StateMachine {
       }
     }
 
-    // Note: We still acquire the lock for consistency, even though const
+    // We still acquire the lock for consistency, even though const
     // methods shouldn't transition. This catches bugs where someone
     // tries to transition through a captured non-const reference.
     ++transitionLockCount;
@@ -1173,7 +1173,7 @@ class StateMachine {
   // ---------------------------------------------------------------------------
 
   // Check if currently in a terminal state (no further transitions allowed).
-  // Note: Error states are implicitly terminal - you cannot transition out of an error state.
+  // Error states are implicitly terminal - you cannot transition out of an error state.
   bool isTerminal() const
     requires(HAS_TERMINAL || HAS_ERROR)
   {
@@ -1240,7 +1240,7 @@ class StateMachine {
   }
 
   // Returns true if not in the active state (i.e., closed, errored, or any non-active state).
-  // Note: This is different from isTerminal() which checks if transitions are blocked.
+  // This is different from isTerminal() which checks if transitions are blocked.
   bool isInactive() const
     requires(HAS_ACTIVE)
   {
@@ -1530,7 +1530,7 @@ class StateMachine {
     }
 
     ~OperationScope() noexcept(false) {
-      // Note: endOperation() may throw if pending state constructor throws.
+      // endOperation() may throw if pending state constructor throws.
       // We mark this noexcept(false) to be explicit about this.
       KJ_IF_SOME(m, machine) {
         auto applied KJ_UNUSED = m.endOperation();

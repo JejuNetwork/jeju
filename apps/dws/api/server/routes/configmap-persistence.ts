@@ -28,6 +28,7 @@ interface DeployedAppConfig {
   staticFiles: Record<string, string> | null
   backendWorkerId: string | null
   backendEndpoint: string | null
+  env: Record<string, string>
   apiPaths: string[]
   spa: boolean
   enabled: boolean
@@ -111,8 +112,12 @@ export async function loadAppsFromConfigMap(): Promise<DeployedAppConfig[]> {
   }
 
   const apps = JSON.parse(configMap.data[CONFIGMAP_KEY]) as DeployedAppConfig[]
-  console.log(`[ConfigMap] Loaded ${apps.length} apps from ConfigMap`)
-  return apps
+  const normalized = apps.map((app) => ({
+    ...app,
+    env: app.env ? app.env : {},
+  }))
+  console.log(`[ConfigMap] Loaded ${normalized.length} apps from ConfigMap`)
+  return normalized
 }
 
 /**

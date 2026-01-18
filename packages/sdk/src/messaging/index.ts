@@ -9,7 +9,7 @@
 
 import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, parseEther } from 'viem'
-import { requireContract } from '../config'
+import { safeGetContract } from '../config'
 import { parseIdFromLogs } from '../shared/api'
 import type { BaseWallet } from '../wallet'
 
@@ -309,23 +309,43 @@ export function createMessagingModule(
   wallet: BaseWallet,
   network: NetworkType,
 ): MessagingModule {
-  const nodeRegistryAddress = requireContract(
+  // Use safe getters - contracts may not be deployed on all networks
+  const nodeRegistryAddressOpt = safeGetContract(
     'messaging',
     'MessageNodeRegistry',
     network,
   )
-  const keyRegistryAddress = requireContract(
+  const keyRegistryAddressOpt = safeGetContract(
     'messaging',
     'MessagingKeyRegistry',
     network,
   )
+
+  // Lazy-load contract addresses - throw on method call if not deployed
+  const getNodeRegistryAddress = () => {
+    if (!nodeRegistryAddressOpt) {
+      throw new Error(
+        'Messaging MessageNodeRegistry contract not deployed on this network',
+      )
+    }
+    return nodeRegistryAddressOpt
+  }
+
+  const getKeyRegistryAddress = () => {
+    if (!keyRegistryAddressOpt) {
+      throw new Error(
+        'Messaging MessagingKeyRegistry contract not deployed on this network',
+      )
+    }
+    return keyRegistryAddressOpt
+  }
 
   const MIN_STAKE = parseEther('1000')
   const BASE_FEE_PER_MESSAGE = parseEther('0.0001')
 
   async function readNode(nodeId: Hex): Promise<MessageNode | null> {
     const result = await wallet.publicClient.readContract({
-      address: nodeRegistryAddress,
+      address: getNodeRegistryAddress(),
       abi: MESSAGE_NODE_REGISTRY_ABI,
       functionName: 'nodes',
       args: [nodeId],
@@ -360,7 +380,7 @@ export function createMessagingModule(
       })
 
       const txHash = await wallet.sendTransaction({
-        to: nodeRegistryAddress,
+        to: getNodeRegistryAddress(),
         data,
         value: params.stake,
       })
@@ -380,7 +400,7 @@ export function createMessagingModule(
 
     async getMyNodes() {
       const nodeIds = await wallet.publicClient.readContract({
-        address: nodeRegistryAddress,
+        address: getNodeRegistryAddress(),
         abi: MESSAGE_NODE_REGISTRY_ABI,
         functionName: 'getOperatorNodeIds',
         args: [wallet.address],
@@ -396,7 +416,7 @@ export function createMessagingModule(
 
     async listActiveNodes() {
       const nodeIds = await wallet.publicClient.readContract({
-        address: nodeRegistryAddress,
+        address: getNodeRegistryAddress(),
         abi: MESSAGE_NODE_REGISTRY_ABI,
         functionName: 'getActiveNodeIds',
         args: [],
@@ -412,7 +432,7 @@ export function createMessagingModule(
 
     async listNodesByRegion(region) {
       const nodeIds = await wallet.publicClient.readContract({
-        address: nodeRegistryAddress,
+        address: getNodeRegistryAddress(),
         abi: MESSAGE_NODE_REGISTRY_ABI,
         functionName: 'getNodeIdsByRegion',
         args: [region],
@@ -432,7 +452,7 @@ export function createMessagingModule(
         functionName: 'updateEndpoint',
         args: [nodeId, endpoint],
       })
-      return wallet.sendTransaction({ to: nodeRegistryAddress, data })
+      return wallet.sendTransaction({ to: getNodeRegistryAddress(), data })
     },
 
     async addNodeStake(nodeId, amount) {
@@ -442,7 +462,7 @@ export function createMessagingModule(
         args: [nodeId],
       })
       return wallet.sendTransaction({
-        to: nodeRegistryAddress,
+        to: getNodeRegistryAddress(),
         data,
         value: amount,
       })
@@ -454,7 +474,7 @@ export function createMessagingModule(
         functionName: 'withdrawStake',
         args: [nodeId, amount],
       })
-      return wallet.sendTransaction({ to: nodeRegistryAddress, data })
+      return wallet.sendTransaction({ to: getNodeRegistryAddress(), data })
     },
 
     async deactivateNode(nodeId) {
@@ -463,7 +483,7 @@ export function createMessagingModule(
         functionName: 'deactivateNode',
         args: [nodeId],
       })
-      return wallet.sendTransaction({ to: nodeRegistryAddress, data })
+      return wallet.sendTransaction({ to: getNodeRegistryAddress(), data })
     },
 
     async heartbeat(nodeId) {
@@ -472,12 +492,12 @@ export function createMessagingModule(
         functionName: 'heartbeat',
         args: [nodeId],
       })
-      return wallet.sendTransaction({ to: nodeRegistryAddress, data })
+      return wallet.sendTransaction({ to: getNodeRegistryAddress(), data })
     },
 
     async getNodePerformance(nodeId) {
       const result = await wallet.publicClient.readContract({
-        address: nodeRegistryAddress,
+        address: getNodeRegistryAddress(),
         abi: MESSAGE_NODE_REGISTRY_ABI,
         functionName: 'performance',
         args: [nodeId],
@@ -530,12 +550,12 @@ export function createMessagingModule(
         ],
       })
 
-      return wallet.sendTransaction({ to: keyRegistryAddress, data })
+      return wallet.sendTransaction({ to: getKeyRegistryAddress(), data })
     },
 
     async getKey(owner) {
       const result = await wallet.publicClient.readContract({
-        address: keyRegistryAddress,
+        address: getKeyRegistryAddress(),
         abi: MESSAGING_KEY_REGISTRY_ABI,
         functionName: 'getKey',
         args: [owner],
@@ -563,7 +583,7 @@ export function createMessagingModule(
         functionName: 'rotateKey',
         args: [newPublicKey],
       })
-      return wallet.sendTransaction({ to: keyRegistryAddress, data })
+      return wallet.sendTransaction({ to: getKeyRegistryAddress(), data })
     },
 
     async revokeKey() {
@@ -572,7 +592,7 @@ export function createMessagingModule(
         functionName: 'revokeKey',
         args: [],
       })
-      return wallet.sendTransaction({ to: keyRegistryAddress, data })
+      return wallet.sendTransaction({ to: getKeyRegistryAddress(), data })
     },
 
     async claimFees(nodeId) {
@@ -581,12 +601,12 @@ export function createMessagingModule(
         functionName: 'claimFees',
         args: [nodeId],
       })
-      return wallet.sendTransaction({ to: nodeRegistryAddress, data })
+      return wallet.sendTransaction({ to: getNodeRegistryAddress(), data })
     },
 
     async getPendingFees(nodeId) {
       return wallet.publicClient.readContract({
-        address: nodeRegistryAddress,
+        address: getNodeRegistryAddress(),
         abi: MESSAGE_NODE_REGISTRY_ABI,
         functionName: 'pendingFees',
         args: [nodeId],

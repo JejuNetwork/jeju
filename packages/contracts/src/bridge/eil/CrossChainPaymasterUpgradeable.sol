@@ -8,9 +8,11 @@ import {IPaymaster} from "account-abstraction/interfaces/IPaymaster.sol";
 import {PackedUserOperation} from "account-abstraction/interfaces/PackedUserOperation.sol";
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import {PausableUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/utils/PausableUpgradeable.sol";
 import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {UUPSUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
 import {ERC1967Utils} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Utils.sol";
+import {IPriceOracle} from "../../interfaces/IPriceOracle.sol";
 
 /**
  * @title CrossChainPaymasterUpgradeable
@@ -22,7 +24,7 @@ import {ERC1967Utils} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC19
  * 2. Multi-token gas payment
  * 3. Atomic swaps without bridges
  */
-contract CrossChainPaymasterUpgradeable is Initializable, OwnableUpgradeable, ReentrancyGuard, UUPSUpgradeable {
+contract CrossChainPaymasterUpgradeable is Initializable, OwnableUpgradeable, PausableUpgradeable, ReentrancyGuard, UUPSUpgradeable {
     using SafeERC20 for IERC20;
 
     // ============ Constants ============
@@ -68,6 +70,18 @@ contract CrossChainPaymasterUpgradeable is Initializable, OwnableUpgradeable, Re
     /// @notice L2 CrossDomainMessenger
     address public l2Messenger;
 
+    /// @notice Price oracle for multi-token gas conversion
+    IPriceOracle public priceOracle;
+
+    /// @notice Cached token exchange rates (token => rate in ETH per 1 token, 18 decimals)
+    mapping(address => uint256) public tokenExchangeRates;
+
+    /// @notice Last time exchange rate was updated
+    mapping(address => uint256) public exchangeRateUpdatedAt;
+
+    /// @notice Exchange rate cache duration (1 hour)
+    uint256 public constant RATE_CACHE_DURATION = 1 hours;
+
     // ============ Structs ============
 
     struct VoucherRequest {
@@ -110,6 +124,9 @@ contract CrossChainPaymasterUpgradeable is Initializable, OwnableUpgradeable, Re
     event LiquidityDeposited(address indexed xlp, address indexed token, uint256 amount);
     event LiquidityWithdrawn(address indexed xlp, address indexed token, uint256 amount);
     event TokenSupported(address indexed token, bool supported);
+    event PriceOracleUpdated(address indexed oldOracle, address indexed newOracle);
+    event ExchangeRateUpdated(address indexed token, uint256 rate);
+    event TokenPaymentReceived(address indexed user, address indexed token, uint256 tokenAmount, uint256 ethEquivalent);
 
     // ============ Errors ============
 
@@ -122,6 +139,8 @@ contract CrossChainPaymasterUpgradeable is Initializable, OwnableUpgradeable, Re
     error InvalidAmount();
     error OnlyL1StakeManager();
     error MessengerNotSet();
+    error StalePrice();
+    error OracleNotSet();
 
     // ============ Modifiers ============
 
@@ -151,6 +170,7 @@ contract CrossChainPaymasterUpgradeable is Initializable, OwnableUpgradeable, Re
         initializer
     {
         __Ownable_init(owner);
+        __Pausable_init();
 
         l1ChainId = _l1ChainId;
         l1StakeManager = _l1StakeManager;
@@ -161,12 +181,22 @@ contract CrossChainPaymasterUpgradeable is Initializable, OwnableUpgradeable, Re
         supportedTokens[address(0)] = true;
     }
 
+    /// @notice Pause the contract in case of emergency
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @notice Unpause the contract
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
     // ============ XLP Functions ============
 
     /**
      * @notice Deposit ETH liquidity
      */
-    function depositETH() external payable nonReentrant {
+    function depositETH() external payable nonReentrant whenNotPaused {
         if (msg.value == 0) revert InvalidAmount();
         xlpEthBalance[msg.sender] += msg.value;
         emit LiquidityDeposited(msg.sender, address(0), msg.value);
@@ -175,7 +205,7 @@ contract CrossChainPaymasterUpgradeable is Initializable, OwnableUpgradeable, Re
     /**
      * @notice Deposit token liquidity
      */
-    function depositLiquidity(address token, uint256 amount) external nonReentrant {
+    function depositLiquidity(address token, uint256 amount) external nonReentrant whenNotPaused {
         if (!supportedTokens[token]) revert InvalidToken();
         if (amount == 0) revert InvalidAmount();
 
@@ -386,6 +416,77 @@ contract CrossChainPaymasterUpgradeable is Initializable, OwnableUpgradeable, Re
         feeRate = _feeRate;
     }
 
+    /// @notice Set the price oracle for multi-token gas conversion
+    /// @param _priceOracle Address of the price oracle
+    function setPriceOracle(address _priceOracle) external onlyOwner {
+        address oldOracle = address(priceOracle);
+        priceOracle = IPriceOracle(_priceOracle);
+        emit PriceOracleUpdated(oldOracle, _priceOracle);
+    }
+
+    /// @notice Update cached exchange rate for a token
+    /// @param token Token address
+    function updateExchangeRate(address token) public {
+        if (address(priceOracle) == address(0)) revert OracleNotSet();
+        if (!priceOracle.isPriceFresh(token)) revert StalePrice();
+        
+        // Get how many tokens equal 1 ETH
+        uint256 rate = priceOracle.convertAmount(address(0), token, 1 ether);
+        tokenExchangeRates[token] = rate;
+        exchangeRateUpdatedAt[token] = block.timestamp;
+        
+        emit ExchangeRateUpdated(token, rate);
+    }
+
+    /// @notice Convert ETH amount to token amount
+    /// @param ethAmount Amount in ETH
+    /// @param token Token to convert to
+    /// @return tokenAmount Equivalent token amount
+    function convertEthToToken(uint256 ethAmount, address token) public view returns (uint256 tokenAmount) {
+        if (token == address(0)) return ethAmount; // ETH -> ETH
+        
+        // Try cached rate first (valid for 1 hour)
+        // Safe math: check if rate was updated within cache duration
+        uint256 rateAge = block.timestamp > exchangeRateUpdatedAt[token] 
+            ? block.timestamp - exchangeRateUpdatedAt[token] 
+            : 0;
+        if (rateAge < RATE_CACHE_DURATION && tokenExchangeRates[token] > 0) {
+            return (ethAmount * tokenExchangeRates[token]) / 1 ether;
+        }
+        
+        // Fall back to oracle
+        if (address(priceOracle) != address(0)) {
+            return priceOracle.convertAmount(address(0), token, ethAmount);
+        }
+        
+        // Default 1:1 if no oracle
+        return ethAmount;
+    }
+
+    /// @notice Convert token amount to ETH equivalent
+    /// @param tokenAmount Amount in token
+    /// @param token Token address
+    /// @return ethAmount Equivalent ETH amount
+    function convertTokenToEth(uint256 tokenAmount, address token) public view returns (uint256 ethAmount) {
+        if (token == address(0)) return tokenAmount; // ETH -> ETH
+        
+        // Try cached rate first (safe math for age calculation)
+        uint256 rateAge = block.timestamp > exchangeRateUpdatedAt[token] 
+            ? block.timestamp - exchangeRateUpdatedAt[token] 
+            : 0;
+        if (rateAge < RATE_CACHE_DURATION && tokenExchangeRates[token] > 0) {
+            return (tokenAmount * 1 ether) / tokenExchangeRates[token];
+        }
+        
+        // Fall back to oracle
+        if (address(priceOracle) != address(0)) {
+            return priceOracle.convertAmount(token, address(0), tokenAmount);
+        }
+        
+        // Default 1:1 if no oracle
+        return tokenAmount;
+    }
+
     // ============ ERC-4337 Paymaster Interface ============
 
     /// @notice Validates a UserOperation for gas sponsorship
@@ -399,31 +500,26 @@ contract CrossChainPaymasterUpgradeable is Initializable, OwnableUpgradeable, Re
         PackedUserOperation calldata userOp,
         bytes32 userOpHash,
         uint256 maxCost
-    ) external returns (bytes memory context, uint256 validationData) {
+    ) external whenNotPaused returns (bytes memory context, uint256 validationData) {
         // Only EntryPoint can call this
         require(msg.sender == address(entryPoint), "Only EntryPoint");
 
-        // Decode paymasterAndData: first 20 bytes = paymaster address (this)
-        // Next 20 bytes = XLP address who is sponsoring
-        // Remaining bytes = optional data
-        if (userOp.paymasterAndData.length < 52) {
-            // Not enough data - reject
-            return ("", 1);
-        }
-
-        // Extract XLP address from paymasterAndData (bytes 20-40 after gas limits at 20-52)
-        // In v0.7, paymasterAndData format is:
+        // Decode paymasterAndData: 
         // [0:20] paymaster address
         // [20:36] paymasterVerificationGasLimit (16 bytes)
         // [36:52] paymasterPostOpGasLimit (16 bytes)
         // [52:72] XLP address (20 bytes)
-        // [72:...] optional data
-        address xlp;
-        if (userOp.paymasterAndData.length >= 72) {
-            xlp = address(bytes20(userOp.paymasterAndData[52:72]));
-        } else {
-            // If no XLP specified, use the first registered XLP (simplified)
+        // [72:92] payment token (optional, address(0) = ETH)
+        if (userOp.paymasterAndData.length < 72) {
             return ("", 1);
+        }
+
+        address xlp = address(bytes20(userOp.paymasterAndData[52:72]));
+        
+        // Extract payment token (optional - defaults to ETH)
+        address paymentToken = address(0);
+        if (userOp.paymasterAndData.length >= 92) {
+            paymentToken = address(bytes20(userOp.paymasterAndData[72:92]));
         }
 
         // Check XLP has sufficient stake
@@ -431,24 +527,41 @@ contract CrossChainPaymasterUpgradeable is Initializable, OwnableUpgradeable, Re
             return ("", 1);
         }
 
-        // Check XLP has sufficient ETH liquidity to cover gas
-        if (xlpEthBalance[xlp] < maxCost) {
-            return ("", 1);
+        // Handle payment based on token type
+        if (paymentToken == address(0)) {
+            // ETH payment - simple case
+            if (xlpEthBalance[xlp] < maxCost) {
+                return ("", 1);
+            }
+            xlpEthBalance[xlp] -= maxCost;
+            context = abi.encode(xlp, maxCost, userOp.sender, paymentToken, maxCost);
+        } else {
+            // Token payment - convert maxCost (ETH) to token amount
+            if (!supportedTokens[paymentToken]) {
+                return ("", 1);
+            }
+            
+            uint256 tokenAmount = convertEthToToken(maxCost, paymentToken);
+            
+            // Check XLP has sufficient token liquidity
+            if (xlpLiquidity[xlp][paymentToken] < tokenAmount) {
+                return ("", 1);
+            }
+            
+            // Deduct token from XLP
+            xlpLiquidity[xlp][paymentToken] -= tokenAmount;
+            
+            context = abi.encode(xlp, maxCost, userOp.sender, paymentToken, tokenAmount);
         }
 
-        // Deduct gas cost from XLP balance
-        xlpEthBalance[xlp] -= maxCost;
-
-        // Return context for postOp to refund excess
-        context = abi.encode(xlp, maxCost, userOp.sender);
         return (context, 0);
     }
 
     /// @notice Post-operation hook called by EntryPoint
-    /// @dev Refunds excess gas to XLP
+    /// @dev Refunds excess gas to XLP in the payment token
     /// @param mode 0=success, 1=revert in account, 2=revert in postOp
-    /// @param context Data from validatePaymasterUserOp
-    /// @param actualGasCost Actual gas used
+    /// @param context Data from validatePaymasterUserOp: (xlp, maxCostEth, sender, paymentToken, tokenAmount)
+    /// @param actualGasCost Actual gas used in ETH
     /// @param actualUserOpFeePerGas Actual fee per gas
     function postOp(
         IPaymaster.PostOpMode mode,
@@ -458,12 +571,22 @@ contract CrossChainPaymasterUpgradeable is Initializable, OwnableUpgradeable, Re
     ) external {
         require(msg.sender == address(entryPoint), "Only EntryPoint");
 
-        (address xlp, uint256 maxCost, ) = abi.decode(context, (address, uint256, address));
+        (address xlp, uint256 maxCostEth, , address paymentToken, uint256 tokenAmountReserved) = 
+            abi.decode(context, (address, uint256, address, address, uint256));
 
-        // Refund unused gas to XLP
-        uint256 refund = maxCost > actualGasCost ? maxCost - actualGasCost : 0;
-        if (refund > 0) {
-            xlpEthBalance[xlp] += refund;
+        if (paymentToken == address(0)) {
+            // ETH payment - refund unused ETH
+            uint256 refund = maxCostEth > actualGasCost ? maxCostEth - actualGasCost : 0;
+            if (refund > 0) {
+                xlpEthBalance[xlp] += refund;
+            }
+        } else {
+            // Token payment - calculate actual token cost and refund excess
+            uint256 actualTokenCost = convertEthToToken(actualGasCost, paymentToken);
+            uint256 refund = tokenAmountReserved > actualTokenCost ? tokenAmountReserved - actualTokenCost : 0;
+            if (refund > 0) {
+                xlpLiquidity[xlp][paymentToken] += refund;
+            }
         }
     }
 

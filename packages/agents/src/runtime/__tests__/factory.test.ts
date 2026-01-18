@@ -19,14 +19,14 @@ describe('AgentRuntimeFactory', () => {
     it('validates option structure with all fields', () => {
       const options: RuntimeCreationOptions = {
         plugins: [],
-        modelOverride: 'gpt-4',
+        modelOverride: 'gpt-5',
         skipEnhancement: false,
         enableTrading: true,
         enableSocial: true,
         enableTrajectoryLogging: true,
       }
 
-      expect(options.modelOverride).toBe('gpt-4')
+      expect(options.modelOverride).toBe('gpt-5')
       expect(options.enableTrading).toBe(true)
       expect(options.enableSocial).toBe(true)
       expect(options.enableTrajectoryLogging).toBe(true)

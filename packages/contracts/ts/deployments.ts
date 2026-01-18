@@ -1,6 +1,9 @@
 /**
  * @fileoverview Deployment address exports for network contracts
  * @module @jejunetwork/contracts/deployments
+ *
+ * Deployment files are generated when localnet/testnet/mainnet contracts are deployed.
+ * Missing files are handled gracefully - they return empty objects which Zod schemas accept.
  */
 
 import type { Address } from 'viem'
@@ -26,51 +29,84 @@ import {
 import type { ChainId, NetworkName } from './types'
 import { CHAIN_IDS, isValidAddress } from './types'
 
+const isBrowserEnv = typeof window !== 'undefined'
+const deploymentsUrl = new URL('../deployments/', import.meta.url)
+const deploymentsDir =
+  deploymentsUrl.protocol === 'file:'
+    ? deploymentsUrl.pathname
+    : deploymentsUrl.toString()
+const fsModule = isBrowserEnv ? null : await import('node:fs')
+
+/**
+ * Union type of all possible deployment data structures.
+ * Used for type-safe JSON parsing before Zod validation.
+ */
+type DeploymentData =
+  | UniswapV4Deployment
+  | BazaarMarketplaceDeployment
+  | SimpleCollectibleDeployment
+  | ERC20FactoryDeployment
+  | IdentitySystemDeployment
+  | PaymasterSystemDeployment
+  | XLPDeployment
+  | LaunchpadDeployment
+  | Record<string, never>
+
+/**
+ * Safely load a deployment JSON file. Returns empty object if file doesn't exist.
+ * The return type uses DeploymentData union for better type safety, but JSON.parse
+ * returns unknown, so we validate with Zod schemas immediately after parsing.
+ */
+function loadDeployment(filename: string): DeploymentData {
+  if (fsModule === null) return {}
+  const filepath = `${deploymentsDir}${filename}`
+  if (!fsModule.existsSync(filepath)) {
+    return {}
+  }
+  try {
+    const parsed = JSON.parse(fsModule.readFileSync(filepath, 'utf-8'))
+    return parsed as DeploymentData
+  } catch {
+    return {}
+  }
+}
+
 function toAddress(address: string | undefined): Address | undefined {
   return isValidAddress(address) ? address : undefined
 }
 
-import bazaarMarketplace1337_raw from '../deployments/bazaar-marketplace-31337.json' with {
-  type: 'json',
-}
-import eilLocalnet_raw from '../deployments/eil-localnet.json' with {
-  type: 'json',
-}
-import eilTestnet_raw from '../deployments/eil-testnet.json' with {
-  type: 'json',
-}
-import erc20Factory1337_raw from '../deployments/erc20-factory-31337.json' with {
-  type: 'json',
-}
-import identitySystem1337_raw from '../deployments/identity-system-31337.json' with {
-  type: 'json',
-}
-import launchpadLocalnet_raw from '../deployments/launchpad-localnet.json' with {
-  type: 'json',
-}
-import localnetAddresses_raw from '../deployments/localnet-addresses.json' with {
-  type: 'json',
-}
-import paymasterSystemLocalnet_raw from '../deployments/paymaster-system-localnet.json' with {
-  type: 'json',
-}
-import predictionMarket1337_raw from '../deployments/prediction-market-31337.json' with {
-  type: 'json',
-}
-import simpleCollectible1337_raw from '../deployments/simple-collectible-31337.json' with {
-  type: 'json',
-}
-import uniswapV4_1337_raw from '../deployments/uniswap-v4-31337.json' with {
-  type: 'json',
-}
-import uniswapV4_420691_raw from '../deployments/uniswap-v4-420691.json' with {
-  type: 'json',
-}
-import xlpAmmLocalnet_raw from '../deployments/xlp-amm-localnet.json' with {
-  type: 'json',
+/**
+ * Check if a deployment object has actual content (not just an empty {})
+ */
+function isDeployed(deployment: DeploymentData | undefined): boolean {
+  return !!deployment && Object.keys(deployment).length > 0
 }
 
+// Load deployment files (missing files return empty objects)
+const uniswapV4_1337_raw = loadDeployment('uniswap-v4-31337.json')
+const uniswapV4_420690_raw = loadDeployment('uniswap-v4-420690.json')
+const uniswapV4_420691_raw = loadDeployment('uniswap-v4-420691.json')
+const bazaarMarketplace1337_raw = loadDeployment(
+  'bazaar-marketplace-31337.json',
+)
+const simpleCollectible1337_raw = loadDeployment(
+  'simple-collectible-31337.json',
+)
+const erc20Factory1337_raw = loadDeployment('erc20-factory-31337.json')
+const identitySystem1337_raw = loadDeployment('identity-system-31337.json')
+const localnetAddresses_raw = loadDeployment('localnet-addresses.json')
+const paymasterSystemLocalnet_raw = loadDeployment(
+  'paymaster-system-localnet.json',
+)
+const predictionMarket1337_raw = loadDeployment('prediction-market-31337.json')
+const xlpAmmLocalnet_raw = loadDeployment('xlp-amm-localnet.json')
+const launchpadLocalnet_raw = loadDeployment('launchpad-localnet.json')
+const eilLocalnet_raw = loadDeployment('eil-localnet.json')
+const eilTestnet_raw = loadDeployment('eil-testnet.json')
+
+// Parse with Zod schemas (all fields are optional, so empty objects are valid)
 const uniswapV4_1337 = UniswapV4DeploymentSchema.parse(uniswapV4_1337_raw)
+const uniswapV4_420690 = UniswapV4DeploymentSchema.parse(uniswapV4_420690_raw)
 const uniswapV4_420691 = UniswapV4DeploymentSchema.parse(uniswapV4_420691_raw)
 const bazaarMarketplace1337 = BazaarMarketplaceDeploymentSchema.parse(
   bazaarMarketplace1337_raw,
@@ -96,6 +132,7 @@ export const uniswapV4Deployments: Partial<
   Record<ChainId, UniswapV4Deployment>
 > = {
   31337: uniswapV4_1337,
+  420690: uniswapV4_420690,
   420691: uniswapV4_420691,
 }
 
@@ -147,10 +184,12 @@ export const launchpadDeployments: Partial<
 
 export function getUniswapV4(chainId: ChainId): UniswapV4Deployment {
   const deployment = uniswapV4Deployments[chainId]
-  if (!deployment) {
-    throw new Error(`Uniswap V4 not deployed on chain ${chainId}`)
+  if (!isDeployed(deployment)) {
+    throw new Error(
+      `Uniswap V4 not deployed on chain ${chainId}. Run 'bun run dev' to deploy contracts to localnet.`,
+    )
   }
-  return deployment
+  return deployment as UniswapV4Deployment
 }
 
 /**
@@ -195,10 +234,12 @@ export function getIdentityRegistry(chainId: ChainId): Address | undefined {
  */
 export function getXLPDeployment(chainId: ChainId): XLPDeployment {
   const deployment = xlpDeployments[chainId]
-  if (!deployment) {
-    throw new Error(`XLP not deployed on chain ${chainId}`)
+  if (!isDeployed(deployment)) {
+    throw new Error(
+      `XLP not deployed on chain ${chainId}. Run 'bun run dev' to deploy contracts to localnet.`,
+    )
   }
-  return deployment
+  return deployment as XLPDeployment
 }
 
 /**
@@ -207,10 +248,12 @@ export function getXLPDeployment(chainId: ChainId): XLPDeployment {
  */
 export function getLaunchpadDeployment(chainId: ChainId): LaunchpadDeployment {
   const deployment = launchpadDeployments[chainId]
-  if (!deployment) {
-    throw new Error(`Launchpad not deployed on chain ${chainId}`)
+  if (!isDeployed(deployment)) {
+    throw new Error(
+      `Launchpad not deployed on chain ${chainId}. Run 'bun run dev' to deploy contracts to localnet.`,
+    )
   }
-  return deployment
+  return deployment as LaunchpadDeployment
 }
 
 /**
@@ -230,10 +273,12 @@ export function getPaymasterSystem(
   chainId: ChainId,
 ): PaymasterSystemDeployment {
   const deployment = paymasterDeployments[chainId]
-  if (!deployment) {
-    throw new Error(`Paymaster system not deployed on chain ${chainId}`)
+  if (!isDeployed(deployment)) {
+    throw new Error(
+      `Paymaster system not deployed on chain ${chainId}. Run 'bun run dev' to deploy contracts to localnet.`,
+    )
   }
-  return deployment
+  return deployment as PaymasterSystemDeployment
 }
 
 /**
@@ -315,6 +360,7 @@ export function getContractAddressesByNetwork(
 
 export const rawDeployments = {
   uniswapV4_1337: uniswapV4_1337_raw,
+  uniswapV4_420690: uniswapV4_420690_raw,
   uniswapV4_420691: uniswapV4_420691_raw,
   bazaarMarketplace1337: bazaarMarketplace1337_raw,
   erc20Factory1337: erc20Factory1337_raw,

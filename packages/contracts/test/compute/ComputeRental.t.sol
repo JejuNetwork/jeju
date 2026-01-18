@@ -14,8 +14,8 @@ contract ComputeRentalTest is Test {
     address public provider;
     address public user;
     address public arbitrator;
-    address public council;
-    address public ceo;
+    address public board;
+    address public director;
 
     function setUp() public {
         owner = address(this);
@@ -23,11 +23,11 @@ contract ComputeRentalTest is Test {
         provider = makeAddr("provider");
         user = makeAddr("user");
         arbitrator = makeAddr("arbitrator");
-        council = makeAddr("council");
-        ceo = makeAddr("ceo");
+        board = makeAddr("board");
+        director = makeAddr("ceo");
 
         // Deploy FeeConfig
-        feeConfig = new FeeConfig(council, ceo, treasury, owner);
+        feeConfig = new FeeConfig(board, director, treasury, owner);
 
         rental = new ComputeRental(owner, treasury);
         rental.setFeeConfig(address(feeConfig));
@@ -551,7 +551,7 @@ contract ComputeRentalTest is Test {
     }
 
     function test_SetFeeConfig() public {
-        FeeConfig newConfig = new FeeConfig(council, ceo, treasury, owner);
+        FeeConfig newConfig = new FeeConfig(board, director, treasury, owner);
         rental.setFeeConfig(address(newConfig));
         assertEq(address(rental.feeConfig()), address(newConfig));
     }

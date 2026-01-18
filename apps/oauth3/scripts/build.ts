@@ -9,6 +9,7 @@
 
 import { copyFile, mkdir, rm } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import { reportBundleSizes } from '@jejunetwork/shared'
 
 const APP_DIR = resolve(import.meta.dir, '..')
 
@@ -29,6 +30,7 @@ async function build() {
     target: 'bun',
     minify: true,
     sourcemap: 'external',
+    drop: ['debugger'],
   })
 
   if (!apiResult.success) {
@@ -38,6 +40,7 @@ async function build() {
     }
     process.exit(1)
   }
+  reportBundleSizes(apiResult, 'OAuth3 API')
   console.log('[OAuth3] API built successfully')
 
   // Build worker entrypoint (for DWS deployment)
@@ -48,6 +51,7 @@ async function build() {
     target: 'bun',
     minify: true,
     sourcemap: 'external',
+    drop: ['debugger'],
   })
 
   if (!workerResult.success) {
@@ -69,6 +73,9 @@ async function build() {
     target: 'browser',
     minify: true,
     sourcemap: 'external',
+    splitting: false,
+    packages: 'bundle',
+    drop: ['debugger'],
   })
 
   if (!frontendResult.success) {
@@ -78,6 +85,7 @@ async function build() {
     }
     process.exit(1)
   }
+  reportBundleSizes(frontendResult, 'OAuth3 Frontend')
   console.log('[OAuth3] Frontend built successfully')
 
   // Copy static files
@@ -97,6 +105,7 @@ async function build() {
   console.log('  dist/api/index.js    - API server')
   console.log('  dist/api/worker.js   - DWS worker (if successful)')
   console.log('  dist/web/            - Frontend assets')
+  process.exit(0)
 }
 
 build().catch((err) => {

@@ -13,15 +13,15 @@ contract OptimismPortalAdapter {
 
     GovernanceTimelock public immutable governanceTimelock;
     address public optimismPortal;
-    address public securityCouncil;
+    address public securityBoard;
     bool public isPaused;
 
     event PortalUpdated(address indexed oldPortal, address indexed newPortal);
     event PauseToggled(bool isPaused);
-    event SecurityCouncilUpdated(address indexed oldCouncil, address indexed newCouncil);
+    event SecurityBoardUpdated(address indexed oldBoard, address indexed newBoard);
 
     error NotGovernanceTimelock();
-    error NotSecurityCouncil();
+    error NotSecurityBoard();
     error PortalNotSet();
     error InvalidAddress();
     error CallFailed();
@@ -31,8 +31,8 @@ contract OptimismPortalAdapter {
         _;
     }
 
-    modifier onlySecurityCouncil() {
-        if (msg.sender != securityCouncil) revert NotSecurityCouncil();
+    modifier onlySecurityBoard() {
+        if (msg.sender != securityBoard) revert NotSecurityBoard();
         _;
     }
 
@@ -41,9 +41,9 @@ contract OptimismPortalAdapter {
         _;
     }
 
-    constructor(address _governanceTimelock, address _securityCouncil) {
+    constructor(address _governanceTimelock, address _securityBoard) {
         governanceTimelock = GovernanceTimelock(_governanceTimelock);
-        securityCouncil = _securityCouncil;
+        securityBoard = _securityBoard;
     }
 
     function setPortal(address _portal) external onlyGovernanceTimelock {
@@ -57,13 +57,13 @@ contract OptimismPortalAdapter {
         if (!success) revert CallFailed();
     }
 
-    function setSecurityCouncil(address _newCouncil) external onlyGovernanceTimelock {
-        if (_newCouncil == address(0)) revert InvalidAddress();
-        emit SecurityCouncilUpdated(securityCouncil, _newCouncil);
-        securityCouncil = _newCouncil;
+    function setSecurityBoard(address _newBoard) external onlyGovernanceTimelock {
+        if (_newBoard == address(0)) revert InvalidAddress();
+        emit SecurityBoardUpdated(securityBoard, _newBoard);
+        securityBoard = _newBoard;
     }
 
-    function pause() external onlySecurityCouncil whenPortalSet {
+    function pause() external onlySecurityBoard whenPortalSet {
         isPaused = true;
         (bool success,) = optimismPortal.call(abi.encodeWithSelector(PAUSE));
         if (!success) revert CallFailed();

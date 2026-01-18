@@ -44,7 +44,7 @@ export const leaderboardRoutes = new Elysia({ prefix: '/api/leaderboard' })
       )
       const limit = Number.parseInt(validated.limit || '50', 10)
 
-      const rows = dbGetLeaderboard(limit)
+      const rows = await dbGetLeaderboard(limit)
       const entries = rows.map((row, index) =>
         transformLeaderboardEntry(row, index + 1),
       )
@@ -56,7 +56,7 @@ export const leaderboardRoutes = new Elysia({ prefix: '/api/leaderboard' })
   .get(
     '/user/:address',
     async ({ params }) => {
-      const row = getLeaderboardEntry(params.address)
+      const row = await getLeaderboardEntry(params.address)
 
       if (!row) {
         // Return default entry for non-ranked users
@@ -73,7 +73,7 @@ export const leaderboardRoutes = new Elysia({ prefix: '/api/leaderboard' })
       }
 
       // Calculate rank by counting users with higher scores
-      const allRows = dbGetLeaderboard(1000)
+      const allRows = await dbGetLeaderboard(1000)
       const rank = allRows.findIndex((r) => r.address === params.address) + 1
 
       return transformLeaderboardEntry(row, rank || 0)

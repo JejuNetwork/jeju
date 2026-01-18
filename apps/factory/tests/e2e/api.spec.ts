@@ -3,12 +3,95 @@
  * Tests REST, MCP, and A2A protocol endpoints
  */
 
-import { expect, test } from '@playwright/test'
+import { getTestConfig } from '@jejunetwork/config/test-config'
+import { expect, test, type APIRequestContext } from '@playwright/test'
+
+const config = getTestConfig('factory')
+
+function normalizeBaseURL(baseURL: string): string {
+  if (baseURL.endsWith('/')) {
+    return baseURL
+  }
+  return `${baseURL}/`
+}
+
+const apiBaseURL = normalizeBaseURL(
+  process.env.FACTORY_API_URL || config.apiURL,
+)
+let apiRequest: APIRequestContext
+
+function normalizeApiPath(path: string): string {
+  if (path.startsWith('/')) {
+    return path.slice(1)
+  }
+  return path
+}
+
+test.beforeAll(async ({ playwright }) => {
+  apiRequest = await playwright.request.newContext({ baseURL: apiBaseURL })
+  console.log(`[Factory API] baseURL=${apiBaseURL}`)
+  await warmApi()
+})
+
+test.afterAll(async () => {
+  await apiRequest.dispose()
+})
+
+async function apiGet(path: string): Promise<Response> {
+  const normalizedPath = normalizeApiPath(path)
+  let lastResponse: Response | null = null
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const response = await apiRequest.get(normalizedPath)
+    if (response.ok() || response.status() < 500) {
+      return response
+    }
+    lastResponse = response
+    await new Promise((resolve) => setTimeout(resolve, 1500 * (attempt + 1)))
+  }
+  return lastResponse ?? apiRequest.get(normalizedPath)
+}
+
+async function apiPost(
+  path: string,
+  options?: Parameters<APIRequestContext['post']>[1],
+): Promise<Response> {
+  const normalizedPath = normalizeApiPath(path)
+  let lastResponse: Response | null = null
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const response = await apiRequest.post(normalizedPath, options)
+    if (response.ok() || response.status() < 500) {
+      return response
+    }
+    lastResponse = response
+    await new Promise((resolve) => setTimeout(resolve, 1500 * (attempt + 1)))
+  }
+  return lastResponse ?? apiRequest.post(normalizedPath, options)
+}
+
+async function warmApi(): Promise<void> {
+  let lastResponse: Response | null = null
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const response = await apiRequest.get(normalizeApiPath('/api/health'))
+    if (response.ok()) {
+      return
+    }
+    lastResponse = response
+    await new Promise((resolve) => setTimeout(resolve, 2000 * (attempt + 1)))
+  }
+  if (!lastResponse) {
+    throw new Error('Factory API warmup failed: no response')
+  }
+  const body = await lastResponse.text()
+  throw new Error(
+    `Factory API warmup failed: ${lastResponse.status()} ${body}`,
+  )
+}
 
 test.describe('REST API', () => {
   test.describe('Health', () => {
     test('returns health status', async ({ request }) => {
-      const response = await request.get('/api/health')
+      const response = await apiGet('/api/health')
+      expect(response.ok()).toBeTruthy()
       const data = await response.json()
       expect(data.status).toBeDefined()
       expect(['healthy', 'degraded', 'unhealthy']).toContain(data.status)
@@ -17,7 +100,7 @@ test.describe('REST API', () => {
 
   test.describe('Bounties', () => {
     test('lists bounties', async ({ request }) => {
-      const response = await request.get('/api/bounties')
+      const response = await apiGet('/api/bounties')
       expect(response.ok()).toBeTruthy()
       const data = await response.json()
       expect(data.bounties).toBeDefined()
@@ -25,14 +108,14 @@ test.describe('REST API', () => {
     })
 
     test('filters bounties by status', async ({ request }) => {
-      const response = await request.get('/api/bounties?status=open')
+      const response = await apiGet('/api/bounties?status=open')
       expect(response.ok()).toBeTruthy()
     })
   })
 
   test.describe('Jobs', () => {
     test('lists jobs', async ({ request }) => {
-      const response = await request.get('/api/jobs')
+      const response = await apiGet('/api/jobs')
       expect(response.ok()).toBeTruthy()
       const data = await response.json()
       expect(data.jobs).toBeDefined()
@@ -41,21 +124,21 @@ test.describe('REST API', () => {
 
   test.describe('Git', () => {
     test('lists repositories', async ({ request }) => {
-      const response = await request.get('/api/git')
+      const response = await apiGet('/api/git')
       expect(response.ok()).toBeTruthy()
     })
   })
 
   test.describe('Packages', () => {
     test('lists packages', async ({ request }) => {
-      const response = await request.get('/api/packages')
+      const response = await apiGet('/api/packages')
       expect(response.ok()).toBeTruthy()
     })
   })
 
   test.describe('Models', () => {
     test('lists models', async ({ request }) => {
-      const response = await request.get('/api/models')
+      const response = await apiGet('/api/models')
       expect(response.ok()).toBeTruthy()
       const data = await response.json()
       expect(data.models).toBeDefined()
@@ -64,7 +147,7 @@ test.describe('REST API', () => {
 
   test.describe('Containers', () => {
     test('lists containers', async ({ request }) => {
-      const response = await request.get('/api/containers')
+      const response = await apiGet('/api/containers')
       expect(response.ok()).toBeTruthy()
       const data = await response.json()
       expect(data.containers).toBeDefined()
@@ -73,7 +156,7 @@ test.describe('REST API', () => {
 
   test.describe('Projects', () => {
     test('lists projects', async ({ request }) => {
-      const response = await request.get('/api/projects')
+      const response = await apiGet('/api/projects')
       expect(response.ok()).toBeTruthy()
       const data = await response.json()
       expect(data.projects).toBeDefined()
@@ -82,7 +165,7 @@ test.describe('REST API', () => {
 
   test.describe('Issues', () => {
     test('lists issues', async ({ request }) => {
-      const response = await request.get('/api/issues')
+      const response = await apiGet('/api/issues')
       expect(response.ok()).toBeTruthy()
       const data = await response.json()
       expect(data.issues).toBeDefined()
@@ -91,7 +174,7 @@ test.describe('REST API', () => {
 
   test.describe('Pull Requests', () => {
     test('lists pull requests', async ({ request }) => {
-      const response = await request.get('/api/pulls')
+      const response = await apiGet('/api/pulls')
       expect(response.ok()).toBeTruthy()
       const data = await response.json()
       expect(data.pulls).toBeDefined()
@@ -100,7 +183,7 @@ test.describe('REST API', () => {
 
   test.describe('Datasets', () => {
     test('lists datasets', async ({ request }) => {
-      const response = await request.get('/api/datasets')
+      const response = await apiGet('/api/datasets')
       expect(response.ok()).toBeTruthy()
       const data = await response.json()
       expect(data.datasets).toBeDefined()
@@ -109,7 +192,7 @@ test.describe('REST API', () => {
 
   test.describe('CI/CD', () => {
     test('lists CI runs', async ({ request }) => {
-      const response = await request.get('/api/ci')
+      const response = await apiGet('/api/ci')
       expect(response.ok()).toBeTruthy()
       const data = await response.json()
       expect(data.runs).toBeDefined()
@@ -119,7 +202,7 @@ test.describe('REST API', () => {
 
 test.describe('MCP API', () => {
   test('returns MCP server info', async ({ request }) => {
-    const response = await request.get('/api/mcp/info')
+    const response = await apiGet('/api/mcp/info')
     expect(response.ok()).toBeTruthy()
     const data = await response.json()
     expect(data.server).toBe('jeju-factory')
@@ -128,7 +211,7 @@ test.describe('MCP API', () => {
   })
 
   test('initializes MCP session', async ({ request }) => {
-    const response = await request.post('/api/mcp/initialize')
+    const response = await apiPost('/api/mcp/initialize')
     expect(response.ok()).toBeTruthy()
     const data = await response.json()
     expect(data.protocolVersion).toBeDefined()
@@ -137,7 +220,7 @@ test.describe('MCP API', () => {
   })
 
   test('lists MCP resources', async ({ request }) => {
-    const response = await request.post('/api/mcp/resources/list')
+    const response = await apiPost('/api/mcp/resources/list')
     expect(response.ok()).toBeTruthy()
     const data = await response.json()
     expect(data.resources).toBeDefined()
@@ -146,7 +229,7 @@ test.describe('MCP API', () => {
   })
 
   test('reads MCP resource', async ({ request }) => {
-    const response = await request.post('/api/mcp/resources/read', {
+    const response = await apiPost('/api/mcp/resources/read', {
       data: { uri: 'factory://bounties' },
     })
     expect(response.ok()).toBeTruthy()
@@ -155,7 +238,7 @@ test.describe('MCP API', () => {
   })
 
   test('lists MCP tools', async ({ request }) => {
-    const response = await request.post('/api/mcp/tools/list')
+    const response = await apiPost('/api/mcp/tools/list')
     expect(response.ok()).toBeTruthy()
     const data = await response.json()
     expect(data.tools).toBeDefined()
@@ -164,7 +247,7 @@ test.describe('MCP API', () => {
   })
 
   test('calls MCP tool', async ({ request }) => {
-    const response = await request.post('/api/mcp/tools/call', {
+    const response = await apiPost('/api/mcp/tools/call', {
       data: {
         name: 'list_bounties',
         arguments: { status: 'open' },
@@ -176,7 +259,7 @@ test.describe('MCP API', () => {
   })
 
   test('lists MCP prompts', async ({ request }) => {
-    const response = await request.post('/api/mcp/prompts/list')
+    const response = await apiPost('/api/mcp/prompts/list')
     expect(response.ok()).toBeTruthy()
     const data = await response.json()
     expect(data.prompts).toBeDefined()
@@ -185,7 +268,7 @@ test.describe('MCP API', () => {
 
 test.describe('A2A API', () => {
   test('returns agent card', async ({ request }) => {
-    const response = await request.get('/api/a2a')
+    const response = await apiGet('/api/a2a')
     expect(response.ok()).toBeTruthy()
     const data = await response.json()
     expect(data.name).toBe('Jeju Factory')
@@ -194,7 +277,7 @@ test.describe('A2A API', () => {
   })
 
   test('serves agent card from public', async ({ request }) => {
-    const response = await request.get('/agent-card.json')
+    const response = await apiGet('/agent-card.json')
     expect(response.ok()).toBeTruthy()
     const data = await response.json()
     expect(data.protocolVersion).toBe('0.3.0')
@@ -202,7 +285,7 @@ test.describe('A2A API', () => {
   })
 
   test('handles A2A message/send', async ({ request }) => {
-    const response = await request.post('/api/a2a', {
+    const response = await apiPost('/api/a2a', {
       data: {
         jsonrpc: '2.0',
         method: 'message/send',
@@ -223,7 +306,7 @@ test.describe('A2A API', () => {
   })
 
   test('executes list-bounties skill', async ({ request }) => {
-    const response = await request.post('/api/a2a', {
+    const response = await apiPost('/api/a2a', {
       data: {
         jsonrpc: '2.0',
         method: 'message/send',
@@ -239,14 +322,19 @@ test.describe('A2A API', () => {
     expect(response.ok()).toBeTruthy()
     const data = await response.json()
     expect(data.result.parts).toBeDefined()
-    const dataPart = data.result.parts.find(
-      (p: { kind: string }) => p.kind === 'data',
+    const parts = Array.isArray(data.result.parts) ? data.result.parts : []
+    const dataPart = parts.find(
+      (part): part is { kind: string; data?: { bounties?: unknown } } =>
+        typeof part === 'object' &&
+        part !== null &&
+        'kind' in part &&
+        (part as { kind: string }).kind === 'data',
     )
     expect(dataPart?.data?.bounties).toBeDefined()
   })
 
   test('executes search-packages skill', async ({ request }) => {
-    const response = await request.post('/api/a2a', {
+    const response = await apiPost('/api/a2a', {
       data: {
         jsonrpc: '2.0',
         method: 'message/send',
@@ -270,7 +358,7 @@ test.describe('A2A API', () => {
   })
 
   test('handles unknown method', async ({ request }) => {
-    const response = await request.post('/api/a2a', {
+    const response = await apiPost('/api/a2a', {
       data: {
         jsonrpc: '2.0',
         method: 'unknown/method',

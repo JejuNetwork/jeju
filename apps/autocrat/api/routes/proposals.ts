@@ -92,9 +92,20 @@ async function callA2AInternal(
 export const proposalsRoutes = new Elysia({ prefix: '/api/v1/proposals' })
   .get(
     '/',
-    async ({ query }) => {
-      const activeOnly = query.active === 'true'
-      return callA2AInternal('list-proposals', { activeOnly })
+    async ({ query, set }) => {
+      try {
+        const activeOnly = query.active === 'true'
+        const result = await callA2AInternal('list-proposals', { activeOnly })
+        return result
+      } catch (error) {
+        // Return empty proposals list on error instead of 500
+        console.warn(
+          '[Proposals] Error listing proposals:',
+          error instanceof Error ? error.message : String(error),
+        )
+        set.status = 200
+        return { total: 0, proposals: [], message: 'No proposals found' }
+      }
     },
     {
       query: t.Object({
@@ -105,8 +116,20 @@ export const proposalsRoutes = new Elysia({ prefix: '/api/v1/proposals' })
   )
   .get(
     '/:id',
-    async ({ params }) => {
-      return callA2AInternal('get-proposal', { proposalId: params.id })
+    async ({ params, set }) => {
+      try {
+        const result = await callA2AInternal('get-proposal', {
+          proposalId: params.id,
+        })
+        return result
+      } catch (error) {
+        set.status = 404
+        return {
+          error: 'Proposal not found',
+          proposalId: params.id,
+          details: error instanceof Error ? error.message : String(error),
+        }
+      }
     },
     {
       params: t.Object({ id: t.String() }),

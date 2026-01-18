@@ -92,8 +92,18 @@ export class DockerOrchestrator {
 
     await this.checkDocker()
 
+    // If the required services are already running (e.g. from `jeju dev`),
+    // reuse them instead of trying to recreate fixed-name containers.
+    const current = await this.status()
+    const unhealthy = current.filter((s) => !s.healthy)
+    if (unhealthy.length === 0) {
+      logger.success('Services already running')
+      return
+    }
+
     logger.step(`Starting services (profile: ${this.config.profile})...`)
 
+    const servicesToStart = unhealthy.map((s) => s.name)
     const args = [
       'compose',
       '-f',
@@ -114,6 +124,10 @@ export class DockerOrchestrator {
       '--wait-timeout',
       String(Math.floor((this.config.timeout || 120000) / 1000)),
     )
+
+    // Start only missing/unhealthy services to avoid conflicts with fixed container names
+    // from other running stacks (e.g. `jeju dev` already running IPFS).
+    args.push(...servicesToStart)
 
     try {
       await execa('docker', args, {

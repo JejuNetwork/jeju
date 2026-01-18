@@ -1,352 +1,677 @@
 #!/usr/bin/env bun
+
 /**
- * Sync Localnet Deployment to Config
+ * Sync Localnet Config
  *
- * Reads localnet-complete.json and updates contracts.json with the addresses.
- * Run after bootstrap: bun run scripts/sync-localnet-config.ts
+ * Syncs deployed contract addresses from localnet-complete.json to contracts.json
+ * This ensures the SDK and apps use the same contract addresses as the bootstrap.
+ *
+ * Usage:
+ *   bun run scripts/sync-localnet-config.ts
  */
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { isValidAddress } from '@jejunetwork/types'
 
-const ROOT = process.cwd()
+const ROOT_DIR = join(import.meta.dir, '../../..')
 const DEPLOYMENT_FILE = join(
-  ROOT,
+  ROOT_DIR,
   'packages/contracts/deployments/localnet-complete.json',
 )
-const CONFIG_FILE = join(ROOT, 'packages/config/contracts.json')
+const CONFIG_FILE = join(ROOT_DIR, 'packages/config/contracts.json')
 
-interface BootstrapResult {
-  contracts: {
-    // Tokens
-    jeju?: string
-    usdc?: string
-    weth?: string
-    // Services
-    creditManager?: string
-    universalPaymaster?: string
-    serviceRegistry?: string
-    priceOracle?: string
-    // Paymaster System
-    tokenRegistry?: string
-    paymasterFactory?: string
-    entryPoint?: string
-    // Registry System
-    identityRegistry?: string
-    reputationRegistry?: string
-    validationRegistry?: string
-    // Node Staking
-    nodeStakingManager?: string
-    nodePerformanceOracle?: string
-    // DeFi / Uniswap V4
-    poolManager?: string
-    swapRouter?: string
-    positionManager?: string
-    quoterV4?: string
-    stateView?: string
-    // Governance
-    futarchyGovernor?: string
-    // Storage
-    fileStorageManager?: string
-    storageManager?: string
-    // Moderation
-    banManager?: string
-    reputationLabelManager?: string
-    // Compute
-    computeRegistry?: string
-    ledgerManager?: string
-    inferenceServing?: string
-    computeStaking?: string
-    workerRegistry?: string
-    // Liquidity
-    riskSleeve?: string
-    liquidityRouter?: string
-    multiServiceStakeManager?: string
-    liquidityVault?: string
-    // Bazaar
-    nftMarketplace?: string
-    simpleCollectible?: string
-    // JNS
-    jnsRegistry?: string
-    jnsResolver?: string
-    // CDN
-    cdnRegistry?: string
-    // Security
-    securityBountyRegistry?: string
-    // OAuth3
-    oauth3TeeVerifier?: string
-    oauth3IdentityRegistry?: string
-    oauth3AppRegistry?: string
-  }
+interface DeploymentContracts {
+  // Tokens
+  jeju?: string
+  usdc?: string
+  weth?: string
+  // Core Infrastructure
+  creditManager?: string
+  universalPaymaster?: string
+  serviceRegistry?: string
+  priceOracle?: string
+  // Paymaster System
+  tokenRegistry?: string
+  paymasterFactory?: string
+  entryPoint?: string
+  // Registry System
+  identityRegistry?: string
+  reputationRegistry?: string
+  validationRegistry?: string
+  // ZK Bridge
+  zkVerifier?: string
+  zkBridge?: string
+  solanaLightClient?: string
+  // Node Staking
+  nodeStakingManager?: string
+  nodePerformanceOracle?: string
+  // Uniswap V4
+  poolManager?: string
+  swapRouter?: string
+  positionManager?: string
+  quoterV4?: string
+  stateView?: string
+  // Governance
+  futarchyGovernor?: string
+  // Storage
+  fileStorageManager?: string
+  // Moderation
+  banManager?: string
+  reputationLabelManager?: string
+  evidenceRegistry?: string
+  moderationMarketplace?: string
+  reportingSystem?: string
+  // Compute Marketplace
+  computeRegistry?: string
+  ledgerManager?: string
+  inferenceServing?: string
+  computeStaking?: string
+  // Liquidity System
+  riskSleeve?: string
+  liquidityRouter?: string
+  multiServiceStakeManager?: string
+  liquidityVault?: string
+  // Security
+  securityBountyRegistry?: string
+  // DWS
+  jnsRegistry?: string
+  jnsResolver?: string
+  storageManager?: string
+  workerRegistry?: string
+  cdnRegistry?: string
+  // OAuth3
+  oauth3TeeVerifier?: string
+  oauth3IdentityRegistry?: string
+  oauth3AppRegistry?: string
+  oauth3Staking?: string
+  // Bazaar
+  nftMarketplace?: string
+  simpleCollectible?: string
+  // EIL
+  l1StakeManager?: string
+  crossChainPaymaster?: string
+  l1L2Messenger?: string
+  // VPN
+  vpnRegistry?: string
+  // Agents
+  agentVault?: string
+  roomRegistry?: string
+  // OTC
+  otc?: string
+  // Staking (additional)
+  rpcProviderRegistry?: string
+  staking?: string
+  // Perps
+  perpetualMarket?: string
+  insuranceFund?: string
+  marginManager?: string
+  // Training
+  trainingCoordinator?: string
+  trainingRewards?: string
+  // Distributor
+  airdropManager?: string
+  tokenVesting?: string
+  feeDistributor?: string
+  stakingRewardDistributor?: string
+  // Sequencer
+  sequencerRegistry?: string
+  forcedInclusion?: string
+  slashingContract?: string
+  // AMM
+  xlpRouter?: string
+  xlpV2Factory?: string
+  // Oracle (additional)
+  oracleRegistry?: string
+  // Messaging
+  messageNodeRegistry?: string
+  messagingKeyRegistry?: string
+  // Hyperlane Bridge
+  hyperlaneMailbox?: string
+  hyperlaneISM?: string
 }
 
-function main() {
+interface DeploymentResult {
+  network: string
+  rpcUrl: string
+  contracts: DeploymentContracts
+}
+
+interface ContractsConfig {
+  localnet: {
+    chainId: number
+    tokens: {
+      jeju?: string
+      usdc?: string
+      weth?: string
+    }
+    registry: {
+      identity?: string
+      reputation?: string
+      validation?: string
+      token?: string
+      app?: string
+      node?: string
+    }
+    rpc: {
+      staking?: string
+    }
+    moderation: {
+      banManager?: string
+      reportingSystem?: string
+      reputationLabelManager?: string
+      moderationMarketplace?: string
+      evidenceRegistry?: string
+    }
+    bazaar: {
+      marketplace?: string
+      simpleCollectible?: string
+      predictionMarket?: string
+      tokenFactory?: string
+    }
+    oauth3: {
+      teeVerifier?: string
+      identityRegistry?: string
+      appRegistry?: string
+      staking?: string
+    }
+    dws: {
+      storageManager?: string
+      workerRegistry?: string
+      cdnRegistry?: string
+    }
+    payments: {
+      creditManager?: string
+      universalPaymaster?: string
+      paymasterFactory?: string
+    }
+    defi: {
+      poolManager?: string
+      positionManager?: string
+      swapRouter?: string
+      quoterV4?: string
+      stateView?: string
+    }
+    compute: {
+      registry?: string
+      ledgerManager?: string
+      inferenceServing?: string
+      staking?: string
+    }
+    nodeStaking: {
+      manager?: string
+      performanceOracle?: string
+    }
+    jns: {
+      registry?: string
+      resolver?: string
+    }
+    governance: {
+      governor?: string
+      timelock?: string
+      futarchyGovernor?: string
+    }
+    liquidity: {
+      riskSleeve?: string
+      liquidityRouter?: string
+      multiServiceStakeManager?: string
+      liquidityVault?: string
+    }
+    security: {
+      bountyRegistry?: string
+    }
+    eil: {
+      l1StakeManager?: string
+      crossChainPaymaster?: string
+    }
+    federation: {
+      registryHub?: string
+      networkRegistry?: string
+    }
+    vpn: {
+      registry?: string
+    }
+    agents: {
+      vault?: string
+      roomRegistry?: string
+    }
+    otc: {
+      contract?: string
+    }
+    staking: {
+      contract?: string
+      rpcProviderRegistry?: string
+    }
+    perps: {
+      market?: string
+      insuranceFund?: string
+      marginManager?: string
+    }
+    training: {
+      coordinator?: string
+      rewards?: string
+    }
+    distributor: {
+      airdropManager?: string
+      tokenVesting?: string
+      feeDistributor?: string
+      stakingRewardDistributor?: string
+    }
+    sequencer: {
+      registry?: string
+      forcedInclusion?: string
+      slashing?: string
+    }
+    amm: {
+      router?: string
+      factory?: string
+    }
+    oracle: {
+      registry?: string
+    }
+    messaging: {
+      nodeRegistry?: string
+      keyRegistry?: string
+    }
+    bridge: {
+      hyperlaneMailbox?: string
+      hyperlaneISM?: string
+      optimismPortal?: string
+      l1StandardBridge?: string
+      nftBridge?: string
+    }
+    [key: string]: unknown
+  }
+  [key: string]: unknown
+}
+
+function isValidAddress(addr: string | undefined): boolean {
+  return (
+    !!addr &&
+    addr !== '0x0000000000000000000000000000000000000000' &&
+    addr.startsWith('0x')
+  )
+}
+
+function syncConfig(): void {
+  console.log('🔄 Syncing localnet config...')
+  console.log('')
+
   if (!existsSync(DEPLOYMENT_FILE)) {
-    console.error('No deployment file found. Run bootstrap first: jeju dev')
+    console.error('❌ Deployment file not found:', DEPLOYMENT_FILE)
+    console.error(
+      '   Run bootstrap first: bun run scripts/bootstrap-localnet-complete.ts',
+    )
     process.exit(1)
   }
 
-  const deployment: BootstrapResult = JSON.parse(
+  if (!existsSync(CONFIG_FILE)) {
+    console.error('❌ Config file not found:', CONFIG_FILE)
+    process.exit(1)
+  }
+
+  const deployment: DeploymentResult = JSON.parse(
     readFileSync(DEPLOYMENT_FILE, 'utf-8'),
   )
-  const config = JSON.parse(readFileSync(CONFIG_FILE, 'utf-8'))
+  const config: ContractsConfig = JSON.parse(readFileSync(CONFIG_FILE, 'utf-8'))
+  const contracts = deployment.contracts
 
-  console.log('Syncing localnet addresses to contracts.json...')
+  console.log('📦 Syncing contract addresses...')
+  let synced = 0
 
-  // Update tokens
-  if (isValidAddress(deployment.contracts.jeju)) {
-    config.localnet.tokens.jeju = deployment.contracts.jeju
-    console.log(`  tokens.jeju: ${deployment.contracts.jeju}`)
+  // Tokens
+  if (isValidAddress(contracts.jeju)) {
+    config.localnet.tokens.jeju = contracts.jeju
+    synced++
   }
-  if (isValidAddress(deployment.contracts.usdc)) {
-    config.localnet.tokens.usdc = deployment.contracts.usdc
-    console.log(`  tokens.usdc: ${deployment.contracts.usdc}`)
+  if (isValidAddress(contracts.usdc)) {
+    config.localnet.tokens.usdc = contracts.usdc
+    synced++
   }
-
-  // Update registry
-  if (isValidAddress(deployment.contracts.identityRegistry)) {
-    config.localnet.registry.identity = deployment.contracts.identityRegistry
-    console.log(`  registry.identity: ${deployment.contracts.identityRegistry}`)
-  }
-  if (isValidAddress(deployment.contracts.reputationRegistry)) {
-    config.localnet.registry.reputation =
-      deployment.contracts.reputationRegistry
-    console.log(
-      `  registry.reputation: ${deployment.contracts.reputationRegistry}`,
-    )
-  }
-  if (isValidAddress(deployment.contracts.validationRegistry)) {
-    config.localnet.registry.validation =
-      deployment.contracts.validationRegistry
-    console.log(
-      `  registry.validation: ${deployment.contracts.validationRegistry}`,
-    )
+  if (isValidAddress(contracts.weth)) {
+    config.localnet.tokens.weth = contracts.weth
+    synced++
   }
 
-  // Update moderation
-  if (isValidAddress(deployment.contracts.banManager)) {
-    config.localnet.moderation.banManager = deployment.contracts.banManager
-    console.log(`  moderation.banManager: ${deployment.contracts.banManager}`)
+  // Registry
+  if (isValidAddress(contracts.identityRegistry)) {
+    config.localnet.registry.identity = contracts.identityRegistry
+    synced++
   }
-  if (isValidAddress(deployment.contracts.reputationLabelManager)) {
+  if (isValidAddress(contracts.reputationRegistry)) {
+    config.localnet.registry.reputation = contracts.reputationRegistry
+    synced++
+  }
+  if (isValidAddress(contracts.validationRegistry)) {
+    config.localnet.registry.validation = contracts.validationRegistry
+    synced++
+  }
+
+  // Moderation
+  if (isValidAddress(contracts.banManager)) {
+    config.localnet.moderation.banManager = contracts.banManager
+    synced++
+  }
+  if (isValidAddress(contracts.reputationLabelManager)) {
     config.localnet.moderation.reputationLabelManager =
-      deployment.contracts.reputationLabelManager
-    console.log(
-      `  moderation.reputationLabelManager: ${deployment.contracts.reputationLabelManager}`,
-    )
+      contracts.reputationLabelManager
+    synced++
+  }
+  if (isValidAddress(contracts.evidenceRegistry)) {
+    config.localnet.moderation.evidenceRegistry = contracts.evidenceRegistry
+    synced++
+  }
+  if (isValidAddress(contracts.moderationMarketplace)) {
+    config.localnet.moderation.moderationMarketplace =
+      contracts.moderationMarketplace
+    synced++
+  }
+  if (isValidAddress(contracts.reportingSystem)) {
+    config.localnet.moderation.reportingSystem = contracts.reportingSystem
+    synced++
   }
 
-  // Update nodeStaking
-  if (isValidAddress(deployment.contracts.nodeStakingManager)) {
-    config.localnet.nodeStaking.manager =
-      deployment.contracts.nodeStakingManager
-    console.log(
-      `  nodeStaking.manager: ${deployment.contracts.nodeStakingManager}`,
-    )
+  // OAuth3
+  if (isValidAddress(contracts.oauth3TeeVerifier)) {
+    config.localnet.oauth3.teeVerifier = contracts.oauth3TeeVerifier
+    synced++
   }
-  if (isValidAddress(deployment.contracts.nodePerformanceOracle)) {
+  if (isValidAddress(contracts.oauth3IdentityRegistry)) {
+    config.localnet.oauth3.identityRegistry = contracts.oauth3IdentityRegistry
+    synced++
+  }
+  if (isValidAddress(contracts.oauth3AppRegistry)) {
+    config.localnet.oauth3.appRegistry = contracts.oauth3AppRegistry
+    synced++
+  }
+  if (isValidAddress(contracts.oauth3Staking)) {
+    config.localnet.oauth3.staking = contracts.oauth3Staking
+    synced++
+  }
+
+  // Bazaar
+  if (isValidAddress(contracts.nftMarketplace)) {
+    config.localnet.bazaar.marketplace = contracts.nftMarketplace
+    synced++
+  }
+  if (isValidAddress(contracts.simpleCollectible)) {
+    config.localnet.bazaar.simpleCollectible = contracts.simpleCollectible
+    synced++
+  }
+
+  // DWS
+  if (isValidAddress(contracts.storageManager)) {
+    config.localnet.dws.storageManager = contracts.storageManager
+    synced++
+  }
+  if (isValidAddress(contracts.workerRegistry)) {
+    config.localnet.dws.workerRegistry = contracts.workerRegistry
+    synced++
+  }
+  if (isValidAddress(contracts.cdnRegistry)) {
+    config.localnet.dws.cdnRegistry = contracts.cdnRegistry
+    synced++
+  }
+
+  // JNS
+  if (isValidAddress(contracts.jnsRegistry)) {
+    config.localnet.jns.registry = contracts.jnsRegistry
+    synced++
+  }
+  if (isValidAddress(contracts.jnsResolver)) {
+    config.localnet.jns.resolver = contracts.jnsResolver
+    synced++
+  }
+
+  // Payments
+  if (isValidAddress(contracts.creditManager)) {
+    config.localnet.payments.creditManager = contracts.creditManager
+    synced++
+  }
+  if (isValidAddress(contracts.universalPaymaster)) {
+    config.localnet.payments.universalPaymaster = contracts.universalPaymaster
+    synced++
+  }
+  if (isValidAddress(contracts.paymasterFactory)) {
+    config.localnet.payments.paymasterFactory = contracts.paymasterFactory
+    synced++
+  }
+
+  // DeFi
+  if (isValidAddress(contracts.poolManager)) {
+    config.localnet.defi.poolManager = contracts.poolManager
+    synced++
+  }
+  if (isValidAddress(contracts.swapRouter)) {
+    config.localnet.defi.swapRouter = contracts.swapRouter
+    synced++
+  }
+  if (isValidAddress(contracts.positionManager)) {
+    config.localnet.defi.positionManager = contracts.positionManager
+    synced++
+  }
+  if (isValidAddress(contracts.quoterV4)) {
+    config.localnet.defi.quoterV4 = contracts.quoterV4
+    synced++
+  }
+  if (isValidAddress(contracts.stateView)) {
+    config.localnet.defi.stateView = contracts.stateView
+    synced++
+  }
+
+  // Compute
+  if (isValidAddress(contracts.computeRegistry)) {
+    config.localnet.compute.registry = contracts.computeRegistry
+    synced++
+  }
+  if (isValidAddress(contracts.ledgerManager)) {
+    config.localnet.compute.ledgerManager = contracts.ledgerManager
+    synced++
+  }
+  if (isValidAddress(contracts.inferenceServing)) {
+    config.localnet.compute.inferenceServing = contracts.inferenceServing
+    synced++
+  }
+  if (isValidAddress(contracts.computeStaking)) {
+    config.localnet.compute.staking = contracts.computeStaking
+    synced++
+  }
+
+  // Node Staking
+  if (isValidAddress(contracts.nodeStakingManager)) {
+    config.localnet.nodeStaking.manager = contracts.nodeStakingManager
+    synced++
+  }
+  if (isValidAddress(contracts.nodePerformanceOracle)) {
     config.localnet.nodeStaking.performanceOracle =
-      deployment.contracts.nodePerformanceOracle
-    console.log(
-      `  nodeStaking.performanceOracle: ${deployment.contracts.nodePerformanceOracle}`,
-    )
+      contracts.nodePerformanceOracle
+    synced++
   }
 
-  // Update payments
-  if (isValidAddress(deployment.contracts.tokenRegistry)) {
-    config.localnet.payments.tokenRegistry = deployment.contracts.tokenRegistry
-    console.log(
-      `  payments.tokenRegistry: ${deployment.contracts.tokenRegistry}`,
-    )
-  }
-  if (isValidAddress(deployment.contracts.paymasterFactory)) {
-    config.localnet.payments.paymasterFactory =
-      deployment.contracts.paymasterFactory
-    console.log(
-      `  payments.paymasterFactory: ${deployment.contracts.paymasterFactory}`,
-    )
-  }
-  if (isValidAddress(deployment.contracts.priceOracle)) {
-    config.localnet.payments.priceOracle = deployment.contracts.priceOracle
-    console.log(`  payments.priceOracle: ${deployment.contracts.priceOracle}`)
-  }
-  if (isValidAddress(deployment.contracts.universalPaymaster)) {
-    config.localnet.payments.multiTokenPaymaster =
-      deployment.contracts.universalPaymaster
-    console.log(
-      `  payments.multiTokenPaymaster: ${deployment.contracts.universalPaymaster}`,
-    )
-  }
-  if (isValidAddress(deployment.contracts.creditManager)) {
-    config.localnet.payments.creditManager = deployment.contracts.creditManager
-    console.log(
-      `  payments.creditManager: ${deployment.contracts.creditManager}`,
-    )
-  }
-  if (isValidAddress(deployment.contracts.serviceRegistry)) {
-    config.localnet.payments.serviceRegistry =
-      deployment.contracts.serviceRegistry
-    console.log(
-      `  payments.serviceRegistry: ${deployment.contracts.serviceRegistry}`,
-    )
+  // Governance
+  if (isValidAddress(contracts.futarchyGovernor)) {
+    config.localnet.governance.futarchyGovernor = contracts.futarchyGovernor
+    synced++
   }
 
-  // Update defi
-  if (isValidAddress(deployment.contracts.poolManager)) {
-    config.localnet.defi.poolManager = deployment.contracts.poolManager
-    console.log(`  defi.poolManager: ${deployment.contracts.poolManager}`)
+  // Liquidity
+  if (isValidAddress(contracts.riskSleeve)) {
+    config.localnet.liquidity.riskSleeve = contracts.riskSleeve
+    synced++
   }
-  if (isValidAddress(deployment.contracts.swapRouter)) {
-    config.localnet.defi.swapRouter = deployment.contracts.swapRouter
-    console.log(`  defi.swapRouter: ${deployment.contracts.swapRouter}`)
+  if (isValidAddress(contracts.liquidityRouter)) {
+    config.localnet.liquidity.liquidityRouter = contracts.liquidityRouter
+    synced++
   }
-  if (isValidAddress(deployment.contracts.positionManager)) {
-    config.localnet.defi.positionManager = deployment.contracts.positionManager
-    console.log(
-      `  defi.positionManager: ${deployment.contracts.positionManager}`,
-    )
-  }
-  if (isValidAddress(deployment.contracts.quoterV4)) {
-    config.localnet.defi.quoterV4 = deployment.contracts.quoterV4
-    console.log(`  defi.quoterV4: ${deployment.contracts.quoterV4}`)
-  }
-  if (isValidAddress(deployment.contracts.stateView)) {
-    config.localnet.defi.stateView = deployment.contracts.stateView
-    console.log(`  defi.stateView: ${deployment.contracts.stateView}`)
-  }
-
-  // Update compute
-  if (isValidAddress(deployment.contracts.computeRegistry)) {
-    config.localnet.compute.registry = deployment.contracts.computeRegistry
-    console.log(`  compute.registry: ${deployment.contracts.computeRegistry}`)
-  }
-  if (isValidAddress(deployment.contracts.ledgerManager)) {
-    config.localnet.compute.ledgerManager = deployment.contracts.ledgerManager
-    console.log(
-      `  compute.ledgerManager: ${deployment.contracts.ledgerManager}`,
-    )
-  }
-  if (isValidAddress(deployment.contracts.inferenceServing)) {
-    config.localnet.compute.inferenceServing =
-      deployment.contracts.inferenceServing
-    console.log(
-      `  compute.inferenceServing: ${deployment.contracts.inferenceServing}`,
-    )
-  }
-  if (isValidAddress(deployment.contracts.computeStaking)) {
-    config.localnet.compute.staking = deployment.contracts.computeStaking
-    console.log(`  compute.staking: ${deployment.contracts.computeStaking}`)
-  }
-
-  // Update liquidity
-  if (isValidAddress(deployment.contracts.riskSleeve)) {
-    config.localnet.liquidity.riskSleeve = deployment.contracts.riskSleeve
-    console.log(`  liquidity.riskSleeve: ${deployment.contracts.riskSleeve}`)
-  }
-  if (isValidAddress(deployment.contracts.liquidityRouter)) {
-    config.localnet.liquidity.liquidityRouter =
-      deployment.contracts.liquidityRouter
-    console.log(
-      `  liquidity.liquidityRouter: ${deployment.contracts.liquidityRouter}`,
-    )
-  }
-  if (isValidAddress(deployment.contracts.multiServiceStakeManager)) {
+  if (isValidAddress(contracts.multiServiceStakeManager)) {
     config.localnet.liquidity.multiServiceStakeManager =
-      deployment.contracts.multiServiceStakeManager
-    console.log(
-      `  liquidity.multiServiceStakeManager: ${deployment.contracts.multiServiceStakeManager}`,
-    )
+      contracts.multiServiceStakeManager
+    synced++
   }
-  if (isValidAddress(deployment.contracts.liquidityVault)) {
-    config.localnet.liquidity.liquidityVault =
-      deployment.contracts.liquidityVault
-    console.log(
-      `  liquidity.liquidityVault: ${deployment.contracts.liquidityVault}`,
-    )
+  if (isValidAddress(contracts.liquidityVault)) {
+    config.localnet.liquidity.liquidityVault = contracts.liquidityVault
+    synced++
   }
 
-  // Update bazaar
-  if (isValidAddress(deployment.contracts.nftMarketplace)) {
-    config.localnet.bazaar.marketplace = deployment.contracts.nftMarketplace
-    console.log(`  bazaar.marketplace: ${deployment.contracts.nftMarketplace}`)
-  }
-  if (isValidAddress(deployment.contracts.simpleCollectible)) {
-    config.localnet.bazaar.simpleCollectible =
-      deployment.contracts.simpleCollectible
-    console.log(
-      `  bazaar.simpleCollectible: ${deployment.contracts.simpleCollectible}`,
-    )
+  // Security
+  if (isValidAddress(contracts.securityBountyRegistry)) {
+    config.localnet.security.bountyRegistry = contracts.securityBountyRegistry
+    synced++
   }
 
-  // Update security
-  if (isValidAddress(deployment.contracts.securityBountyRegistry)) {
-    config.localnet.security.bountyRegistry =
-      deployment.contracts.securityBountyRegistry
-    console.log(
-      `  security.bountyRegistry: ${deployment.contracts.securityBountyRegistry}`,
-    )
+  // EIL
+  if (isValidAddress(contracts.l1StakeManager)) {
+    config.localnet.eil.l1StakeManager = contracts.l1StakeManager
+    synced++
+  }
+  if (isValidAddress(contracts.crossChainPaymaster)) {
+    config.localnet.eil.crossChainPaymaster = contracts.crossChainPaymaster
+    synced++
   }
 
-  // Update JNS
-  if (isValidAddress(deployment.contracts.jnsRegistry)) {
-    config.localnet.jns.registry = deployment.contracts.jnsRegistry
-    console.log(`  jns.registry: ${deployment.contracts.jnsRegistry}`)
-  }
-  if (isValidAddress(deployment.contracts.jnsResolver)) {
-    config.localnet.jns.resolver = deployment.contracts.jnsResolver
-    console.log(`  jns.resolver: ${deployment.contracts.jnsResolver}`)
+  // VPN
+  if (!config.localnet.vpn) config.localnet.vpn = {}
+  if (isValidAddress(contracts.vpnRegistry)) {
+    config.localnet.vpn.registry = contracts.vpnRegistry
+    synced++
   }
 
-  // Update CDN
-  if (!config.localnet.cdn) {
-    config.localnet.cdn = {}
+  // Agents
+  if (!config.localnet.agents) config.localnet.agents = {}
+  if (isValidAddress(contracts.agentVault)) {
+    config.localnet.agents.vault = contracts.agentVault
+    synced++
   }
-  if (isValidAddress(deployment.contracts.cdnRegistry)) {
-    config.localnet.cdn.registry = deployment.contracts.cdnRegistry
-    console.log(`  cdn.registry: ${deployment.contracts.cdnRegistry}`)
-  }
-
-  // Update DWS (Decentralized Web Services)
-  if (!config.localnet.dws) {
-    config.localnet.dws = {}
-  }
-  if (isValidAddress(deployment.contracts.storageManager)) {
-    config.localnet.dws.storageManager = deployment.contracts.storageManager
-    console.log(`  dws.storageManager: ${deployment.contracts.storageManager}`)
-  }
-  if (isValidAddress(deployment.contracts.workerRegistry)) {
-    config.localnet.dws.workerRegistry = deployment.contracts.workerRegistry
-    console.log(`  dws.workerRegistry: ${deployment.contracts.workerRegistry}`)
+  if (isValidAddress(contracts.roomRegistry)) {
+    config.localnet.agents.roomRegistry = contracts.roomRegistry
+    synced++
   }
 
-  // Update OAuth3
-  if (!config.localnet.oauth3) {
-    config.localnet.oauth3 = {}
-  }
-  if (isValidAddress(deployment.contracts.oauth3TeeVerifier)) {
-    config.localnet.oauth3.teeVerifier = deployment.contracts.oauth3TeeVerifier
-    console.log(
-      `  oauth3.teeVerifier: ${deployment.contracts.oauth3TeeVerifier}`,
-    )
-  }
-  if (isValidAddress(deployment.contracts.oauth3IdentityRegistry)) {
-    config.localnet.oauth3.identityRegistry =
-      deployment.contracts.oauth3IdentityRegistry
-    console.log(
-      `  oauth3.identityRegistry: ${deployment.contracts.oauth3IdentityRegistry}`,
-    )
-  }
-  if (isValidAddress(deployment.contracts.oauth3AppRegistry)) {
-    config.localnet.oauth3.appRegistry = deployment.contracts.oauth3AppRegistry
-    console.log(
-      `  oauth3.appRegistry: ${deployment.contracts.oauth3AppRegistry}`,
-    )
+  // OTC
+  if (!config.localnet.otc) config.localnet.otc = {}
+  if (isValidAddress(contracts.otc)) {
+    config.localnet.otc.contract = contracts.otc
+    synced++
   }
 
-  // Save updated config
+  // Staking (additional)
+  if (!config.localnet.staking) config.localnet.staking = {}
+  if (isValidAddress(contracts.staking)) {
+    config.localnet.staking.contract = contracts.staking
+    synced++
+  }
+  if (isValidAddress(contracts.rpcProviderRegistry)) {
+    config.localnet.staking.rpcProviderRegistry = contracts.rpcProviderRegistry
+    synced++
+  }
+
+  // Perps
+  if (!config.localnet.perps) config.localnet.perps = {}
+  if (isValidAddress(contracts.perpetualMarket)) {
+    config.localnet.perps.market = contracts.perpetualMarket
+    synced++
+  }
+  if (isValidAddress(contracts.insuranceFund)) {
+    config.localnet.perps.insuranceFund = contracts.insuranceFund
+    synced++
+  }
+  if (isValidAddress(contracts.marginManager)) {
+    config.localnet.perps.marginManager = contracts.marginManager
+    synced++
+  }
+
+  // Training
+  if (!config.localnet.training) config.localnet.training = {}
+  if (isValidAddress(contracts.trainingCoordinator)) {
+    config.localnet.training.coordinator = contracts.trainingCoordinator
+    synced++
+  }
+  if (isValidAddress(contracts.trainingRewards)) {
+    config.localnet.training.rewards = contracts.trainingRewards
+    synced++
+  }
+
+  // Distributor
+  if (!config.localnet.distributor) config.localnet.distributor = {}
+  if (isValidAddress(contracts.airdropManager)) {
+    config.localnet.distributor.airdropManager = contracts.airdropManager
+    synced++
+  }
+  if (isValidAddress(contracts.tokenVesting)) {
+    config.localnet.distributor.tokenVesting = contracts.tokenVesting
+    synced++
+  }
+  if (isValidAddress(contracts.feeDistributor)) {
+    config.localnet.distributor.feeDistributor = contracts.feeDistributor
+    synced++
+  }
+  if (isValidAddress(contracts.stakingRewardDistributor)) {
+    config.localnet.distributor.stakingRewardDistributor =
+      contracts.stakingRewardDistributor
+    synced++
+  }
+
+  // Sequencer
+  if (!config.localnet.sequencer) config.localnet.sequencer = {}
+  if (isValidAddress(contracts.sequencerRegistry)) {
+    config.localnet.sequencer.registry = contracts.sequencerRegistry
+    synced++
+  }
+  if (isValidAddress(contracts.forcedInclusion)) {
+    config.localnet.sequencer.forcedInclusion = contracts.forcedInclusion
+    synced++
+  }
+  if (isValidAddress(contracts.slashingContract)) {
+    config.localnet.sequencer.slashing = contracts.slashingContract
+    synced++
+  }
+
+  // AMM
+  if (!config.localnet.amm) config.localnet.amm = {}
+  if (isValidAddress(contracts.xlpRouter)) {
+    config.localnet.amm.router = contracts.xlpRouter
+    synced++
+  }
+  if (isValidAddress(contracts.xlpV2Factory)) {
+    config.localnet.amm.factory = contracts.xlpV2Factory
+    synced++
+  }
+
+  // Oracle
+  if (!config.localnet.oracle) config.localnet.oracle = {}
+  if (isValidAddress(contracts.oracleRegistry)) {
+    config.localnet.oracle.registry = contracts.oracleRegistry
+    synced++
+  }
+
+  // Messaging
+  if (!config.localnet.messaging) config.localnet.messaging = {}
+  if (isValidAddress(contracts.messageNodeRegistry)) {
+    config.localnet.messaging.nodeRegistry = contracts.messageNodeRegistry
+    synced++
+  }
+  if (isValidAddress(contracts.messagingKeyRegistry)) {
+    config.localnet.messaging.keyRegistry = contracts.messagingKeyRegistry
+    synced++
+  }
+
+  // Bridge (Hyperlane)
+  if (!config.localnet.bridge) config.localnet.bridge = {}
+  if (isValidAddress(contracts.hyperlaneMailbox)) {
+    config.localnet.bridge.hyperlaneMailbox = contracts.hyperlaneMailbox
+    synced++
+  }
+  if (isValidAddress(contracts.hyperlaneISM)) {
+    config.localnet.bridge.hyperlaneISM = contracts.hyperlaneISM
+    synced++
+  }
+
+  // Write updated config
   writeFileSync(CONFIG_FILE, `${JSON.stringify(config, null, 2)}\n`)
-  console.log('\nConfig updated: packages/config/contracts.json')
+
+  console.log(`✅ Synced ${synced} contract addresses to contracts.json`)
+  console.log('')
+  console.log('📁 Updated:', CONFIG_FILE)
 }
 
-main()
+// Run
+syncConfig()

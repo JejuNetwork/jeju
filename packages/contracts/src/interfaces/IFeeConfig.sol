@@ -130,7 +130,7 @@ interface IFeeConfig {
     event FeeChangeProposed(bytes32 indexed changeId, bytes32 feeType, uint256 effectiveAt, address proposedBy);
     event FeeChangeExecuted(bytes32 indexed changeId);
     event FeeChangeCancelled(bytes32 indexed changeId);
-    event CouncilUpdated(address indexed oldCouncil, address indexed newCouncil);
-    event CEOUpdated(address indexed oldCeo, address indexed newCeo);
+    event BoardUpdated(address indexed oldBoard, address indexed newBoard);
+    event DirectorUpdated(address indexed oldDirector, address indexed newDirector);
     event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
 }

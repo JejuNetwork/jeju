@@ -24,7 +24,7 @@ import { createKMSHttpWalletClient } from './kms-signer'
 const ZERO = zeroAddress
 const ZERO32 = zeroHash
 
-const COUNCIL_ABI = parseAbi([
+const BOARD_ABI = parseAbi([
   'function escalateToFutarchy(bytes32 proposalId) external',
   'function resolveFutarchy(bytes32 proposalId) external',
   'function executeFutarchyApproved(bytes32 proposalId) external',
@@ -60,7 +60,7 @@ export interface FutarchyMarket {
 
 export interface FutarchyConfig {
   rpcUrl: string
-  councilAddress: string
+  boardAddress: string
   predictionMarketAddress: string
   operatorKey?: string
 }
@@ -78,10 +78,10 @@ export class FutarchyClient {
   private account: LocalAccount | null
   private readonly chain: ReturnType<typeof inferChainFromRpcUrl>
   private readonly rpcUrl: string
-  private readonly councilAddress: Address
+  private readonly boardAddress: Address
   private readonly marketAddress: Address
 
-  readonly councilDeployed: boolean
+  readonly boardDeployed: boolean
   readonly predictionMarketDeployed: boolean
 
   /**
@@ -99,10 +99,10 @@ export class FutarchyClient {
       transport: http(config.rpcUrl),
     }) as PublicClient<Transport, Chain>
 
-    this.councilAddress = toAddress(config.councilAddress)
+    this.boardAddress = toAddress(config.boardAddress)
     this.marketAddress = toAddress(config.predictionMarketAddress)
 
-    this.councilDeployed = config.councilAddress !== ZERO
+    this.boardDeployed = config.boardAddress !== ZERO
     this.predictionMarketDeployed = config.predictionMarketAddress !== ZERO
 
     if (config.operatorKey) {
@@ -118,6 +118,11 @@ export class FutarchyClient {
 
       if (keyHex.length === 66) {
         // Development only: Allow local signing with warning
+        if (isProductionEnv()) {
+          throw new Error(
+            'SECURITY: Raw private keys are forbidden in production. Use KMS.',
+          )
+        }
         console.warn(
           '[FutarchyClient] ⚠️  Using local private key. NOT secure for production.',
         )
@@ -180,29 +185,29 @@ export class FutarchyClient {
   }
 
   async getVetoedProposals(): Promise<`0x${string}`[]> {
-    if (!this.councilDeployed) return []
+    if (!this.boardDeployed) return []
     return readContract(this.client, {
-      address: this.councilAddress,
-      abi: COUNCIL_ABI,
+      address: this.boardAddress,
+      abi: BOARD_ABI,
       functionName: 'getVetoedProposals',
     }) as Promise<`0x${string}`[]>
   }
 
   async getPendingFutarchyProposals(): Promise<`0x${string}`[]> {
-    if (!this.councilDeployed) return []
+    if (!this.boardDeployed) return []
     return readContract(this.client, {
-      address: this.councilAddress,
-      abi: COUNCIL_ABI,
+      address: this.boardAddress,
+      abi: BOARD_ABI,
       functionName: 'getFutarchyPendingProposals',
     }) as Promise<`0x${string}`[]>
   }
 
   async getFutarchyMarket(proposalId: string): Promise<FutarchyMarket | null> {
-    if (!this.councilDeployed || !this.predictionMarketDeployed) return null
+    if (!this.boardDeployed || !this.predictionMarketDeployed) return null
 
     const result = (await readContract(this.client, {
-      address: this.councilAddress,
-      abi: COUNCIL_ABI,
+      address: this.boardAddress,
+      abi: BOARD_ABI,
       functionName: 'getFutarchyMarket',
       args: [toHex(proposalId)],
     })) as [`0x${string}`, bigint, boolean]
@@ -266,14 +271,14 @@ export class FutarchyClient {
   }
 
   async escalateToFutarchy(proposalId: string): Promise<TxResult> {
-    if (!this.councilDeployed)
-      return { success: false, error: 'Council not deployed' }
+    if (!this.boardDeployed)
+      return { success: false, error: 'Board not deployed' }
     if (!this.account) return { success: false, error: 'Wallet required' }
 
     const hash = await this.walletClient.writeContract({
       chain: this.chain,
-      address: this.councilAddress,
-      abi: COUNCIL_ABI,
+      address: this.boardAddress,
+      abi: BOARD_ABI,
       functionName: 'escalateToFutarchy',
       args: [toHex(proposalId)],
       account: this.account,
@@ -283,8 +288,8 @@ export class FutarchyClient {
   }
 
   async resolveFutarchy(proposalId: string): Promise<TxResult> {
-    if (!this.councilDeployed)
-      return { success: false, error: 'Council not deployed' }
+    if (!this.boardDeployed)
+      return { success: false, error: 'Board not deployed' }
     if (!this.account) return { success: false, error: 'Wallet required' }
 
     const m = await this.getFutarchyMarket(proposalId)
@@ -297,8 +302,8 @@ export class FutarchyClient {
 
     const hash = await this.walletClient.writeContract({
       chain: this.chain,
-      address: this.councilAddress,
-      abi: COUNCIL_ABI,
+      address: this.boardAddress,
+      abi: BOARD_ABI,
       functionName: 'resolveFutarchy',
       args: [toHex(proposalId)],
       account: this.account,
@@ -308,14 +313,14 @@ export class FutarchyClient {
   }
 
   async executeFutarchyApproved(proposalId: string): Promise<TxResult> {
-    if (!this.councilDeployed)
-      return { success: false, error: 'Council not deployed' }
+    if (!this.boardDeployed)
+      return { success: false, error: 'Board not deployed' }
     if (!this.account) return { success: false, error: 'Wallet required' }
 
     const hash = await this.walletClient.writeContract({
       chain: this.chain,
-      address: this.councilAddress,
-      abi: COUNCIL_ABI,
+      address: this.boardAddress,
+      abi: BOARD_ABI,
       functionName: 'executeFutarchyApproved',
       args: [toHex(proposalId)],
       account: this.account,
@@ -328,17 +333,17 @@ export class FutarchyClient {
     votingPeriod: number
     liquidity: string
   } | null> {
-    if (!this.councilDeployed) return null
+    if (!this.boardDeployed) return null
 
     const [period, liq] = await Promise.all([
       readContract(this.client, {
-        address: this.councilAddress,
-        abi: COUNCIL_ABI,
+        address: this.boardAddress,
+        abi: BOARD_ABI,
         functionName: 'futarchyVotingPeriod',
       }) as Promise<bigint>,
       readContract(this.client, {
-        address: this.councilAddress,
-        abi: COUNCIL_ABI,
+        address: this.boardAddress,
+        abi: BOARD_ABI,
         functionName: 'futarchyLiquidity',
       }) as Promise<bigint>,
     ])

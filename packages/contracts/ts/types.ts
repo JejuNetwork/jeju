@@ -36,6 +36,7 @@ export interface ContractABI {
 
 export type DeploymentFile =
   | 'uniswap-v4-31337'
+  | 'uniswap-v4-420690'
   | 'uniswap-v4-420691'
   | 'bazaar-marketplace-31337'
   | 'erc20-factory-31337'

@@ -11,7 +11,12 @@
  * Service registry is persisted to SQLit for recovery across DWS restarts.
  */
 
-import { getLocalhostHost, isProductionEnv } from '@jejunetwork/config'
+import {
+  CORE_PORTS,
+  getLocalhostHost,
+  isLocalnet,
+  isProductionEnv,
+} from '@jejunetwork/config'
 import { getSQLit, type SQLitClient } from '@jejunetwork/db'
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
@@ -99,7 +104,7 @@ async function loadPersistedServices(): Promise<void> {
       [],
       SERVICES_DATABASE_ID,
     )
-    const rows = (result.rows ?? result ?? []) as ServiceRow[]
+    const rows = (result.rows ?? result ?? []) as unknown as ServiceRow[]
 
     for (const row of rows) {
       const ports = JSON.parse(row.ports) as {
@@ -140,10 +145,10 @@ async function loadPersistedServices(): Promise<void> {
         `[Services] Loaded ${rows.length} persisted services from SQLit`,
       )
     }
-  } catch (_error) {
-    // SQLit may not be available yet, that's ok
-    console.log(
-      '[Services] SQLit not available for persistence, using memory only',
+  } catch (error) {
+    // Log actual error - don't silently swallow
+    console.warn(
+      `[Services] SQLit persistence unavailable: ${error instanceof Error ? error.message : String(error)}`,
     )
   }
 }
@@ -215,7 +220,8 @@ export interface ServiceInstance {
 function getServicePassword(envVar: string, serviceName: string): string {
   const password = process.env[envVar]
   if (!password) {
-    if (isProductionEnv()) {
+    // Allow default passwords on localnet even if NODE_ENV=production
+    if (isProductionEnv() && !isLocalnet()) {
       throw new Error(
         `CRITICAL: ${envVar} must be set in production. ${serviceName} cannot be deployed with default credentials.`,
       )
@@ -310,12 +316,25 @@ function resetDiscovery(): void {
 }
 
 // Docker image mappings
+// Pull through DWS OCI registry which proxies Docker Hub and caches in IPFS
+// Format: registry.jeju/library/<image>:<tag> for official images
+// In localnet, uses localhost:3500 as the registry
+const DWS_REGISTRY =
+  process.env.DWS_REGISTRY_URL ||
+  (isLocalnet()
+    ? `${getLocalhostHost()}:${CORE_PORTS.DWS_API.get()}`
+    : 'registry.jeju')
+
+// Use DWS registry for standard images - proxies and caches from Docker Hub
 const SERVICE_IMAGES: Record<ServiceType, string> = {
-  postgres: 'postgres:16-alpine',
-  redis: 'redis:7-alpine',
-  rabbitmq: 'rabbitmq:3-management-alpine',
-  minio: 'minio/minio:latest',
-  sqlit: process.env.SQLIT_DOCKER_IMAGE || 'ghcr.io/jejunetwork/sqlit:latest',
+  postgres:
+    process.env.POSTGRES_IMAGE || `${DWS_REGISTRY}/library/postgres:16-alpine`,
+  redis: process.env.REDIS_IMAGE || `${DWS_REGISTRY}/library/redis:7-alpine`,
+  rabbitmq:
+    process.env.RABBITMQ_IMAGE ||
+    `${DWS_REGISTRY}/library/rabbitmq:3-management-alpine`,
+  minio: process.env.MINIO_IMAGE || `${DWS_REGISTRY}/minio/minio:latest`,
+  sqlit: process.env.SQLIT_DOCKER_IMAGE || `${DWS_REGISTRY}/jeju/sqlit:latest`,
 }
 
 // Container naming convention: dws-{type}-{name}
@@ -356,6 +375,12 @@ export async function discoverExistingServices(): Promise<void> {
 
   // First, load from SQLit persistence
   await loadPersistedServices()
+
+  if (process.env.KUBERNETES_SERVICE_HOST) {
+    console.log('[Services] Skipping Docker discovery in Kubernetes')
+    discoveryComplete = true
+    return
+  }
 
   // List all containers with dws- prefix (including stopped ones)
   const result = await dockerCommand([
@@ -638,10 +663,12 @@ export async function provisionService(
 
   services.set(serviceId, instance)
 
-  // Persist to SQLit for recovery
-  await persistService(instance).catch((err) =>
-    console.log(`[Services] Failed to persist service to SQLit: ${err}`),
-  )
+  // Persist to SQLit for recovery - log warning but don't fail provisioning
+  await persistService(instance).catch((err) => {
+    console.warn(
+      `[Services] SQLit persistence failed for ${instance.id}: ${err instanceof Error ? err.message : String(err)}`,
+    )
+  })
 
   console.log(
     `[Services] ${config.type} service ${config.name} provisioned: ${healthResult ? 'healthy' : 'unhealthy'}`,

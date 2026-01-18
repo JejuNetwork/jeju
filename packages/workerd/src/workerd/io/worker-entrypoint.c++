@@ -545,8 +545,8 @@ kj::Promise<void> WorkerEntrypoint::connect(kj::StringPtr host,
     auto next = context.getSubrequestChannelNoChecks(
         IoContext::NEXT_CLIENT_CHANNEL, false, kj::mv(cfBlobJson));
 
-    // Note: Intentionally return without co_await so that the `incomingRequest` is destroyed,
-    //   because we don't have any need to keep the context around.
+    // Intentionally return without co_await so that the `incomingRequest` is destroyed,
+    // because we don't have any need to keep the context around.
     return next->connect(host, headers, connection, response, settings);
   }
 

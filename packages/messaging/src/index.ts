@@ -17,8 +17,8 @@
  *
  * @example
  * ```typescript
- * // Private messaging via XMTP (see @xmtp/node-sdk)
- * import { Client } from '@xmtp/node-sdk';
+ * // Private messaging via XMTP (see @xmtp/browser-sdk)
+ * import { Client } from '@xmtp/browser-sdk';
  *
  * // Farcaster public messaging
  * import { FarcasterClient, DirectCastClient } from '@jejunetwork/messaging';
@@ -44,9 +44,11 @@ export {
 // ============================================================================
 
 // ============================================================================
-// XMTP - Real SDK Re-exports
+// XMTP - Real SDK Re-exports (Browser/Workerd Compatible)
 // ============================================================================
-// Use the official @xmtp/node-sdk directly for XMTP functionality.
+// Use the official @xmtp/browser-sdk directly for XMTP functionality.
+// Browser SDK uses WASM bindings instead of Node.js native bindings,
+// making it compatible with workerd, Bun, and browser environments.
 // The server's xmtp-messaging.ts service wraps it with KMS signing.
 export {
   ApiUrls as XMTPApiUrls,
@@ -60,7 +62,7 @@ export {
   type Identifier as XMTPIdentifier,
   type IdentifierKind,
   type Signer as XMTPSigner,
-} from '@xmtp/node-sdk'
+} from '@xmtp/browser-sdk'
 // Cross-chain messaging bridge
 export {
   CrossChainBridgeClient,
@@ -214,6 +216,7 @@ export {
   DCSignerEventsResponseSchema,
   DCUserDataResponseSchema,
   EventsResponseSchema,
+  FarcasterProfileSchema,
   type HubEventBody,
   type HubEventType,
   HubInfoResponseSchema,

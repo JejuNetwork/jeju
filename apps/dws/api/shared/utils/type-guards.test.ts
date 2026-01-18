@@ -330,7 +330,7 @@ describe('isUpdateAgentRequest', () => {
   })
 
   test('returns true when models is present', () => {
-    expect(isUpdateAgentRequest({ models: ['gpt-4'] })).toBe(true)
+    expect(isUpdateAgentRequest({ models: ['gpt-5'] })).toBe(true)
   })
 
   test('returns true when runtime is present', () => {
@@ -349,7 +349,7 @@ describe('isUpdateAgentRequest', () => {
     expect(
       isUpdateAgentRequest({
         character: { name: 'Updated' },
-        models: ['gpt-4'],
+        models: ['gpt-5'],
         metadata: { version: '2.0' },
       }),
     ).toBe(true)

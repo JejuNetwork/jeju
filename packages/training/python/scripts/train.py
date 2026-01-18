@@ -40,7 +40,7 @@ import random
 import subprocess
 import sys
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Protocol, TypedDict, cast
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -60,6 +60,25 @@ if env_path.exists():
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
+
+
+class TrainingMessage(TypedDict):
+    role: str
+    content: str
+
+
+class TrainingSample(TypedDict):
+    messages: list[TrainingMessage]
+
+
+class ChatTemplateTokenizer(Protocol):
+    def apply_chat_template(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        tokenize: bool,
+        add_generation_prompt: bool,
+    ) -> str: ...
 
 
 def detect_backend() -> Literal["mlx", "cuda", "cpu"]:
@@ -169,7 +188,7 @@ def load_json_data(source_dir: str, max_trajectories: int) -> list[JejuTrajector
     return trajectories
 
 
-def load_csv_data(csv_path: str) -> list[dict]:
+def load_csv_data(csv_path: str) -> list[TrainingSample]:
     """Load pre-processed training data from CSV."""
     import pandas as pd
 
@@ -181,15 +200,30 @@ def load_csv_data(csv_path: str) -> list[dict]:
         df = df[df["score"] > 0.7].copy()
         logger.info(f"Filtered to {len(df)} high-quality samples")
 
-    samples = []
-    for _, row in df.iterrows():
-        messages = []
-        if "system" in row and pd.notna(row["system"]):
-            messages.append({"role": "system", "content": str(row["system"])})
-        if "prompt" in row and pd.notna(row["prompt"]):
-            messages.append({"role": "user", "content": str(row["prompt"])})
-        if "response" in row and pd.notna(row["response"]):
-            messages.append({"role": "assistant", "content": str(row["response"])})
+    def get_nonempty_str(record: dict[str, object], key: str) -> str | None:
+        value = record.get(key)
+        if isinstance(value, str) and value.strip():
+            return value
+        return None
+
+    columns = [str(col) for col in df.columns]
+
+    samples: list[TrainingSample] = []
+    for row_values in df.itertuples(index=False, name=None):
+        record: dict[str, object] = dict(zip(columns, row_values, strict=True))
+        messages: list[TrainingMessage] = []
+
+        system = get_nonempty_str(record, "system")
+        if system is not None:
+            messages.append({"role": "system", "content": system})
+
+        prompt = get_nonempty_str(record, "prompt")
+        if prompt is not None:
+            messages.append({"role": "user", "content": prompt})
+
+        response = get_nonempty_str(record, "response")
+        if response is not None:
+            messages.append({"role": "assistant", "content": response})
 
         if len(messages) >= 2:
             samples.append({"messages": messages})
@@ -198,9 +232,9 @@ def load_csv_data(csv_path: str) -> list[dict]:
     return samples
 
 
-def trajectories_to_samples(trajectories: list[JejuTrajectory]) -> list[dict]:
+def trajectories_to_samples(trajectories: list[JejuTrajectory]) -> list[TrainingSample]:
     """Convert trajectories to training samples."""
-    samples = []
+    samples: list[TrainingSample] = []
     for traj in trajectories:
         for step in traj.steps:
             if not step.llm_calls:
@@ -209,7 +243,7 @@ def trajectories_to_samples(trajectories: list[JejuTrajectory]) -> list[dict]:
                 if not llm_call.response or len(llm_call.response) < 20:
                     continue
 
-                messages = []
+                messages: list[TrainingMessage] = []
                 if llm_call.system_prompt:
                     messages.append({"role": "system", "content": llm_call.system_prompt})
                 if llm_call.user_prompt:
@@ -224,7 +258,7 @@ def trajectories_to_samples(trajectories: list[JejuTrajectory]) -> list[dict]:
 
 
 def train_mlx(
-    samples: list[dict],
+    samples: list[TrainingSample],
     model_name: str,
     output_dir: str,
     num_iters: int,
@@ -290,7 +324,7 @@ def train_mlx(
 
 
 def train_cuda(
-    samples: list[dict],
+    samples: list[TrainingSample],
     model_name: str,
     output_dir: str,
     epochs: int,
@@ -384,7 +418,11 @@ def train_cuda(
 
 
 def train_cpu(
-    samples: list[dict], model_name: str, output_dir: str, epochs: int, learning_rate: float
+    samples: list[TrainingSample],
+    model_name: str,
+    output_dir: str,
+    epochs: int,
+    learning_rate: float,
 ) -> str:
     """Train using CPU (slow fallback)."""
     logger.warning("=" * 60)
@@ -420,9 +458,15 @@ Analyze this market update and explain your trading decision."""
     if backend == "mlx":
         from mlx_lm import generate, load  # type: ignore
 
-        model, tokenizer = load(base_model, adapter_path=model_path)
+        if base_model is None:
+            raise ValueError("base_model is required for MLX validation")
+
+        model, tokenizer, *_ = load(base_model, adapter_path=model_path)
         messages = [{"role": "user", "content": test_prompt}]
-        prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        mlx_tokenizer = cast(ChatTemplateTokenizer, tokenizer)
+        prompt = mlx_tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
         response = generate(model, tokenizer, prompt=prompt, max_tokens=200, verbose=False)
     else:
         import torch

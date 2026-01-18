@@ -90,8 +90,8 @@ struct EntrypointClasses {
 // for the same worker can block each other. JavaScript code is asynchronous, though, so any such
 // blocking should be brief.
 //
-// Note: This class should be referred to as "Worker instance" in cases where the bare word
-//   "Worker" is ambiguous. I considered naming the class WorkerInstance, but it feels redundant
+// This class should be referred to as "Worker instance" in cases where the bare word
+// "Worker" is ambiguous. I considered naming the class WorkerInstance, but it feels redundant
 //   for a class name to end in "Instance". ("I have an instance of WorkerInstance...")
 class Worker: public kj::AtomicRefcounted {
  public:

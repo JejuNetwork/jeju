@@ -7,7 +7,14 @@
  * This script is safe to fail - it's a best-effort setup
  */
 
-import { existsSync, mkdirSync, readFileSync, symlinkSync } from 'node:fs'
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  symlinkSync,
+  unlinkSync,
+} from 'node:fs'
 import { join, relative } from 'node:path'
 import { $ } from 'bun'
 import { discoverVendorApps } from './shared/discover-apps'
@@ -49,19 +56,37 @@ function ensureWorkspaceSymlinks(): void {
     gateway: 'apps/gateway',
     crucible: 'apps/crucible',
     documentation: 'apps/documentation',
-    monitoring: 'apps/monitoring',
+    monitoring: 'packages/monitoring',
     org: 'apps/org',
   }
 
   let linkedCount = 0
+
+  function isBrokenSymlink(path: string): boolean {
+    if (existsSync(path)) {
+      return false
+    }
+    try {
+      return lstatSync(path).isSymbolicLink()
+    } catch {
+      return false
+    }
+  }
 
   for (const [name, sourcePath] of Object.entries(workspacePackages)) {
     const fullSourcePath = join(process.cwd(), sourcePath)
     const symlinkPath = join(jejuScopePath, name)
 
     // Only create symlink if source exists and symlink doesn't
-    if (existsSync(fullSourcePath) && !existsSync(symlinkPath)) {
+    const brokenSymlink = isBrokenSymlink(symlinkPath)
+    if (
+      existsSync(fullSourcePath) &&
+      (!existsSync(symlinkPath) || brokenSymlink)
+    ) {
       const relativePath = relative(jejuScopePath, fullSourcePath)
+      if (brokenSymlink) {
+        unlinkSync(symlinkPath)
+      }
       symlinkSync(relativePath, symlinkPath)
       linkedCount++
     }
@@ -299,55 +324,72 @@ async function setupVendorApps(): Promise<string[]> {
   return newlyCloned
 }
 
+/** Run a command with a timeout (cross-platform, no external timeout command needed) */
+async function runWithTimeout(
+  cmd: Parameters<typeof $>[0],
+  timeoutMs: number,
+): Promise<{ exitCode: number; timedOut: boolean; stderr: string }> {
+  const proc = Bun.spawn(['bash', '-c', cmd[0] as string], {
+    stdout: 'pipe',
+    stderr: 'pipe',
+  })
+
+  let timedOut = false
+  const timeoutId = setTimeout(() => {
+    timedOut = true
+    proc.kill()
+  }, timeoutMs)
+
+  const exitCode = await proc.exited
+  clearTimeout(timeoutId)
+
+  const stderr = await new Response(proc.stderr).text()
+  return { exitCode: timedOut ? 124 : exitCode, timedOut, stderr }
+}
+
 async function main() {
   console.log('🔧 Setting up network workspace...\n')
 
+  // Check if running during postinstall
+  const isPostInstall = Boolean(
+    process.env.npm_lifecycle_event === 'postinstall',
+  )
+
   // 1. Initialize git submodules (contract libs)
-  // Note: This is optional - submodules can be initialized manually if needed
-  console.log('📚 Initializing contract libraries...\n')
-  console.log('   (Attempting with 30s timeout - will skip if too slow)\n')
-
-  // Try to initialize submodules with a short timeout to avoid hanging
-  // Use depth=1 to speed up cloning
-  let timedOut = false
-  let exitCode = 0
-  let errorMessage = ''
-
-  try {
-    // Run git submodule with timeout using Bun's built-in timeout
-    const result =
-      await $`timeout 30 git submodule update --init --recursive --depth 1 packages/contracts/lib/`
-        .nothrow()
-        .quiet()
-
-    exitCode = result.exitCode
-    if (exitCode === 124) {
-      timedOut = true
-      errorMessage = 'Operation timed out after 30s'
-    } else if (exitCode !== 0) {
-      errorMessage = result.stderr.toString()
-    }
-  } catch (err) {
-    exitCode = 1
-    errorMessage = err instanceof Error ? err.message : String(err)
-  }
-
-  if (exitCode === 0) {
-    console.log('   ✅ Contract libraries synced\n')
-  } else if (timedOut) {
+  // Skip during postinstall to avoid hanging - it's optional and can be slow
+  if (isPostInstall) {
+    console.log('📚 Skipping contract libraries sync during postinstall')
     console.log(
-      '   ⏭️  Skipped (timed out after 30s - large repos can be slow)\n',
-    )
-    console.log(
-      '   ℹ️  To initialize manually: git submodule update --init --recursive\n',
+      '   ℹ️  Run manually if needed: git submodule update --init --recursive\n',
     )
   } else {
-    console.log(
-      `   ⚠️  Could not sync: ${errorMessage.split('\n')[0] || 'unknown error'}\n`,
+    console.log('📚 Initializing contract libraries...\n')
+    console.log('   (Attempting with 30s timeout - will skip if too slow)\n')
+
+    const result = await runWithTimeout(
+      [
+        'git submodule update --init --recursive --depth 1 packages/contracts/lib/',
+      ] as unknown as Parameters<typeof $>[0],
+      30000,
     )
-    console.log(
-      '   ℹ️  To initialize manually: git submodule update --init --recursive\n',
-    )
+
+    if (result.exitCode === 0) {
+      console.log('   ✅ Contract libraries synced\n')
+    } else if (result.timedOut) {
+      console.log(
+        '   ⏭️  Skipped (timed out after 30s - large repos can be slow)\n',
+      )
+      console.log(
+        '   ℹ️  To initialize manually: git submodule update --init --recursive\n',
+      )
+    } else {
+      console.log(
+        `   ⚠️  Could not sync: ${result.stderr.split('\n')[0] || 'unknown error'}\n`,
+      )
+      console.log(
+        '   ℹ️  To initialize manually: git submodule update --init --recursive\n',
+      )
+    }
   }
 
   // 2. Setup vendor apps (check access and clone if available)
@@ -423,75 +465,102 @@ async function main() {
   }
 
   // 8. Install Playwright browsers (needed for Synpress)
-  console.log('   🎭 Installing Playwright browsers...')
-  const playwrightResult = await $`bunx playwright install chromium`
-    .nothrow()
-    .quiet()
-
-  if (playwrightResult.exitCode === 0) {
-    console.log('   ✅ Playwright browsers installed\n')
-  } else {
+  // Skip during postinstall to avoid hanging - user can run manually
+  if (isPostInstall) {
+    console.log('   🎭 Skipping Playwright browser install during postinstall')
     console.log(
-      '   ⚠️  Could not install Playwright browsers (run: bunx playwright install)\n',
+      '   ℹ️  Run manually if needed: bunx playwright install chromium\n',
     )
+  } else {
+    console.log('   🎭 Installing Playwright browsers...')
+    const playwrightResult = await runWithTimeout(
+      ['bunx playwright install chromium'] as unknown as Parameters<
+        typeof $
+      >[0],
+      60000,
+    )
+
+    if (playwrightResult.exitCode === 0) {
+      console.log('   ✅ Playwright browsers installed\n')
+    } else if (playwrightResult.timedOut) {
+      console.log(
+        '   ⚠️  Playwright install timed out (run: bunx playwright install)\n',
+      )
+    } else {
+      console.log(
+        '   ⚠️  Could not install Playwright browsers (run: bunx playwright install)\n',
+      )
+    }
   }
 
   // 9. Check local development hosts file
-  console.log('🌐 Checking local development DNS...')
-
-  if (hasJejuHostsBlock()) {
-    console.log('   ✅ Hosts file configured for local.jejunetwork.org\n')
+  // Skip detailed check during postinstall to avoid delays
+  if (isPostInstall) {
+    console.log('🌐 Skipping hosts file check during postinstall')
+    console.log('   ℹ️  Run manually if needed: jeju proxy hosts:add\n')
   } else {
-    console.log('   ℹ️  Hosts file not configured for local development')
-    console.log(
-      '   ℹ️  This enables clean URLs like http://gateway.local.jejunetwork.org\n',
-    )
+    console.log('🌐 Checking local development DNS...')
 
-    // Check if running interactively
-    const isInteractive = process.stdin.isTTY && !process.env.CI
-
-    if (isInteractive) {
-      console.log(
-        '   Would you like to configure the hosts file now? (requires sudo)',
-      )
-      console.log('   Run: jeju proxy hosts:add\n')
+    if (hasJejuHostsBlock()) {
+      console.log('   ✅ Hosts file configured for local.jejunetwork.org\n')
     } else {
-      console.log('   To configure manually, run:')
-      console.log('   jeju proxy hosts:add\n')
+      console.log('   ℹ️  Hosts file not configured for local development')
+      console.log(
+        '   ℹ️  This enables clean URLs like http://gateway.local.jejunetwork.org\n',
+      )
 
-      // Show what would be added
-      const status = getHostsBlockStatus()
-      console.log('   Or add these lines to /etc/hosts:')
-      console.log(`   ${status.expected.split('\n').join('\n   ')}`)
-      console.log('')
+      // Check if running interactively
+      const isInteractive = process.stdin.isTTY && !process.env.CI
+
+      if (isInteractive) {
+        console.log(
+          '   Would you like to configure the hosts file now? (requires sudo)',
+        )
+        console.log('   Run: jeju proxy hosts:add\n')
+      } else {
+        console.log('   To configure manually, run:')
+        console.log('   jeju proxy hosts:add\n')
+
+        // Show what would be added
+        const status = getHostsBlockStatus()
+        console.log('   Or add these lines to /etc/hosts:')
+        console.log(`   ${status.expected.split('\n').join('\n   ')}`)
+        console.log('')
+      }
     }
   }
 
   // 10. Setup port forwarding for port 80 (clean URLs)
-  const portForwardingActive = await isPortForwardingActive()
-
-  if (portForwardingActive) {
-    console.log('🔌 Port forwarding already configured (port 80 → 8080)\n')
+  // Skip entirely during postinstall to avoid sudo prompts hanging the install
+  if (isPostInstall) {
+    console.log('🔌 Skipping port forwarding check during postinstall')
+    console.log('   ℹ️  Run manually if needed: jeju proxy setup\n')
   } else {
-    // Skip in CI or non-interactive environments
-    const isCI = Boolean(process.env.CI)
-    const isInteractive = process.stdin.isTTY
+    const portForwardingActive = await isPortForwardingActive()
 
-    if (isCI) {
-      console.log('🔌 Skipping port forwarding setup (CI environment)\n')
-    } else if (!isInteractive) {
-      console.log('🔌 Skipping port forwarding setup (non-interactive)\n')
+    if (portForwardingActive) {
+      console.log('🔌 Port forwarding already configured (port 80 → 8080)\n')
     } else {
-      // Interactive terminal - try to install with sudo prompt
-      console.log('🔌 Setting up port forwarding (port 80 → 8080)...')
-      console.log(
-        '   (This requires sudo - you may be prompted for your password)\n',
-      )
-      const success = await installPortForwarding()
-      if (success) {
-        console.log('   ✅ Port forwarding installed\n')
+      // Skip in CI or non-interactive environments
+      const isCI = Boolean(process.env.CI)
+      const isInteractive = process.stdin.isTTY
+
+      if (isCI) {
+        console.log('🔌 Skipping port forwarding setup (CI environment)\n')
+      } else if (!isInteractive) {
+        console.log('🔌 Skipping port forwarding setup (non-interactive)\n')
       } else {
-        console.log('   ⚠️  Port forwarding setup failed or was cancelled\n')
+        // Interactive terminal - try to install with sudo prompt
+        console.log('🔌 Setting up port forwarding (port 80 → 8080)...')
+        console.log(
+          '   (This requires sudo - you may be prompted for your password)\n',
+        )
+        const success = await installPortForwarding()
+        if (success) {
+          console.log('   ✅ Port forwarding installed\n')
+        } else {
+          console.log('   ⚠️  Port forwarding setup failed or was cancelled\n')
+        }
       }
     }
   }

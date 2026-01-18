@@ -2,7 +2,7 @@
  * Query Utils Unit Tests
  *
  * Tests the query builder functions for input validation logic.
- * Note: These tests focus on parameter validation without database interaction.
+ * Focus on parameter validation without database interaction.
  */
 
 import { describe, expect, it } from 'bun:test'

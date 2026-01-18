@@ -1,5 +1,6 @@
 import {
   createAppConfig,
+  getCurrentNetwork,
   getEnvNumber,
   getEnvVar,
   getLocalhostHost,
@@ -15,20 +16,13 @@ export interface AutocratConfig {
   defaultDao: string
   directorModelId: string
 
-  // Operator/Private Keys
-  operatorKey?: string
-  privateKey?: string
-
   // SQLit Database
   sqlitDatabaseId: string
 
-  // API Keys
-  autocratApiKey?: string
-  cloudApiKey?: string
-
   // TEE
   teePlatform?: string
-  teeEncryptionSecret?: string
+  teeEncryptionKeyId?: string // Key ID in KMS, not the raw secret
+  teeEncryptionSecret?: string // Raw secret for local dev (localnet only)
 
   // Local Services
   ollamaUrl: string
@@ -46,27 +40,36 @@ export interface AutocratConfig {
   // Messaging
   farcasterHubUrl: string
 
+  // Authentication / Keys
+  operatorKey?: string // Operator private key or address
+  privateKey?: string // Private key for signing (localnet only)
+  cloudApiKey?: string // Cloud API key for external services
+  autocratApiKey?: string // Internal API key for autocrat service
+  dwsProxySecret?: string // Secret for DWS proxy authentication
+
   // Environment
   isProduction: boolean
   nodeEnv: string
 }
 
+// Get network value from shared config (defaults to localnet for dev)
+const network = getCurrentNetwork()
+
 const { config, configure: setAutocratConfig } =
   createAppConfig<AutocratConfig>({
     rpcUrl: getEnvVar('RPC_URL') ?? '',
-    network: (getEnvVar('JEJU_NETWORK') ?? 'testnet') as
-      | 'mainnet'
-      | 'testnet'
-      | 'localnet',
+    network,
     defaultDao: getEnvVar('DEFAULT_DAO') ?? 'jeju',
     directorModelId: getEnvVar('DIRECTOR_MODEL_ID') ?? 'claude-opus-4-5',
-    operatorKey: getEnvVar('OPERATOR_KEY'),
-    privateKey: getEnvVar('PRIVATE_KEY'),
     sqlitDatabaseId: getEnvVar('SQLIT_DATABASE_ID') ?? 'autocrat',
-    autocratApiKey: getEnvVar('AUTOCRAT_API_KEY'),
-    cloudApiKey: getEnvVar('CLOUD_API_KEY'),
     teePlatform: getEnvVar('TEE_PLATFORM'),
-    teeEncryptionSecret: getEnvVar('TEE_ENCRYPTION_SECRET'),
+    teeEncryptionKeyId: getEnvVar('TEE_ENCRYPTION_KEY_ID'),
+    // TEE encryption secret - only use raw secret in localnet for development
+    teeEncryptionSecret:
+      getEnvVar('TEE_ENCRYPTION_SECRET') ??
+      (network === 'localnet'
+        ? 'localnet-tee-secret-32-chars-min!'
+        : undefined),
     ollamaUrl: getEnvVar('OLLAMA_URL') ?? `http://${getLocalhostHost()}:11434`,
     ollamaModel: getEnvVar('OLLAMA_MODEL') ?? 'llama3.2',
     computeModel: getEnvVar('COMPUTE_MODEL'),
@@ -76,6 +79,12 @@ const { config, configure: setAutocratConfig } =
     sandboxMaxCpu: getEnvNumber('SANDBOX_MAX_CPU') ?? 4,
     farcasterHubUrl:
       getEnvVar('FARCASTER_HUB_URL') ?? 'https://hub.pinata.cloud',
+    // Authentication / Keys - read from env, no defaults for security
+    operatorKey: getEnvVar('OPERATOR_KEY') ?? getEnvVar('PRIVATE_KEY'),
+    privateKey: getEnvVar('PRIVATE_KEY'),
+    cloudApiKey: getEnvVar('CLOUD_API_KEY'),
+    autocratApiKey: getEnvVar('AUTOCRAT_API_KEY'),
+    dwsProxySecret: getEnvVar('DWS_PROXY_SECRET'),
     isProduction: isProductionEnv(),
     nodeEnv: getEnvVar('NODE_ENV') ?? 'development',
   })

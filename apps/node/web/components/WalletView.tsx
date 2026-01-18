@@ -34,7 +34,7 @@ const ImportWalletRequestSchema = z
     message: 'Must provide either private_key or mnemonic, not both',
   })
 
-type WalletAction = 'create' | 'import' | 'external' | 'jeju' | null
+type WalletAction = 'create' | 'import' | 'external' | null
 
 export function WalletView() {
   const { wallet, balance, agent, fetchWallet, fetchBalance, isLoading } =
@@ -162,25 +162,6 @@ export function WalletView() {
             </div>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setAction('jeju')}
-            className="card-hover p-6 text-left group border-jeju-500/30"
-          >
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-gradient-to-br from-jeju-600/20 to-jeju-700/20 text-jeju-400 group-hover:from-jeju-600/30 group-hover:to-jeju-700/30 transition-colors">
-                <Shield size={24} />
-              </div>
-              <div>
-                <h3 className="font-semibold gradient-text">
-                  Connect Network Wallet
-                </h3>
-                <p className="text-sm text-volcanic-400">
-                  Use your Network Wallet with full integration
-                </p>
-              </div>
-            </div>
-          </button>
         </div>
 
         {/* Action Modals */}
@@ -422,49 +403,6 @@ export function WalletView() {
                   </>
                 )}
 
-                {action === 'jeju' && (
-                  <>
-                    <h2 className="text-xl font-bold mb-4">
-                      Connect Network Wallet
-                    </h2>
-
-                    {error && (
-                      <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-4 text-sm text-red-400">
-                        {error}
-                      </div>
-                    )}
-
-                    <p className="text-volcanic-400 mb-4">
-                      Connect using your Network Wallet for enhanced security
-                      and seamless integration.
-                    </p>
-
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        setLoading(true)
-                        setError(null)
-                        await invoke('connect_jeju_wallet')
-                        await fetchWallet()
-                        await fetchBalance()
-                        setAction(null)
-                        setLoading(false)
-                      }}
-                      disabled={loading}
-                      className="btn-primary w-full"
-                    >
-                      {loading ? 'Connecting...' : 'Connect Network Wallet'}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setAction(null)}
-                      className="btn-secondary w-full mt-3"
-                    >
-                      Cancel
-                    </button>
-                  </>
-                )}
               </motion.div>
             </motion.div>
           )}

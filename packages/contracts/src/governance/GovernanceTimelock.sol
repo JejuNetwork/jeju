@@ -31,7 +31,7 @@ contract GovernanceTimelock is Ownable, ReentrancyGuard, Pausable {
     // SC can only pause immediately, not upgrade
     uint256 public constant EMERGENCY_MIN_DELAY = 7 days;
     address public governance;
-    address public securityCouncil;
+    address public securityBoard;
     mapping(bytes32 => Proposal) public proposals;
     bytes32[] public proposalIds;
     uint256 public timelockDelay;
@@ -47,10 +47,10 @@ contract GovernanceTimelock is Ownable, ReentrancyGuard, Pausable {
     event ProposalCancelledEvent(bytes32 indexed proposalId);
     event TimelockDelayUpdated(uint256 oldDelay, uint256 newDelay);
     event GovernanceUpdated(address oldGovernance, address newGovernance);
-    event SecurityCouncilUpdated(address oldCouncil, address newCouncil);
+    event SecurityBoardUpdated(address oldBoard, address newBoard);
 
     error NotGovernance();
-    error NotSecurityCouncil();
+    error NotSecurityBoard();
     error ProposalNotFound();
     error ProposalAlreadyExecuted();
     error ProposalAlreadyCancelled();
@@ -65,16 +65,16 @@ contract GovernanceTimelock is Ownable, ReentrancyGuard, Pausable {
         _;
     }
 
-    modifier onlySecurityCouncil() {
-        if (msg.sender != securityCouncil) revert NotSecurityCouncil();
+    modifier onlySecurityBoard() {
+        if (msg.sender != securityBoard) revert NotSecurityBoard();
         _;
     }
 
-    constructor(address _governance, address _securityCouncil, address _owner, uint256 _timelockDelay)
+    constructor(address _governance, address _securityBoard, address _owner, uint256 _timelockDelay)
         Ownable(_owner)
     {
         governance = _governance;
-        securityCouncil = _securityCouncil;
+        securityBoard = _securityBoard;
         timelockDelay = _timelockDelay > 0 ? _timelockDelay : TIMELOCK_DELAY;
     }
 
@@ -110,7 +110,7 @@ contract GovernanceTimelock is Ownable, ReentrancyGuard, Pausable {
         bytes calldata _data,
         string calldata _description,
         bytes32 _bugProof
-    ) external onlySecurityCouncil returns (bytes32 proposalId) {
+    ) external onlySecurityBoard returns (bytes32 proposalId) {
         if (_target == address(0)) revert InvalidTarget();
 
         proposalId = keccak256(abi.encodePacked(_target, _data, block.timestamp, block.number, _bugProof));
@@ -198,15 +198,15 @@ contract GovernanceTimelock is Ownable, ReentrancyGuard, Pausable {
         emit GovernanceUpdated(oldGovernance, _governance);
     }
 
-    /// @notice Set security council - can only be called via executed proposal
-    /// @dev SECURITY: Owner cannot directly change security council
-    function setSecurityCouncil(address _securityCouncil) external {
+    /// @notice Set security board - can only be called via executed proposal
+    /// @dev SECURITY: Owner cannot directly change security board
+    function setSecurityBoard(address _securityBoard) external {
         // Only allow this contract to call itself (via executed proposal)
         if (msg.sender != address(this)) revert NotGovernance();
-        if (_securityCouncil == address(0)) revert InvalidTarget();
-        address oldCouncil = securityCouncil;
-        securityCouncil = _securityCouncil;
-        emit SecurityCouncilUpdated(oldCouncil, _securityCouncil);
+        if (_securityBoard == address(0)) revert InvalidTarget();
+        address oldBoard = securityBoard;
+        securityBoard = _securityBoard;
+        emit SecurityBoardUpdated(oldBoard, _securityBoard);
     }
 
     /// @notice Set timelock delay - can only be called via executed proposal
@@ -220,9 +220,9 @@ contract GovernanceTimelock is Ownable, ReentrancyGuard, Pausable {
         emit TimelockDelayUpdated(oldDelay, _newDelay);
     }
 
-    /// @notice Pause contract - only security council can pause
+    /// @notice Pause contract - only security board can pause
     /// @dev Pause is immediate for emergency response
-    function pause() external onlySecurityCouncil {
+    function pause() external onlySecurityBoard {
         _pause();
     }
 

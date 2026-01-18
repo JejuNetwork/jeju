@@ -1,7 +1,10 @@
+/**
+ * Otto Playwright Configuration
+ */
+import { getTestConfig } from '@jejunetwork/config/test-config'
 import { defineConfig, devices } from '@playwright/test'
 
-const PORT = Number.parseInt(process.env.OTTO_PORT ?? '4050', 10)
-const BASE_URL = process.env.OTTO_BASE_URL ?? `http://localhost:${PORT}`
+const config = getTestConfig('otto')
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -13,7 +16,7 @@ export default defineConfig({
   timeout: 30000,
 
   use: {
-    baseURL: BASE_URL,
+    baseURL: config.baseURL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -27,10 +30,13 @@ export default defineConfig({
   ],
 
   // Start the Otto server before tests
-  webServer: {
-    command: 'bun run dev',
-    url: `${BASE_URL}/health`,
-    reuseExistingServer: !process.env.CI,
-    timeout: 30000,
-  },
+  // When testing against remote (testnet/mainnet), no webserver is started
+  webServer: config.skipWebServer
+    ? undefined
+    : {
+        command: 'bun run dev',
+        url: `${config.baseURL}/health`,
+        reuseExistingServer: !process.env.CI,
+        timeout: 30000,
+      },
 })

@@ -5,16 +5,9 @@
  * These are the critical happy path tests - if these pass, core system works.
  */
 
-// Must import zod-compat before synpress for Zod 4 compatibility
-import '@jejunetwork/tests/zod-compat'
-import { testWithSynpress } from '@synthetixio/synpress'
-// Must import zod-compat before synpress for Zod 4 compatibility
-import '@jejunetwork/tests/zod-compat'
-import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright'
-// Must import zod-compat before synpress for Zod 4 compatibility
-import '@jejunetwork/tests/zod-compat'
-
 import { getCoreAppUrl } from '@jejunetwork/config'
+import { testWithSynpress } from '@synthetixio/synpress'
+import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright'
 import { basicSetup } from '../../synpress.config'
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup))
@@ -56,7 +49,11 @@ test.describe('Token Lifecycle Flow', () => {
 
     // Step 1: Connect Wallet
     await page.goto(GATEWAY_URL)
-    await page.locator('button:has-text("Connect")').first().click()
+    await page.getByRole('button', { name: /sign in/i }).first().click()
+    const walletOption = page.getByRole('button', { name: /connect wallet/i })
+    if (await walletOption.isVisible().catch(() => false)) {
+      await walletOption.click()
+    }
     await page.waitForTimeout(1000)
     await metamask.connectToDapp()
 
@@ -170,7 +167,11 @@ test.describe('Node Operator Flow', () => {
 
     // Connect wallet
     await page.goto(GATEWAY_URL)
-    await page.locator('button:has-text("Connect")').first().click()
+    await page.getByRole('button', { name: /sign in/i }).first().click()
+    const walletOption = page.getByRole('button', { name: /connect wallet/i })
+    if (await walletOption.isVisible().catch(() => false)) {
+      await walletOption.click()
+    }
     await page.waitForTimeout(1000)
     await metamask.connectToDapp()
 
@@ -243,7 +244,11 @@ test.describe('App Registry Flow', () => {
 
     // Connect wallet
     await page.goto(GATEWAY_URL)
-    await page.locator('button:has-text("Connect")').first().click()
+    await page.getByRole('button', { name: /sign in/i }).first().click()
+    const walletOption = page.getByRole('button', { name: /connect wallet/i })
+    if (await walletOption.isVisible().catch(() => false)) {
+      await walletOption.click()
+    }
     await page.waitForTimeout(1000)
     await metamask.connectToDapp()
 
@@ -315,7 +320,11 @@ test.describe('Complete Navigation Flow', () => {
     )
 
     await page.goto(GATEWAY_URL)
-    await page.locator('button:has-text("Connect")').first().click()
+    await page.getByRole('button', { name: /sign in/i }).first().click()
+    const walletOption = page.getByRole('button', { name: /connect wallet/i })
+    if (await walletOption.isVisible().catch(() => false)) {
+      await walletOption.click()
+    }
     await page.waitForTimeout(1000)
     await metamask.connectToDapp()
 

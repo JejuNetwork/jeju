@@ -655,7 +655,7 @@ function NFTDetailModal({
               >
                 {address
                   ? `Buy for ${listing.priceFormatted} ${listing.currency}`
-                  : 'Connect Wallet to Buy'}
+                  : 'Sign In to Buy'}
               </button>
             )}
 

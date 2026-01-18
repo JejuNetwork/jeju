@@ -294,25 +294,27 @@ async function registerApp(
 async function initializeSQLit(): Promise<void> {
   console.log('[Autocrat] Initializing SQLit database...')
 
-  // Check if SQLit credentials are configured
-  const squitPrivateKey = process.env.SQLIT_PRIVATE_KEY
-  const sqlitKeyId = process.env.SQLIT_KEY_ID
-
-  if (!squitPrivateKey && !sqlitKeyId) {
-    console.warn(
-      '[Autocrat] SQLit credentials not configured - database operations will use in-memory fallback',
-    )
-    console.warn(
-      '   Set SQLIT_PRIVATE_KEY or SQLIT_KEY_ID for persistent storage',
-    )
-    return
-  }
+  // SQLit credentials are fetched from KMS SecretVault
+  const { getSQLitPrivateKey, getSQLitKeyId } = await import('../api/secrets')
 
   try {
+    const [sqlitPrivateKey, sqlitKeyId] = await Promise.all([
+      getSQLitPrivateKey(),
+      getSQLitKeyId(),
+    ])
+
+    if (!sqlitPrivateKey && !sqlitKeyId) {
+      console.warn('[Autocrat] SQLit credentials not found in KMS SecretVault')
+      console.warn(
+        '   Store sqlit-private-key or sqlit-key-id in SecretVault for persistent storage',
+      )
+      return
+    }
+
     const sqlit = getSQLit({
       blockProducerEndpoint: getSQLitBlockProducerUrl(),
       databaseId: process.env.SQLIT_DATABASE_ID ?? 'autocrat',
-      privateKey: squitPrivateKey as `0x${string}` | undefined,
+      privateKey: sqlitPrivateKey,
       keyId: sqlitKeyId,
     })
 
@@ -329,6 +331,61 @@ async function initializeSQLit(): Promise<void> {
     console.warn(
       `[Autocrat] SQLit initialization failed: ${error instanceof Error ? error.message : String(error)}`,
     )
+  }
+}
+
+async function seedJejuDAO(): Promise<void> {
+  console.log('[Autocrat] Checking Jeju DAO seed...')
+
+  const apiUrl = `http://${host}:${API_PORT}`
+
+  // Wait for API to be ready
+  let ready = false
+  for (let i = 0; i < 10; i++) {
+    const response = await fetch(`${apiUrl}/health`, {
+      signal: AbortSignal.timeout(1000),
+    }).catch(() => null)
+    if (response?.ok) {
+      ready = true
+      break
+    }
+    await Bun.sleep(500)
+  }
+
+  if (!ready) {
+    console.warn('[Autocrat] API not ready, skipping seed')
+    return
+  }
+
+  // Check if Jeju DAO exists
+  const checkResponse = await fetch(`${apiUrl}/api/v1/dao/jeju`, {
+    signal: AbortSignal.timeout(5000),
+  }).catch(() => null)
+
+  if (checkResponse?.ok) {
+    console.log('[Autocrat] Jeju DAO already exists')
+    return
+  }
+
+  console.log('[Autocrat] Seeding Jeju DAO...')
+
+  // Run seed script
+  const proc = Bun.spawn(['bun', 'run', 'scripts/seed.ts', '--skip-wait'], {
+    cwd: APP_DIR,
+    stdout: 'inherit',
+    stderr: 'inherit',
+    env: {
+      ...process.env,
+      AUTOCRAT_API_URL: apiUrl,
+    },
+  })
+
+  const exitCode = await proc.exited
+
+  if (exitCode === 0) {
+    console.log('[Autocrat] Jeju DAO seeded successfully')
+  } else {
+    console.warn('[Autocrat] Jeju DAO seeding failed (may already exist)')
   }
 }
 
@@ -438,6 +495,9 @@ async function main(): Promise<void> {
   if (!workerId) {
     await startLocalWorker()
   }
+
+  // Step 8: Seed Jeju DAO
+  await seedJejuDAO()
 
   // Print summary
   const frontendPort = CORE_PORTS.AUTOCRAT_WEB.get()

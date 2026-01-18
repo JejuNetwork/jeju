@@ -5,7 +5,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {NetworkRegistry} from "./NetworkRegistry.sol";
-import {ICouncilGovernance} from "../governance/interfaces/ICouncilGovernance.sol";
+import {IBoardGovernance} from "../governance/interfaces/IBoardGovernance.sol";
 
 /**
  * @title FederationGovernance
@@ -139,7 +139,7 @@ contract FederationGovernance is Ownable, ReentrancyGuard, Pausable {
     // ============ State Variables ============
 
     NetworkRegistry public immutable networkRegistry;
-    ICouncilGovernance public councilGovernance;
+    IBoardGovernance public boardGovernance;
     address public predictionMarket;
     address public aiOracle; // Oracle for AI evaluation scores
 
@@ -227,13 +227,13 @@ contract FederationGovernance is Ownable, ReentrancyGuard, Pausable {
 
     constructor(
         address _networkRegistry,
-        address _councilGovernance,
+        address _boardGovernance,
         address _predictionMarket,
         address _aiOracle,
         address _treasury
     ) Ownable(msg.sender) {
         networkRegistry = NetworkRegistry(payable(_networkRegistry));
-        councilGovernance = ICouncilGovernance(_councilGovernance);
+        boardGovernance = IBoardGovernance(_boardGovernance);
         predictionMarket = _predictionMarket;
         aiOracle = _aiOracle;
         treasury = _treasury;
@@ -364,7 +364,7 @@ contract FederationGovernance is Ownable, ReentrancyGuard, Pausable {
             proposal.status = ProposalStatus.AUTOCRAT_REVIEW;
             emit ProposalStatusChanged(proposalId, ProposalStatus.PENDING_MARKET, ProposalStatus.AUTOCRAT_REVIEW);
 
-            // Create Council governance proposal for Autocrat
+            // Create Board governance proposal for Autocrat
             _createAutocratProposal(proposalId);
         } else {
             // Failed → reject and potentially refund
@@ -373,10 +373,10 @@ contract FederationGovernance is Ownable, ReentrancyGuard, Pausable {
     }
 
     /**
-     * @dev Creates a Council governance proposal for Autocrat review
+     * @dev Creates a Board governance proposal for Autocrat review
      */
     function _createAutocratProposal(bytes32 proposalId) internal {
-        // In production, this would create a proposal in CouncilGovernance
+        // In production, this would create a proposal in BoardGovernance
         // for the AI Autocrat to review and approve
     }
 
@@ -423,7 +423,7 @@ contract FederationGovernance is Ownable, ReentrancyGuard, Pausable {
 
     /**
      * @notice Submit Autocrat (AI DAO) decision on a network proposal
-     * @dev Called by Council governance after Autocrat review
+     * @dev Called by Board governance after Autocrat review
      * @param proposalId The proposal being decided
      * @param approved Whether the network is approved
      * @param decisionHash IPFS hash of full decision rationale
@@ -432,8 +432,8 @@ contract FederationGovernance is Ownable, ReentrancyGuard, Pausable {
     function submitAutocratDecision(bytes32 proposalId, bool approved, bytes32 decisionHash, string calldata reason)
         external
     {
-        // Only Council governance can submit Autocrat decisions
-        require(msg.sender == address(councilGovernance), "Only CouncilGovernance");
+        // Only Board governance can submit Autocrat decisions
+        require(msg.sender == address(boardGovernance), "Only BoardGovernance");
 
         NetworkProposal storage proposal = proposals[proposalId];
         if (proposal.createdAt == 0) revert ProposalNotFound();
@@ -799,8 +799,8 @@ contract FederationGovernance is Ownable, ReentrancyGuard, Pausable {
 
     // ============ Admin Functions ============
 
-    function setCouncilGovernance(address _councilGovernance) external onlyOwner {
-        councilGovernance = ICouncilGovernance(_councilGovernance);
+    function setBoardGovernance(address _boardGovernance) external onlyOwner {
+        boardGovernance = IBoardGovernance(_boardGovernance);
     }
 
     function setPredictionMarket(address _predictionMarket) external onlyOwner {

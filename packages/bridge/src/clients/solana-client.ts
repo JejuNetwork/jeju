@@ -2,7 +2,7 @@
  * Solana Client for Cross-Chain Bridge
  */
 
-import { keccak_256 } from '@noble/hashes/sha3'
+import { keccak_256 } from '@noble/hashes/sha3.js'
 import {
   type Commitment,
   Connection,

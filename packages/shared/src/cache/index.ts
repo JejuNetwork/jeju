@@ -1,62 +1,15 @@
 /**
- * Decentralized Cache Client
+ * DWS Cache Rental Client
  *
- * Re-exports from @jejunetwork/cache for backwards compatibility.
- * New code should import directly from @jejunetwork/cache.
- *
- * @deprecated Import from @jejunetwork/cache instead
+ * This module provides the CacheRentalClient for managing DWS cache instances.
+ * For standard cache operations, import directly from @jejunetwork/cache.
  */
 
 import { getDWSCacheUrl } from '@jejunetwork/config'
 import type { Address } from 'viem'
 import { z } from 'zod'
 
-// Re-export from @jejunetwork/cache with aliases to avoid conflicts
-export {
-  CacheClient as CachePackageClient,
-  type CacheClientConfig as CachePackageConfig,
-  CacheError,
-  CacheErrorCode,
-  type CacheStats as CachePackageStats,
-  getCacheClient as getPackageCacheClient,
-  resetCacheClients as resetPackageCacheClients,
-} from '@jejunetwork/cache'
-
-// Local schemas for response validation
-const CacheGetResponseSchema = z.object({
-  value: z.string().nullable(),
-  found: z.boolean(),
-})
-
-const CacheSuccessResponseSchema = z.object({
-  success: z.boolean(),
-})
-
-const CacheKeysResponseSchema = z.object({
-  keys: z.array(z.string()),
-})
-
-const CacheTTLResponseSchema = z.object({
-  ttl: z.number(),
-})
-
-const CacheMGetResponseSchema = z.object({
-  entries: z.record(z.string(), z.string().nullable()),
-})
-
-const CacheStatsResponseSchema = z.object({
-  stats: z.object({
-    totalKeys: z.number(),
-    namespaces: z.number(),
-    usedMemoryMb: z.number(),
-    totalMemoryMb: z.number(),
-    hits: z.number(),
-    misses: z.number(),
-    hitRate: z.number(),
-    totalInstances: z.number(),
-  }),
-})
-
+// Schemas for cache rental API responses
 const CacheInstanceSchema = z.object({
   id: z.string(),
   owner: z.string(),
@@ -89,6 +42,8 @@ export interface CacheClientConfig {
 export interface CacheClient {
   get(key: string): Promise<string | null>
   set(key: string, value: string, ttl?: number): Promise<{ success: boolean }>
+  /** Atomic set-if-not-exists for distributed locking */
+  setNX(key: string, value: string, ttl: number): Promise<boolean>
   delete(key: string): Promise<boolean>
   mget(...keys: string[]): Promise<Map<string, string | null>>
   mset(
@@ -142,207 +97,7 @@ export interface CacheRentalPlan {
   teeRequired: boolean
 }
 
-class DecentralizedCacheClient implements CacheClient {
-  private config: Required<CacheClientConfig>
-
-  constructor(config: CacheClientConfig) {
-    this.config = {
-      defaultTtl: 3600,
-      timeout: 5000,
-      ...config,
-    }
-  }
-
-  async get(key: string): Promise<string | null> {
-    const url = new URL('/cache/get', this.config.endpoint)
-    url.searchParams.set('key', key)
-    url.searchParams.set('namespace', this.config.namespace)
-
-    const response = await fetch(url.toString(), {
-      signal: AbortSignal.timeout(this.config.timeout),
-    })
-
-    if (!response.ok) {
-      throw new Error(`Cache get failed: ${response.statusText}`)
-    }
-
-    const json = await response.json()
-    const data = CacheGetResponseSchema.parse(json)
-    return data.found ? data.value : null
-  }
-
-  async set(
-    key: string,
-    value: string,
-    ttl?: number,
-  ): Promise<{ success: boolean }> {
-    const response = await fetch(`${this.config.endpoint}/cache/set`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        key,
-        value,
-        ttl: ttl ?? this.config.defaultTtl,
-        namespace: this.config.namespace,
-      }),
-      signal: AbortSignal.timeout(this.config.timeout),
-    })
-
-    if (!response.ok) {
-      throw new Error(`Cache set failed: ${response.statusText}`)
-    }
-
-    return { success: true }
-  }
-
-  async delete(key: string): Promise<boolean> {
-    const url = new URL('/cache/delete', this.config.endpoint)
-    url.searchParams.set('key', key)
-    url.searchParams.set('namespace', this.config.namespace)
-
-    const response = await fetch(url.toString(), {
-      method: 'DELETE',
-      signal: AbortSignal.timeout(this.config.timeout),
-    })
-
-    if (!response.ok) {
-      throw new Error(`Cache delete failed: ${response.statusText}`)
-    }
-
-    const json = await response.json()
-    const data = CacheSuccessResponseSchema.parse(json)
-    return data.success
-  }
-
-  async mget(...keys: string[]): Promise<Map<string, string | null>> {
-    const response = await fetch(`${this.config.endpoint}/cache/mget`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        keys,
-        namespace: this.config.namespace,
-      }),
-      signal: AbortSignal.timeout(this.config.timeout),
-    })
-
-    if (!response.ok) {
-      throw new Error(`Cache mget failed: ${response.statusText}`)
-    }
-
-    const json = await response.json()
-    const data = CacheMGetResponseSchema.parse(json)
-    return new Map(Object.entries(data.entries))
-  }
-
-  async mset(
-    entries: Array<{ key: string; value: string; ttl?: number }>,
-  ): Promise<boolean> {
-    const response = await fetch(`${this.config.endpoint}/cache/mset`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        entries,
-        namespace: this.config.namespace,
-      }),
-      signal: AbortSignal.timeout(this.config.timeout),
-    })
-
-    if (!response.ok) {
-      throw new Error(`Cache mset failed: ${response.statusText}`)
-    }
-
-    return true
-  }
-
-  async keys(pattern?: string): Promise<string[]> {
-    const url = new URL('/cache/keys', this.config.endpoint)
-    url.searchParams.set('namespace', this.config.namespace)
-    if (pattern) {
-      url.searchParams.set('pattern', pattern)
-    }
-
-    const response = await fetch(url.toString(), {
-      signal: AbortSignal.timeout(this.config.timeout),
-    })
-
-    if (!response.ok) {
-      throw new Error(`Cache keys failed: ${response.statusText}`)
-    }
-
-    const json = await response.json()
-    const data = CacheKeysResponseSchema.parse(json)
-    return data.keys
-  }
-
-  async ttl(key: string): Promise<number> {
-    const url = new URL('/cache/ttl', this.config.endpoint)
-    url.searchParams.set('key', key)
-    url.searchParams.set('namespace', this.config.namespace)
-
-    const response = await fetch(url.toString(), {
-      signal: AbortSignal.timeout(this.config.timeout),
-    })
-
-    if (!response.ok) {
-      throw new Error(`Cache ttl failed: ${response.statusText}`)
-    }
-
-    const json = await response.json()
-    const data = CacheTTLResponseSchema.parse(json)
-    return data.ttl
-  }
-
-  async expire(key: string, ttl: number): Promise<boolean> {
-    const response = await fetch(`${this.config.endpoint}/cache/expire`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        key,
-        ttl,
-        namespace: this.config.namespace,
-      }),
-      signal: AbortSignal.timeout(this.config.timeout),
-    })
-
-    if (!response.ok) {
-      throw new Error(`Cache expire failed: ${response.statusText}`)
-    }
-
-    const json = await response.json()
-    const data = CacheSuccessResponseSchema.parse(json)
-    return data.success
-  }
-
-  async clear(): Promise<void> {
-    const url = new URL('/cache/clear', this.config.endpoint)
-    url.searchParams.set('namespace', this.config.namespace)
-
-    const response = await fetch(url.toString(), {
-      method: 'DELETE',
-      signal: AbortSignal.timeout(this.config.timeout),
-    })
-
-    if (!response.ok) {
-      throw new Error(`Cache clear failed: ${response.statusText}`)
-    }
-  }
-
-  async getStats(): Promise<CacheStats> {
-    const response = await fetch(`${this.config.endpoint}/stats`, {
-      signal: AbortSignal.timeout(this.config.timeout),
-    })
-
-    if (!response.ok) {
-      throw new Error(`Cache stats failed: ${response.statusText}`)
-    }
-
-    const json = await response.json()
-    const data = CacheStatsResponseSchema.parse(json)
-    return data.stats
-  }
-}
-
-// Cache for rental management
+// Cache rental management
 export class CacheRentalClient {
   private endpoint: string
   private timeout: number
@@ -433,33 +188,6 @@ export class CacheRentalClient {
   }
 }
 
-// Singleton cache clients per namespace (using legacy interface)
-const legacyCacheClients = new Map<string, CacheClient>()
-
-/**
- * Get a cache client for a namespace (legacy interface for backwards compat)
- * @deprecated Use getCacheClient from @jejunetwork/cache instead
- */
-export function getLegacyCacheClient(namespace: string): CacheClient {
-  const existing = legacyCacheClients.get(namespace)
-  if (existing) return existing
-
-  const endpoint = getDWSCacheUrl()
-  const client = new DecentralizedCacheClient({
-    endpoint,
-    namespace,
-    defaultTtl: 3600,
-    timeout: 5000,
-  })
-
-  legacyCacheClients.set(namespace, client)
-  return client
-}
-
-export function resetLegacyCacheClients(): void {
-  legacyCacheClients.clear()
-}
-
 let rentalClient: CacheRentalClient | null = null
 
 export function getCacheRentalClient(): CacheRentalClient {
@@ -478,7 +206,6 @@ export function resetCacheRentalClient(): void {
 export {
   type CachedFarcasterProfile,
   type CachedTokenInfo,
-  type HybridCache,
   CacheTTL,
   cachedRpcCall,
   createHybridCache,
@@ -488,6 +215,7 @@ export {
   getCachedTokenPrice,
   getCachedTokenPrices,
   getRpcMethodTtl,
+  type HybridCache,
   hashKey,
   hashRpcParams,
   invalidateProfile,

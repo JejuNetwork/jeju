@@ -16,11 +16,13 @@ import {
   CORE_PORTS,
   getCoreAppUrl,
   getIndexerGraphqlUrl,
+  getLocalhostHost,
   getRpcUrl,
   getSQLitBlockProducerUrl,
 } from '@jejunetwork/config'
 
 import { createBazaarApp } from '../api/worker'
+import { getSqlitPrivateKey } from '../lib/secrets'
 
 const FRONTEND_PORT = CORE_PORTS.BAZAAR.get()
 const API_PORT = CORE_PORTS.BAZAAR_API.get()
@@ -53,8 +55,6 @@ const EXTERNALS = [
   '@jejunetwork/db',
   '@jejunetwork/kms',
   '@jejunetwork/messaging',
-  '@xmtp/node-sdk',
-  '@xmtp/node-bindings',
   'elysia',
   '@elysiajs/*',
   'ioredis',
@@ -115,8 +115,8 @@ async function buildFrontend(): Promise<void> {
           build.onResolve({ filter: /^@jejunetwork\/shared/ }, () => ({
             path: resolve(process.cwd(), './web/stubs/shared.ts'),
           }))
-          build.onResolve({ filter: /^@xmtp\// }, () => ({
-            path: resolve(process.cwd(), './web/stubs/empty.ts'),
+          build.onResolve({ filter: /^@jejunetwork\/contracts/ }, () => ({
+            path: resolve(process.cwd(), './web/stubs/contracts.ts'),
           }))
           build.onResolve({ filter: /^ioredis/ }, () => ({
             path: resolve(process.cwd(), './web/stubs/empty.ts'),
@@ -214,12 +214,16 @@ async function startApiServer(): Promise<void> {
     INDEXER_URL: getIndexerGraphqlUrl(),
     SQLIT_NODES: getSQLitBlockProducerUrl(),
     SQLIT_DATABASE_ID: process.env.SQLIT_DATABASE_ID || 'dev-bazaar',
-    SQLIT_PRIVATE_KEY: process.env.SQLIT_PRIVATE_KEY || '',
+    // SQLit private key retrieved through secrets module
+    SQLIT_PRIVATE_KEY: getSqlitPrivateKey() ?? '',
   })
 
-  app.listen(API_PORT, () =>
-    console.log(`[Bazaar] API: http://localhost:${API_PORT}`),
-  )
+  const host = getLocalhostHost()
+  app.listen({
+    port: API_PORT,
+    hostname: host,
+  })
+  console.log(`[Bazaar] API: http://${host}:${API_PORT}`)
 }
 
 async function startFrontendServer(): Promise<void> {
@@ -230,8 +234,10 @@ async function startFrontendServer(): Promise<void> {
     ? `${DWS_URL}/workers/bazaar-api`
     : `http://localhost:${API_PORT}`
 
+  const host = getLocalhostHost()
   Bun.serve({
     port: FRONTEND_PORT,
+    hostname: host,
     async fetch(req) {
       const url = new URL(req.url)
       const path = url.pathname
@@ -278,6 +284,16 @@ async function startFrontendServer(): Promise<void> {
         }
       }
 
+      // Handle favicon.ico -> favicon.svg redirect
+      if (path === '/favicon.ico' || path === '/favicon.svg') {
+        const faviconFile = Bun.file('./public/favicon.svg')
+        if (await faviconFile.exists()) {
+          return new Response(faviconFile, {
+            headers: { 'Content-Type': 'image/svg+xml' },
+          })
+        }
+      }
+
       // Serve public files
       const publicFile = Bun.file(`./public${path}`)
       if (path !== '/' && (await publicFile.exists())) {
@@ -291,7 +307,7 @@ async function startFrontendServer(): Promise<void> {
     },
   })
 
-  console.log(`[Bazaar] Frontend: http://localhost:${FRONTEND_PORT}`)
+  console.log(`[Bazaar] Frontend: http://${host}:${FRONTEND_PORT}`)
 
   // Watch for changes
   for (const dir of ['./web', './components', './hooks', './lib']) {
@@ -315,6 +331,7 @@ function generateDevHtml(): string {
   <meta name="theme-color" content="#0D0B14" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#FFFBF7" media="(prefers-color-scheme: light)">
   <title>Bazaar - Dev</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">

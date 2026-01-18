@@ -57,12 +57,16 @@ const TFMMCreatePoolParamsSchema = z.object({
     },
     { error: 'Weights must sum to 100%' },
   ),
+  weights: z.array(z.number().min(0).max(100)).optional(),
   strategy: z.enum([
     'momentum',
     'mean_reversion',
     'trend_following',
     'volatility_targeting',
   ]),
+  name: z.string().min(1).optional(),
+  symbol: z.string().min(1).optional(),
+  swapFeeBps: z.number().int().min(0).max(10000).optional(),
 })
 
 const TFMMUpdateStrategyParamsSchema = z.object({
@@ -73,6 +77,7 @@ const TFMMUpdateStrategyParamsSchema = z.object({
     'trend_following',
     'volatility_targeting',
   ]),
+  strategyRule: z.string().optional(),
 })
 
 const TFMMTriggerRebalanceParamsSchema = z.object({
@@ -147,6 +152,11 @@ export type ABI = z.infer<typeof ABISchema>
 
 export const DWSHealthResponseSchema = z.object({
   status: z.string(),
+  service: z.string().optional(),
+  teeMode: z.string().optional(),
+  teePlatform: z.string().optional(),
+  teeRegion: z.string().optional(),
+  network: z.string().optional(),
   version: z.string().optional(),
   uptime: z.number().optional(),
 })
@@ -193,12 +203,38 @@ export const DWSInvokeResponseSchema = z.object({
 export type DWSInvokeResponse = z.infer<typeof DWSInvokeResponseSchema>
 
 export const AgentCardResponseSchema = z.object({
+  protocolVersion: z.string().optional(),
   name: z.string(),
   description: z.string().optional(),
-  version: z.string().optional(),
-  skills: z.array(z.string()).optional(),
-  icon: z.string().optional(),
   url: z.string().optional(),
+  preferredTransport: z.string().optional(),
+  provider: z
+    .object({
+      organization: z.string().optional(),
+      url: z.string().optional(),
+    })
+    .optional(),
+  version: z.string().optional(),
+  capabilities: z
+    .object({
+      streaming: z.boolean().optional(),
+      pushNotifications: z.boolean().optional(),
+      stateTransitionHistory: z.boolean().optional(),
+    })
+    .optional(),
+  defaultInputModes: z.array(z.string()).optional(),
+  defaultOutputModes: z.array(z.string()).optional(),
+  skills: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        description: z.string().optional(),
+        tags: z.array(z.string()).optional(),
+      }),
+    )
+    .optional(),
+  icon: z.string().optional(),
 })
 
 export type AgentCardResponse = z.infer<typeof AgentCardResponseSchema>

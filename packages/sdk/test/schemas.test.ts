@@ -274,8 +274,7 @@ describe('Schema Validation', () => {
     })
 
     test('accepts negative values (schema allows any number)', () => {
-      // Note: Current schema uses z.number() which allows negatives
-      // This tests actual behavior, not ideal behavior
+      // Current schema uses z.number() which allows negatives - tests actual behavior
       const result = StorageStatsSchema.safeParse({
         totalPins: -1,
         totalSizeBytes: -1000,
@@ -583,7 +582,7 @@ describe('Schema Validation', () => {
         status: 1,
         qualityScore: 85,
         createdAt: Date.now(),
-        councilVoteEnd: Date.now() + 86400000,
+        boardVoteEnd: Date.now() + 86400000,
         gracePeriodEnd: Date.now() + 172800000,
         contentHash: 'ipfs://Qm...',
         targetContract: `0x${'2'.repeat(40)}`,
@@ -592,7 +591,7 @@ describe('Schema Validation', () => {
         totalStaked: '1000000000000000000',
         backerCount: 5,
         hasResearch: true,
-        ceoApproved: false,
+        directorApproved: false,
       })
       expect(result.success).toBe(true)
     })

@@ -24,9 +24,39 @@ import {
   resolveDevProxy,
 } from './dev-proxy'
 
-// SECURITY: Restrict CORS in production
+// SECURITY: Strict CORS restrictions
 const JNS_CORS_ORIGINS = config.corsOrigins
 const isProduction = config.isProduction
+
+/**
+ * SECURITY: Validate and sanitize path to prevent directory traversal
+ */
+function sanitizePath(path: string): string {
+  // Remove any null bytes
+  const clean = path.replace(/\0/g, '')
+  // Normalize path and prevent traversal
+  const normalized = clean.replace(/\\/g, '/').replace(/\/+/g, '/')
+  // Remove any attempts at directory traversal
+  const segments = normalized
+    .split('/')
+    .filter((seg) => seg !== '..' && seg !== '.')
+  return `/${segments.join('/')}`
+}
+
+/**
+ * SECURITY: In production, if CORS_ORIGINS is empty, reject cross-origin
+ */
+function getJnsCorsOrigin(): boolean | string[] {
+  if (!isProduction) {
+    return true
+  }
+  if (JNS_CORS_ORIGINS?.length) {
+    return JNS_CORS_ORIGINS
+  }
+  // SECURITY: In production with no configured origins, return empty array
+  // which effectively blocks cross-origin requests
+  return []
+}
 
 const JNS_RESOLVER_ABI = [
   {
@@ -223,8 +253,7 @@ export class JNSGateway {
     // SECURITY: Apply CORS restrictions in production
     this.app.use(
       cors({
-        origin:
-          isProduction && JNS_CORS_ORIGINS?.length ? JNS_CORS_ORIGINS : true,
+        origin: getJnsCorsOrigin(),
         methods: ['GET', 'OPTIONS'],
         allowedHeaders: ['Content-Type'],
         maxAge: 86400,
@@ -239,7 +268,9 @@ export class JNSGateway {
     this.app.get('/ipfs/:cid', async ({ params, request, set }) => {
       const cid = params.cid
       const url = new URL(request.url)
-      const path = url.pathname.replace(`/ipfs/${cid}`, '') ?? '/'
+      // SECURITY: Sanitize path to prevent directory traversal
+      const rawPath = url.pathname.replace(`/ipfs/${cid}`, '') ?? '/'
+      const path = sanitizePath(rawPath)
       return this.serveIpfsContent(cid, path, set)
     })
 
@@ -296,7 +327,9 @@ export class JNSGateway {
         return { error: 'Invalid JNS name' }
       }
       const url = new URL(request.url)
-      const path = url.pathname.replace(`/${name}`, '') || '/index.html'
+      const rawPath = url.pathname.replace(`/${name}`, '') || '/index.html'
+      // SECURITY: Sanitize path to prevent directory traversal
+      const path = sanitizePath(rawPath)
       return this.serveJNSContent(name, path, set, request)
     })
 

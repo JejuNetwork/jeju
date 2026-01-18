@@ -489,8 +489,7 @@ export async function getLiveRedisClient(): Promise<RedisTestClient> {
  */
 export class RedisTestClient {
   async get(_key: string): Promise<string | null> {
-    // Note: For real Redis integration, you would use ioredis or similar
-    // This is a placeholder that demonstrates the interface
+    // TODO: Implement real Redis integration with ioredis or similar
     throw new Error(
       'Redis client requires ioredis - use getLiveRedis() from @jejunetwork/db',
     )
@@ -599,7 +598,7 @@ export function skipWithoutInfra(
  *     it('should work with Redis and chain', () => { ... })
  *   })
  *
- * Note: When infra is not available, tests will show as skipped.
+ * When infra is not available, tests will show as skipped.
  */
 export function describeWithInfra(
   name: string,

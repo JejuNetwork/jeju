@@ -437,8 +437,7 @@ describe('TrajectoryBatchProcessor', () => {
     })
 
     test('handles explicit "default" archetype', async () => {
-      // Note: null/undefined archetypes are rejected by schema validation
-      // Use explicit "default" archetype instead
+      // null/undefined archetypes are rejected by schema validation - use explicit "default"
       const jsonl = [
         '{"_type":"header","batchId":"b1","appName":"test","trajectoryCount":2,"timestamp":"2024-01-01"}',
         '{"_type":"trajectory","id":"trajectory-1","trajectoryId":"trajectory-1","agentId":"a1","archetype":"default","appName":"test","startTime":"2024-01-01","endTime":"2024-01-01","durationMs":1000,"windowId":"w","scenarioId":"s","steps":[{"stepNumber":0,"timestamp":1704067200000}],"rewardComponents":[],"metrics":{},"metadata":{},"totalReward":0.5}',

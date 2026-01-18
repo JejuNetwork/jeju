@@ -62,7 +62,7 @@ export const datasetsRoutes = new Elysia({ prefix: '/api/datasets' })
     async ({ query }) => {
       const validated = expectValid(DatasetsQuerySchema, query, 'query params')
 
-      const datasetRows = dbListDatasets({
+      const datasetRows = await dbListDatasets({
         type: validated.type,
         org: validated.org,
       })
@@ -93,7 +93,7 @@ export const datasetsRoutes = new Elysia({ prefix: '/api/datasets' })
         'request body',
       )
 
-      const row = dbCreateDataset({
+      const row = await dbCreateDataset({
         name: validated.name,
         organization: validated.organization,
         description: validated.description,

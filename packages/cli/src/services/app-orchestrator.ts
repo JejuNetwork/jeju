@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { type Subprocess, spawn } from 'bun'
 import { logger } from '../lib/logger'
+import { ensurePortAvailable } from '../lib/system'
 import { discoverApps } from '../lib/testing'
 import type { AppManifest } from '../types'
 
@@ -64,9 +65,9 @@ export class AppOrchestrator {
       return
     }
 
-    // For tests, prefer 'start' command which assumes infrastructure is already running
-    // Fall back to 'dev' which manages its own infrastructure
-    const command = app.commands?.start ?? app.commands?.dev
+    // For E2E, we usually need the full app (frontend + API). In Jeju apps,
+    // that is typically wired up under `dev` (while `start` can be backend-only).
+    const command = app.commands?.dev ?? app.commands?.start
     if (!command) {
       logger.debug(`No start/dev command for ${app.name}`)
       return
@@ -79,12 +80,29 @@ export class AppOrchestrator {
         `No RPC URL configured for app ${app.name}. Set L2_RPC_URL or JEJU_RPC_URL in service environment.`,
       )
     }
+
+    // Ensure ALL declared ports are available before starting the app.
+    // Many apps (e.g. oauth3) bind multiple ports (api + frontend) and can
+    // otherwise fail with EADDRINUSE even if the "main" port is free.
+    const declaredPorts = Object.values(app.ports ?? {})
+    const portsToEnsure = [...new Set(declaredPorts)]
+    for (const port of portsToEnsure) {
+      const available = await ensurePortAvailable(port)
+      if (!available) {
+        throw new Error(
+          `FATAL: Port ${port} is already in use and could not be freed for ${app.name}`,
+        )
+      }
+    }
+
     const appEnv: Record<string, string> = {
       ...(process.env as Record<string, string>),
       ...this.serviceEnv,
       JEJU_RPC_URL: rpcUrl,
       RPC_URL: rpcUrl,
-      CHAIN_ID: '31337',
+      CHAIN_ID: this.serviceEnv.CHAIN_ID ?? '31337',
+      JEJU_NO_WATCH: '1',
+      JEJU_TEST_MODE: '1',
     }
 
     if (mainPort) {
@@ -96,8 +114,8 @@ export class AppOrchestrator {
     const proc = spawn({
       cmd: [cmd, ...args],
       cwd: appDir,
-      stdout: 'pipe',
-      stderr: 'pipe',
+      stdout: 'inherit',
+      stderr: 'inherit',
       env: appEnv,
     })
 

@@ -191,10 +191,10 @@ export const GovernanceAddressesSchema = z
     governanceToken: z.string().optional(),
     identityRegistry: z.string().optional(),
     reputationRegistry: z.string().optional(),
-    council: z.string().optional(),
+    board: z.string().optional(),
     delegationRegistry: z.string().optional(),
     circuitBreaker: z.string().optional(),
-    councilSafeModule: z.string().optional(),
+    boardSafeModule: z.string().optional(),
     safe: z.string().optional(),
   })
   .passthrough()
@@ -399,7 +399,7 @@ export const EILChainConfigEntrySchema = z
     rpcUrl: z.string(),
     crossChainPaymaster: z.string().optional(),
     l1StakeManager: z.string().optional(),
-    status: z.enum(['active', 'inactive', 'pending']).optional(),
+    status: z.enum(['active', 'inactive', 'pending', 'planned']).optional(),
     tokens: z.record(z.string(), z.string()).optional(),
   })
   .passthrough()
@@ -833,7 +833,7 @@ export type BuildOutputLine = z.infer<typeof BuildOutputLineSchema>
 
 /**
  * IPFS add API response line (ndjson format)
- * Note: IPFS API uses PascalCase for field names
+ * IPFS API uses PascalCase for field names
  */
 export const IPFSAddResponseLineSchema = z.object({
   Hash: z.string(),

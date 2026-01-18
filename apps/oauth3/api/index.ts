@@ -49,23 +49,69 @@ const authConfig: AuthConfig = {
   devMode: oauth3Config.devMode,
 }
 
+/**
+ * Check if an origin matches allowed patterns
+ * Supports exact matches and wildcard patterns like "*.jejunetwork.org"
+ * When returning true with credentials:true, Elysia reflects the requesting origin
+ */
+function isOriginAllowed(
+  origin: string,
+  allowedOrigins: string[],
+  devMode: boolean,
+): boolean {
+  // In dev mode, allow localhost origins
+  if (devMode) {
+    const localhostPatterns = [
+      /^http:\/\/localhost(:\d+)?$/,
+      /^http:\/\/127\.0\.0\.1(:\d+)?$/,
+      /^http:\/\/\[::1\](:\d+)?$/,
+    ]
+    if (localhostPatterns.some((pattern) => pattern.test(origin))) {
+      return true
+    }
+  }
+
+  for (const allowed of allowedOrigins) {
+    // Wildcard allows all
+    if (allowed === '*') {
+      return true
+    }
+
+    // Exact match
+    if (allowed === origin) {
+      return true
+    }
+
+    // Wildcard subdomain pattern (e.g., "*.jejunetwork.org")
+    if (allowed.startsWith('*.')) {
+      const domain = allowed.slice(2) // Remove "*."
+      const originUrl = new URL(origin)
+      const originHost = originUrl.hostname
+      // Match the domain or any subdomain
+      if (originHost === domain || originHost.endsWith(`.${domain}`)) {
+        return true
+      }
+    }
+  }
+
+  return false
+}
+
 async function createApp() {
-  // Build explicit allowed origins for CORS (wildcards don't work with credentials)
-  const host = getLocalhostHost()
-  const explicitOrigins = [
-    `http://${host}:3000`,
-    `http://${host}:3001`,
-    `http://${host}:4200`,
-    'https://cloud.elizaos.com',
-    'https://eliza.cloud',
-    'https://elizaos.ai',
-    ...authConfig.allowedOrigins.filter((o) => o !== '*'),
-  ]
+  const allowedOrigins = oauth3Config.allowedOrigins
+  const devMode = oauth3Config.devMode
 
   const app = new Elysia()
     .use(
       cors({
-        origin: explicitOrigins,
+        origin: (request) => {
+          const originHeader = request.headers.get('origin')
+          if (!originHeader) {
+            // No origin header (same-origin request or non-browser client)
+            return true
+          }
+          return isOriginAllowed(originHeader, allowedOrigins, devMode)
+        },
         credentials: true,
         allowedHeaders: [
           'Content-Type',
@@ -112,9 +158,11 @@ async function createApp() {
           headers: { 'Content-Type': 'text/html; charset=utf-8' },
         })
       }
-      return new Response('OAuth3 Authentication Gateway', {
-        headers: { 'Content-Type': 'text/plain' },
-      })
+      // Fallback: minimal HTML response
+      return new Response(
+        '<!DOCTYPE html><html><head><title>OAuth3</title></head><body><h1>OAuth3 Authentication Gateway</h1></body></html>',
+        { headers: { 'Content-Type': 'text/html; charset=utf-8' } },
+      )
     })
     .get('/app.js', async () => {
       // Try source first for dev

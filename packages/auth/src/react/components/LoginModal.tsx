@@ -5,7 +5,7 @@
  */
 
 import type React from 'react'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AuthProvider } from '../../types'
 import { useOAuth3 } from '../provider'
 import { LoginButton } from './LoginButton'
@@ -22,6 +22,7 @@ export interface LoginModalProps {
 
 const defaultProviders: AuthProvider[] = [
   AuthProvider.WALLET,
+  AuthProvider.PASSKEY,
   AuthProvider.GOOGLE,
   AuthProvider.FARCASTER,
   AuthProvider.GITHUB,
@@ -45,6 +46,31 @@ export function LoginModal({
   const [code, setCode] = useState('')
   const [codeSent, setCodeSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [passkeyAvailable, setPasskeyAvailable] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.PublicKeyCredential) {
+      setPasskeyAvailable(false)
+      return
+    }
+    if (
+      typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable ===
+      'function'
+    ) {
+      PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
+        .then(setPasskeyAvailable)
+        .catch(() => setPasskeyAvailable(false))
+      return
+    }
+    setPasskeyAvailable(true)
+  }, [])
+
+  const activeProviders = useMemo(() => {
+    return providers.filter(
+      (provider) =>
+        provider !== AuthProvider.PASSKEY || passkeyAvailable === true,
+    )
+  }, [providers, passkeyAvailable])
 
   const handleSuccess = useCallback(() => {
     onSuccess?.()
@@ -212,7 +238,7 @@ export function LoginModal({
             <div
               style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
             >
-              {providers.map((provider) => (
+              {activeProviders.map((provider) => (
                 <LoginButton
                   key={provider}
                   provider={provider}

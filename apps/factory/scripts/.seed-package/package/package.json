@@ -1,0 +1,6 @@
+{
+  "name": "@jejunetwork/sdk",
+  "version": "1.0.0",
+  "description": "Seeded SDK package for testnet",
+  "main": "index.js"
+}

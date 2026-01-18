@@ -1,35 +1,20 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { ChatInterface } from '../components/ChatInterface'
 import { LoadingSpinner } from '../components/LoadingSpinner'
-import {
-  type CharacterWithRuntime,
-  type RoomType,
-  useChatCharacters,
-  useCreateRoom,
-} from '../hooks'
-import { ROOM_TYPE_CONFIG } from '../lib/constants'
-
-const ROOM_TYPES = Object.entries(ROOM_TYPE_CONFIG).map(([type, config]) => ({
-  type: type as RoomType,
-  ...config,
-}))
+import { type CharacterWithRuntime, useChatCharacters } from '../hooks'
 
 export default function ChatPage() {
-  const { roomId } = useParams<{ roomId: string }>()
   const [searchParams] = useSearchParams()
-  const navigate = useNavigate()
   const initialCharacter = searchParams.get('character')
 
   const [selectedCharacter, setSelectedCharacter] =
     useState<CharacterWithRuntime | null>(null)
-  const [showCreateRoom, setShowCreateRoom] = useState(false)
-  const [roomName, setRoomName] = useState('')
-  const [roomType, setRoomType] = useState<RoomType>('collaboration')
 
-  const { data: characters, isLoading } = useChatCharacters()
-  const createRoom = useCreateRoom()
+  const { data: characters, isLoading: isLoadingCharacters } =
+    useChatCharacters()
 
+  // Handle initial character from URL param
   useEffect(() => {
     if (characters && initialCharacter && !selectedCharacter) {
       const found = characters.find((c) => c.id === initialCharacter)
@@ -37,21 +22,7 @@ export default function ChatPage() {
     }
   }, [characters, initialCharacter, selectedCharacter])
 
-  const handleCreateRoom = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!roomName.trim()) return
-
-    const result = await createRoom.mutateAsync({
-      name: roomName.trim(),
-      roomType,
-    })
-
-    setShowCreateRoom(false)
-    setRoomName('')
-    navigate(`/chat/${result.roomId}`)
-  }
-
-  if (isLoading) {
+  if (isLoadingCharacters) {
     return (
       <output className="flex flex-col items-center justify-center py-20">
         <LoadingSpinner size="lg" />
@@ -68,115 +39,7 @@ export default function ChatPage() {
         >
           Chat
         </h1>
-        <button
-          type="button"
-          onClick={() => setShowCreateRoom(!showCreateRoom)}
-          className={showCreateRoom ? 'btn-secondary' : 'btn-primary'}
-          aria-expanded={showCreateRoom}
-        >
-          {showCreateRoom ? 'Cancel' : 'New Room'}
-        </button>
       </header>
-
-      {showCreateRoom && (
-        <section className="card-static p-6 mb-8 animate-slide-up">
-          <h2
-            className="text-lg font-bold mb-5 font-display"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            New Room
-          </h2>
-
-          <form onSubmit={handleCreateRoom} className="space-y-5">
-            <div>
-              <label
-                htmlFor="room-name"
-                className="block text-sm font-medium mb-2"
-                style={{ color: 'var(--text-secondary)' }}
-              >
-                Name
-              </label>
-              <input
-                id="room-name"
-                type="text"
-                value={roomName}
-                onChange={(e) => setRoomName(e.target.value)}
-                className="input max-w-md"
-                required
-              />
-            </div>
-
-            <fieldset>
-              <legend
-                className="block text-sm font-medium mb-3"
-                style={{ color: 'var(--text-secondary)' }}
-              >
-                Type
-              </legend>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {ROOM_TYPES.map((rt) => (
-                  <button
-                    key={rt.type}
-                    type="button"
-                    onClick={() => setRoomType(rt.type)}
-                    className={`p-4 rounded-xl border text-center transition-all ${
-                      roomType === rt.type
-                        ? 'ring-2 ring-[var(--color-primary)] border-[var(--color-primary)]'
-                        : 'border-[var(--border)] hover:border-[var(--border-strong)]'
-                    }`}
-                    style={{
-                      backgroundColor:
-                        roomType === rt.type
-                          ? 'rgba(99, 102, 241, 0.1)'
-                          : 'var(--surface)',
-                    }}
-                    aria-pressed={roomType === rt.type}
-                  >
-                    <div className="text-2xl mb-1" aria-hidden="true">
-                      {rt.icon}
-                    </div>
-                    <p
-                      className="font-medium text-sm"
-                      style={{ color: 'var(--text-primary)' }}
-                    >
-                      {rt.label}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowCreateRoom(false)}
-                className="btn-ghost"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={!roomName.trim() || createRoom.isPending}
-                className="btn-primary"
-              >
-                {createRoom.isPending ? <LoadingSpinner size="sm" /> : 'Create'}
-              </button>
-            </div>
-
-            {createRoom.isError && (
-              <div
-                className="p-3 rounded-lg"
-                style={{ backgroundColor: 'rgba(244, 63, 94, 0.1)' }}
-                role="alert"
-              >
-                <p className="text-sm" style={{ color: 'var(--color-error)' }}>
-                  {createRoom.error.message}
-                </p>
-              </div>
-            )}
-          </form>
-        </section>
-      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <aside className="lg:col-span-4 xl:col-span-3">
@@ -244,7 +107,6 @@ export default function ChatPage() {
             <ChatInterface
               characterId={selectedCharacter.id}
               characterName={selectedCharacter.name ?? selectedCharacter.id}
-              roomId={roomId}
             />
           ) : (
             <div className="card-static p-12 text-center min-h-[400px] flex flex-col items-center justify-center">

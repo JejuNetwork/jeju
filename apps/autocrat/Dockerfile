@@ -39,6 +39,7 @@ COPY packages/bridge/package.json ./packages/bridge/
 COPY packages/cache/package.json ./packages/cache/
 COPY packages/deployment/package.json ./packages/deployment/
 COPY packages/solana/package.json ./packages/solana/
+COPY packages/monitoring/package.json ./packages/monitoring/
 
 # Copy all apps package.json for workspace
 COPY apps/dws/package.json ./apps/dws/
@@ -47,13 +48,11 @@ COPY apps/bazaar/package.json ./apps/bazaar/
 COPY apps/crucible/package.json ./apps/crucible/
 COPY apps/factory/package.json ./apps/factory/
 COPY apps/indexer/package.json ./apps/indexer/
-COPY apps/monitoring/package.json ./apps/monitoring/
 COPY apps/node/package.json ./apps/node/
 COPY apps/wallet/package.json ./apps/wallet/
 COPY apps/oauth3/package.json ./apps/oauth3/
 COPY apps/otto/package.json ./apps/otto/
 COPY apps/vpn/package.json ./apps/vpn/
-COPY apps/example/package.json ./apps/example/
 COPY apps/documentation/package.json ./apps/documentation/
 
 # Install all dependencies (ignore scripts that require native builds)

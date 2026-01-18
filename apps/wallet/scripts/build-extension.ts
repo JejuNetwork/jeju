@@ -131,7 +131,8 @@ async function build() {
     minify: isProduction,
     sourcemap: isProduction ? 'none' : 'linked',
     target: 'browser',
-    splitting: true,
+    splitting: false,
+    packages: 'bundle',
     define: {
       'process.env.EXT_TARGET': JSON.stringify(target),
       'process.env.IS_EXTENSION': JSON.stringify(true),
@@ -145,6 +146,7 @@ async function build() {
       chunk: '[name]-[hash].js',
       asset: 'assets/[name]-[hash].[ext]',
     },
+    drop: isProduction ? ['debugger'] : [],
   })
 
   if (!popupResult.success) {
@@ -232,6 +234,7 @@ async function build() {
     minify: isProduction,
     sourcemap: isProduction ? 'none' : 'linked',
     target: 'browser',
+    packages: 'bundle',
     define: {
       'process.env.EXT_TARGET': JSON.stringify(target),
       'process.env.IS_EXTENSION': JSON.stringify(true),
@@ -241,6 +244,7 @@ async function build() {
     },
     plugins: [stubPlugin],
     naming: '[name].js',
+    drop: isProduction ? ['debugger'] : [],
   })
 
   if (!backgroundResult.success) {
@@ -270,6 +274,7 @@ async function build() {
     minify: isProduction,
     sourcemap: isProduction ? 'none' : 'linked',
     target: 'browser',
+    packages: 'bundle',
     define: {
       'process.env.EXT_TARGET': JSON.stringify(target),
       'process.env.IS_EXTENSION': JSON.stringify(true),
@@ -279,6 +284,7 @@ async function build() {
     },
     plugins: [stubPlugin],
     naming: 'content-script.js',
+    drop: isProduction ? ['debugger'] : [],
   })
 
   if (!contentResult.success) {
@@ -297,6 +303,7 @@ async function build() {
     minify: isProduction,
     sourcemap: isProduction ? 'none' : 'linked',
     target: 'browser',
+    packages: 'bundle',
     define: {
       'process.env.EXT_TARGET': JSON.stringify(target),
       'process.env.IS_EXTENSION': JSON.stringify(true),
@@ -306,6 +313,7 @@ async function build() {
     },
     plugins: [stubPlugin],
     naming: 'injected.js',
+    drop: isProduction ? ['debugger'] : [],
   })
 
   if (!injectedResult.success) {
@@ -353,6 +361,7 @@ async function build() {
   console.log(`Extension built successfully: ${DIST}`)
   console.log(`  Target: ${target}`)
   console.log(`  Mode: ${isProduction ? 'production' : 'development'}`)
+  process.exit(0)
 }
 
 build().catch((error) => {

@@ -110,9 +110,9 @@ class ArchetypeTrainer:
         # Get archetype-specific rubric
         rubric = get_rubric(archetype)
 
-        # Configure environment with archetype rubric
-        # Note: env_config is prepared for when the JejuRLAIFEnv is started
-        # In the full pipeline, this would be passed to the environment server
+        # Configure environment with archetype rubric.
+        # env_config is prepared for when the JejuRLAIFEnv is started.
+        # In the full pipeline, this would be passed to the environment server.
         _ = JejuEnvConfig(
             scoring_rubric=rubric,
             judge_model=self.config.judge_model,

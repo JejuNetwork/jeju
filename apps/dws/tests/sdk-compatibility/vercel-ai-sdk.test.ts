@@ -146,7 +146,7 @@ describe('Vercel AI SDK Compatibility', () => {
                       id: `chatcmpl-${Date.now()}`,
                       object: 'chat.completion.chunk',
                       created: Math.floor(Date.now() / 1000),
-                      model: body.model || 'mock-gpt-4',
+                      model: body.model || 'mock-gpt-5',
                       choices: [
                         {
                           index: 0,
@@ -169,7 +169,7 @@ describe('Vercel AI SDK Compatibility', () => {
                       id: `chatcmpl-${Date.now()}`,
                       object: 'chat.completion.chunk',
                       created: Math.floor(Date.now() / 1000),
-                      model: body.model || 'mock-gpt-4',
+                      model: body.model || 'mock-gpt-5',
                       choices: [
                         {
                           index: 0,
@@ -204,7 +204,7 @@ describe('Vercel AI SDK Compatibility', () => {
             id: `chatcmpl-${Date.now()}`,
             object: 'chat.completion',
             created: Math.floor(Date.now() / 1000),
-            model: body.model || 'mock-gpt-4',
+            model: body.model || 'mock-gpt-5',
             provider: 'mock',
             choices: [
               {
@@ -248,7 +248,7 @@ describe('Vercel AI SDK Compatibility', () => {
           return Response.json({
             object: 'list',
             data: [
-              { id: 'mock-gpt-4', object: 'model', owned_by: 'mock' },
+              { id: 'mock-gpt-5', object: 'model', owned_by: 'mock' },
               { id: 'mock-gpt-3.5-turbo', object: 'model', owned_by: 'mock' },
               {
                 id: 'text-embedding-ada-002',
@@ -270,7 +270,7 @@ describe('Vercel AI SDK Compatibility', () => {
         address: MOCK_NODE_ADDRESS,
         endpoint: `http://localhost:${MOCK_PORT}`,
         capabilities: ['inference', 'embeddings', 'streaming'],
-        models: ['mock-gpt-4', 'mock-gpt-3.5-turbo', 'text-embedding-ada-002'],
+        models: ['mock-gpt-5', 'mock-gpt-3.5-turbo', 'text-embedding-ada-002'],
         provider: 'mock',
         region: 'test',
         gpuTier: 0,
@@ -304,7 +304,7 @@ describe('Vercel AI SDK Compatibility', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'mock-gpt-4',
+          model: 'mock-gpt-5',
           messages: [
             { role: 'system', content: 'You are a helpful assistant.' },
             { role: 'user', content: 'What is the capital of France?' },
@@ -343,7 +343,7 @@ describe('Vercel AI SDK Compatibility', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'mock-gpt-4',
+          model: 'mock-gpt-5',
           messages: [
             {
               role: 'user',
@@ -365,7 +365,7 @@ describe('Vercel AI SDK Compatibility', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'mock-gpt-4',
+          model: 'mock-gpt-5',
           messages: [
             {
               role: 'user',
@@ -389,7 +389,7 @@ describe('Vercel AI SDK Compatibility', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'mock-gpt-4',
+          model: 'mock-gpt-5',
           messages: [{ role: 'user', content: 'streaming test please' }],
           stream: true,
         }),
@@ -439,7 +439,7 @@ describe('Vercel AI SDK Compatibility', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'mock-gpt-4',
+          model: 'mock-gpt-5',
           messages: [{ role: 'user', content: 'Hello' }],
           temperature: 0,
         }),
@@ -455,7 +455,7 @@ describe('Vercel AI SDK Compatibility', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'mock-gpt-4',
+          model: 'mock-gpt-5',
           messages: [{ role: 'user', content: 'Hello' }],
           max_tokens: 10,
         }),
@@ -541,7 +541,7 @@ describe('Vercel AI SDK Compatibility', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'mock-gpt-4',
+          model: 'mock-gpt-5',
           messages: [
             {
               role: 'system',
@@ -562,7 +562,7 @@ describe('Vercel AI SDK Compatibility', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'mock-gpt-4',
+          model: 'mock-gpt-5',
           messages: [
             { role: 'user', content: 'My name is Alice' },
             { role: 'assistant', content: 'Hello Alice!' },
@@ -581,7 +581,7 @@ describe('Vercel AI SDK Compatibility', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'mock-gpt-4',
+          model: 'mock-gpt-5',
           messages: [],
         }),
       })

@@ -9,7 +9,7 @@ newline_style = "Auto"
 reorder_imports = true
 reorder_modules = true
 
-# Note: The following options require nightly:
+# The following options require nightly:
 # imports_granularity = "Crate"
 # group_imports = "StdExternalCrate"
 # format_code_in_doc_comments = true

@@ -112,9 +112,8 @@ describe('Contract Addresses', () => {
   })
 })
 
-// Note: Full StorageService tests require native modules (webtorrent)
-// which don't work in Bun's test runner. The service works correctly
-// when running in Node.js or the Tauri app.
+// Full StorageService tests require native modules (webtorrent) which don't work in Bun's test runner
+// Service works correctly when running in Node.js or the Tauri app
 describe('Storage Service Integration', () => {
   it('ABI is compatible with StorageService', () => {
     // Verify the ABI has all the functions the service expects

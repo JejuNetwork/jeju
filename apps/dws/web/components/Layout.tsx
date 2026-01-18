@@ -1,4 +1,5 @@
-import { WalletButton } from '@jejunetwork/ui'
+import { AuthProvider } from '@jejunetwork/auth'
+import { LoginModal, useJejuAuth } from '@jejunetwork/auth/react'
 import {
   BarChart3,
   Bell,
@@ -7,40 +8,43 @@ import {
   Brain,
   ChevronLeft,
   Cloud,
+  Code2,
+  Coins,
   Cpu,
   CreditCard,
   Database,
+  DollarSign,
+  Download,
   FolderGit2,
   Gauge,
   GitBranch,
   Globe,
   Key,
+  Keyboard,
   Layers,
   LayoutList,
   Lock,
   Mail,
   Menu,
   MessageSquare,
+  Moon,
   Network,
   Package,
   Radio,
   Search,
+  Server,
   Settings,
   Shield,
   Sparkles,
   Store,
+  Sun,
   X,
   Zap,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import type { ViewMode } from '../types'
-
-interface LayoutProps {
-  children: React.ReactNode
-  viewMode: ViewMode
-  setViewMode: (mode: ViewMode) => void
-}
+import { NETWORK } from '../config'
+import { useTheme } from '../context/AppContext'
 
 interface NavItem {
   id: string
@@ -250,6 +254,35 @@ const NAV_SECTIONS: NavSection[] = [
       },
     ],
   },
+  {
+    title: 'Provide & Earn',
+    items: [
+      {
+        id: 'run-node',
+        label: 'Run a Node',
+        icon: <Download size={20} />,
+        path: '/provider/node',
+      },
+      {
+        id: 'my-nodes',
+        label: 'My Nodes',
+        icon: <Server size={20} />,
+        path: '/provider/nodes',
+      },
+      {
+        id: 'earnings',
+        label: 'Earnings',
+        icon: <DollarSign size={20} />,
+        path: '/provider/earnings',
+      },
+      {
+        id: 'broker-sdk',
+        label: 'Broker SDK',
+        icon: <Code2 size={20} />,
+        path: '/provider/broker',
+      },
+    ],
+  },
 ]
 
 const BOTTOM_NAV: NavItem[] = [
@@ -273,19 +306,27 @@ const BOTTOM_NAV: NavItem[] = [
   },
 ]
 
-export default function Layout({
-  children,
-  viewMode,
-  setViewMode,
-}: LayoutProps) {
+interface LayoutProps {
+  children: React.ReactNode
+}
+
+export default function Layout({ children }: LayoutProps) {
   const location = useLocation()
+  const { theme, toggleTheme } = useTheme()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
+  const [showShortcuts, setShowShortcuts] = useState(false)
+  const [loginOpen, setLoginOpen] = useState(false)
+  const { authenticated, loading, walletAddress, logout } = useJejuAuth()
 
   // Close sidebar when route changes (mobile)
+  const prevPathRef = useRef(location.pathname)
   useEffect(() => {
-    setSidebarOpen(false)
-  }, [])
+    if (prevPathRef.current !== location.pathname) {
+      setSidebarOpen(false)
+      prevPathRef.current = location.pathname
+    }
+  }, [location.pathname])
 
   // Close mobile sidebar on resize to desktop
   useEffect(() => {
@@ -296,6 +337,28 @@ export default function Layout({
     }
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd/Ctrl + B to toggle sidebar
+      if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
+        e.preventDefault()
+        setCollapsed((c) => !c)
+      }
+      // Cmd/Ctrl + / to toggle shortcuts modal
+      if ((e.metaKey || e.ctrlKey) && e.key === '/') {
+        e.preventDefault()
+        setShowShortcuts((s) => !s)
+      }
+      // Escape to close shortcuts
+      if (e.key === 'Escape') {
+        setShowShortcuts(false)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
   const isActive = (path: string) => location.pathname === path
@@ -323,7 +386,7 @@ export default function Layout({
       {sidebarOpen && (
         <button
           type="button"
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden cursor-default"
+          className="sidebar-overlay"
           onClick={() => setSidebarOpen(false)}
           aria-label="Close sidebar"
         />
@@ -342,9 +405,9 @@ export default function Layout({
           {!collapsed && (
             <button
               type="button"
-              className="btn btn-ghost btn-icon ml-auto hidden lg:flex"
+              className="btn btn-ghost btn-icon sidebar-collapse-btn"
               onClick={() => setCollapsed(true)}
-              title="Collapse sidebar"
+              title="Collapse sidebar (⌘B)"
             >
               <ChevronLeft size={18} />
             </button>
@@ -352,15 +415,9 @@ export default function Layout({
           {collapsed && (
             <button
               type="button"
-              className="btn btn-ghost btn-icon hidden lg:flex"
+              className="btn btn-ghost btn-icon sidebar-expand-btn"
               onClick={() => setCollapsed(false)}
-              title="Expand sidebar"
-              style={{
-                position: 'absolute',
-                right: '-12px',
-                background: 'var(--bg-secondary)',
-                border: '1px solid var(--border)',
-              }}
+              title="Expand sidebar (⌘B)"
             >
               <ChevronLeft size={18} style={{ transform: 'rotate(180deg)' }} />
             </button>
@@ -393,6 +450,20 @@ export default function Layout({
               ))}
             </div>
           ))}
+
+          {/* Faucet link for testnet/localnet */}
+          {NETWORK !== 'mainnet' && (
+            <div className="nav-section">
+              <div className="nav-section-title">Testnet</div>
+              <Link
+                to="/faucet"
+                className={`nav-item ${isActive('/faucet') ? 'active' : ''}`}
+              >
+                <Coins size={20} />
+                <span>Faucet</span>
+              </Link>
+            </div>
+          )}
         </nav>
 
         <div className="sidebar-footer">
@@ -414,16 +485,17 @@ export default function Layout({
           <div className="header-left">
             <button
               type="button"
-              className="btn btn-ghost btn-icon lg:hidden"
+              className="btn btn-ghost btn-icon mobile-menu-btn"
               onClick={() => setSidebarOpen(!sidebarOpen)}
+              aria-label={sidebarOpen ? 'Close menu' : 'Open menu'}
             >
               {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
 
-            <nav className="breadcrumbs hidden md:flex">
+            <nav className="breadcrumbs">
               {breadcrumbs.map((crumb, i) => (
                 <span key={crumb.path}>
-                  {i > 0 && <span style={{ margin: '0 0.5rem' }}>/</span>}
+                  {i > 0 && <span className="breadcrumb-sep">/</span>}
                   {i === breadcrumbs.length - 1 ? (
                     <span className="current">{crumb.label}</span>
                   ) : (
@@ -435,22 +507,23 @@ export default function Layout({
           </div>
 
           <div className="header-right">
-            <div className="mode-toggle">
-              <button
-                type="button"
-                className={viewMode === 'consumer' ? 'active' : ''}
-                onClick={() => setViewMode('consumer')}
-              >
-                Consumer
-              </button>
-              <button
-                type="button"
-                className={viewMode === 'provider' ? 'active' : ''}
-                onClick={() => setViewMode('provider')}
-              >
-                Provider
-              </button>
-            </div>
+            <button
+              type="button"
+              className="btn btn-ghost btn-icon"
+              onClick={toggleTheme}
+              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            >
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+
+            <button
+              type="button"
+              className="btn btn-ghost btn-icon"
+              onClick={() => setShowShortcuts(true)}
+              title="Keyboard shortcuts (⌘/)"
+            >
+              <Keyboard size={18} />
+            </button>
 
             <button
               type="button"
@@ -460,11 +533,110 @@ export default function Layout({
               <Bell size={18} />
             </button>
 
-            <WalletButton />
+            {authenticated && walletAddress ? (
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => logout()}
+              >
+                {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setLoginOpen(true)}
+                disabled={loading}
+              >
+                {loading ? 'Connecting...' : 'Sign In'}
+              </button>
+            )}
           </div>
         </header>
 
         <main className="page-content">{children}</main>
+      </div>
+
+      {/* Keyboard Shortcuts Modal */}
+      {showShortcuts && (
+        <div
+          className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="shortcuts-title"
+        >
+          <button
+            type="button"
+            className="modal-backdrop"
+            onClick={() => setShowShortcuts(false)}
+            tabIndex={-1}
+            aria-label="Close"
+          />
+          <div className="modal" style={{ maxWidth: '480px' }}>
+            <div className="modal-header">
+              <h2 id="shortcuts-title">Keyboard Shortcuts</h2>
+              <button
+                type="button"
+                className="btn btn-ghost btn-icon"
+                onClick={() => setShowShortcuts(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="shortcuts-list">
+                <div className="shortcut-group">
+                  <h3>Navigation</h3>
+                  <ShortcutRow keys={['g', 'd']} action="Go to Dashboard" />
+                  <ShortcutRow keys={['g', 's']} action="Go to Storage" />
+                  <ShortcutRow keys={['g', 'c']} action="Go to Containers" />
+                  <ShortcutRow keys={['g', 'w']} action="Go to Workers" />
+                  <ShortcutRow keys={['g', 'b']} action="Go to Billing" />
+                </div>
+                <div className="shortcut-group">
+                  <h3>Application</h3>
+                  <ShortcutRow keys={['⌘', 'B']} action="Toggle sidebar" />
+                  <ShortcutRow keys={['⌘', '/']} action="Show shortcuts" />
+                  <ShortcutRow keys={['Esc']} action="Close dialogs" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <LoginModal
+        isOpen={loginOpen}
+        onClose={() => setLoginOpen(false)}
+        onSuccess={() => setLoginOpen(false)}
+        title="Sign In"
+        subtitle="Use wallet or passkey"
+        providers={[
+          AuthProvider.WALLET,
+          AuthProvider.PASSKEY,
+          AuthProvider.FARCASTER,
+          AuthProvider.GOOGLE,
+          AuthProvider.GITHUB,
+          AuthProvider.TWITTER,
+          AuthProvider.DISCORD,
+        ]}
+        showEmailPhone={false}
+      />
+    </div>
+  )
+}
+
+function ShortcutRow({ keys, action }: { keys: string[]; action: string }) {
+  return (
+    <div className="shortcut-row">
+      <span className="shortcut-action">{action}</span>
+      <div className="shortcut-keys">
+        {keys.map((key, i) => (
+          <span key={`${action}-${key}`}>
+            <kbd>{key}</kbd>
+            {i < keys.length - 1 && <span className="key-sep">+</span>}
+          </span>
+        ))}
       </div>
     </div>
   )

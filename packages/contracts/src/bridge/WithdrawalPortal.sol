@@ -153,7 +153,7 @@ contract WithdrawalPortal is ReentrancyGuard {
 
         emit WithdrawalFinalized(withdrawalHash, success);
 
-        // Note: We emit success status but don't revert on failure.
+        // We emit success status but don't revert on failure.
         // This matches Optimism's design - the withdrawal is marked finalized
         // even if the target call fails, to prevent griefing attacks.
     }

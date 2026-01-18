@@ -75,8 +75,7 @@ class AutocratMessagingService {
   }
 
   /**
-   * Get a user's profile
-   * Note: Returns null if profile fetch fails (Hub API limitations)
+   * Get a user's profile. Returns null if profile fetch fails.
    */
   async getProfile(fid: number): Promise<FarcasterProfile | null> {
     const cached = profileCache.get(fid)

@@ -189,8 +189,8 @@ contract CloudReputationProviderTest is Test {
     }
 
     // ============ Ban Proposal Tests ============
-    // Note: Full ban proposal tests are in ModerationIntegration.t.sol
-    // These tests verify CloudReputationProvider's authorization checks
+    // Full ban proposal tests are in ModerationIntegration.t.sol.
+    // These tests verify CloudReputationProvider's authorization checks.
 
     function testUnauthorizedCannotRequestBan() public {
         vm.deal(user, 1 ether);
@@ -305,7 +305,7 @@ contract CloudReputationProviderTest is Test {
     function testIsAuthorizedOperator() public view {
         assertTrue(cloudProvider.isAuthorizedOperator(operator));
         assertFalse(cloudProvider.isAuthorizedOperator(user));
-        // Note: isAuthorizedOperator only checks the mapping, owner permissions
+        // isAuthorizedOperator only checks the mapping; owner permissions
         // are checked separately in _validateAndRecordViolation
     }
 

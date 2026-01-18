@@ -114,7 +114,7 @@ describe('Agent Types', () => {
 
 describe('Room Types', () => {
   it('Room types are valid string unions', () => {
-    const roomTypes = ['collaboration', 'adversarial', 'debate', 'council']
+    const roomTypes = ['collaboration', 'adversarial', 'debate', 'board']
     const roles = [
       'participant',
       'moderator',

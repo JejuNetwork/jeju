@@ -36,7 +36,7 @@ jobs:
           exit 1
 
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v1
+      - uses: oven-sh/setup-bun@v2
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.0
@@ -61,7 +61,7 @@ jobs:
       eks-cluster: ${{ steps.output.outputs.eks_cluster_name }}
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v1
+      - uses: oven-sh/setup-bun@v2
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.0
@@ -161,7 +161,7 @@ jobs:
     environment: mainnet
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v1
+      - uses: oven-sh/setup-bun@v2
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:

@@ -8,6 +8,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
+import { reportBundleSizes } from '@jejunetwork/shared'
 
 const APP_DIR = resolve(import.meta.dir, '..')
 const outdir = resolve(APP_DIR, 'dist')
@@ -30,6 +31,7 @@ async function build() {
     target: 'bun',
     minify: true,
     sourcemap: 'external',
+    drop: ['debugger'],
   })
 
   if (!apiResult.success) {
@@ -39,6 +41,7 @@ async function build() {
     }
     process.exit(1)
   }
+  reportBundleSizes(apiResult, 'VPN API')
   console.log('[VPN] API built successfully')
 
   // Build frontend (dashboard)
@@ -52,6 +55,7 @@ async function build() {
     splitting: false,
     packages: 'bundle',
     naming: '[name].[hash].[ext]',
+    drop: ['debugger'],
     external: ['bun:sqlite', 'node:*', '@tauri-apps/*'],
     define: {
       'process.env.NODE_ENV': JSON.stringify('production'),
@@ -66,6 +70,7 @@ async function build() {
     }
     process.exit(1)
   }
+  reportBundleSizes(frontendResult, 'VPN Frontend')
   console.log('[VPN] Frontend built successfully')
 
   // Find the main entry file with hash
@@ -102,6 +107,7 @@ async function build() {
       splitting: false,
       packages: 'bundle',
       naming: '[name].[hash].[ext]',
+      drop: ['debugger'],
       define: {
         'process.env.NODE_ENV': JSON.stringify('production'),
       },
@@ -114,6 +120,8 @@ async function build() {
       }
       process.exit(1)
     }
+
+    reportBundleSizes(landerResult, 'VPN Lander')
 
     // Find the main lander entry
     const landerMainEntry = landerResult.outputs.find(
@@ -147,6 +155,7 @@ async function build() {
   if (existsSync(landerEntry)) {
     console.log('  dist/lander/         - Landing page')
   }
+  process.exit(0)
 }
 
 build().catch((err) => {

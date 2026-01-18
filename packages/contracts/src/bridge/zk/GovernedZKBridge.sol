@@ -2,25 +2,25 @@
 pragma solidity ^0.8.33;
 
 import "./ZKBridge.sol";
-import "../../governance/interfaces/ICouncilGovernance.sol";
+import "../../governance/interfaces/IBoardGovernance.sol";
 
 /**
  * @title GovernedZKBridge
  * @author Jeju Network
- * @notice ZK Bridge with Autocrat Council governance
- * @dev Admin functions require approved proposals from the council
+ * @notice ZK Bridge with Autocrat Board governance
+ * @dev Admin functions require approved proposals from the board
  *
  * Governance Flow:
- * 1. Proposer submits proposal to Council
+ * 1. Proposer submits proposal to Board
  * 2. Autocrat agents (Treasury, Code, Community, Security) vote
- * 3. AI CEO makes final decision
+ * 3. AI Director makes final decision
  * 4. Grace period allows community veto
  * 5. If approved, proposal can be executed here
  */
 contract GovernedZKBridge is ZKBridge {
     // ============ Immutables ============
 
-    ICouncilGovernance public immutable council;
+    IBoardGovernance public immutable board;
 
     /// @notice Timelock for emergency actions
     uint256 public constant EMERGENCY_TIMELOCK = 2 hours;
@@ -48,7 +48,7 @@ contract GovernedZKBridge is ZKBridge {
 
     // ============ Errors ============
 
-    error NotCouncilApproved();
+    error NotBoardApproved();
     error GracePeriodNotComplete();
     error ProposalAlreadyExecuted();
     error NotGuardian();
@@ -59,12 +59,12 @@ contract GovernedZKBridge is ZKBridge {
     // ============ Modifiers ============
 
     modifier onlyGovernance(bytes32 proposalId) {
-        if (!council.isProposalApproved(proposalId)) revert NotCouncilApproved();
-        if (!council.isGracePeriodComplete(proposalId)) revert GracePeriodNotComplete();
+        if (!board.isProposalApproved(proposalId)) revert NotBoardApproved();
+        if (!board.isGracePeriodComplete(proposalId)) revert GracePeriodNotComplete();
         if (executedProposals[proposalId]) revert ProposalAlreadyExecuted();
         _;
         executedProposals[proposalId] = true;
-        council.markCompleted(proposalId);
+        board.markCompleted(proposalId);
         emit ProposalExecuted(proposalId, msg.sender);
     }
 
@@ -79,12 +79,12 @@ contract GovernedZKBridge is ZKBridge {
         address _lightClient,
         address _identityRegistry,
         address _verifier,
-        address _council,
+        address _board,
         address _guardian,
         uint256 _baseFee,
         uint256 _feePerByte
     ) ZKBridge(_lightClient, _identityRegistry, _verifier, _baseFee, _feePerByte) {
-        council = ICouncilGovernance(_council);
+        board = IBoardGovernance(_board);
         guardian = _guardian;
         admin = address(this); // Self-admin, only governance can modify
     }
@@ -95,7 +95,7 @@ contract GovernedZKBridge is ZKBridge {
         external
         onlyGovernance(proposalId)
     {
-        ICouncilGovernance.Proposal memory proposal = council.getProposal(proposalId);
+        IBoardGovernance.Proposal memory proposal = board.getProposal(proposalId);
         require(proposal.targetContract == address(this), "Wrong target");
 
         tokenToSolanaMint[token] = solanaMint;
@@ -108,7 +108,7 @@ contract GovernedZKBridge is ZKBridge {
         external
         onlyGovernance(proposalId)
     {
-        ICouncilGovernance.Proposal memory proposal = council.getProposal(proposalId);
+        IBoardGovernance.Proposal memory proposal = board.getProposal(proposalId);
         require(proposal.targetContract == address(this), "Wrong target");
 
         baseFee = _baseFee;
@@ -117,7 +117,7 @@ contract GovernedZKBridge is ZKBridge {
     }
 
     function setFeeCollectorGoverned(bytes32 proposalId, address _feeCollector) external onlyGovernance(proposalId) {
-        ICouncilGovernance.Proposal memory proposal = council.getProposal(proposalId);
+        IBoardGovernance.Proposal memory proposal = board.getProposal(proposalId);
         require(proposal.targetContract == address(this), "Wrong target");
 
         feeCollector = _feeCollector;
@@ -127,7 +127,7 @@ contract GovernedZKBridge is ZKBridge {
         external
         onlyGovernance(proposalId)
     {
-        ICouncilGovernance.Proposal memory proposal = council.getProposal(proposalId);
+        IBoardGovernance.Proposal memory proposal = board.getProposal(proposalId);
         require(proposal.targetContract == address(this), "Wrong target");
 
         largeTransferThreshold = _threshold;
@@ -135,7 +135,7 @@ contract GovernedZKBridge is ZKBridge {
     }
 
     function setGuardianGoverned(bytes32 proposalId, address _guardian) external onlyGovernance(proposalId) {
-        ICouncilGovernance.Proposal memory proposal = council.getProposal(proposalId);
+        IBoardGovernance.Proposal memory proposal = board.getProposal(proposalId);
         require(proposal.targetContract == address(this), "Wrong target");
 
         address oldGuardian = guardian;
@@ -178,7 +178,7 @@ contract GovernedZKBridge is ZKBridge {
         return executedProposals[proposalId];
     }
 
-    function getCouncil() external view returns (address) {
-        return address(council);
+    function getBoard() external view returns (address) {
+        return address(board);
     }
 }

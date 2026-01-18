@@ -309,14 +309,14 @@ const { ciphertext, encryptedKey } = await encryption.encrypt(sessionData);
 Register your app to get multi-tenant OAuth3 support:
 
 ```typescript
-import { createMultiTenantCouncilManager } from '@jejunetwork/auth';
+import { createMultiTenantBoardManager } from '@jejunetwork/auth';
 
-const manager = createMultiTenantCouncilManager(config);
+const manager = createMultiTenantBoardManager(config);
 
-// Deploy a new OAuth3 app with its own council
-const { council, oauth3App } = await manager.deployCouncil({
+// Deploy a new OAuth3 app with its own board
+const { board, oauth3App } = await manager.deployBoard({
   name: 'My App',
-  ceoAgentAddress: '0x...',
+  directorAgentAddress: '0x...',
   initialAgents: ['0x...', '0x...'],
 });
 

@@ -8,15 +8,20 @@ import { buildBlockWhereClause, parseBlockIdentifier } from './block-utils'
 
 /**
  * Get a block by number or hash
+ * Returns null for invalid formats - caller should return 404
  */
 export async function getBlockByIdentifier(
   numberOrHash: string,
 ): Promise<Block | null> {
   if (!numberOrHash || numberOrHash.trim().length === 0) {
-    throw new Error('numberOrHash is required and must be a non-empty string')
+    return null
   }
 
   const identifier = parseBlockIdentifier(numberOrHash)
+  if (!identifier) {
+    return null
+  }
+
   const where = buildBlockWhereClause(identifier)
 
   const results = await find<Block>('Block', {

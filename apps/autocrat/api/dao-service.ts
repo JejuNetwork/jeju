@@ -15,6 +15,7 @@ import {
   type Hash,
   type HttpTransport,
   http,
+  parseEventLogs,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import {
@@ -66,6 +67,9 @@ const DAORegistryABI = [
           { name: 'personality', type: 'string' },
           { name: 'traits', type: 'string[]' },
           { name: 'isHuman', type: 'bool' },
+          { name: 'humanAddress', type: 'address' },
+          { name: 'agentId', type: 'uint256' },
+          { name: 'decisionFallbackDays', type: 'uint256' },
         ],
       },
       {
@@ -96,10 +100,10 @@ const DAORegistryABI = [
           { name: 'displayName', type: 'string' },
           { name: 'description', type: 'string' },
           { name: 'treasury', type: 'address' },
-          { name: 'council', type: 'address' },
-          { name: 'ceoAgent', type: 'address' },
+          { name: 'board', type: 'address' },
+          { name: 'directorAgent', type: 'address' },
           { name: 'feeConfig', type: 'address' },
-          { name: 'ceoModelId', type: 'bytes32' },
+          { name: 'directorModelId', type: 'bytes32' },
           { name: 'manifestCid', type: 'string' },
           { name: 'status', type: 'uint8' },
           { name: 'createdAt', type: 'uint256' },
@@ -127,10 +131,10 @@ const DAORegistryABI = [
               { name: 'displayName', type: 'string' },
               { name: 'description', type: 'string' },
               { name: 'treasury', type: 'address' },
-              { name: 'council', type: 'address' },
-              { name: 'ceoAgent', type: 'address' },
+              { name: 'board', type: 'address' },
+              { name: 'directorAgent', type: 'address' },
               { name: 'feeConfig', type: 'address' },
-              { name: 'ceoModelId', type: 'bytes32' },
+              { name: 'directorModelId', type: 'bytes32' },
               { name: 'manifestCid', type: 'string' },
               { name: 'status', type: 'uint8' },
               { name: 'createdAt', type: 'uint256' },
@@ -139,7 +143,7 @@ const DAORegistryABI = [
             ],
           },
           {
-            name: 'ceoPersona',
+            name: 'directorPersona',
             type: 'tuple',
             components: [
               { name: 'name', type: 'string' },
@@ -147,6 +151,10 @@ const DAORegistryABI = [
               { name: 'description', type: 'string' },
               { name: 'personality', type: 'string' },
               { name: 'traits', type: 'string[]' },
+              { name: 'isHuman', type: 'bool' },
+              { name: 'humanAddress', type: 'address' },
+              { name: 'agentId', type: 'uint256' },
+              { name: 'decisionFallbackDays', type: 'uint256' },
             ],
           },
           {
@@ -161,7 +169,7 @@ const DAORegistryABI = [
             ],
           },
           {
-            name: 'councilMembers',
+            name: 'boardMembers',
             type: 'tuple[]',
             components: [
               { name: 'member', type: 'address' },
@@ -170,6 +178,7 @@ const DAORegistryABI = [
               { name: 'weight', type: 'uint256' },
               { name: 'addedAt', type: 'uint256' },
               { name: 'isActive', type: 'bool' },
+              { name: 'isHuman', type: 'bool' },
             ],
           },
           { name: 'linkedPackages', type: 'bytes32[]' },
@@ -192,10 +201,10 @@ const DAORegistryABI = [
           { name: 'displayName', type: 'string' },
           { name: 'description', type: 'string' },
           { name: 'treasury', type: 'address' },
-          { name: 'council', type: 'address' },
-          { name: 'ceoAgent', type: 'address' },
+          { name: 'board', type: 'address' },
+          { name: 'directorAgent', type: 'address' },
           { name: 'feeConfig', type: 'address' },
-          { name: 'ceoModelId', type: 'bytes32' },
+          { name: 'directorModelId', type: 'bytes32' },
           { name: 'manifestCid', type: 'string' },
           { name: 'status', type: 'uint8' },
           { name: 'createdAt', type: 'uint256' },
@@ -219,6 +228,10 @@ const DAORegistryABI = [
           { name: 'description', type: 'string' },
           { name: 'personality', type: 'string' },
           { name: 'traits', type: 'string[]' },
+          { name: 'isHuman', type: 'bool' },
+          { name: 'humanAddress', type: 'address' },
+          { name: 'agentId', type: 'uint256' },
+          { name: 'decisionFallbackDays', type: 'uint256' },
         ],
       },
     ],
@@ -256,6 +269,7 @@ const DAORegistryABI = [
           { name: 'weight', type: 'uint256' },
           { name: 'addedAt', type: 'uint256' },
           { name: 'isActive', type: 'bool' },
+          { name: 'isHuman', type: 'bool' },
         ],
       },
     ],
@@ -315,7 +329,7 @@ const DAORegistryABI = [
   },
   {
     type: 'function',
-    name: 'isCouncilMember',
+    name: 'isBoardMember',
     inputs: [
       { name: 'daoId', type: 'bytes32' },
       { name: 'member', type: 'address' },
@@ -337,6 +351,10 @@ const DAORegistryABI = [
           { name: 'description', type: 'string' },
           { name: 'personality', type: 'string' },
           { name: 'traits', type: 'string[]' },
+          { name: 'isHuman', type: 'bool' },
+          { name: 'humanAddress', type: 'address' },
+          { name: 'agentId', type: 'uint256' },
+          { name: 'decisionFallbackDays', type: 'uint256' },
         ],
       },
     ],
@@ -375,7 +393,7 @@ const DAORegistryABI = [
   },
   {
     type: 'function',
-    name: 'addCouncilMember',
+    name: 'addBoardMember',
     inputs: [
       { name: 'daoId', type: 'bytes32' },
       { name: 'member', type: 'address' },
@@ -388,7 +406,7 @@ const DAORegistryABI = [
   },
   {
     type: 'function',
-    name: 'removeCouncilMember',
+    name: 'removeBoardMember',
     inputs: [
       { name: 'daoId', type: 'bytes32' },
       { name: 'member', type: 'address' },
@@ -438,20 +456,20 @@ const DAORegistryABI = [
   },
   {
     type: 'function',
-    name: 'setDAOCouncilContract',
+    name: 'setDAOBoardContract',
     inputs: [
       { name: 'daoId', type: 'bytes32' },
-      { name: 'council', type: 'address' },
+      { name: 'board', type: 'address' },
     ],
     outputs: [],
     stateMutability: 'nonpayable',
   },
   {
     type: 'function',
-    name: 'setDAOCEOAgent',
+    name: 'setDAODirectorAgent',
     inputs: [
       { name: 'daoId', type: 'bytes32' },
-      { name: 'ceoAgent', type: 'address' },
+      { name: 'directorAgent', type: 'address' },
     ],
     outputs: [],
     stateMutability: 'nonpayable',
@@ -488,7 +506,7 @@ const DAORegistryABI = [
   },
   {
     type: 'event',
-    name: 'CEOPersonaUpdated',
+    name: 'DirectorPersonaUpdated',
     inputs: [
       { name: 'daoId', type: 'bytes32', indexed: true },
       { name: 'name', type: 'string', indexed: false },
@@ -497,7 +515,7 @@ const DAORegistryABI = [
   },
   {
     type: 'event',
-    name: 'CEOModelChanged',
+    name: 'DirectorModelChanged',
     inputs: [
       { name: 'daoId', type: 'bytes32', indexed: true },
       { name: 'oldModel', type: 'bytes32', indexed: false },
@@ -542,7 +560,7 @@ const DAOFundingABI = [
   },
   {
     type: 'function',
-    name: 'setCEOWeight',
+    name: 'setDirectorWeight',
     inputs: [
       { name: 'projectId', type: 'bytes32' },
       { name: 'weight', type: 'uint256' },
@@ -605,7 +623,7 @@ const DAOFundingABI = [
           { name: 'primaryRecipient', type: 'address' },
           { name: 'additionalRecipients', type: 'address[]' },
           { name: 'recipientShares', type: 'uint256[]' },
-          { name: 'ceoWeight', type: 'uint256' },
+          { name: 'directorWeight', type: 'uint256' },
           { name: 'communityStake', type: 'uint256' },
           { name: 'totalFunded', type: 'uint256' },
           { name: 'status', type: 'uint8' },
@@ -641,7 +659,7 @@ const DAOFundingABI = [
           { name: 'primaryRecipient', type: 'address' },
           { name: 'additionalRecipients', type: 'address[]' },
           { name: 'recipientShares', type: 'uint256[]' },
-          { name: 'ceoWeight', type: 'uint256' },
+          { name: 'directorWeight', type: 'uint256' },
           { name: 'communityStake', type: 'uint256' },
           { name: 'totalFunded', type: 'uint256' },
           { name: 'status', type: 'uint8' },
@@ -743,6 +761,7 @@ export interface DAOServiceConfig {
   daoRegistryAddress: Address
   daoFundingAddress: Address
   privateKey?: string
+  operatorAddress?: Address // For KMS-based signing
 }
 
 interface RawDAOResult {
@@ -751,10 +770,10 @@ interface RawDAOResult {
   displayName: string
   description: string
   treasury: Address
-  council: Address
-  ceoAgent: Address
+  board: Address
+  directorAgent: Address
   feeConfig: Address
-  ceoModelId: `0x${string}`
+  directorModelId: `0x${string}`
   manifestCid: string
   status: number
   createdAt: bigint
@@ -792,9 +811,9 @@ interface RawMemberResult {
 
 interface RawDAOFullResult {
   dao: RawDAOResult
-  ceoPersona: RawPersonaResult
+  directorPersona: RawPersonaResult
   params: RawParamsResult
-  councilMembers: readonly RawMemberResult[]
+  boardMembers: readonly RawMemberResult[]
   linkedPackages: readonly `0x${string}`[]
   linkedRepos: readonly `0x${string}`[]
 }
@@ -1034,6 +1053,11 @@ export class DAOService {
 
       // Development only: Allow local signing with warning
       if (keyHex.length === 66) {
+        if (isProductionEnv()) {
+          throw new Error(
+            'SECURITY: Raw private keys are forbidden in production. Use KMS.',
+          )
+        }
         console.warn(
           '[DAOService] ⚠️  Using local private key. NOT secure for production.',
         )
@@ -1068,15 +1092,17 @@ export class DAOService {
    * Initialize KMS for secure threshold signing
    * Call this in production before any write operations
    */
-  async initializeKMS(operatorAddress: Address): Promise<void> {
+  async initializeKMS(operatorAddress?: Address): Promise<void> {
     const walletClient = await createKMSHttpWalletClient({
-      address: operatorAddress,
+      ...(operatorAddress
+        ? { address: operatorAddress }
+        : { serviceId: 'autocrat-operator' }),
       chain: this.chain,
       rpcUrl: this.config.rpcUrl,
     })
     this.walletClient = walletClient as ViemWalletClient
     console.log(
-      `[DAOService] KMS initialized for ${operatorAddress} (${walletClient.account?.type || 'local'})`,
+      `[DAOService] KMS initialized for ${operatorAddress ?? 'autocrat-operator'} (${walletClient.account?.type || 'local'})`,
     )
   }
 
@@ -1115,26 +1141,43 @@ export class DAOService {
     return this.parseDAO(expectRawDAO(result))
   }
 
-  async getDAOFull(daoId: string): Promise<DAOFull> {
-    expectDefined(daoId, 'DAO ID is required')
+  async getDAOFull(daoIdOrName: string): Promise<DAOFull> {
+    expectDefined(daoIdOrName, 'DAO ID or name is required')
     expect(
-      daoId.length > 0 && daoId.length <= 100,
-      `DAO ID must be 1-100 characters, got ${daoId.length}`,
+      daoIdOrName.length > 0 && daoIdOrName.length <= 100,
+      `DAO ID/name must be 1-100 characters, got ${daoIdOrName.length}`,
     )
-    const cached = this.daoCache.get(daoId)
+    const cached = this.daoCache.get(daoIdOrName)
     if (cached) {
       return cached
+    }
+
+    let daoIdHex: `0x${string}`
+
+    // If it looks like a bytes32 hex, use it directly
+    if (daoIdOrName.startsWith('0x') && daoIdOrName.length === 66) {
+      daoIdHex = daoIdOrName as `0x${string}`
+    } else {
+      // Look up by name first to get the actual daoId
+      const nameResult = await this.publicClient.readContract({
+        address: this.config.daoRegistryAddress,
+        abi: DAORegistryABI,
+        functionName: 'getDAOByName',
+        args: [daoIdOrName],
+      })
+      const dao = nameResult as { daoId: `0x${string}` }
+      daoIdHex = dao.daoId
     }
 
     const result = await this.publicClient.readContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
       functionName: 'getDAOFull',
-      args: [toHex(daoId)],
+      args: [daoIdHex],
     })
 
     const daoFull = this.parseDAOFull(expectRawDAOFull(result))
-    this.daoCache.set(daoId, daoFull)
+    this.daoCache.set(daoIdOrName, daoFull)
 
     return daoFull
   }
@@ -1187,7 +1230,7 @@ export class DAOService {
       minQualityScore: Number(result.minQualityScore),
       boardVotingPeriod: Number(result.boardVotingPeriod),
       gracePeriod: Number(result.gracePeriod),
-      minProposalStake: result.minProposalStake,
+      minProposalStake: result.minProposalStake.toString(),
       quorumBps: Number(result.quorumBps),
     }
   }
@@ -1209,7 +1252,7 @@ export class DAOService {
 
     return result.map((m) => ({
       member: m.member,
-      agentId: m.agentId,
+      agentId: m.agentId.toString(),
       role: m.role,
       weight: Number(m.weight),
       addedAt: Number(m.addedAt),
@@ -1270,18 +1313,41 @@ export class DAOService {
     return [...result]
   }
 
-  async daoExists(daoId: string): Promise<boolean> {
-    expectDefined(daoId, 'DAO ID is required')
+  async daoExists(daoIdOrName: string): Promise<boolean> {
+    expectDefined(daoIdOrName, 'DAO ID or name is required')
     expect(
-      daoId.length > 0 && daoId.length <= 100,
-      `DAO ID must be 1-100 characters, got ${daoId.length}`,
+      daoIdOrName.length > 0 && daoIdOrName.length <= 100,
+      `DAO ID/name must be 1-100 characters, got ${daoIdOrName.length}`,
     )
-    return this.publicClient.readContract({
-      address: this.config.daoRegistryAddress,
-      abi: DAORegistryABI,
-      functionName: 'daoExists',
-      args: [toHex(daoId)],
-    })
+
+    // If it looks like a bytes32 hex, check by ID directly
+    if (daoIdOrName.startsWith('0x') && daoIdOrName.length === 66) {
+      return this.publicClient.readContract({
+        address: this.config.daoRegistryAddress,
+        abi: DAORegistryABI,
+        functionName: 'daoExists',
+        args: [daoIdOrName as `0x${string}`],
+      })
+    }
+
+    // Otherwise, try to look up by name using getDAOByName
+    // If it returns a non-zero daoId, the DAO exists
+    try {
+      const result = await this.publicClient.readContract({
+        address: this.config.daoRegistryAddress,
+        abi: DAORegistryABI,
+        functionName: 'getDAOByName',
+        args: [daoIdOrName],
+      })
+      // Check if the returned daoId is non-zero
+      const dao = result as { daoId: `0x${string}` }
+      return (
+        dao.daoId !==
+        '0x0000000000000000000000000000000000000000000000000000000000000000'
+      )
+    } catch {
+      return false
+    }
   }
 
   async getDAOCount(): Promise<number> {
@@ -1303,11 +1369,11 @@ export class DAOService {
     })
   }
 
-  async isCouncilMember(daoId: string, member: Address): Promise<boolean> {
+  async isBoardMember(daoId: string, member: Address): Promise<boolean> {
     return this.publicClient.readContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
-      functionName: 'isCouncilMember',
+      functionName: 'isBoardMember',
       args: [toHex(daoId), member],
     })
   }
@@ -1319,40 +1385,89 @@ export class DAOService {
     manifestCid: string
     directorPersona: DirectorPersona
     governanceParams: GovernanceParams
-  }): Promise<Hash> {
+  }): Promise<{ hash: Hash; daoId: `0x${string}` }> {
     if (!this.walletClient) {
       throw new Error('Wallet client not initialized')
     }
+    const account = this.walletClient.account
+    if (!account) {
+      throw new Error('Wallet client account not initialized')
+    }
 
-    const hash = await this.walletClient.writeContract({
+    const args = [
+      params.name,
+      params.displayName,
+      params.description,
+      params.treasury,
+      params.manifestCid,
+      {
+        name: params.directorPersona.name,
+        pfpCid: params.directorPersona.pfpCid,
+        description: params.directorPersona.description,
+        personality: params.directorPersona.personality,
+        traits: params.directorPersona.traits,
+        isHuman: params.directorPersona.isHuman,
+        humanAddress:
+          params.directorPersona.humanAddress ??
+          '0x0000000000000000000000000000000000000000',
+        agentId: BigInt(params.directorPersona.agentId ?? 0),
+        decisionFallbackDays: BigInt(
+          params.directorPersona.decisionFallbackDays ?? 7,
+        ),
+      },
+      {
+        minQualityScore: BigInt(params.governanceParams.minQualityScore),
+        boardVotingPeriod: BigInt(params.governanceParams.boardVotingPeriod),
+        gracePeriod: BigInt(params.governanceParams.gracePeriod),
+        minProposalStake: BigInt(params.governanceParams.minProposalStake),
+        quorumBps: BigInt(params.governanceParams.quorumBps),
+      },
+    ] as const
+
+    const simulation = await this.publicClient.simulateContract({
+      account: account.address,
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
       functionName: 'createDAO',
-      args: [
-        params.name,
-        params.displayName,
-        params.description,
-        params.treasury,
-        params.manifestCid,
-        {
-          name: params.directorPersona.name,
-          pfpCid: params.directorPersona.pfpCid,
-          description: params.directorPersona.description,
-          personality: params.directorPersona.personality,
-          traits: params.directorPersona.traits,
-          isHuman: params.directorPersona.isHuman,
-        },
-        {
-          minQualityScore: BigInt(params.governanceParams.minQualityScore),
-          boardVotingPeriod: BigInt(params.governanceParams.boardVotingPeriod),
-          gracePeriod: BigInt(params.governanceParams.gracePeriod),
-          minProposalStake: params.governanceParams.minProposalStake,
-          quorumBps: BigInt(params.governanceParams.quorumBps),
-        },
-      ],
+      args,
     })
 
-    return hash
+    const gasEstimate = await this.publicClient.estimateContractGas({
+      account: account.address,
+      address: this.config.daoRegistryAddress,
+      abi: DAORegistryABI,
+      functionName: 'createDAO',
+      args,
+    })
+
+    const gasLimit = (gasEstimate * 12n) / 10n
+
+    const hash = await this.walletClient.writeContract({
+      account,
+      ...simulation.request,
+      gas: gasLimit,
+    })
+
+    return { hash, daoId: simulation.result as `0x${string}` }
+  }
+
+  async getDaoIdFromReceipt(txHash: Hash): Promise<`0x${string}`> {
+    const receipt = await this.publicClient.waitForTransactionReceipt({
+      hash: txHash,
+    })
+    const logs = parseEventLogs({
+      abi: DAORegistryABI,
+      logs: receipt.logs,
+      eventName: 'DAOCreated',
+    })
+    if (logs.length === 0) {
+      throw new Error('DAOCreated event not found in transaction receipt')
+    }
+    const daoId = logs[0].args.daoId
+    if (!daoId) {
+      throw new Error('DAOCreated event missing daoId')
+    }
+    return daoId as `0x${string}`
   }
 
   async setDirectorPersona(
@@ -1375,6 +1490,12 @@ export class DAOService {
           description: persona.description,
           personality: persona.personality,
           traits: persona.traits,
+          isHuman: persona.isHuman,
+          humanAddress:
+            persona.humanAddress ??
+            '0x0000000000000000000000000000000000000000',
+          agentId: BigInt(persona.agentId ?? 0),
+          decisionFallbackDays: BigInt(persona.decisionFallbackDays ?? 7),
         },
       ],
     })
@@ -1417,7 +1538,7 @@ export class DAOService {
           minQualityScore: BigInt(params.minQualityScore),
           boardVotingPeriod: BigInt(params.boardVotingPeriod),
           gracePeriod: BigInt(params.gracePeriod),
-          minProposalStake: params.minProposalStake,
+          minProposalStake: BigInt(params.minProposalStake),
           quorumBps: BigInt(params.quorumBps),
         },
       ],
@@ -1427,7 +1548,7 @@ export class DAOService {
     return hash
   }
 
-  async addCouncilMember(
+  async addBoardMember(
     daoId: string,
     member: Address,
     agentId: bigint,
@@ -1441,7 +1562,7 @@ export class DAOService {
     const hash = await this.walletClient.writeContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
-      functionName: 'addCouncilMember',
+      functionName: 'addBoardMember',
       args: [toHex(daoId), member, agentId, role, BigInt(weight)],
     })
 
@@ -1449,7 +1570,7 @@ export class DAOService {
     return hash
   }
 
-  async removeCouncilMember(daoId: string, member: Address): Promise<Hash> {
+  async removeBoardMember(daoId: string, member: Address): Promise<Hash> {
     if (!this.walletClient) {
       throw new Error('Wallet client not initialized')
     }
@@ -1457,7 +1578,7 @@ export class DAOService {
     const hash = await this.walletClient.writeContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
-      functionName: 'removeCouncilMember',
+      functionName: 'removeBoardMember',
       args: [toHex(daoId), member],
     })
 
@@ -1531,7 +1652,11 @@ export class DAOService {
 
   async setDAOContracts(
     daoId: string,
-    contracts: { council?: Address; ceoAgent?: Address; feeConfig?: Address },
+    contracts: {
+      board?: Address
+      directorAgent?: Address
+      feeConfig?: Address
+    },
   ): Promise<Hash[]> {
     if (!this.walletClient) {
       throw new Error('Wallet client not initialized')
@@ -1539,22 +1664,22 @@ export class DAOService {
 
     const hashes: Hash[] = []
 
-    if (contracts.council) {
+    if (contracts.board) {
       const hash = await this.walletClient.writeContract({
         address: this.config.daoRegistryAddress,
         abi: DAORegistryABI,
-        functionName: 'setDAOCouncilContract',
-        args: [toHex(daoId), contracts.council],
+        functionName: 'setDAOBoardContract',
+        args: [toHex(daoId), contracts.board],
       })
       hashes.push(hash)
     }
 
-    if (contracts.ceoAgent) {
+    if (contracts.directorAgent) {
       const hash = await this.walletClient.writeContract({
         address: this.config.daoRegistryAddress,
         abi: DAORegistryABI,
-        functionName: 'setDAOCEOAgent',
-        args: [toHex(daoId), contracts.ceoAgent],
+        functionName: 'setDAODirectorAgent',
+        args: [toHex(daoId), contracts.directorAgent],
       })
       hashes.push(hash)
     }
@@ -1775,7 +1900,7 @@ export class DAOService {
     })
   }
 
-  async setCEOWeight(projectId: string, weight: number): Promise<Hash> {
+  async setDirectorWeight(projectId: string, weight: number): Promise<Hash> {
     if (!this.walletClient) {
       throw new Error('Wallet client not initialized')
     }
@@ -1783,7 +1908,7 @@ export class DAOService {
     return this.walletClient.writeContract({
       address: this.config.daoFundingAddress,
       abi: DAOFundingABI,
-      functionName: 'setCEOWeight',
+      functionName: 'setDirectorWeight',
       args: [toHex(projectId), BigInt(weight)],
     })
   }
@@ -1932,10 +2057,10 @@ export class DAOService {
       displayName: raw.displayName,
       description: raw.description,
       treasury: raw.treasury,
-      board: raw.council,
-      directorAgent: raw.ceoAgent,
+      board: raw.board, // Map from raw 'board' to typed 'board'
+      directorAgent: raw.directorAgent,
       feeConfig: raw.feeConfig,
-      directorModelId: raw.ceoModelId,
+      directorModelId: raw.directorModelId,
       manifestCid: raw.manifestCid,
       status: toDAOStatus(raw.status),
       createdAt: Number(raw.createdAt),
@@ -1948,27 +2073,27 @@ export class DAOService {
     return {
       dao: this.parseDAO(raw.dao),
       directorPersona: {
-        name: raw.ceoPersona.name,
-        pfpCid: raw.ceoPersona.pfpCid,
-        description: raw.ceoPersona.description,
-        personality: raw.ceoPersona.personality,
-        traits: [...raw.ceoPersona.traits],
+        name: raw.directorPersona.name,
+        pfpCid: raw.directorPersona.pfpCid,
+        description: raw.directorPersona.description,
+        personality: raw.directorPersona.personality,
+        traits: [...raw.directorPersona.traits],
         voiceStyle: '',
         communicationTone: 'professional',
         specialties: [],
-        isHuman: raw.ceoPersona.isHuman ?? false,
-        decisionFallbackDays: raw.ceoPersona.decisionFallbackDays ?? 7,
+        isHuman: raw.directorPersona.isHuman ?? false,
+        decisionFallbackDays: raw.directorPersona.decisionFallbackDays ?? 7,
       },
       params: {
         minQualityScore: Number(raw.params.minQualityScore),
         boardVotingPeriod: Number(raw.params.boardVotingPeriod),
         gracePeriod: Number(raw.params.gracePeriod),
-        minProposalStake: raw.params.minProposalStake,
+        minProposalStake: raw.params.minProposalStake.toString(),
         quorumBps: Number(raw.params.quorumBps),
       },
-      boardMembers: raw.councilMembers.map((m) => ({
+      boardMembers: raw.boardMembers.map((m) => ({
         member: m.member,
-        agentId: m.agentId,
+        agentId: m.agentId.toString(),
         role: m.role,
         weight: Number(m.weight),
         addedAt: Number(m.addedAt),
@@ -2005,6 +2130,54 @@ let daoServiceInstance: DAOService | null = null
 
 export function createDAOService(config: DAOServiceConfig): DAOService {
   daoServiceInstance = new DAOService(config)
+  return daoServiceInstance
+}
+
+const PRIVATE_KEY_REGEX = /^0x[a-fA-F0-9]{64}$/
+const ADDRESS_REGEX = /^0x[a-fA-F0-9]{40}$/
+
+const isAddress = (value: string): value is Address => ADDRESS_REGEX.test(value)
+
+const isPrivateKey = (value: string): boolean => PRIVATE_KEY_REGEX.test(value)
+
+let daoServiceInit: Promise<DAOService> | null = null
+
+export async function getOrCreateDAOService(
+  config: DAOServiceConfig,
+  operatorKey?: string,
+): Promise<DAOService> {
+  if (daoServiceInstance) return daoServiceInstance
+  if (daoServiceInit) return daoServiceInit
+
+  daoServiceInit = (async () => {
+    if (operatorKey) {
+      if (isPrivateKey(operatorKey)) {
+        const service = createDAOService({
+          ...config,
+          privateKey: operatorKey,
+        })
+        return service
+      }
+
+      if (isAddress(operatorKey)) {
+        const service = await DAOService.create({
+          ...config,
+          operatorAddress: operatorKey,
+        })
+        return service
+      }
+    }
+
+    const { getOperatorSigner } = await import('./secrets')
+    const signer = await getOperatorSigner()
+    const service = await DAOService.create({
+      ...config,
+      operatorAddress: signer.getAddress(),
+    })
+    return service
+  })()
+
+  daoServiceInstance = await daoServiceInit
   return daoServiceInstance
 }
 

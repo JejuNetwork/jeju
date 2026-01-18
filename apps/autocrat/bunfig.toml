@@ -1,7 +1,12 @@
 [test]
+# Preload shared test infrastructure - ensures jeju CLI is running
+# The shared setup handles starting jeju dev --minimal if needed
+preload = ["@jejunetwork/tests/bun-global-setup", "./tests/setup.ts"]
 coverage = false
 coverageDir = "./test-results/coverage"
-preload = ["./tests/setup.ts"]
 timeout = 300000
 # Exclude E2E tests (run with playwright, not bun test)
 # Bun test runs *.test.ts files, playwright runs *.spec.ts files
+
+# Only run Bun tests. E2E/Synpress are Playwright-based and run via `jeju test --mode e2e`.
+root = ["tests/unit", "tests/integration"]

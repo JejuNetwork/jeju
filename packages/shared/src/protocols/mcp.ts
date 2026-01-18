@@ -2,11 +2,11 @@
  * MCP Server Factory - Model Context Protocol
  *
  * Creates MCP servers for dApps.
- * Note: For new implementations, prefer createServer from './server'
+ * For new implementations, prefer createServer from './server'.
  */
 
 import { cors } from '@elysiajs/cors'
-import { Elysia } from 'elysia'
+import { type AnyElysia, Elysia } from 'elysia'
 import type { Address } from 'viem'
 import { z } from 'zod'
 import type { ProtocolData, ProtocolValue } from '../types'
@@ -64,7 +64,7 @@ export interface MCPPromptResult {
   messages: Array<{ role: string; content: { type: string; text: string } }>
 }
 
-export function createMCPServer(config: MCPConfig) {
+export function createMCPServer(config: MCPConfig): AnyElysia {
   const serverInfo = {
     name: config.name,
     version: config.version ?? '1.0.0',
@@ -78,7 +78,7 @@ export function createMCPServer(config: MCPConfig) {
 
   return (
     new Elysia()
-      .use(cors())
+      .use(cors() as unknown as AnyElysia)
 
       // Initialize
       .post('/initialize', () => ({
@@ -200,6 +200,6 @@ export function createMCPServer(config: MCPConfig) {
 
         const result = await config.getPrompt(name, args, address)
         return result
-      })
+      }) as unknown as AnyElysia
   )
 }

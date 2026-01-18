@@ -8,18 +8,18 @@ pragma solidity ^0.8.33;
 library GovernanceMixin {
     struct Data {
         address governance;
-        address securityCouncil;
+        address securityBoard;
         address timelock;
         bool enabled;
     }
 
     event GovernanceSet(address indexed governance);
-    event SecurityCouncilSet(address indexed council);
+    event SecurityBoardSet(address indexed board);
     event TimelockSet(address indexed timelock);
     event GovernanceEnabledChanged(bool enabled);
 
     error NotGovernance();
-    error NotSecurityCouncil();
+    error NotSecurityBoard();
     error NotTimelock();
 
     function setGovernance(Data storage self, address addr) internal {
@@ -27,9 +27,9 @@ library GovernanceMixin {
         emit GovernanceSet(addr);
     }
 
-    function setSecurityCouncil(Data storage self, address addr) internal {
-        self.securityCouncil = addr;
-        emit SecurityCouncilSet(addr);
+    function setSecurityBoard(Data storage self, address addr) internal {
+        self.securityBoard = addr;
+        emit SecurityBoardSet(addr);
     }
 
     function setTimelock(Data storage self, address addr) internal {
@@ -48,8 +48,8 @@ library GovernanceMixin {
         }
     }
 
-    function requireSecurityCouncil(Data storage self) internal view {
-        if (msg.sender != self.securityCouncil) revert NotSecurityCouncil();
+    function requireSecurityBoard(Data storage self) internal view {
+        if (msg.sender != self.securityBoard) revert NotSecurityBoard();
     }
 
     function requireTimelock(Data storage self) internal view {
@@ -66,9 +66,9 @@ library GovernanceMixin {
         }
     }
 
-    function requireSecurityCouncilOrOwner(Data storage self, address owner) internal view {
-        if (msg.sender != self.securityCouncil && msg.sender != owner) {
-            revert NotSecurityCouncil();
+    function requireSecurityBoardOrOwner(Data storage self, address owner) internal view {
+        if (msg.sender != self.securityBoard && msg.sender != owner) {
+            revert NotSecurityBoard();
         }
     }
 
@@ -76,8 +76,8 @@ library GovernanceMixin {
         return msg.sender == self.governance || msg.sender == self.timelock;
     }
 
-    function isSecurityCouncil(Data storage self) internal view returns (bool) {
-        return msg.sender == self.securityCouncil;
+    function isSecurityBoard(Data storage self) internal view returns (bool) {
+        return msg.sender == self.securityBoard;
     }
 
     function canExecute(Data storage self) internal view returns (bool) {

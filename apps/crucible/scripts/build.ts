@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs'
 import { cp, mkdir, rm } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { getCurrentNetwork } from '@jejunetwork/config'
+import { reportBundleSizes } from '@jejunetwork/shared'
 import type { BunPlugin } from 'bun'
 
 const DIST_DIR = './dist'
@@ -38,6 +39,9 @@ const browserPlugin: BunPlugin = {
     // Stub auth providers that use server-side modules
     const authProvidersStub = resolve('./web/stubs/auth-providers.ts')
     build.onResolve({ filter: /providers\/farcaster/ }, () => ({
+      path: authProvidersStub,
+    }))
+    build.onResolve({ filter: /farcaster-utils/ }, () => ({
       path: authProvidersStub,
     }))
     build.onResolve({ filter: /providers\/email/ }, () => ({
@@ -79,6 +83,10 @@ const browserPlugin: BunPlugin = {
     }))
     build.onResolve({ filter: /^@jejunetwork\/config$/ }, () => ({
       path: resolve('../../packages/config/index.ts'),
+    }))
+    // Browser-safe contracts exports (avoid Node-only deployment helpers)
+    build.onResolve({ filter: /^@jejunetwork\/contracts$/ }, () => ({
+      path: resolve('./web/stubs/contracts.ts'),
     }))
     build.onResolve({ filter: /^@jejunetwork\/auth\/react$/ }, () => ({
       path: resolve('../../packages/auth/src/react/index.ts'),
@@ -143,13 +151,16 @@ async function buildFrontend(): Promise<void> {
     entrypoints: ['./web/client.tsx'],
     outdir: WEB_DIR,
     target: 'browser',
-    // Disabled splitting due to Bun bundler bug with @noble/curves creating duplicate exports
+    // splitting: false produces smaller bundles (5MB vs 105MB with splitting)
+    // Code splitting duplicates shared deps like TensorFlow.js model shards
+    // Only enable splitting for apps with lazy routes where initial load matters
     splitting: false,
     packages: 'bundle',
     minify: true,
     sourcemap: 'external',
     external: BROWSER_EXTERNALS,
     plugins: [browserPlugin],
+    drop: ['debugger'],
     define: {
       'process.env.NODE_ENV': JSON.stringify('production'),
       'process.env.JEJU_NETWORK': JSON.stringify(network),
@@ -178,6 +189,8 @@ async function buildFrontend(): Promise<void> {
     for (const log of result.logs) console.error(log)
     throw new Error('Frontend build failed')
   }
+
+  reportBundleSizes(result, 'Crucible Frontend')
 
   const mainEntry = result.outputs.find(
     (o) => o.kind === 'entry-point' && o.path.includes('client'),
@@ -245,6 +258,7 @@ async function buildApi(): Promise<void> {
     target: 'bun',
     minify: true,
     sourcemap: 'external',
+    drop: ['debugger'],
     external: [
       'bun:sqlite',
       'child_process',
@@ -268,6 +282,7 @@ async function buildApi(): Promise<void> {
     throw new Error('API build failed')
   }
 
+  reportBundleSizes(result, 'Crucible API')
   console.log(`  API: ${API_DIR}/`)
 }
 
@@ -281,6 +296,7 @@ async function build(): Promise<void> {
   await Promise.all([buildFrontend(), buildApi()])
 
   console.log('\nBuild complete.')
+  process.exit(0)
 }
 
 build().catch((error) => {

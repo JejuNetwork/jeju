@@ -308,7 +308,7 @@ export class TEEBatcher {
     if (isProduction() || isRequireRealTee()) {
       throw new Error(
         '[TEE] CRITICAL: Production requires real TEE attestation. ' +
-          'Configure PHALA_ENDPOINT, AWS_ENCLAVE_ID, or run in a GCP Confidential VM. ' +
+          'Configure PHALA_ENDPOINT or run in a GCP Confidential VM. ' +
           'Mock attestations are only allowed in development mode (NODE_ENV !== production).',
       )
     }

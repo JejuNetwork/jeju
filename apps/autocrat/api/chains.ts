@@ -36,14 +36,15 @@ export const jejuMainnet: Chain = defineChain({
   testnet: false,
 })
 
-// Localhost for local development
+// Localhost for local development - defaults to 6546 (L2) for OP Stack
+const LOCALHOST_RPC = process.env.RPC_URL ?? 'http://127.0.0.1:6546'
 export const localhost: Chain = defineChain({
   id: 31337,
   name: 'Localhost',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
-    default: { http: ['http://localhost:8545'] },
-    public: { http: ['http://localhost:8545'] },
+    default: { http: [LOCALHOST_RPC] },
+    public: { http: [LOCALHOST_RPC] },
   },
   testnet: true,
 })
@@ -64,7 +65,9 @@ export function inferChainFromRpcUrl(rpcUrl: string): Chain {
   if (
     rpcUrl.includes('localhost') ||
     rpcUrl.includes('127.0.0.1') ||
-    rpcUrl.includes('8545')
+    rpcUrl.includes('8545') ||
+    rpcUrl.includes('6545') ||
+    rpcUrl.includes('6546')
   ) {
     return localhost
   }

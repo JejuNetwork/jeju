@@ -54,7 +54,8 @@ const { config, configure: setOAuth3Config } = createAppConfig<OAuth3Config>({
 
   // Auth
   serviceAgentId: getEnvVar('SERVICE_AGENT_ID') ?? 'auth.jeju',
-  jwtSecret: getEnvVar('JWT_SECRET') ?? 'dev-secret-change-in-production',
+  // SECURITY: JWT secret is required in production - no predictable fallback
+  jwtSecret: getEnvVar('JWT_SECRET') ?? '',
   jwtSigningKeyId: getEnvVar('JWT_SIGNING_KEY_ID') ?? 'oauth3-jwt-signing',
   jwtSignerAddress:
     getEnvVar('JWT_SIGNER_ADDRESS') ??

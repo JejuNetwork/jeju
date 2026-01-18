@@ -63,8 +63,7 @@ export class HiveModerationProvider {
   async moderateImage(buf: Buffer): Promise<ModerationResult> {
     const start = Date.now()
     const form = new FormData()
-    const arr = new Uint8Array(buf.length)
-    for (let i = 0; i < buf.length; i++) arr[i] = buf[i]
+    const arr = new Uint8Array(buf)
     form.append('media', new Blob([arr]), 'image.jpg')
 
     const res = await fetch(this.endpoint, {

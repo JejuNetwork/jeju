@@ -111,7 +111,7 @@ export function getAutocratTriggers(): Array<
       eventTypes: [
         'ProposalSubmitted',
         'AutocratVoteCast',
-        'CEODecisionNeeded',
+        'DirectorDecisionNeeded',
       ],
       endpoint: `${autocratUrl}/trigger/orchestrator`,
       method: 'POST',

@@ -210,7 +210,7 @@ export function buildSolverQuery(address: string): GraphQLQuery {
 export function buildProposalQuery(proposalId: string): GraphQLQuery {
   return {
     query: `query GetProposal($proposalId: String!) {
-      councilProposals(where: { proposalId_eq: $proposalId }, limit: 1) {
+      boardProposals(where: { proposalId_eq: $proposalId }, limit: 1) {
         proposalId
         title
         description
@@ -232,7 +232,7 @@ export function buildProposalsQuery(params: {
 }): GraphQLQuery {
   return {
     query: `query GetProposals($status: String, $limit: Int) {
-      councilProposals(
+      boardProposals(
         where: { status_eq: $status }
         limit: $limit
         orderBy: createdAt_DESC

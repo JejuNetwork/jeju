@@ -251,6 +251,7 @@ export async function createJejuClient(
   const compute = createComputeModule(wallet, network)
   const storage = createStorageModule(wallet, network)
   const defi = createDefiModule(wallet, network)
+  // Governance module - always create, throws on method call if contracts missing
   const governance = createGovernanceModule(wallet, network)
   const names = createNamesModule(wallet, network)
   const identity = createIdentityModule(wallet, network)
@@ -264,30 +265,25 @@ export async function createJejuClient(
   const payments = createPaymentsModule(wallet, network)
   const a2a = createA2AModule(wallet, network, servicesConfig)
 
-  // Create extended modules (may not be available on all networks)
-  const containers = contractAddresses.containerRegistry
-    ? createContainersModule(wallet, network)
-    : createStubContainersModule()
-  const launchpad = contractAddresses.tokenLaunchpad
-    ? createLaunchpadModule(wallet, network)
-    : createStubLaunchpadModule()
+  // Create extended modules - always create, throws on method call if contracts missing
+  const containers = createContainersModule(wallet, network)
+  const launchpad = createLaunchpadModule(wallet, network)
   const moderation = createModerationModule(wallet, network)
   const work = createWorkModule(wallet, network)
   const staking = createStakingModule(wallet, network)
   const dws = createDWSModule(wallet, network)
 
-  // Create federation client from config (only if contracts are deployed)
-  let federation: FederationClient
-  if (contractAddresses.networkRegistry && contractAddresses.registryHub) {
-    const federationConfig: FederationClientConfig = {
-      hubRpc: chainConfig.rpcUrl,
-      networkRegistry: contractAddresses.networkRegistry,
-      registryHub: contractAddresses.registryHub,
-    }
-    federation = await createFedClient(federationConfig)
-  } else {
-    federation = createStubFederationClient()
+  // Create federation client from config - always create, throws on method call if contracts missing
+  const federationConfig: FederationClientConfig = {
+    hubRpc: chainConfig.rpcUrl,
+    networkRegistry:
+      contractAddresses.networkRegistry ??
+      '0x0000000000000000000000000000000000000000',
+    registryHub:
+      contractAddresses.registryHub ??
+      '0x0000000000000000000000000000000000000000',
   }
+  const federation = await createFedClient(federationConfig)
   const otc = createOTCModule(wallet, network)
   const messaging = createMessagingModule(wallet, network)
   const distributor = createDistributorModule(wallet, network)
@@ -356,86 +352,4 @@ export async function createJejuClient(
   }
 
   return client
-}
-
-// Stub modules for when contracts are not available
-function createStubContainersModule(): ContainersModule {
-  const notAvailable = (): never => {
-    throw new Error('ContainerRegistry contract not deployed on this network')
-  }
-  return {
-    createRepository: notAvailable,
-    getRepository: notAvailable,
-    getRepositoryByName: notAvailable,
-    listMyRepositories: notAvailable,
-    starRepository: notAvailable,
-    unstarRepository: notAvailable,
-    grantAccess: notAvailable,
-    revokeAccess: notAvailable,
-    hasAccess: notAvailable,
-    publishImage: notAvailable,
-    getManifest: notAvailable,
-    getManifestByTag: notAvailable,
-    recordPull: notAvailable,
-    signImage: notAvailable,
-    getRepoId: () => {
-      throw new Error('ContainerRegistry contract not deployed on this network')
-    },
-    parseImageReference: () => {
-      throw new Error('ContainerRegistry contract not deployed on this network')
-    },
-  }
-}
-
-function createStubLaunchpadModule(): LaunchpadModule {
-  const notAvailable = (): never => {
-    throw new Error('Launchpad contracts not deployed on this network')
-  }
-  return {
-    createToken: notAvailable,
-    createPresale: notAvailable,
-    contribute: notAvailable,
-    claim: notAvailable,
-    refund: notAvailable,
-    finalizePresale: notAvailable,
-    getPresale: notAvailable,
-    getUserContribution: notAvailable,
-    listActivePresales: notAvailable,
-    createBondingCurve: notAvailable,
-    buyFromCurve: notAvailable,
-    sellToCurve: notAvailable,
-    getCurve: notAvailable,
-    getBuyPrice: notAvailable,
-    getSellPrice: notAvailable,
-    listActiveCurves: notAvailable,
-    lockLP: notAvailable,
-    unlockLP: notAvailable,
-    extendLPLock: notAvailable,
-    getLPLock: notAvailable,
-    listMyLPLocks: notAvailable,
-  }
-}
-
-function createStubFederationClient(): FederationClient {
-  const notAvailable = (): never => {
-    throw new Error('Federation contracts not deployed on this network')
-  }
-  return {
-    getNetwork: notAvailable,
-    getAllNetworks: notAvailable,
-    getStakedNetworks: notAvailable,
-    getVerifiedNetworks: notAvailable,
-    canParticipateInConsensus: notAvailable,
-    isSequencerEligible: notAvailable,
-    getChain: notAvailable,
-    getAllChains: notAvailable,
-    getRegistry: notAvailable,
-    getAllRegistries: notAvailable,
-    getRegistriesByType: notAvailable,
-    getRegistriesByChain: notAvailable,
-    isTrustedForConsensus: notAvailable,
-    joinFederation: notAvailable,
-    addStake: notAvailable,
-    registerRegistry: notAvailable,
-  }
 }

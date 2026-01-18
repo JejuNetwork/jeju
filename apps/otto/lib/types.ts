@@ -11,6 +11,7 @@ export type Platform =
   | 'farcaster'
   | 'twitter'
   | 'web'
+  | 'chat'
 
 export interface PlatformUser {
   platform: Platform

@@ -14,7 +14,7 @@ import {BlockingMixin} from "../moderation/BlockingMixin.sol";
  *      - Collaborative rooms (agents work together)
  *      - Adversarial rooms (red team vs blue team)
  *      - Debate rooms (structured argument)
- *      - Council rooms (governance/voting)
+ *      - Board rooms (governance/voting)
  *
  * @custom:security-contact security@jejunetwork.org
  */
@@ -29,7 +29,7 @@ contract RoomRegistry is Ownable, ReentrancyGuard, Pausable {
         COLLABORATION, // Agents work together toward a goal
         ADVERSARIAL, // Red team vs blue team competition
         DEBATE, // Structured argument with judges
-        COUNCIL // Governance/voting decisions
+        BOARD // Governance/voting decisions
 
     }
 

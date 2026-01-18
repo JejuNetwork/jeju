@@ -1,0 +1,282 @@
+# SDK
+
+TypeScript SDK for Jeju.
+
+## Install
+
+```bash
+bun add @jejunetwork/sdk viem
+```
+
+## Quick Start
+
+```typescript
+import { createJejuClient } from '@jejunetwork/sdk';
+import { parseUnits, parseEther } from 'viem';
+
+const jeju = await createJejuClient({
+  network: 'testnet', // 'mainnet' | 'testnet' | 'localnet'
+  privateKey: process.env.PRIVATE_KEY as `0x${string}`,
+});
+
+// Check balance
+const balance = await jeju.getBalance();
+
+// Swap tokens
+await jeju.defi.swap({
+  tokenIn: 'USDC',
+  tokenOut: 'JEJU',
+  amountIn: parseUnits('100', 6),
+});
+
+// Bridge from Base
+await jeju.crosschain.transfer({
+  from: 'base',
+  to: 'jeju',
+  token: 'USDC',
+  amount: parseUnits('50', 6),
+});
+```
+
+## Configuration
+
+```typescript
+const jeju = await createJejuClient({
+  network: 'testnet',           // Required
+  privateKey: '0x...',          // Or mnemonic
+  smartAccount: true,           // Default: true (ERC-4337)
+  rpcUrl: '...',                // Override RPC
+  bundlerUrl: '...',            // Override bundler
+});
+```
+
+## Core Modules
+
+### defi
+
+```typescript
+// Swap
+await jeju.defi.swap({
+  tokenIn: 'USDC',
+  tokenOut: 'JEJU',
+  amountIn: parseUnits('100', 6),
+  slippage: 0.5,
+});
+
+// Add liquidity
+await jeju.defi.addLiquidity({
+  tokenA: 'JEJU',
+  tokenB: 'USDC',
+  amountA: parseEther('1000'),
+  amountB: parseUnits('500', 6),
+});
+
+// Remove liquidity
+await jeju.defi.removeLiquidity({
+  pair: 'JEJU/USDC',
+  percent: 50,
+});
+```
+
+### crosschain
+
+```typescript
+// Bridge (EIL - instant)
+await jeju.crosschain.transfer({
+  from: 'ethereum',
+  to: 'jeju',
+  token: 'ETH',
+  amount: parseEther('1'),
+});
+
+// Create intent (OIF)
+const hash = await jeju.crosschain.createIntent({
+  sourceChain: 8453,
+  inputToken: '0x...',
+  inputAmount: parseUnits('100', 6),
+  outputChain: 420691,
+  outputToken: '0x...',
+  minOutputAmount: parseUnits('95', 18),
+  deadline: Math.floor(Date.now() / 1000) + 3600,
+});
+
+// Check status
+const status = await jeju.crosschain.getIntentStatus(hash);
+```
+
+### payments
+
+```typescript
+// User pays in token
+await jeju.payments.payWithToken({
+  to: contractAddress,
+  data: calldata,
+  gasToken: 'USDC',
+});
+
+// App sponsors
+await jeju.payments.sponsoredCall({
+  paymaster: paymasterAddress,
+  to: contractAddress,
+  data: calldata,
+});
+
+// Deploy paymaster
+const paymaster = await jeju.payments.deployPaymaster({
+  name: 'My Paymaster',
+});
+
+// Fund paymaster
+await jeju.payments.fundPaymaster({
+  paymaster: paymaster.address,
+  amount: parseEther('1'),
+});
+```
+
+### storage
+
+```typescript
+// Upload
+const cid = await jeju.storage.upload(file);
+
+// Pin
+await jeju.storage.pin(cid, { duration: 30 * 24 * 60 * 60 });
+
+// Download
+const data = await jeju.storage.get(cid);
+```
+
+### compute
+
+```typescript
+// List models
+const models = await jeju.compute.listModels();
+
+// Run inference
+const result = await jeju.compute.inference({
+  model: 'llama3.2',
+  prompt: 'Hello',
+  maxTokens: 100,
+});
+
+// List providers
+const providers = await jeju.compute.listProviders();
+
+// Rent GPU
+const rental = await jeju.compute.createRental({
+  provider: '0x...',
+  durationHours: 2,
+});
+```
+
+### identity
+
+```typescript
+// Register agent
+await jeju.identity.registerAgent({
+  name: 'My Bot',
+  description: 'Trading bot',
+  endpoints: { a2a: 'https://mybot.com/a2a' },
+  labels: ['trading'],
+});
+
+// Get agent
+const agent = await jeju.identity.getAgent('0x...');
+
+// Search agents
+const agents = await jeju.identity.searchAgents({
+  labels: ['trading'],
+  limit: 10,
+});
+```
+
+### names
+
+```typescript
+// Register .jeju domain
+await jeju.names.register({
+  name: 'alice',
+  duration: 365 * 24 * 60 * 60,
+});
+
+// Resolve name → address
+const address = await jeju.names.resolve('alice.jeju');
+
+// Reverse lookup
+const name = await jeju.names.reverse('0x...');
+```
+
+## Extended Modules
+
+| Module | Description |
+|--------|-------------|
+| `agents` | Agent vaults, rooms |
+| `staking` | Node staking |
+| `governance` | Proposals, voting |
+| `launchpad` | Token launches |
+| `moderation` | Reporting |
+| `work` | Bounties |
+| `otc` | Peer trades |
+| `messaging` | Encrypted messaging |
+| `perps` | Perpetuals |
+| `oracle` | Price feeds |
+| `vpn` | VPN nodes |
+| `models` | Model registry |
+| `mcp` | Model Context Protocol |
+| `a2a` | Agent-to-agent |
+| `bridge` | Bridge operations |
+| `feed` | Social feed |
+| `cdn` | CDN operations |
+
+## Wallet Access
+
+```typescript
+const { wallet } = jeju;
+
+console.log(wallet.address);
+console.log(wallet.isSmartAccount);
+
+// Direct transaction
+const hash = await jeju.sendTransaction({
+  to: '0x...',
+  value: parseEther('1'),
+});
+```
+
+## Error Handling
+
+```typescript
+import { JejuError } from '@jejunetwork/sdk';
+
+try {
+  await jeju.defi.swap({ ... });
+} catch (error) {
+  if (error instanceof JejuError) {
+    console.error(`${error.code}: ${error.message}`);
+  }
+  throw error;
+}
+```
+
+## Types
+
+```typescript
+import type { 
+  JejuClient, 
+  JejuClientConfig,
+  SwapParams,
+  TransferParams,
+} from '@jejunetwork/sdk';
+```
+
+## Using with viem
+
+```typescript
+const { wallet } = jeju;
+
+// Public client
+const block = await wallet.publicClient.getBlockNumber();
+
+// Wallet client
+await wallet.walletClient.sendTransaction({ ... });
+```

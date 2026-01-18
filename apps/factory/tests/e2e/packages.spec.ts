@@ -5,7 +5,12 @@
 
 import { expect, test } from '@playwright/test'
 
+const isRemote =
+  process.env.JEJU_NETWORK === 'testnet' ||
+  process.env.JEJU_NETWORK === 'mainnet'
+
 test.describe('Package List', () => {
+  test.skip(isRemote, 'Skipping on remote network')
   test('displays package list', async ({ page }) => {
     await page.goto('/packages')
     await expect(page.getByRole('heading', { name: /packages/i })).toBeVisible()
@@ -39,6 +44,7 @@ test.describe('Package List', () => {
 })
 
 test.describe('Package Detail', () => {
+  test.skip(isRemote, 'Skipping package detail on remote network')
   test('displays package header', async ({ page }) => {
     await page.goto('/packages/%40jeju/sdk')
     await expect(
@@ -96,6 +102,7 @@ test.describe('Package Detail', () => {
 })
 
 test.describe('Package Version History', () => {
+  test.skip(isRemote, 'Skipping package version history on remote network')
   test('displays all versions', async ({ page }) => {
     await page.goto('/packages/%40jeju/sdk')
     await page.getByRole('button', { name: /versions/i }).click()
@@ -110,6 +117,7 @@ test.describe('Package Version History', () => {
 })
 
 test.describe('Publish Package', () => {
+  test.skip(isRemote, 'Skipping publish package on remote network')
   test('displays publish page', async ({ page }) => {
     await page.goto('/packages/publish')
     await expect(
@@ -158,6 +166,7 @@ test.describe('Publish Package', () => {
 })
 
 test.describe('Package Settings', () => {
+  test.skip(isRemote, 'Skipping package settings on remote network')
   test('displays settings page', async ({ page }) => {
     await page.goto('/packages/%40jeju/sdk/settings')
     await expect(

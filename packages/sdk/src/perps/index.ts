@@ -18,7 +18,7 @@ import {
   parseEther,
 } from 'viem'
 import { z } from 'zod'
-import { requireContract } from '../config'
+import { safeGetContract } from '../config'
 import type { BaseWallet } from '../wallet'
 
 // Event signatures for order tracking
@@ -539,11 +539,22 @@ export function createPerpsModule(
   wallet: BaseWallet,
   network: NetworkType,
 ): PerpsModule {
-  const perpsMarketAddress = requireContract(
+  // Use safe getter - contracts may not be deployed on all networks
+  const perpsMarketAddressOpt = safeGetContract(
     'perps',
     'PerpetualMarket',
     network,
   )
+
+  // Lazy-load contract address - throw on method call if not deployed
+  const getPerpsMarketAddress = () => {
+    if (!perpsMarketAddressOpt) {
+      throw new Error(
+        'Perps PerpetualMarket contract not deployed on this network',
+      )
+    }
+    return perpsMarketAddressOpt
+  }
 
   const MAX_LEVERAGE = 50
   const MIN_MARGIN = parseEther('0.001')
@@ -554,7 +565,7 @@ export function createPerpsModule(
 
     async getMarket(marketId) {
       const result = await wallet.publicClient.readContract({
-        address: perpsMarketAddress,
+        address: getPerpsMarketAddress(),
         abi: PERPS_MARKET_ABI,
         functionName: 'getMarket',
         args: [marketId],
@@ -576,7 +587,7 @@ export function createPerpsModule(
 
     async getAllMarkets() {
       const marketIds = await wallet.publicClient.readContract({
-        address: perpsMarketAddress,
+        address: getPerpsMarketAddress(),
         abi: PERPS_MARKET_ABI,
         functionName: 'getAllMarkets',
       })
@@ -594,7 +605,7 @@ export function createPerpsModule(
 
     async getMarkPrice(marketId) {
       return wallet.publicClient.readContract({
-        address: perpsMarketAddress,
+        address: getPerpsMarketAddress(),
         abi: PERPS_MARKET_ABI,
         functionName: 'getMarkPrice',
         args: [marketId],
@@ -603,7 +614,7 @@ export function createPerpsModule(
 
     async getIndexPrice(marketId) {
       return wallet.publicClient.readContract({
-        address: perpsMarketAddress,
+        address: getPerpsMarketAddress(),
         abi: PERPS_MARKET_ABI,
         functionName: 'getIndexPrice',
         args: [marketId],
@@ -612,7 +623,7 @@ export function createPerpsModule(
 
     async getFundingRate(marketId) {
       return wallet.publicClient.readContract({
-        address: perpsMarketAddress,
+        address: getPerpsMarketAddress(),
         abi: PERPS_MARKET_ABI,
         functionName: 'getFundingRate',
         args: [marketId],
@@ -621,7 +632,7 @@ export function createPerpsModule(
 
     async getFundingData(marketId) {
       return wallet.publicClient.readContract({
-        address: perpsMarketAddress,
+        address: getPerpsMarketAddress(),
         abi: PERPS_MARKET_ABI,
         functionName: 'getFundingData',
         args: [marketId],
@@ -630,7 +641,7 @@ export function createPerpsModule(
 
     async getOpenInterest(marketId) {
       const result = await wallet.publicClient.readContract({
-        address: perpsMarketAddress,
+        address: getPerpsMarketAddress(),
         abi: PERPS_MARKET_ABI,
         functionName: 'getMarketOpenInterest',
         args: [marketId],
@@ -655,7 +666,7 @@ export function createPerpsModule(
       })
 
       const resultTxHash = await wallet.sendTransaction({
-        to: perpsMarketAddress,
+        to: getPerpsMarketAddress(),
         data,
       })
 
@@ -677,7 +688,7 @@ export function createPerpsModule(
       })
 
       await wallet.sendTransaction({
-        to: perpsMarketAddress,
+        to: getPerpsMarketAddress(),
         data,
       })
 
@@ -698,7 +709,7 @@ export function createPerpsModule(
       })
 
       await wallet.sendTransaction({
-        to: perpsMarketAddress,
+        to: getPerpsMarketAddress(),
         data,
       })
 
@@ -719,7 +730,7 @@ export function createPerpsModule(
       })
 
       return wallet.sendTransaction({
-        to: perpsMarketAddress,
+        to: getPerpsMarketAddress(),
         data,
       })
     },
@@ -732,14 +743,14 @@ export function createPerpsModule(
       })
 
       return wallet.sendTransaction({
-        to: perpsMarketAddress,
+        to: getPerpsMarketAddress(),
         data,
       })
     },
 
     async getPosition(positionId) {
       const result = await wallet.publicClient.readContract({
-        address: perpsMarketAddress,
+        address: getPerpsMarketAddress(),
         abi: PERPS_MARKET_ABI,
         functionName: 'getPosition',
         args: [positionId],
@@ -753,7 +764,7 @@ export function createPerpsModule(
     async getTraderPositions(trader) {
       const address = trader ?? wallet.address
       const positionIds = await wallet.publicClient.readContract({
-        address: perpsMarketAddress,
+        address: getPerpsMarketAddress(),
         abi: PERPS_MARKET_ABI,
         functionName: 'getTraderPositions',
         args: [address],
@@ -773,7 +784,7 @@ export function createPerpsModule(
     async getPositionPnl(positionId) {
       const [unrealizedPnl, fundingPnl] =
         await wallet.publicClient.readContract({
-          address: perpsMarketAddress,
+          address: getPerpsMarketAddress(),
           abi: PERPS_MARKET_ABI,
           functionName: 'getPositionPnl',
           args: [positionId],
@@ -783,7 +794,7 @@ export function createPerpsModule(
 
     async getLiquidationPrice(positionId) {
       return wallet.publicClient.readContract({
-        address: perpsMarketAddress,
+        address: getPerpsMarketAddress(),
         abi: PERPS_MARKET_ABI,
         functionName: 'getLiquidationPrice',
         args: [positionId],
@@ -792,7 +803,7 @@ export function createPerpsModule(
 
     async isLiquidatable(positionId) {
       const result = await wallet.publicClient.readContract({
-        address: perpsMarketAddress,
+        address: getPerpsMarketAddress(),
         abi: PERPS_MARKET_ABI,
         functionName: 'isLiquidatable',
         args: [positionId],
@@ -826,7 +837,7 @@ export function createPerpsModule(
       })
 
       return wallet.sendTransaction({
-        to: perpsMarketAddress,
+        to: getPerpsMarketAddress(),
         data,
       })
     },
@@ -839,7 +850,7 @@ export function createPerpsModule(
       })
 
       return wallet.sendTransaction({
-        to: perpsMarketAddress,
+        to: getPerpsMarketAddress(),
         data,
       })
     },
@@ -852,7 +863,7 @@ export function createPerpsModule(
       })
 
       const txHash = await wallet.sendTransaction({
-        to: perpsMarketAddress,
+        to: getPerpsMarketAddress(),
         data,
       })
 
@@ -867,7 +878,7 @@ export function createPerpsModule(
 
     async getOrder(orderId) {
       const result = await wallet.publicClient.readContract({
-        address: perpsMarketAddress,
+        address: getPerpsMarketAddress(),
         abi: PERPS_MARKET_ABI,
         functionName: 'getOrder',
         args: [orderId],
@@ -915,7 +926,7 @@ export function createPerpsModule(
 
       // Query OrderPlaced events for this trader
       const placedLogs = await wallet.publicClient.getLogs({
-        address: perpsMarketAddress,
+        address: getPerpsMarketAddress(),
         event: ORDER_PLACED_EVENT,
         args: { trader: address },
         fromBlock: 'earliest',
@@ -924,7 +935,7 @@ export function createPerpsModule(
 
       // Get cancelled orders to filter them out
       const cancelledLogs = await wallet.publicClient.getLogs({
-        address: perpsMarketAddress,
+        address: getPerpsMarketAddress(),
         event: ORDER_CANCELLED_EVENT,
         fromBlock: 'earliest',
         toBlock: 'latest',
@@ -935,7 +946,7 @@ export function createPerpsModule(
 
       // Get executed orders to filter them out
       const executedLogs = await wallet.publicClient.getLogs({
-        address: perpsMarketAddress,
+        address: getPerpsMarketAddress(),
         event: ORDER_EXECUTED_EVENT,
         fromBlock: 'earliest',
         toBlock: 'latest',
@@ -970,7 +981,7 @@ export function createPerpsModule(
       })
 
       const txHash = await wallet.sendTransaction({
-        to: perpsMarketAddress,
+        to: getPerpsMarketAddress(),
         data,
       })
 

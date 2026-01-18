@@ -9,7 +9,7 @@ const config: Config = {
         xs: '400px',
       },
       colors: {
-        council: {
+        board: {
           primary: '#00E5FF',
           secondary: '#8B5CF6',
           success: '#00FF88',

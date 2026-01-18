@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { PROPOSAL_STATUS_CONFIG } from '../../constants/ui'
 import { useProposals } from '../../hooks/useDAO'
 import type {
   DAODetail,
@@ -65,81 +66,7 @@ const PROPOSAL_TYPE_CONFIG: Record<
   },
 }
 
-const STATUS_CONFIG: Record<
-  ProposalStatus,
-  { label: string; color: string; bg: string }
-> = {
-  draft: {
-    label: 'Draft',
-    color: 'var(--text-tertiary)',
-    bg: 'rgba(148, 163, 184, 0.12)',
-  },
-  pending_quality: {
-    label: 'Quality Review',
-    color: 'var(--color-warning)',
-    bg: 'rgba(245, 158, 11, 0.12)',
-  },
-  submitted: {
-    label: 'Submitted',
-    color: 'var(--color-info)',
-    bg: 'rgba(59, 130, 246, 0.12)',
-  },
-  board_review: {
-    label: 'Board Review',
-    color: 'var(--color-secondary)',
-    bg: 'rgba(139, 92, 246, 0.12)',
-  },
-  research: {
-    label: 'Research',
-    color: '#06B6D4',
-    bg: 'rgba(6, 182, 212, 0.12)',
-  },
-  board_final: {
-    label: 'Board Final',
-    color: 'var(--color-secondary)',
-    bg: 'rgba(139, 92, 246, 0.12)',
-  },
-  ceo_queue: {
-    label: 'CEO Queue',
-    color: 'var(--color-accent)',
-    bg: 'rgba(255, 107, 107, 0.12)',
-  },
-  approved: {
-    label: 'Approved',
-    color: 'var(--color-success)',
-    bg: 'rgba(16, 185, 129, 0.12)',
-  },
-  executing: {
-    label: 'Executing',
-    color: 'var(--color-info)',
-    bg: 'rgba(59, 130, 246, 0.12)',
-  },
-  completed: {
-    label: 'Completed',
-    color: 'var(--color-success)',
-    bg: 'rgba(16, 185, 129, 0.12)',
-  },
-  rejected: {
-    label: 'Rejected',
-    color: 'var(--color-error)',
-    bg: 'rgba(239, 68, 68, 0.12)',
-  },
-  vetoed: {
-    label: 'Vetoed',
-    color: 'var(--color-error)',
-    bg: 'rgba(239, 68, 68, 0.12)',
-  },
-  executed: {
-    label: 'Executed',
-    color: 'var(--color-success)',
-    bg: 'rgba(16, 185, 129, 0.12)',
-  },
-  cancelled: {
-    label: 'Cancelled',
-    color: 'var(--text-tertiary)',
-    bg: 'rgba(148, 163, 184, 0.12)',
-  },
-}
+// Using PROPOSAL_STATUS_CONFIG from constants/ui.ts
 
 interface ProposalCardProps {
   proposal: ProposalListItem
@@ -149,7 +76,8 @@ interface ProposalCardProps {
 function ProposalCard({ proposal, daoId }: ProposalCardProps) {
   const typeConfig =
     PROPOSAL_TYPE_CONFIG[proposal.proposalType] ?? PROPOSAL_TYPE_CONFIG.general
-  const statusConfig = STATUS_CONFIG[proposal.status] ?? STATUS_CONFIG.draft
+  const statusConfig =
+    PROPOSAL_STATUS_CONFIG[proposal.status] ?? PROPOSAL_STATUS_CONFIG.draft
   const Icon = typeConfig.icon
 
   return (
@@ -235,17 +163,17 @@ function ProposalCard({ proposal, daoId }: ProposalCardProps) {
                 {proposal.boardApprovals}/{proposal.totalBoardMembers} board
               </span>
             </div>
-            {proposal.ceoApproved !== undefined && (
+            {proposal.directorApproved !== undefined && (
               <div className="flex items-center gap-1.5">
                 <Crown className="w-3.5 h-3.5" aria-hidden="true" />
                 <span
                   style={{
-                    color: proposal.ceoApproved
+                    color: proposal.directorApproved
                       ? 'var(--color-success)'
                       : 'var(--color-error)',
                   }}
                 >
-                  CEO {proposal.ceoApproved ? 'Approved' : 'Rejected'}
+                  Director {proposal.directorApproved ? 'Approved' : 'Rejected'}
                 </span>
               </div>
             )}
@@ -516,7 +444,7 @@ export function GovernanceTab({ dao }: GovernanceTabProps) {
             aria-label="Filter by status"
           >
             <option value="all">All Status</option>
-            {Object.entries(STATUS_CONFIG).map(([status, config]) => (
+            {Object.entries(PROPOSAL_STATUS_CONFIG).map(([status, config]) => (
               <option key={status} value={status}>
                 {config.label}
               </option>

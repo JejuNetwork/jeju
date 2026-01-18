@@ -194,8 +194,7 @@ export class AgentWalletService {
       requester: identity.walletAddress as `0x${string}`,
     })
 
-    // Note: In production, this would coordinate with MPC parties to complete signing
-    // For now, throw if session couldn't complete immediately
+    // TODO: Implement MPC party coordination for asynchronous signing sessions
     throw new Error(
       `MPC signing session ${session.sessionId} created but requires party coordination`,
     )
@@ -242,7 +241,7 @@ export class AgentWalletService {
       requester: identity.walletAddress as `0x${string}`,
     })
 
-    // Note: In production, this would coordinate with MPC parties to complete signing
+    // TODO: Implement MPC party coordination for asynchronous signing sessions
     throw new Error(
       `MPC signing session ${session.sessionId} created but requires party coordination`,
     )

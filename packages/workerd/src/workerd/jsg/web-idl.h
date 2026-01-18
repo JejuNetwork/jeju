@@ -85,8 +85,8 @@ constexpr size_t nullableTypeCount<kj::OneOf<T...>, U...> =
 template <typename T>
 concept DictionaryType = HasJsgKind<T> && (T::JSG_KIND == JsgKind::STRUCT);
 
-// Note: This covers Web IDL exception types as well. This doesn't seem to be a problem in practice,
-//   but it's worth knowing that the Web IDL spec considers the two categories distinct.
+// This covers Web IDL exception types as well. This doesn't seem to be a problem in practice,
+// but it's worth knowing that the Web IDL spec considers the two categories distinct.
 template <typename T>
 concept NonCallbackInterfaceType_ = HasJsgKind<T> && (T::JSG_KIND == JsgKind::RESOURCE);
 
@@ -258,8 +258,8 @@ struct Flatten<Traits<T...>, kj::OneOf<U...>, V...>: Flatten<Traits<T...>, U...,
 // those types: number of dictionary types, whether or not there are duplicate types, presence of
 // indistinguishable types, etc.
 //
-// Note: Web IDL dictates that we flatten nullables (Maybe) and unions (OneOf). We add one more
-//   flattening: Ref<T> -> T. We do this because JSG has two models for non-callback interface
+// Web IDL dictates that we flatten nullables (Maybe) and unions (OneOf). We add one more
+// flattening: Ref<T> -> T. We do this because JSG has two models for non-callback interface
 //   types: Ref<T> (unwrapped by reference) and T (unwrapped by copy/move). We need to be able to
 //   catch ambiguous OneOfs like `kj::OneOf<Interface, Ref<Interface>>`.
 template <typename... T>

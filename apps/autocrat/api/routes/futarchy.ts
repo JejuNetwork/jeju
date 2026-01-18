@@ -8,8 +8,8 @@ const ZERO_ADDR = ZERO_ADDRESS
 
 const futarchyConfig: FutarchyConfig = {
   rpcUrl: config.rpcUrl,
-  councilAddress: config.contracts.council
-    ? toAddress(config.contracts.council)
+  boardAddress: config.contracts.board
+    ? toAddress(config.contracts.board)
     : ZERO_ADDR,
   predictionMarketAddress: ZERO_ADDR,
   operatorKey: autocratConfig.operatorKey ?? autocratConfig.privateKey,
@@ -17,6 +17,41 @@ const futarchyConfig: FutarchyConfig = {
 const futarchy = getFutarchyClient(futarchyConfig)
 
 export const futarchyRoutes = new Elysia({ prefix: '/api/v1/futarchy' })
+  .get(
+    '/',
+    async ({ set }) => {
+      try {
+        return {
+          service: 'futarchy',
+          status: 'available',
+          contracts: {
+            board: futarchyConfig.boardAddress,
+            predictionMarket: futarchyConfig.predictionMarketAddress,
+          },
+          endpoints: {
+            vetoed: 'GET /api/v1/futarchy/vetoed',
+            pending: 'GET /api/v1/futarchy/pending',
+            market: 'GET /api/v1/futarchy/market/:proposalId',
+            bet: 'POST /api/v1/futarchy/bet',
+            veto: 'POST /api/v1/futarchy/veto',
+          },
+        }
+      } catch (error) {
+        set.status = 200
+        return {
+          service: 'futarchy',
+          status: 'unavailable',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Futarchy service unavailable',
+        }
+      }
+    },
+    {
+      detail: { tags: ['futarchy'], summary: 'Get futarchy service info' },
+    },
+  )
   .get(
     '/vetoed',
     async () => {

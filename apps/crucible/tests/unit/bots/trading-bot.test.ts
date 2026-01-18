@@ -8,8 +8,7 @@ import {
 import type { TradingBotOptions } from '../../../api/bots/trading-bot'
 import type { TradingBotChain, TradingBotStrategy } from '../../../lib/types'
 
-// Note: These tests focus on logic and structure
-// Full integration tests would require mocked RPC clients
+// Tests focus on logic and structure - full integration tests require mocked RPC clients
 
 describe('TradingBot Configuration', () => {
   const baseConfig: TradingBotOptions = {
@@ -314,19 +313,20 @@ describe('Default Bots Configuration', () => {
 
   test('should create valid trading bot options', () => {
     const botConfig = DEFAULT_BOTS[0]
+    const treasuryAddr = `0x${'2'.repeat(40)}` as `0x${string}`
 
     const options = createTradingBotOptions(
       botConfig,
       1n,
-      `0x${'1'.repeat(64)}`,
       'testnet',
+      treasuryAddr,
     )
 
     expect(options.agentId).toBe(1n)
     expect(options.name).toBe(botConfig.name)
     expect(options.strategies).toEqual(botConfig.strategies)
-    expect(options.privateKey).toBe(`0x${'1'.repeat(64)}`)
     expect(options.maxConcurrentExecutions).toBe(5)
+    expect(options.treasuryAddress).toBe(treasuryAddr)
   })
 })
 

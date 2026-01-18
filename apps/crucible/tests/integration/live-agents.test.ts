@@ -11,8 +11,6 @@ import {
   runtimeManager,
 } from '../../api/sdk/eliza-runtime'
 
-let infraAvailable = false
-
 // Helper to create unique messages to ensure responses aren't cached
 function createUniqueMessage(text: string): RuntimeMessage {
   const uniqueId = crypto.randomUUID()
@@ -64,41 +62,22 @@ function verifyRealResponse(
   return { isReal: true, reason: 'Response is unique and contextual' }
 }
 
-// Helper to skip test if infrastructure not available
-function skipIfNoInfra() {
-  if (!infraAvailable) {
-    console.log('[Skipped] Infrastructure not available')
-    return true
-  }
-  return false
-}
-
 describe('Live Agent E2E Tests', () => {
+  // DWS is required infrastructure - tests must fail if it's not running
   beforeAll(async () => {
-    // Check if DWS is available first
     const dwsAvailable = await checkDWSHealth()
     if (!dwsAvailable) {
-      console.warn(
-        '[Live Agent Tests] DWS not available - tests will be skipped',
-      )
-      console.warn('[Live Agent Tests] Start services with: jeju dev')
-      return
+      throw new Error('DWS is required but not running. Start with: jeju dev')
     }
 
-    // Check if inference nodes are available
     const inference = await checkDWSInferenceAvailable()
     if (!inference.available) {
-      console.warn(
-        '[Live Agent Tests] No inference nodes available - tests will be skipped',
+      throw new Error(
+        'DWS inference nodes required but not available. Check DWS compute service.',
       )
-      console.warn('[Live Agent Tests] Start inference with: bun run inference')
-      return
     }
 
-    infraAvailable = true
-    console.log(
-      `[LiveTest] Infrastructure available: DWS + ${inference.nodes} inference nodes`,
-    )
+    console.log(`[LiveTest] DWS ready with ${inference.nodes} inference nodes`)
   })
 
   afterAll(async () => {
@@ -107,8 +86,6 @@ describe('Live Agent E2E Tests', () => {
 
   describe('Runtime Initialization', () => {
     test('should initialize runtime with jejuPlugin actions', async () => {
-      if (skipIfNoInfra()) return
-
       const character = getCharacter('project-manager')
       if (!character) throw new Error('character not found')
       const runtime = createCrucibleRuntime({
@@ -124,8 +101,6 @@ describe('Live Agent E2E Tests', () => {
 
   describe('Project Manager Agent', () => {
     test('should respond with project management advice', async () => {
-      if (skipIfNoInfra()) return
-
       const character = getCharacter('project-manager')
       if (!character) throw new Error('character not found')
       const runtime = createCrucibleRuntime({
@@ -161,8 +136,6 @@ describe('Live Agent E2E Tests', () => {
 
   describe('Community Manager Agent', () => {
     test('should respond with community engagement advice', async () => {
-      if (skipIfNoInfra()) return
-
       const character = getCharacter('community-manager')
       if (!character) throw new Error('character not found')
       const runtime = createCrucibleRuntime({
@@ -198,8 +171,6 @@ describe('Live Agent E2E Tests', () => {
 
   describe('Red Team Agent', () => {
     test('should respond with security analysis', async () => {
-      if (skipIfNoInfra()) return
-
       const character = getCharacter('red-team')
       if (!character) throw new Error('character not found')
       const runtime = createCrucibleRuntime({
@@ -239,8 +210,6 @@ describe('Live Agent E2E Tests', () => {
 
   describe('Multi-Agent Scenario', () => {
     test('should handle multiple agents with different personalities', async () => {
-      if (skipIfNoInfra()) return
-
       const agentIds = ['project-manager', 'community-manager', 'red-team']
       const responses: Map<string, string> = new Map()
 
@@ -276,8 +245,6 @@ describe('Live Agent E2E Tests', () => {
 
   describe('Response Uniqueness', () => {
     test('should give different responses to same question at different times', async () => {
-      if (skipIfNoInfra()) return
-
       const character = getCharacter('project-manager')
       if (!character) throw new Error('character not found')
       const runtime = await runtimeManager.createRuntime({

@@ -8,7 +8,7 @@ import {
 } from 'viem'
 import {
   type CasualProposalCategory,
-  type CEOPersona,
+  type DirectorPersona,
   type GovernanceParams,
   parseJson,
   type QualityCriteria,
@@ -90,7 +90,7 @@ export interface SimilarProposal {
 interface DAOContext {
   daoId: string
   daoName: string
-  ceoPersona: CEOPersona
+  directorPersona: DirectorPersona
   governanceParams: GovernanceParams
   linkedPackages: string[]
   linkedRepos: string[]
@@ -176,8 +176,8 @@ const CASUAL_CATEGORIES: Record<
     ],
   },
   director_model_change: {
-    label: 'CEO Model Change',
-    description: 'Propose a different CEO model',
+    label: 'Director Model Change',
+    description: 'Propose a different Director model',
     prompts: [
       'Which model do you recommend?',
       'Why is it better?',
@@ -220,7 +220,7 @@ export class ProposalAssistant {
     const prompt = `Evaluate this casual DAO submission for quality, alignment, and clarity.
 
 DAO: ${daoContext?.daoName ?? 'Unknown'}
-${daoContext?.ceoPersona ? `CEO: ${daoContext.ceoPersona.name}` : ''}
+${daoContext?.directorPersona ? `Director: ${daoContext.directorPersona.name}` : ''}
 
 Category: ${categoryInfo.label}
 Title: ${submission.title}
@@ -249,8 +249,8 @@ Evaluate and return JSON:
   "overallFeedback": "friendly feedback to the submitter"
 }`
 
-    const systemPrompt = daoContext?.ceoPersona
-      ? `You are an assistant helping ${daoContext.ceoPersona.name} evaluate DAO submissions. Be helpful and constructive.`
+    const systemPrompt = daoContext?.directorPersona
+      ? `You are an assistant helping ${daoContext.directorPersona.name} evaluate DAO submissions. Be helpful and constructive.`
       : 'You are a helpful DAO submission evaluator. Be constructive and friendly.'
 
     const response = await dwsGenerate(prompt, systemPrompt, 800)
@@ -333,7 +333,7 @@ Evaluate and return JSON:
 User's initial input: "${initialContent}"
 
 Category description: ${categoryInfo.description}
-${daoContext?.ceoPersona ? `The DAO CEO is ${daoContext.ceoPersona.name}, who values: ${daoContext.ceoPersona.personality}` : ''}
+${daoContext?.directorPersona ? `The DAO Director is ${daoContext.directorPersona.name}, who values: ${daoContext.directorPersona.personality}` : ''}
 
 Generate helpful questions and guidance. Return JSON:
 {
@@ -450,7 +450,7 @@ Generate helpful questions and guidance. Return JSON:
 
       director_model_change: `## Director Model Change Proposal
 
-**Current Model:** [Current CEO model]
+**Current Model:** [Current Director model]
 
 **Proposed Model:** [New model]
 
@@ -629,7 +629,7 @@ Return: {"clarity":N,"completeness":N,"feasibility":N,"alignment":N,"impact":N,"
 
     const prompt = `Generate DAO proposal from idea:
 
-${daoContext ? `DAO: ${daoContext.daoName}\nCEO: ${daoContext.ceoPersona.name ?? 'Unknown'}` : ''}
+${daoContext ? `DAO: ${daoContext.daoName}\nDirector: ${daoContext.directorPersona.name ?? 'Unknown'}` : ''}
 
 Idea: ${idea}
 Type: ${typeName}
@@ -749,6 +749,11 @@ Return JSON: {"title":"...","summary":"...","description":"..."}`
     let assessor: KMSAccount
     if (isPrivateKey) {
       // Development only: private key provided, derive address for KMS config
+      if (isProductionEnv()) {
+        throw new Error(
+          'SECURITY: Raw private keys are forbidden in production. Use KMS.',
+        )
+      }
       console.warn(
         '[ProposalAssistant] ⚠️  Using local private key. NOT secure for production.',
       )

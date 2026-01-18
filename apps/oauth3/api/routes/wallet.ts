@@ -2,8 +2,13 @@ import { Elysia, t } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { isAddress, isHex, verifyMessage } from 'viem'
 import type { AuthConfig, WalletAuthChallenge } from '../../lib/types'
-import { getEphemeralKey } from '../services/kms'
-import { authCodeState, clientState, sessionState } from '../services/state'
+import { getEphemeralKey, initializeKMS } from '../services/kms'
+import {
+  authCodeState,
+  clientState,
+  initializeState,
+  sessionState,
+} from '../services/state'
 import {
   createHtmlPage,
   escapeHtml,
@@ -11,16 +16,53 @@ import {
 } from '../shared/html-templates'
 
 /**
- * Validate redirect URI against client's registered patterns.
+ * SECURITY: Validate redirect URI against client's registered patterns.
+ * Prevents open redirect attacks by:
+ * 1. Only allowing http/https schemes
+ * 2. Strict pattern matching with proper escaping
+ * 3. Not allowing data:, javascript:, or other dangerous schemes
  */
 function validateRedirectUri(
   redirectUri: string,
   allowedPatterns: string[],
 ): boolean {
+  // Parse the redirect URI to validate its structure
+  let parsed: URL
+  try {
+    parsed = new URL(redirectUri)
+  } catch {
+    return false // Invalid URL format
+  }
+
+  // SECURITY: Only allow http/https schemes
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    return false
+  }
+
+  // SECURITY: Block localhost in production patterns (but allow explicit localhost patterns)
+  // Check if there's an explicit localhost pattern
+  const hasLocalhostPattern = allowedPatterns.some(
+    (p) =>
+      p.includes('localhost') || p.includes('127.0.0.1') || p.includes('[::1]'),
+  )
+
+  // If no localhost pattern but URI is localhost, block it
+  if (
+    !hasLocalhostPattern &&
+    (parsed.hostname === 'localhost' ||
+      parsed.hostname === '127.0.0.1' ||
+      parsed.hostname === '[::1]')
+  ) {
+    return false
+  }
+
   for (const pattern of allowedPatterns) {
+    // Parse the pattern to extract scheme and host requirements
     const regexPattern = pattern
+      // Escape all regex special characters except *
       .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-      .replace(/\*/g, '.*')
+      // Replace * with a non-greedy match that doesn't cross boundaries
+      .replace(/\*/g, '[^/]*')
     const regex = new RegExp(`^${regexPattern}$`)
     if (regex.test(redirectUri)) {
       return true
@@ -47,12 +89,41 @@ const challenges = new Map<
   WalletAuthChallenge & { clientId: string; redirectUri: string; state: string }
 >()
 
-// Clean up expired challenges periodically
+// SECURITY: Rate limiting to prevent DoS attacks
+// Tracks challenge creation per IP/client
+const rateLimitBuckets = new Map<string, { count: number; resetAt: number }>()
+const RATE_LIMIT_MAX = 10 // Max challenges per window
+const RATE_LIMIT_WINDOW = 60 * 1000 // 1 minute window
+const MAX_CHALLENGES = 10000 // Max total challenges to prevent memory exhaustion
+
+function checkRateLimit(key: string): boolean {
+  const now = Date.now()
+  const bucket = rateLimitBuckets.get(key)
+
+  if (!bucket || bucket.resetAt < now) {
+    rateLimitBuckets.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW })
+    return true
+  }
+
+  if (bucket.count >= RATE_LIMIT_MAX) {
+    return false
+  }
+
+  bucket.count++
+  return true
+}
+
+// Clean up expired challenges and rate limit buckets periodically
 setInterval(() => {
   const now = Date.now()
   for (const [key, challenge] of challenges) {
     if (challenge.expiresAt < now) {
       challenges.delete(key)
+    }
+  }
+  for (const [key, bucket] of rateLimitBuckets) {
+    if (bucket.resetAt < now) {
+      rateLimitBuckets.delete(key)
     }
   }
 }, 60 * 1000) // Every minute
@@ -106,25 +177,135 @@ function generateWalletConnectPage(
     const message = '${escapeJsString(message)}';
     
     let address = null;
+    let selectedProvider = null;
+    
+    // Detect available EVM wallets (excludes Solana-only wallets like Phantom)
+    function detectWallets() {
+      const wallets = [];
+      const seen = new Set();
+      
+      // Helper to check if provider supports EVM methods
+      function isEVMProvider(provider) {
+        return provider && typeof provider.request === 'function';
+      }
+      
+      // Check for MetaMask (most common EVM wallet)
+      if (window.ethereum?.isMetaMask && !window.ethereum?.isPhantom && isEVMProvider(window.ethereum)) {
+        wallets.push({ name: 'MetaMask', provider: window.ethereum, icon: '🦊' });
+        seen.add('metamask');
+      }
+      
+      // Check for Coinbase Wallet
+      if (window.ethereum?.isCoinbaseWallet && isEVMProvider(window.ethereum) && !seen.has('coinbase')) {
+        wallets.push({ name: 'Coinbase Wallet', provider: window.ethereum, icon: '🔵' });
+        seen.add('coinbase');
+      }
+      
+      // Check for Rainbow
+      if (window.ethereum?.isRainbow && isEVMProvider(window.ethereum) && !seen.has('rainbow')) {
+        wallets.push({ name: 'Rainbow', provider: window.ethereum, icon: '🌈' });
+        seen.add('rainbow');
+      }
+      
+      // Check for Rabby
+      if (window.ethereum?.isRabby && isEVMProvider(window.ethereum) && !seen.has('rabby')) {
+        wallets.push({ name: 'Rabby', provider: window.ethereum, icon: '🐰' });
+        seen.add('rabby');
+      }
+      
+      // Check for Trust Wallet
+      if (window.ethereum?.isTrust && isEVMProvider(window.ethereum) && !seen.has('trust')) {
+        wallets.push({ name: 'Trust Wallet', provider: window.ethereum, icon: '🛡️' });
+        seen.add('trust');
+      }
+      
+      // Check for Brave Wallet
+      if (window.ethereum?.isBraveWallet && isEVMProvider(window.ethereum) && !seen.has('brave')) {
+        wallets.push({ name: 'Brave Wallet', provider: window.ethereum, icon: '🦁' });
+        seen.add('brave');
+      }
+      
+      // Check for Frame
+      if (window.ethereum?.isFrame && isEVMProvider(window.ethereum) && !seen.has('frame')) {
+        wallets.push({ name: 'Frame', provider: window.ethereum, icon: '🖼️' });
+        seen.add('frame');
+      }
+      
+      // NOTE: Phantom is excluded as it's primarily a Solana wallet
+      // Its EVM support is limited and may cause issues with signing
+      
+      // Fallback to generic ethereum provider if no specific wallet detected
+      // but only if it looks like a valid EVM provider (not Phantom/Solana)
+      if (wallets.length === 0 && window.ethereum && isEVMProvider(window.ethereum)) {
+        // Skip if it's Phantom (Solana wallet)
+        if (!window.ethereum.isPhantom && !window.ethereum.isSolana) {
+          wallets.push({ name: 'Browser Wallet', provider: window.ethereum, icon: '🔐' });
+        }
+      }
+      
+      return wallets;
+    }
+    
+    // Show wallet selector if multiple wallets
+    function showWalletSelector(wallets) {
+      const btn = document.getElementById('connectBtn');
+      const status = document.getElementById('status');
+      
+      if (wallets.length === 0) {
+        status.textContent = 'No EVM wallet found. Install MetaMask, Coinbase Wallet, or Rainbow.';
+        status.className = 'status error';
+        btn.disabled = true;
+        return;
+      }
+      
+      if (wallets.length === 1) {
+        selectedProvider = wallets[0].provider;
+        btn.innerHTML = wallets[0].icon + ' Connect with ' + wallets[0].name;
+        return;
+      }
+      
+      // Multiple wallets - show selector
+      let html = '<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">';
+      wallets.forEach((wallet, i) => {
+        html += '<button class="wallet-option" data-index="' + i + '" style="display:flex;align-items:center;gap:8px;padding:12px 16px;border:1px solid rgba(99,102,241,0.3);border-radius:8px;background:rgba(99,102,241,0.1);color:#e2e8f0;cursor:pointer;font-size:14px;">';
+        html += '<span style="font-size:20px;">' + wallet.icon + '</span>';
+        html += '<span>' + wallet.name + '</span>';
+        html += '</button>';
+      });
+      html += '</div>';
+      
+      status.innerHTML = html;
+      status.className = 'status';
+      btn.style.display = 'none';
+      
+      // Add click handlers
+      document.querySelectorAll('.wallet-option').forEach(el => {
+        el.addEventListener('click', () => {
+          const idx = parseInt(el.dataset.index);
+          selectedProvider = wallets[idx].provider;
+          status.innerHTML = '';
+          btn.style.display = 'block';
+          btn.innerHTML = wallets[idx].icon + ' Connect with ' + wallets[idx].name;
+          connect();
+        });
+      });
+    }
     
     async function connect() {
       const status = document.getElementById('status');
       const btn = document.getElementById('connectBtn');
       
-      if (!window.ethereum) {
-        status.textContent = 'No wallet found. Install MetaMask or another browser wallet.';
-        status.className = 'status error';
+      if (!selectedProvider) {
+        status.textContent = 'Please select a wallet';
         return;
       }
       
       try {
         btn.disabled = true;
         btn.textContent = 'Connecting...';
-        status.textContent = '';
-        status.className = 'status';
         
         // Request accounts
-        const accounts = await window.ethereum.request({ 
+        const accounts = await selectedProvider.request({ 
           method: 'eth_requestAccounts' 
         });
         address = accounts[0];
@@ -133,7 +314,7 @@ function generateWalletConnectPage(
         status.innerHTML = 'Connected: <span class="address-badge">' + address.slice(0, 6) + '...' + address.slice(-4) + '</span>';
         
         // Request signature
-        const signature = await window.ethereum.request({
+        const signature = await selectedProvider.request({
           method: 'personal_sign',
           params: [message, address]
         });
@@ -170,6 +351,10 @@ function generateWalletConnectPage(
       }
     }
     
+    // Initialize on load
+    const wallets = detectWallets();
+    showWalletSelector(wallets);
+    
     document.getElementById('connectBtn').addEventListener('click', connect);
   `
 
@@ -180,12 +365,61 @@ function generateWalletConnectPage(
   })
 }
 
-export function createWalletRouter(_config: AuthConfig) {
+// Lazy initialization for wallet routes
+let walletInitialized = false
+let walletInitPromise: Promise<void> | null = null
+
+async function ensureWalletInitialized(config: AuthConfig): Promise<void> {
+  if (walletInitialized) return
+  if (walletInitPromise) {
+    await walletInitPromise
+    return
+  }
+
+  walletInitPromise = (async () => {
+    await initializeState()
+    await initializeKMS({
+      jwtSigningKeyId: config.jwtSigningKeyId ?? 'oauth3-jwt-signing',
+      jwtSignerAddress:
+        config.jwtSignerAddress ??
+        '0x0000000000000000000000000000000000000000',
+      serviceAgentId: config.serviceAgentId,
+      chainId: config.chainId ?? 'eip155:420691',
+    })
+    walletInitialized = true
+  })()
+
+  await walletInitPromise
+}
+
+export function createWalletRouter(config: AuthConfig) {
   return new Elysia({ name: 'wallet', prefix: '/wallet' })
     .get(
       '/challenge',
       async ({ query, set }) => {
+        await ensureWalletInitialized(config)
+
         const { client_id: clientId, redirect_uri: redirectUri, state } = query
+
+        // SECURITY: Rate limiting per client to prevent DoS
+        const rateLimitKey = `wallet:${clientId}`
+        if (!checkRateLimit(rateLimitKey)) {
+          set.status = 429
+          return {
+            error: 'rate_limited',
+            error_description: 'Too many challenge requests. Try again later.',
+          }
+        }
+
+        // SECURITY: Prevent memory exhaustion
+        if (challenges.size >= MAX_CHALLENGES) {
+          set.status = 503
+          return {
+            error: 'service_unavailable',
+            error_description:
+              'Service temporarily unavailable. Try again later.',
+          }
+        }
 
         // Validate client exists and redirect URI is allowed
         const client = await clientState.get(clientId)
@@ -203,9 +437,12 @@ export function createWalletRouter(_config: AuthConfig) {
         const nonce = crypto.randomUUID()
         const timestamp = new Date().toISOString()
 
+        // Domain should match the app redirect host for SIWE consistency
+        const domain = new URL(redirectUri).hostname
+
         const message = `Jeju Network sign-in request.
 
-Domain: auth.jejunetwork.org
+Domain: ${domain}
 Nonce: ${nonce}
 Issued At: ${timestamp}
 URI: ${redirectUri}
@@ -226,11 +463,10 @@ No transaction will be sent. No gas fees.`
         }
 
         challenges.set(challengeId, challenge)
-        console.log('[OAuth3/Wallet] Challenge created:', {
-          challengeId,
+        // SECURITY: Only log non-sensitive metadata
+        console.log('[OAuth3/Wallet] Challenge created', {
           clientId,
-          redirectUri: redirectUri.substring(0, 50),
-          mapSize: challenges.size,
+          challengeCount: challenges.size,
         })
 
         const html = generateWalletConnectPage(challengeId, message)
@@ -244,6 +480,8 @@ No transaction will be sent. No gas fees.`
     .post(
       '/verify',
       async ({ body, set }) => {
+        await ensureWalletInitialized(config)
+
         if (!isAddress(body.address)) {
           set.status = 400
           return { error: 'invalid_address' }
@@ -287,12 +525,8 @@ No transaction will be sent. No gas fees.`
         const code = crypto.randomUUID()
         const userId = `wallet:${address.toLowerCase()}`
 
-        console.log('[OAuth3] Wallet verified, creating auth code:', {
-          code: `${code.substring(0, 8)}...`,
-          userId,
-          clientId: challenge.clientId,
-          redirectUri: challenge.redirectUri,
-        })
+        // SECURITY: Only log non-sensitive metadata
+        console.log('[OAuth3] Wallet verified, creating auth code')
 
         await authCodeState.save(code, {
           clientId: challenge.clientId,
@@ -301,8 +535,6 @@ No transaction will be sent. No gas fees.`
           scope: ['openid', 'profile'],
           expiresAt: Date.now() + 5 * 60 * 1000,
         })
-
-        console.log('[OAuth3] Auth code saved successfully')
 
         // Create session with ephemeral key
         const sessionId = crypto.randomUUID()
@@ -338,11 +570,7 @@ No transaction will be sent. No gas fees.`
     )
 
     .get('/status/:challengeId', async ({ params, set }) => {
-      console.log('[OAuth3/Wallet] Status check:', {
-        challengeId: params.challengeId,
-        mapSize: challenges.size,
-        keys: Array.from(challenges.keys()).slice(0, 3),
-      })
+      // SECURITY: Don't log challenge IDs or enumerate challenges
       const challenge = challenges.get(params.challengeId)
       if (!challenge) {
         set.status = 404
@@ -350,7 +578,6 @@ No transaction will be sent. No gas fees.`
       }
 
       return {
-        challengeId: challenge.challengeId,
         expiresAt: challenge.expiresAt,
         expired: challenge.expiresAt < Date.now(),
       }

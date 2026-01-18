@@ -70,9 +70,8 @@ import servicesJsonRaw from './services.json' with { type: 'json' }
 import vendorAppsJsonRaw from './vendor-apps.json' with { type: 'json' }
 
 export * from './dev-proxy'
-// Network utilities
-// Note: Some of these use fs and are Node.js-only (loadDeployedContracts, getNetworkInfo)
-// They will throw in browser builds if called, but won't break the import
+// Network utilities - some use fs and are Node.js-only (loadDeployedContracts, getNetworkInfo).
+// They will throw in browser builds if called, but won't break the import.
 export {
   checkHasBalance,
   checkRpcReachable,
@@ -92,6 +91,7 @@ export * from './rpc-chains'
 import { getBridgeRelayerUrl } from './ports'
 
 export * from './schemas'
+export * from './test-config'
 
 // Types from schemas.ts
 
@@ -165,7 +165,8 @@ function detectNetworkFromHostname(): NetworkType | null {
     hostname === 'localhost' ||
     hostname === '127.0.0.1' ||
     hostname.startsWith('192.168.') ||
-    hostname.startsWith('10.')
+    hostname.startsWith('10.') ||
+    hostname.endsWith('.local.jejunetwork.org')
   ) {
     return 'localnet'
   }
@@ -1916,10 +1917,11 @@ export function getModelRegistryAddress(): string {
   )
 }
 
-/** Get AI CEO address */
-export function getAiCeoAddress(): string {
+/** Get AI Director address */
+export function getAiDirectorAddress(): string {
   return (
-    process.env.AI_CEO_ADDRESS ?? '0x0000000000000000000000000000000000000000'
+    process.env.AI_DIRECTOR_ADDRESS ??
+    '0x0000000000000000000000000000000000000000'
   )
 }
 
@@ -2253,7 +2255,7 @@ export function isSQLitDebug(): boolean {
 
 /** Get SQLit port */
 export function getSQLitPort(): number {
-  return parseInt(process.env.SQLIT_PORT ?? process.env.PORT ?? '4400', 10)
+  return parseInt(process.env.SQLIT_PORT ?? '4661', 10)
 }
 
 /** Get SQLit data directory */
@@ -2613,16 +2615,16 @@ export function getPublicApiUrl(): string | undefined {
   return process.env.PUBLIC_API_URL
 }
 
-// Council Configuration
+// Board Configuration
 
-/** Get Jeju Council OAuth3 app address */
-export function getCouncilJejuOauth3App(): string {
-  return process.env.COUNCIL_JEJU_OAUTH3_APP ?? '0x'
+/** Get Jeju Board OAuth3 app address */
+export function getBoardJejuOauth3App(): string {
+  return process.env.BOARD_JEJU_OAUTH3_APP ?? '0x'
 }
 
-/** Get Eliza Council OAuth3 app address */
-export function getCouncilElizaOauth3App(): string {
-  return process.env.COUNCIL_ELIZA_OAUTH3_APP ?? '0x'
+/** Get Eliza Board OAuth3 app address */
+export function getBoardElizaOauth3App(): string {
+  return process.env.BOARD_ELIZA_OAUTH3_APP ?? '0x'
 }
 
 // Hyperlane Configuration

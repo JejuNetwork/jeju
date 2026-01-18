@@ -36,18 +36,20 @@ export function createAppConfig<T extends object>(
   configure: (updates: Partial<T>) => void
   getConfig: () => T
 } {
-  let currentConfig: T = { ...defaults }
+  // IMPORTANT: `config` must remain the same object reference so that
+  // `configure()` updates are visible to importers (workerd/runtime injection).
+  const config: T = { ...defaults }
 
   function configure(updates: Partial<T>): void {
-    currentConfig = { ...currentConfig, ...updates }
+    Object.assign(config, updates)
   }
 
   function getConfig(): T {
-    return { ...currentConfig }
+    return { ...config }
   }
 
   return {
-    config: currentConfig,
+    config,
     configure,
     getConfig,
   }

@@ -1,5 +1,11 @@
 import { defineChain } from 'viem'
-import { CHAIN_ID, EXPLORER_URL, NETWORK, NETWORK_NAME, RPC_URL } from './index'
+import {
+  CHAIN_ID,
+  EXPLORER_URL,
+  NETWORK,
+  NETWORK_NAME,
+  RPC_URL,
+} from './network'
 
 export const JEJU_CHAIN_ID = CHAIN_ID
 const JEJU_RPC_URL = RPC_URL
@@ -30,4 +36,22 @@ export const jeju = defineChain({
     },
   },
   testnet: NETWORK !== 'mainnet',
+})
+
+// Localnet chain for direct RPC access
+export const jejuLocalnet = defineChain({
+  id: 31337,
+  name: 'Jeju Localnet',
+  nativeCurrency: { decimals: 18, name: 'Ether', symbol: 'ETH' },
+  rpcUrls: {
+    default: { http: ['http://localhost:8547'] },
+  },
+  blockExplorers: {
+    default: {
+      name: 'Localnet Explorer',
+      url: 'http://localhost:4000',
+      apiUrl: 'http://localhost:4000/api',
+    },
+  },
+  testnet: true,
 })

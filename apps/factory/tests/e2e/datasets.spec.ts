@@ -1,3 +1,8 @@
+// Check if running against testnet/mainnet
+const isRemote =
+  process.env.JEJU_NETWORK === 'testnet' ||
+  process.env.JEJU_NETWORK === 'mainnet'
+
 /**
  * Datasets E2E Tests
  * Tests dataset browser and upload functionality
@@ -6,6 +11,7 @@
 import { expect, test } from '@playwright/test'
 
 test.describe('Dataset Browser', () => {
+  test.skip(isRemote, 'Skipping on remote network')
   test('displays datasets page', async ({ page }) => {
     await page.goto('/models/datasets')
     await expect(page.getByRole('heading', { name: /datasets/i })).toBeVisible()
@@ -59,6 +65,7 @@ test.describe('Dataset Browser', () => {
 })
 
 test.describe('Dataset Upload', () => {
+  test.skip(isRemote, 'Skipping on remote network')
   test('displays upload page', async ({ page }) => {
     await page.goto('/models/datasets/upload')
     await expect(page.getByRole('main')).toBeVisible()

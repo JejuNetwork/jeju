@@ -318,8 +318,8 @@ export function WritableState(options, stream, isDuplex) {
 
   if (isDuplex && options?.writableObjectMode) this[kState] |= kObjectMode;
 
-  // The point at which write() starts returning false
-  // Note: 0 is a valid value, means that we always return false if
+  // The point at which write() starts returning false.
+  // 0 is a valid value, means that we always return false if
   // the entire buffer is not flushed immediately on write().
   this.highWaterMark = options
     ? getHighWaterMark(this, options, 'writableHighWaterMark', isDuplex)

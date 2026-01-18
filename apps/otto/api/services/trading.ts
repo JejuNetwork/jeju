@@ -126,7 +126,7 @@ export class TradingService {
     // Check cache first
     const cache = getOttoCache()
     const cacheKey = `token:${chainId}:${addressOrSymbol.toLowerCase()}`
-    const cached = await cache.get(cacheKey).catch((err) => {
+    const cached = await cache.get(cacheKey).catch((err: Error) => {
       console.warn('[Otto] Cache read failed:', err)
       return null
     })
@@ -183,7 +183,7 @@ export class TradingService {
     const validatedToken = expectValid(TokenInfoSchema, token, 'token info')
     cache
       .set(cacheKey, JSON.stringify(validatedToken), CACHE_TTL.TOKEN_INFO)
-      .catch((err) => console.warn('[Otto] Cache write failed:', err))
+      .catch((err: Error) => console.warn('[Otto] Cache write failed:', err))
 
     return validatedToken
   }
@@ -219,7 +219,7 @@ export class TradingService {
     // Check price cache (shorter TTL than token info)
     const cache = getOttoCache()
     const cacheKey = `price:${chainId}:${addressOrSymbol.toLowerCase()}`
-    const cached = await cache.get(cacheKey).catch((err) => {
+    const cached = await cache.get(cacheKey).catch((err: Error) => {
       console.warn('[Otto] Cache read failed:', err)
       return null
     })
@@ -233,7 +233,7 @@ export class TradingService {
     if (price !== null) {
       cache
         .set(cacheKey, price.toString(), CACHE_TTL.TOKEN_PRICE)
-        .catch((err) => console.warn('[Otto] Cache write failed:', err))
+        .catch((err: Error) => console.warn('[Otto] Cache write failed:', err))
     }
 
     return price
@@ -259,7 +259,7 @@ export class TradingService {
     // Check cache first
     const cache = getOttoCache()
     const cacheKey = `balances:${userAddress.toLowerCase()}:${chains.sort().join(',')}`
-    const cached = await cache.get(cacheKey).catch((err) => {
+    const cached = await cache.get(cacheKey).catch((err: Error) => {
       console.warn('[Otto] Cache read failed:', err)
       return null
     })
@@ -322,7 +322,7 @@ export class TradingService {
     if (balances.length > 0) {
       cache
         .set(cacheKey, JSON.stringify(balances), CACHE_TTL.BALANCES)
-        .catch((err) => console.warn('[Otto] Cache write failed:', err))
+        .catch((err: Error) => console.warn('[Otto] Cache write failed:', err))
     }
 
     return balances

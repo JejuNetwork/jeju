@@ -6,6 +6,7 @@ import {
 } from '@jejunetwork/api'
 import type { ContractCategoryName } from '@jejunetwork/config'
 import {
+  getContract,
   getCurrentNetwork,
   getEnvNumber,
   getEnvVar,
@@ -53,14 +54,70 @@ import {
 } from './schemas'
 import { createAgentSDK } from './sdk/agent'
 import { createCompute } from './sdk/compute'
+import { getDatabase } from './sdk/database'
 import { type RuntimeMessage, runtimeManager } from './sdk/eliza-runtime'
 import { createExecutorSDK } from './sdk/executor'
 import { createKMSSigner } from './sdk/kms-signer'
 import { createLogger } from './sdk/logger'
 import { createRoomSDK } from './sdk/room'
+import { getApiKey, getPrivateKey } from './sdk/secrets'
 import { createStorage } from './sdk/storage'
 
 const log = createLogger('Server')
+
+// Action counter for tracking daily actions
+const actionCounter = {
+  today: new Date().toISOString().split('T')[0],
+  count: 0,
+  increment() {
+    const currentDay = new Date().toISOString().split('T')[0]
+    if (currentDay !== this.today) {
+      this.today = currentDay
+      this.count = 0
+    }
+    this.count++
+  },
+  getTodayCount() {
+    const currentDay = new Date().toISOString().split('T')[0]
+    if (currentDay !== this.today) {
+      return 0
+    }
+    return this.count
+  },
+}
+
+// Activity feed for tracking recent events
+interface ActivityEvent {
+  id: string
+  type:
+    | 'agent_created'
+    | 'room_created'
+    | 'message_sent'
+    | 'action_executed'
+    | 'trade_completed'
+  actor: string
+  description: string
+  timestamp: number
+  metadata?: Record<string, string | number>
+}
+
+const activityStore = {
+  events: [] as ActivityEvent[],
+  maxEvents: 100,
+  add(event: Omit<ActivityEvent, 'id' | 'timestamp'>) {
+    this.events.unshift({
+      ...event,
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      timestamp: Date.now(),
+    })
+    if (this.events.length > this.maxEvents) {
+      this.events.pop()
+    }
+  },
+  getRecent(limit = 10): ActivityEvent[] {
+    return this.events.slice(0, limit)
+  },
+}
 
 /**
  * Safely get contract address, returning undefined if not configured.
@@ -69,15 +126,25 @@ const log = createLogger('Server')
 function getContractSafe(
   category: ContractCategoryName,
   name: string,
-  _network: 'localnet' | 'testnet' | 'mainnet',
+  network: 'localnet' | 'testnet' | 'mainnet',
 ): `0x${string}` | undefined {
+  const isHexAddress = (value: string): value is `0x${string}` =>
+    /^0x[a-fA-F0-9]{40}$/.test(value)
+
   // Check env var first
   const envKey = `${category.toUpperCase()}_${name.replace(/([A-Z])/g, '_$1').toUpperCase()}`
   const envVal = process.env[envKey]
-  if (envVal && /^0x[a-fA-F0-9]{40}$/.test(envVal)) {
-    return envVal as `0x${string}`
+  if (envVal && isHexAddress(envVal)) {
+    return envVal
   }
-  return undefined
+
+  // Fall back to contracts.json via getContract
+  try {
+    const addr = getContract(category, name, network)
+    return isHexAddress(addr) ? addr : undefined
+  } catch {
+    return undefined
+  }
 }
 
 /**
@@ -193,11 +260,29 @@ const ALLOWED_ORIGINS = crucibleConfig.corsAllowedOrigins
   .map((origin) => origin.trim())
   .filter(Boolean)
 
-// API key for authenticated endpoints
-const API_KEY = crucibleConfig.apiKey
 // Default to requiring auth on non-localnet (testnet/mainnet)
 const NETWORK = crucibleConfig.network
 const REQUIRE_AUTH = crucibleConfig.requireAuth
+
+// API key loaded lazily from secrets module
+let cachedApiKey: string | null = null
+
+/**
+ * Get API key for authentication.
+ * Uses KMS SecretVault in production, env vars in localnet.
+ */
+async function getApiKeyValue(): Promise<string | null> {
+  if (cachedApiKey !== null) return cachedApiKey || null
+
+  try {
+    const key = await getApiKey(SERVER_ADDRESS)
+    cachedApiKey = key ?? ''
+    return key
+  } catch {
+    cachedApiKey = ''
+    return null
+  }
+}
 
 // Paths that don't require authentication
 const PUBLIC_PATHS = ['/health', '/metrics', '/.well-known']
@@ -275,6 +360,36 @@ const LOCALNET_DEFAULTS = {
   indexerGraphql: string
 }
 
+// Agent private key access via secrets module
+// NOTE: This address is only used for secret access verification
+const SERVER_ADDRESS = '0x0000000000000000000000000000000000000001' as const
+
+// Lazy-loaded private key cache (only populated on first access)
+let cachedAgentPrivateKey: `0x${string}` | undefined
+
+/**
+ * Get the agent private key for on-chain operations.
+ * Uses KMS SecretVault in production, env vars in localnet.
+ *
+ * SECURITY: Private key is accessed via the secrets module which
+ * properly gates access based on network (localnet vs production).
+ */
+async function getAgentPrivateKey(): Promise<`0x${string}` | undefined> {
+  if (cachedAgentPrivateKey) return cachedAgentPrivateKey
+
+  try {
+    const key = await getPrivateKey(SERVER_ADDRESS)
+    if (!key) return undefined
+    cachedAgentPrivateKey = key
+    return cachedAgentPrivateKey
+  } catch (err) {
+    log.error('Failed to get agent private key', {
+      error: err instanceof Error ? err.message : String(err),
+    })
+    return undefined
+  }
+}
+
 const config: CrucibleConfig = {
   rpcUrl: getRequiredEnv('RPC_URL', LOCALNET_DEFAULTS.rpcUrl),
   kmsKeyId: getRequiredEnv('KMS_KEY_ID', 'default'),
@@ -340,19 +455,38 @@ const kmsSigner = createKMSSigner(config.rpcUrl, chain.id, {
   totalParties: NETWORK === 'mainnet' ? 5 : 3,
 })
 
-// Initialize KMS signer asynchronously
-kmsSigner
-  .initialize()
-  .then(() => {
-    log.info('KMS signer initialized', {
-      address: kmsSigner.getAddress(),
-      keyId: kmsSigner.getKeyId(),
+// Initialize KMS signer asynchronously with fallback support for localnet
+;(async () => {
+  // On localnet, load the fallback private key before initializing
+  // This enables signing even when KMS service is unavailable
+  if (config.network === 'localnet') {
+    try {
+      const fallbackKey = await getAgentPrivateKey()
+      if (fallbackKey) {
+        kmsSigner.setFallbackPrivateKey(fallbackKey)
+        log.info('Fallback private key loaded for localnet')
+      }
+    } catch (err) {
+      log.warn('Could not load fallback private key', {
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
+  }
+
+  // Now initialize the KMS signer
+  kmsSigner
+    .initialize()
+    .then(() => {
+      log.info('KMS signer initialized', {
+        address: kmsSigner.getAddress(),
+        keyId: kmsSigner.getKeyId(),
+      })
     })
-  })
-  .catch((err) => {
-    log.error('Failed to initialize KMS signer', { error: String(err) })
-    // Don't throw - server can still serve read-only endpoints
-  })
+    .catch((err) => {
+      log.error('Failed to initialize KMS signer', { error: String(err) })
+      // Don't throw - server can still serve read-only endpoints
+    })
+})()
 
 const storage = createStorage({
   apiUrl: config.services.storageApi,
@@ -384,19 +518,66 @@ const roomSdk = createRoomSDK({
 let botInitializer: BotInitializer | null = null
 let tradingBots: Map<bigint, TradingBot> = new Map()
 
-// Seed DWS infrastructure (external chain nodes + bots) on startup
-async function seedDWSInfrastructure(): Promise<void> {
-  // Use treasury address from config, fallback to KMS signer address
-  const signerAddress = kmsSigner.isInitialized()
-    ? kmsSigner.getAddress()
-    : null
-  const treasuryAddress =
-    config.contracts.autocratTreasury ??
-    signerAddress ??
-    '0x0000000000000000000000000000000000000001'
+// Seed default agents on startup
+async function seedDefaultAgents(): Promise<void> {
+  // Check if DWS is available
+  const dwsAvailable = await checkDWSHealth()
+  if (!dwsAvailable) {
+    log.warn('DWS not available - agent seeding skipped')
+    return
+  }
 
-  // DWS infrastructure seeding deferred - seedInfrastructure is not exported from @jejunetwork/dws
-  log.info('DWS infrastructure seeding skipped', { treasuryAddress })
+  // Only seed agents if KMS is available (we need to sign transactions)
+  if (!kmsSigner.isInitialized()) {
+    log.warn('KMS not initialized - agent seeding skipped')
+    return
+  }
+
+  // Get default characters to seed
+  const coreAgentIds = [
+    'project-manager',
+    'community-manager',
+    'devrel',
+    'liaison',
+    'moderator',
+  ]
+
+  log.info('Seeding default agents', { count: coreAgentIds.length })
+
+  for (const agentId of coreAgentIds) {
+    const character = characters[agentId]
+    if (!character) {
+      log.warn('Character not found', { agentId })
+      continue
+    }
+
+    // Initialize runtime for this character
+    try {
+      const existing = runtimeManager.getRuntime(agentId)
+      if (existing) {
+        log.debug('Agent runtime already exists', { agentId })
+        continue
+      }
+
+      const agentPrivateKey = await getAgentPrivateKey()
+      const _runtime = await runtimeManager.createRuntime({
+        agentId,
+        character,
+        privateKey: agentPrivateKey,
+        network: config.network,
+      })
+      log.info('Agent runtime seeded', { agentId, name: character.name })
+    } catch (err) {
+      log.error('Failed to seed agent runtime', {
+        agentId,
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
+  }
+
+  log.info('Agent seeding complete', {
+    runtimes: runtimeManager.getAllRuntimes().length,
+  })
 }
 
 // Initialize bot handler if KMS is configured
@@ -409,8 +590,8 @@ if (kmsSigner) {
     treasuryAddress: config.contracts.autocratTreasury,
   })
 
-  // Seed DWS infrastructure, then initialize bots
-  seedDWSInfrastructure()
+  // Seed default agents, then initialize bots
+  seedDefaultAgents()
     .then(() => {
       if (crucibleConfig.botsEnabled && botInitializer) {
         return botInitializer.initializeDefaultBots()
@@ -436,13 +617,14 @@ app.use(
       const origin = request.headers.get('origin')
       // In development (localnet), allow all origins including wildcard
       if (config.network === 'localnet') return true
-      // In production/testnet, NEVER allow wildcard - explicit origins only
-      if (!origin) return false
+      // Allow same-origin requests (no origin header) and non-browser requests
+      if (!origin) return true
+      // Check against configured origins
       if (ALLOWED_ORIGINS.includes(origin)) return true
+      // Allow any *.jejunetwork.org domain (JNS-resolved apps)
+      if (origin.endsWith('.jejunetwork.org')) return true
       // Log rejected origins for debugging (but don't expose in response)
-      if (origin && !ALLOWED_ORIGINS.includes('*')) {
-        log.debug('CORS rejected origin', { origin, allowed: ALLOWED_ORIGINS })
-      }
+      log.debug('CORS rejected origin', { origin, allowed: ALLOWED_ORIGINS })
       return false
     },
     credentials: true,
@@ -527,33 +709,42 @@ app.onBeforeHandle(
 )
 
 // API Key authentication middleware (when enabled)
-app.onBeforeHandle(({ request, set }): { error: string } | undefined => {
-  const url = new URL(request.url)
-  const path = url.pathname
+app.onBeforeHandle(
+  async ({ request, set }): Promise<{ error: string } | undefined> => {
+    const url = new URL(request.url)
+    const path = url.pathname
 
-  // Skip auth for public paths
-  if (PUBLIC_PATHS.some((p) => path.startsWith(p))) {
+    // Skip auth for public paths
+    if (PUBLIC_PATHS.some((p) => path.startsWith(p))) {
+      return undefined
+    }
+
+    // Skip auth if not required
+    if (!REQUIRE_AUTH) {
+      return undefined
+    }
+
+    // Get API key from secrets (cached after first load)
+    const apiKey = await getApiKeyValue()
+    if (!apiKey) {
+      // No API key configured - skip auth
+      return undefined
+    }
+
+    const providedKey =
+      request.headers.get('x-api-key') ??
+      request.headers.get('authorization')?.replace('Bearer ', '')
+
+    if (!providedKey || !constantTimeCompare(providedKey, apiKey)) {
+      set.status = 401
+      return { error: 'Unauthorized' }
+    }
     return undefined
-  }
-
-  // Skip auth if not required
-  if (!REQUIRE_AUTH || !API_KEY) {
-    return undefined
-  }
-
-  const providedKey =
-    request.headers.get('x-api-key') ??
-    request.headers.get('authorization')?.replace('Bearer ', '')
-
-  if (!providedKey || !constantTimeCompare(providedKey, API_KEY)) {
-    set.status = 401
-    return { error: 'Unauthorized' }
-  }
-  return undefined
-})
+  },
+)
 
 // Ban check middleware
-app.onBeforeHandle(banCheckMiddleware())
+app.use(banCheckMiddleware())
 
 // Metrics middleware
 app.onBeforeHandle(() => {
@@ -568,12 +759,14 @@ app.onAfterHandle(({ set }) => {
 })
 
 // Global error handler - prevents stack trace leakage in production
-app.onError(({ error, set }) => {
+app.onError(({ error, set, request }) => {
   // Log full error for debugging
   const errorObj = error instanceof Error ? error : new Error(String(error))
   const errorLog: Record<string, string> = {
     message: errorObj.message,
     name: errorObj.name,
+    path: new URL(request.url).pathname,
+    method: request.method,
   }
   if (NETWORK === 'localnet' && errorObj.stack) {
     errorLog.stack = errorObj.stack
@@ -620,14 +813,24 @@ app.get('/health', () => ({
 app.get('/info', async ({ request }) => {
   const dwsAvailable = await checkDWSHealth()
 
+  // Get room count
+  let rooms = 0
+  try {
+    const roomResult = await roomSdk.searchRooms({ limit: 1 })
+    rooms = roomResult.total
+  } catch {
+    // Room registry may not be available
+  }
+
   // Check if request is authenticated (has valid API key)
   const providedKey =
     request.headers.get('x-api-key') ??
     request.headers.get('authorization')?.replace('Bearer ', '')
+  const apiKey = await getApiKeyValue()
   const isAuthenticated = !!(
-    API_KEY &&
+    apiKey &&
     providedKey &&
-    constantTimeCompare(providedKey, API_KEY)
+    constantTimeCompare(providedKey, apiKey)
   )
 
   // Basic info for unauthenticated requests
@@ -638,6 +841,8 @@ app.get('/info', async ({ request }) => {
     hasSigner: kmsSigner.isInitialized(),
     dwsAvailable,
     runtimes: runtimeManager.getAllRuntimes().length,
+    rooms,
+    actionsToday: actionCounter.getTodayCount(),
   }
 
   // Return full info only for authenticated requests
@@ -650,6 +855,12 @@ app.get('/info', async ({ request }) => {
   }
 
   return basicInfo
+})
+
+// Activity feed endpoint
+app.get('/api/v1/activity', ({ query }) => {
+  const limit = Math.min(Math.max(1, Number(query.limit) || 10), 50)
+  return { events: activityStore.getRecent(limit) }
 })
 
 // Agent Chat API - ElizaOS + @jejunetwork/eliza-plugin (60+ actions)
@@ -668,9 +879,12 @@ app.post('/api/v1/chat/:characterId', async ({ params, body }) => {
   // Get or create runtime for this character
   let runtime = runtimeManager.getRuntime(characterId)
   if (!runtime) {
+    const agentPrivateKey = await getAgentPrivateKey()
     runtime = await runtimeManager.createRuntime({
       agentId: characterId,
       character,
+      privateKey: agentPrivateKey,
+      network: config.network,
     })
   }
 
@@ -713,11 +927,14 @@ app.get('/api/v1/chat/characters', () => {
 app.post('/api/v1/chat/init', async () => {
   const results: Record<string, { success: boolean; error?: string }> = {}
 
+  const agentPrivateKey = await getAgentPrivateKey()
   for (const [id, character] of Object.entries(characters)) {
     try {
       await runtimeManager.createRuntime({
         agentId: id,
         character,
+        privateKey: agentPrivateKey,
+        network: config.network,
       })
       results[id] = { success: true }
     } catch (e) {
@@ -740,6 +957,11 @@ app.get('/metrics', ({ set }) => {
   const uptimeSeconds = Math.floor((Date.now() - metrics.startTime) / 1000)
   const avgLatency =
     metrics.latency.count > 0 ? metrics.latency.sum / metrics.latency.count : 0
+
+  // Get autonomous agent metrics
+  const autonomousStatus = autonomousRunner?.getStatus()
+  const autonomousAgents = autonomousStatus?.agents ?? []
+  const totalTicks = autonomousAgents.reduce((sum, a) => sum + a.tickCount, 0)
 
   const lines = [
     '# HELP crucible_requests_total Total HTTP requests',
@@ -771,11 +993,36 @@ app.get('/metrics', ({ set }) => {
     '# TYPE crucible_uptime_seconds gauge',
     `crucible_uptime_seconds ${uptimeSeconds}`,
     '',
+    '# HELP crucible_autonomous_enabled Whether autonomous mode is enabled',
+    '# TYPE crucible_autonomous_enabled gauge',
+    `crucible_autonomous_enabled ${autonomousRunner ? 1 : 0}`,
+    '',
+    '# HELP crucible_autonomous_agents_count Number of autonomous agents',
+    '# TYPE crucible_autonomous_agents_count gauge',
+    `crucible_autonomous_agents_count ${autonomousAgents.length}`,
+    '',
+    '# HELP crucible_autonomous_ticks_total Total autonomous agent ticks',
+    '# TYPE crucible_autonomous_ticks_total counter',
+    `crucible_autonomous_ticks_total ${totalTicks}`,
+    '',
+  ]
+
+  // Add per-agent tick metrics
+  for (const agent of autonomousAgents) {
+    lines.push(
+      `crucible_autonomous_agent_ticks{agent="${agent.id}",character="${agent.character}"} ${agent.tickCount}`,
+    )
+  }
+  if (autonomousAgents.length > 0) {
+    lines.push('')
+  }
+
+  lines.push(
     '# HELP crucible_info Service info',
     '# TYPE crucible_info gauge',
     `crucible_info{version="1.0.0",network="${config.network}"} 1`,
     '',
-  ]
+  )
 
   set.headers['Content-Type'] = 'text/plain; version=0.0.4; charset=utf-8'
   return lines.join('\n')
@@ -819,6 +1066,7 @@ app.post('/api/v1/agents', async ({ body }) => {
     topics: [],
     adjectives: [],
     style: { all: [], chat: [], post: [] },
+    capabilities: parsedBody.capabilities,
   }
   log.info('Registering agent', { name: character.name })
 
@@ -828,6 +1076,14 @@ app.post('/api/v1/agents', async ({ body }) => {
       : undefined,
   })
   metrics.agents.registered++
+
+  // Track agent creation activity
+  activityStore.add({
+    type: 'agent_created',
+    actor: character.name,
+    description: `Agent "${character.name}" deployed`,
+    metadata: { agentId: result.agentId.toString() },
+  })
 
   return {
     agentId: result.agentId.toString(),
@@ -846,8 +1102,24 @@ app.get('/api/v1/agents/:agentId', async ({ params }) => {
   const agentId = BigInt(parsedParams.agentId)
   const agent = await agentSdk.getAgent(agentId)
   const validAgent = expect(agent, `Agent not found: ${parsedParams.agentId}`)
+
+  // Load capabilities from character if available
+  let capabilities = validAgent.capabilities
+  if (validAgent.characterCid && !capabilities) {
+    try {
+      const character = await agentSdk.loadCharacter(agentId)
+      capabilities = character.capabilities ?? undefined
+    } catch {
+      // Character load failed, continue without capabilities
+    }
+  }
+
   return {
-    agent: { ...validAgent, agentId: validAgent.agentId.toString() },
+    agent: {
+      ...validAgent,
+      agentId: validAgent.agentId.toString(),
+      capabilities,
+    },
   }
 })
 
@@ -944,6 +1216,138 @@ app.post(
 )
 
 // Room Management
+
+// List/search rooms
+app.get('/api/v1/rooms', async ({ query }) => {
+  const filters = {
+    name: query.name as string | undefined,
+    roomType: query.roomType as
+      | 'collaboration'
+      | 'adversarial'
+      | 'debate'
+      | 'board'
+      | undefined,
+    active:
+      query.active === 'true'
+        ? true
+        : query.active === 'false'
+          ? false
+          : undefined,
+    limit: query.limit ? parseInt(query.limit as string, 10) : 20,
+    offset: query.offset ? parseInt(query.offset as string, 10) : 0,
+  }
+
+  // Fetch on-chain rooms (may fail in localnet if contract not deployed)
+  let onchainRooms: Array<{
+    roomId: string
+    name: string
+    description: string
+    owner: string
+    stateCid: string
+    members: Array<{ agentId: string; role: string; joinedAt: number }>
+    roomType: string
+    config: {
+      maxMembers: number
+      turnBased: boolean
+      turnTimeout: number
+      visibility: string
+    }
+    active: boolean
+    createdAt: number
+    source: 'onchain'
+  }> = []
+  let onchainTotal = 0
+  let onchainHasMore = false
+
+  try {
+    const result = await roomSdk.searchRooms(filters)
+    onchainRooms = result.items.map((room) => ({
+      roomId: room.roomId.toString(),
+      name: room.name,
+      description: room.description,
+      owner: room.owner,
+      stateCid: room.stateCid,
+      members: room.members.map((m) => ({
+        role: m.role,
+        joinedAt: m.joinedAt,
+        agentId: m.agentId.toString(),
+      })),
+      roomType: room.roomType,
+      config: {
+        maxMembers: room.config.maxMembers,
+        turnBased: room.config.turnBased,
+        turnTimeout: room.config.turnTimeout ?? 300,
+        visibility: room.config.visibility,
+      },
+      active: room.active,
+      createdAt: room.createdAt,
+      source: 'onchain' as const,
+    }))
+    onchainTotal = result.total
+    onchainHasMore = result.hasMore
+  } catch (err) {
+    log.warn('Failed to fetch on-chain rooms', {
+      error: err instanceof Error ? err.message : String(err),
+    })
+  }
+
+  // Fetch off-chain rooms from SQLite
+  let offchainRooms: Array<{
+    roomId: string
+    name: string
+    description: string
+    owner: string
+    stateCid: string
+    members: Array<{ agentId: string; role: string; joinedAt: number }>
+    roomType: string
+    config: {
+      maxMembers: number
+      turnBased: boolean
+      turnTimeout: number
+      visibility: string
+    }
+    active: boolean
+    createdAt: number
+    source: 'offchain'
+  }> = []
+
+  try {
+    const db = getDatabase()
+    const dbRooms = await db.listRooms(100)
+    offchainRooms = dbRooms.map((r) => ({
+      roomId: r.room_id,
+      name: r.name,
+      description: '',
+      owner: '0x0000000000000000000000000000000000000000',
+      stateCid: r.state_cid ?? '',
+      members: [],
+      roomType: r.room_type ?? 'collaboration',
+      config: {
+        maxMembers: 100,
+        turnBased: false,
+        turnTimeout: 300,
+        visibility: 'public',
+      },
+      active: true,
+      createdAt: r.created_at * 1000,
+      source: 'offchain' as const,
+    }))
+  } catch (err) {
+    log.warn('Failed to fetch off-chain rooms', {
+      error: err instanceof Error ? err.message : String(err),
+    })
+  }
+
+  // Merge: off-chain first, then on-chain
+  const allRooms = [...offchainRooms, ...onchainRooms]
+
+  return {
+    rooms: allRooms,
+    total: onchainTotal + offchainRooms.length,
+    hasMore: onchainHasMore,
+  }
+})
+
 app.post('/api/v1/rooms', async ({ body }) => {
   const parsedBody = parseOrThrow(
     CreateRoomRequestSchema,
@@ -968,25 +1372,68 @@ app.post('/api/v1/rooms', async ({ body }) => {
   )
   metrics.rooms.created++
 
+  // Track room creation activity
+  activityStore.add({
+    type: 'room_created',
+    actor: 'System',
+    description: `Room "${parsedBody.name}" created`,
+    metadata: {
+      roomId: result.roomId.toString(),
+      roomType: parsedBody.roomType,
+    },
+  })
+
   return { roomId: result.roomId.toString(), stateCid: result.stateCid }
 })
 
 app.get('/api/v1/rooms/:roomId', async ({ params }) => {
-  const parsedParams = parseOrThrow(
-    RoomIdParamSchema,
-    params,
-    'Room ID parameter',
-  )
-  const room = await roomSdk.getRoom(BigInt(parsedParams.roomId))
-  const validRoom = expect(room, `Room not found: ${parsedParams.roomId}`)
+  const roomId = params.roomId
+  const isNumericId = /^\d+$/.test(roomId)
+
+  if (isNumericId) {
+    // On-chain room
+    const parsedParams = parseOrThrow(
+      RoomIdParamSchema,
+      params,
+      'Room ID parameter',
+    )
+    const room = await roomSdk.getRoom(BigInt(parsedParams.roomId))
+    const validRoom = expect(room, `Room not found: ${parsedParams.roomId}`)
+    return {
+      room: {
+        ...validRoom,
+        roomId: validRoom.roomId.toString(),
+        members: validRoom.members.map((m) => ({
+          ...m,
+          agentId: m.agentId.toString(),
+        })),
+        source: 'onchain',
+      },
+    }
+  }
+
+  // Off-chain room (SQLite)
+  const db = getDatabase()
+  const dbRoom = await db.getRoom(roomId)
+  const validRoom = expect(dbRoom, `Room not found: ${roomId}`)
   return {
     room: {
-      ...validRoom,
-      roomId: validRoom.roomId.toString(),
-      members: validRoom.members.map((m) => ({
-        ...m,
-        agentId: m.agentId.toString(),
-      })),
+      roomId: validRoom.room_id,
+      name: validRoom.name,
+      description: '',
+      owner: '0x0000000000000000000000000000000000000000',
+      stateCid: validRoom.state_cid ?? '',
+      members: [],
+      roomType: validRoom.room_type ?? 'collaboration',
+      config: {
+        maxMembers: 100,
+        turnBased: false,
+        turnTimeout: 300,
+        visibility: 'public',
+      },
+      active: true,
+      createdAt: validRoom.created_at * 1000,
+      source: 'offchain',
     },
   }
 })
@@ -1041,20 +1488,26 @@ app.post('/api/v1/rooms/:roomId/message', async ({ params, body }) => {
   )
   const message = await roomSdk.postMessage(
     BigInt(parsedParams.roomId),
-    BigInt(parsedBody.agentId),
+    parsedBody.agentId,
     parsedBody.content,
     parsedBody.action ?? undefined,
   )
   metrics.rooms.messages++
+
+  // Track message activity
+  activityStore.add({
+    type: 'message_sent',
+    actor: `Agent ${parsedBody.agentId}`,
+    description: `Message in room ${parsedParams.roomId}`,
+    metadata: { roomId: parsedParams.roomId, agentId: parsedBody.agentId },
+  })
+
   return { message }
 })
 
 app.get('/api/v1/rooms/:roomId/messages', async ({ params, query, set }) => {
-  const parsedParams = parseOrThrow(
-    RoomIdParamSchema,
-    params,
-    'Room ID parameter',
-  )
+  const roomId = params.roomId
+  const isNumericId = /^\d+$/.test(roomId)
   const limitStr = query.limit
   const limit = limitStr
     ? parseOrThrow(
@@ -1063,11 +1516,32 @@ app.get('/api/v1/rooms/:roomId/messages', async ({ params, query, set }) => {
         'Limit query parameter',
       )
     : 50
+
+  if (isNumericId) {
+    // On-chain room
+    try {
+      const messages = await roomSdk.getMessages(BigInt(roomId), limit)
+      return { messages }
+    } catch (error) {
+      set.status = 404
+      return { error: String(error) }
+    }
+  }
+
+  // Off-chain room (SQLite)
   try {
-    const messages = await roomSdk.getMessages(
-      BigInt(parsedParams.roomId),
-      limit,
-    )
+    const db = getDatabase()
+    const dbMessages = await db.getMessages(roomId, { limit })
+    // Reverse to get oldest-first (chat order)
+    const messages = dbMessages
+      .map((m) => ({
+        id: m.id,
+        agentId: m.agent_id,
+        content: m.content,
+        action: m.action,
+        timestamp: m.created_at * 1000,
+      }))
+      .reverse()
     return { messages }
   } catch (error) {
     set.status = 404
@@ -1139,6 +1613,22 @@ app.post('/api/v1/execute', async ({ body }) => {
 
   const result = await executorSdk.execute(request)
   metrics.agents.executions++
+
+  // Track action execution activity
+  const actions = result.output?.actions ?? []
+  for (const action of actions) {
+    actionCounter.increment()
+    activityStore.add({
+      type: 'action_executed',
+      actor: `Agent ${parsedBody.agentId}`,
+      description: `${action.type}: ${action.success ? 'success' : 'failed'}`,
+      metadata: {
+        agentId: parsedBody.agentId,
+        actionType: action.type,
+        success: action.success ? 1 : 0,
+      },
+    })
+  }
 
   return {
     result: {
@@ -1241,21 +1731,128 @@ app.post('/api/v1/bots/:botId/start', async ({ params, request, set }) => {
 import { type AutonomousAgentRunner, createAgentRunner } from './autonomous'
 
 // Global autonomous runner (started if AUTONOMOUS_ENABLED=true)
-let autonomousRunner: AutonomousAgentRunner | null = null
+export let autonomousRunner: AutonomousAgentRunner | null = null
 
 if (crucibleConfig.autonomousEnabled) {
-  autonomousRunner = createAgentRunner({
-    enableBuiltinCharacters: crucibleConfig.enableBuiltinCharacters,
-    defaultTickIntervalMs: crucibleConfig.defaultTickIntervalMs,
-    maxConcurrentAgents: crucibleConfig.maxConcurrentAgents,
-  })
-  autonomousRunner
-    .start()
-    .then(() => {
-      log.info('Autonomous agent runner started')
+  // Initialize autonomous runner with async private key loading
+  getAgentPrivateKey()
+    .then((agentPrivateKey) => {
+      autonomousRunner = createAgentRunner({
+        enableBuiltinCharacters: crucibleConfig.enableBuiltinCharacters,
+        defaultTickIntervalMs: crucibleConfig.defaultTickIntervalMs,
+        maxConcurrentAgents: crucibleConfig.maxConcurrentAgents,
+        privateKey: agentPrivateKey,
+        network: config.network,
+        enableTrajectoryRecording: true,
+      })
+      autonomousRunner
+        .start()
+        .then(async () => {
+          log.info('Autonomous agent runner started')
+
+          // Auto-register key agents for autonomous operation
+          const autoStartAgents = [
+            'base-watcher',
+            'security-analyst',
+            'node-monitor',
+            'infra-analyzer',
+            'endpoint-prober',
+          ]
+
+          // Room configuration for agent coordination
+          const COORDINATION_ROOMS = [
+            { id: 'base-contract-reviews', name: 'Base Contract Reviews' },
+            { id: 'infra-monitoring', name: 'Infrastructure Monitoring' },
+            { id: 'endpoint-monitoring', name: 'Endpoint Monitoring' },
+          ]
+
+          // Ensure coordination rooms exist for agent communication
+          try {
+            const { getDatabase } = await import('./sdk/database')
+            const db = getDatabase()
+            for (const room of COORDINATION_ROOMS) {
+              const existingRoom = await db.getRoom(room.id)
+              if (!existingRoom) {
+                await db.createRoom({
+                  roomId: room.id,
+                  name: room.name,
+                  roomType: 'collaboration',
+                })
+                log.info('Created coordination room', { roomId: room.id })
+              }
+            }
+          } catch (err) {
+            log.warn('Failed to create coordination rooms', {
+              error: err instanceof Error ? err.message : String(err),
+            })
+          }
+
+          for (const agentId of autoStartAgents) {
+            const character = getCharacter(agentId)
+            if (!character) continue
+
+            try {
+              await autonomousRunner?.registerAgent({
+                agentId: `autonomous-${agentId}`,
+                character,
+                tickIntervalMs: crucibleConfig.defaultTickIntervalMs,
+                maxActionsPerTick: 3,
+                enabled: true,
+                capabilities: {
+                  canChat: true,
+                  a2a: true,
+                  // security-analyst uses AUDIT_CONTRACT which calls runtime.useModel() internally
+                  // It doesn't need external compute actions (RUN_INFERENCE, RENT_GPU)
+                  compute: agentId !== 'security-analyst',
+                  canTrade: agentId === 'project-manager',
+                  // security-analyst and base-watcher don't vote - they have specialized roles
+                  canVote:
+                    agentId !== 'security-analyst' &&
+                    agentId !== 'base-watcher',
+                  canPropose: agentId === 'project-manager',
+                  canDelegate: false,
+                  canStake: false,
+                  canBridge: false,
+                  canModerate: agentId === 'moderator',
+                },
+                // Room configuration for agent pipeline
+                ...(agentId === 'base-watcher' && {
+                  postToRoom: 'base-contract-reviews',
+                }),
+                ...(agentId === 'security-analyst' && {
+                  watchRoom: 'base-contract-reviews',
+                  postToRoom: 'base-contract-reviews',
+                }),
+                ...(agentId === 'node-monitor' && {
+                  postToRoom: 'infra-monitoring',
+                }),
+                ...(agentId === 'infra-analyzer' && {
+                  watchRoom: 'infra-monitoring',
+                  postToRoom: 'infra-monitoring',
+                }),
+                ...(agentId === 'endpoint-prober' && {
+                  postToRoom: 'endpoint-monitoring',
+                }),
+              })
+              log.info('Auto-registered autonomous agent', { agentId })
+            } catch (err) {
+              log.warn('Failed to auto-register agent', {
+                agentId,
+                error: err instanceof Error ? err.message : String(err),
+              })
+            }
+          }
+        })
+        .catch((err) => {
+          log.error('Failed to start autonomous runner', {
+            error: String(err),
+          })
+        })
     })
     .catch((err) => {
-      log.error('Failed to start autonomous runner', { error: String(err) })
+      log.error('Failed to get private key for autonomous runner', {
+        error: String(err),
+      })
     })
 }
 
@@ -1274,10 +1871,58 @@ app.get('/api/v1/autonomous/status', () => {
   }
 })
 
+// Get detailed autonomous agent activity
+app.get('/api/v1/autonomous/activity', () => {
+  if (!autonomousRunner) {
+    return {
+      enabled: false,
+      agents: [],
+      summary: {
+        totalAgents: 0,
+        totalTicks: 0,
+        totalErrors: 0,
+        uptime: 0,
+      },
+    }
+  }
+
+  const status = autonomousRunner.getStatus()
+  const uptimeMs = Date.now() - metrics.startTime
+
+  return {
+    enabled: true,
+    summary: {
+      totalAgents: status.agentCount,
+      totalTicks: status.agents.reduce((sum, a) => sum + a.tickCount, 0),
+      avgTicksPerAgent:
+        status.agentCount > 0
+          ? status.agents.reduce((sum, a) => sum + a.tickCount, 0) /
+            status.agentCount
+          : 0,
+      uptimeMs,
+      uptimeHours: Math.round((uptimeMs / (1000 * 60 * 60)) * 100) / 100,
+    },
+    agents: status.agents.map((agent) => ({
+      ...agent,
+      lastTickAgo: agent.lastTick > 0 ? Date.now() - agent.lastTick : null,
+      tickRate:
+        agent.lastTick > 0 && uptimeMs > 0
+          ? Math.round((agent.tickCount / (uptimeMs / 1000 / 60)) * 100) / 100 // ticks per minute
+          : 0,
+    })),
+    network: config.network,
+    actionsToday: actionCounter.getTodayCount(),
+  }
+})
+
 // Start autonomous runner (if not already running)
 app.post('/api/v1/autonomous/start', async () => {
   if (!autonomousRunner) {
-    autonomousRunner = createAgentRunner()
+    const agentPrivateKey = await getAgentPrivateKey()
+    autonomousRunner = createAgentRunner({
+      privateKey: agentPrivateKey,
+      network: config.network,
+    })
   }
   await autonomousRunner.start()
   return { success: true, status: autonomousRunner.getStatus() }
@@ -1394,9 +2039,10 @@ log.info('Starting server', {
 })
 
 // Initialize config from environment variables at startup
+// NOTE: Secrets (apiKey, cronSecret, privateKey) are NOT stored in config
+// They are accessed on-demand through the secrets module
 configureCrucible({
   network: getCurrentNetwork(),
-  apiKey: getEnvVar('API_KEY'),
   apiPort: getEnvNumber('API_PORT'),
   requireAuth: getEnvVar('REQUIRE_AUTH') === 'true',
   rateLimitMaxRequests: getEnvNumber('RATE_LIMIT_MAX_REQUESTS'),
@@ -1413,7 +2059,6 @@ configureCrucible({
   farcasterHubUrl: getEnvVar('FARCASTER_HUB_URL'),
   dwsUrl: getEnvVar('DWS_URL'),
   ipfsGateway: getEnvVar('IPFS_GATEWAY'),
-  cronSecret: getEnvVar('CRON_SECRET'),
   banManagerAddress: getEnvVar('MODERATION_BAN_MANAGER'),
   moderationMarketplaceAddress: getEnvVar('MODERATION_MARKETPLACE_ADDRESS'),
 })

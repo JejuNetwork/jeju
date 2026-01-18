@@ -260,8 +260,7 @@ contract L1L2FusakaSimulationTest is Test {
         l1Oracle.setOutput(0, outputRoot, uint128(block.timestamp), uint128(1000));
 
         // Step 4: Prove withdrawal
-        bytes32[] memory proof = new bytes32[](0); // Simplified for test
-        // Note: In production, this would go through WithdrawalPortal
+        bytes32[] memory proof = new bytes32[](0); // Simplified for test (production goes through WithdrawalPortal)
 
         console.log("Withdrawal proven, waiting for finalization period...");
 

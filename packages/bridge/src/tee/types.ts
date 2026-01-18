@@ -1,7 +1,7 @@
 import type { Hex } from 'viem'
 import type { TEEBatchAttestation } from '../types/index.js'
 
-export type TEEProvider = 'auto' | 'mock' | 'phala' | 'aws' | 'gcp' | 'azure'
+export type TEEProvider = 'auto' | 'mock' | 'phala' | 'gcp' | 'dstack' | 'azure'
 
 export type TEECapability = 'attestation' | 'key_gen' | 'gpu' | 'persistent'
 
@@ -9,7 +9,6 @@ export interface TEEProviderConfig {
   provider: TEEProvider
   endpoint?: string
   apiKey?: string
-  awsRegion?: string
   gcpProject?: string
   gcpZone?: string
   useGpu?: boolean
@@ -59,26 +58,6 @@ export interface ITEEProvider {
     capabilities: TEECapability[]
     lastAttestationTime?: number
   }>
-}
-
-export interface AWSNitroConfig {
-  region: string
-  enclaveImageUri?: string
-  instanceType?: string
-  enclaveMemory?: number
-  enclaveCpus?: number
-}
-
-export interface NitroAttestationDocument {
-  moduleId: string
-  timestamp: number
-  digest: string
-  pcrs: Record<number, string>
-  certificate: string
-  cabundle: string[]
-  userData?: string
-  nonce?: string
-  publicKey?: string
 }
 
 export interface GCPConfidentialConfig {

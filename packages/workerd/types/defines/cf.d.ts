@@ -87,7 +87,7 @@ interface BasicImageTransformationsGravityCoordinates {
  * set certain properties of a `cf` object to control how Cloudflare
  * features are applied to that new Request.
  *
- * Note: Currently, these properties cannot be tested in the
+ * Currently, these properties cannot be tested in the
  * playground.
  */
 interface RequestInitCfProperties extends Record<string, unknown> {

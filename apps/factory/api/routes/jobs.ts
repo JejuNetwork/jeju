@@ -53,7 +53,7 @@ export const jobsRoutes = new Elysia({ prefix: '/api/jobs' })
       const page = parseInt(validated.page ?? '1', 10)
       const limit = parseInt(validated.limit ?? '20', 10)
 
-      const result = dbListJobs({
+      const result = await dbListJobs({
         type: validated.type,
         remote:
           validated.remote === 'true'
@@ -61,6 +61,7 @@ export const jobsRoutes = new Elysia({ prefix: '/api/jobs' })
             : validated.remote === 'false'
               ? false
               : undefined,
+        search: validated.q,
         page,
         limit,
       })
@@ -94,7 +95,7 @@ export const jobsRoutes = new Elysia({ prefix: '/api/jobs' })
 
       const validated = expectValid(CreateJobBodySchema, body, 'request body')
 
-      const row = dbCreateJob({
+      const row = await dbCreateJob({
         title: validated.title,
         company: validated.company,
         type: validated.type,
@@ -120,7 +121,7 @@ export const jobsRoutes = new Elysia({ prefix: '/api/jobs' })
   .get(
     '/stats',
     async () => {
-      return dbGetJobStats()
+      return await dbGetJobStats()
     },
     {
       detail: {
@@ -133,7 +134,7 @@ export const jobsRoutes = new Elysia({ prefix: '/api/jobs' })
   .get(
     '/:jobId',
     async ({ params, set }) => {
-      const row = getJob(params.jobId)
+      const row = await getJob(params.jobId)
       if (!row) {
         set.status = 404
         return {
@@ -161,7 +162,7 @@ export const jobsRoutes = new Elysia({ prefix: '/api/jobs' })
         set.status = 401
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
-      const row = getJob(params.jobId)
+      const row = await getJob(params.jobId)
       if (!row) {
         set.status = 404
         return {
@@ -189,7 +190,7 @@ export const jobsRoutes = new Elysia({ prefix: '/api/jobs' })
         set.status = 401
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
-      const row = getJob(params.jobId)
+      const row = await getJob(params.jobId)
       if (!row) {
         set.status = 404
         return {

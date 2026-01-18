@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { type LucideProps, Zap } from 'lucide-react'
 import type { ComponentType } from 'react'
-import { getIndexerUrl } from '../../lib/config'
+import { INDEXER_URL } from '../../lib/config'
 
 const ZapIcon = Zap as ComponentType<LucideProps>
 
@@ -64,7 +64,7 @@ async function fetchEILStats(): Promise<{
     }
   `
 
-  const response = await fetch(getIndexerUrl(), {
+  const response = await fetch(INDEXER_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query }),
@@ -150,6 +150,22 @@ async function fetchEILStats(): Promise<{
     }))
     .sort((a, b) => parseFloat(b.totalVolume) - parseFloat(a.totalVolume))
 
+  // Calculate average fill time from completed requests
+  // Use the indexer's fulfillment timestamps when available
+  const completedRequests = requests.filter(
+    (r: { status: string; createdAt?: number; filledAt?: number }) =>
+      r.status === 'FULFILLED' && r.createdAt && r.filledAt,
+  )
+  let avgTimeSeconds = 0
+  if (completedRequests.length > 0) {
+    const totalTime = completedRequests.reduce(
+      (sum: number, r: { createdAt: number; filledAt: number }) =>
+        sum + (r.filledAt - r.createdAt),
+      0,
+    )
+    avgTimeSeconds = Math.round(totalTime / completedRequests.length)
+  }
+
   return {
     stats: {
       totalVolumeEth,
@@ -157,7 +173,7 @@ async function fetchEILStats(): Promise<{
       activeXLPs,
       totalStakedEth,
       successRate,
-      avgTimeSeconds: 0,
+      avgTimeSeconds,
     },
     chainStats,
   }

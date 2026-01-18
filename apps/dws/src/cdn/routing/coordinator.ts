@@ -75,14 +75,45 @@ export class CDNCoordinator {
     this.config = config
     this.router = getGeoRouter()
     this.elysiaApp = new Elysia() as ReturnType<typeof Elysia.prototype.use>
-
-    const privateKey = process.env.PRIVATE_KEY
-    if (!privateKey) throw new Error('PRIVATE_KEY required')
-    if (!privateKey.startsWith('0x'))
-      throw new Error('PRIVATE_KEY must start with 0x')
-    this.account = privateKeyToAccount(privateKey as `0x${string}`)
     this.chain = inferChainFromRpcUrl(config.rpcUrl)
     this.registryAddress = config.registryAddress
+
+    // SECURITY: In production, require KMS. Block direct private keys.
+    const isProduction = isProductionEnv()
+    const kmsKeyId = process.env.CDN_COORDINATOR_KMS_KEY_ID
+    const directKey = process.env.PRIVATE_KEY
+
+    if (isProduction) {
+      if (directKey) {
+        console.error(
+          '[CDN Coordinator] SECURITY: PRIVATE_KEY detected in production. ' +
+            'Use CDN_COORDINATOR_KMS_KEY_ID for KMS-backed signing.',
+        )
+      }
+      if (!kmsKeyId) {
+        throw new Error(
+          'SECURITY: CDN_COORDINATOR_KMS_KEY_ID required in production. ' +
+            'Direct private keys (PRIVATE_KEY) are not allowed.',
+        )
+      }
+      // TODO: Implement KMS-backed signing for coordinator
+      throw new Error(
+        'CDN Coordinator KMS signing not yet implemented. ' +
+          'Set up KMS integration before deploying to production.',
+      )
+    }
+
+    // Development mode: allow direct key with warning
+    if (!directKey) {
+      throw new Error('PRIVATE_KEY required for CDN coordinator (development)')
+    }
+    if (!directKey.startsWith('0x')) {
+      throw new Error('PRIVATE_KEY must start with 0x')
+    }
+    console.warn(
+      '[CDN Coordinator] WARNING: Using PRIVATE_KEY for development. Use KMS in production.',
+    )
+    this.account = privateKeyToAccount(directKey as `0x${string}`)
 
     this.publicClient = createPublicClient({
       chain: this.chain,

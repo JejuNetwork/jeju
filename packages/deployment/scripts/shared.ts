@@ -1,7 +1,7 @@
 /**
  * Shared utilities for deployment scripts
  *
- * Centralizes common patterns: network validation, AWS operations, command parsing
+ * Centralizes common patterns: network validation, command parsing
  */
 
 import { getL2RpcUrl } from '@jejunetwork/config'
@@ -28,18 +28,6 @@ export function getRequiredNetwork(): NetworkType {
 }
 
 /**
- * Get and validate AWS_REGION environment variable
- */
-export function getRequiredAwsRegion(): string {
-  const region = process.env.AWS_REGION
-  if (!region) {
-    throw new Error(
-      'AWS_REGION environment variable is required for ECR operations',
-    )
-  }
-  return region
-}
-/**
  * Create a command validator for CLI scripts
  */
 export function createCommandValidator<
@@ -59,25 +47,7 @@ export function createCommandValidator<
     return result.data
   }
 }
-/**
- * Get ECR registry URL for the current AWS account
- */
-export async function getEcrRegistry(): Promise<string> {
-  const region = getRequiredAwsRegion()
-  const accountId =
-    await $`aws sts get-caller-identity --query Account --output text`
-      .text()
-      .then((s) => s.trim())
-  return `${accountId}.dkr.ecr.${region}.amazonaws.com`
-}
 
-/**
- * Login to ECR registry
- */
-export async function loginToEcr(registry: string): Promise<void> {
-  const region = getRequiredAwsRegion()
-  await $`aws ecr get-login-password --region ${region} | docker login --username AWS --password-stdin ${registry}`
-}
 /**
  * Get short git commit hash
  * @throws Error if not in a git repository

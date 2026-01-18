@@ -128,11 +128,6 @@
       "project": ["api/**/*.ts", "web/**/*.ts", "web/**/*.tsx", "lib/**/*.ts"],
       "ignore": ["**/tests/**"]
     },
-    "apps/example": {
-      "entry": ["api/index.ts", "web/app.ts", "lib/index.ts"],
-      "project": ["api/**/*.ts", "web/**/*.ts", "lib/**/*.ts"],
-      "ignore": ["**/synpress.config.ts", "**/playwright.config.ts", "**/tests/**"]
-    },
     "apps/factory": {
       "entry": ["api/server.ts", "web/main.tsx", "lib/index.ts", "scripts/dev-local.ts"],
       "project": ["api/**/*.ts", "web/**/*.ts", "web/**/*.tsx", "lib/**/*.ts", "scripts/**/*.ts"],
@@ -148,7 +143,7 @@
       "project": ["api/**/*.ts", "web/**/*.tsx", "scripts/**/*.ts"],
       "ignore": ["**/tests/**"]
     },
-    "apps/monitoring": {
+    "packages/monitoring": {
       "entry": ["api/heartbeat.ts", "api/a2a-mcp-server.ts", "web/main.tsx", "lib/index.ts", "scripts/dev.ts"],
       "project": ["api/**/*.ts", "web/**/*.ts", "web/**/*.tsx", "lib/**/*.ts", "scripts/**/*.ts"],
       "ignore": ["**/playwright.config.ts", "**/tests/**"]
@@ -166,6 +161,11 @@
     "apps/wallet": {
       "entry": ["web/main.tsx", "lib/index.ts", "extension/background/index.ts", "extension/content/index.ts", "extension/popup/index.tsx"],
       "project": ["api/**/*.ts", "web/**/*.ts", "web/**/*.tsx", "lib/**/*.ts", "extension/**/*.ts", "extension/**/*.tsx"],
+      "ignore": ["**/synpress.config.ts", "**/playwright.config.ts", "**/tests/**"]
+    },
+    "apps/otto": {
+      "entry": ["api/index.ts", "web/main.tsx"],
+      "project": ["api/**/*.ts", "web/**/*.ts", "web/**/*.tsx"],
       "ignore": ["**/synpress.config.ts", "**/playwright.config.ts", "**/tests/**"]
     }
   },

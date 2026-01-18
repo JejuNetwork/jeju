@@ -1,16 +1,16 @@
-import { getCacheClient } from '@jejunetwork/cache'
+import { getCacheClient, safeParseCached } from '@jejunetwork/cache'
 import {
   RPC_CHAINS as CHAINS,
   getRpcChain as getChain,
   isRpcChainSupported as isChainSupported,
 } from '@jejunetwork/config'
-import type {
-  EndpointHealth,
-  JsonRpcRequest,
-  JsonRpcResponse,
-  ProxyResult,
+import {
+  type EndpointHealth,
+  type JsonRpcRequest,
+  type JsonRpcResponse,
+  JsonRpcResponseSchema,
+  type ProxyResult,
 } from '@jejunetwork/types'
-import { JsonRpcResponseSchema } from '../../../lib/validation'
 
 const endpointHealth = new Map<string, EndpointHealth>()
 const FAILURE_THRESHOLD = 3
@@ -126,9 +126,13 @@ export async function proxyRequest(
     const cacheKey = getCacheKey(chainId, request)
     const cache = getRpcCache()
 
-    const cached = await cache.get(cacheKey).catch(() => null)
-    if (cached) {
-      const cachedResponse = JSON.parse(cached) as JsonRpcResponse
+    const cached = await cache.get(cacheKey).catch((err) => {
+      console.warn('[Gateway] Cache read failed:', err)
+      return null
+    })
+    const cachedResponse = safeParseCached(cached, JsonRpcResponseSchema)
+    if (cachedResponse) {
+      console.debug('[Gateway] RPC cache hit:', request.method)
       // Update the ID to match the request
       cachedResponse.id = request.id
       return {
@@ -159,9 +163,12 @@ export async function proxyRequest(
 
       // Cache successful response if method is cacheable
       if (cacheTtl && !('error' in response)) {
+        console.debug('[Gateway] Caching RPC response:', request.method)
         const cacheKey = getCacheKey(chainId, request)
         const cache = getRpcCache()
-        cache.set(cacheKey, JSON.stringify(response), cacheTtl).catch(() => {})
+        cache
+          .set(cacheKey, JSON.stringify(response), cacheTtl)
+          .catch((err) => console.warn('[Gateway] Cache write failed:', err))
       }
 
       return {

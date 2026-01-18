@@ -300,10 +300,9 @@ describe('isNumberArray', () => {
     expect(isNumberArray([0, -1, 3.14, Infinity])).toBe(true)
   })
 
-  test('returns false for arrays with NaN', () => {
-    // Note: typeof NaN === 'number', so this will pass current implementation
-    // This is a potential issue - NaN is technically a number type
-    expect(isNumberArray([1, 2, NaN])).toBe(true) // Current behavior
+  test('returns true for arrays with NaN (typeof NaN === "number")', () => {
+    // NaN is technically a number type, so passes current implementation
+    expect(isNumberArray([1, 2, NaN])).toBe(true)
   })
 
   test('returns false for mixed arrays', () => {
@@ -366,7 +365,7 @@ describe('isObject', () => {
   })
 
   test('returns true for special object types (Date, Map, Set, etc.)', () => {
-    // Note: isObject returns true for these, isPlainObject returns false
+    // isObject returns true for these, isPlainObject returns false
     expect(isObject(new Date())).toBe(true)
     expect(isObject(new Map())).toBe(true)
     expect(isObject(new Set())).toBe(true)
@@ -961,8 +960,7 @@ describe('Fuzz: Edge Cases', () => {
     circular.self = circular
     expect(isObject(circular)).toBe(true)
     expect(hasProperty(circular, 'self')).toBe(true)
-    // Note: isJsonValue would have issues with circular refs
-    // but we're just testing isObject here
+    // isJsonValue would have issues with circular refs - testing isObject here
   })
 
   test('handles objects with many keys', () => {

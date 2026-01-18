@@ -106,7 +106,7 @@ interface IOAuth3AppRegistry {
         string name;
         string description;
         address owner;
-        address council;
+        address board;
         uint256 createdAt;
         bool active;
     }
@@ -127,7 +127,7 @@ interface IOAuth3AppRegistry {
     }
 
     event AppRegistered(
-        bytes32 indexed appId, address indexed owner, address indexed council, string name, uint256 timestamp
+        bytes32 indexed appId, address indexed owner, address indexed board, string name, uint256 timestamp
     );
 
     event AppUpdated(bytes32 indexed appId, uint256 timestamp);
@@ -136,7 +136,7 @@ interface IOAuth3AppRegistry {
 
     event AppDeactivated(bytes32 indexed appId, uint256 timestamp);
 
-    function registerApp(string calldata name, string calldata description, address council, AppConfig calldata config)
+    function registerApp(string calldata name, string calldata description, address board, AppConfig calldata config)
         external
         returns (bytes32 appId);
 
@@ -155,7 +155,7 @@ interface IOAuth3AppRegistry {
     function getAppConfig(bytes32 appId) external view returns (AppConfig memory);
     function getAppByClientId(bytes32 clientId) external view returns (App memory);
     function getAppsByOwner(address owner) external view returns (bytes32[] memory);
-    function getAppsByCouncil(address council) external view returns (bytes32[] memory);
+    function getAppsByBoard(address board) external view returns (bytes32[] memory);
     function validateRedirectUri(bytes32 appId, string calldata uri) external view returns (bool);
     function isProviderAllowed(bytes32 appId, IOAuth3IdentityRegistry.AuthProvider provider)
         external

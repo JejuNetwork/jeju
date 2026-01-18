@@ -13,12 +13,14 @@ import { existsSync } from 'node:fs'
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { getCurrentNetwork } from '@jejunetwork/config'
+import { getCurrentNetwork, getEnvVar } from '@jejunetwork/config'
+import { reportBundleSizes } from '@jejunetwork/shared'
 import type { BunPlugin } from 'bun'
 
 const DIST_DIR = './dist'
 const CLIENT_DIR = `${DIST_DIR}/client`
 const API_DIR = `${DIST_DIR}/api`
+const WORKER_DIR = `${DIST_DIR}/worker`
 
 const network = getCurrentNetwork()
 
@@ -80,6 +82,11 @@ const browserPlugin: BunPlugin = {
       path: resolve('./web/shims/node-crypto.ts'),
     }))
 
+    // Shim @jejunetwork/contracts for browser (not available at runtime)
+    build.onResolve({ filter: /^@jejunetwork\/contracts$/ }, () => ({
+      path: resolve('./web/shims/contracts.ts'),
+    }))
+
     // Dedupe React
     const reactPath = require.resolve('react')
     const reactDomPath = require.resolve('react-dom')
@@ -108,6 +115,19 @@ const browserPlugin: BunPlugin = {
     build.onResolve({ filter: /^@jejunetwork\/ui$/ }, () => ({
       path: resolve('../../packages/ui/src/index.ts'),
     }))
+    build.onResolve({ filter: /^@jejunetwork\/auth$/ }, () => ({
+      path: resolve('../../packages/auth/src/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/auth\/react$/ }, () => ({
+      path: resolve('../../packages/auth/src/react/index.ts'),
+    }))
+    // SDK needs to be resolved to source for browser builds
+    build.onResolve({ filter: /^@jejunetwork\/sdk$/ }, () => ({
+      path: resolve('../../packages/sdk/src/index.ts'),
+    }))
+    build.onResolve({ filter: /^@jejunetwork\/token$/ }, () => ({
+      path: resolve('../../packages/token/src/index.ts'),
+    }))
   },
 }
 
@@ -131,6 +151,7 @@ const BROWSER_EXTERNALS = [
   'node:events',
   'node:module',
   'node:worker_threads',
+  // '@jejunetwork/contracts' - shimmed in browserPlugin instead
   '@jejunetwork/deployment',
   '@jejunetwork/db',
   '@jejunetwork/kms',
@@ -141,8 +162,6 @@ const BROWSER_EXTERNALS = [
   '@elysiajs/openapi',
   '@elysiajs/static',
   'ioredis',
-  'pino',
-  'pino-pretty',
   'typeorm',
   '@google-cloud/*',
   '@grpc/*',
@@ -181,6 +200,7 @@ async function buildFrontend(): Promise<void> {
     sourcemap: 'external',
     external: BROWSER_EXTERNALS,
     plugins: [browserPlugin],
+    drop: ['debugger'],
     naming: {
       entry: '[name]-[hash].js',
       chunk: 'chunks/[name]-[hash].js',
@@ -193,13 +213,13 @@ async function buildFrontend(): Promise<void> {
       'import.meta.env': JSON.stringify({
         VITE_NETWORK: network,
         VITE_WALLETCONNECT_PROJECT_ID:
-          process.env.VITE_WALLETCONNECT_PROJECT_ID || '',
+          getEnvVar('VITE_WALLETCONNECT_PROJECT_ID') ?? '',
         MODE: 'production',
         DEV: false,
         PROD: true,
       }),
       'import.meta.env.VITE_WALLETCONNECT_PROJECT_ID': JSON.stringify(
-        process.env.VITE_WALLETCONNECT_PROJECT_ID || '',
+        getEnvVar('VITE_WALLETCONNECT_PROJECT_ID') ?? '',
       ),
     },
   })
@@ -209,6 +229,8 @@ async function buildFrontend(): Promise<void> {
     for (const log of result.logs) console.error(log)
     throw new Error('Frontend build failed')
   }
+
+  reportBundleSizes(result, 'Factory Frontend')
 
   const mainEntry = result.outputs.find(
     (o) => o.kind === 'entry-point' && o.path.includes('main'),
@@ -226,7 +248,6 @@ async function buildFrontend(): Promise<void> {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Factory | Jeju Developer Hub</title>
   <meta name="description" content="Bounties, jobs, git, packages, containers, models - developer coordination powered by Jeju">
-  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -243,20 +264,15 @@ async function buildFrontend(): Promise<void> {
 
   await Bun.write(`${CLIENT_DIR}/index.html`, html)
 
-  // Copy public files to client root for proper serving
   if (existsSync('./public')) {
-    const { readdir } = await import('node:fs/promises')
-    const files = await readdir('./public')
-    for (const file of files) {
-      await cp(`./public/${file}`, `${CLIENT_DIR}/${file}`, { recursive: true })
-    }
+    await cp('./public', `${CLIENT_DIR}/public`, { recursive: true })
   }
 
   console.log(`  Frontend: ${CLIENT_DIR}/`)
 }
 
 async function buildApi(): Promise<void> {
-  console.log('Building API...')
+  console.log('Building API (server)...')
 
   await mkdir(API_DIR, { recursive: true })
 
@@ -266,6 +282,7 @@ async function buildApi(): Promise<void> {
     target: 'bun',
     minify: true,
     sourcemap: 'external',
+    drop: ['debugger'],
     external: [
       'bun:sqlite',
       'child_process',
@@ -283,7 +300,86 @@ async function buildApi(): Promise<void> {
     throw new Error('API build failed')
   }
 
+  reportBundleSizes(result, 'Factory API')
   console.log(`  API: ${API_DIR}/`)
+}
+
+// Packages that use native bindings and must be excluded from worker bundles
+const WORKER_EXTERNALS = [
+  // Node.js built-ins
+  'bun:sqlite',
+  'child_process',
+  'node:child_process',
+  'node:fs',
+  'node:path',
+  'node:crypto',
+  // Farcaster hub uses native proto bindings
+  '@farcaster/hub-nodejs',
+  // SQLit is bundled for worker runtime
+  // Other native packages
+  'better-sqlite3',
+  'libsql',
+  '@libsql/*',
+]
+
+async function buildWorker(): Promise<void> {
+  console.log('Building API (worker)...')
+
+  await mkdir(WORKER_DIR, { recursive: true })
+
+  const result = await Bun.build({
+    entrypoints: ['./api/worker.ts'],
+    outdir: WORKER_DIR,
+    target: 'bun',
+    minify: true,
+    sourcemap: 'external',
+    drop: ['debugger'],
+    external: WORKER_EXTERNALS,
+    define: { 'process.env.NODE_ENV': JSON.stringify('production') },
+  })
+
+  if (!result.success) {
+    console.error('Worker build failed:')
+    for (const log of result.logs) console.error(log)
+    throw new Error('Worker build failed')
+  }
+
+  reportBundleSizes(result, 'Factory Worker')
+
+  // Create deployment metadata
+  let gitCommit = 'unknown'
+  let gitBranch = 'unknown'
+  try {
+    const commitResult = Bun.spawnSync(['git', 'rev-parse', '--short', 'HEAD'])
+    if (commitResult.success)
+      gitCommit = new TextDecoder().decode(commitResult.stdout).trim()
+    const branchResult = Bun.spawnSync([
+      'git',
+      'rev-parse',
+      '--abbrev-ref',
+      'HEAD',
+    ])
+    if (branchResult.success)
+      gitBranch = new TextDecoder().decode(branchResult.stdout).trim()
+  } catch {
+    /* Git not available */
+  }
+
+  const metadata = {
+    name: 'factory-api',
+    version: '1.0.0',
+    entrypoint: 'worker.js',
+    compatibilityDate: '2025-06-01',
+    buildTime: new Date().toISOString(),
+    git: { commit: gitCommit, branch: gitBranch },
+    runtime: 'bun',
+  }
+
+  await Bun.write(
+    `${WORKER_DIR}/metadata.json`,
+    JSON.stringify(metadata, null, 2),
+  )
+  console.log(`  Worker: ${WORKER_DIR}/`)
 }
 
 async function build(): Promise<void> {
@@ -293,9 +389,10 @@ async function build(): Promise<void> {
     await rm(DIST_DIR, { recursive: true })
   }
 
-  await Promise.all([buildFrontend(), buildApi()])
+  await Promise.all([buildFrontend(), buildApi(), buildWorker()])
 
   console.log('\nBuild complete.')
+  process.exit(0)
 }
 
 build().catch((error) => {

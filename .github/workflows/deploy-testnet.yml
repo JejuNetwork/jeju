@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v1
+      - uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
         run: |
@@ -40,7 +40,7 @@ jobs:
     needs: security-check
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v1
+      - uses: oven-sh/setup-bun@v2
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.0
@@ -64,6 +64,9 @@ jobs:
           - app: indexer
             context: apps/indexer
             dockerfile: apps/indexer/Dockerfile.k8s
+          - app: sqlit-adapter
+            context: packages/sqlit/adapter
+            dockerfile: packages/sqlit/adapter/Dockerfile
     steps:
       - uses: actions/checkout@v4
       
@@ -132,7 +135,7 @@ jobs:
       eks-cluster: ${{ steps.output.outputs.eks_cluster_name }}
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v1
+      - uses: oven-sh/setup-bun@v2
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.0
@@ -164,7 +167,7 @@ jobs:
     environment: testnet
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v1
+      - uses: oven-sh/setup-bun@v2
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -203,7 +206,7 @@ jobs:
     environment: testnet
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v1
+      - uses: oven-sh/setup-bun@v2
       - uses: foundry-rs/foundry-toolchain@v1
 
       - name: Install dependencies
@@ -242,7 +245,7 @@ jobs:
     environment: testnet
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v1
+      - uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
         run: bun install
@@ -261,7 +264,7 @@ jobs:
     needs: seed-providers
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v1
+      - uses: oven-sh/setup-bun@v2
       - uses: foundry-rs/foundry-toolchain@v1
 
       - name: Health checks

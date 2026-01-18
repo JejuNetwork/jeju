@@ -7,9 +7,8 @@
  * - Unique per session
  */
 
-import { isProductionEnv } from '@jejunetwork/config'
 import { Elysia, t } from 'elysia'
-import type { AuthConfig, AuthProvider, AuthSession } from '../../lib/types'
+import type { AuthConfig, AuthSession } from '../../lib/types'
 import { getEphemeralKey, invalidateEphemeralKey } from '../services/kms'
 import { refreshTokenState, sessionState } from '../services/state'
 
@@ -152,15 +151,15 @@ export function createSessionRouter(config: AuthConfig) {
         await sessionState.delete(sessionId)
         await sessionState.save(newSession)
 
-        // Update cookie
+        // Update cookie with strict security settings
         if (cookie.jeju_session) {
           cookie.jeju_session.set({
             value: newSessionId,
             maxAge: config.sessionDuration / 1000,
             path: '/',
             httpOnly: true,
-            secure: isProductionEnv(),
-            sameSite: 'lax',
+            secure: true, // Always require HTTPS for session cookies
+            sameSite: 'strict', // Strict prevents CSRF attacks
           })
         }
 
@@ -277,56 +276,8 @@ export function createSessionRouter(config: AuthConfig) {
         }
       })
 
-      // Test session creation (only in development)
-      .post('/create', async ({ body, set }) => {
-        if (isProductionEnv()) {
-          set.status = 403
-          return { error: 'not_available_in_production' }
-        }
-
-        const { provider, userId, address, fid, email } = body as {
-          provider: string
-          userId: string
-          address?: string
-          fid?: string
-          email?: string
-        }
-
-        if (!provider || !userId) {
-          set.status = 400
-          return { error: 'provider and userId required' }
-        }
-
-        const sessionId = crypto.randomUUID()
-        const ephemeralKey = await getEphemeralKey(sessionId)
-
-        const session: AuthSession = {
-          sessionId,
-          userId,
-          provider: provider as AuthProvider,
-          address: address as `0x${string}` | undefined,
-          fid: fid ? parseInt(fid, 10) : undefined,
-          email,
-          createdAt: Date.now(),
-          expiresAt: Date.now() + config.sessionDuration,
-          metadata: {},
-          ephemeralKeyId: ephemeralKey.keyId,
-        }
-
-        await sessionState.save(session)
-
-        return {
-          success: true,
-          access_token: sessionId,
-          token: sessionId,
-          session: {
-            sessionId,
-            userId,
-            provider,
-            expiresAt: session.expiresAt,
-          },
-        }
-      })
+      // SECURITY: Test session creation removed - was a security risk
+      // Use proper OAuth flow even in development
 
       .get('/list', async ({ headers, set }) => {
         const authHeader = headers.authorization

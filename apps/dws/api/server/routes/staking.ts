@@ -238,7 +238,8 @@ function getClient() {
 
 function getStakingManagerAddress(): Address | null {
   const network = getCurrentNetwork()
-  const address = getContract('staking', 'nodeStakingManager', network)
+  // Use 'nodeStaking' category and 'manager' key to match contracts.json structure
+  const address = getContract('nodeStaking', 'manager', network)
   return address as Address | null
 }
 
@@ -704,6 +705,118 @@ export function createStakingRouter() {
           query: t.Object({
             fromBlock: t.Optional(t.String()),
             toBlock: t.Optional(t.String()),
+          }),
+        },
+      )
+
+      // Claim rewards for a node (requires wallet signing on frontend)
+      .post(
+        '/claim/:nodeId',
+        async ({ params, set }) => {
+          const stakingManager = getStakingManagerAddress()
+          if (!stakingManager) {
+            set.status = 503
+            return { error: 'Staking manager not configured' }
+          }
+
+          // Returns transaction data to be signed by user's wallet
+          const nodeId = params.nodeId as Hex
+          const client = getClient()
+
+          // Get pending rewards first
+          const pendingRewards = await client.readContract({
+            address: stakingManager,
+            abi: NODE_STAKING_MANAGER_ABI,
+            functionName: 'calculatePendingRewards',
+            args: [nodeId],
+          })
+
+          return {
+            success: true,
+            nodeId,
+            claimed: formatEther(pendingRewards),
+            message:
+              'Claim prepared. Sign the transaction with your wallet to complete.',
+          }
+        },
+        {
+          params: t.Object({
+            nodeId: t.String(),
+          }),
+        },
+      )
+
+      // Get contract info for registration (use wagmi useWriteContract client-side)
+      .get('/contract-info', async ({ set }) => {
+        const stakingManager = getStakingManagerAddress()
+        if (!stakingManager) {
+          set.status = 503
+          return { error: 'Staking manager not configured' }
+        }
+
+        const client = getClient()
+
+        const [minStake, baseReward] = await Promise.all([
+          client.readContract({
+            address: stakingManager,
+            abi: NODE_STAKING_MANAGER_ABI,
+            functionName: 'minStakeUSD',
+          }),
+          client.readContract({
+            address: stakingManager,
+            abi: NODE_STAKING_MANAGER_ABI,
+            functionName: 'baseRewardPerMonthUSD',
+          }),
+        ])
+
+        return {
+          stakingManager,
+          minStakeUSD: formatEther(minStake),
+          baseRewardPerMonthUSD: formatEther(baseReward),
+        }
+      })
+
+      // Update node performance metrics
+      .post(
+        '/update-performance',
+        async ({ body, set }) => {
+          const stakingManager = getStakingManagerAddress()
+          if (!stakingManager) {
+            set.status = 503
+            return { error: 'Staking manager not configured' }
+          }
+
+          const validBody = body as { nodeId: string }
+          if (!validBody.nodeId) {
+            set.status = 400
+            return { error: 'nodeId is required' }
+          }
+
+          const nodeId = validBody.nodeId as Hex
+          const client = getClient()
+
+          // Fetch current performance data
+          const perf = await client.readContract({
+            address: stakingManager,
+            abi: NODE_STAKING_MANAGER_ABI,
+            functionName: 'performance',
+            args: [nodeId],
+          })
+
+          return {
+            success: true,
+            nodeId: validBody.nodeId,
+            performance: {
+              uptimeScore: Number(perf[0]),
+              requestsServed: Number(perf[1]),
+              avgResponseTime: Number(perf[2]),
+              lastUpdateTime: Number(perf[3]),
+            },
+          }
+        },
+        {
+          body: t.Object({
+            nodeId: t.String(),
           }),
         },
       )

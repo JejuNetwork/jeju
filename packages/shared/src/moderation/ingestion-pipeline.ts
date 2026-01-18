@@ -32,10 +32,7 @@ import {
   type PolicyEngine,
   type RoutingDecision,
 } from './policy-engine'
-import {
-  type AWSRekognitionConfig,
-  AWSRekognitionProvider,
-} from './providers/aws-rekognition'
+// AWS Rekognition removed - use OpenAI or Hive for moderation instead
 import {
   type CSAMHashProvider,
   getCSAMHashProvider,
@@ -132,8 +129,6 @@ export interface IngestionPipelineConfig {
   onChainSignals?: OnChainSignalsConfig
   /** Hive AI config for external image moderation */
   hive?: HiveProviderConfig
-  /** AWS Rekognition config for external image moderation */
-  awsRekognition?: AWSRekognitionConfig
   /** OpenAI config for external text/image moderation */
   openai?: OpenAIModerationConfig
 }
@@ -160,7 +155,6 @@ export class IngestionPipeline {
   private sanctionsScreener: SanctionsScreener
   private onChainSignals: OnChainSignalsService
   private hiveProvider?: HiveModerationProvider
-  private awsProvider?: AWSRekognitionProvider
   private openaiProvider?: OpenAIModerationProvider
   private initialized = false
 
@@ -188,9 +182,6 @@ export class IngestionPipeline {
     // Initialize external AI providers if configured
     if (config.hive?.apiKey) {
       this.hiveProvider = new HiveModerationProvider(config.hive)
-    }
-    if (config.awsRekognition?.accessKeyId) {
-      this.awsProvider = new AWSRekognitionProvider(config.awsRekognition)
     }
     if (config.openai?.apiKey) {
       this.openaiProvider = new OpenAIModerationProvider(config.openai)
@@ -507,7 +498,7 @@ export class IngestionPipeline {
       hash: intake.sha256.slice(0, 16),
       nudityScore: details.nudity?.nudityScore ?? 0,
       hasHive: !!this.hiveProvider,
-      hasAWS: !!this.awsProvider,
+      hasOpenAI: !!this.openaiProvider,
     })
 
     // Run external AI checks (if configured)
@@ -616,26 +607,6 @@ export class IngestionPipeline {
       }
     }
 
-    // Run AWS Rekognition check
-    if (this.awsProvider) {
-      try {
-        const awsResult = await this.awsProvider.moderateImage(buffer)
-        const csamCategory = awsResult.categories.find(
-          (c) => c.category === 'csam',
-        )
-        results.push({
-          provider: 'aws-rekognition',
-          csamDetected: csamCategory !== undefined && csamCategory.score > 0.3,
-          confidence: csamCategory?.score ?? 0,
-          categories: awsResult.categories.map((c) => c.category),
-        })
-      } catch (err) {
-        logger.warn('[IngestionPipeline] AWS Rekognition check failed', {
-          error: String(err),
-        })
-      }
-    }
-
     return results
   }
 
@@ -726,7 +697,6 @@ export class IngestionPipeline {
       walletEnforcement: this.walletEnforcement.getStats(),
       externalProviders: {
         hive: !!this.hiveProvider,
-        aws: !!this.awsProvider,
         openai: !!this.openaiProvider,
       },
     }
@@ -754,15 +724,6 @@ export function getIngestionPipeline(
         config?.hive ??
         (process.env.HIVE_API_KEY
           ? { apiKey: process.env.HIVE_API_KEY }
-          : undefined),
-      awsRekognition:
-        config?.awsRekognition ??
-        (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY
-          ? {
-              accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-              secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-              region: process.env.AWS_REGION ?? 'us-east-1',
-            }
           : undefined),
       openai:
         config?.openai ??

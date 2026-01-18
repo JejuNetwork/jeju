@@ -82,11 +82,11 @@ contract SequencerRegistryTest is Test {
         );
 
         // Deploy forced inclusion
-        address securityCouncil = address(0x999);
+        address securityBoard = address(0x999);
         forcedInclusion = new ForcedInclusion(
             address(batchInbox),
             address(registry),
-            securityCouncil,
+            securityBoard,
             owner,
             true // Skip contract check in tests
         );

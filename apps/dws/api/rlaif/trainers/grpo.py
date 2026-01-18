@@ -16,16 +16,31 @@ import json
 import logging
 import math
 import os
+import random
+from typing import TypedDict, cast
 
 import numpy as np
 import requests
 import torch
 import torch.nn.functional as F
+from numpy.typing import NDArray
 from torch.optim import AdamW
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import (
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    PreTrainedModel,
+    PreTrainedTokenizerBase,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
+
+
+class TrainingExample(TypedDict):
+    trajectory_id: str
+    tokens: NDArray[np.int32]
+    mask: NDArray[np.int32]
+    score: float
 
 
 class GRPOTrainer:
@@ -60,10 +75,10 @@ class GRPOTrainer:
         self.kl_coefficient = kl_coefficient
         self.device = device
 
-        self.model = None
-        self.ref_model = None
-        self.tokenizer = None
-        self.optimizer = None
+        self.model: PreTrainedModel | None = None
+        self.ref_model: PreTrainedModel | None = None
+        self.tokenizer: PreTrainedTokenizerBase | None = None
+        self.optimizer: torch.optim.Optimizer | None = None
 
     def setup(self, reference_model_cid: str | None = None):
         """Initialize models and optimizer"""
@@ -74,7 +89,8 @@ class GRPOTrainer:
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_name, torch_dtype=torch.bfloat16, trust_remote_code=True
         )
-        self.model.to(self.device)
+        device = torch.device(self.device)
+        self.model = cast(PreTrainedModel, torch.nn.Module.to(self.model, device))
         self.model.gradient_checkpointing_enable()
         self.model.train()
 
@@ -90,7 +106,7 @@ class GRPOTrainer:
                 self.model_name, torch_dtype=torch.bfloat16, trust_remote_code=True
             )
 
-        self.ref_model.to(self.device)
+        self.ref_model = cast(PreTrainedModel, torch.nn.Module.to(self.ref_model, device))
         self.ref_model.eval()
         for param in self.ref_model.parameters():
             param.requires_grad = False
@@ -99,7 +115,9 @@ class GRPOTrainer:
 
         logger.info(f"Model loaded on {self.device}")
 
-    def load_training_data(self, trajectory_manifest_cid: str, rewards_cid: str) -> list[dict]:
+    def load_training_data(
+        self, trajectory_manifest_cid: str, rewards_cid: str
+    ) -> list[TrainingExample]:
         """Load trajectories and rewards from Jeju Storage"""
         assert self.tokenizer is not None, "Tokenizer not initialized - call setup() first"
         logger.info(f"Loading trajectories from {trajectory_manifest_cid}")
@@ -112,30 +130,44 @@ class GRPOTrainer:
         scores_by_id = {s["trajectoryId"]: s for s in rewards_data.get("scores", [])}
 
         # Load and match trajectories
-        training_data = []
+        training_data: list[TrainingExample] = []
         for traj_cid in manifest.get("trajectoryCIDs", []):
             trajectory = self._fetch_from_storage(traj_cid)
-            traj_id = trajectory.get("id")
+            traj_id_value = trajectory.get("id")
+            if not isinstance(traj_id_value, str) or not traj_id_value:
+                logger.warning(f"Skipping trajectory with invalid id: {traj_id_value!r}")
+                continue
+            traj_id = traj_id_value
 
             if traj_id not in scores_by_id:
                 continue
 
-            score = scores_by_id[traj_id]["score"]
+            score_value = scores_by_id[traj_id]["score"]
+            score = float(score_value) if isinstance(score_value, (int, float)) else 0.0
 
             # Convert trajectory to training format
             messages = self._trajectory_to_messages(trajectory)
-            tokens = self.tokenizer.apply_chat_template(
+            tokens_batch = self.tokenizer.apply_chat_template(
                 messages, return_tensors="pt", truncation=True, max_length=self.max_seq_len
-            )[0]
+            )
+            if not isinstance(tokens_batch, torch.Tensor):
+                raise TypeError(
+                    "Expected torch.Tensor from tokenizer.apply_chat_template(return_tensors='pt')"
+                )
+            tokens = tokens_batch[0]
+            if not isinstance(tokens, torch.Tensor):
+                raise TypeError("Expected torch.Tensor row from tokenizer output")
 
             # Create mask (train on assistant tokens only)
             mask = self._create_training_mask(messages, tokens)
 
+            tokens_np: NDArray[np.int32] = tokens.to(torch.int32).cpu().numpy()
+            mask_np: NDArray[np.int32] = mask.to(torch.int32).cpu().numpy()
             training_data.append(
                 {
                     "trajectory_id": traj_id,
-                    "tokens": tokens.numpy(),
-                    "mask": mask.numpy(),
+                    "tokens": tokens_np,
+                    "mask": mask_np,
                     "score": score,
                 }
             )
@@ -186,6 +218,8 @@ class GRPOTrainer:
         # Simple approach: find assistant response regions
         # In practice, use tokenizer's chat template metadata
         text = self.tokenizer.apply_chat_template(messages, tokenize=False)
+        if not isinstance(text, str):
+            raise TypeError("Expected str from tokenizer.apply_chat_template(tokenize=False)")
 
         # Find assistant sections and mark them
         assistant_start = "<|im_start|>assistant"
@@ -216,7 +250,7 @@ class GRPOTrainer:
 
         return mask
 
-    def train_step(self, batch_data: list[dict]) -> dict:
+    def train_step(self, batch_data: list[TrainingExample]) -> dict[str, float]:
         """Execute one GRPO training step"""
         assert self.model is not None
         assert self.ref_model is not None
@@ -328,7 +362,7 @@ class GRPOTrainer:
             logger.info(f"Epoch {epoch + 1}/{num_epochs}")
 
             # Shuffle data
-            np.random.shuffle(training_data)
+            random.shuffle(training_data)
 
             # Process in batches
             num_batches = math.ceil(len(training_data) / self.batch_size)

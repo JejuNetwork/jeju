@@ -25,7 +25,7 @@ export interface OAuth3AppJNS {
   name: string
   fullName: string
   owner: Address
-  council?: Address
+  board?: Address
   redirectUris: string[]
   authEndpoint: string
   callbackEndpoint: string
@@ -100,7 +100,7 @@ export class OAuth3JNSService {
     if (!owner || owner === ZERO_ADDRESS) return null
 
     const [
-      council,
+      board,
       redirectUris,
       authEndpoint,
       callbackEndpoint,
@@ -108,7 +108,7 @@ export class OAuth3JNSService {
       termsUri,
       avatar,
     ] = await Promise.all([
-      this.getText(resolverAddress, node, 'oauth3.council'),
+      this.getText(resolverAddress, node, 'oauth3.board'),
       this.getText(resolverAddress, node, 'oauth3.redirectUris'),
       this.getText(resolverAddress, node, 'oauth3.authEndpoint'),
       this.getText(resolverAddress, node, 'oauth3.callbackEndpoint'),
@@ -123,7 +123,7 @@ export class OAuth3JNSService {
       name: appName.replace('.oauth3.jeju', '').replace('.oauth3', ''),
       fullName,
       owner,
-      council: council as Address | undefined,
+      board: board as Address | undefined,
       redirectUris: redirectUris?.split(',').filter(Boolean) ?? [],
       authEndpoint: authEndpoint || (endpoint ? `${endpoint}/auth` : ''),
       callbackEndpoint:

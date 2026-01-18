@@ -15,7 +15,7 @@ import "../src/registry/IdentityRegistry.sol";
 import "../src/registry/ReputationRegistry.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-// Note: Cannon components (PreimageOracle, MIPS64) must be deployed separately
+// Cannon components (PreimageOracle, MIPS64) must be deployed separately
 // using Optimism's official deployment scripts (requires solc 0.8.15)
 // See: https://github.com/ethereum-optimism/optimism/tree/develop/packages/contracts-bedrock
 
@@ -35,7 +35,7 @@ contract MockJEJUToken is ERC20 {
  *      - DisputeGameFactory (fraud proof disputes)
  *      - CannonProver (MIPS-based fraud proofs)
  *      - ForcedInclusion (censorship resistance)
- *      - Security Council Safe integration
+ *      - Security Board Safe integration
  */
 contract DeployDecentralization is Script {
     // Configuration - Stage 2 compliant values
@@ -64,7 +64,7 @@ contract DeployDecentralization is Script {
         address reputationRegistry = vm.envOr("REPUTATION_REGISTRY", address(0));
         address treasury = vm.envOr("TREASURY", deployer);
         address governance = vm.envOr("GOVERNANCE", deployer);
-        address securityCouncil = vm.envOr("SECURITY_COUNCIL", address(0));
+        address securityBoard = vm.envOr("SECURITY_BOARD", address(0));
         address l2OutputOracle = vm.envOr("L2_OUTPUT_ORACLE", address(0));
 
         console.log("==================================================");
@@ -139,9 +139,9 @@ contract DeployDecentralization is Script {
         console.log("PreimageOracle:", preimageOracleAddress);
         console.log("MIPS:", mipsAddress);
 
-        // Deploy CannonProver with MIPS integration
-        // Note: CannonProver will only work for real fraud proofs when
-        // connected to actual deployed MIPS and PreimageOracle contracts
+        // Deploy CannonProver with MIPS integration.
+        // CannonProver will only work for real fraud proofs when
+        // connected to actual deployed MIPS and PreimageOracle contracts.
         CannonProver cannonProver = new CannonProver(mipsAddress, preimageOracleAddress, ABSOLUTE_PRESTATE);
         console.log("CannonProver deployed:", address(cannonProver));
         console.log("");
@@ -151,20 +151,20 @@ contract DeployDecentralization is Script {
         // ============================================================
         console.log("--- Governance & Security ---");
 
-        // Deploy Safe-compatible Security Council if not provided
+        // Deploy Safe-compatible Security Board if not provided
         // In production, this would be an actual Gnosis Safe multisig
-        if (securityCouncil == address(0)) {
-            // For localnet/testnet: deployer acts as security council
+        if (securityBoard == address(0)) {
+            // For localnet/testnet: deployer acts as security board
             // For mainnet: MUST be a Safe with 3/5+ threshold
-            securityCouncil = deployer;
-            console.log("Security Council (dev mode):", securityCouncil);
+            securityBoard = deployer;
+            console.log("Security Board (dev mode):", securityBoard);
             console.log("  WARNING: For mainnet, deploy a Safe multisig!");
         } else {
-            console.log("Security Council:", securityCouncil);
+            console.log("Security Board:", securityBoard);
         }
 
         // Deploy GovernanceTimelock with Stage 2 delays
-        GovernanceTimelock timelock = new GovernanceTimelock(governance, securityCouncil, deployer, TIMELOCK_DELAY);
+        GovernanceTimelock timelock = new GovernanceTimelock(governance, securityBoard, deployer, TIMELOCK_DELAY);
         console.log("GovernanceTimelock deployed:", address(timelock));
         console.log("  - Upgrade delay:", TIMELOCK_DELAY / 1 days, "days");
         console.log("  - Emergency min delay:", EMERGENCY_MIN_DELAY / 1 days, "days");
@@ -217,11 +217,11 @@ contract DeployDecentralization is Script {
         }
 
         // Deploy ForcedInclusion contract
-        // Security Council is set to deployer initially, should be updated to multisig
+        // Security Board is set to deployer initially, should be updated to multisig
         ForcedInclusion forcedInclusion = new ForcedInclusion(
             batchInbox,
             address(sequencerRegistry),
-            deployer, // securityCouncil - update to multisig after deployment
+            deployer, // securityBoard - update to multisig after deployment
             deployer,
             skipContractCheck
         );
@@ -242,7 +242,7 @@ contract DeployDecentralization is Script {
         console.log("L2OutputOracleAdapter deployed:", address(l2Adapter));
 
         // Deploy OptimismPortalAdapter
-        OptimismPortalAdapter portalAdapter = new OptimismPortalAdapter(address(timelock), securityCouncil);
+        OptimismPortalAdapter portalAdapter = new OptimismPortalAdapter(address(timelock), securityBoard);
         console.log("OptimismPortalAdapter deployed:", address(portalAdapter));
         console.log("");
 
@@ -291,7 +291,7 @@ contract DeployDecentralization is Script {
         console.log("  [x] 30-day upgrade timelock");
         console.log("  [x] 7-day emergency minimum");
         console.log("  [x] Forced inclusion mechanism");
-        console.log("  [x] Security Council integration");
+        console.log("  [x] Security Board integration");
         console.log("");
 
         // Fraud proof status depends on MIPS deployment

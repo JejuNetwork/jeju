@@ -354,6 +354,12 @@ export async function callMCPTool(
         'Swap router not deployed on this chain',
       )
 
+      const amountIn = parseEther(amount)
+      // Default 0.5% slippage protection - caller MUST set appropriate minOutput
+      // This prevents sandwich attacks for swaps that don't specify slippage
+      const defaultSlippageBps = 50n // 0.5%
+      const minAmountOut = (amountIn * (10000n - defaultSlippageBps)) / 10000n
+
       const calldata = encodeFunctionData({
         abi: SWAP_ROUTER_ABI,
         functionName: 'exactInputSingle',
@@ -363,8 +369,8 @@ export async function callMCPTool(
             tokenOut: validatedToToken,
             fee: 3000, // 0.3% fee tier
             recipient: ZERO_ADDRESS as Address, // Will be replaced by caller
-            amountIn: parseEther(amount),
-            amountOutMinimum: 0n, // No slippage protection - caller should add
+            amountIn,
+            amountOutMinimum: minAmountOut, // Default slippage protection
             sqrtPriceLimitX96: 0n,
           },
         ],
@@ -383,7 +389,7 @@ export async function callMCPTool(
         approvalRequired: !isNativeInput,
         approvalToken: isNativeInput ? undefined : validatedFromToken,
         approvalAmount: isNativeInput ? undefined : amount,
-        note: 'Swap transaction prepared. Caller should set recipient address.',
+        note: 'Swap with 0.5% default slippage protection. Caller should set recipient and adjust minOutput based on current market price.',
       })
     }
 

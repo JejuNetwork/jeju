@@ -110,8 +110,8 @@ export interface StorageConfig {
   chainId: string
   /** Training orchestrator address (for policy) */
   trainingOrchestratorAddress: Address
-  /** AI CEO address (for policy) */
-  aiCEOAddress: Address
+  /** AI Director address (for policy) */
+  aiDirectorAddress: Address
   /** TEE registry address (for worker attestation) */
   teeRegistryAddress: Address
   /** Minimum TEE stake to decrypt */

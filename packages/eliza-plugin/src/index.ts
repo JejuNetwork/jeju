@@ -22,12 +22,18 @@ import type { Plugin } from '@elizaos/core'
 import { getNetworkName } from '@jejunetwork/config'
 // Extended Actions - A2A
 import { callAgentAction, discoverAgentsAction } from './actions/a2a'
+// Extended Actions - Alerts
+import { postAlertAction } from './actions/alert'
+// Extended Actions - Contract Fetching & Analysis
+import { analyzeContractAction } from './actions/analyze-contract'
+import { auditContractAction } from './actions/audit-contract'
 // Extended Actions - Bazaar
 import {
   launchTokenAction,
   listNamesForSaleAction,
   listNftsAction,
 } from './actions/bazaar'
+import { pollBlockscoutAction } from './actions/blockscout'
 // Core Actions
 import { rentGpuAction } from './actions/compute'
 // Extended Actions - Containers (OCI Registry)
@@ -39,11 +45,16 @@ import {
   listMyReposAction,
   starRepoAction,
 } from './actions/containers'
+import { fetchContractAction } from './actions/contract'
 import { crossChainTransferAction } from './actions/crosschain'
 import { addLiquidityAction, swapTokensAction } from './actions/defi'
 import { createProposalAction, voteAction } from './actions/governance'
 import { registerAgentAction } from './actions/identity'
 import { runInferenceAction } from './actions/inference'
+import {
+  analyzeInfraHealthAction,
+  collectNodeStatsAction,
+} from './actions/infra'
 // Extended Actions - OIF Intents
 import {
   createIntentAction,
@@ -90,6 +101,7 @@ import {
   listPoolsAction,
   myPositionsAction,
 } from './actions/pools'
+import { probeEndpointsAction } from './actions/probe'
 // Extended Actions - Compute Rentals
 import {
   getSshAccessAction,
@@ -97,6 +109,12 @@ import {
   listMyRentalsAction,
   listProvidersAction,
 } from './actions/rentals'
+// Extended Actions - Security (Blue Team)
+import {
+  analyzeTransactionAction,
+  checkScamAddressAction,
+  scanContractAction,
+} from './actions/security'
 import { retrieveFileAction, uploadFileAction } from './actions/storage'
 // Extended Actions - Storage
 import {
@@ -244,6 +262,23 @@ export const jejuPlugin: Plugin = {
     submitTrajectory,
     checkTrainingStatus,
     startTrainingJob,
+
+    // Security actions for Blue Team
+    analyzeTransactionAction,
+    scanContractAction,
+    checkScamAddressAction,
+    fetchContractAction,
+    analyzeContractAction,
+    auditContractAction,
+    pollBlockscoutAction,
+
+    // Infrastructure monitoring actions
+    collectNodeStatsAction,
+    analyzeInfraHealthAction,
+    probeEndpointsAction,
+
+    // Alert actions
+    postAlertAction,
   ],
 }
 
@@ -258,4 +293,11 @@ export {
   sqlitDatabasePlugin,
 } from './db'
 
-export { JejuService } from './service'
+export {
+  getJejuService,
+  initJejuService,
+  JEJU_SERVICE_NAME,
+  JejuService,
+  type StandaloneConfig,
+  StandaloneJejuService,
+} from './service'

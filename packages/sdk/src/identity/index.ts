@@ -11,7 +11,7 @@ import {
   toHex,
 } from 'viem'
 import { z } from 'zod'
-import { getServicesConfig, requireContract } from '../config'
+import { getServicesConfig, safeGetContract } from '../config'
 import { parseIdFromLogs } from '../shared/api'
 import {
   AgentInfoSchema,
@@ -169,13 +169,31 @@ export function createIdentityModule(
   wallet: BaseWallet,
   network: NetworkType,
 ): IdentityModule {
-  const identityAddress = requireContract('registry', 'identity', network)
-  const reportingAddress = requireContract(
+  // Use safe getters - contracts may not be deployed on all networks
+  const identityAddressOpt = safeGetContract('registry', 'identity', network)
+  const reportingAddressOpt = safeGetContract(
     'moderation',
     'reportingSystem',
     network,
   )
   const services = getServicesConfig(network)
+
+  // Lazy-load contract addresses - throw on method call if not deployed
+  const getIdentityAddress = () => {
+    if (!identityAddressOpt) {
+      throw new Error('Identity registry contract not deployed on this network')
+    }
+    return identityAddressOpt
+  }
+
+  const getReportingAddress = () => {
+    if (!reportingAddressOpt) {
+      throw new Error(
+        'Moderation ReportingSystem contract not deployed on this network',
+      )
+    }
+    return reportingAddressOpt
+  }
 
   async function register(
     params: RegisterAgentParams,
@@ -191,7 +209,10 @@ export function createIdentityModule(
       ],
     })
 
-    const txHash = await wallet.sendTransaction({ to: identityAddress, data })
+    const txHash = await wallet.sendTransaction({
+      to: getIdentityAddress(),
+      data,
+    })
 
     // Parse agentId from AgentRegistered event
     // Event signature: AgentRegistered(uint256 indexed agentId, address indexed owner, string name)
@@ -223,7 +244,7 @@ export function createIdentityModule(
       ],
     })
 
-    return wallet.sendTransaction({ to: identityAddress, data })
+    return wallet.sendTransaction({ to: getIdentityAddress(), data })
   }
 
   async function getAgent(
@@ -293,7 +314,7 @@ export function createIdentityModule(
       args: [agentId, score, commentHash],
     })
 
-    return wallet.sendTransaction({ to: reportingAddress, data })
+    return wallet.sendTransaction({ to: getReportingAddress(), data })
   }
 
   async function report(params: ReportParams): Promise<Hex> {
@@ -310,7 +331,7 @@ export function createIdentityModule(
       args: [params.agentId, typeMap[params.type], descHash, evidenceHash],
     })
 
-    return wallet.sendTransaction({ to: reportingAddress, data })
+    return wallet.sendTransaction({ to: getReportingAddress(), data })
   }
 
   async function getBanStatus(agentId: bigint): Promise<BanInfo> {

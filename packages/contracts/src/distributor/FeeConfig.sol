@@ -95,12 +95,9 @@ contract FeeConfig is Ownable, Pausable {
     TokenFees public tokenFees;
     mapping(address => TokenOverride) public tokenOverrides;
     address[] public tokensWithOverrides;
-    address public board; // Board governance contract (formerly council)
-    address public director; // Director agent (formerly ceo)
+    address public board; // Board governance contract
+    address public director; // Director agent
     address public treasury;
-    // Legacy aliases for backwards compatibility
-    address public council;
-    address public ceo;
 
     mapping(bytes32 => PendingFeeChange) public pendingChanges;
     mapping(bytes32 => uint256) public lastUpdated;
@@ -145,9 +142,6 @@ contract FeeConfig is Ownable, Pausable {
     event BoardUpdated(address indexed oldBoard, address indexed newBoard);
     event DirectorUpdated(address indexed oldDirector, address indexed newDirector);
     event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
-    // Legacy events for backwards compatibility
-    event CouncilUpdated(address indexed oldCouncil, address indexed newCouncil);
-    event CEOUpdated(address indexed oldCeo, address indexed newCeo);
     // App-specific fee events
     event AppFeeOverrideSet(bytes32 indexed daoId, bytes32 indexed feeKey, uint256 newValue, address setBy);
     event AppFeeOverrideRemoved(bytes32 indexed daoId, bytes32 indexed feeKey);
@@ -180,26 +174,12 @@ contract FeeConfig is Ownable, Pausable {
         _;
     }
 
-    // Legacy modifiers for backwards compatibility
-    modifier onlyCouncil() {
-        if (msg.sender != board && msg.sender != owner()) revert NotAuthorized();
-        _;
-    }
-
-    modifier onlyCEO() {
-        if (msg.sender != director && msg.sender != owner()) revert NotAuthorized();
-        _;
-    }
-
     constructor(address _board, address _director, address _treasury, address initialOwner) Ownable(initialOwner) {
         if (_treasury == address(0)) revert InvalidAddress();
 
         board = _board;
         director = _director;
         treasury = _treasury;
-        // Legacy aliases
-        council = _board;
-        ceo = _director;
 
         // Initialize with default fees
         _initializeDefaultFees();
@@ -757,34 +737,15 @@ contract FeeConfig is Ownable, Pausable {
     // ============================================================================
 
     function setBoard(address newBoard) external onlyOwner {
-        emit BoardUpdated(board, newBoard);
+        address oldBoard = board;
         board = newBoard;
-        // Update legacy alias
-        council = newBoard;
-        emit CouncilUpdated(board, newBoard);
+        emit BoardUpdated(oldBoard, newBoard);
     }
 
     function setDirector(address newDirector) external onlyOwner {
-        emit DirectorUpdated(director, newDirector);
+        address oldDirector = director;
         director = newDirector;
-        // Update legacy alias
-        ceo = newDirector;
-        emit CEOUpdated(director, newDirector);
-    }
-
-    // Legacy setters for backwards compatibility
-    function setCouncil(address newCouncil) external onlyOwner {
-        emit BoardUpdated(board, newCouncil);
-        board = newCouncil;
-        council = newCouncil;
-        emit CouncilUpdated(board, newCouncil);
-    }
-
-    function setCEO(address newCeo) external onlyOwner {
-        emit DirectorUpdated(director, newCeo);
-        director = newCeo;
-        ceo = newCeo;
-        emit CEOUpdated(director, newCeo);
+        emit DirectorUpdated(oldDirector, newDirector);
     }
 
     function setTreasury(address newTreasury) external onlyOwner {

@@ -1575,8 +1575,8 @@ jsg::Promise<void> WritableStreamInternalController::writeLoopAfterFrontOutputLo
         maybeResolvePromise(js, request->promise);
         queue.pop_front();
 
-        // Note: we don't bother checking for an abort() here because either this write was just
-        //   queued, in which case abort() cannot have been called yet, or this write was processed
+        // We don't bother checking for an abort() here because either this write was just
+        // queued, in which case abort() cannot have been called yet, or this write was processed
         //   immediately after a previous write, in which case we just checked for an abort().
         return writeLoop(js, ioContext);
       }
@@ -1713,7 +1713,7 @@ jsg::Promise<void> WritableStreamInternalController::writeLoopAfterFrontOutputLo
           queue.pop_front();
 
           if (!preventClose) {
-            // Note: unlike a real Close request, it's not possible for us to have been aborted.
+            // Unlike a real Close request, it's not possible for us to have been aborted.
             return close(js, true);
           } else {
             writeState.init<Unlocked>();
@@ -1786,7 +1786,7 @@ jsg::Promise<void> WritableStreamInternalController::writeLoopAfterFrontOutputLo
       //
       // Flushing is similar to closing the stream, the main difference is that `finishClose`
       // and `writable->end()` are never called.
-      // Note: For Flush, we don't need makeChecker since we process immediately without async I/O.
+      // For Flush, we don't need makeChecker since we process immediately without async I/O.
       maybeResolvePromise(js, request->promise);
       queue.pop_front();
 

@@ -13,13 +13,15 @@ import { existsSync } from 'node:fs'
 import { readdir, readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import {
-  getCoreAppUrl,
   getCurrentNetwork,
+  getDWSUrl,
   getL2RpcUrl,
+  isProductionEnv,
 } from '@jejunetwork/config'
+import { createKMSSigner, type KMSSigner } from '@jejunetwork/kms'
 import { $ } from 'bun'
 import { type Address, keccak256 } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
+// privateKeyToAccount removed - using KMS signer instead
 import { z } from 'zod'
 
 const APP_DIR = resolve(import.meta.dir, '..')
@@ -43,46 +45,61 @@ interface DeployConfig {
   network: 'localnet' | 'testnet' | 'mainnet'
   dwsUrl: string
   rpcUrl: string
-  privateKey: `0x${string}`
   workerRegistryAddress: Address
   cdnEnabled: boolean
+  deployerAddress: Address
 }
 
-function getConfig(): DeployConfig {
+// Signer for deployment operations
+let deploySigner: KMSSigner | null = null
+
+async function getDeploySigner(): Promise<KMSSigner> {
+  if (deploySigner) return deploySigner
+
+  const network = getCurrentNetwork()
+  const isProduction = isProductionEnv()
+
+  deploySigner = createKMSSigner({
+    serviceId: `autocrat-deployer-${network}`,
+    allowLocalDev: !isProduction,
+  })
+
+  await deploySigner.initialize()
+  return deploySigner
+}
+
+async function getConfig(): Promise<DeployConfig> {
   const network = getCurrentNetwork()
 
   const configs: Record<DeployConfig['network'], Partial<DeployConfig>> = {
     localnet: {
-      dwsUrl: getCoreAppUrl('DWS_API'),
+      dwsUrl: getDWSUrl('localnet'),
       rpcUrl: getL2RpcUrl(),
       workerRegistryAddress:
         '0x5FbDB2315678afecb367f032d93F642f64180aa3' as Address,
     },
     testnet: {
-      dwsUrl: getCoreAppUrl('DWS_API'),
+      dwsUrl: getDWSUrl('testnet'),
       rpcUrl: getL2RpcUrl(),
       workerRegistryAddress:
         '0x0000000000000000000000000000000000000000' as Address,
     },
     mainnet: {
-      dwsUrl: getCoreAppUrl('DWS_API'),
+      dwsUrl: getDWSUrl('mainnet'),
       rpcUrl: getL2RpcUrl(),
       workerRegistryAddress:
         '0x0000000000000000000000000000000000000000' as Address,
     },
   }
 
-  const privateKey = process.env.DEPLOYER_PRIVATE_KEY || process.env.PRIVATE_KEY
-  if (!privateKey) {
-    throw new Error(
-      'DEPLOYER_PRIVATE_KEY or PRIVATE_KEY environment variable required',
-    )
-  }
+  // Get deployer address from KMS signer
+  const signer = await getDeploySigner()
+  const deployerAddress = signer.getAddress()
 
   return {
     network,
     ...configs[network],
-    privateKey: privateKey as `0x${string}`,
+    deployerAddress,
     cdnEnabled: process.env.CDN_ENABLED !== 'false',
   } as DeployConfig
 }
@@ -186,7 +203,7 @@ async function deployWorker(
 ): Promise<string> {
   const deployRequest = {
     name: 'autocrat-api',
-    owner: privateKeyToAccount(config.privateKey).address,
+    owner: config.deployerAddress,
     codeCid: workerBundle.cid,
     codeHash: workerBundle.hash,
     entrypoint: 'worker.js',
@@ -232,7 +249,7 @@ async function deployWorker(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-jeju-address': privateKeyToAccount(config.privateKey).address,
+      'x-jeju-address': config.deployerAddress,
     },
     body: JSON.stringify({
       name: 'autocrat-api',
@@ -344,7 +361,7 @@ async function registerApp(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-jeju-address': privateKeyToAccount(config.privateKey).address,
+      'x-jeju-address': config.deployerAddress,
     },
     body: JSON.stringify({
       name: 'autocrat',
@@ -376,13 +393,102 @@ async function registerApp(
   console.log(`   App registered: ${JSON.stringify(result)}`)
 }
 
+// Seed Jeju DAO
+
+async function seedJejuDAO(
+  config: DeployConfig,
+  apiUrl: string,
+): Promise<void> {
+  console.log('Checking if Jeju DAO exists...')
+
+  // Check if Jeju DAO already exists
+  const checkResponse = await fetch(`${apiUrl}/api/v1/dao/jeju`).catch(
+    () => null,
+  )
+
+  if (checkResponse?.ok) {
+    console.log('   Jeju DAO already exists, skipping seed')
+    return
+  }
+
+  console.log('Seeding Jeju DAO...')
+
+  // Import seed data
+  const { JEJU_DAO } = await import('./seed')
+
+  // Get treasury address based on network
+  let treasury: Address
+  if (config.network === 'localnet') {
+    treasury = '0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f' as Address
+  } else {
+    const treasuryEnv = process.env.JEJU_DAO_TREASURY
+    if (!treasuryEnv) {
+      console.warn('   JEJU_DAO_TREASURY not set, using deployer address')
+      treasury = config.deployerAddress
+    } else {
+      treasury = treasuryEnv as Address
+    }
+  }
+
+  const response = await fetch(`${apiUrl}/api/v1/dao`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-jeju-address': config.deployerAddress,
+    },
+    body: JSON.stringify({
+      name: JEJU_DAO.name,
+      displayName: JEJU_DAO.displayName,
+      description: JEJU_DAO.description,
+      treasury,
+      manifestCid: JEJU_DAO.manifestCid,
+      director: JEJU_DAO.director,
+      governance: JEJU_DAO.governance,
+    }),
+  })
+
+  if (!response.ok) {
+    const error = await response.text()
+    console.warn(`   Failed to create Jeju DAO: ${error}`)
+    return
+  }
+
+  console.log('   Jeju DAO created')
+
+  // Register board members
+  for (const member of JEJU_DAO.board) {
+    try {
+      await fetch(`${apiUrl}/api/v1/dao/jeju/board`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-jeju-address': config.deployerAddress,
+        },
+        body: JSON.stringify({
+          role: member.role,
+          name: member.name,
+          description: member.description,
+          weight: member.weight,
+          isHuman: false,
+        }),
+      })
+      console.log(`   Registered ${member.name}`)
+    } catch (error) {
+      console.warn(
+        `   Failed to register ${member.name}: ${(error as Error).message}`,
+      )
+    }
+  }
+}
+
 // Main Deploy Function
 
 async function deploy(): Promise<void> {
   console.log('[Autocrat] Deploying to DWS...\n')
 
-  const config = getConfig()
+  const config = await getConfig()
   console.log(`Network: ${config.network}`)
+  console.log(`Deployer: ${config.deployerAddress} (via KMS)`)
   console.log(`DWS: ${config.dwsUrl}\n`)
 
   // Check build exists
@@ -415,6 +521,15 @@ async function deploy(): Promise<void> {
   console.log('Configuring CDN...')
   await setupCDN(config, staticAssets)
 
+  // Calculate API URL
+  const apiUrl = `${config.dwsUrl}/workers/${workerId}`
+
+  // Seed Jeju DAO (for testnet and mainnet, localnet uses dev script)
+  if (config.network !== 'localnet') {
+    console.log('\nSeeding Jeju DAO...')
+    await seedJejuDAO(config, apiUrl)
+  }
+
   // Print summary
   const indexCid = staticAssets.get('index.html')?.cid
   const frontendDomain =
@@ -428,8 +543,23 @@ async function deploy(): Promise<void> {
   console.log('\nEndpoints:')
   console.log(`   Frontend: https://${frontendDomain}`)
   console.log(`   IPFS: ipfs://${indexCid}`)
-  console.log(`   API: ${config.dwsUrl}/workers/${workerId}`)
-  console.log(`   Health: ${config.dwsUrl}/workers/${workerId}/health`)
+  console.log(`   API: ${apiUrl}`)
+  console.log(`   Health: ${apiUrl}/health`)
+
+  if (config.network !== 'localnet') {
+    console.log('\nJeju DAO:')
+    console.log(`   Dashboard: https://${frontendDomain}/dao/jeju`)
+  }
+
+  // Verify deployment - FAIL if verification fails
+  console.log('\n[Autocrat] Verifying deployment...')
+  const { verifyDeploymentOrFail, createVerificationConfig } = await import(
+    '@jejunetwork/deployment/scripts/verify-deployment'
+  )
+  const verifyConfig = createVerificationConfig('autocrat', config.network, {
+    expectedService: 'jeju-board',
+  })
+  await verifyDeploymentOrFail(verifyConfig)
 }
 
 // Run deployment

@@ -350,7 +350,7 @@ export interface PackageRecord {
   storageBackend: 'ipfs' | 'arweave' | 'hybrid' | 'local'
   verified: boolean
   reputationScore?: number
-  councilProposalId?: string
+  boardProposalId?: string
 }
 
 export interface TarballRecord {

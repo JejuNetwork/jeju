@@ -8,9 +8,12 @@ import {
   Search,
   Trash2,
   Upload,
+  X,
 } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useAccount } from 'wagmi'
+import { Skeleton, SkeletonTable } from '../../components/Skeleton'
+import { useConfirm, useToast } from '../../context/AppContext'
 import {
   useCreateS3Bucket,
   useDeleteS3Bucket,
@@ -24,6 +27,8 @@ import {
 
 export default function BucketsPage() {
   const { isConnected } = useAccount()
+  const { showSuccess, showError } = useToast()
+  const confirm = useConfirm()
   const { data: healthData } = useStorageHealth()
   const {
     data: bucketsData,
@@ -41,12 +46,12 @@ export default function BucketsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [selectedBucket, setSelectedBucket] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [isDragging, setIsDragging] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     visibility: 'private',
     region: 'us-east-1',
   })
-  const [uploadError, setUploadError] = useState<string | null>(null)
 
   const {
     data: objectsData,
@@ -64,51 +69,120 @@ export default function BucketsPage() {
         name: formData.name,
         region: formData.region,
       })
+      showSuccess('Bucket created', `Created bucket "${formData.name}"`)
       setShowCreateModal(false)
       setFormData({ name: '', visibility: 'private', region: 'us-east-1' })
     } catch (error) {
-      console.error('Failed to create bucket:', error)
+      showError(
+        'Failed to create bucket',
+        error instanceof Error ? error.message : 'Unknown error',
+      )
     }
   }
 
   const handleDeleteBucket = async (bucketName: string) => {
-    if (!confirm(`Delete bucket "${bucketName}"? This cannot be undone.`))
-      return
+    const confirmed = await confirm({
+      title: 'Delete Bucket',
+      message: `Are you sure you want to delete "${bucketName}"? This action cannot be undone and all objects in the bucket will be permanently deleted.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      destructive: true,
+    })
+
+    if (!confirmed) return
+
     try {
       await deleteBucket.mutateAsync(bucketName)
+      showSuccess('Bucket deleted', `Deleted bucket "${bucketName}"`)
       if (selectedBucket === bucketName) {
         setSelectedBucket(null)
       }
     } catch (error) {
-      console.error('Failed to delete bucket:', error)
+      showError(
+        'Failed to delete bucket',
+        error instanceof Error ? error.message : 'Unknown error',
+      )
     }
   }
+
+  const uploadFile = useCallback(
+    async (file: File) => {
+      if (!selectedBucket) return
+
+      try {
+        await uploadObject.mutateAsync({
+          bucket: selectedBucket,
+          key: file.name,
+          file,
+        })
+        showSuccess('File uploaded', `Uploaded "${file.name}"`)
+        refetchObjects()
+      } catch (error) {
+        showError(
+          'Upload failed',
+          error instanceof Error ? error.message : 'Failed to upload file',
+        )
+      }
+    },
+    [selectedBucket, uploadObject, showSuccess, showError, refetchObjects],
+  )
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file || !selectedBucket) return
-
-    setUploadError(null)
-    try {
-      await uploadObject.mutateAsync({
-        bucket: selectedBucket,
-        key: file.name,
-        file,
-      })
-      refetchObjects()
-    } catch (error) {
-      setUploadError(error instanceof Error ? error.message : 'Upload failed')
-    }
+    if (!file) return
+    await uploadFile(file)
     e.target.value = ''
   }
 
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(true)
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+  }, [])
+
+  const handleDrop = useCallback(
+    async (e: React.DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      setIsDragging(false)
+
+      if (!selectedBucket) return
+
+      const files = Array.from(e.dataTransfer.files)
+      for (const file of files) {
+        await uploadFile(file)
+      }
+    },
+    [selectedBucket, uploadFile],
+  )
+
   const handleDeleteObject = async (key: string) => {
     if (!selectedBucket) return
-    if (!confirm(`Delete "${key}"? This cannot be undone.`)) return
+
+    const confirmed = await confirm({
+      title: 'Delete Object',
+      message: `Are you sure you want to delete "${key}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      destructive: true,
+    })
+
+    if (!confirmed) return
+
     try {
       await deleteObject.mutateAsync({ bucket: selectedBucket, key })
+      showSuccess('Object deleted', `Deleted "${key}"`)
     } catch (error) {
-      console.error('Failed to delete object:', error)
+      showError(
+        'Failed to delete object',
+        error instanceof Error ? error.message : 'Unknown error',
+      )
     }
   }
 
@@ -123,7 +197,10 @@ export default function BucketsPage() {
       })
       window.open(result.url, '_blank')
     } catch (error) {
-      console.error('Failed to generate download link:', error)
+      showError(
+        'Download failed',
+        error instanceof Error ? error.message : 'Failed to generate link',
+      )
     }
   }
 
@@ -137,6 +214,9 @@ export default function BucketsPage() {
 
   const totalObjects = objects.length
   const totalSize = objects.reduce((sum, obj) => sum + obj.Size, 0)
+  const filteredObjects = objects.filter((o) =>
+    o.Key.toLowerCase().includes(searchQuery.toLowerCase()),
+  )
 
   return (
     <div>
@@ -152,6 +232,9 @@ export default function BucketsPage() {
       >
         <div>
           <h1 className="page-title">Storage Buckets</h1>
+          <p className="page-subtitle">
+            S3-compatible object storage with multi-backend support
+          </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
@@ -179,7 +262,13 @@ export default function BucketsPage() {
           </div>
           <div className="stat-content">
             <div className="stat-label">Buckets</div>
-            <div className="stat-value">{buckets.length}</div>
+            <div className="stat-value">
+              {bucketsLoading ? (
+                <Skeleton width={40} height={28} />
+              ) : (
+                buckets.length
+              )}
+            </div>
           </div>
         </div>
         <div className="stat-card">
@@ -226,19 +315,16 @@ export default function BucketsPage() {
           </div>
 
           {bucketsLoading ? (
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'center',
-                padding: '3rem',
-              }}
-            >
-              <div className="spinner" />
+            <div style={{ display: 'grid', gap: '0.5rem' }}>
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} height={60} />
+              ))}
             </div>
           ) : buckets.length === 0 ? (
             <div className="empty-state">
               <Database size={48} />
               <h3>No buckets yet</h3>
+              <p>Create your first bucket to start storing files</p>
               <button
                 type="button"
                 className="btn btn-primary"
@@ -280,6 +366,7 @@ export default function BucketsPage() {
                       border: 'none',
                       cursor: 'pointer',
                       textAlign: 'left',
+                      color: 'inherit',
                     }}
                   >
                     <Folder size={20} style={{ color: 'var(--accent)' }} />
@@ -382,47 +469,48 @@ export default function BucketsPage() {
                   className="btn btn-ghost btn-sm"
                   onClick={() => setSelectedBucket(null)}
                 >
-                  ×
+                  <X size={14} />
                 </button>
               </div>
             </div>
 
-            {uploadError && (
-              <div
-                style={{
-                  padding: '0.75rem 1rem',
-                  background: 'var(--error-soft)',
-                  color: 'var(--error)',
-                  borderRadius: 'var(--radius-sm)',
-                  margin: '0 1rem 1rem',
-                }}
-              >
-                {uploadError}
+            {/* Drag and drop zone */}
+            <button
+              type="button"
+              className={`drop-zone ${isDragging ? 'active' : ''}`}
+              style={{ margin: '0 0 1rem 0', width: '100%', cursor: 'pointer' }}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <div className="drop-zone-icon">
+                <Upload size={24} />
               </div>
-            )}
+              <div className="drop-zone-title">
+                {isDragging ? 'Drop files here' : 'Drag and drop files'}
+              </div>
+              <div className="drop-zone-subtitle">
+                or click to browse from your computer
+              </div>
+            </button>
 
             {objectsLoading ? (
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'center',
-                  padding: '3rem',
-                }}
-              >
-                <div className="spinner" />
-              </div>
-            ) : objects.length === 0 ? (
-              <div className="empty-state" style={{ padding: '2rem' }}>
-                <File size={32} />
-                <p>Bucket is empty</p>
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Upload size={14} /> Upload File
-                </button>
-              </div>
+              <SkeletonTable rows={5} cols={5} />
+            ) : filteredObjects.length === 0 ? (
+              objects.length === 0 ? (
+                <div className="empty-state" style={{ padding: '2rem' }}>
+                  <File size={32} />
+                  <h3>Bucket is empty</h3>
+                  <p>Drop files above or click to upload</p>
+                </div>
+              ) : (
+                <div className="empty-state" style={{ padding: '2rem' }}>
+                  <Search size={32} />
+                  <h3>No matching objects</h3>
+                  <p>Try a different search term</p>
+                </div>
+              )
             ) : (
               <div className="table-container">
                 <table className="table">
@@ -436,51 +524,47 @@ export default function BucketsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {objects
-                      .filter((o) =>
-                        o.Key.toLowerCase().includes(searchQuery.toLowerCase()),
-                      )
-                      .map((obj) => (
-                        <tr key={obj.Key}>
-                          <td
-                            style={{
-                              fontFamily: 'var(--font-mono)',
-                              fontSize: '0.85rem',
-                            }}
+                    {filteredObjects.map((obj) => (
+                      <tr key={obj.Key}>
+                        <td
+                          style={{
+                            fontFamily: 'var(--font-mono)',
+                            fontSize: '0.85rem',
+                          }}
+                        >
+                          {obj.Key}
+                        </td>
+                        <td>{formatBytes(obj.Size)}</td>
+                        <td>
+                          <span className="badge badge-neutral">
+                            {obj.StorageClass ?? 'STANDARD'}
+                          </span>
+                        </td>
+                        <td>
+                          {new Date(obj.LastModified).toLocaleDateString()}
+                        </td>
+                        <td style={{ display: 'flex', gap: '0.25rem' }}>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            title="Download"
+                            onClick={() => handleDownload(obj.Key)}
+                            disabled={presign.isPending}
                           >
-                            {obj.Key}
-                          </td>
-                          <td>{formatBytes(obj.Size)}</td>
-                          <td>
-                            <span className="badge badge-neutral">
-                              {obj.StorageClass}
-                            </span>
-                          </td>
-                          <td>
-                            {new Date(obj.LastModified).toLocaleDateString()}
-                          </td>
-                          <td style={{ display: 'flex', gap: '0.25rem' }}>
-                            <button
-                              type="button"
-                              className="btn btn-ghost btn-sm"
-                              title="Download"
-                              onClick={() => handleDownload(obj.Key)}
-                              disabled={presign.isPending}
-                            >
-                              <Download size={14} />
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-ghost btn-sm"
-                              title="Delete"
-                              onClick={() => handleDeleteObject(obj.Key)}
-                              disabled={deleteObject.isPending}
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                            <Download size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            title="Delete"
+                            onClick={() => handleDeleteObject(obj.Key)}
+                            disabled={deleteObject.isPending}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -490,25 +574,15 @@ export default function BucketsPage() {
       </div>
 
       {showCreateModal && (
-        <div className="modal-overlay">
+        <div className="modal-overlay" role="dialog" aria-modal="true">
           <button
             type="button"
-            className="absolute inset-0 cursor-default"
+            className="modal-backdrop"
             onClick={() => setShowCreateModal(false)}
-            aria-label="Close modal"
+            tabIndex={-1}
+            aria-label="Close"
           />
-          <div
-            className="modal"
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => {
-              e.stopPropagation()
-              if (e.key === 'Escape') {
-                setShowCreateModal(false)
-              }
-            }}
-            role="dialog"
-            aria-modal="true"
-          >
+          <div className="modal">
             <div className="modal-header">
               <h3 className="modal-title">Create Bucket</h3>
               <button
@@ -516,7 +590,7 @@ export default function BucketsPage() {
                 className="btn btn-ghost btn-icon"
                 onClick={() => setShowCreateModal(false)}
               >
-                ×
+                <X size={18} />
               </button>
             </div>
             <form onSubmit={handleCreateBucket}>

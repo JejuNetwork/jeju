@@ -1,6 +1,6 @@
 /**
  * End-to-End Attestation Tests
- * Requires: Anvil on port 9545, contracts deployed (run scripts/start-council-dev.sh)
+ * Requires: Anvil on port 9545, contracts deployed (run scripts/start-board-dev.sh)
  */
 import { beforeAll, describe, expect, test } from 'bun:test'
 import {
@@ -48,7 +48,7 @@ const DEPLOYER_KEY =
 const USER_KEY =
   '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as const
 
-const COUNCIL_ABI = parseAbi([
+const BOARD_ABI = parseAbi([
   'function submitProposalWithAttestation(uint8 proposalType, uint8 qualityScore, bytes32 contentHash, address targetContract, bytes calldata callData, uint256 value, uint256 attestationTimestamp, bytes calldata attestationSignature) external payable returns (bytes32)',
   'function proposalBond() external view returns (uint256)',
 ])
@@ -110,13 +110,13 @@ async function checkAnvil(publicClient: PublicClient): Promise<boolean> {
 
 async function checkContractsDeployed(
   publicClient: PublicClient,
-  councilAddress: Address,
+  boardAddress: Address,
 ): Promise<boolean> {
   try {
     // Actually try calling proposalBond() to verify it's the right contract
     await publicClient.readContract({
-      address: councilAddress,
-      abi: COUNCIL_ABI,
+      address: boardAddress,
+      abi: BOARD_ABI,
       functionName: 'proposalBond',
     })
     return true
@@ -129,7 +129,7 @@ describe('Attestation End-to-End Tests', () => {
   let publicClient: PublicClient
   let deployer: PrivateKeyAccount
   let user: PrivateKeyAccount
-  let councilAddress: Address
+  let boardAddress: Address
   let qualityOracleAddress: Address
   let anvilRunning: boolean = false
   let contractsDeployed: boolean = false
@@ -144,30 +144,25 @@ describe('Attestation End-to-End Tests', () => {
 
     anvilRunning = await checkAnvil(publicClient)
     if (!anvilRunning) {
-      console.log('⚠️  Anvil not running. Run: scripts/start-council-dev.sh')
+      console.log('⚠️  Anvil not running. Run: scripts/start-board-dev.sh')
       return
     }
 
-    councilAddress = (process.env.COUNCIL_ADDRESS ??
+    boardAddress = (process.env.BOARD_ADDRESS ??
       '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9') as Address
     qualityOracleAddress = (process.env.QUALITY_ORACLE_ADDRESS ??
       '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707') as Address
 
     // Check if contracts are deployed
-    contractsDeployed = await checkContractsDeployed(
-      publicClient,
-      councilAddress,
-    )
+    contractsDeployed = await checkContractsDeployed(publicClient, boardAddress)
     if (!contractsDeployed) {
       console.log('⚠️  Contracts not deployed - on-chain tests will be skipped')
-      console.log(
-        '   Run: jeju dev --bootstrap or scripts/start-council-dev.sh',
-      )
+      console.log('   Run: jeju dev --bootstrap or scripts/start-board-dev.sh')
       return
     }
 
     console.log('✅ Connected to Anvil')
-    console.log(`   Council: ${councilAddress}`)
+    console.log(`   Board: ${boardAddress}`)
     console.log(`   QualityOracle: ${qualityOracleAddress}`)
   })
 
@@ -243,8 +238,8 @@ describe('Attestation End-to-End Tests', () => {
       CHAIN_ID,
     )
     const proposalBond = await publicClient.readContract({
-      address: councilAddress,
-      abi: COUNCIL_ABI,
+      address: boardAddress,
+      abi: BOARD_ABI,
       functionName: 'proposalBond',
     })
     console.log(`   Proposal bond: ${proposalBond.toString()} wei`)
@@ -255,8 +250,8 @@ describe('Attestation End-to-End Tests', () => {
       account: user,
     })
     const hash = await userWalletClient.writeContract({
-      address: councilAddress,
-      abi: COUNCIL_ABI,
+      address: boardAddress,
+      abi: BOARD_ABI,
       functionName: 'submitProposalWithAttestation',
       args: [
         proposalType,
@@ -313,8 +308,8 @@ describe('Attestation End-to-End Tests', () => {
     )
 
     const proposalBond = await publicClient.readContract({
-      address: councilAddress,
-      abi: COUNCIL_ABI,
+      address: boardAddress,
+      abi: BOARD_ABI,
       functionName: 'proposalBond',
     })
     const userWalletClient = createWalletClient({
@@ -325,8 +320,8 @@ describe('Attestation End-to-End Tests', () => {
 
     await expect(
       userWalletClient.writeContract({
-        address: councilAddress,
-        abi: COUNCIL_ABI,
+        address: boardAddress,
+        abi: BOARD_ABI,
         functionName: 'submitProposalWithAttestation',
         args: [
           1,
@@ -366,8 +361,8 @@ describe('Attestation End-to-End Tests', () => {
     )
 
     const proposalBond = await publicClient.readContract({
-      address: councilAddress,
-      abi: COUNCIL_ABI,
+      address: boardAddress,
+      abi: BOARD_ABI,
       functionName: 'proposalBond',
     })
     const userWalletClient = createWalletClient({
@@ -378,8 +373,8 @@ describe('Attestation End-to-End Tests', () => {
 
     await expect(
       userWalletClient.writeContract({
-        address: councilAddress,
-        abi: COUNCIL_ABI,
+        address: boardAddress,
+        abi: BOARD_ABI,
         functionName: 'submitProposalWithAttestation',
         args: [
           1,
@@ -419,8 +414,8 @@ describe('Attestation End-to-End Tests', () => {
     )
 
     const proposalBond = await publicClient.readContract({
-      address: councilAddress,
-      abi: COUNCIL_ABI,
+      address: boardAddress,
+      abi: BOARD_ABI,
       functionName: 'proposalBond',
     })
     const userWalletClient = createWalletClient({
@@ -431,8 +426,8 @@ describe('Attestation End-to-End Tests', () => {
 
     await expect(
       userWalletClient.writeContract({
-        address: councilAddress,
-        abi: COUNCIL_ABI,
+        address: boardAddress,
+        abi: BOARD_ABI,
         functionName: 'submitProposalWithAttestation',
         args: [
           1,

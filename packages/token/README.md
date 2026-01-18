@@ -26,7 +26,7 @@ Cross-chain token deployment and Hyperlane Warp Routes for EVM chains.
 |---------|-------------|
 | **JEJU Token** | Native token of Jeju Network, home chain on Jeju L2 |
 | **Hyperlane Warp Routes** | Fast token bridging across EVM chains |
-| **DAO-Governed Fees** | Configurable fees via Council/CEOAgent governance |
+| **DAO-Governed Fees** | Configurable fees via Board/DirectorAgent governance |
 | **Custom Tokens** | Deploy your own cross-chain tokens |
 
 ## Quick Start

@@ -1,7 +1,7 @@
+import { AuthProvider } from '@jejunetwork/auth'
+import { LoginModal, useJejuAuth } from '@jejunetwork/auth/react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { useAccount, useDisconnect } from 'wagmi'
-import { AuthButton } from './auth/AuthButton'
 
 const NAV_ITEMS = [
   { href: '/', label: 'Home', icon: '🏠' },
@@ -15,12 +15,17 @@ const NAV_ITEMS = [
 
 export function Header() {
   const { pathname } = useLocation()
-  const { address } = useAccount()
-  const { disconnect } = useDisconnect()
+  const {
+    authenticated,
+    loading: authLoading,
+    walletAddress,
+    logout,
+  } = useJejuAuth()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [accountDropdownOpen, setAccountDropdownOpen] = useState(false)
   const [isDark, setIsDark] = useState(true)
   const [mounted, setMounted] = useState(false)
+  const [loginOpen, setLoginOpen] = useState(false)
 
   // Initialize theme from localStorage/system preference
   useEffect(() => {
@@ -75,10 +80,14 @@ export function Header() {
     [pathname],
   )
 
-  const handleDisconnect = useCallback(() => {
-    disconnect()
+  const handleConnect = useCallback(() => {
+    setLoginOpen(true)
+  }, [])
+
+  const handleDisconnect = useCallback(async () => {
+    await logout()
     setAccountDropdownOpen(false)
-  }, [disconnect])
+  }, [logout])
 
   if (!mounted) return null
 
@@ -155,8 +164,15 @@ export function Header() {
 
               {/* Auth Button - Desktop */}
               <div className="relative hidden md:block">
-                {!address ? (
-                  <AuthButton className="px-4 md:px-6" />
+                {!authenticated || !walletAddress ? (
+                  <button
+                    type="button"
+                    onClick={handleConnect}
+                    disabled={authLoading}
+                    className="btn-primary px-4 md:px-6"
+                  >
+                    {authLoading ? 'Connecting...' : 'Sign In'}
+                  </button>
                 ) : (
                   <>
                     <button
@@ -172,10 +188,10 @@ export function Header() {
                         className="w-6 h-6 rounded-full gradient-cool flex items-center justify-center text-xs font-bold text-white"
                         aria-hidden="true"
                       >
-                        {address.slice(2, 4).toUpperCase()}
+                        {walletAddress.slice(2, 4).toUpperCase()}
                       </div>
                       <span className="text-sm font-medium text-primary">
-                        {address.slice(0, 6)}...{address.slice(-4)}
+                        {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
                       </span>
                       <svg
                         className={`w-4 h-4 text-secondary transition-transform duration-200 ${
@@ -388,17 +404,24 @@ export function Header() {
             className="p-4 border-t"
             style={{ borderColor: 'var(--border)' }}
           >
-            {!address ? (
-              <AuthButton className="w-full" />
+            {!authenticated || !walletAddress ? (
+              <button
+                type="button"
+                onClick={handleConnect}
+                disabled={authLoading}
+                className="btn-primary w-full"
+              >
+                {authLoading ? 'Connecting...' : 'Sign In'}
+              </button>
             ) : (
               <div className="space-y-3">
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-surface-secondary">
                   <div className="w-10 h-10 rounded-full gradient-cool flex items-center justify-center text-sm font-bold text-white">
-                    {address.slice(2, 4).toUpperCase()}
+                    {walletAddress.slice(2, 4).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-primary truncate">
-                      {address.slice(0, 10)}...{address.slice(-6)}
+                      {walletAddress.slice(0, 10)}...{walletAddress.slice(-6)}
                     </p>
                     <p className="text-xs text-tertiary">Connected</p>
                   </div>
@@ -429,6 +452,24 @@ export function Header() {
           </div>
         </div>
       </nav>
+
+      <LoginModal
+        isOpen={loginOpen}
+        onClose={() => setLoginOpen(false)}
+        onSuccess={() => setLoginOpen(false)}
+        title="Sign In"
+        subtitle="Use wallet or passkey"
+        providers={[
+          AuthProvider.WALLET,
+          AuthProvider.PASSKEY,
+          AuthProvider.FARCASTER,
+          AuthProvider.GOOGLE,
+          AuthProvider.GITHUB,
+          AuthProvider.TWITTER,
+          AuthProvider.DISCORD,
+        ]}
+        showEmailPhone={false}
+      />
     </>
   )
 }

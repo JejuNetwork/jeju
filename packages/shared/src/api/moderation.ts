@@ -190,13 +190,13 @@ export interface ReputationProviderProposal {
   timelockEnds: number
   status:
     | 'PENDING'
-    | 'COUNCIL_REVIEW'
+    | 'BOARD_REVIEW'
     | 'APPROVED'
     | 'REJECTED'
     | 'EXECUTED'
     | 'CANCELLED'
-  councilDecisionHash: string
-  councilReason: string
+  boardDecisionHash: string
+  boardReason: string
 }
 
 export interface AggregatedReputation {
@@ -768,7 +768,9 @@ export class ModerationAPI {
       }),
     )
 
-    let filtered = cases.filter((c): c is ModerationCase => c !== null)
+    let filtered = cases.filter(
+      (c: ModerationCase | null): c is ModerationCase => c !== null,
+    )
     if (options?.activeOnly)
       filtered = filtered.filter((c: ModerationCase) => !c.resolved)
     if (options?.resolvedOnly)
@@ -859,7 +861,7 @@ export class ModerationAPI {
       }),
     )
 
-    let filtered = reports.filter((r): r is Report => r !== null)
+    let filtered = reports.filter((r: Report | null): r is Report => r !== null)
     if (options?.pendingOnly)
       filtered = filtered.filter((r: Report) => r.status === 'PENDING')
     return filtered
@@ -1242,8 +1244,8 @@ export const REPUTATION_PROVIDER_REGISTRY_ABI = [
           { name: 'challengeEnds', type: 'uint256' },
           { name: 'timelockEnds', type: 'uint256' },
           { name: 'status', type: 'uint8' },
-          { name: 'councilDecisionHash', type: 'bytes32' },
-          { name: 'councilReason', type: 'string' },
+          { name: 'boardDecisionHash', type: 'bytes32' },
+          { name: 'boardReason', type: 'string' },
         ],
       },
     ],

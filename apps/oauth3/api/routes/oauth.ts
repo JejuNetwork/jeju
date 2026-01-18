@@ -7,7 +7,6 @@ import {
   getCurrentNetwork,
   getLocalhostHost,
   getOAuth3Url,
-  isProductionEnv,
 } from '@jejunetwork/config'
 import { Elysia, t } from 'elysia'
 import type { Hex } from 'viem'
@@ -113,6 +112,13 @@ function generateAuthorizePage(
         Connect Wallet
       </a>
       
+      <button onclick="startPasskeyAuth('${clientId}', '${encodedRedirectUri}', '${state}')" 
+         class="provider-btn"
+         role="button">
+        <span class="icon" aria-hidden="true">🔑</span>
+        Sign in with Passkey
+      </button>
+      
       <a href="/farcaster/init?client_id=${clientId}&redirect_uri=${encodedRedirectUri}&state=${state}" 
          class="provider-btn"
          role="button">
@@ -154,7 +160,122 @@ function generateAuthorizePage(
     <footer class="footer">
       <a href="https://jejunetwork.org">Jeju Network</a>
     </footer>
-  </main>`
+  </main>
+  
+  <script>
+    async function startPasskeyAuth(clientId, redirectUri, state) {
+      try {
+        // Get passkey options from the server
+        const optionsRes = await fetch('/auth/passkey/options', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ origin: window.location.origin, appId: clientId })
+        });
+        
+        if (!optionsRes.ok) {
+          throw new Error('Failed to get passkey options');
+        }
+        
+        const options = await optionsRes.json();
+        const publicKey = options.publicKey;
+        
+        // Convert base64url strings to ArrayBuffers
+        publicKey.challenge = base64urlToBuffer(publicKey.challenge);
+        if (publicKey.user?.id) {
+          publicKey.user.id = base64urlToBuffer(publicKey.user.id);
+        }
+        if (publicKey.allowCredentials) {
+          publicKey.allowCredentials = publicKey.allowCredentials.map(cred => ({
+            ...cred,
+            id: base64urlToBuffer(cred.id)
+          }));
+        }
+        
+        // Call WebAuthn API
+        let credential;
+        if (options.mode === 'registration') {
+          credential = await navigator.credentials.create({ publicKey });
+        } else {
+          credential = await navigator.credentials.get({ publicKey });
+        }
+        
+        if (!credential) {
+          throw new Error('No credential returned');
+        }
+        
+        // Prepare credential for verification
+        const response = {
+          clientDataJSON: bufferToBase64url(new Uint8Array(credential.response.clientDataJSON)),
+        };
+        
+        if (options.mode === 'registration') {
+          response.attestationObject = bufferToBase64url(new Uint8Array(credential.response.attestationObject));
+        } else {
+          response.authenticatorData = bufferToBase64url(new Uint8Array(credential.response.authenticatorData));
+          response.signature = bufferToBase64url(new Uint8Array(credential.response.signature));
+          if (credential.response.userHandle) {
+            response.userHandle = bufferToBase64url(new Uint8Array(credential.response.userHandle));
+          }
+        }
+        
+        // Verify with server
+        const verifyRes = await fetch('/auth/passkey/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            appId: clientId,
+            mode: options.mode,
+            challengeId: options.challengeId,
+            credential: {
+              id: credential.id,
+              rawId: bufferToBase64url(new Uint8Array(credential.rawId)),
+              type: credential.type,
+              response
+            }
+          })
+        });
+        
+        if (!verifyRes.ok) {
+          const err = await verifyRes.json();
+          throw new Error(err.error || 'Passkey verification failed');
+        }
+        
+        const session = await verifyRes.json();
+        
+        // Generate auth code and redirect
+        const code = session.sessionId;
+        const decodedRedirectUri = decodeURIComponent(redirectUri);
+        const redirectUrl = new URL(decodedRedirectUri);
+        redirectUrl.searchParams.set('code', code);
+        redirectUrl.searchParams.set('state', state);
+        window.location.href = redirectUrl.toString();
+        
+      } catch (err) {
+        console.error('Passkey auth failed:', err);
+        alert('Passkey authentication failed: ' + err.message);
+      }
+    }
+    
+    function base64urlToBuffer(base64url) {
+      const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+      const padLen = (4 - (base64.length % 4)) % 4;
+      const padded = base64 + '='.repeat(padLen);
+      const binary = atob(padded);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return bytes.buffer;
+    }
+    
+    function bufferToBase64url(buffer) {
+      const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+      return btoa(String.fromCharCode(...bytes))
+        .replace(/\\+/g, '-')
+        .replace(/\\//g, '_')
+        .replace(/=+$/, '');
+    }
+  </script>`
 
   return createHtmlPage({
     title: 'Sign In',
@@ -162,24 +283,59 @@ function generateAuthorizePage(
   })
 }
 
-export async function createOAuthRouter(config: AuthConfig) {
-  // Initialize database tables
-  await initializeState()
+// Lazy initialization state
+let isInitialized = false
+let initializationPromise: Promise<void> | null = null
 
-  // Initialize KMS for secure token signing
-  await initializeKMS({
-    jwtSigningKeyId: config.jwtSigningKeyId ?? 'oauth3-jwt-signing',
-    jwtSignerAddress:
-      config.jwtSignerAddress ??
-      ('0x0000000000000000000000000000000000000000' as `0x${string}`),
-    serviceAgentId: config.serviceAgentId,
-    chainId: config.chainId ?? 'eip155:420691',
-    devMode: config.devMode ?? !isProductionEnv(),
-  })
+async function ensureInitialized(config: AuthConfig): Promise<void> {
+  if (isInitialized) return
+  if (initializationPromise) {
+    await initializationPromise
+    return
+  }
 
-  // Load sealed OAuth provider secrets
-  await loadSealedProviders()
+  initializationPromise = (async () => {
+    console.log('[OAuth3] Lazy initialization starting...')
 
+    // Initialize database tables (uses memory fallback in DWS workers)
+    await initializeState()
+
+    // Initialize KMS for secure token signing
+    // In DWS worker mode, KMS may not be available - use fallback JWT signing
+    try {
+      await initializeKMS({
+        jwtSigningKeyId: config.jwtSigningKeyId ?? 'oauth3-jwt-signing',
+        jwtSignerAddress:
+          config.jwtSignerAddress ??
+          ('0x0000000000000000000000000000000000000000' as `0x${string}`),
+        serviceAgentId: config.serviceAgentId,
+        chainId: config.chainId ?? 'eip155:420691',
+      })
+    } catch (err) {
+      console.warn(
+        '[OAuth3] KMS initialization failed, using fallback JWT signing:',
+        err instanceof Error ? err.message : String(err),
+      )
+    }
+
+    // Load sealed OAuth provider secrets
+    try {
+      await loadSealedProviders()
+    } catch (err) {
+      console.warn(
+        '[OAuth3] Failed to load sealed providers:',
+        err instanceof Error ? err.message : String(err),
+      )
+    }
+
+    isInitialized = true
+    console.log('[OAuth3] Lazy initialization complete')
+  })()
+
+  await initializationPromise
+}
+
+export function createOAuthRouter(config: AuthConfig) {
   const network = getCurrentNetwork()
   const host = getLocalhostHost()
   const baseUrl =
@@ -191,6 +347,8 @@ export async function createOAuthRouter(config: AuthConfig) {
       .get(
         '/authorize',
         async ({ query, set }) => {
+          await ensureInitialized(config)
+
           if (!query.client_id || !query.redirect_uri) {
             set.status = 400
             return {
@@ -242,6 +400,8 @@ export async function createOAuthRouter(config: AuthConfig) {
       .post(
         '/token',
         async ({ body, set }) => {
+          await ensureInitialized(config)
+
           if (body.grant_type === 'authorization_code') {
             if (!body.code || !body.client_id) {
               set.status = 400
@@ -266,12 +426,7 @@ export async function createOAuthRouter(config: AuthConfig) {
 
             const authCode = await authCodeState.get(body.code)
             if (!authCode) {
-              console.log(
-                '[OAuth3] Token exchange failed: auth code not found',
-                {
-                  code: `${body.code?.substring(0, 8)}...`,
-                },
-              )
+              console.log('[OAuth3] Token exchange failed: auth code not found')
               set.status = 400
               return {
                 error: 'invalid_grant',
@@ -279,14 +434,10 @@ export async function createOAuthRouter(config: AuthConfig) {
               }
             }
 
-            console.log('[OAuth3] Token exchange: found auth code', {
-              code: `${body.code?.substring(0, 8)}...`,
-              storedClientId: authCode.clientId,
-              storedRedirectUri: authCode.redirectUri,
-              requestClientId: body.client_id,
-              requestRedirectUri: body.redirect_uri,
-              userId: authCode.userId,
-              expiresAt: new Date(authCode.expiresAt).toISOString(),
+            // SECURITY: Only log non-sensitive metadata for debugging
+            console.log('[OAuth3] Token exchange: auth code verified', {
+              clientId: body.client_id,
+              hasUser: Boolean(authCode.userId),
             })
 
             if (authCode.clientId !== body.client_id) {
@@ -461,6 +612,8 @@ export async function createOAuthRouter(config: AuthConfig) {
       )
 
       .get('/userinfo', async ({ headers, set }) => {
+        await ensureInitialized(config)
+
         const auth = headers.authorization
         if (!auth?.startsWith('Bearer ')) {
           set.status = 401
@@ -497,6 +650,8 @@ export async function createOAuthRouter(config: AuthConfig) {
       .get(
         '/social/:provider',
         async ({ params, query, set }) => {
+          await ensureInitialized(config)
+
           const providerName = params.provider.toLowerCase()
 
           // Map to AuthProvider enum
@@ -569,6 +724,8 @@ export async function createOAuthRouter(config: AuthConfig) {
       .get(
         '/callback/:provider',
         async ({ params, query, set }) => {
+          await ensureInitialized(config)
+
           const providerName = params.provider.toLowerCase()
 
           if (query.error) {

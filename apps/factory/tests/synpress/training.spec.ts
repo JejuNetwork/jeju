@@ -3,14 +3,8 @@
  * Tests training page and wizard with wallet integration
  */
 
-// Must import zod-compat before synpress for Zod 4 compatibility
-import '@jejunetwork/tests/zod-compat'
 import { testWithSynpress } from '@synthetixio/synpress'
-// Must import zod-compat before synpress for Zod 4 compatibility
-import '@jejunetwork/tests/zod-compat'
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright'
-// Must import zod-compat before synpress for Zod 4 compatibility
-import '@jejunetwork/tests/zod-compat'
 import { basicSetup } from '../../synpress.config'
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup))
@@ -190,7 +184,11 @@ test.describe('Training with Wallet', () => {
 
     await page.goto('/training/create')
 
-    await page.click('button:has-text("Connect Wallet")')
+    await page.click('button:has-text("Sign In")')
+    const walletOption = page.getByRole('button', { name: /connect wallet/i })
+    if (await walletOption.isVisible().catch(() => false)) {
+      await walletOption.click()
+    }
     await metamask.connectToDapp()
 
     await page.click('button:has-text("LLaMA 3 8B")')

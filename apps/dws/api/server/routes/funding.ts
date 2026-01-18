@@ -51,7 +51,7 @@ const DAO_REGISTRY_ABI = [
   },
   {
     type: 'function',
-    name: 'getCouncilMembers',
+    name: 'getBoardMembers',
     inputs: [{ name: 'daoId', type: 'bytes32' }],
     outputs: [{ name: '', type: 'address[]' }],
     stateMutability: 'view',
@@ -76,10 +76,10 @@ const CONTRIBUTOR_REGISTRY_ABI = parseAbi([
 const PAYMENT_REQUEST_REGISTRY_ABI = parseAbi([
   'function getRequest(bytes32 requestId) external view returns (bytes32, bytes32, address, bytes32, uint8, string, string, string, address, uint256, uint256, uint8, bool, uint256, uint256, uint256, uint256, uint256, string, bytes32)',
   'function getPendingRequests(bytes32 daoId) external view returns (bytes32[])',
-  'function getCouncilVotes(bytes32 requestId) external view returns (address[], uint8[], string[], uint256[])',
-  'function getCEODecision(bytes32 requestId) external view returns (bool, uint256, string, uint256)',
+  'function getBoardVotes(bytes32 requestId) external view returns (address[], uint8[], string[], uint256[])',
+  'function getDirectorDecision(bytes32 requestId) external view returns (bool, uint256, string, uint256)',
   'function submitRequest(bytes32 daoId, bytes32 contributorId, uint8 category, string title, string description, string evidenceUri, uint256 requestedAmount, bool isRetroactive, uint256 workStartDate, uint256 workEndDate) external returns (bytes32)',
-  'function councilVote(bytes32 requestId, uint8 vote, string reason) external',
+  'function boardVote(bytes32 requestId, uint8 vote, string reason) external',
 ])
 
 const DEEP_FUNDING_DISTRIBUTOR_ABI = [
@@ -360,12 +360,12 @@ export function createFundingRouter() {
     return dao
   })
 
-  router.get('/daos/:daoId/council', async ({ params }) => {
+  router.get('/daos/:daoId/board', async ({ params }) => {
     const daoId = params.daoId as Hex
     const members = await publicClient.readContract({
       address: config.contracts.daoRegistry,
       abi: DAO_REGISTRY_ABI,
-      functionName: 'getCouncilMembers',
+      functionName: 'getBoardMembers',
       args: [daoId],
     })
     return { members }
@@ -551,20 +551,20 @@ export function createFundingRouter() {
     const votes = await publicClient.readContract({
       address: config.contracts.paymentRequestRegistry,
       abi: PAYMENT_REQUEST_REGISTRY_ABI,
-      functionName: 'getCouncilVotes',
+      functionName: 'getBoardVotes',
       args: [requestId],
     })
     return { votes }
   })
 
   router.get(
-    '/payment-requests/:requestId/ceo-decision',
+    '/payment-requests/:requestId/director-decision',
     async ({ params }) => {
       const requestId = params.requestId as Hex
       const decision = await publicClient.readContract({
         address: config.contracts.paymentRequestRegistry,
         abi: PAYMENT_REQUEST_REGISTRY_ABI,
-        functionName: 'getCEODecision',
+        functionName: 'getDirectorDecision',
         args: [requestId],
       })
       return decision

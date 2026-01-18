@@ -10,7 +10,10 @@
  * 6. (Failure case) XLP fails to fulfill, gets slashed
  */
 
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import {
+  type Address,
   createPublicClient,
   createWalletClient,
   formatEther,
@@ -21,13 +24,21 @@ import {
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
 
-// Deployed contracts from our localnet
+// Load deployment addresses
+const deploymentPath = join(
+  process.cwd(),
+  'packages/contracts/deployments/localnet-crosschain.json',
+)
+if (!existsSync(deploymentPath)) {
+  console.error('Deployment file not found. Run deploy-crosschain.ts first.')
+  process.exit(1)
+}
+const deployment = JSON.parse(readFileSync(deploymentPath, 'utf-8'))
+
 const RPC_URL = 'http://127.0.0.1:6546'
 
-// From latest deployment (DeployFullLocalnet)
-const L1_STAKE_MANAGER = '0x5081a39b8A5f0E35a8D959395a630b68B74Dd30f'
-const CROSS_CHAIN_PAYMASTER = '0x4C4a2f8c81640e47606d3fd77B353E87Ba015584'
-const _MOCK_MESSENGER = '0x1fA02b2d6A771842690194Cf62D91bdd92BfE28d'
+const L1_STAKE_MANAGER = deployment.l1StakeManager as Address
+const CROSS_CHAIN_PAYMASTER = deployment.crossChainPaymaster as Address
 
 // Test accounts
 const DEPLOYER_KEY =
@@ -311,7 +322,7 @@ async function main() {
 
   if (l2Stake === 0n) {
     console.log('   Syncing stake to L2 (admin set for local testing)...')
-    // Note: In production, this would come via L1→L2 bridge message
+    // In production, this would come via L1→L2 bridge message
     // updateXLPStake() requires the call to come from L2 messenger
     // with xDomainMessageSender = L1StakeManager
     const hash = await deployerWallet.writeContract({

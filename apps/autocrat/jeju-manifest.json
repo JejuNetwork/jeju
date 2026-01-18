@@ -19,14 +19,16 @@
     "backend": {
       "type": "elysia",
       "entrypoint": "api/worker.ts",
+      "startCmd": "bun --watch api/worker.ts",
       "outputDir": "dist/worker"
     }
   },
   "commands": {
     "dev": "bun run scripts/dev.ts",
     "dev:api": "bun --watch api/worker.ts",
-    "build": "bun run scripts/build.ts",
+    "build": "bun run build",
     "build:worker": "bun run scripts/build.ts",
+    "start:worker": "bun api/worker.ts",
     "start": "bun run scripts/serve.ts",
     "test": "SKIP_TEE_TESTS=true bun test tests/unit/",
     "deploy": "bun run scripts/deploy.ts"

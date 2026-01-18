@@ -23,7 +23,7 @@ interface DeploymentData {
     upgradeTimelock?: string
     emergencyMinDelay?: string
     forcedInclusion?: boolean
-    securityCouncil?: boolean
+    securityBoard?: boolean
     cannonMIPS?: string
   }
 }
@@ -246,9 +246,7 @@ async function checkTimelock(network: NetworkType): Promise<CheckResult> {
   }
 }
 
-async function checkSecurityCouncil(
-  network: NetworkType,
-): Promise<CheckResult> {
+async function checkSecurityBoard(network: NetworkType): Promise<CheckResult> {
   const deployment = loadDeployment(network)
   const timelockAddress = deployment.stage2?.GovernanceTimelock
 
@@ -261,8 +259,8 @@ async function checkSecurityCouncil(
     transport: http(rpcUrl),
   })
 
-  // Check if Security Council role is assigned by verifying contract exists
-  // In production, we'd enumerate role holders to verify Security Council has CANCELLER_ROLE
+  // Check if Security Board role is assigned by verifying contract exists
+  // In production, we'd enumerate role holders to verify Security Board has CANCELLER_ROLE
   const code = await client.getCode({
     address: timelockAddress as `0x${string}`,
   })
@@ -271,7 +269,7 @@ async function checkSecurityCouncil(
     return { passed: false, reason: 'GovernanceTimelock has no code' }
   }
 
-  // Note: Real implementation would check if Security Council multisig has CANCELLER_ROLE
+  // Real implementation would check if Security Board multisig has CANCELLER_ROLE
   return {
     passed: true,
     details: { timelockAddress },
@@ -308,7 +306,7 @@ verifyStage2Command
       { name: 'Ownership Transferred', check: checkOwnership },
       { name: 'DA Verification Active', check: checkDAVerification },
       { name: 'Timelock Configured', check: checkTimelock },
-      { name: 'Security Council Set', check: checkSecurityCouncil },
+      { name: 'Security Board Set', check: checkSecurityBoard },
     ]
 
     let allPassed = true
@@ -346,7 +344,7 @@ verifyStage2Command
       console.log('  • Fraud proofs protect user funds')
       console.log('  • Users can force-include transactions')
       console.log('  • Governance timelock prevents malicious upgrades')
-      console.log('  • Security Council can pause for emergencies')
+      console.log('  • Security Board can pause for emergencies')
     } else {
       console.log('❌ NOT STAGE 2 READY')
       console.log('\nFix the issues above before claiming Stage 2 status.')
@@ -373,9 +371,9 @@ verifyStage2Command
             case 'Timelock Configured':
               console.log(`  • Increase timelock delay to minimum 7 days`)
               break
-            case 'Security Council Set':
+            case 'Security Board Set':
               console.log(
-                `  • Configure Security Council multisig with CANCELLER_ROLE`,
+                `  • Configure Security Board multisig with CANCELLER_ROLE`,
               )
               break
             default:
@@ -418,7 +416,7 @@ verifyStage2Command
     console.log('  • All Stage 1 requirements PLUS:')
     console.log('  • Fraud proofs: Live, permissionless')
     console.log('  • Upgrade timelock: 30+ days')
-    console.log('  • Security Council: Can only pause, not upgrade')
+    console.log('  • Security Board: Can only pause, not upgrade')
     console.log('  • Bug bounty: Active program')
     console.log()
 

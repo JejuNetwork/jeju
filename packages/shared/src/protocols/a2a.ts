@@ -6,7 +6,7 @@
 
 import { cors } from '@elysiajs/cors'
 import { getNetworkName, getWebsiteUrl } from '@jejunetwork/config'
-import { Elysia } from 'elysia'
+import { type AnyElysia, Elysia } from 'elysia'
 import type { Address } from 'viem'
 import { z } from 'zod'
 import type { ProtocolData, ProtocolValue } from '../types'
@@ -83,7 +83,7 @@ export interface AgentCard {
   skills: A2ASkill[]
 }
 
-export function createA2AServer(config: A2AConfig) {
+export function createA2AServer(config: A2AConfig): AnyElysia {
   const agentCard: AgentCard = {
     protocolVersion: '0.3.0',
     name: config.name,
@@ -104,7 +104,7 @@ export function createA2AServer(config: A2AConfig) {
 
   return (
     new Elysia()
-      .use(cors())
+      .use(cors() as unknown as AnyElysia)
       // Agent card discovery
       .get('/.well-known/agent-card.json', () => agentCard)
 
@@ -179,6 +179,6 @@ export function createA2AServer(config: A2AConfig) {
             kind: 'message',
           },
         }
-      })
+      }) as unknown as AnyElysia
   )
 }

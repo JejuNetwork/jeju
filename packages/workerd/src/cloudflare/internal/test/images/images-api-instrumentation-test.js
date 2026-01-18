@@ -28,8 +28,8 @@ export default {
     return (event) => {
       switch (event.event.type) {
         case 'spanOpen':
-          // The span ids will change between tests, but Map preserves insertion order
-          // Note: Images uses traceId instead of spanId for keying
+          // The span ids will change between tests, but Map preserves insertion order.
+          // Images uses traceId instead of spanId for keying.
           state.spans.set(event.spanContext.traceId, {
             name: event.event.name,
           });

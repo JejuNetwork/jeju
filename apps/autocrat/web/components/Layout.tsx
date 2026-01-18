@@ -1,7 +1,13 @@
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
+import { Breadcrumbs } from './Breadcrumbs'
 import { Header } from './Header'
 
 export function Layout() {
+  const location = useLocation()
+  // Show breadcrumbs on detail pages
+  const showBreadcrumbs =
+    location.pathname !== '/' && location.pathname !== '/my-daos'
+
   return (
     <div
       className="min-h-screen flex flex-col"
@@ -9,6 +15,11 @@ export function Layout() {
     >
       <Header />
       <main className="flex-1">
+        {showBreadcrumbs && (
+          <div className="container mx-auto">
+            <Breadcrumbs />
+          </div>
+        )}
         <Outlet />
       </main>
       <footer

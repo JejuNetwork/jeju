@@ -13,37 +13,12 @@ import { useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useAccount, useConnect } from 'wagmi'
 import { injected } from 'wagmi/connectors'
+import { getDAOStatusStyle } from '../constants/ui'
 import { useMyDAOs } from '../hooks/useDAO'
-import type { DAOListItem, DAOStatus } from '../types/dao'
-
-const STATUS_STYLES: Record<
-  DAOStatus,
-  { bg: string; text: string; label: string }
-> = {
-  active: {
-    bg: 'rgba(16, 185, 129, 0.12)',
-    text: 'var(--color-success)',
-    label: 'Active',
-  },
-  pending: {
-    bg: 'rgba(245, 158, 11, 0.12)',
-    text: 'var(--color-warning)',
-    label: 'Pending',
-  },
-  paused: {
-    bg: 'rgba(148, 163, 184, 0.12)',
-    text: 'var(--text-tertiary)',
-    label: 'Paused',
-  },
-  archived: {
-    bg: 'rgba(239, 68, 68, 0.12)',
-    text: 'var(--color-error)',
-    label: 'Archived',
-  },
-}
+import type { DAOListItem } from '../types/dao'
 
 function DAOCard({ dao }: { dao: DAOListItem }) {
-  const statusStyle = STATUS_STYLES[dao.status]
+  const statusStyle = getDAOStatusStyle(dao.status)
 
   return (
     <Link
@@ -112,7 +87,9 @@ function DAOCard({ dao }: { dao: DAOListItem }) {
             >
               <Crown className="w-3 h-3 text-white" />
             </div>
-            <span style={{ color: 'var(--text-primary)' }}>{dao.ceoName}</span>
+            <span style={{ color: 'var(--text-primary)' }}>
+              {dao.directorName}
+            </span>
             <span style={{ color: 'var(--text-tertiary)' }}>·</span>
             <span style={{ color: 'var(--text-tertiary)' }}>
               {dao.boardMemberCount} board members
@@ -132,7 +109,7 @@ function DAOCard({ dao }: { dao: DAOListItem }) {
               style={{ color: 'var(--text-secondary)' }}
             >
               <Users className="w-3.5 h-3.5" />
-              <span>{dao.memberCount.toLocaleString()} members</span>
+              <span>{(dao.memberCount ?? 0).toLocaleString()} members</span>
             </div>
             {dao.activeProposalCount > 0 && (
               <div

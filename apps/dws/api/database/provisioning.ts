@@ -216,7 +216,7 @@ const provisionRequestSchema = z.object({
 /**
  * Provision a new database for an app
  *
- * Note: SQLit databases are created on-demand when first accessed.
+ * SQLit databases are created on-demand when first accessed.
  * This function registers the database for ACL tracking.
  */
 export async function provisionDatabase(params: {

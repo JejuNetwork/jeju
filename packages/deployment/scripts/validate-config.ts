@@ -20,7 +20,7 @@ import {
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
-const ROOT = resolve(__dirname, '..')
+const ROOT = resolve(__dirname, '../../..')
 const CONFIG_DIR = join(ROOT, 'packages/config')
 
 interface ValidationResult {

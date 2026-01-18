@@ -1,0 +1,439 @@
+# DWS (Decentralized Web Services)
+
+Compute, storage, CDN, CI/CD, and more — decentralized cloud infrastructure.
+
+## Overview
+
+DWS provides cloud infrastructure services on Jeju:
+
+| Service | Description | Comparable To |
+|---------|-------------|---------------|
+| **Storage** | IPFS upload, pinning, retrieval | S3 + IPFS |
+| **Compute** | GPU rental, AI inference, containers | EC2 + Lambda |
+| **CDN** | Edge caching, JNS gateway | CloudFront |
+| **Git** | Decentralized git hosting | GitHub |
+| **Pkg** | Package registry | npm/PyPI |
+| **CI/CD** | Build pipelines | GitHub Actions |
+| **Workers** | Serverless edge functions | Cloudflare Workers |
+| **KMS** | Key management (TEE-backed) | AWS KMS |
+| **S3** | S3-compatible object storage | MinIO |
+
+## Quick Start
+
+### Install the SDK
+
+```bash
+bun add @jejunetwork/sdk viem
+```
+
+### Initialize the Client
+
+```typescript
+import { createJejuClient } from '@jejunetwork/sdk';
+
+const jeju = await createJejuClient({
+  network: 'testnet',
+  privateKey: process.env.PRIVATE_KEY as `0x${string}`,
+});
+```
+
+### Upload a File
+
+```typescript
+const file = new File(['Hello Jeju'], 'hello.txt', { type: 'text/plain' });
+const cid = await jeju.storage.upload(file);
+console.log('Uploaded:', cid);
+// => QmX...
+
+// Access via IPFS gateway
+// https://ipfs.jejunetwork.org/ipfs/QmX...
+```
+
+### Run Inference
+
+```typescript
+const result = await jeju.compute.inference({
+  model: 'llama3.2',
+  prompt: 'Explain what DWS is in one sentence',
+  maxTokens: 100,
+});
+console.log(result.text);
+```
+
+## Running DWS Locally
+
+```bash
+cd apps/dws
+bun install
+bun run dev
+```
+
+DWS runs at `http://localhost:4007`.
+
+## Storage Service
+
+Upload, pin, and retrieve files from decentralized storage.
+
+### Upload a File
+
+```typescript
+// Upload file
+const cid = await jeju.storage.upload(file);
+
+// Upload with metadata
+const cid = await jeju.storage.upload(file, {
+  name: 'my-image.png',
+  metadata: { project: 'my-dapp' },
+});
+```
+
+### Pin Content
+
+Keep content available by pinning it to storage nodes:
+
+```typescript
+await jeju.storage.pin(cid, {
+  duration: 30 * 24 * 60 * 60, // 30 days in seconds
+  replicas: 3, // Store on 3 nodes
+});
+```
+
+### Retrieve Content
+
+```typescript
+const data = await jeju.storage.get(cid);
+// Returns a Blob
+
+// Or fetch directly
+const response = await fetch(`https://ipfs.jejunetwork.org/ipfs/${cid}`);
+```
+
+### List Pins
+
+```typescript
+const pins = await jeju.storage.listPins();
+// [{ cid, name, size, pinnedAt, expiresAt }]
+```
+
+### REST API
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/storage/upload` | POST | Upload file (multipart/form-data) |
+| `/storage/:cid` | GET | Download file by CID |
+| `/storage/pin` | POST | Pin existing CID |
+| `/storage/pins` | GET | List pins |
+| `/storage/unpin/:cid` | DELETE | Unpin a CID |
+
+## Compute Service
+
+Run AI inference or rent GPUs for longer workloads.
+
+### List Available Models
+
+```typescript
+const models = await jeju.compute.listModels();
+// [{ name: 'llama3.2', provider: '0x...', pricePerToken: '0.0001', ... }]
+```
+
+### Run Inference
+
+```typescript
+const result = await jeju.compute.inference({
+  model: 'llama3.2',
+  prompt: 'Write a haiku about blockchain',
+  maxTokens: 100,
+  temperature: 0.7,
+});
+
+console.log(result.text);
+console.log(`Tokens: ${result.usage.totalTokens}, Cost: ${result.cost}`);
+```
+
+### Chat Completion (OpenAI-compatible)
+
+```typescript
+const response = await jeju.compute.chat({
+  model: 'llama3.2',
+  messages: [
+    { role: 'system', content: 'You are a helpful assistant.' },
+    { role: 'user', content: 'What is Jeju?' },
+  ],
+});
+```
+
+### List Compute Providers
+
+```typescript
+const providers = await jeju.compute.listProviders();
+// [{ address, gpuType, hourlyRate, available, reputation }]
+```
+
+### Rent a GPU
+
+For longer workloads, rent dedicated GPU time:
+
+```typescript
+const rental = await jeju.compute.createRental({
+  provider: '0x...', // Provider address
+  durationHours: 2,
+  gpuType: 'A100',
+});
+
+console.log(`Rental ID: ${rental.id}`);
+console.log(`SSH: ${rental.ssh}`);
+
+// When done
+await jeju.compute.endRental(rental.id);
+```
+
+### REST API
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/compute/inference` | POST | Run inference |
+| `/compute/chat` | POST | Chat completion |
+| `/compute/models` | GET | List models |
+| `/compute/providers` | GET | List providers |
+| `/compute/rentals` | POST | Create rental |
+| `/compute/rentals/:id` | DELETE | End rental |
+
+## CDN Service
+
+Serve content with edge caching and JNS domain support.
+
+### JNS Gateway
+
+Access content via `.jeju` domains:
+
+```
+https://myapp.jeju.network/
+https://myfiles.jeju.network/image.png
+```
+
+### Cache Content
+
+```typescript
+await jeju.cdn.cache(cid, {
+  ttl: 86400, // 24 hours
+  regions: ['us-east', 'eu-west', 'asia'],
+});
+```
+
+### Purge Cache
+
+```typescript
+await jeju.cdn.purge(cid);
+// Or purge by path
+await jeju.cdn.purge('myapp.jeju/assets/*');
+```
+
+## Workers Service
+
+Deploy serverless functions at the edge.
+
+### Deploy a Worker
+
+```typescript
+const worker = await jeju.workers.deploy({
+  name: 'my-api',
+  code: `
+    export default {
+      async fetch(request) {
+        return new Response('Hello from Jeju');
+      }
+    }
+  `,
+  routes: ['api.myapp.jeju/*'],
+});
+
+console.log(`Deployed: ${worker.url}`);
+```
+
+### Workerd (Cloudflare-compatible)
+
+DWS includes Cloudflare Workers-compatible runtime:
+
+```typescript
+await jeju.workerd.deploy({
+  name: 'cf-worker',
+  code: workerCode,
+  compatibility_date: '2024-01-01',
+  bindings: {
+    KV: { type: 'kv_namespace', id: 'my-kv' },
+  },
+});
+```
+
+## Git Service
+
+Host git repositories on decentralized infrastructure.
+
+### Create Repository
+
+```typescript
+const repo = await jeju.git.create({
+  name: 'my-project',
+  description: 'My project',
+  private: false,
+});
+
+console.log(`Clone: git clone ${repo.cloneUrl}`);
+```
+
+### Push and Pull
+
+```bash
+# Add remote
+git remote add jeju https://git.jejunetwork.org/myuser/my-project
+
+# Push
+git push jeju main
+```
+
+## CI/CD Service
+
+Build and deploy automatically.
+
+### Create Pipeline
+
+```yaml
+# .jeju/ci.yaml
+name: Build and Deploy
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    steps:
+      - uses: checkout
+      - run: bun install
+      - run: bun run build
+      - uses: deploy
+        with:
+          app: my-app
+```
+
+### Trigger Build
+
+```typescript
+await jeju.ci.trigger({
+  repo: 'my-project',
+  branch: 'main',
+});
+```
+
+## S3-Compatible API
+
+DWS provides S3-compatible endpoints:
+
+```typescript
+import { S3Client } from '@aws-sdk/client-s3';
+
+const s3 = new S3Client({
+  endpoint: 'https://s3.jejunetwork.org',
+  region: 'auto',
+  credentials: {
+    accessKeyId: process.env.DWS_ACCESS_KEY,
+    secretAccessKey: process.env.DWS_SECRET_KEY,
+  },
+});
+
+// Use standard S3 operations
+await s3.putObject({ Bucket: 'my-bucket', Key: 'file.txt', Body: 'content' });
+```
+
+## A2A and MCP Integration
+
+DWS exposes A2A (Agent-to-Agent) and MCP (Model Context Protocol) endpoints:
+
+### A2A Endpoint
+
+```bash
+# Agent card discovery
+curl https://dws.jejunetwork.org/.well-known/agent-card.json
+
+# Send A2A message
+curl -X POST https://dws.jejunetwork.org/a2a \
+  -H "Content-Type: application/json" \
+  -d '{"type": "storage/upload", "payload": {...}}'
+```
+
+### MCP Integration
+
+Connect AI agents to DWS resources:
+
+```json
+{
+  "mcpServers": {
+    "dws": {
+      "url": "https://dws.jejunetwork.org/mcp"
+    }
+  }
+}
+```
+
+Available MCP resources:
+- `dws://storage/stats` - Storage usage
+- `dws://compute/status` - Compute marketplace status
+- `dws://cdn/stats` - CDN cache metrics
+- `dws://git/repos` - Git repositories
+- `dws://ci/runs` - CI/CD pipeline runs
+
+## Running a DWS Node
+
+To provide storage or compute:
+- [Run a Compute Node →](/operate/compute-node)
+- [Run a Storage Node →](/operate/storage-node)
+
+## Environment Variables
+
+```bash
+# Required
+NETWORK=localnet              # localnet | testnet | mainnet
+RPC_URL=http://127.0.0.1:9545
+PRIVATE_KEY=0x...
+
+# Storage
+STORAGE_PATH=/data/ipfs
+STORAGE_MAX_SIZE=100GB
+
+# Compute
+COMPUTE_GPU_ENABLED=true
+COMPUTE_MODELS=llama3.2,mistral
+
+# Optional
+DWS_BASE_URL=http://localhost:4007
+LOG_LEVEL=info
+```
+
+## API Reference
+
+| Service | Endpoint | Description |
+|---------|----------|-------------|
+| Storage | `/storage/*` | File upload, pinning |
+| Compute | `/compute/*` | AI inference, GPU rental |
+| CDN | `/cdn/*` | Edge caching |
+| Git | `/git/*` | Repository hosting |
+| Pkg | `/pkg/*` | Package registry |
+| CI | `/ci/*` | Build pipelines |
+| Workers | `/workers/*` | Bun serverless functions |
+| Workerd | `/workerd/*` | V8 isolate workers |
+| S3 | `/s3/*` | S3-compatible API |
+| KMS | `/kms/*` | Key management |
+| A2A | `/a2a/*` | Agent messaging |
+| MCP | `/mcp/*` | Model Context Protocol |
+
+## Pricing
+
+DWS uses x402 micropayments. Prices are set by providers:
+
+| Service | Typical Price |
+|---------|---------------|
+| Storage | ~$0.02/GB/month |
+| Inference | ~$0.001/1K tokens |
+| GPU Rental | ~$1-3/hour |
+| Workers | ~$0.001/invocation |
+
+Pay in USDC, JEJU, or any registered token.

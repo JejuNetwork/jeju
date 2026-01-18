@@ -3,21 +3,24 @@
  * Tests on-chain state verification after transactions
  */
 
+import type { Page } from '@playwright/test'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
-// Must import zod-compat before synpress for Zod 4 compatibility
-import '@jejunetwork/tests/zod-compat'
 import { testWithSynpress } from '@synthetixio/synpress'
-// Must import zod-compat before synpress for Zod 4 compatibility
-import '@jejunetwork/tests/zod-compat'
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright'
-// Must import zod-compat before synpress for Zod 4 compatibility
-import '@jejunetwork/tests/zod-compat'
 import { basicSetup } from '../../synpress.config'
 
 const execAsync = promisify(exec)
 const test = testWithSynpress(metaMaskFixtures(basicSetup))
 const { expect } = test
+
+async function openWalletLogin(page: Page): Promise<void> {
+  await page.getByRole('button', { name: /sign in/i }).click()
+  const walletOption = page.getByRole('button', { name: /connect wallet/i })
+  if (await walletOption.isVisible().catch(() => false)) {
+    await walletOption.click()
+  }
+}
 
 async function runJejuCLI(command: string): Promise<string> {
   const workspaceRoot = process.cwd().replace(/\/apps\/factory.*$/, '')
@@ -46,7 +49,7 @@ test.describe('Bounty On-Chain State', () => {
     )
 
     await page.goto('/')
-    await page.getByRole('button', { name: /connect wallet/i }).click()
+    await openWalletLogin(page)
 
     const metamaskOption = page.getByText(/metamask/i)
     if (await metamaskOption.isVisible()) {
@@ -93,7 +96,7 @@ test.describe('Bounty On-Chain State', () => {
     )
 
     await page.goto('/')
-    await page.getByRole('button', { name: /connect wallet/i }).click()
+    await openWalletLogin(page)
 
     const metamaskOption = page.getByText(/metamask/i)
     if (await metamaskOption.isVisible()) {
@@ -135,7 +138,7 @@ test.describe('Bounty On-Chain State', () => {
 
     if (bountyStatus.includes('status: InProgress')) {
       await page.goto('/')
-      await page.getByRole('button', { name: /connect wallet/i }).click()
+      await openWalletLogin(page)
 
       const metamaskOption = page.getByText(/metamask/i)
       if (await metamaskOption.isVisible()) {
@@ -175,7 +178,7 @@ test.describe('Model Registry On-Chain State', () => {
     )
 
     await page.goto('/')
-    await page.getByRole('button', { name: /connect wallet/i }).click()
+    await openWalletLogin(page)
 
     const metamaskOption = page.getByText(/metamask/i)
     if (await metamaskOption.isVisible()) {
@@ -220,7 +223,7 @@ test.describe('Container Registry On-Chain State', () => {
     )
 
     await page.goto('/')
-    await page.getByRole('button', { name: /connect wallet/i }).click()
+    await openWalletLogin(page)
 
     const metamaskOption = page.getByText(/metamask/i)
     if (await metamaskOption.isVisible()) {
@@ -264,7 +267,7 @@ test.describe('Guardian Registry On-Chain State', () => {
     )
 
     await page.goto('/')
-    await page.getByRole('button', { name: /connect wallet/i }).click()
+    await openWalletLogin(page)
 
     const metamaskOption = page.getByText(/metamask/i)
     if (await metamaskOption.isVisible()) {
@@ -307,7 +310,7 @@ test.describe('Guardian Registry On-Chain State', () => {
     )
 
     await page.goto('/')
-    await page.getByRole('button', { name: /connect wallet/i }).click()
+    await openWalletLogin(page)
 
     const metamaskOption = page.getByText(/metamask/i)
     if (await metamaskOption.isVisible()) {
@@ -344,7 +347,7 @@ test.describe('Project Board On-Chain State', () => {
     )
 
     await page.goto('/')
-    await page.getByRole('button', { name: /connect wallet/i }).click()
+    await openWalletLogin(page)
 
     const metamaskOption = page.getByText(/metamask/i)
     if (await metamaskOption.isVisible()) {
@@ -387,7 +390,7 @@ test.describe('Project Board On-Chain State', () => {
     )
 
     await page.goto('/')
-    await page.getByRole('button', { name: /connect wallet/i }).click()
+    await openWalletLogin(page)
 
     const metamaskOption = page.getByText(/metamask/i)
     if (await metamaskOption.isVisible()) {
@@ -428,7 +431,7 @@ test.describe('Transaction Receipts Verification', () => {
     )
 
     await page.goto('/')
-    await page.getByRole('button', { name: /connect wallet/i }).click()
+    await openWalletLogin(page)
 
     const metamaskOption = page.getByText(/metamask/i)
     if (await metamaskOption.isVisible()) {
@@ -481,7 +484,7 @@ test.describe('Event Logs Verification', () => {
     )
 
     await page.goto('/')
-    await page.getByRole('button', { name: /connect wallet/i }).click()
+    await openWalletLogin(page)
 
     const metamaskOption = page.getByText(/metamask/i)
     if (await metamaskOption.isVisible()) {

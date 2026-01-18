@@ -2,10 +2,15 @@
  * Compute Routes - Job execution and inference API
  */
 
+import { getCurrentNetwork, getDWSUrl } from '@jejunetwork/config'
+import { buildMaxTokensParam } from '@jejunetwork/shared/tokens'
 import type { JobStatus } from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
 import { z } from 'zod'
+
+import type { APIProvider } from '../../api-marketplace'
+import { getProviderById } from '../../api-marketplace'
 
 const EnvSchema = z.record(z.string(), z.string())
 
@@ -17,6 +22,10 @@ import {
   unregisterNode,
   updateNodeHeartbeat,
 } from '../../compute/inference-node'
+import {
+  getProviderKey,
+  registerConfiguredInferenceProviders,
+} from '../../compute/local-inference-providers'
 import { computeJobState, trainingState } from '../../state'
 
 interface ComputeJob {
@@ -53,6 +62,127 @@ const BedrockEmbeddingResponseSchema = z.object({
   embedding: z.array(z.number()),
   inputTextTokenCount: z.number(),
 })
+
+const OpenAICompatibleProviderIds = [
+  'openai',
+  'groq',
+  'together',
+  'openrouter',
+  'fireworks',
+  'mistral',
+  'deepseek',
+  'cerebras',
+  'perplexity',
+  'sambanova',
+  'ai21',
+]
+
+const AnthropicResponseSchema = z.object({
+  id: z.string(),
+  model: z.string(),
+  content: z.array(z.object({ text: z.string() })),
+  stop_reason: z.string(),
+  usage: z.object({ input_tokens: z.number(), output_tokens: z.number() }),
+})
+
+interface ChatCompletionRequest {
+  model?: string
+  messages: Array<{ role: string; content: string }>
+  temperature?: number
+  max_tokens?: number
+  stream?: boolean
+}
+
+interface OpenAIRequestBody {
+  model: string
+  messages: Array<{ role: string; content: string }>
+  temperature?: number
+  stream?: boolean
+  max_tokens?: number
+  max_completion_tokens?: number
+}
+
+function isOpenAICompatibleProvider(provider: APIProvider): boolean {
+  if (provider.knownEndpoints.includes('/chat/completions')) return true
+  return OpenAICompatibleProviderIds.includes(provider.id)
+}
+
+function getProviderApiKey(provider: APIProvider): string | null {
+  const envValue = process.env[provider.envVar]
+  if (!envValue) return null
+  return envValue
+}
+
+function injectAuthHeaders(
+  provider: APIProvider,
+  apiKey: string,
+  url: URL,
+  headers: Record<string, string>,
+): { url: URL; headers: Record<string, string> } {
+  const resultHeaders = { ...headers }
+
+  switch (provider.authType) {
+    case 'bearer':
+      resultHeaders[
+        provider.authConfig.headerName
+          ? provider.authConfig.headerName
+          : 'Authorization'
+      ] = `${provider.authConfig.prefix ? provider.authConfig.prefix : 'Bearer '}${apiKey}`
+      break
+    case 'header':
+      resultHeaders[
+        provider.authConfig.headerName
+          ? provider.authConfig.headerName
+          : 'X-API-Key'
+      ] = `${provider.authConfig.prefix ? provider.authConfig.prefix : ''}${apiKey}`
+      break
+    case 'query':
+      url.searchParams.set(
+        provider.authConfig.queryParam ? provider.authConfig.queryParam : 'api_key',
+        apiKey,
+      )
+      break
+    case 'basic': {
+      const encoded = Buffer.from(apiKey).toString('base64')
+      resultHeaders.Authorization = `Basic ${encoded}`
+      break
+    }
+  }
+
+  if (provider.id === 'anthropic') {
+    resultHeaders['anthropic-version'] = '2023-06-01'
+  }
+
+  return { url, headers: resultHeaders }
+}
+
+function buildOpenAIRequestBody(body: ChatCompletionRequest): OpenAIRequestBody {
+  if (!body.model || body.model.trim().length === 0) {
+    throw new Error('model is required for inference')
+  }
+
+  const requestBody: OpenAIRequestBody = {
+    model: body.model,
+    messages: body.messages,
+  }
+
+  if (body.temperature !== undefined) {
+    requestBody.temperature = body.temperature
+  }
+  if (body.stream !== undefined) {
+    requestBody.stream = body.stream
+  }
+  if (body.max_tokens !== undefined) {
+    const maxParam = buildMaxTokensParam(body.model, body.max_tokens)
+    if ('max_tokens' in maxParam) {
+      requestBody.max_tokens = maxParam.max_tokens
+    } else {
+      requestBody.max_completion_tokens = maxParam.max_completion_tokens
+    }
+  }
+
+  return requestBody
+}
 
 async function processQueue(): Promise<void> {
   if (activeJobs.size >= MAX_CONCURRENT) return
@@ -156,6 +286,8 @@ export function createComputeRouter() {
       .post(
         '/chat/completions',
         async ({ body, set }) => {
+          const dwsUrl = getDWSUrl(getCurrentNetwork())
+          await registerConfiguredInferenceProviders(dwsUrl)
           const activeNodes = await getActiveNodes()
           const modelLower = (body.model ?? '').toLowerCase()
           let selectedNode: InferenceNode | null = null
@@ -189,9 +321,9 @@ export function createComputeRouter() {
             return {
               error: 'No inference nodes available',
               message:
-                'Register an inference node with DWS. For local dev: bun run src/compute/local-inference-server.ts',
+                'Configure an inference provider API key (OPENAI_API_KEY, GROQ_API_KEY, ANTHROPIC_API_KEY) or register an on-chain inference node.',
               activeNodes: activeNodes.length,
-              stats: getNodeStats(),
+              stats: await getNodeStats(),
             }
           }
 
@@ -224,6 +356,158 @@ export function createComputeRouter() {
           }
         },
         {
+          body: t.Object({
+            model: t.Optional(t.String()),
+            messages: t.Array(
+              t.Object({
+                role: t.String(),
+                content: t.String(),
+              }),
+            ),
+            temperature: t.Optional(t.Number()),
+            max_tokens: t.Optional(t.Number()),
+            stream: t.Optional(t.Boolean()),
+          }),
+        },
+      )
+
+      // Internal provider proxy (local inference nodes)
+      .post(
+        '/providers/:providerId/v1/chat/completions',
+        async ({ params, body, set }) => {
+          const provider = getProviderById(params.providerId)
+          if (!provider) {
+            set.status = 404
+            return { error: 'Provider not found' }
+          }
+          if (!provider.categories.includes('inference')) {
+            set.status = 400
+            return { error: 'Provider does not support inference' }
+          }
+          const apiKey = getProviderKey(provider.id) ?? getProviderApiKey(provider)
+          if (!apiKey) {
+            set.status = 503
+            return {
+              error: 'Inference provider key missing',
+              message: `Set ${provider.envVar} to enable ${provider.name}`,
+            }
+          }
+
+          if (provider.id === 'anthropic') {
+            const model = body.model
+            if (!model || model.trim().length === 0) {
+              set.status = 400
+              return { error: 'model is required for inference' }
+            }
+
+            const systemMessage = body.messages.find((m) => m.role === 'system')
+            const otherMessages = body.messages.filter(
+              (m) => m.role !== 'system',
+            )
+
+            const maxTokens =
+              body.max_tokens !== undefined ? body.max_tokens : 4096
+
+            const requestBody: {
+              model: string
+              max_tokens: number
+              messages: Array<{ role: string; content: string }>
+              system?: string
+              temperature?: number
+            } = {
+              model,
+              max_tokens: maxTokens,
+              messages: otherMessages,
+            }
+
+            if (systemMessage) {
+              requestBody.system = systemMessage.content
+            }
+            if (body.temperature !== undefined) {
+              requestBody.temperature = body.temperature
+            }
+
+            const url = new URL('/messages', provider.baseUrl)
+            const auth = injectAuthHeaders(provider, apiKey, url, {
+              'Content-Type': 'application/json',
+            })
+
+            const response = await fetch(auth.url.toString(), {
+              method: 'POST',
+              headers: auth.headers,
+              body: JSON.stringify(requestBody),
+            })
+
+            if (!response.ok) {
+              const errorText = await response.text()
+              set.status = response.status as 400 | 401 | 403 | 500
+              return { error: `Anthropic error: ${errorText}` }
+            }
+
+            const result = AnthropicResponseSchema.parse(await response.json())
+
+            return {
+              id: result.id,
+              object: 'chat.completion',
+              model: result.model,
+              choices: [
+                {
+                  index: 0,
+                  message: {
+                    role: 'assistant',
+                    content: result.content[0] ? result.content[0].text : '',
+                  },
+                  finish_reason:
+                    result.stop_reason === 'end_turn'
+                      ? 'stop'
+                      : result.stop_reason,
+                },
+              ],
+              usage: {
+                prompt_tokens: result.usage.input_tokens,
+                completion_tokens: result.usage.output_tokens,
+                total_tokens:
+                  result.usage.input_tokens + result.usage.output_tokens,
+              },
+              provider: provider.id,
+            }
+          }
+
+          if (!isOpenAICompatibleProvider(provider)) {
+            set.status = 400
+            return {
+              error: 'Provider not supported for inference proxy',
+              provider: provider.id,
+            }
+          }
+
+          if (!body.model || body.model.trim().length === 0) {
+            set.status = 400
+            return { error: 'model is required for inference' }
+          }
+
+          const url = new URL('/chat/completions', provider.baseUrl)
+          const auth = injectAuthHeaders(provider, apiKey, url, {
+            'Content-Type': 'application/json',
+          })
+          const requestBody = buildOpenAIRequestBody(body)
+
+          const response = await fetch(auth.url.toString(), {
+            method: 'POST',
+            headers: auth.headers,
+            body: JSON.stringify(requestBody),
+          })
+
+          if (!response.ok) {
+            const errorText = await response.text()
+            set.status = response.status as 400 | 401 | 403 | 500
+            return { error: `${provider.name} error: ${errorText}` }
+          }
+
+          return response.json()
+        },
+        {
+          params: t.Object({ providerId: t.String() }),
           body: t.Object({
             model: t.Optional(t.String()),
             messages: t.Array(
@@ -595,7 +879,13 @@ export function createComputeRouter() {
         }
       })
 
-      .get('/nodes/inference', async () => await getActiveNodes())
+      .get('/nodes/inference', async () => {
+        const dwsUrl = getDWSUrl(getCurrentNetwork())
+        await registerConfiguredInferenceProviders(dwsUrl)
+        const nodes = await getActiveNodes()
+        // Convert BigInt fields to strings for JSON serialization
+        return nodes.map((n) => ({ ...n, stake: n.stake.toString() }))
+      })
 
       .get('/nodes/:address', async ({ params, set }) => {
         const node = await trainingState.getNode(params.address)

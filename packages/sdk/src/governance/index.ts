@@ -28,10 +28,10 @@ const ProposalTypeFromValue: Record<number, ProposalType> = {
 /** Reverse mapping from numeric status to ProposalStatus string */
 const ProposalStatusFromValue: Record<number, ProposalStatus> = {
   0: 'SUBMITTED',
-  1: 'COUNCIL_REVIEW',
+  1: 'BOARD_REVIEW',
   2: 'RESEARCH_PENDING',
-  3: 'COUNCIL_FINAL',
-  4: 'CEO_QUEUE',
+  3: 'BOARD_FINAL',
+  4: 'DIRECTOR_QUEUE',
   5: 'APPROVED',
   6: 'EXECUTING',
   7: 'COMPLETED',
@@ -65,7 +65,7 @@ export interface ProposalInfo {
   status: ProposalStatus
   qualityScore: number
   createdAt: number
-  councilVoteEnd: number
+  boardVoteEnd: number
   gracePeriodEnd: number
   contentHash: string
   targetContract: Address
@@ -74,7 +74,7 @@ export interface ProposalInfo {
   totalStaked: bigint
   backerCount: number
   hasResearch: boolean
-  ceoApproved: boolean
+  directorApproved: boolean
 }
 
 export interface CreateProposalParams {
@@ -132,7 +132,7 @@ export interface GovernanceModule {
   getStats(): Promise<GovernanceStats>
 }
 
-const COUNCIL_ABI = [
+const BOARD_ABI = [
   {
     name: 'createProposal',
     type: 'function',
@@ -161,7 +161,7 @@ const COUNCIL_ABI = [
           { name: 'status', type: 'uint8' },
           { name: 'qualityScore', type: 'uint256' },
           { name: 'createdAt', type: 'uint256' },
-          { name: 'councilVoteEnd', type: 'uint256' },
+          { name: 'boardVoteEnd', type: 'uint256' },
           { name: 'gracePeriodEnd', type: 'uint256' },
           { name: 'contentHash', type: 'bytes32' },
           { name: 'targetContract', type: 'address' },
@@ -170,7 +170,7 @@ const COUNCIL_ABI = [
           { name: 'totalStaked', type: 'uint256' },
           { name: 'backerCount', type: 'uint256' },
           { name: 'hasResearch', type: 'bool' },
-          { name: 'ceoApproved', type: 'bool' },
+          { name: 'directorApproved', type: 'bool' },
         ],
       },
     ],
@@ -230,9 +230,17 @@ export function createGovernanceModule(
   wallet: BaseWallet,
   network: NetworkType,
 ): GovernanceModule {
-  const councilAddress = requireContract('governance', 'council', network)
-  const delegationAddress = requireContract('governance', 'delegation', network)
   const services = getServicesConfig(network)
+
+  // Lazy-load contract addresses - throw on method call if not deployed
+  const getBoardAddress = (): Address => {
+    const addr = requireContract('governance', 'board', network)
+    return addr
+  }
+  const getDelegationAddress = (): Address => {
+    const addr = requireContract('governance', 'delegation', network)
+    return addr
+  }
 
   async function createProposal(params: CreateProposalParams): Promise<Hex> {
     // Upload content to IPFS
@@ -250,7 +258,7 @@ export function createGovernanceModule(
       `0x${Buffer.from(cid).toString('hex').padEnd(64, '0')}` as Hex
 
     const data = encodeFunctionData({
-      abi: COUNCIL_ABI,
+      abi: BOARD_ABI,
       functionName: 'createProposal',
       args: [
         ProposalTypeValue[params.type],
@@ -261,7 +269,7 @@ export function createGovernanceModule(
       ],
     })
 
-    return wallet.sendTransaction({ to: councilAddress, data })
+    return wallet.sendTransaction({ to: getBoardAddress(), data })
   }
 
   async function getProposal(proposalId: Hex): Promise<ProposalInfo> {
@@ -299,12 +307,16 @@ export function createGovernanceModule(
 
   async function backProposal(proposalId: Hex, amount: bigint): Promise<Hex> {
     const data = encodeFunctionData({
-      abi: COUNCIL_ABI,
+      abi: BOARD_ABI,
       functionName: 'backProposal',
       args: [proposalId],
     })
 
-    return wallet.sendTransaction({ to: councilAddress, data, value: amount })
+    return wallet.sendTransaction({
+      to: getBoardAddress(),
+      data,
+      value: amount,
+    })
   }
 
   async function vote(params: VoteParams): Promise<Hex> {
@@ -313,12 +325,12 @@ export function createGovernanceModule(
       : ('0x0000000000000000000000000000000000000000000000000000000000000000' as Hex)
 
     const data = encodeFunctionData({
-      abi: COUNCIL_ABI,
+      abi: BOARD_ABI,
       functionName: 'castVote',
       args: [params.proposalId, VoteTypeValue[params.vote], reasonHash],
     })
 
-    return wallet.sendTransaction({ to: councilAddress, data })
+    return wallet.sendTransaction({ to: getBoardAddress(), data })
   }
 
   async function getVotingPower(): Promise<bigint> {
@@ -340,7 +352,7 @@ export function createGovernanceModule(
       args: [delegateTo],
     })
 
-    return wallet.sendTransaction({ to: delegationAddress, data })
+    return wallet.sendTransaction({ to: getDelegationAddress(), data })
   }
 
   async function undelegate(): Promise<Hex> {
@@ -350,7 +362,7 @@ export function createGovernanceModule(
       args: [],
     })
 
-    return wallet.sendTransaction({ to: delegationAddress, data })
+    return wallet.sendTransaction({ to: getDelegationAddress(), data })
   }
 
   async function listDelegates(): Promise<DelegateInfo[]> {

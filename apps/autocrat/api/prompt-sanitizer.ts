@@ -60,9 +60,30 @@ const ESCAPE_MAP: Record<string, string> = {
 
 /**
  * Check if input contains potential prompt injection patterns
+ * Returns the matched pattern if found, null otherwise
  */
-export function containsInjectionPattern(input: string): boolean {
-  return INJECTION_PATTERNS.some((pattern) => pattern.test(input))
+export function containsInjectionPattern(input: string): RegExp | null {
+  for (const pattern of INJECTION_PATTERNS) {
+    // Reset regex state (some have global flag)
+    pattern.lastIndex = 0
+    if (pattern.test(input)) {
+      return pattern
+    }
+  }
+  return null
+}
+
+/**
+ * Error thrown when prompt injection is detected and rejection mode is enabled
+ */
+export class PromptInjectionError extends Error {
+  constructor(
+    message: string,
+    public readonly inputPreview: string,
+  ) {
+    super(message)
+    this.name = 'PromptInjectionError'
+  }
 }
 
 /**
@@ -96,25 +117,47 @@ export function truncate(input: string, maxLength: number): string {
   return `${input.slice(0, maxLength - 3)}...`
 }
 
+/** Options for sanitizeForPrompt */
+export interface SanitizeOptions {
+  /** Maximum allowed length (default: INPUT_LIMITS.DESCRIPTION) */
+  maxLength?: number
+  /** Reject input if injection pattern detected (default: true in production) */
+  rejectOnInjection?: boolean
+  /** Log warning if injection detected (default: true) */
+  warnOnInjection?: boolean
+  /** Field name for error messages */
+  fieldName?: string
+}
+
 /**
  * Sanitize user input before embedding in AI prompts
  *
  * This function:
  * 1. Strips control characters
- * 2. Escapes dangerous delimiters
- * 3. Optionally detects and warns about injection patterns
+ * 2. Detects and REJECTS inputs with injection patterns (security-first)
+ * 3. Escapes dangerous delimiters
  * 4. Truncates to maximum length
  *
  * @param input - The user-provided input string
- * @param maxLength - Maximum allowed length (default: DESCRIPTION)
- * @param warnOnInjection - Log warning if injection detected (default: true in production)
+ * @param options - Sanitization options
  * @returns Sanitized string safe for prompt embedding
+ * @throws PromptInjectionError if injection detected and rejectOnInjection is true
  */
 export function sanitizeForPrompt(
   input: string,
-  maxLength: number = INPUT_LIMITS.DESCRIPTION,
-  warnOnInjection = getCurrentNetwork() !== 'localnet',
+  options: SanitizeOptions | number = {},
 ): string {
+  // Handle legacy signature where second arg was maxLength
+  const opts: SanitizeOptions =
+    typeof options === 'number' ? { maxLength: options } : options
+
+  const {
+    maxLength = INPUT_LIMITS.DESCRIPTION,
+    rejectOnInjection = getCurrentNetwork() !== 'localnet', // Reject by default in production
+    warnOnInjection = true,
+    fieldName = 'input',
+  } = opts
+
   if (!input || typeof input !== 'string') {
     return ''
   }
@@ -122,12 +165,25 @@ export function sanitizeForPrompt(
   // Step 1: Strip control characters
   let sanitized = stripControlChars(input)
 
-  // Step 2: Check for injection patterns and log if found
-  if (warnOnInjection && containsInjectionPattern(sanitized)) {
-    console.warn(
-      '[Security] Potential prompt injection detected:',
-      sanitized.slice(0, 100),
-    )
+  // Step 2: Check for injection patterns
+  const injectionPattern = containsInjectionPattern(sanitized)
+  if (injectionPattern) {
+    const preview = sanitized.slice(0, 100)
+
+    if (warnOnInjection) {
+      console.warn(
+        `[Security] Prompt injection detected in ${fieldName}:`,
+        preview,
+      )
+    }
+
+    if (rejectOnInjection) {
+      throw new PromptInjectionError(
+        `Potential prompt injection detected in ${fieldName}. ` +
+          'Input contains patterns that could manipulate AI behavior.',
+        preview,
+      )
+    }
   }
 
   // Step 3: Escape dangerous delimiters
@@ -141,17 +197,25 @@ export function sanitizeForPrompt(
 
 /**
  * Sanitize an array of strings for prompt embedding
+ * @throws PromptInjectionError if any item contains injection patterns
  */
 export function sanitizeArrayForPrompt(
   items: string[],
   maxItems: number = INPUT_LIMITS.ARRAY_ITEMS,
   maxItemLength: number = INPUT_LIMITS.ARRAY_ITEM,
+  options: Omit<SanitizeOptions, 'maxLength'> = {},
 ): string[] {
   if (!Array.isArray(items)) return []
 
   return items
     .slice(0, maxItems)
-    .map((item) => sanitizeForPrompt(item, maxItemLength))
+    .map((item, index) =>
+      sanitizeForPrompt(item, {
+        maxLength: maxItemLength,
+        fieldName: `${options.fieldName ?? 'item'}[${index}]`,
+        ...options,
+      }),
+    )
     .filter((item) => item.length > 0)
 }
 
@@ -160,9 +224,14 @@ export function sanitizeArrayForPrompt(
  *
  * This wraps the content in clearly marked boundaries so the AI model
  * can better distinguish between instructions and user content
+ * @throws PromptInjectionError if injection detected
  */
-export function wrapUserContent(content: string, label: string): string {
-  const sanitized = sanitizeForPrompt(content)
+export function wrapUserContent(
+  content: string,
+  label: string,
+  options: Omit<SanitizeOptions, 'fieldName'> = {},
+): string {
+  const sanitized = sanitizeForPrompt(content, { ...options, fieldName: label })
   return `<user_provided_${label}>\n${sanitized}\n</user_provided_${label}>`
 }
 
@@ -201,22 +270,32 @@ export function validateInputLength(
 
 /**
  * Validate and sanitize a complete input object
+ * @throws PromptInjectionError if any field contains injection patterns
  */
 export function validateAndSanitizeInput<
   T extends Record<string, string | string[] | undefined>,
->(input: T, limits: Partial<Record<keyof T, number>>): T {
+>(
+  input: T,
+  limits: Partial<Record<keyof T, number>>,
+  options: Omit<SanitizeOptions, 'maxLength' | 'fieldName'> = {},
+): T {
   const result = { ...input }
 
   for (const [key, limit] of Object.entries(limits) as [keyof T, number][]) {
     const value = result[key]
     if (typeof value === 'string') {
       validateInputLength(value, limit, String(key))
-      result[key] = sanitizeForPrompt(value, limit) as T[keyof T]
+      result[key] = sanitizeForPrompt(value, {
+        maxLength: limit,
+        fieldName: String(key),
+        ...options,
+      }) as T[keyof T]
     } else if (Array.isArray(value)) {
       result[key] = sanitizeArrayForPrompt(
         value,
         INPUT_LIMITS.ARRAY_ITEMS,
         limit,
+        { fieldName: String(key), ...options },
       ) as T[keyof T]
     }
   }

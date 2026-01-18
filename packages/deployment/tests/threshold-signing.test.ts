@@ -6,6 +6,7 @@ import {
   keccak256,
   recoverAddress,
   stringToHex,
+  toHex,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 
@@ -68,12 +69,12 @@ describe('Threshold Signing', () => {
 
     it('should compute domain separator', () => {
       const domainTypehash = keccak256(
-        stringToHex(
+        toHex(
           'EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)',
         ),
       )
-      const nameHash = keccak256(stringToHex('ThresholdBatchSubmitter'))
-      const versionHash = keccak256(stringToHex('1'))
+      const nameHash = keccak256(toHex('ThresholdBatchSubmitter'))
+      const versionHash = keccak256(toHex('1'))
       const chainId = 901n
       const contract = '0x1234567890123456789012345678901234567890' as Address
 

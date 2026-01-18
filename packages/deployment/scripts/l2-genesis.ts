@@ -168,9 +168,9 @@ Files created:
   - ${jwtSecretPath}
 
 Next steps:
-  1. Create Kubernetes secrets from these files
-  2. Deploy OP Stack services:
-     NETWORK=${NETWORK} bun run packages/deployment/scripts/helmfile.ts sync
+  1. Start the L2 chain nodes with the genesis files
+  2. Deploy DWS contracts and apps:
+     NETWORK=${NETWORK} bun run packages/deployment/scripts/deploy/dws-bootstrap.ts
 
 ═══════════════════════════════════════════════════════════════════════
 `)

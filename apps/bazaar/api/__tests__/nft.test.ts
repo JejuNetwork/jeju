@@ -4,7 +4,6 @@
 
 import { describe, expect, test } from 'bun:test'
 import { parseEther } from 'viem'
-import type { NormalizedNFT } from '../../schemas/nft'
 import {
   // Types
   type AuctionState,
@@ -37,7 +36,8 @@ import {
   validateBidAmount,
   // Price validation
   validateListingPrice,
-} from '../nft'
+} from '../../lib/nft'
+import type { NormalizedNFT } from '../../schemas/nft'
 
 describe('NFT Normalization', () => {
   describe('normalizeERC721Token', () => {
@@ -648,8 +648,8 @@ describe('Address Utilities', () => {
 })
 
 describe('Schema Exports', () => {
-  test('ListingParamsSchema validates correct input', () => {
-    const { ListingParamsSchema } = require('../nft')
+  test('ListingParamsSchema validates correct input', async () => {
+    const { ListingParamsSchema } = await import('../../lib/nft')
     const result = ListingParamsSchema.safeParse({
       nftContract: '0x1234567890abcdef1234567890abcdef12345678',
       tokenId: 1n,
@@ -659,8 +659,8 @@ describe('Schema Exports', () => {
     expect(result.success).toBe(true)
   })
 
-  test('AuctionParamsSchema validates correct input', () => {
-    const { AuctionParamsSchema } = require('../nft')
+  test('AuctionParamsSchema validates correct input', async () => {
+    const { AuctionParamsSchema } = await import('../../lib/nft')
     const result = AuctionParamsSchema.safeParse({
       nftContract: '0x1234567890abcdef1234567890abcdef12345678',
       tokenId: 1n,
@@ -670,8 +670,8 @@ describe('Schema Exports', () => {
     expect(result.success).toBe(true)
   })
 
-  test('BidParamsSchema validates correct input', () => {
-    const { BidParamsSchema } = require('../nft')
+  test('BidParamsSchema validates correct input', async () => {
+    const { BidParamsSchema } = await import('../../lib/nft')
     const result = BidParamsSchema.safeParse({
       auctionId: 1n,
       bidAmountETH: '1.5',
@@ -679,8 +679,8 @@ describe('Schema Exports', () => {
     expect(result.success).toBe(true)
   })
 
-  test('OfferParamsSchema validates correct input', () => {
-    const { OfferParamsSchema } = require('../nft')
+  test('OfferParamsSchema validates correct input', async () => {
+    const { OfferParamsSchema } = await import('../../lib/nft')
     const result = OfferParamsSchema.safeParse({
       nftContract: '0x1234567890abcdef1234567890abcdef12345678',
       tokenId: 1n,

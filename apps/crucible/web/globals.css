@@ -4,10 +4,10 @@
 
 /* Theme Variables - Light Mode (default) */
 :root {
-  /* Font family variables */
-  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
-  --font-display: 'Space Grotesk', system-ui, sans-serif;
-  --font-mono: 'Fira Code', 'JetBrains Mono', monospace;
+  /* Font family variables - Distinctive choices */
+  --font-sans: 'Plus Jakarta Sans', 'General Sans', system-ui, sans-serif;
+  --font-display: 'Outfit', 'Clash Display', 'General Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
 
   /* Brand Colors - Warm & Vibrant */
   --color-primary: #6366F1; /* Indigo */
@@ -359,6 +359,68 @@ h1, h2, h3, h4, h5, h6 {
       @apply py-3.5 text-base;
       min-height: 48px;
     }
+    
+    /* Mobile Full-screen Chat */
+    .chat-fullscreen {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      border-radius: 0;
+    }
+    
+    /* Mobile Agent Cards */
+    .agent-card-mobile {
+      @apply p-4;
+    }
+    
+    .agent-card-mobile .text-4xl {
+      @apply text-3xl;
+    }
+  }
+  
+  /* Safe area insets for mobile */
+  @supports (padding: max(0px)) {
+    .safe-area-inset-bottom {
+      padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    }
+    
+    .safe-area-inset-top {
+      padding-top: max(0px, env(safe-area-inset-top));
+    }
+  }
+  
+  /* Mobile Bottom Sheet */
+  .mobile-bottom-sheet {
+    @apply fixed left-0 right-0 bottom-0 z-50;
+    @apply rounded-t-3xl;
+    background-color: var(--surface);
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  
+  .mobile-bottom-sheet.open {
+    transform: translateY(0);
+  }
+  
+  .mobile-bottom-sheet-handle {
+    @apply w-10 h-1 mx-auto mt-3 mb-4 rounded-full;
+    background-color: var(--border-strong);
+  }
+  
+  /* Mobile Overlay */
+  .mobile-overlay {
+    @apply fixed inset-0 z-40;
+    background-color: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+  }
+  
+  .mobile-overlay.open {
+    opacity: 1;
+    visibility: visible;
   }
   
   /* Shimmer loading effect */

@@ -629,15 +629,40 @@ export async function runDeployHook(
   console.log(`[Deploy] Uploaded to IPFS: ${cid}`)
 
   // Update JNS (if configured)
+  // In production: uses KMS via DEPLOY_HOOK_KMS_KEY_ID
+  // In development: allows JEJU_DEPLOY_KEY with warning
   const jnsName = `${config.appName}.jeju`
-  const privateKey = process.env.JEJU_DEPLOY_KEY as Hex | undefined
+  const kmsKeyId = process.env.DEPLOY_HOOK_KMS_KEY_ID
+  const ownerAddress = process.env.DEPLOY_HOOK_OWNER_ADDRESS as
+    | Address
+    | undefined
+  const directKey = process.env.JEJU_DEPLOY_KEY as Hex | undefined
 
-  if (privateKey) {
-    const txHash = await updateJNS(jnsName, cid, config.network, privateKey)
+  if (kmsKeyId && ownerAddress) {
+    // Use KMS-backed signing
+    const txHash = await updateJNS(jnsName, cid, config.network, undefined)
     if (txHash) {
       result.jnsName = jnsName
       result.jnsTxHash = txHash
-      console.log(`[Deploy] Updated JNS: ${jnsName} -> ${txHash}`)
+      console.log(`[Deploy] Updated JNS via KMS: ${jnsName} -> ${txHash}`)
+    }
+  } else if (directKey) {
+    // Development-only direct key
+    if (isProductionEnv()) {
+      console.error(
+        '[Deploy] SECURITY: JEJU_DEPLOY_KEY not allowed in production. ' +
+          'Use DEPLOY_HOOK_KMS_KEY_ID instead.',
+      )
+    } else {
+      console.warn(
+        '[Deploy] WARNING: Using direct JEJU_DEPLOY_KEY. Use KMS in production.',
+      )
+      const txHash = await updateJNS(jnsName, cid, config.network, directKey)
+      if (txHash) {
+        result.jnsName = jnsName
+        result.jnsTxHash = txHash
+        console.log(`[Deploy] Updated JNS: ${jnsName} -> ${txHash}`)
+      }
     }
   }
 

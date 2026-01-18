@@ -4,8 +4,10 @@ import {
   getRpcUrl,
   getServiceUrl,
 } from '@jejunetwork/config'
+import { deriveKeyFromSecretAsync } from '@jejunetwork/kms'
 import { keccak256, stringToHex } from 'viem'
 import { z } from 'zod'
+import { getTEEEncryptionKeyId } from './secrets'
 
 // Schemas for JSON parsing
 const EncryptedCiphertextSchema = z.object({
@@ -128,14 +130,24 @@ export interface AuthSig {
 }
 
 // Lazy configuration getters to avoid initialization errors in tests
-let _councilAddress: string | null = null
+let _boardAddress: string | null = null
 let _chainId: string | null = null
 
-function getCouncilAddress(): string {
-  if (!_councilAddress) {
-    _councilAddress = getContract('governance', 'council')
+function getBoardAddress(): string {
+  if (!_boardAddress) {
+    try {
+      _boardAddress = getContract('governance', 'board')
+    } catch {
+      // Fall back to registryGovernance or a placeholder for testing
+      try {
+        _boardAddress = getContract('governance', 'registryGovernance')
+      } catch {
+        // Use zero address as fallback for access control conditions
+        _boardAddress = '0x0000000000000000000000000000000000000000'
+      }
+    }
   }
-  return _councilAddress
+  return _boardAddress
 }
 
 function getChainIdString(): string {
@@ -149,31 +161,45 @@ function getDAUrl(): string {
   return getServiceUrl('storage', 'api')
 }
 
-import { config } from './config'
+// Cached derived key (only in memory, never persisted)
+let cachedDerivedKey: Uint8Array | null = null
 
 /**
- * SECURITY: Get encryption key WITHOUT caching in memory.
- * In production, this should NOT be called - use KMS encryption directly.
+ * SECURITY: Get encryption key derived from KMS key ID.
+ * In production, the key ID references a key stored in KMS.
+ * The actual encryption key is derived using HKDF, never stored directly.
  */
-function getEncryptionKeyOnce(): string {
-  const key = config.teeEncryptionSecret
-  if (!key) {
-    throw new Error('TEE_ENCRYPTION_SECRET environment variable is required')
-  }
-  return key
+async function getEncryptionKey(): Promise<Uint8Array> {
+  if (cachedDerivedKey) return cachedDerivedKey
+
+  const keyId = await getTEEEncryptionKeyId()
+
+  // Derive the encryption key from the key ID using HKDF
+  // This ensures we never store raw secrets, only derived material
+  cachedDerivedKey = await deriveKeyFromSecretAsync(
+    keyId,
+    'autocrat:tee:encryption:v1',
+  )
+
+  return cachedDerivedKey
 }
 
-function isInitialized(): boolean {
-  return process.env.TEE_ENCRYPTION_SECRET !== undefined
+async function isInitialized(): Promise<boolean> {
+  try {
+    await getTEEEncryptionKeyId()
+    return true
+  } catch {
+    return false
+  }
 }
 
 function reset(): void {
-  _councilAddress = null
+  _boardAddress = null
   _chainId = null
 }
 
 /**
- * Create access control conditions for CEO decision
+ * Create access control conditions for Director decision
  * Decision can be decrypted if:
  * 1. Proposal status is COMPLETED (status = 7), or
  * 2. 30 days have passed since encryption
@@ -187,7 +213,7 @@ function createAccessConditions(
   return [
     // Condition 1: Proposal is completed
     {
-      contractAddress: getCouncilAddress(),
+      contractAddress: getBoardAddress(),
       standardContractType: 'Custom',
       chain: getChainIdString(),
       method: 'proposals',
@@ -215,13 +241,18 @@ function createAccessConditions(
 
 /**
  * SECURITY: Derive encryption key from the base key and policy.
- * Key is NOT cached - derived fresh each time and cleared after use.
- * In production, use KMS encryption endpoints instead.
+ * Uses KMS-derived key material as base.
  */
 async function deriveKey(policyHash: string): Promise<CryptoKey> {
-  const baseKey = getEncryptionKeyOnce()
-  const keyMaterial = new TextEncoder().encode(`${baseKey}:${policyHash}`)
-  const hashBuffer = await crypto.subtle.digest('SHA-256', keyMaterial)
+  const baseKey = await getEncryptionKey()
+  const policyBytes = new TextEncoder().encode(policyHash)
+
+  // Combine base key with policy for unique per-policy key
+  const combined = new Uint8Array(baseKey.length + policyBytes.length)
+  combined.set(baseKey)
+  combined.set(policyBytes, baseKey.length)
+
+  const hashBuffer = await crypto.subtle.digest('SHA-256', combined)
 
   return crypto.subtle.importKey(
     'raw',
@@ -286,7 +317,7 @@ async function decrypt(
 }
 
 /**
- * Encrypt CEO decision data
+ * Encrypt Director decision data
  */
 export async function encryptDecision(
   decision: DecisionData,
@@ -314,7 +345,7 @@ export async function encryptDecision(
 }
 
 /**
- * Decrypt CEO decision data
+ * Decrypt Director decision data
  */
 export async function decryptDecision(
   encryptedData: EncryptedData,
@@ -351,7 +382,7 @@ export async function backupToDA(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       data: JSON.stringify({
-        type: 'ceo_decision',
+        type: 'director_decision',
         proposalId,
         encryptedData,
         timestamp: Date.now(),
@@ -367,8 +398,8 @@ export async function backupToDA(
         ],
         operator: 'or',
       },
-      owner: getCouncilAddress(),
-      metadata: { type: 'ceo_decision', proposalId },
+      owner: getBoardAddress(),
+      metadata: { type: 'director_decision', proposalId },
     }),
   })
 
@@ -392,8 +423,8 @@ export async function retrieveFromDA(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      metadata: { type: 'ceo_decision', proposalId },
-      accessor: getCouncilAddress(),
+      metadata: { type: 'director_decision', proposalId },
+      accessor: getBoardAddress(),
     }),
   })
 
@@ -419,7 +450,7 @@ export async function retrieveFromDA(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         keyId: latest.keyId,
-        accessor: getCouncilAddress(),
+        accessor: getBoardAddress(),
       }),
     },
   )
@@ -462,10 +493,14 @@ export async function canDecrypt(
   }
 
   const proposalId = proposalCondition.parameters[0]
-  const councilAddress = proposalCondition.contractAddress
+  const boardAddress = proposalCondition.contractAddress
   const rpc = rpcUrl ?? getRpcUrl()
 
-  const callData = `0x013cf08b${proposalId.slice(2).padStart(64, '0')}` // proposals(uint256)
+  // Convert proposalId to hex if it's not already (handle string IDs)
+  const proposalIdHex = proposalId.startsWith('0x')
+    ? proposalId.slice(2).padStart(64, '0')
+    : keccak256(stringToHex(proposalId)).slice(2)
+  const callData = `0x013cf08b${proposalIdHex}` // proposals(uint256)
 
   const response = await fetch(rpc, {
     method: 'POST',
@@ -474,7 +509,7 @@ export async function canDecrypt(
       jsonrpc: '2.0',
       id: 1,
       method: 'eth_call',
-      params: [{ to: councilAddress, data: callData }, 'latest'],
+      params: [{ to: boardAddress, data: callData }, 'latest'],
     }),
   })
 
@@ -490,7 +525,8 @@ export async function canDecrypt(
   }
 
   if (!result.result || result.result === '0x') {
-    throw new Error('Empty RPC result for proposal status')
+    // Proposal doesn't exist on-chain - can't decrypt yet
+    return false
   }
 
   const statusOffset = 8 * 64 + 2
@@ -500,13 +536,18 @@ export async function canDecrypt(
   return status === 7
 }
 
-export function getEncryptionStatus(): {
+export async function getEncryptionStatus(): Promise<{
   provider: string
   connected: boolean
-} {
-  return { provider: 'jeju-kms', connected: isInitialized() }
+}> {
+  return { provider: 'jeju-kms', connected: await isInitialized() }
 }
 
 export async function disconnect(): Promise<void> {
+  // Clear cached derived key from memory
+  if (cachedDerivedKey) {
+    cachedDerivedKey.fill(0)
+    cachedDerivedKey = null
+  }
   reset()
 }

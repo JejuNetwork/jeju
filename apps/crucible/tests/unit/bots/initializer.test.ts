@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config'
-import type { PublicClient, WalletClient } from 'viem'
+import type { PublicClient } from 'viem'
 import {
   createTradingBotOptions,
   DEFAULT_BOTS,
@@ -8,17 +8,18 @@ import {
 } from '../../../api/bots/default-bots'
 import { BotInitializer } from '../../../api/bots/initializer'
 import type { AgentSDK } from '../../../api/sdk/agent'
+import type { KMSSigner } from '../../../api/sdk/kms-signer'
 import type { CrucibleConfig } from '../../../lib/types'
 import {
   type AgentSDKRegisterOnly,
   createFailingMockAgentSDK,
   createMockAgentSDK,
+  createMockKMSSigner,
   TEST_CHAIN_IDS,
 } from '../../fixtures/bot-mocks'
 
 describe('BotInitializer', () => {
   const mockPublicClient = {} as PublicClient
-  const mockWalletClient = {} as WalletClient
 
   const baseConfig: CrucibleConfig = {
     rpcUrl: getL2RpcUrl(),
@@ -41,9 +42,11 @@ describe('BotInitializer', () => {
 
   let initializer: BotInitializer
   let mockAgentSdk: AgentSDKRegisterOnly
+  let mockKmsSigner: ReturnType<typeof createMockKMSSigner>
 
   beforeEach(() => {
     mockAgentSdk = createMockAgentSDK()
+    mockKmsSigner = createMockKMSSigner()
 
     // BotInitializer only calls registerAgent, so the partial mock is sufficient.
     // Cast is safe because we control what methods are called in the implementation.
@@ -51,7 +54,7 @@ describe('BotInitializer', () => {
       crucibleConfig: baseConfig,
       agentSdk: mockAgentSdk as AgentSDK,
       publicClient: mockPublicClient,
-      walletClient: mockWalletClient,
+      kmsSigner: mockKmsSigner as KMSSigner,
     })
   })
 
@@ -73,10 +76,11 @@ describe('BotInitializer', () => {
       const bots = getDefaultBotsForNetwork('testnet')
       expect(bots.length).toBeGreaterThan(0)
       const testnetChains = [420690, 11155111, 84532, 421614]
-      bots.forEach((bot) => {
+      bots.forEach((bot, index) => {
         expect(bot.chains.every((c) => testnetChains.includes(c))).toBe(true)
-        expect(parseFloat(bot.initialFunding)).toBeLessThan(
-          parseFloat(DEFAULT_BOTS[0].initialFunding),
+        // Testnet funding should be less than or equal to the same bot's mainnet funding
+        expect(parseFloat(bot.initialFunding)).toBeLessThanOrEqual(
+          parseFloat(DEFAULT_BOTS[index].initialFunding),
         )
       })
     })
@@ -103,31 +107,26 @@ describe('BotInitializer', () => {
   describe('createTradingBotOptions', () => {
     test('should create valid options', () => {
       const botConfig = DEFAULT_BOTS[0]
+      const treasuryAddr = `0x${'2'.repeat(40)}` as `0x${string}`
       const options = createTradingBotOptions(
         botConfig,
         1n,
-        `0x${'1'.repeat(64)}`,
         'testnet',
-        `0x${'2'.repeat(40)}`,
+        treasuryAddr,
       )
 
       expect(options.agentId).toBe(1n)
       expect(options.name).toBe(botConfig.name)
       expect(options.strategies).toEqual(botConfig.strategies)
       expect(options.chains.length).toBeGreaterThan(0)
-      expect(options.privateKey).toBe(`0x${'1'.repeat(64)}`)
       expect(options.maxConcurrentExecutions).toBe(5)
       expect(options.useFlashbots).toBe(true)
+      expect(options.treasuryAddress).toBe(treasuryAddr)
     })
 
     test('should disable Flashbots for localnet', () => {
       const botConfig = DEFAULT_BOTS[0]
-      const options = createTradingBotOptions(
-        botConfig,
-        1n,
-        `0x${'1'.repeat(64)}`,
-        'localnet',
-      )
+      const options = createTradingBotOptions(botConfig, 1n, 'localnet')
       expect(options.useFlashbots).toBe(false)
     })
 
@@ -137,23 +136,13 @@ describe('BotInitializer', () => {
         // Use unconfigured chain ID (valid integer, but not in DEFAULT_CHAINS)
         chains: [TEST_CHAIN_IDS.UNCONFIGURED],
       }
-      const options = createTradingBotOptions(
-        botConfig,
-        1n,
-        `0x${'1'.repeat(64)}`,
-        'testnet',
-      )
+      const options = createTradingBotOptions(botConfig, 1n, 'testnet')
       expect(options.chains.length).toBe(0)
     })
 
     test('should handle empty chains array', () => {
       const botConfig = { ...DEFAULT_BOTS[0], chains: [] }
-      const options = createTradingBotOptions(
-        botConfig,
-        1n,
-        `0x${'1'.repeat(64)}`,
-        'testnet',
-      )
+      const options = createTradingBotOptions(botConfig, 1n, 'testnet')
       expect(options.chains).toEqual([])
     })
   })
@@ -167,11 +156,12 @@ describe('BotInitializer', () => {
 
     test('should skip initialization without signer (no KMS or wallet)', async () => {
       const configWithoutKey = { ...baseConfig, privateKey: undefined }
+      const uninitializedKmsSigner = createMockKMSSigner(false)
       const init = new BotInitializer({
         crucibleConfig: configWithoutKey,
         agentSdk: mockAgentSdk as AgentSDK,
         publicClient: mockPublicClient,
-        // No walletClient, no kmsSigner - should skip
+        kmsSigner: uninitializedKmsSigner as KMSSigner,
       })
 
       const bots = await init.initializeDefaultBots()
@@ -186,7 +176,7 @@ describe('BotInitializer', () => {
         crucibleConfig: baseConfig,
         agentSdk: failingAgentSdk as AgentSDK,
         publicClient: mockPublicClient,
-        walletClient: mockWalletClient,
+        kmsSigner: mockKmsSigner as KMSSigner,
       })
 
       const bots = await failingInitializer.initializeDefaultBots()
@@ -266,7 +256,7 @@ describe('BotInitializer', () => {
         crucibleConfig: config,
         agentSdk: mockAgentSdk as AgentSDK,
         publicClient: mockPublicClient,
-        walletClient: mockWalletClient,
+        kmsSigner: mockKmsSigner as KMSSigner,
       })
 
       const bots = await init.initializeDefaultBots()

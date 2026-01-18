@@ -4,7 +4,7 @@
 
 import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, namehash } from 'viem'
-import { getServicesConfig, requireContract } from '../config'
+import { getServicesConfig, safeGetContract } from '../config'
 import {
   JNSAvailabilityResponseSchema,
   JNSNamesListResponseSchema,
@@ -200,9 +200,25 @@ export function createNamesModule(
   wallet: BaseWallet,
   network: NetworkType,
 ): NamesModule {
-  const registrarAddress = requireContract('jns', 'registrar', network)
-  const resolverAddress = requireContract('jns', 'resolver', network)
+  // Use safe getters - contracts may not be deployed on all networks
+  const registrarAddressOpt = safeGetContract('jns', 'registrar', network)
+  const resolverAddressOpt = safeGetContract('jns', 'resolver', network)
   const services = getServicesConfig(network)
+
+  // Lazy-load contract addresses - throw on method call if not deployed
+  const getRegistrarAddress = () => {
+    if (!registrarAddressOpt) {
+      throw new Error('JNS Registrar contract not deployed on this network')
+    }
+    return registrarAddressOpt
+  }
+
+  const getResolverAddress = () => {
+    if (!resolverAddressOpt) {
+      throw new Error('JNS Resolver contract not deployed on this network')
+    }
+    return resolverAddressOpt
+  }
 
   async function resolve(name: string): Promise<Address | null> {
     const normalized = normalizeName(name)
@@ -249,10 +265,14 @@ export function createNamesModule(
     const data = encodeFunctionData({
       abi: JNS_REGISTRAR_ABI,
       functionName: 'register',
-      args: [label, wallet.address, duration, resolverAddress],
+      args: [label, wallet.address, duration, getResolverAddress()],
     })
 
-    return wallet.sendTransaction({ to: registrarAddress, data, value: price })
+    return wallet.sendTransaction({
+      to: getRegistrarAddress(),
+      data,
+      value: price,
+    })
   }
 
   async function renew(name: string, additionalYears: number): Promise<Hex> {
@@ -268,7 +288,11 @@ export function createNamesModule(
       args: [label, duration],
     })
 
-    return wallet.sendTransaction({ to: registrarAddress, data, value: price })
+    return wallet.sendTransaction({
+      to: getRegistrarAddress(),
+      data,
+      value: price,
+    })
   }
 
   async function transfer(name: string, to: Address): Promise<Hex> {
@@ -281,7 +305,7 @@ export function createNamesModule(
       args: [node, to],
     })
 
-    return wallet.sendTransaction({ to: resolverAddress, data })
+    return wallet.sendTransaction({ to: getResolverAddress(), data })
   }
 
   async function setRecords(name: string, records: NameRecords): Promise<Hex> {
@@ -310,7 +334,7 @@ export function createNamesModule(
       args: [node, address],
     })
 
-    return wallet.sendTransaction({ to: resolverAddress, data })
+    return wallet.sendTransaction({ to: getResolverAddress(), data })
   }
 
   async function setText(
@@ -327,7 +351,7 @@ export function createNamesModule(
       args: [node, key, value],
     })
 
-    return wallet.sendTransaction({ to: resolverAddress, data })
+    return wallet.sendTransaction({ to: getResolverAddress(), data })
   }
 
   async function getNameInfo(name: string): Promise<NameInfo | null> {

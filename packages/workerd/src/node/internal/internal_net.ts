@@ -1726,7 +1726,7 @@ export class SocketAddress implements _SocketAddress {
 
 // ======================================================================================
 
-// Note: the bulk of the following BlockList related code was authored by claude...
+// The bulk of the following BlockList related code was authored by claude...
 // The implementation in Node.js is split between javascript and C++.
 // Here we do the entire implementation as TypeScript simply because
 // we don't need the C++ parts at all.

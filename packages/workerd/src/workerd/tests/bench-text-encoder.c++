@@ -104,7 +104,7 @@ BENCHMARK_DEFINE_F(TextEncoder, Parameterized)(benchmark::State& state) {
       ->Args({op_val, type_val, len})                                                              \
       ->Name(#op_name "_" #type_name "_" #len)
 
-// Note: Google Benchmark will append the arg values to the name (e.g., "Encode_ASCII_32/0/0/32")
+// Google Benchmark will append the arg values to the name (e.g., "Encode_ASCII_32/0/0/32")
 // where the trailing numbers are the actual argument values passed via ->Args():
 //   /0/0/32 = operation (0=encode, 1=encodeInto) / type (0=ascii, 1=one-byte, 2=two-byte) / length
 TEXT_ENCODER_BENCH(Encode, 0, ASCII, 0, 32);

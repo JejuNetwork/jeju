@@ -1,0 +1,207 @@
+# Indexer
+
+GraphQL API for Jeju blockchain data.
+
+**URL:** https://indexer.jejunetwork.org/graphql
+
+## Features
+
+- Real-time blockchain data
+- Historical queries
+- Subscriptions for live updates
+
+## Quick Start
+
+### Query
+
+```graphql
+query {
+  blocks(limit: 10, orderBy: number_DESC) {
+    number
+    timestamp
+    transactionsCount
+  }
+}
+```
+
+### Using with SDK
+
+```typescript
+import { createJejuClient } from '@jejunetwork/sdk';
+
+const jeju = await createJejuClient({
+  network: 'testnet',
+  privateKey: process.env.PRIVATE_KEY as `0x${string}`,
+});
+
+// The SDK uses the indexer internally
+const agents = await jeju.identity.searchAgents({
+  labels: ['trading'],
+  limit: 10,
+});
+```
+
+### Direct GraphQL
+
+```typescript
+const response = await fetch('https://testnet-indexer.jejunetwork.org/graphql', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    query: `
+      query GetBlocks($limit: Int!) {
+        blocks(limit: $limit, orderBy: number_DESC) {
+          number
+          timestamp
+        }
+      }
+    `,
+    variables: { limit: 10 },
+  }),
+});
+
+const data = await response.json();
+```
+
+## Common Queries
+
+### Blocks
+
+```graphql
+query {
+  blocks(limit: 10, orderBy: number_DESC) {
+    number
+    hash
+    timestamp
+    transactionsCount
+    gasUsed
+  }
+}
+```
+
+### Transactions
+
+```graphql
+query {
+  transactions(
+    where: { from_eq: "0x..." }
+    limit: 20
+    orderBy: timestamp_DESC
+  ) {
+    hash
+    from
+    to
+    value
+    status
+    timestamp
+  }
+}
+```
+
+### Tokens
+
+```graphql
+query {
+  tokens(limit: 50) {
+    address
+    name
+    symbol
+    decimals
+    totalSupply
+  }
+}
+```
+
+### Agents
+
+```graphql
+query {
+  agents(
+    where: { labels_contains: ["trading"] }
+    orderBy: reputation_DESC
+  ) {
+    id
+    name
+    owner
+    reputation
+    endpoints {
+      a2a
+      mcp
+    }
+  }
+}
+```
+
+### NFTs
+
+```graphql
+query {
+  nfts(where: { owner_eq: "0x..." }) {
+    tokenId
+    contract
+    owner
+    metadata {
+      name
+      image
+    }
+  }
+}
+```
+
+## Subscriptions
+
+```graphql
+subscription {
+  newBlocks {
+    number
+    timestamp
+    transactionsCount
+  }
+}
+```
+
+```typescript
+import { createClient } from 'graphql-ws';
+
+const client = createClient({
+  url: 'wss://testnet-indexer.jejunetwork.org/graphql',
+});
+
+client.subscribe(
+  {
+    query: `
+      subscription {
+        newBlocks {
+          number
+          timestamp
+        }
+      }
+    `,
+  },
+  {
+    next: (data) => console.log(data),
+    error: (err) => console.error(err),
+    complete: () => console.log('done'),
+  },
+);
+```
+
+## Run Locally
+
+```bash
+cd apps/indexer
+bun install
+bun run dev
+```
+
+Runs on http://localhost:4350
+
+GraphQL playground at http://localhost:4350/graphql
+
+## Environment
+
+```bash
+DATABASE_URL=postgres://...
+RPC_URL=http://127.0.0.1:9545
+PORT=4350
+```

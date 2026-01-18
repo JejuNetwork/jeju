@@ -11,6 +11,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./tee": {
+      "types": "./dist/tee/index.d.ts",
+      "import": "./dist/tee/index.js"
+    },
     "./config/*": "./config/*.json"
   },
   "scripts": {

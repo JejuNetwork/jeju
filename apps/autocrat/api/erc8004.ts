@@ -111,6 +111,11 @@ export class ERC8004Client {
 
       if (keyHex.length === 66) {
         // Development only: Allow local signing with warning
+        if (isProductionEnv()) {
+          throw new Error(
+            'SECURITY: Raw private keys are forbidden in production. Use KMS.',
+          )
+        }
         console.warn(
           '[ERC8004Client] ⚠️  Using local private key. NOT secure for production.',
         )
@@ -252,7 +257,7 @@ export class ERC8004Client {
         address: this.identityAddress,
         abi: identityRegistryAbi,
         functionName: 'updateTags',
-        args: [agentId, ['council', role.toLowerCase(), 'governance']],
+        args: [agentId, ['board', role.toLowerCase(), 'governance']],
         account: this.account,
       }) as Promise<`0x${string}`>,
     ])

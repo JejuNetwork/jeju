@@ -24,7 +24,7 @@ test.describe('ERC-8004 Agent Registry API', () => {
       `${AUTOCRAT_URL}/api/v1/agents/register`,
       {
         data: {
-          name: 'Test Council Agent',
+          name: 'Test Board Agent',
           role: 'TREASURY',
           a2aEndpoint: `${AUTOCRAT_URL}/a2a`,
           mcpEndpoint: `${AUTOCRAT_URL}/mcp`,
@@ -208,7 +208,7 @@ test.describe('Health Endpoint - Governance Features', () => {
     expect(response.ok()).toBeTruthy()
     const data = await response.json()
     expect(data.futarchy).toBeDefined()
-    expect(typeof data.futarchy.council).toBe('boolean')
+    expect(typeof data.futarchy.board).toBe('boolean')
     expect(typeof data.futarchy.predictionMarket).toBe('boolean')
   })
 

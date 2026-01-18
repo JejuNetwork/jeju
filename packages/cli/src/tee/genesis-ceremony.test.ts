@@ -6,9 +6,6 @@
  * - Attestation verification
  * - Simulated ceremony execution
  * - Edge cases and security properties
- *
- * Note: Some decryption tests may fail due to Bun crypto compatibility issues.
- * These tests are skipped by default unless ENABLE_CRYPTO_TESTS=true is set.
  */
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
@@ -20,9 +17,6 @@ import {
   type TeeKeyConfig,
   verifyAttestation,
 } from './genesis-ceremony'
-
-// Skip crypto-heavy tests by default due to Bun Web Crypto compatibility issues
-const SKIP_CRYPTO_TESTS = process.env.ENABLE_CRYPTO_TESTS !== 'true'
 
 describe('TEE Genesis Ceremony', () => {
   const originalEnv = process.env
@@ -132,7 +126,7 @@ describe('TEE Genesis Ceremony', () => {
     })
   })
 
-  describe.skipIf(SKIP_CRYPTO_TESTS)('Encryption/Decryption Round-Trip', () => {
+  describe('Encryption/Decryption Round-Trip', () => {
     test('encrypts and decrypts keys correctly', async () => {
       const password = 'SecureTestPassword123!@#$'
       const passwordHash = createHash('sha256').update(password).digestHex()
@@ -378,23 +372,24 @@ describe('TEE Genesis Ceremony', () => {
       // Decode the encrypted bundle
       const bundle = Buffer.from(result.encryptedKeys, 'base64')
 
-      // Structure: salt (32) + iv (16) + authTag (16) + encrypted
-      expect(bundle.length).toBeGreaterThan(64) // Minimum header size
+      // Structure: salt (32) + iv (12) + authTag (16) + encrypted
+      // encryptAesGcm uses 12-byte IV (GCM standard)
+      expect(bundle.length).toBeGreaterThan(60) // Minimum header size
 
       // Salt should be 32 bytes
       const salt = bundle.subarray(0, 32)
       expect(salt.length).toBe(32)
 
-      // IV should be 16 bytes
-      const iv = bundle.subarray(32, 48)
-      expect(iv.length).toBe(16)
+      // IV should be 12 bytes (GCM standard)
+      const iv = bundle.subarray(32, 44)
+      expect(iv.length).toBe(12)
 
       // Auth tag should be 16 bytes
-      const authTag = bundle.subarray(48, 64)
+      const authTag = bundle.subarray(44, 60)
       expect(authTag.length).toBe(16)
 
       // Should have encrypted data after header
-      const encryptedData = bundle.subarray(64)
+      const encryptedData = bundle.subarray(60)
       expect(encryptedData.length).toBeGreaterThan(0)
     })
 
@@ -411,9 +406,9 @@ describe('TEE Genesis Ceremony', () => {
 
       const bundles = results.map((r) => Buffer.from(r.encryptedKeys, 'base64'))
 
-      // Extract salts
+      // Extract salts and IVs (IV is 12 bytes for GCM)
       const salts = bundles.map((b) => b.subarray(0, 32).toString('hex'))
-      const ivs = bundles.map((b) => b.subarray(32, 48).toString('hex'))
+      const ivs = bundles.map((b) => b.subarray(32, 44).toString('hex'))
 
       // All salts should be unique
       expect(new Set(salts).size).toBe(3)
@@ -422,7 +417,7 @@ describe('TEE Genesis Ceremony', () => {
     })
   })
 
-  describe.skipIf(SKIP_CRYPTO_TESTS)('Derivation Path Uniqueness', () => {
+  describe('Derivation Path Uniqueness', () => {
     test('each operator has unique derivation path', async () => {
       const password = 'TestPassword123!'
       const passwordHash = createHash('sha256').update(password).digestHex()

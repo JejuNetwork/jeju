@@ -97,7 +97,7 @@ describe('Bonding curve calculations', () => {
   const client = createLaunchpadClient(connection)
 
   // Standard pump.fun style initial reserves
-  // Note: virtualTokenReserves = 1e15 (1 quadrillion smallest units)
+  // virtualTokenReserves = 1e15 (1 quadrillion smallest units)
   // If tokens have 6 decimals, this = 1 billion tokens
   const createStandardCurve = (): BondingCurve => ({
     creator: LAUNCHPAD_PROGRAM_ID,

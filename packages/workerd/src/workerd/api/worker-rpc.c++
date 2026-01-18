@@ -424,7 +424,7 @@ JsRpcPromiseAndPipeline callImpl(jsg::Lock& js,
     kj::Maybe<const kj::String&> name,
     // If `maybeArgs` is provided, this is a call, otherwise it is a property access.
     kj::Maybe<const v8::FunctionCallbackInfo<v8::Value>&> maybeArgs) {
-  // Note: We used to enforce that RPC methods had to be called with the correct `this`. That is,
+  // We used to enforce that RPC methods had to be called with the correct `this`. That is,
   // we prevented people from doing:
   //
   //   let obj = {foo: someRpcStub.foo};
@@ -939,7 +939,7 @@ class JsRpcTargetBase: public rpc::JsRpcTarget::Server {
   // can possibly be canceled. It can just use ctx.run().
   JsRpcTargetBase(IoContext& ctx, CantOutliveIncomingRequest)
       : enterIsolateAndCall([this, &ctx](CallContext callContext) {
-          // Note: No need to topUpActor() since this is the start of a top-level request, so the
+          // No need to topUpActor() since this is the start of a top-level request, so the
           // actor will already have been topped up by IncomingRequest::delivered().
           return ctx.run([this, &ctx, callContext](Worker::Lock& lock) mutable {
             return callImpl(lock, ctx, callContext);
@@ -1140,7 +1140,7 @@ class JsRpcTargetBase: public rpc::JsRpcTarget::Server {
       })));
 
       if (ctx.hasOutputGate()) {
-        // Note: If `ctx` is destroyed, the entire call to `callImpl()` will be canceled
+        // If `ctx` is destroyed, the entire call to `callImpl()` will be canceled
         // (makeReentryCallback() ensures this). This does NOT cancel the JavaScript (because JS
         // promises are not RAII-cancelable), but it will cancel this trailing .then(), which is
         // why it's safe to capture `&ctx` here.

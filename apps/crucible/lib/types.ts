@@ -46,6 +46,16 @@ export interface MessageMetadata {
 
 export type BotType = 'ai_agent' | 'trading_bot' | 'org_tool'
 
+export interface AgentCapabilities {
+  canTrade?: boolean
+  canChat?: boolean
+  canPropose?: boolean
+  canVote?: boolean
+  canStake?: boolean
+  a2a?: boolean
+  compute?: boolean
+}
+
 export interface AgentDefinition {
   agentId: bigint
   owner: Address
@@ -62,7 +72,7 @@ export interface AgentDefinition {
   chains?: TradingBotChain[]
   treasuryAddress?: Address
   orgId?: string
-  capabilities?: string[]
+  capabilities?: AgentCapabilities
 }
 
 export interface AgentCharacter {
@@ -82,10 +92,12 @@ export interface AgentCharacter {
   modelPreferences?: {
     small: string
     large: string
+    analysis?: string | null
     embedding?: string | null
   } | null
   mcpServers?: string[] | null
   a2aCapabilities?: string[] | null
+  capabilities?: AgentCapabilities | null
 }
 
 export interface MessageExample {
@@ -139,7 +151,7 @@ export interface RoomMember {
   score?: number
 }
 
-export type RoomType = 'collaboration' | 'adversarial' | 'debate' | 'council'
+export type RoomType = 'collaboration' | 'adversarial' | 'debate' | 'board'
 
 export type AgentRole =
   | 'participant'
@@ -348,7 +360,7 @@ export interface SearchResult<T> {
 
 export interface CrucibleConfig {
   rpcUrl: string
-  privateKey?: `0x${string}`
+  // NOTE: privateKey removed for security - use KMS signer instead
   kmsKeyId?: string
   contracts: {
     agentVault: Address

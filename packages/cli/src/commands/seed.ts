@@ -49,29 +49,8 @@ async function seedOAuth3(options: {
     process.exit(1)
   }
 
-  // Check for existing example seed script or use inline logic
-  const exampleSeedPath = join(rootDir, 'apps/example/scripts/seed.ts')
-  if (existsSync(exampleSeedPath)) {
-    logger.step('Running OAuth3 seed script...')
-    const proc = Bun.spawn(['bun', 'run', exampleSeedPath], {
-      cwd: join(rootDir, 'apps/example'),
-      stdout: 'inherit',
-      stderr: 'inherit',
-      env: {
-        ...process.env,
-        OAUTH3_APP_ID: options.appId,
-      },
-    })
-    const exitCode = await proc.exited
-    if (exitCode !== 0) {
-      logger.error('OAuth3 seeding failed')
-      process.exit(1)
-    }
-    logger.success('OAuth3 registry seeded')
-  } else {
-    // Inline seeding logic
-    await seedOAuth3Inline(options)
-  }
+  // Use inline seeding logic
+  await seedOAuth3Inline(options)
 }
 
 async function seedOAuth3Inline(options: {
@@ -85,7 +64,7 @@ async function seedOAuth3Inline(options: {
 
   const devWallets = {
     deployer: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-    council: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+    board: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
     teeOperator: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
   }
 
@@ -110,7 +89,6 @@ async function seedOAuth3Inline(options: {
   }
 
   logger.info('OAuth3 registry seeding requires app-level scripts.')
-  logger.info('Run: bun run --cwd apps/example seed')
   logger.newline()
 
   logger.subheader('TEE Node')

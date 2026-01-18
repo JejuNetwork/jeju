@@ -8,7 +8,7 @@ import {
   formatPrice as formatBondingCurvePrice,
   formatBasisPoints as formatProgress,
   formatDuration as formatTimeRemaining,
-} from '../../../lib/launchpad'
+} from '../../../../lib/launchpad'
 
 const formatPresaleProgress = formatProgress
 

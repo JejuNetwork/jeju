@@ -21,14 +21,14 @@ import './polyfills'
  * - mainnet: Jeju Mainnet production (chain 420692)
  */
 
-// Multi-tenant Council
+// Multi-tenant Board
 export {
-  type CEOConfig,
-  type CouncilAgentConfig,
-  type CouncilDeployment,
-  createMultiTenantCouncilManager,
-  MultiTenantCouncilManager,
-} from './council/multi-tenant.js'
+  type BoardAgentConfig,
+  type BoardDeployment,
+  createMultiTenantBoardManager,
+  type DirectorConfig,
+  MultiTenantBoardManager,
+} from './board/multi-tenant.js'
 // Verifiable Credentials
 export {
   addressFromDid,
@@ -277,6 +277,7 @@ export {
 export {
   ConnectedAccount,
   type ConnectedAccountProps,
+  AuthCallback,
   type LinkedAccount,
   LoginButton,
   type LoginButtonProps,

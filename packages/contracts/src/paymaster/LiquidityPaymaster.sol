@@ -66,9 +66,9 @@ contract LiquidityPaymaster is BasePaymaster {
         oracle = IPriceOracle(_oracle);
         feeMargin = _feeMargin;
 
-        // Transfer ownership if specified different from deployer
-        if (_owner != msg.sender) {
-            _transferOwnership(_owner);
+        address resolvedOwner = _owner == address(0) ? msg.sender : _owner;
+        if (resolvedOwner != msg.sender) {
+            _transferOwnership(resolvedOwner);
         }
     }
 

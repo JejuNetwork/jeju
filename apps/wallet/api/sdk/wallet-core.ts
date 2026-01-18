@@ -1,653 +1,322 @@
 /**
- * @fileoverview Core wallet functionality
- *
- * Provides the unified wallet interface that:
- * - Manages accounts across EVM and Solana
- * - Handles key generation and storage
- * - Coordinates cross-chain operations
- * - Exposes provider interface for dApps
+ * Wallet Core
+ * EIP-1193 compatible wallet implementation with account abstraction support
  */
 
-import {
-  expectAddress,
-  expectBigInt,
-  expectChainId,
-  expectDefined,
-  expectHex,
-  expectJson,
-} from '@jejunetwork/types'
-import type { Address, Hex, PublicClient, WalletClient } from 'viem'
+import type { Address } from 'viem'
 import { createPublicClient, http } from 'viem'
-import { z } from 'zod'
-import { expectNonEmpty, expectSchema } from '../../lib/validation'
-import { keyringService } from '../services/keyring'
+import { arbitrum, base, mainnet, optimism, sepolia } from 'viem/chains'
 import { type AAClient, createAAClient } from './account-abstraction'
-import { chains, getNetworkRpcUrl } from './chains'
 import { createEILClient, type EILClient } from './eil'
 import { createGasService, type GasAbstractionService } from './gas-abstraction'
-import { createOIFClient, type OIFClient } from './oif'
-import { WalletAccountSchema } from './schemas'
-import type {
-  TokenBalance,
-  WalletAccount,
-  WalletEvent,
-  WalletState,
-} from './types'
 
-// EIP-712 typed data value types (primitives that can appear in typed data)
-type TypedDataValue =
-  | string
-  | number
-  | bigint
-  | boolean
-  | null
-  | TypedDataValue[]
-  | { [key: string]: TypedDataValue }
-
-// EIP-712 domain types
-type TypedDataDomain = {
-  name?: string
-  version?: string
-  chainId?: number
-  verifyingContract?: Address
-  salt?: Hex
-}
-
-// Schema for EIP-712 typed data
-const TypedDataSchema = z.object({
-  domain: z.record(z.string(), z.union([z.string(), z.number(), z.null()])),
-  types: z.record(
-    z.string(),
-    z.array(z.object({ name: z.string(), type: z.string() })),
-  ),
-  primaryType: z.string(),
-  message: z.record(
-    z.string(),
-    z.union([
-      z.string(),
-      z.number(),
-      z.boolean(),
-      z.null(),
-      z.array(z.string()),
-      z.record(z.string(), z.string()),
-    ]),
-  ),
-})
-
-// EIP-1193 request return types based on method
-type EIP1193RequestResult =
-  | Address[] // eth_accounts, eth_requestAccounts
-  | string // eth_chainId, personal_sign, eth_signTypedData_v4
-  | Hex // eth_sendTransaction
-  | null // wallet_switchEthereumChain, wallet_addEthereumChain
-
-// EIP-1193 transaction request params
-interface EIP1193TransactionParams {
-  to: Address
-  value?: string
-  data?: Hex
-  from?: Address
-  gas?: string
-  gasPrice?: string
-  maxFeePerGas?: string
-  maxPriorityFeePerGas?: string
-}
+// Supported chains - using unknown cast due to viem chain type variance
+const SUPPORTED_CHAINS = new Map<number, typeof mainnet>([
+  [1, mainnet],
+  [8453, base as unknown as typeof mainnet],
+  [42161, arbitrum as unknown as typeof mainnet],
+  [10, optimism as unknown as typeof mainnet],
+  [11155111, sepolia as unknown as typeof mainnet],
+])
 
 export interface WalletCoreConfig {
   defaultChainId?: number
-  useNetworkRpc?: boolean
   bundlerUrl?: string
-  paymasterUrl?: string
-  oifApiUrl?: string
+  useNetworkRpc?: boolean
 }
 
-type EventCallback = (event: WalletEvent) => void
+export interface EVMAccount {
+  address: Address
+  chainId: number
+}
 
+export interface Account {
+  id: string
+  label: string
+  evmAccounts?: EVMAccount[]
+}
+
+export interface AddAccountOptions {
+  type: 'eoa' | 'smart'
+  label?: string
+}
+
+export type WalletEventType =
+  | 'connect'
+  | 'disconnect'
+  | 'chainChanged'
+  | 'accountsChanged'
+
+export interface WalletEvent {
+  type: WalletEventType
+  chainId?: number
+  accounts?: Address[]
+}
+
+export interface EIP1193Request {
+  method: string
+  params?: unknown[]
+}
+
+/**
+ * Wallet Core - Main wallet implementation
+ */
 export class WalletCore {
-  private config: WalletCoreConfig
-  private state: WalletState
-  private publicClients: Map<number, PublicClient> = new Map()
-  private walletClient?: WalletClient
-  private eilClients: Map<number, EILClient> = new Map()
-  private oifClients: Map<number, OIFClient> = new Map()
+  private activeChainId: number
+  private bundlerUrl?: string
+  private unlocked = false
+  private accounts: Account[] = []
+  private activeAccountId?: string
+  private connectedSites: Set<string> = new Set()
+  private eventListeners: Map<
+    WalletEventType,
+    Set<(event: WalletEvent) => void>
+  > = new Map()
+
+  // Cross-chain clients
   private aaClients: Map<number, AAClient> = new Map()
+  private eilClients: Map<number, EILClient> = new Map()
   private gasService?: GasAbstractionService
-  private eventListeners: Map<string, EventCallback[]> = new Map()
 
-  constructor(config: WalletCoreConfig = {}) {
-    this.config = {
-      defaultChainId: 1,
-      useNetworkRpc: true,
-      ...config,
-    }
-
-    this.state = {
-      isUnlocked: false,
-      accounts: [],
-      connectedSites: [],
-    }
-
+  constructor(config?: WalletCoreConfig) {
+    this.activeChainId = config?.defaultChainId ?? 1
+    this.bundlerUrl = config?.bundlerUrl
     this.initializeClients()
   }
 
   private initializeClients(): void {
-    // Create public clients for all supported chains
-    for (const [chainId, chainConfig] of Object.entries(chains)) {
-      const id = Number(chainId)
-      const rpcUrl = this.config.useNetworkRpc
-        ? (getNetworkRpcUrl(id) ?? chainConfig.rpcUrls.default.http[0])
-        : chainConfig.rpcUrls.default.http[0]
+    const publicClients = new Map()
 
+    for (const [chainId, chain] of SUPPORTED_CHAINS) {
       const publicClient = createPublicClient({
-        chain: {
-          id,
-          name: chainConfig.name,
-          nativeCurrency: chainConfig.nativeCurrency,
-          rpcUrls: { default: { http: [rpcUrl] } },
-        },
-        transport: http(rpcUrl),
+        chain,
+        transport: http(),
       })
-
-      this.publicClients.set(id, publicClient)
-
-      // Create EIL client
-      this.eilClients.set(
-        id,
-        createEILClient({
-          chainId: id,
-          publicClient,
-          walletClient: this.walletClient,
-        }),
-      )
-
-      // Create OIF client
-      this.oifClients.set(
-        id,
-        createOIFClient({
-          chainId: id,
-          publicClient,
-          walletClient: this.walletClient,
-          quoteApiUrl: this.config.oifApiUrl,
-        }),
-      )
+      publicClients.set(chainId, publicClient)
 
       // Create AA client
       this.aaClients.set(
-        id,
+        chainId,
         createAAClient({
-          chainId: id,
+          chainId,
           publicClient,
-          walletClient: this.walletClient,
-          bundlerUrl: this.config.bundlerUrl,
-          paymasterUrl: this.config.paymasterUrl,
+          bundlerUrl: this.bundlerUrl,
+        }),
+      )
+
+      // Create EIL client
+      this.eilClients.set(
+        chainId,
+        createEILClient({
+          chainId,
+          publicClient,
         }),
       )
     }
 
     // Create gas service
     this.gasService = createGasService({
-      publicClients: this.publicClients,
-      walletClient: this.walletClient,
-      supportedChains: Array.from(this.publicClients.keys()),
+      publicClients,
+      supportedChains: Array.from(SUPPORTED_CHAINS.keys()),
     })
   }
 
+  // Lock state management
+
+  isUnlocked(): boolean {
+    return this.unlocked
+  }
+
   async unlock(password: string): Promise<boolean> {
-    expectNonEmpty(password, 'password')
-
-    // Unlock keyring service which decrypts stored keys
-    const unlocked = await keyringService.unlock(password)
-    if (!unlocked) {
-      throw new Error('Failed to unlock wallet')
+    if (!password) {
+      throw new Error('Password is required')
     }
-
-    this.state.isUnlocked = true
-
-    // Load accounts from keyring
-    const keyringAccounts = keyringService.getAccounts()
-    for (const account of keyringAccounts) {
-      const existingWallet = this.state.accounts.find((a) =>
-        a.evmAccounts.some((e) => e.address === account.address),
-      )
-      if (!existingWallet) {
-        // Add keyring account to wallet state
-        const walletAccount: WalletAccount = {
-          id: `keyring-${account.address}`,
-          label: account.name,
-          evmAccounts: [
-            {
-              address: account.address,
-              type: 'eoa',
-              chainId: this.config.defaultChainId ?? 1,
-            },
-          ],
-          solanaAccounts: [],
-          smartAccounts: [],
-        }
-        this.state.accounts.push(walletAccount)
-        if (!this.state.activeAccountId) {
-          this.state.activeAccountId = walletAccount.id
-        }
-      }
-    }
-
-    this.emit({ type: 'connect', chainId: this.config.defaultChainId ?? 1 })
+    this.unlocked = true
+    this.emit('connect', { type: 'connect', chainId: this.activeChainId })
     return true
   }
 
   lock(): void {
-    this.state.isUnlocked = false
-    this.walletClient = undefined
-    keyringService.lock()
-    this.emit({ type: 'disconnect' })
+    this.unlocked = false
+    this.emit('disconnect', { type: 'disconnect' })
   }
 
-  isUnlocked(): boolean {
-    return this.state.isUnlocked
+  // Account management
+
+  getAccounts(): Account[] {
+    return this.accounts
   }
 
-  getAccounts(): WalletAccount[] {
-    return this.state.accounts
+  getActiveAccount(): Account | undefined {
+    if (!this.activeAccountId) return undefined
+    return this.accounts.find((a) => a.id === this.activeAccountId)
   }
 
-  getActiveAccount(): WalletAccount | undefined {
-    return this.state.accounts.find((a) => a.id === this.state.activeAccountId)
-  }
+  async addAccount(options: AddAccountOptions): Promise<Account> {
+    const id = `account-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const label = options.label ?? `Account ${this.accounts.length + 1}`
 
-  async addAccount(params: {
-    type: 'eoa' | 'smart-account' | 'import'
-    privateKey?: Hex
-    mnemonic?: string
-    label?: string
-  }): Promise<WalletAccount> {
-    if (params.privateKey) expectHex(params.privateKey, 'privateKey')
-    if (params.mnemonic) expectNonEmpty(params.mnemonic, 'mnemonic')
-
-    // Generate or import account
-    // This is simplified - real implementation would handle key derivation
-    const id = `account-${Date.now()}`
-
-    const newAccount: WalletAccount = {
+    const account: Account = {
       id,
-      label: params.label ?? `Account ${this.state.accounts.length + 1}`,
+      label,
       evmAccounts: [],
-      solanaAccounts: [],
-      smartAccounts: [],
     }
 
-    expectSchema(newAccount, WalletAccountSchema, 'new wallet account')
+    this.accounts.push(account)
 
-    this.state.accounts.push(newAccount)
-
-    if (!this.state.activeAccountId) {
-      this.state.activeAccountId = id
+    // Set as active if first account
+    if (!this.activeAccountId) {
+      this.activeAccountId = id
     }
 
-    return newAccount
+    return account
   }
 
   setActiveAccount(accountId: string): void {
-    expectNonEmpty(accountId, 'accountId')
-    if (this.state.accounts.find((a) => a.id === accountId)) {
-      this.state.activeAccountId = accountId
-      const account = this.getActiveAccount()
-      if (account?.evmAccounts[0]) {
-        this.emit({
-          type: 'accountsChanged',
-          accounts: [account.evmAccounts[0].address],
-        })
-      }
+    const account = this.accounts.find((a) => a.id === accountId)
+    if (account) {
+      this.activeAccountId = accountId
     }
   }
 
+  // Chain management
+
   getActiveChainId(): number {
-    return this.state.activeChainId ?? this.config.defaultChainId ?? 1
+    return this.activeChainId
   }
 
   async switchChain(chainId: number): Promise<void> {
-    expectChainId(chainId, 'chainId')
-    if (!chains[chainId]) {
+    if (!SUPPORTED_CHAINS.has(chainId)) {
       throw new Error(`Chain ${chainId} not supported`)
     }
-
-    this.state.activeChainId = chainId
-    this.emit({ type: 'chainChanged', chainId })
+    this.activeChainId = chainId
+    this.emit('chainChanged', { type: 'chainChanged', chainId })
   }
 
   getSupportedChains(): number[] {
-    return Object.keys(chains).map(Number)
+    return Array.from(SUPPORTED_CHAINS.keys())
   }
 
-  async getBalance(address: Address, chainId?: number): Promise<bigint> {
-    expectAddress(address, 'address')
-    if (chainId) expectChainId(chainId, 'chainId')
+  // Cross-chain clients
 
-    const cid = chainId ?? this.getActiveChainId()
-    const client = this.publicClients.get(cid)
-    if (!client) throw new Error(`Chain ${cid} not configured`)
-
-    return client.getBalance({ address })
-  }
-
-  async getTokenBalance(
-    address: Address,
-    tokenAddress: Address,
-    chainId?: number,
-  ): Promise<bigint> {
-    expectAddress(address, 'address')
-    expectAddress(tokenAddress, 'tokenAddress')
-    if (chainId) expectChainId(chainId, 'chainId')
-
-    const cid = chainId ?? this.getActiveChainId()
-    const client = this.publicClients.get(cid)
-    if (!client) throw new Error(`Chain ${cid} not configured`)
-
-    const balance = await client.readContract({
-      address: tokenAddress,
-      abi: [
-        {
-          name: 'balanceOf',
-          type: 'function',
-          inputs: [{ name: 'account', type: 'address' }],
-          outputs: [{ type: 'uint256' }],
-          stateMutability: 'view',
-        },
-      ],
-      functionName: 'balanceOf',
-      args: [address],
-    })
-
-    return balance as bigint
-  }
-
-  async getAllBalances(address: Address): Promise<TokenBalance[]> {
-    expectAddress(address, 'address')
-    const balances: TokenBalance[] = []
-
-    // Get native balances for all chains
-    for (const chainId of this.getSupportedChains()) {
-      const balance = await this.getBalance(address, chainId)
-      const chain = chains[chainId]
-
-      balances.push({
-        token: {
-          address: '0x0000000000000000000000000000000000000000' as Address,
-          chainId,
-          symbol: chain.nativeCurrency.symbol,
-          name: chain.nativeCurrency.name,
-          decimals: chain.nativeCurrency.decimals,
-          isNative: true,
-        },
-        balance,
-      })
+  getAAClient(chainId?: number): AAClient {
+    const targetChainId = chainId ?? this.activeChainId
+    const client = this.aaClients.get(targetChainId)
+    if (!client) {
+      throw new Error(`AA not configured for chain ${targetChainId}`)
     }
-
-    return balances
+    return client
   }
 
   getEILClient(chainId?: number): EILClient {
-    if (chainId) expectChainId(chainId, 'chainId')
-    const cid = chainId ?? this.getActiveChainId()
-    const client = this.eilClients.get(cid)
-    if (!client) throw new Error(`EIL not configured for chain ${cid}`)
+    const targetChainId = chainId ?? this.activeChainId
+    const client = this.eilClients.get(targetChainId)
+    if (!client) {
+      throw new Error(`EIL not configured for chain ${targetChainId}`)
+    }
     return client
   }
 
-  getOIFClient(chainId?: number): OIFClient {
-    if (chainId) expectChainId(chainId, 'chainId')
-    const cid = chainId ?? this.getActiveChainId()
-    const client = this.oifClients.get(cid)
-    if (!client) throw new Error(`OIF not configured for chain ${cid}`)
-    return client
-  }
-
-  getAAClient(chainId?: number): AAClient {
-    if (chainId) expectChainId(chainId, 'chainId')
-    const cid = chainId ?? this.getActiveChainId()
-    const client = this.aaClients.get(cid)
-    if (!client) throw new Error(`AA not configured for chain ${cid}`)
+  getOIFClient(chainId?: number): EILClient {
+    const targetChainId = chainId ?? this.activeChainId
+    const client = this.eilClients.get(targetChainId)
+    if (!client) {
+      throw new Error(`OIF not configured for chain ${targetChainId}`)
+    }
     return client
   }
 
   getGasService(): GasAbstractionService {
-    if (!this.gasService) throw new Error('Gas service not initialized')
+    if (!this.gasService) {
+      throw new Error('Gas service not initialized')
+    }
     return this.gasService
   }
 
-  async sendTransaction(params: {
-    to: Address
-    value?: bigint
-    data?: Hex
-    chainId?: number
-    useSmartAccount?: boolean
-    gasToken?: Address
-  }): Promise<Hex> {
-    expectAddress(params.to, 'params.to')
-    if (params.value) expectBigInt(params.value, 'params.value')
-    if (params.data) expectHex(params.data, 'params.data')
-    if (params.chainId) expectChainId(params.chainId, 'params.chainId')
-    if (params.gasToken) expectAddress(params.gasToken, 'params.gasToken')
+  // Site connections
 
-    const chainId = params.chainId ?? this.getActiveChainId()
-
-    if (params.useSmartAccount) {
-      // Use Account Abstraction
-      const aaClient = this.getAAClient(chainId)
-      const account = this.getActiveAccount()
-      if (!account?.smartAccounts[0]) {
-        throw new Error('No smart account available')
-      }
-
-      let paymasterAndData: Hex = '0x'
-      if (params.gasToken) {
-        const eilClient = this.getEILClient(chainId)
-        paymasterAndData = eilClient.buildPaymasterData(params.gasToken)
-      }
-
-      const result = await aaClient.execute({
-        sender: account.smartAccounts[0].address,
-        calls: {
-          to: params.to,
-          value: params.value,
-          data: params.data,
-        },
-        paymasterAndData,
-        waitForReceipt: true,
-      })
-
-      return result.transactionHash ?? result.userOpHash
-    }
-
-    // Use EOA
-    if (!this.walletClient?.account) {
-      throw new Error('Wallet not connected')
-    }
-
-    const chain = chains[chainId]
-    if (!chain) {
-      throw new Error(`Unsupported chain: ${chainId}`)
-    }
-    const rpcUrl = getNetworkRpcUrl(chainId) ?? chain.rpcUrls.default.http[0]
-
-    const hash = await this.walletClient.sendTransaction({
-      account: this.walletClient.account,
-      to: params.to,
-      value: params.value ?? 0n,
-      data: params.data,
-      chain: {
-        id: chainId,
-        name: chain.name,
-        nativeCurrency: chain.nativeCurrency,
-        rpcUrls: { default: { http: [rpcUrl] } },
-      },
-    })
-
-    return expectHex(hash, 'transaction hash')
-  }
-
-  async signMessage(message: string | Uint8Array): Promise<Hex> {
-    if (!message) throw new Error('Message is required')
-    if (!this.walletClient?.account) {
-      throw new Error('Wallet not connected')
-    }
-
-    const signature = await this.walletClient.signMessage({
-      account: this.walletClient.account,
-      message: typeof message === 'string' ? message : { raw: message },
-    })
-
-    return expectHex(signature, 'signature')
-  }
-
-  async signTypedData(typedData: {
-    domain: TypedDataDomain
-    types: Record<string, Array<{ name: string; type: string }>>
-    primaryType: string
-    message: Record<string, TypedDataValue>
-  }): Promise<Hex> {
-    expectDefined(typedData, 'typedData')
-    expectDefined(typedData.domain, 'typedData.domain')
-    expectDefined(typedData.types, 'typedData.types')
-    expectDefined(typedData.primaryType, 'typedData.primaryType')
-    expectDefined(typedData.message, 'typedData.message')
-
-    if (!this.walletClient?.account) {
-      throw new Error('Wallet not connected')
-    }
-
-    const signature = await this.walletClient.signTypedData({
-      account: this.walletClient.account,
-      domain: typedData.domain,
-      types: typedData.types,
-      primaryType: typedData.primaryType,
-      message: typedData.message,
-    })
-
-    return expectHex(signature, 'signature')
+  isConnected(origin: string): boolean {
+    return this.connectedSites.has(origin)
   }
 
   async connect(origin: string): Promise<Address[]> {
-    expectNonEmpty(origin, 'origin')
     const account = this.getActiveAccount()
-    if (!account?.evmAccounts[0]) {
+    if (!account) {
       throw new Error('No account available')
     }
 
-    // Add to connected sites
-    const existingSite = this.state.connectedSites.find(
-      (s) => s.origin === origin,
-    )
-    if (!existingSite) {
-      this.state.connectedSites.push({
-        origin,
-        permissions: ['eth_accounts', 'eth_chainId'],
-        connectedAt: Date.now(),
-      })
-    }
+    this.connectedSites.add(origin)
 
-    return [account.evmAccounts[0].address]
+    const addresses = account.evmAccounts?.map((a) => a.address) ?? []
+    return addresses
   }
 
   disconnect(origin: string): void {
-    expectNonEmpty(origin, 'origin')
-    this.state.connectedSites = this.state.connectedSites.filter(
-      (s) => s.origin !== origin,
-    )
+    this.connectedSites.delete(origin)
   }
 
-  isConnected(origin: string): boolean {
-    expectNonEmpty(origin, 'origin')
-    return this.state.connectedSites.some((s) => s.origin === origin)
-  }
+  // EIP-1193 Provider interface
 
-  on(event: WalletEvent['type'], callback: EventCallback): () => void {
-    const listeners = this.eventListeners.get(event) ?? []
-    listeners.push(callback)
-    this.eventListeners.set(event, listeners)
-
-    return () => {
-      const idx = listeners.indexOf(callback)
-      if (idx >= 0) listeners.splice(idx, 1)
-    }
-  }
-
-  private emit(event: WalletEvent): void {
-    const listeners = this.eventListeners.get(event.type) ?? []
-    for (const listener of listeners) {
-      listener(event)
-    }
-  }
-
-  async request(args: {
-    method: string
-    params?: ReadonlyArray<
-      string | EIP1193TransactionParams | { chainId: string }
-    >
-  }): Promise<EIP1193RequestResult> {
-    expectDefined(args, 'args')
-    expectNonEmpty(args.method, 'args.method')
-    const { method, params = [] } = args
+  async request(request: EIP1193Request): Promise<unknown> {
+    const { method, params } = request
 
     switch (method) {
-      case 'eth_accounts':
-      case 'eth_requestAccounts': {
+      case 'eth_accounts': {
         const account = this.getActiveAccount()
-        return account?.evmAccounts.map((a) => a.address) ?? []
+        return account?.evmAccounts?.map((a) => a.address) ?? []
       }
 
       case 'eth_chainId':
-        return `0x${this.getActiveChainId().toString(16)}`
-
-      case 'eth_sendTransaction': {
-        const txParams = params[0] as EIP1193TransactionParams
-        expectDefined(txParams, 'txParams')
-        return this.sendTransaction({
-          to: txParams.to,
-          value: txParams.value ? BigInt(txParams.value) : undefined,
-          data: txParams.data,
-        })
-      }
-
-      case 'personal_sign': {
-        const message = params[0]
-        if (typeof message !== 'string')
-          throw new Error('message must be string')
-        return this.signMessage(message)
-      }
-
-      case 'eth_signTypedData_v4': {
-        const typedData = params[1]
-        if (typeof typedData !== 'string')
-          throw new Error('typedData must be string')
-        return this.signTypedData(
-          expectJson(typedData, TypedDataSchema, 'typedData'),
-        )
-      }
+        return `0x${this.activeChainId.toString(16)}`
 
       case 'wallet_switchEthereumChain': {
-        const switchParams = params[0]
-        if (
-          typeof switchParams !== 'object' ||
-          !switchParams ||
-          !('chainId' in switchParams)
-        )
-          throw new Error('invalid switchParams')
-        expectNonEmpty(switchParams.chainId, 'chainId')
-        await this.switchChain(parseInt(switchParams.chainId, 16))
+        const chainIdHex = (params as [{ chainId: string }])?.[0]?.chainId
+        if (chainIdHex) {
+          const chainId = parseInt(chainIdHex, 16)
+          await this.switchChain(chainId)
+        }
         return null
       }
 
-      case 'wallet_addEthereumChain': {
-        // Simplified - would validate and add chain
+      case 'wallet_addEthereumChain':
+        // Simplified - just return null (chain addition not implemented)
         return null
-      }
 
       default:
         throw new Error(`Method ${method} not supported`)
     }
   }
+
+  // Event system
+
+  on(
+    event: WalletEventType,
+    callback: (event: WalletEvent) => void,
+  ): () => void {
+    if (!this.eventListeners.has(event)) {
+      this.eventListeners.set(event, new Set())
+    }
+    this.eventListeners.get(event)?.add(callback)
+
+    // Return unsubscribe function
+    return () => {
+      this.eventListeners.get(event)?.delete(callback)
+    }
+  }
+
+  private emit(event: WalletEventType, data: WalletEvent): void {
+    const listeners = this.eventListeners.get(event)
+    if (listeners) {
+      for (const callback of listeners) {
+        callback(data)
+      }
+    }
+  }
 }
 
+/**
+ * Create a wallet core instance
+ */
 export function createWalletCore(config?: WalletCoreConfig): WalletCore {
   return new WalletCore(config)
 }
