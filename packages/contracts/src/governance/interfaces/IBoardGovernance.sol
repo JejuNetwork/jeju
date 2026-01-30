@@ -86,10 +86,16 @@ interface IBoardGovernance {
     function getProposal(bytes32 proposalId) external view returns (Proposal memory);
     function getProposalsByDAO(bytes32 daoId) external view returns (bytes32[] memory);
 
-    // Lifecycle functions
+    // Lifecycle functions (operator)
     function markExecuting(bytes32 proposalId) external;
     function markCompleted(bytes32 proposalId) external;
     function markFailed(bytes32 proposalId, string calldata reason) external;
+
+    // Trustless execution (anyone can call after grace period)
+    function executeProposal(bytes32 proposalId) external;
+    function canExecuteProposal(bytes32 proposalId) external view returns (bool);
+    function timeUntilExecutable(bytes32 proposalId) external view returns (uint256);
+    function executionWindow() external view returns (uint256);
 
     // Events
     event ProposalSubmitted(
@@ -102,4 +108,5 @@ interface IBoardGovernance {
     event ProposalStatusChanged(bytes32 indexed proposalId, ProposalStatus oldStatus, ProposalStatus newStatus);
     event DirectorDecision(bytes32 indexed proposalId, bool approved, bytes32 decisionHash, uint256 decidedAt);
     event VoteCast(bytes32 indexed proposalId, uint256 indexed agentId, VoteChoice vote, bytes32 reasoningHash);
+    event ProposalExecuted(bytes32 indexed proposalId, address indexed executor, bool success);
 }

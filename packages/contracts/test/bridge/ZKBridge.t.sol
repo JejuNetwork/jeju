@@ -153,6 +153,18 @@ contract MockBoard is IBoardGovernance {
     function isDirectorDecided(bytes32) external pure returns (bool) {
         return false;
     }
+
+    // Trustless execution stubs for mock
+    function executeProposal(bytes32) external {}
+    function canExecuteProposal(bytes32) external pure returns (bool) {
+        return false;
+    }
+    function timeUntilExecutable(bytes32) external pure returns (uint256) {
+        return 0;
+    }
+    function executionWindow() external pure returns (uint256) {
+        return 7 days;
+    }
 }
 
 // Mock ZK verifier

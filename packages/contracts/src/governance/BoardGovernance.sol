@@ -47,6 +47,9 @@ contract BoardGovernance is IBoardGovernance, Ownable, ReentrancyGuard {
     /// @notice Grace period duration
     uint256 public gracePeriod = 1 days;
 
+    /// @notice Execution window duration (after grace period)
+    uint256 public executionWindow = 7 days;
+
     /// @notice Proposal counter for unique IDs
     uint256 private _proposalCounter;
 
@@ -61,6 +64,10 @@ contract BoardGovernance is IBoardGovernance, Ownable, ReentrancyGuard {
     error VotingEnded();
     error AgentNotFound();
     error AlreadyDecided();
+    error ProposalNotApproved();
+    error ProposalAlreadyExecuted();
+    error ProposalExpiredError();
+    error ExecutionFailed();
 
     // ============ Modifiers ============
 
@@ -212,6 +219,50 @@ contract BoardGovernance is IBoardGovernance, Ownable, ReentrancyGuard {
         emit ProposalStatusChanged(proposalId, oldStatus, ProposalStatus.REJECTED);
     }
 
+    /**
+     * @notice Execute an approved proposal (permissionless after grace period)
+     * @dev Follows GovernanceTimelock pattern - anyone can trigger execution
+     * @param proposalId The proposal to execute
+     */
+    function executeProposal(bytes32 proposalId) external nonReentrant proposalExists(proposalId) {
+        Proposal storage p = _proposals[proposalId];
+
+        // Check proposal is approved and director has approved
+        if (p.status != ProposalStatus.APPROVED) revert ProposalNotApproved();
+        if (!p.directorApproved) revert ProposalNotApproved();
+
+        // Check grace period has passed
+        if (block.timestamp < p.gracePeriodEnd) revert GracePeriodNotComplete();
+
+        // Check not expired (within execution window)
+        if (block.timestamp > p.gracePeriodEnd + executionWindow) revert ProposalExpiredError();
+
+        // Mark as executing
+        ProposalStatus oldStatus = p.status;
+        p.status = ProposalStatus.EXECUTING;
+        emit ProposalStatusChanged(proposalId, oldStatus, ProposalStatus.EXECUTING);
+
+        bool success = true;
+
+        // If targetContract is address(0), just mark as completed (no execution needed)
+        if (p.targetContract != address(0)) {
+            // Execute the call
+            (success,) = p.targetContract.call{value: p.value}(p.callData);
+        }
+
+        if (success) {
+            oldStatus = p.status;
+            p.status = ProposalStatus.COMPLETED;
+            emit ProposalStatusChanged(proposalId, oldStatus, ProposalStatus.COMPLETED);
+        } else {
+            oldStatus = p.status;
+            p.status = ProposalStatus.REJECTED;
+            emit ProposalStatusChanged(proposalId, oldStatus, ProposalStatus.REJECTED);
+        }
+
+        emit ProposalExecuted(proposalId, msg.sender, success);
+    }
+
     // ============ Board Voting Functions ============
 
     /**
@@ -317,6 +368,49 @@ contract BoardGovernance is IBoardGovernance, Ownable, ReentrancyGuard {
         }
     }
 
+    /**
+     * @notice Check if a proposal can be executed now
+     * @param proposalId The proposal to check
+     * @return True if the proposal is executable
+     */
+    function canExecuteProposal(bytes32 proposalId) external view returns (bool) {
+        Proposal storage p = _proposals[proposalId];
+
+        // Must be approved with director approval
+        if (p.status != ProposalStatus.APPROVED) return false;
+        if (!p.directorApproved) return false;
+
+        // Grace period must have passed
+        if (block.timestamp < p.gracePeriodEnd) return false;
+
+        // Must not be expired
+        if (block.timestamp > p.gracePeriodEnd + executionWindow) return false;
+
+        return true;
+    }
+
+    /**
+     * @notice Get time until a proposal becomes executable
+     * @param proposalId The proposal to check
+     * @return Seconds until executable (0 if already executable or not valid for execution)
+     */
+    function timeUntilExecutable(bytes32 proposalId) external view returns (uint256) {
+        Proposal storage p = _proposals[proposalId];
+
+        // If not approved or director hasn't approved, return 0 (not executable)
+        if (p.status != ProposalStatus.APPROVED) return 0;
+        if (!p.directorApproved) return 0;
+
+        // If expired, return 0 (not executable)
+        if (block.timestamp > p.gracePeriodEnd + executionWindow) return 0;
+
+        // If grace period has passed, return 0 (executable now)
+        if (block.timestamp >= p.gracePeriodEnd) return 0;
+
+        // Return time remaining until grace period ends
+        return p.gracePeriodEnd - block.timestamp;
+    }
+
     // ============ Admin Functions ============
 
     function setAutocratOperator(address _operator) external onlyOwner {
@@ -331,7 +425,18 @@ contract BoardGovernance is IBoardGovernance, Ownable, ReentrancyGuard {
         gracePeriod = _period;
     }
 
+    function setExecutionWindow(uint256 _window) external onlyOwner {
+        executionWindow = _window;
+    }
+
     function version() external pure returns (string memory) {
         return "1.0.0";
     }
+
+    // ============ Receive Function ============
+
+    /**
+     * @notice Accept ETH transfers for proposal execution
+     */
+    receive() external payable {}
 }

@@ -59,6 +59,7 @@ const BOARD_GOVERNANCE_ABI = [
           { name: 'researchHash', type: 'bytes32' },
           { name: 'directorApproved', type: 'bool' },
           { name: 'directorDecisionHash', type: 'bytes32' },
+          { name: 'directorDecided', type: 'bool' },
         ],
       },
     ],
@@ -180,11 +181,42 @@ const BOARD_GOVERNANCE_ABI = [
       { name: 'decidedAt', type: 'uint256', indexed: false },
     ],
   },
+  // Trustless execution functions
+  {
+    type: 'function',
+    name: 'executeProposal',
+    inputs: [{ name: 'proposalId', type: 'bytes32' }],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'canExecuteProposal',
+    inputs: [{ name: 'proposalId', type: 'bytes32' }],
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'timeUntilExecutable',
+    inputs: [{ name: 'proposalId', type: 'bytes32' }],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'event',
+    name: 'ProposalExecuted',
+    inputs: [
+      { name: 'proposalId', type: 'bytes32', indexed: true },
+      { name: 'executor', type: 'address', indexed: true },
+      { name: 'success', type: 'bool', indexed: false },
+    ],
+  },
 ] as const
 
 // Localnet BoardGovernance address - deployed via DeployBoardGovernance.s.sol
 const BOARD_GOVERNANCE_ADDRESS: Address =
-  '0x63fea6e447f120b8faf85b53cdad8348e645d80e'
+  '0x38a70c040ca5f5439ad52d0e821063b0ec0b52b6'
 
 // Default operator key (localnet only)
 const DEFAULT_OPERATOR_KEY =
@@ -525,6 +557,64 @@ class ProposalService {
     })
 
     return result as boolean
+  }
+
+  /**
+   * Execute a proposal (trustless - anyone can call after grace period)
+   */
+  async executeProposal(proposalId: string): Promise<{ txHash: Hash }> {
+    const proposalIdBytes = proposalId.startsWith('0x')
+      ? (proposalId as `0x${string}`)
+      : toHex(proposalId, { size: 32 })
+
+    const { request } = await this.publicClient.simulateContract({
+      address: this.contractAddress,
+      abi: BOARD_GOVERNANCE_ABI,
+      functionName: 'executeProposal',
+      args: [proposalIdBytes],
+      account: this.walletClient.account,
+    })
+
+    const txHash = await this.walletClient.writeContract(request)
+    await this.publicClient.waitForTransactionReceipt({ hash: txHash })
+
+    return { txHash }
+  }
+
+  /**
+   * Check if a proposal can be executed
+   */
+  async canExecuteProposal(proposalId: string): Promise<boolean> {
+    const proposalIdBytes = proposalId.startsWith('0x')
+      ? (proposalId as `0x${string}`)
+      : toHex(proposalId, { size: 32 })
+
+    const result = await this.publicClient.readContract({
+      address: this.contractAddress,
+      abi: BOARD_GOVERNANCE_ABI,
+      functionName: 'canExecuteProposal',
+      args: [proposalIdBytes],
+    })
+
+    return result as boolean
+  }
+
+  /**
+   * Get time until proposal is executable (in seconds)
+   */
+  async timeUntilExecutable(proposalId: string): Promise<number> {
+    const proposalIdBytes = proposalId.startsWith('0x')
+      ? (proposalId as `0x${string}`)
+      : toHex(proposalId, { size: 32 })
+
+    const result = await this.publicClient.readContract({
+      address: this.contractAddress,
+      abi: BOARD_GOVERNANCE_ABI,
+      functionName: 'timeUntilExecutable',
+      args: [proposalIdBytes],
+    })
+
+    return Number(result)
   }
 }
 
