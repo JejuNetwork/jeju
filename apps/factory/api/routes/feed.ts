@@ -3,6 +3,7 @@ import { Elysia, t } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { CreateCastBodySchema, expectValid } from '../schemas'
 import * as farcasterService from '../services/farcaster'
+import { requireAuth } from '../validation/access-control'
 
 const CastReactionBodySchema = t.Object({
   castHash: t.String({ minLength: 3 }),
@@ -42,14 +43,16 @@ function getPagination(query: { cursor?: string; limit?: string }) {
   }
 }
 
-function requireWalletAddress(
+async function requireSignedAddress(
   headers: Record<string, string | undefined>,
-): Address {
-  const address = headers['x-wallet-address'] as Address | undefined
-  if (!address) {
-    throw new Error('UNAUTHORIZED')
+  set: { status?: number },
+): Promise<Address | null> {
+  const authResult = await requireAuth(headers)
+  if (!authResult.success) {
+    set.status = 401
+    return null
   }
-  return address
+  return authResult.address
 }
 
 export const feedRoutes = new Elysia({ prefix: '/api/feed' })
@@ -139,13 +142,10 @@ export const feedRoutes = new Elysia({ prefix: '/api/feed' })
   .post(
     '/',
     async ({ body, headers, set }) => {
-      let address: Address
-      try {
-        address = requireWalletAddress(headers)
-      } catch {
-        set.status = 401
+      const address = await requireSignedAddress(headers, set)
+      if (!address) {
         return {
-          error: { code: 'UNAUTHORIZED', message: 'Wallet address required' },
+          error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
         }
       }
 
@@ -190,13 +190,10 @@ export const feedRoutes = new Elysia({ prefix: '/api/feed' })
   .delete(
     '/:castHash',
     async ({ params, headers, set }) => {
-      let address: Address
-      try {
-        address = requireWalletAddress(headers)
-      } catch {
-        set.status = 401
+      const address = await requireSignedAddress(headers, set)
+      if (!address) {
         return {
-          error: { code: 'UNAUTHORIZED', message: 'Wallet address required' },
+          error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
         }
       }
 
@@ -216,13 +213,10 @@ export const feedRoutes = new Elysia({ prefix: '/api/feed' })
   .post(
     '/like',
     async ({ body, headers, set }) => {
-      let address: Address
-      try {
-        address = requireWalletAddress(headers)
-      } catch {
-        set.status = 401
+      const address = await requireSignedAddress(headers, set)
+      if (!address) {
         return {
-          error: { code: 'UNAUTHORIZED', message: 'Wallet address required' },
+          error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
         }
       }
 
@@ -246,13 +240,10 @@ export const feedRoutes = new Elysia({ prefix: '/api/feed' })
   .delete(
     '/like',
     async ({ body, headers, set }) => {
-      let address: Address
-      try {
-        address = requireWalletAddress(headers)
-      } catch {
-        set.status = 401
+      const address = await requireSignedAddress(headers, set)
+      if (!address) {
         return {
-          error: { code: 'UNAUTHORIZED', message: 'Wallet address required' },
+          error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
         }
       }
 
@@ -276,13 +267,10 @@ export const feedRoutes = new Elysia({ prefix: '/api/feed' })
   .post(
     '/recast',
     async ({ body, headers, set }) => {
-      let address: Address
-      try {
-        address = requireWalletAddress(headers)
-      } catch {
-        set.status = 401
+      const address = await requireSignedAddress(headers, set)
+      if (!address) {
         return {
-          error: { code: 'UNAUTHORIZED', message: 'Wallet address required' },
+          error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
         }
       }
 
@@ -306,13 +294,10 @@ export const feedRoutes = new Elysia({ prefix: '/api/feed' })
   .delete(
     '/recast',
     async ({ body, headers, set }) => {
-      let address: Address
-      try {
-        address = requireWalletAddress(headers)
-      } catch {
-        set.status = 401
+      const address = await requireSignedAddress(headers, set)
+      if (!address) {
         return {
-          error: { code: 'UNAUTHORIZED', message: 'Wallet address required' },
+          error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
         }
       }
 
@@ -355,13 +340,10 @@ export const feedRoutes = new Elysia({ prefix: '/api/feed' })
   .post(
     '/follow/:fid',
     async ({ params, headers, set }) => {
-      let address: Address
-      try {
-        address = requireWalletAddress(headers)
-      } catch {
-        set.status = 401
+      const address = await requireSignedAddress(headers, set)
+      if (!address) {
         return {
-          error: { code: 'UNAUTHORIZED', message: 'Wallet address required' },
+          error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
         }
       }
 
@@ -381,13 +363,10 @@ export const feedRoutes = new Elysia({ prefix: '/api/feed' })
   .delete(
     '/follow/:fid',
     async ({ params, headers, set }) => {
-      let address: Address
-      try {
-        address = requireWalletAddress(headers)
-      } catch {
-        set.status = 401
+      const address = await requireSignedAddress(headers, set)
+      if (!address) {
         return {
-          error: { code: 'UNAUTHORIZED', message: 'Wallet address required' },
+          error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
         }
       }
 
