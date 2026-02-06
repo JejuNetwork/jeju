@@ -1,23 +1,36 @@
-// @ts-nocheck - Pre-existing type issues: missing await calls on async operations
-// TODO: Fix by adding proper await statements to async function calls
 import { Elysia, t } from 'elysia'
 import type { Address, Hex } from 'viem'
+import { z } from 'zod'
 import { deleteFidLink, getFidLink } from '../db/client'
+import { expectValid } from '../schemas'
 import * as farcasterService from '../services/farcaster'
 import * as signerService from '../services/signer'
 import { requireAuth } from '../validation/access-control'
 
-const LinkFidBodySchema = t.Object({
+const LinkFidBodyValidator = t.Object({
   fid: t.Number({ minimum: 1 }),
 })
 
-const CreateSignerBodySchema = t.Object({
+const CreateSignerBodyValidator = t.Object({
   fid: t.Number({ minimum: 1 }),
 })
 
-const ActivateSignerBodySchema = t.Object({
+const ActivateSignerBodyValidator = t.Object({
   signerPublicKey: t.String({ minLength: 66, maxLength: 66 }),
   signature: t.String({ minLength: 130 }),
+})
+
+const LinkFidBodySchema = z.object({
+  fid: z.number().int().min(1),
+})
+
+const CreateSignerBodySchema = z.object({
+  fid: z.number().int().min(1),
+})
+
+const ActivateSignerBodySchema = z.object({
+  signerPublicKey: z.string().min(66).max(66),
+  signature: z.string().min(130),
 })
 
 export const farcasterRoutes = new Elysia({ prefix: '/api/farcaster' })
@@ -165,7 +178,11 @@ export const farcasterRoutes = new Elysia({ prefix: '/api/farcaster' })
       }
 
       // Verify and create link
-      const link = await farcasterService.linkAddressToFid(address, body.fid)
+      const validated = expectValid(LinkFidBodySchema, body, 'request body')
+      const link = await farcasterService.linkAddressToFid(
+        address,
+        validated.fid,
+      )
 
       return {
         success: true,
@@ -179,7 +196,7 @@ export const farcasterRoutes = new Elysia({ prefix: '/api/farcaster' })
       }
     },
     {
-      body: LinkFidBodySchema,
+      body: LinkFidBodyValidator,
       detail: {
         tags: ['farcaster'],
         summary: 'Link wallet to FID',
@@ -242,12 +259,13 @@ export const farcasterRoutes = new Elysia({ prefix: '/api/farcaster' })
       }
 
       // Create new signer
-      const signer = await signerService.createSigner(address, body.fid)
+      const validated = expectValid(CreateSignerBodySchema, body, 'request body')
+      const signer = await signerService.createSigner(address, validated.fid)
 
       // Generate registration message for signing
       const deadline = Math.floor(Date.now() / 1000) + 3600 // 1 hour from now
       const registrationMessage = signerService.getSignerRegistrationMessage(
-        body.fid,
+        validated.fid,
         signer.signer_public_key as Hex,
         deadline,
       )
@@ -268,7 +286,7 @@ export const farcasterRoutes = new Elysia({ prefix: '/api/farcaster' })
       }
     },
     {
-      body: CreateSignerBodySchema,
+      body: CreateSignerBodyValidator,
       detail: {
         tags: ['farcaster'],
         summary: 'Create signer',
@@ -327,11 +345,16 @@ export const farcasterRoutes = new Elysia({ prefix: '/api/farcaster' })
       const address = authResult.address
 
       // Verify the user owns this signer before activation
+      const validated = expectValid(
+        ActivateSignerBodySchema,
+        body,
+        'request body',
+      )
       const signers = await signerService.getUserSigners(address)
       const matchingSigner = signers.find(
         (s) =>
           s.signer_public_key.toLowerCase() ===
-          body.signerPublicKey.toLowerCase(),
+          validated.signerPublicKey.toLowerCase(),
       )
 
       if (!matchingSigner) {
@@ -355,8 +378,8 @@ export const farcasterRoutes = new Elysia({ prefix: '/api/farcaster' })
       }
 
       const success = await signerService.verifyAndActivateSigner(
-        body.signerPublicKey as Hex,
-        body.signature as Hex,
+        validated.signerPublicKey as Hex,
+        validated.signature as Hex,
       )
 
       if (!success) {
@@ -373,7 +396,7 @@ export const farcasterRoutes = new Elysia({ prefix: '/api/farcaster' })
       return { success: true }
     },
     {
-      body: ActivateSignerBodySchema,
+      body: ActivateSignerBodyValidator,
       detail: {
         tags: ['farcaster'],
         summary: 'Activate signer',
@@ -500,9 +523,10 @@ export const farcasterRoutes = new Elysia({ prefix: '/api/farcaster' })
       const address = authResult.address
 
       // Step 1: Link FID
+      const validated = expectValid(LinkFidBodySchema, body, 'request body')
       let link = await getFidLink(address)
       if (!link) {
-        link = await farcasterService.linkAddressToFid(address, body.fid)
+        link = await farcasterService.linkAddressToFid(address, validated.fid)
       }
 
       // Step 2: Create signer if needed
@@ -512,11 +536,11 @@ export const farcasterRoutes = new Elysia({ prefix: '/api/farcaster' })
       let deadline: number | null = null
 
       if (!signer || signer.key_state !== 'active') {
-        signer = await signerService.createSigner(address, body.fid)
+        signer = await signerService.createSigner(address, validated.fid)
         registrationRequired = true
         deadline = Math.floor(Date.now() / 1000) + 3600
         registrationMessage = signerService.getSignerRegistrationMessage(
-          body.fid,
+          validated.fid,
           signer.signer_public_key as Hex,
           deadline,
         )
@@ -545,7 +569,7 @@ export const farcasterRoutes = new Elysia({ prefix: '/api/farcaster' })
       }
     },
     {
-      body: LinkFidBodySchema,
+      body: LinkFidBodyValidator,
       detail: {
         tags: ['farcaster'],
         summary: 'Quick connect',
