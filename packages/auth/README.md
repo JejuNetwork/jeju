@@ -502,5 +502,5 @@ See [CONTRIBUTING.md](../../CONTRIBUTING.md) for guidelines.
 
 - [Jeju Network](https://jejunetwork.org)
 - [Documentation](https://docs.jejunetwork.org/oauth3)
-- [GitHub](https://github.com/elizaos/jeju)
+- [GitHub](https://github.com/jejunetwork/jeju)
 - [Discord](https://discord.gg/jeju)
