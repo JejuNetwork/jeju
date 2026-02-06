@@ -43,7 +43,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/elizaos/jeju.git",
+    "url": "git+https://github.com/jejunetwork/jeju.git",
     "directory": "packages/contracts"
   },
   "publishConfig": {

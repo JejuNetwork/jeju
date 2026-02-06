@@ -43,7 +43,7 @@ This deployment is designed for Oracle Cloud's Always Free tier using ARM64 proc
 ssh ubuntu@<your-ip>
 
 # Clone repo
-git clone https://github.com/elizaos/jeju.git
+git clone https://github.com/jejunetwork/jeju.git
 cd jeju/packages/deployment/oracle-cloud-arm64
 
 # Start L2 blockchain

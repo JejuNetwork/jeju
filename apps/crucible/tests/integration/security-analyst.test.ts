@@ -9,7 +9,7 @@ import { describe, expect, test } from 'bun:test'
 
 const CRUCIBLE_URL = process.env.CRUCIBLE_URL ?? 'http://localhost:8001'
 const TEST_CONTRACT_URL =
-  'https://raw.githubusercontent.com/elizaos/jeju/main/packages/contracts/src/agents/AgentVault.sol'
+  'https://raw.githubusercontent.com/jejunetwork/jeju/main/packages/contracts/src/agents/AgentVault.sol'
 
 // Known content from AgentVault.sol that MUST appear if fetched correctly
 const AGENTVAULT_MARKERS = {

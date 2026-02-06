@@ -49,14 +49,14 @@ export default defineConfig({
   ],
 
   socials: [
-    { icon: 'github', link: 'https://github.com/elizaos/jeju' },
+    { icon: 'github', link: 'https://github.com/jejunetwork/jeju' },
     { icon: 'discord', link: 'https://discord.gg/elizaos' },
     { icon: 'x', link: 'https://twitter.com/elizaos' },
   ],
 
   editLink: {
     pattern:
-      'https://github.com/elizaos/jeju/edit/main/apps/documentation/docs/pages/:path',
+      'https://github.com/jejunetwork/jeju/edit/main/apps/documentation/docs/pages/:path',
     text: 'Edit on GitHub',
   },
 

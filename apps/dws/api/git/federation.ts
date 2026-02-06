@@ -97,7 +97,7 @@ export class FederationManager {
       software: {
         name: 'jeju-git',
         version: '1.0.0',
-        repository: 'https://github.com/elizaos/jeju',
+        repository: 'https://github.com/jejunetwork/jeju',
       },
       protocols: ['activitypub'],
       usage: {

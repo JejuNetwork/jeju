@@ -58,13 +58,13 @@ IMPORTANT:
       {
         name: 'user',
         content: {
-          text: 'Analyze https://raw.githubusercontent.com/elizaos/jeju/main/packages/contracts/src/agents/AgentVault.sol',
+          text: 'Analyze https://raw.githubusercontent.com/jejunetwork/jeju/main/packages/contracts/src/agents/AgentVault.sol',
         },
       },
       {
         name: 'Auditor',
         content: {
-          text: "I'll perform a full security audit of the AgentVault contract.\n\n[ACTION: AUDIT_CONTRACT | url=https://raw.githubusercontent.com/elizaos/jeju/main/packages/contracts/src/agents/AgentVault.sol]",
+          text: "I'll perform a full security audit of the AgentVault contract.\n\n[ACTION: AUDIT_CONTRACT | url=https://raw.githubusercontent.com/jejunetwork/jeju/main/packages/contracts/src/agents/AgentVault.sol]",
         },
       },
     ],
