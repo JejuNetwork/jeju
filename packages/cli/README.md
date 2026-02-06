@@ -123,9 +123,9 @@ jeju deploy testnet --dry-run
 ## Monorepo
 
 ```bash
-bun run jeju:dev
-bun run jeju:test
-bun run jeju:deploy
+bun run dev
+bun run test
+bun run deploy
 ```
 
 ---

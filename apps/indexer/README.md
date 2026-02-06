@@ -6,17 +6,17 @@ Blockchain data indexer powered by Subsquid. Provides GraphQL API for blocks, tr
 
 ```bash
 cd apps/indexer
-npm install
+bun install
 ```
 
 ## Run
 
 ```bash
 # Start PostgreSQL
-npm run db:up
+bun run db:up
 
 # Start indexer
-npm run dev
+bun run dev
 ```
 
 GraphQL API on http://localhost:4350/graphql
@@ -25,7 +25,7 @@ GraphQL API on http://localhost:4350/graphql
 
 ```bash
 # All tests
-npm run test
+bun run test
 
 # GraphQL queries
 ./test/verify-all-queries.sh
