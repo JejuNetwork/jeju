@@ -69,7 +69,7 @@ Server runs on http://localhost:4001
 
 ```bash
 # Unit tests
-bun test:unit
+bun run test:unit
 
 # E2E tests
 bun run test:e2e

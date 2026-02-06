@@ -13,7 +13,7 @@ curl -L https://foundry.paradigm.xyz | bash && foundryup
 ```
 
 ```bash
-git clone https://github.com/elizaos/jeju.git && cd jeju
+git clone https://github.com/jejunetwork/jeju.git && cd jeju
 bun install
 ```
 
