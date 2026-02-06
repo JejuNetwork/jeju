@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useAccount } from 'wagmi'
-import { API_BASE, apiFetch, apiPost, getHeaders } from '../lib/api'
+import { useAccount, useSignMessage } from 'wagmi'
+import { API_BASE, apiFetch, apiPostSigned, getHeaders } from '../lib/api'
 
 export interface ConversationUser {
   fid: number
@@ -119,6 +119,7 @@ export function useMessages(
 
 export function useSendMessage() {
   const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -127,7 +128,7 @@ export function useSendMessage() {
       text: string
       embeds?: Array<{ url: string }>
       replyTo?: string
-    }) => apiPost('/api/messages', params, address),
+    }) => apiPostSigned('/api/messages', params, address, signMessageAsync),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
         queryKey: ['messages', 'messages', variables.recipientFid],
@@ -140,11 +141,17 @@ export function useSendMessage() {
 
 export function useMarkAsRead() {
   const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: (recipientFid: number) =>
-      apiPost(`/api/messages/conversation/${recipientFid}/read`, {}, address),
+      apiPostSigned(
+        `/api/messages/conversation/${recipientFid}/read`,
+        {},
+        address,
+        signMessageAsync,
+      ),
     onSuccess: (_, recipientFid) => {
       queryClient.invalidateQueries({
         queryKey: ['messages', 'conversation', recipientFid],
@@ -157,14 +164,16 @@ export function useMarkAsRead() {
 
 export function useArchiveConversation() {
   const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: (recipientFid: number) =>
-      apiPost(
+      apiPostSigned(
         `/api/messages/conversation/${recipientFid}/archive`,
         {},
         address,
+        signMessageAsync,
       ),
     onSuccess: () =>
       queryClient.invalidateQueries({
@@ -175,14 +184,16 @@ export function useArchiveConversation() {
 
 export function useMuteConversation() {
   const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: (params: { recipientFid: number; muted: boolean }) =>
-      apiPost(
+      apiPostSigned(
         `/api/messages/conversation/${params.recipientFid}/mute`,
         { muted: params.muted },
         address,
+        signMessageAsync,
       ),
     onSuccess: (_, { recipientFid }) => {
       queryClient.invalidateQueries({
@@ -195,10 +206,12 @@ export function useMuteConversation() {
 
 export function useReconnect() {
   const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: () => apiPost('/api/messages/reconnect', {}, address),
+    mutationFn: () =>
+      apiPostSigned('/api/messages/reconnect', {}, address, signMessageAsync),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['messages'] }),
   })
 }
@@ -231,11 +244,17 @@ export function useEncryptionKey() {
 
 export function usePublishEncryptionKey() {
   const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: () =>
-      apiPost('/api/messages/encryption-key/publish', {}, address),
+      apiPostSigned(
+        '/api/messages/encryption-key/publish',
+        {},
+        address,
+        signMessageAsync,
+      ),
     onSuccess: () =>
       queryClient.invalidateQueries({
         queryKey: ['messages', 'encryption-key'],

@@ -7,6 +7,7 @@ import {
   getUser,
   isFarcasterConnected,
 } from '../services/farcaster'
+import { requireAuth } from '../validation/access-control'
 
 const SendMessageBodySchema = t.Object({
   recipientFid: t.Number({ minimum: 1 }),
@@ -277,13 +278,14 @@ export const messagesRoutes = new Elysia({ prefix: '/api/messages' })
   .post(
     '/',
     async ({ body, headers, set }) => {
-      const address = headers['x-wallet-address'] as Address | undefined
-      if (!address) {
+      const authResult = await requireAuth(headers)
+      if (!authResult.success) {
         set.status = 401
         return {
-          error: { code: 'UNAUTHORIZED', message: 'Wallet address required' },
+          error: { code: 'UNAUTHORIZED', message: authResult.error },
         }
       }
+      const address = authResult.address
 
       if (!(await isFarcasterConnected(address))) {
         set.status = 401
@@ -331,13 +333,14 @@ export const messagesRoutes = new Elysia({ prefix: '/api/messages' })
   .post(
     '/conversation/:fid/read',
     async ({ params, headers, set }) => {
-      const address = headers['x-wallet-address'] as Address | undefined
-      if (!address) {
+      const authResult = await requireAuth(headers)
+      if (!authResult.success) {
         set.status = 401
         return {
-          error: { code: 'UNAUTHORIZED', message: 'Wallet address required' },
+          error: { code: 'UNAUTHORIZED', message: authResult.error },
         }
       }
+      const address = authResult.address
 
       const recipientFid = parseInt(params.fid, 10)
       await dcService.markConversationAsRead(address, recipientFid)
@@ -357,13 +360,14 @@ export const messagesRoutes = new Elysia({ prefix: '/api/messages' })
   .post(
     '/conversation/:fid/archive',
     async ({ params, headers, set }) => {
-      const address = headers['x-wallet-address'] as Address | undefined
-      if (!address) {
+      const authResult = await requireAuth(headers)
+      if (!authResult.success) {
         set.status = 401
         return {
-          error: { code: 'UNAUTHORIZED', message: 'Wallet address required' },
+          error: { code: 'UNAUTHORIZED', message: authResult.error },
         }
       }
+      const address = authResult.address
 
       const recipientFid = parseInt(params.fid, 10)
       await dcService.archiveConversation(address, recipientFid)
@@ -383,13 +387,14 @@ export const messagesRoutes = new Elysia({ prefix: '/api/messages' })
   .post(
     '/conversation/:fid/mute',
     async ({ params, body, headers, set }) => {
-      const address = headers['x-wallet-address'] as Address | undefined
-      if (!address) {
+      const authResult = await requireAuth(headers)
+      if (!authResult.success) {
         set.status = 401
         return {
-          error: { code: 'UNAUTHORIZED', message: 'Wallet address required' },
+          error: { code: 'UNAUTHORIZED', message: authResult.error },
         }
       }
+      const address = authResult.address
 
       const recipientFid = parseInt(params.fid, 10)
       await dcService.setConversationMuted(address, recipientFid, body.muted)
@@ -410,13 +415,14 @@ export const messagesRoutes = new Elysia({ prefix: '/api/messages' })
   .post(
     '/reconnect',
     async ({ headers, set }) => {
-      const address = headers['x-wallet-address'] as Address | undefined
-      if (!address) {
+      const authResult = await requireAuth(headers)
+      if (!authResult.success) {
         set.status = 401
         return {
-          error: { code: 'UNAUTHORIZED', message: 'Wallet address required' },
+          error: { code: 'UNAUTHORIZED', message: authResult.error },
         }
       }
+      const address = authResult.address
 
       await dcService.reconnectClient(address)
 
@@ -458,13 +464,14 @@ export const messagesRoutes = new Elysia({ prefix: '/api/messages' })
   .post(
     '/encryption-key/publish',
     async ({ headers, set }) => {
-      const address = headers['x-wallet-address'] as Address | undefined
-      if (!address) {
+      const authResult = await requireAuth(headers)
+      if (!authResult.success) {
         set.status = 401
         return {
-          error: { code: 'UNAUTHORIZED', message: 'Wallet address required' },
+          error: { code: 'UNAUTHORIZED', message: authResult.error },
         }
       }
+      const address = authResult.address
 
       await dcService.publishEncryptionKey(address)
 
