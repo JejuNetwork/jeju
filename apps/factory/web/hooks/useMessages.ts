@@ -1,6 +1,49 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useAccount } from 'wagmi'
+import { useAccount, useSignMessage } from 'wagmi'
 import { API_BASE, apiFetch, apiPost, getHeaders } from '../lib/api'
+
+type SignedReadCache = {
+  address: string
+  timestamp: number
+  signature: string
+  expiresAt: number
+}
+
+let signedReadCache: SignedReadCache | null = null
+
+async function getSignedReadHeaders(
+  address: string,
+  signMessageAsync: (args: { message: string }) => Promise<string>,
+): Promise<Record<string, string>> {
+  const now = Date.now()
+  if (
+    signedReadCache &&
+    signedReadCache.address === address &&
+    signedReadCache.expiresAt > now + 15_000
+  ) {
+    return {
+      'x-jeju-address': signedReadCache.address,
+      'x-jeju-timestamp': String(signedReadCache.timestamp),
+      'x-jeju-signature': signedReadCache.signature,
+    }
+  }
+
+  const timestamp = Date.now()
+  const message = `Factory Auth\nTimestamp: ${timestamp}\nNonce: `
+  const signature = await signMessageAsync({ message })
+  signedReadCache = {
+    address,
+    timestamp,
+    signature,
+    expiresAt: timestamp + 4 * 60 * 1000,
+  }
+
+  return {
+    'x-jeju-address': address,
+    'x-jeju-timestamp': String(timestamp),
+    'x-jeju-signature': signature,
+  }
+}
 
 export interface ConversationUser {
   fid: number
@@ -49,6 +92,7 @@ export interface MessagingStatus {
 
 export function useMessagingStatus() {
   const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
 
   return useQuery({
     queryKey: ['messages', 'status', address],
@@ -56,7 +100,8 @@ export function useMessagingStatus() {
       if (!address) {
         return { connected: false, isInitialized: false, unreadCount: 0 }
       }
-      return apiFetch('/api/messages/status', { address })
+      const headers = await getSignedReadHeaders(address, signMessageAsync)
+      return apiFetch('/api/messages/status', { headers })
     },
     enabled: !!address,
     refetchInterval: 30_000,
@@ -66,11 +111,19 @@ export function useMessagingStatus() {
 
 export function useConversations() {
   const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
 
   return useQuery({
     queryKey: ['messages', 'conversations', address],
-    queryFn: () =>
-      apiFetch<{ conversations: Conversation[] }>('/api/messages', { address }),
+    queryFn: async () => {
+      const headers = await getSignedReadHeaders(
+        address as string,
+        signMessageAsync,
+      )
+      return apiFetch<{ conversations: Conversation[] }>('/api/messages', {
+        headers,
+      })
+    },
     enabled: !!address,
     staleTime: 30_000,
   })
@@ -78,14 +131,19 @@ export function useConversations() {
 
 export function useConversation(recipientFid: number) {
   const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
 
   return useQuery({
     queryKey: ['messages', 'conversation', recipientFid, address],
-    queryFn: () =>
-      apiFetch<{ conversation: Conversation } | { error: { code: string } }>(
-        `/api/messages/conversation/${recipientFid}`,
-        { address },
-      ),
+    queryFn: async () => {
+      const headers = await getSignedReadHeaders(
+        address as string,
+        signMessageAsync,
+      )
+      return apiFetch<
+        { conversation: Conversation } | { error: { code: string } }
+      >(`/api/messages/conversation/${recipientFid}`, { headers })
+    },
     enabled: !!address && !!recipientFid,
     staleTime: 30_000,
   })
@@ -96,6 +154,7 @@ export function useMessages(
   options?: { before?: string; after?: string; limit?: number },
 ) {
   const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
 
   return useQuery({
     queryKey: ['messages', 'messages', recipientFid, options, address],
@@ -105,9 +164,13 @@ export function useMessages(
       if (options?.after) params.set('after', options.after)
       if (options?.limit) params.set('limit', String(options.limit))
 
+      const signedHeaders = await getSignedReadHeaders(
+        address as string,
+        signMessageAsync,
+      )
       const response = await fetch(
         `${API_BASE}/api/messages/conversation/${recipientFid}/messages?${params}`,
-        { headers: getHeaders(address) },
+        { headers: { ...getHeaders(address), ...signedHeaders } },
       )
       return response.json()
     },
@@ -205,14 +268,20 @@ export function useReconnect() {
 
 export function useSearchUsers(query: string) {
   const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
 
   return useQuery({
     queryKey: ['messages', 'search', query, address],
-    queryFn: () =>
-      apiFetch<{ users: ConversationUser[] }>(
+    queryFn: async () => {
+      const headers = await getSignedReadHeaders(
+        address as string,
+        signMessageAsync,
+      )
+      return apiFetch<{ users: ConversationUser[] }>(
         `/api/messages/search/users?q=${encodeURIComponent(query)}`,
-        { address },
-      ),
+        { headers },
+      )
+    },
     enabled: !!address && query.length >= 2,
     staleTime: 60_000,
   })
@@ -220,10 +289,17 @@ export function useSearchUsers(query: string) {
 
 export function useEncryptionKey() {
   const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
 
   return useQuery({
     queryKey: ['messages', 'encryption-key', address],
-    queryFn: () => apiFetch('/api/messages/encryption-key', { address }),
+    queryFn: async () => {
+      const headers = await getSignedReadHeaders(
+        address as string,
+        signMessageAsync,
+      )
+      return apiFetch('/api/messages/encryption-key', { headers })
+    },
     enabled: !!address,
     staleTime: 300_000,
   })
