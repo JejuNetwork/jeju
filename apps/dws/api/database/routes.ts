@@ -5,6 +5,8 @@
  * Supports permissionless provisioning via DWS
  */
 
+import { type WalletSignatureConfig, validateWalletSignatureFromHeaders } from '@jejunetwork/api'
+import { getCurrentNetwork } from '@jejunetwork/config'
 import { Elysia, t } from 'elysia'
 import type { Address, Hex } from 'viem'
 import type { BackendManager } from '../storage/backends'
@@ -21,6 +23,40 @@ import {
   terminatePostgres,
 } from './postgres-provisioner'
 
+const walletSignatureConfig: WalletSignatureConfig = {
+  validityWindowMs: 5 * 60 * 1000,
+}
+
+async function requireWalletOwner(
+  headers: Record<string, string | undefined>,
+): Promise<Address> {
+  const owner = (headers['x-jeju-address'] ??
+    headers['x-wallet-address']) as Address | undefined
+
+  if (!owner) {
+    throw new Error('Authentication required: x-jeju-address header missing')
+  }
+
+  if (getCurrentNetwork() === 'localnet') {
+    return owner
+  }
+
+  const result = await validateWalletSignatureFromHeaders(
+    {
+      'x-jeju-address': headers['x-jeju-address'],
+      'x-jeju-timestamp': headers['x-jeju-timestamp'],
+      'x-jeju-signature': headers['x-jeju-signature'],
+    },
+    walletSignatureConfig,
+  )
+
+  if (!result.valid || !result.user?.address) {
+    throw new Error(result.error ?? 'Authentication required')
+  }
+
+  return result.user.address
+}
+
 export function createDatabaseRoutes(backend: BackendManager) {
   const dbService = getManagedDatabaseService(backend)
 
@@ -28,10 +64,7 @@ export function createDatabaseRoutes(backend: BackendManager) {
     new Elysia({ prefix: '/database' })
       // List all databases for owner
       .get('/', async ({ headers }) => {
-        const owner = headers['x-wallet-address'] as Address
-        if (!owner) {
-          return { error: 'Unauthorized' }
-        }
+        const owner = await requireWalletOwner(headers)
 
         const instances = dbService.getInstancesByOwner(owner)
         return { instances }
@@ -41,10 +74,7 @@ export function createDatabaseRoutes(backend: BackendManager) {
       .post(
         '/',
         async ({ body, headers }) => {
-          const owner = headers['x-wallet-address'] as Address
-          if (!owner) {
-            return { error: 'Unauthorized' }
-          }
+          const owner = await requireWalletOwner(headers)
 
           const params = CreateDatabaseSchema.parse(body)
           const instance = await dbService.createDatabase(owner, params)
@@ -80,7 +110,7 @@ export function createDatabaseRoutes(backend: BackendManager) {
 
       // Get database by ID
       .get('/:instanceId', async ({ params, headers }) => {
-        const owner = headers['x-wallet-address'] as Address
+        const owner = await requireWalletOwner(headers)
         const instance = dbService.getInstance(params.instanceId)
 
         if (!instance) {
@@ -98,10 +128,7 @@ export function createDatabaseRoutes(backend: BackendManager) {
       .patch(
         '/:instanceId',
         async ({ params, body, headers }) => {
-          const owner = headers['x-wallet-address'] as Address
-          if (!owner) {
-            return { error: 'Unauthorized' }
-          }
+          const owner = await requireWalletOwner(headers)
 
           const updates = UpdateDatabaseSchema.parse(body)
           const instance = await dbService.updateDatabase(
@@ -126,10 +153,7 @@ export function createDatabaseRoutes(backend: BackendManager) {
 
       // Stop database
       .post('/:instanceId/stop', async ({ params, headers }) => {
-        const owner = headers['x-wallet-address'] as Address
-        if (!owner) {
-          return { error: 'Unauthorized' }
-        }
+        const owner = await requireWalletOwner(headers)
 
         await dbService.stopDatabase(params.instanceId, owner)
         return { success: true }
@@ -137,10 +161,7 @@ export function createDatabaseRoutes(backend: BackendManager) {
 
       // Start database
       .post('/:instanceId/start', async ({ params, headers }) => {
-        const owner = headers['x-wallet-address'] as Address
-        if (!owner) {
-          return { error: 'Unauthorized' }
-        }
+        const owner = await requireWalletOwner(headers)
 
         await dbService.startDatabase(params.instanceId, owner)
         return { success: true }
@@ -148,10 +169,7 @@ export function createDatabaseRoutes(backend: BackendManager) {
 
       // Delete database
       .delete('/:instanceId', async ({ params, headers }) => {
-        const owner = headers['x-wallet-address'] as Address
-        if (!owner) {
-          return { error: 'Unauthorized' }
-        }
+        const owner = await requireWalletOwner(headers)
 
         await dbService.deleteDatabase(params.instanceId, owner)
         return { success: true }
@@ -159,10 +177,7 @@ export function createDatabaseRoutes(backend: BackendManager) {
 
       // Get connection details
       .get('/:instanceId/connection', async ({ params, headers }) => {
-        const owner = headers['x-wallet-address'] as Address
-        if (!owner) {
-          return { error: 'Unauthorized' }
-        }
+        const owner = await requireWalletOwner(headers)
 
         const credentials = dbService.getCredentials(params.instanceId, owner)
         return { credentials }
@@ -170,8 +185,12 @@ export function createDatabaseRoutes(backend: BackendManager) {
 
       // Get connection pool stats
       .get('/:instanceId/pool', async ({ params, headers }) => {
-        const owner = headers['x-wallet-address'] as Address
-        if (!owner) {
+        const owner = await requireWalletOwner(headers)
+        const instance = dbService.getInstance(params.instanceId)
+        if (!instance) {
+          return { error: 'Database not found' }
+        }
+        if (instance.owner !== owner) {
           return { error: 'Unauthorized' }
         }
 
@@ -181,10 +200,7 @@ export function createDatabaseRoutes(backend: BackendManager) {
 
       // Create backup
       .post('/:instanceId/backups', async ({ params, headers }) => {
-        const owner = headers['x-wallet-address'] as Address
-        if (!owner) {
-          return { error: 'Unauthorized' }
-        }
+        const owner = await requireWalletOwner(headers)
 
         const backup = await dbService.createBackup(params.instanceId, owner)
         return { backup }
@@ -194,10 +210,7 @@ export function createDatabaseRoutes(backend: BackendManager) {
       .post(
         '/:instanceId/restore',
         async ({ params, body, headers }) => {
-          const owner = headers['x-wallet-address'] as Address
-          if (!owner) {
-            return { error: 'Unauthorized' }
-          }
+          const owner = await requireWalletOwner(headers)
 
           await dbService.restoreBackup(params.instanceId, body.backupId, owner)
           return { success: true }
@@ -213,10 +226,7 @@ export function createDatabaseRoutes(backend: BackendManager) {
       .post(
         '/:instanceId/replicas',
         async ({ params, body, headers }) => {
-          const owner = headers['x-wallet-address'] as Address
-          if (!owner) {
-            return { error: 'Unauthorized' }
-          }
+          const owner = await requireWalletOwner(headers)
 
           const replica = await dbService.createReplica(
             params.instanceId,
@@ -236,10 +246,7 @@ export function createDatabaseRoutes(backend: BackendManager) {
       .post(
         '/:instanceId/replicas/:replicaId/promote',
         async ({ params, headers }) => {
-          const owner = headers['x-wallet-address'] as Address
-          if (!owner) {
-            return { error: 'Unauthorized' }
-          }
+          const owner = await requireWalletOwner(headers)
 
           await dbService.promoteReplica(params.replicaId, owner)
           return { success: true }
@@ -296,10 +303,7 @@ export function createDatabaseRoutes(backend: BackendManager) {
 
       // Get PostgreSQL instance by ID/name
       .get('/postgres/:instanceId', async ({ params, headers }) => {
-        const owner = headers['x-wallet-address'] as Address
-        if (!owner) {
-          return { error: 'Unauthorized', instance: null }
-        }
+        const owner = await requireWalletOwner(headers)
 
         const instance = await getInstance(params.instanceId, owner)
         if (!instance) {
