@@ -1,3 +1,5 @@
+import { type WalletSignatureConfig, validateWalletSignatureFromHeaders } from '@jejunetwork/api'
+import { getCurrentNetwork } from '@jejunetwork/config'
 import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
 import {
@@ -17,6 +19,39 @@ export function createObservabilityRoutes(serviceName = 'dws') {
   const tracer = getTracer(serviceName)
   const alertManager = getAlertManager()
   const healthChecker = getHealthChecker()
+  const walletSignatureConfig: WalletSignatureConfig = {
+    validityWindowMs: 5 * 60 * 1000,
+  }
+
+  async function requireWalletOwner(
+    headers: Record<string, string | undefined>,
+  ): Promise<Address> {
+    const owner = (headers['x-jeju-address'] ??
+      headers['x-wallet-address']) as Address | undefined
+
+    if (!owner) {
+      throw new Error('Authentication required: x-jeju-address header missing')
+    }
+
+    if (getCurrentNetwork() === 'localnet') {
+      return owner
+    }
+
+    const result = await validateWalletSignatureFromHeaders(
+      {
+        'x-jeju-address': owner,
+        'x-jeju-timestamp': headers['x-jeju-timestamp'],
+        'x-jeju-signature': headers['x-jeju-signature'],
+      },
+      walletSignatureConfig,
+    )
+
+    if (!result.valid || !result.user?.address) {
+      throw new Error(result.error ?? 'Authentication required')
+    }
+
+    return result.user.address
+  }
 
   // Register default health checks
   healthChecker.register('database', async () => {
@@ -82,7 +117,8 @@ export function createObservabilityRoutes(serviceName = 'dws') {
           // Write log entry (for external services)
           .post(
             '/',
-            ({ body }) => {
+            async ({ body, headers }) => {
+              await requireWalletOwner(headers)
               const level = body.level as LogLevel
               const message = body.message as string
               const attributes = (body.attributes ?? {}) as Record<
@@ -145,7 +181,8 @@ export function createObservabilityRoutes(serviceName = 'dws') {
           // Record counter
           .post(
             '/counter',
-            ({ body }) => {
+            async ({ body, headers }) => {
+              await requireWalletOwner(headers)
               metrics.incCounter(body.name, body.labels ?? {}, body.value ?? 1)
               return { success: true }
             },
@@ -161,7 +198,8 @@ export function createObservabilityRoutes(serviceName = 'dws') {
           // Record gauge
           .post(
             '/gauge',
-            ({ body }) => {
+            async ({ body, headers }) => {
+              await requireWalletOwner(headers)
               if (body.action === 'set') {
                 metrics.setGauge(body.name, body.labels ?? {}, body.value)
               } else if (body.action === 'inc') {
@@ -188,7 +226,8 @@ export function createObservabilityRoutes(serviceName = 'dws') {
           // Record histogram observation
           .post(
             '/histogram',
-            ({ body }) => {
+            async ({ body, headers }) => {
+              await requireWalletOwner(headers)
               metrics.observeHistogram(body.name, body.labels ?? {}, body.value)
               return { success: true }
             },
@@ -261,7 +300,8 @@ export function createObservabilityRoutes(serviceName = 'dws') {
           // Start a new span
           .post(
             '/spans',
-            ({ body }) => {
+            async ({ body, headers }) => {
+              await requireWalletOwner(headers)
               const span = tracer.startSpan(body.name, {
                 kind: body.kind,
                 parentSpanId: body.parentSpanId,
@@ -298,7 +338,8 @@ export function createObservabilityRoutes(serviceName = 'dws') {
           // End a span
           .post(
             '/spans/:spanId/end',
-            ({ params, body }) => {
+            async ({ params, body, headers }) => {
+              await requireWalletOwner(headers)
               tracer.endSpan(params.spanId, body.status)
 
               const span = tracer.getSpan(params.spanId)
@@ -320,7 +361,8 @@ export function createObservabilityRoutes(serviceName = 'dws') {
           // Add event to span
           .post(
             '/spans/:spanId/events',
-            ({ params, body }) => {
+            async ({ params, body, headers }) => {
+              await requireWalletOwner(headers)
               tracer.addEvent(params.spanId, body.name, body.attributes ?? {})
               return { success: true }
             },
@@ -340,7 +382,8 @@ export function createObservabilityRoutes(serviceName = 'dws') {
           // Set span attribute
           .post(
             '/spans/:spanId/attributes',
-            ({ params, body }) => {
+            async ({ params, body, headers }) => {
+              await requireWalletOwner(headers)
               tracer.setAttribute(params.spanId, body.key, body.value)
               return { success: true }
             },
@@ -366,7 +409,8 @@ export function createObservabilityRoutes(serviceName = 'dws') {
           // Create alert rule
           .post(
             '/rules',
-            ({ body }) => {
+            async ({ body, headers }) => {
+              await requireWalletOwner(headers)
               const rule = alertManager.addRule({
                 name: body.name,
                 expression: body.expression,
@@ -403,7 +447,8 @@ export function createObservabilityRoutes(serviceName = 'dws') {
           )
 
           // Delete alert rule
-          .delete('/rules/:ruleId', ({ params }) => {
+          .delete('/rules/:ruleId', async ({ params, headers }) => {
+            await requireWalletOwner(headers)
             alertManager.removeRule(params.ruleId)
             return { success: true }
           })
@@ -411,7 +456,8 @@ export function createObservabilityRoutes(serviceName = 'dws') {
           // Enable/disable alert rule
           .post(
             '/rules/:ruleId/toggle',
-            ({ params, body }) => {
+            async ({ params, body, headers }) => {
+              await requireWalletOwner(headers)
               if (body.enabled) {
                 alertManager.enableRule(params.ruleId)
               } else {
@@ -443,12 +489,8 @@ export function createObservabilityRoutes(serviceName = 'dws') {
           })
 
           // Acknowledge alert
-          .post('/:alertId/ack', ({ params, headers }) => {
-            const address = headers['x-wallet-address'] as Address
-            if (!address) {
-              return { error: 'Unauthorized' }
-            }
-
+          .post('/:alertId/ack', async ({ params, headers }) => {
+            const address = await requireWalletOwner(headers)
             alertManager.acknowledgeAlert(params.alertId, address)
             return { success: true }
           }),
