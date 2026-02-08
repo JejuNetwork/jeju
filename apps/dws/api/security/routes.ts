@@ -37,7 +37,7 @@ async function requireWalletOwner(
 
   const result = await validateWalletSignatureFromHeaders(
     {
-      'x-jeju-address': headers['x-jeju-address'],
+      'x-jeju-address': owner,
       'x-jeju-timestamp': headers['x-jeju-timestamp'],
       'x-jeju-signature': headers['x-jeju-signature'],
     },
