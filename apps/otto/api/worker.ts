@@ -13,6 +13,7 @@
  */
 
 import { cors } from '@elysiajs/cors'
+import { type WalletSignatureConfig, validateWalletSignatureFromHeaders } from '@jejunetwork/api'
 import {
   getCoreAppUrl,
   getCurrentNetwork,
@@ -273,6 +274,9 @@ const CHAT_PLATFORM: Platform = 'chat'
 export function createOttoApp(env?: Partial<OttoEnv>) {
   const network = env?.NETWORK ?? getCurrentNetwork()
   const isDev = network === 'localnet'
+  const walletSignatureConfig: WalletSignatureConfig = {
+    validityWindowMs: 5 * 60 * 1000,
+  }
 
   // Lazy-initialize services on first use to avoid blocking worker startup
   let _stateManager: ReturnType<typeof getSQLitStateManager> | null = null
@@ -302,6 +306,36 @@ export function createOttoApp(env?: Partial<OttoEnv>) {
     },
   })
 
+  async function requireWalletOwner(
+    headers: Record<string, string | undefined>,
+  ): Promise<Address> {
+    const owner = (headers['x-jeju-address'] ??
+      headers['x-wallet-address']) as Address | undefined
+
+    if (!owner) {
+      throw new Error('Authentication required: x-wallet-address missing')
+    }
+
+    if (getCurrentNetwork() === 'localnet') {
+      return owner
+    }
+
+    const result = await validateWalletSignatureFromHeaders(
+      {
+        'x-jeju-address': owner,
+        'x-jeju-timestamp': headers['x-jeju-timestamp'],
+        'x-jeju-signature': headers['x-jeju-signature'],
+      },
+      walletSignatureConfig,
+    )
+
+    if (!result.valid || !result.user?.address) {
+      throw new Error(result.error ?? 'Authentication required')
+    }
+
+    return result.user.address
+  }
+
   // Type assertion needed due to Bun's virtual package resolution
   // creating different Elysia type versions across the monorepo
   const corsPlugin = cors({
@@ -318,6 +352,10 @@ export function createOttoApp(env?: Partial<OttoEnv>) {
       'Authorization',
       'X-Session-Id',
       'X-Wallet-Address',
+      'X-Jeju-Address',
+      'X-Jeju-Timestamp',
+      'X-Jeju-Signature',
+      'X-Jeju-Nonce',
     ],
     credentials: true,
   }) as unknown as Parameters<typeof Elysia.prototype.use>[0]
@@ -694,11 +732,14 @@ export function createOttoApp(env?: Partial<OttoEnv>) {
             estimatedMarketCap: '1000000',
           }
         })
-        .post('/create', ({ body, headers, set }) => {
-          const wallet = headers['x-wallet-address']
-          if (!wallet) {
+        .post('/create', async ({ body, headers, set }) => {
+          try {
+            await requireWalletOwner(headers)
+          } catch (error) {
             set.status = 401
-            return { error: 'Wallet address required' }
+            return {
+              error: error instanceof Error ? error.message : 'Unauthorized',
+            }
           }
           const parsed = LaunchCreateSchema.safeParse(body)
           if (!parsed.success) {
@@ -710,11 +751,14 @@ export function createOttoApp(env?: Partial<OttoEnv>) {
         .get('/user/:address', () => ({
           launches: [],
         }))
-        .post('/bonding/buy', ({ body, headers, set }) => {
-          const wallet = headers['x-wallet-address']
-          if (!wallet) {
+        .post('/bonding/buy', async ({ body, headers, set }) => {
+          try {
+            await requireWalletOwner(headers)
+          } catch (error) {
             set.status = 401
-            return { error: 'Wallet address required' }
+            return {
+              error: error instanceof Error ? error.message : 'Unauthorized',
+            }
           }
           const parsed = LaunchTradeSchema.safeParse(body)
           if (!parsed.success) {
@@ -723,11 +767,14 @@ export function createOttoApp(env?: Partial<OttoEnv>) {
           }
           return { ok: true }
         })
-        .post('/bonding/sell', ({ body, headers, set }) => {
-          const wallet = headers['x-wallet-address']
-          if (!wallet) {
+        .post('/bonding/sell', async ({ body, headers, set }) => {
+          try {
+            await requireWalletOwner(headers)
+          } catch (error) {
             set.status = 401
-            return { error: 'Wallet address required' }
+            return {
+              error: error instanceof Error ? error.message : 'Unauthorized',
+            }
           }
           const parsed = LaunchTradeSchema.safeParse(body)
           if (!parsed.success) {
@@ -781,11 +828,13 @@ export function createOttoApp(env?: Partial<OttoEnv>) {
         })
 
         .post('/swap', async ({ body, headers }) => {
-          const walletAddress = headers['x-wallet-address'] as
-            | Address
-            | undefined
-          if (!walletAddress) {
-            return { error: 'x-wallet-address header required' }
+          let walletAddress: Address
+          try {
+            walletAddress = await requireWalletOwner(headers)
+          } catch (error) {
+            return {
+              error: error instanceof Error ? error.message : 'Unauthorized',
+            }
           }
 
           const parsed = SwapRequestSchema.safeParse(body)
@@ -817,11 +866,13 @@ export function createOttoApp(env?: Partial<OttoEnv>) {
         })
 
         .post('/bridge', async ({ body, headers }) => {
-          const walletAddress = headers['x-wallet-address'] as
-            | Address
-            | undefined
-          if (!walletAddress) {
-            return { error: 'x-wallet-address header required' }
+          let walletAddress: Address
+          try {
+            walletAddress = await requireWalletOwner(headers)
+          } catch (error) {
+            return {
+              error: error instanceof Error ? error.message : 'Unauthorized',
+            }
           }
 
           const parsed = BridgeRequestSchema.safeParse(body)
