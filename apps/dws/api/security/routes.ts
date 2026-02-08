@@ -4,6 +4,8 @@
  * REST API for security services (WAF, access control, audit)
  */
 
+import { type WalletSignatureConfig, validateWalletSignatureFromHeaders } from '@jejunetwork/api'
+import { getCurrentNetwork } from '@jejunetwork/config'
 import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
 import {
@@ -14,6 +16,40 @@ import {
 import { getAuditLogger } from './audit-logger'
 import { CreateSecretSchema, getSecretsManager } from './secrets-manager'
 import { getWAF, type ThreatType } from './waf'
+
+const walletSignatureConfig: WalletSignatureConfig = {
+  validityWindowMs: 5 * 60 * 1000,
+}
+
+async function requireWalletOwner(
+  headers: Record<string, string | undefined>,
+): Promise<Address> {
+  const owner = (headers['x-jeju-address'] ??
+    headers['x-wallet-address']) as Address | undefined
+
+  if (!owner) {
+    throw new Error('Authentication required: x-jeju-address header missing')
+  }
+
+  if (getCurrentNetwork() === 'localnet') {
+    return owner
+  }
+
+  const result = await validateWalletSignatureFromHeaders(
+    {
+      'x-jeju-address': headers['x-jeju-address'],
+      'x-jeju-timestamp': headers['x-jeju-timestamp'],
+      'x-jeju-signature': headers['x-jeju-signature'],
+    },
+    walletSignatureConfig,
+  )
+
+  if (!result.valid || !result.user?.address) {
+    throw new Error(result.error ?? 'Authentication required')
+  }
+
+  return result.user.address
+}
 
 export function createSecurityRoutes() {
   const waf = getWAF()
@@ -43,10 +79,7 @@ export function createSecurityRoutes() {
           .post(
             '/rules',
             async ({ body, headers }) => {
-              const owner = headers['x-wallet-address'] as Address
-              if (!owner) {
-                return { error: 'Unauthorized' }
-              }
+              const owner = await requireWalletOwner(headers)
 
               const rule = waf.addRule(
                 body as Parameters<typeof waf.addRule>[0],
@@ -91,10 +124,7 @@ export function createSecurityRoutes() {
 
           // Delete WAF rule
           .delete('/rules/:ruleId', async ({ params, headers }) => {
-            const owner = headers['x-wallet-address'] as Address
-            if (!owner) {
-              return { error: 'Unauthorized' }
-            }
+            const owner = await requireWalletOwner(headers)
 
             waf.removeRule(params.ruleId)
 
@@ -114,10 +144,7 @@ export function createSecurityRoutes() {
           .post(
             '/block-ip',
             async ({ body, headers }) => {
-              const owner = headers['x-wallet-address'] as Address
-              if (!owner) {
-                return { error: 'Unauthorized' }
-              }
+              const owner = await requireWalletOwner(headers)
 
               waf.blockIP(body.ip, body.duration)
 
@@ -144,10 +171,7 @@ export function createSecurityRoutes() {
           .post(
             '/unblock-ip',
             async ({ body, headers }) => {
-              const owner = headers['x-wallet-address'] as Address
-              if (!owner) {
-                return { error: 'Unauthorized' }
-              }
+              const owner = await requireWalletOwner(headers)
 
               waf.unblockIP(body.ip)
 
@@ -184,11 +208,8 @@ export function createSecurityRoutes() {
       .group('/access', (app) =>
         app
           // Get current user
-          .get('/me', ({ headers }) => {
-            const address = headers['x-wallet-address'] as Address
-            if (!address) {
-              return { error: 'Unauthorized' }
-            }
+          .get('/me', async ({ headers }) => {
+            const address = await requireWalletOwner(headers)
 
             const user = accessControl.getUserByAddress(address)
             return { user }
@@ -203,10 +224,7 @@ export function createSecurityRoutes() {
           .post(
             '/roles',
             async ({ body, headers }) => {
-              const owner = headers['x-wallet-address'] as Address
-              if (!owner) {
-                return { error: 'Unauthorized' }
-              }
+              const owner = await requireWalletOwner(headers)
 
               const params = CreateRoleSchema.parse(body)
               const role = accessControl.createRole(params)
@@ -248,10 +266,7 @@ export function createSecurityRoutes() {
 
           // Delete role
           .delete('/roles/:roleId', async ({ params, headers }) => {
-            const owner = headers['x-wallet-address'] as Address
-            if (!owner) {
-              return { error: 'Unauthorized' }
-            }
+            const owner = await requireWalletOwner(headers)
 
             const success = accessControl.deleteRole(params.roleId)
 
@@ -273,10 +288,7 @@ export function createSecurityRoutes() {
           .post(
             '/users/:userId/roles',
             async ({ params, body, headers }) => {
-              const owner = headers['x-wallet-address'] as Address
-              if (!owner) {
-                return { error: 'Unauthorized' }
-              }
+              const owner = await requireWalletOwner(headers)
 
               accessControl.assignRole(params.userId, body.roleId)
 
@@ -302,10 +314,7 @@ export function createSecurityRoutes() {
           .delete(
             '/users/:userId/roles/:roleId',
             async ({ params, headers }) => {
-              const owner = headers['x-wallet-address'] as Address
-              if (!owner) {
-                return { error: 'Unauthorized' }
-              }
+              const owner = await requireWalletOwner(headers)
 
               accessControl.removeRole(params.userId, params.roleId)
 
@@ -326,10 +335,7 @@ export function createSecurityRoutes() {
           .post(
             '/check',
             async ({ body, headers }) => {
-              const address = headers['x-wallet-address'] as Address
-              if (!address) {
-                return { error: 'Unauthorized' }
-              }
+              const address = await requireWalletOwner(headers)
 
               const user = accessControl.getUserByAddress(address)
               if (!user) {
@@ -362,10 +368,7 @@ export function createSecurityRoutes() {
           .post(
             '/api-keys',
             async ({ body, headers }) => {
-              const address = headers['x-wallet-address'] as Address
-              if (!address) {
-                return { error: 'Unauthorized' }
-              }
+              const address = await requireWalletOwner(headers)
 
               const user = accessControl.getOrCreateUser(address)
               const params = CreateAPIKeySchema.parse(body)
@@ -401,11 +404,8 @@ export function createSecurityRoutes() {
           )
 
           // List API keys (metadata only)
-          .get('/api-keys', ({ headers }) => {
-            const address = headers['x-wallet-address'] as Address
-            if (!address) {
-              return { error: 'Unauthorized' }
-            }
+          .get('/api-keys', async ({ headers }) => {
+            const address = await requireWalletOwner(headers)
 
             const user = accessControl.getUserByAddress(address)
             if (!user) {
@@ -431,10 +431,7 @@ export function createSecurityRoutes() {
 
           // Revoke API key
           .delete('/api-keys/:keyId', async ({ params, headers }) => {
-            const address = headers['x-wallet-address'] as Address
-            if (!address) {
-              return { error: 'Unauthorized' }
-            }
+            const address = await requireWalletOwner(headers)
 
             const user = accessControl.getUserByAddress(address)
             if (!user) {
@@ -455,11 +452,8 @@ export function createSecurityRoutes() {
           })
 
           // List organizations
-          .get('/organizations', ({ headers }) => {
-            const address = headers['x-wallet-address'] as Address
-            if (!address) {
-              return { error: 'Unauthorized' }
-            }
+          .get('/organizations', async ({ headers }) => {
+            const address = await requireWalletOwner(headers)
 
             const user = accessControl.getUserByAddress(address)
             if (!user) {
@@ -476,10 +470,7 @@ export function createSecurityRoutes() {
           .post(
             '/organizations',
             async ({ body, headers }) => {
-              const address = headers['x-wallet-address'] as Address
-              if (!address) {
-                return { error: 'Unauthorized' }
-              }
+              const address = await requireWalletOwner(headers)
 
               const org = accessControl.createOrganization(
                 body.name,
@@ -513,11 +504,8 @@ export function createSecurityRoutes() {
       .group('/secrets', (app) =>
         app
           // List secrets (metadata only)
-          .get('/', ({ headers }) => {
-            const address = headers['x-wallet-address'] as Address
-            if (!address) {
-              return { error: 'Unauthorized' }
-            }
+          .get('/', async ({ headers }) => {
+            const address = await requireWalletOwner(headers)
 
             const secrets = secretsManager.listSecrets(address)
             return { secrets }
@@ -527,10 +515,7 @@ export function createSecurityRoutes() {
           .post(
             '/',
             async ({ body, headers }) => {
-              const address = headers['x-wallet-address'] as Address
-              if (!address) {
-                return { error: 'Unauthorized' }
-              }
+              const address = await requireWalletOwner(headers)
 
               const params = CreateSecretSchema.parse(body)
               const secret = await secretsManager.createSecret(address, params)
@@ -568,10 +553,7 @@ export function createSecurityRoutes() {
 
           // Get secret value
           .get('/:secretId', async ({ params, headers }) => {
-            const address = headers['x-wallet-address'] as Address
-            if (!address) {
-              return { error: 'Unauthorized' }
-            }
+            const address = await requireWalletOwner(headers)
 
             const value = await secretsManager.getSecret(
               params.secretId,
@@ -586,10 +568,7 @@ export function createSecurityRoutes() {
 
           // Rotate secret
           .post('/:secretId/rotate', async ({ params, headers }) => {
-            const address = headers['x-wallet-address'] as Address
-            if (!address) {
-              return { error: 'Unauthorized' }
-            }
+            const address = await requireWalletOwner(headers)
 
             const secret = await secretsManager.rotateSecret(
               params.secretId,
@@ -614,10 +593,7 @@ export function createSecurityRoutes() {
 
           // Delete secret
           .delete('/:secretId', async ({ params, headers }) => {
-            const address = headers['x-wallet-address'] as Address
-            if (!address) {
-              return { error: 'Unauthorized' }
-            }
+            const address = await requireWalletOwner(headers)
 
             const success = await secretsManager.deleteSecret(
               params.secretId,
@@ -638,10 +614,7 @@ export function createSecurityRoutes() {
 
           // Get environment secrets (for worker injection)
           .get('/env/:scopeId', async ({ params, headers }) => {
-            const address = headers['x-wallet-address'] as Address
-            if (!address) {
-              return { error: 'Unauthorized' }
-            }
+            const address = await requireWalletOwner(headers)
 
             const env = await secretsManager.getEnvironmentSecrets(
               params.scopeId,
@@ -657,11 +630,8 @@ export function createSecurityRoutes() {
       .group('/audit', (app) =>
         app
           // Query audit logs
-          .get('/logs', ({ query, headers }) => {
-            const address = headers['x-wallet-address'] as Address
-            if (!address) {
-              return { error: 'Unauthorized' }
-            }
+          .get('/logs', async ({ query, headers }) => {
+            const address = await requireWalletOwner(headers)
 
             // Check if user has audit read permission
             const user = accessControl.getUserByAddress(address)
@@ -704,32 +674,23 @@ export function createSecurityRoutes() {
           })
 
           // Get single audit event
-          .get('/logs/:eventId', ({ params, headers }) => {
-            const address = headers['x-wallet-address'] as Address
-            if (!address) {
-              return { error: 'Unauthorized' }
-            }
+          .get('/logs/:eventId', async ({ params, headers }) => {
+            const address = await requireWalletOwner(headers)
 
             const event = auditLogger.getEvent(params.eventId)
             return { event }
           })
 
           // Get audit stats
-          .get('/stats', ({ headers }) => {
-            const address = headers['x-wallet-address'] as Address
-            if (!address) {
-              return { error: 'Unauthorized' }
-            }
+          .get('/stats', async ({ headers }) => {
+            const address = await requireWalletOwner(headers)
 
             return auditLogger.getStats()
           })
 
           // Verify audit integrity
-          .get('/verify', ({ query, headers }) => {
-            const address = headers['x-wallet-address'] as Address
-            if (!address) {
-              return { error: 'Unauthorized' }
-            }
+          .get('/verify', async ({ query, headers }) => {
+            const address = await requireWalletOwner(headers)
 
             const result = auditLogger.verifyIntegrity(
               query.startEventId as string,
@@ -743,10 +704,7 @@ export function createSecurityRoutes() {
           .post(
             '/reports',
             async ({ body, headers }) => {
-              const address = headers['x-wallet-address'] as Address
-              if (!address) {
-                return { error: 'Unauthorized' }
-              }
+              const address = await requireWalletOwner(headers)
 
               const report = auditLogger.generateComplianceReport(
                 body.type as Parameters<
@@ -783,11 +741,8 @@ export function createSecurityRoutes() {
           )
 
           // Export audit logs
-          .get('/export', ({ query, headers }) => {
-            const address = headers['x-wallet-address'] as Address
-            if (!address) {
-              return { error: 'Unauthorized' }
-            }
+          .get('/export', async ({ query, headers }) => {
+            const address = await requireWalletOwner(headers)
 
             const format = (query.format as 'json' | 'csv') ?? 'json'
             const data = auditLogger.export(
