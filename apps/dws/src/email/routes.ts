@@ -1,3 +1,4 @@
+import { type WalletSignatureConfig, validateWalletSignatureFromHeaders } from '@jejunetwork/api'
 import {
   getCurrentNetwork,
   getRpcUrl,
@@ -68,6 +69,9 @@ const userCache = new Map<
   { email: string; tier: EmailTier; expiresAt: number }
 >()
 const CACHE_TTL = 5 * 60 * 1000
+const walletSignatureConfig: WalletSignatureConfig = {
+  validityWindowMs: 5 * 60 * 1000,
+}
 
 const sendEmailSchema = z.object({
   from: z.string().email(),
@@ -161,12 +165,34 @@ async function getAuthenticatedUser(request: Request): Promise<{
   email: string
   tier: EmailTier
 } | null> {
-  const addressHeader = request.headers.get('x-wallet-address')
+  const addressHeader =
+    request.headers.get('x-jeju-address') ??
+    request.headers.get('x-wallet-address')
   if (!addressHeader) return null
 
   if (!isAddress(addressHeader)) {
     console.warn(`[EmailRoutes] Invalid address format: ${addressHeader}`)
     return null
+  }
+
+  if (getCurrentNetwork() !== 'localnet') {
+    const signatureResult = await validateWalletSignatureFromHeaders(
+      {
+        'x-jeju-address': addressHeader,
+        'x-jeju-timestamp': request.headers.get('x-jeju-timestamp') ?? undefined,
+        'x-jeju-signature': request.headers.get('x-jeju-signature') ?? undefined,
+      },
+      walletSignatureConfig,
+    )
+
+    if (!signatureResult.valid || !signatureResult.user?.address) {
+      console.warn(
+        `[EmailRoutes] Signature verification failed: ${
+          signatureResult.error ?? 'unknown error'
+        }`,
+      )
+      return null
+    }
   }
 
   const address = addressHeader as Address
