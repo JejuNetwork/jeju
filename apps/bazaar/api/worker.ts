@@ -8,6 +8,7 @@
  */
 
 import { cors } from '@elysiajs/cors'
+import { type WalletSignatureConfig, validateWalletSignatureFromHeaders } from '@jejunetwork/api'
 import {
   CORE_PORTS,
   getCoreAppUrl,
@@ -71,6 +72,40 @@ const RATE_LIMITS = {
   intel: { maxRequests: 10, windowMs: 60_000 }, // 10 req/min
   tfmm: { maxRequests: 20, windowMs: 60_000 }, // 20 req/min
 } as const
+
+const walletSignatureConfig: WalletSignatureConfig = {
+  validityWindowMs: 5 * 60 * 1000,
+}
+
+async function requireWalletOwner(
+  request: Request,
+): Promise<`0x${string}`> {
+  const addressHeader =
+    request.headers.get('x-jeju-address') ??
+    request.headers.get('x-wallet-address')
+  if (!addressHeader) {
+    throw new Error('Authentication required: x-wallet-address missing')
+  }
+
+  if (getCurrentNetwork() === 'localnet') {
+    return addressHeader as `0x${string}`
+  }
+
+  const signatureResult = await validateWalletSignatureFromHeaders(
+    {
+      'x-jeju-address': addressHeader,
+      'x-jeju-timestamp': request.headers.get('x-jeju-timestamp') ?? undefined,
+      'x-jeju-signature': request.headers.get('x-jeju-signature') ?? undefined,
+    },
+    walletSignatureConfig,
+  )
+
+  if (!signatureResult.valid || !signatureResult.user?.address) {
+    throw new Error(signatureResult.error ?? 'Authentication required')
+  }
+
+  return signatureResult.user.address as `0x${string}`
+}
 
 function checkRateLimit(
   clientId: string,
@@ -768,12 +803,17 @@ export function createBazaarApp(env?: Partial<BazaarEnv>) {
       })
       .post('/', async ({ body, request }) => {
         // Security: Validate request has wallet signature header for write operations
-        const walletAddress = request.headers.get('x-wallet-address')
-        if (!walletAddress) {
+        let walletAddress: `0x${string}`
+        try {
+          walletAddress = await requireWalletOwner(request)
+        } catch (error) {
           return new Response(
             JSON.stringify({
               error: 'Authentication required',
-              message: 'x-wallet-address header required for write operations',
+              message:
+                error instanceof Error
+                  ? error.message
+                  : 'Authentication required',
             }),
             { status: 401, headers: { 'Content-Type': 'application/json' } },
           )
