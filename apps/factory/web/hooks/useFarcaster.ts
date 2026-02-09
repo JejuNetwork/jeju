@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useAccount } from 'wagmi'
-import { API_BASE, apiDelete, apiFetch, apiPost, getHeaders } from '../lib/api'
+import { useAccount, useSignMessage } from 'wagmi'
+import {
+  apiDeleteSigned,
+  apiFetch,
+  apiPost,
+  apiPostSigned,
+} from '../lib/api'
 
 export interface FarcasterUser {
   fid: number
@@ -203,11 +208,7 @@ export function useFeed(options?: {
       if (options?.channel) params.set('channel', options.channel)
       if (options?.feedType) params.set('feedType', options.feedType)
       if (options?.fid) params.set('fid', String(options.fid))
-
-      const response = await fetch(`${API_BASE}/api/feed?${params}`, {
-        headers: getHeaders(address),
-      })
-      return response.json()
+      return apiFetch<FeedResponse>(`/api/feed?${params}`, { address })
     },
     staleTime: 30_000,
   })
@@ -249,6 +250,7 @@ export function useTrendingFeed() {
 
 export function usePublishCast() {
   const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -257,78 +259,110 @@ export function usePublishCast() {
       channelId?: string
       parentHash?: string
       embeds?: Array<{ url: string }>
-    }) => apiPost('/api/feed', params, address),
+    }) =>
+      apiPostSigned('/api/feed', params, address as string, signMessageAsync),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['feed'] }),
   })
 }
 
 export function useDeleteCast() {
   const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: (castHash: string) =>
-      apiDelete(`/api/feed/${castHash}`, undefined, address),
+      apiDeleteSigned(
+        `/api/feed/${castHash}`,
+        undefined,
+        address as string,
+        signMessageAsync,
+      ),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['feed'] }),
   })
 }
 
 export function useLikeCast() {
   const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: (params: { castHash: string; castFid: number }) =>
-      apiPost('/api/feed/like', params, address),
+      apiPostSigned(
+        '/api/feed/like',
+        params,
+        address as string,
+        signMessageAsync,
+      ),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['feed'] }),
   })
 }
 
 export function useUnlikeCast() {
   const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: (params: { castHash: string; castFid: number }) =>
-      apiDelete('/api/feed/like', params, address),
+      apiDeleteSigned(
+        '/api/feed/like',
+        params,
+        address as string,
+        signMessageAsync,
+      ),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['feed'] }),
   })
 }
 
 export function useRecastCast() {
   const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: (params: { castHash: string; castFid: number }) =>
-      apiPost('/api/feed/recast', params, address),
+      apiPostSigned(
+        '/api/feed/recast',
+        params,
+        address as string,
+        signMessageAsync,
+      ),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['feed'] }),
   })
 }
 
 export function useUnrecastCast() {
   const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: (params: { castHash: string; castFid: number }) =>
-      apiDelete('/api/feed/recast', params, address),
+      apiDeleteSigned(
+        '/api/feed/recast',
+        params,
+        address as string,
+        signMessageAsync,
+      ),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['feed'] }),
   })
 }
 
 export function useFollowUser() {
   const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (targetFid: number) => {
-      const response = await fetch(`${API_BASE}/api/feed/follow/${targetFid}`, {
-        method: 'POST',
-        headers: getHeaders(address),
-      })
-      return response.json()
-    },
+    mutationFn: (targetFid: number) =>
+      apiPostSigned(
+        `/api/feed/follow/${targetFid}`,
+        {},
+        address as string,
+        signMessageAsync,
+      ),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ['farcaster', 'user'] }),
   })
@@ -336,16 +370,17 @@ export function useFollowUser() {
 
 export function useUnfollowUser() {
   const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (targetFid: number) => {
-      const response = await fetch(`${API_BASE}/api/feed/follow/${targetFid}`, {
-        method: 'DELETE',
-        headers: getHeaders(address),
-      })
-      return response.json()
-    },
+    mutationFn: (targetFid: number) =>
+      apiDeleteSigned(
+        `/api/feed/follow/${targetFid}`,
+        undefined,
+        address as string,
+        signMessageAsync,
+      ),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ['farcaster', 'user'] }),
   })

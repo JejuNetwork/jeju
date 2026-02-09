@@ -3,6 +3,7 @@ import { Elysia, t } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { CreateCastBodySchema, expectValid } from '../schemas'
 import * as farcasterService from '../services/farcaster'
+import { requireAuth } from '../validation/access-control'
 
 const CastReactionBodySchema = t.Object({
   castHash: t.String({ minLength: 3 }),
@@ -42,14 +43,14 @@ function getPagination(query: { cursor?: string; limit?: string }) {
   }
 }
 
-function requireWalletAddress(
+async function requireWalletAddress(
   headers: Record<string, string | undefined>,
-): Address {
-  const address = headers['x-wallet-address'] as Address | undefined
-  if (!address) {
+): Promise<Address> {
+  const authResult = await requireAuth(headers)
+  if (!authResult.success) {
     throw new Error('UNAUTHORIZED')
   }
-  return address
+  return authResult.address
 }
 
 export const feedRoutes = new Elysia({ prefix: '/api/feed' })
@@ -141,7 +142,7 @@ export const feedRoutes = new Elysia({ prefix: '/api/feed' })
     async ({ body, headers, set }) => {
       let address: Address
       try {
-        address = requireWalletAddress(headers)
+        address = await requireWalletAddress(headers)
       } catch {
         set.status = 401
         return {
@@ -192,7 +193,7 @@ export const feedRoutes = new Elysia({ prefix: '/api/feed' })
     async ({ params, headers, set }) => {
       let address: Address
       try {
-        address = requireWalletAddress(headers)
+        address = await requireWalletAddress(headers)
       } catch {
         set.status = 401
         return {
@@ -218,7 +219,7 @@ export const feedRoutes = new Elysia({ prefix: '/api/feed' })
     async ({ body, headers, set }) => {
       let address: Address
       try {
-        address = requireWalletAddress(headers)
+        address = await requireWalletAddress(headers)
       } catch {
         set.status = 401
         return {
@@ -248,7 +249,7 @@ export const feedRoutes = new Elysia({ prefix: '/api/feed' })
     async ({ body, headers, set }) => {
       let address: Address
       try {
-        address = requireWalletAddress(headers)
+        address = await requireWalletAddress(headers)
       } catch {
         set.status = 401
         return {
@@ -278,7 +279,7 @@ export const feedRoutes = new Elysia({ prefix: '/api/feed' })
     async ({ body, headers, set }) => {
       let address: Address
       try {
-        address = requireWalletAddress(headers)
+        address = await requireWalletAddress(headers)
       } catch {
         set.status = 401
         return {
@@ -308,7 +309,7 @@ export const feedRoutes = new Elysia({ prefix: '/api/feed' })
     async ({ body, headers, set }) => {
       let address: Address
       try {
-        address = requireWalletAddress(headers)
+        address = await requireWalletAddress(headers)
       } catch {
         set.status = 401
         return {
@@ -357,7 +358,7 @@ export const feedRoutes = new Elysia({ prefix: '/api/feed' })
     async ({ params, headers, set }) => {
       let address: Address
       try {
-        address = requireWalletAddress(headers)
+        address = await requireWalletAddress(headers)
       } catch {
         set.status = 401
         return {
@@ -383,7 +384,7 @@ export const feedRoutes = new Elysia({ prefix: '/api/feed' })
     async ({ params, headers, set }) => {
       let address: Address
       try {
-        address = requireWalletAddress(headers)
+        address = await requireWalletAddress(headers)
       } catch {
         set.status = 401
         return {

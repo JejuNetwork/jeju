@@ -7,6 +7,7 @@ import {
   getUser,
   isFarcasterConnected,
 } from '../services/farcaster'
+import { requireAuth } from '../validation/access-control'
 
 const SendMessageBodySchema = t.Object({
   recipientFid: t.Number({ minimum: 1 }),
@@ -25,12 +26,22 @@ const MessagesQuerySchema = t.Object({
   limit: t.Optional(t.String()),
 })
 
+async function getSignedAddress(
+  headers: Record<string, string | undefined>,
+  options?: { skipNonceCheck?: boolean },
+): Promise<Address | null> {
+  const authResult = await requireAuth(headers, options)
+  return authResult.success ? authResult.address : null
+}
+
 export const messagesRoutes = new Elysia({ prefix: '/api/messages' })
   // Get all conversations
   .get(
     '/',
     async ({ headers, set }) => {
-      const address = headers['x-wallet-address'] as Address | undefined
+      const address = await getSignedAddress(headers, {
+        skipNonceCheck: true,
+      })
       if (!address) {
         set.status = 401
         return {
@@ -105,7 +116,9 @@ export const messagesRoutes = new Elysia({ prefix: '/api/messages' })
   .get(
     '/status',
     async ({ headers, set }) => {
-      const address = headers['x-wallet-address'] as Address | undefined
+      const address = await getSignedAddress(headers, {
+        skipNonceCheck: true,
+      })
       if (!address) {
         set.status = 401
         return {
@@ -150,7 +163,9 @@ export const messagesRoutes = new Elysia({ prefix: '/api/messages' })
   .get(
     '/conversation/:fid',
     async ({ params, headers, set }) => {
-      const address = headers['x-wallet-address'] as Address | undefined
+      const address = await getSignedAddress(headers, {
+        skipNonceCheck: true,
+      })
       if (!address) {
         set.status = 401
         return {
@@ -217,7 +232,9 @@ export const messagesRoutes = new Elysia({ prefix: '/api/messages' })
   .get(
     '/conversation/:fid/messages',
     async ({ params, query, headers, set }) => {
-      const address = headers['x-wallet-address'] as Address | undefined
+      const address = await getSignedAddress(headers, {
+        skipNonceCheck: true,
+      })
       if (!address) {
         set.status = 401
         return {
@@ -277,7 +294,7 @@ export const messagesRoutes = new Elysia({ prefix: '/api/messages' })
   .post(
     '/',
     async ({ body, headers, set }) => {
-      const address = headers['x-wallet-address'] as Address | undefined
+      const address = await getSignedAddress(headers)
       if (!address) {
         set.status = 401
         return {
@@ -331,7 +348,7 @@ export const messagesRoutes = new Elysia({ prefix: '/api/messages' })
   .post(
     '/conversation/:fid/read',
     async ({ params, headers, set }) => {
-      const address = headers['x-wallet-address'] as Address | undefined
+      const address = await getSignedAddress(headers)
       if (!address) {
         set.status = 401
         return {
@@ -357,7 +374,7 @@ export const messagesRoutes = new Elysia({ prefix: '/api/messages' })
   .post(
     '/conversation/:fid/archive',
     async ({ params, headers, set }) => {
-      const address = headers['x-wallet-address'] as Address | undefined
+      const address = await getSignedAddress(headers)
       if (!address) {
         set.status = 401
         return {
@@ -383,7 +400,7 @@ export const messagesRoutes = new Elysia({ prefix: '/api/messages' })
   .post(
     '/conversation/:fid/mute',
     async ({ params, body, headers, set }) => {
-      const address = headers['x-wallet-address'] as Address | undefined
+      const address = await getSignedAddress(headers)
       if (!address) {
         set.status = 401
         return {
@@ -410,7 +427,7 @@ export const messagesRoutes = new Elysia({ prefix: '/api/messages' })
   .post(
     '/reconnect',
     async ({ headers, set }) => {
-      const address = headers['x-wallet-address'] as Address | undefined
+      const address = await getSignedAddress(headers)
       if (!address) {
         set.status = 401
         return {
@@ -434,7 +451,9 @@ export const messagesRoutes = new Elysia({ prefix: '/api/messages' })
   .get(
     '/encryption-key',
     async ({ headers, set }) => {
-      const address = headers['x-wallet-address'] as Address | undefined
+      const address = await getSignedAddress(headers, {
+        skipNonceCheck: true,
+      })
       if (!address) {
         set.status = 401
         return {
@@ -458,7 +477,7 @@ export const messagesRoutes = new Elysia({ prefix: '/api/messages' })
   .post(
     '/encryption-key/publish',
     async ({ headers, set }) => {
-      const address = headers['x-wallet-address'] as Address | undefined
+      const address = await getSignedAddress(headers)
       if (!address) {
         set.status = 401
         return {
@@ -482,7 +501,9 @@ export const messagesRoutes = new Elysia({ prefix: '/api/messages' })
   .get(
     '/search/users',
     async ({ query, headers, set }) => {
-      const address = headers['x-wallet-address'] as Address | undefined
+      const address = await getSignedAddress(headers, {
+        skipNonceCheck: true,
+      })
       if (!address) {
         set.status = 401
         return {

@@ -141,6 +141,16 @@ export function createFactoryApp(env?: Partial<FactoryEnv>) {
               getCoreAppUrl('FACTORY'),
             ],
         credentials: true,
+        allowedHeaders: [
+          'Content-Type',
+          'Authorization',
+          'X-Request-ID',
+          'X-Wallet-Address',
+          'X-Jeju-Address',
+          'X-Jeju-Timestamp',
+          'X-Jeju-Nonce',
+          'X-Jeju-Signature',
+        ],
       }),
     )
     .use(
