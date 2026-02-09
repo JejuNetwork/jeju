@@ -24,10 +24,7 @@ import {
   signRequestSchema,
   updateKmsKeyRequestSchema,
 } from '../../shared'
-import {
-  getAddressFromRequest,
-  parseAddress,
-} from '../../shared/utils/type-guards'
+import { parseAddress } from '../../shared/utils/type-guards'
 
 // MPC Configuration
 const MPC_CONFIG = {
