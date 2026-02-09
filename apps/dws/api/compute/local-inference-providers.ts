@@ -176,11 +176,16 @@ async function fetchSecretByName(
     // Fall through to HTTP fetch
   }
   const url = new URL('/kms/vault/secrets/reveal', baseUrl)
+  const serviceToken =
+    process.env.KMS_SERVICE_TOKEN ??
+    process.env.DWS_KMS_SERVICE_TOKEN ??
+    process.env.SERVICE_AUTH_TOKEN
   const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'x-service-id': SERVICE_ID,
+      ...(serviceToken ? { 'x-service-token': serviceToken } : {}),
     },
     body: JSON.stringify({ name }),
   })

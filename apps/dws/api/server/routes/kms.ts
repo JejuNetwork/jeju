@@ -42,6 +42,10 @@ const MPC_CONFIG = {
 const NETWORK = (process.env.NETWORK ??
   process.env.JEJU_NETWORK ??
   'localnet') as 'localnet' | 'testnet' | 'mainnet'
+const SERVICE_AUTH_TOKEN =
+  process.env.KMS_SERVICE_TOKEN ??
+  process.env.DWS_KMS_SERVICE_TOKEN ??
+  process.env.SERVICE_AUTH_TOKEN
 
 const SQLIT_DATABASE_ID = process.env.SQLIT_DATABASE_ID ?? 'dws-core'
 const walletSignatureConfig: WalletSignatureConfig = {
@@ -197,6 +201,12 @@ async function getOwnerFromRequest(request: Request): Promise<Address | null> {
   }
   const serviceId = request.headers.get('x-service-id')
   if (!serviceId) return null
+  if (NETWORK !== 'localnet') {
+    const providedToken = request.headers.get('x-service-token')
+    if (!SERVICE_AUTH_TOKEN || providedToken !== SERVICE_AUTH_TOKEN) {
+      return null
+    }
+  }
   const hash = keccak256(toBytes(serviceId))
   const candidate = `0x${hash.slice(-40)}`
   return parseAddress(candidate)
