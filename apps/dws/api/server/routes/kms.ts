@@ -238,12 +238,20 @@ export function createKMSRouter() {
         }
 
         const owner = (await getOwnerFromRequest(request))?.toLowerCase() ?? null
+        if (!owner) {
+          set.status = 401
+          return { error: 'Missing x-jeju-address or x-service-id header' }
+        }
+
+        const isServiceRequest = Boolean(request.headers.get('x-service-id'))
         const client = await getSQLitClient()
-        const totalRows = await client.query<{ count: number | string }>(
-          'SELECT COUNT(*) as count FROM kms_secrets',
-          [],
-          SQLIT_DATABASE_ID,
-        )
+        const totalRows = isServiceRequest
+          ? await client.query<{ count: number | string }>(
+              'SELECT COUNT(*) as count FROM kms_secrets',
+              [],
+              SQLIT_DATABASE_ID,
+            )
+          : null
         const ownerRows = owner
           ? await client.query<{ count: number | string }>(
               'SELECT COUNT(*) as count FROM kms_secrets WHERE owner = ?',
@@ -261,8 +269,8 @@ export function createKMSRouter() {
           databaseId: SQLIT_DATABASE_ID,
           owner,
           counts: {
-            total: normalizeCount(totalRows.rows[0]?.count),
-            owner: ownerRows ? normalizeCount(ownerRows.rows[0]?.count) : null,
+            total: totalRows ? normalizeCount(totalRows.rows[0]?.count) : null,
+            owner: normalizeCount(ownerRows?.rows[0]?.count),
           },
           endpoint: client.getEndpoint(),
         }
