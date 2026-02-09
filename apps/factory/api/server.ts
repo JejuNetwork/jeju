@@ -131,6 +131,16 @@ function createApp() {
               `https://jeju.local:${CORE_PORTS.FACTORY.get()}`,
             ],
         credentials: true,
+        allowedHeaders: [
+          'Content-Type',
+          'Authorization',
+          'X-Request-ID',
+          'X-Wallet-Address',
+          'X-Jeju-Address',
+          'X-Jeju-Timestamp',
+          'X-Jeju-Nonce',
+          'X-Jeju-Signature',
+        ],
       }),
     )
     .use(

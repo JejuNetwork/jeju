@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useAccount } from 'wagmi'
-import { API_BASE, apiFetch, apiPost, getHeaders } from '../lib/api'
+import { useAccount, useSignMessage } from 'wagmi'
+import { apiFetchSigned, apiPostSigned } from '../lib/api'
 
 export interface ConversationUser {
   fid: number
@@ -49,6 +49,7 @@ export interface MessagingStatus {
 
 export function useMessagingStatus() {
   const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
 
   return useQuery({
     queryKey: ['messages', 'status', address],
@@ -56,7 +57,11 @@ export function useMessagingStatus() {
       if (!address) {
         return { connected: false, isInitialized: false, unreadCount: 0 }
       }
-      return apiFetch('/api/messages/status', { address })
+      return apiFetchSigned('/api/messages/status', {
+        address,
+        signMessageAsync,
+        cache: true,
+      })
     },
     enabled: !!address,
     refetchInterval: 30_000,
@@ -66,11 +71,16 @@ export function useMessagingStatus() {
 
 export function useConversations() {
   const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
 
   return useQuery({
     queryKey: ['messages', 'conversations', address],
     queryFn: () =>
-      apiFetch<{ conversations: Conversation[] }>('/api/messages', { address }),
+      apiFetchSigned<{ conversations: Conversation[] }>('/api/messages', {
+        address: address as string,
+        signMessageAsync,
+        cache: true,
+      }),
     enabled: !!address,
     staleTime: 30_000,
   })
@@ -78,14 +88,18 @@ export function useConversations() {
 
 export function useConversation(recipientFid: number) {
   const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
 
   return useQuery({
     queryKey: ['messages', 'conversation', recipientFid, address],
     queryFn: () =>
-      apiFetch<{ conversation: Conversation } | { error: { code: string } }>(
-        `/api/messages/conversation/${recipientFid}`,
-        { address },
-      ),
+      apiFetchSigned<
+        { conversation: Conversation } | { error: { code: string } }
+      >(`/api/messages/conversation/${recipientFid}`, {
+        address: address as string,
+        signMessageAsync,
+        cache: true,
+      }),
     enabled: !!address && !!recipientFid,
     staleTime: 30_000,
   })
@@ -96,6 +110,7 @@ export function useMessages(
   options?: { before?: string; after?: string; limit?: number },
 ) {
   const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
 
   return useQuery({
     queryKey: ['messages', 'messages', recipientFid, options, address],
@@ -105,11 +120,14 @@ export function useMessages(
       if (options?.after) params.set('after', options.after)
       if (options?.limit) params.set('limit', String(options.limit))
 
-      const response = await fetch(
-        `${API_BASE}/api/messages/conversation/${recipientFid}/messages?${params}`,
-        { headers: getHeaders(address) },
+      return apiFetchSigned<{ messages: Message[] }>(
+        `/api/messages/conversation/${recipientFid}/messages?${params}`,
+        {
+          address: address as string,
+          signMessageAsync,
+          cache: true,
+        },
       )
-      return response.json()
     },
     enabled: !!address && !!recipientFid,
     refetchInterval: 5_000,
@@ -119,6 +137,7 @@ export function useMessages(
 
 export function useSendMessage() {
   const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -127,7 +146,8 @@ export function useSendMessage() {
       text: string
       embeds?: Array<{ url: string }>
       replyTo?: string
-    }) => apiPost('/api/messages', params, address),
+    }) =>
+      apiPostSigned('/api/messages', params, address as string, signMessageAsync),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
         queryKey: ['messages', 'messages', variables.recipientFid],
@@ -140,11 +160,17 @@ export function useSendMessage() {
 
 export function useMarkAsRead() {
   const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: (recipientFid: number) =>
-      apiPost(`/api/messages/conversation/${recipientFid}/read`, {}, address),
+      apiPostSigned(
+        `/api/messages/conversation/${recipientFid}/read`,
+        {},
+        address as string,
+        signMessageAsync,
+      ),
     onSuccess: (_, recipientFid) => {
       queryClient.invalidateQueries({
         queryKey: ['messages', 'conversation', recipientFid],
@@ -157,14 +183,16 @@ export function useMarkAsRead() {
 
 export function useArchiveConversation() {
   const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: (recipientFid: number) =>
-      apiPost(
+      apiPostSigned(
         `/api/messages/conversation/${recipientFid}/archive`,
         {},
-        address,
+        address as string,
+        signMessageAsync,
       ),
     onSuccess: () =>
       queryClient.invalidateQueries({
@@ -175,14 +203,16 @@ export function useArchiveConversation() {
 
 export function useMuteConversation() {
   const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: (params: { recipientFid: number; muted: boolean }) =>
-      apiPost(
+      apiPostSigned(
         `/api/messages/conversation/${params.recipientFid}/mute`,
         { muted: params.muted },
-        address,
+        address as string,
+        signMessageAsync,
       ),
     onSuccess: (_, { recipientFid }) => {
       queryClient.invalidateQueries({
@@ -195,23 +225,35 @@ export function useMuteConversation() {
 
 export function useReconnect() {
   const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: () => apiPost('/api/messages/reconnect', {}, address),
+    mutationFn: () =>
+      apiPostSigned(
+        '/api/messages/reconnect',
+        {},
+        address as string,
+        signMessageAsync,
+      ),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['messages'] }),
   })
 }
 
 export function useSearchUsers(query: string) {
   const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
 
   return useQuery({
     queryKey: ['messages', 'search', query, address],
     queryFn: () =>
-      apiFetch<{ users: ConversationUser[] }>(
+      apiFetchSigned<{ users: ConversationUser[] }>(
         `/api/messages/search/users?q=${encodeURIComponent(query)}`,
-        { address },
+        {
+          address: address as string,
+          signMessageAsync,
+          cache: true,
+        },
       ),
     enabled: !!address && query.length >= 2,
     staleTime: 60_000,
@@ -220,10 +262,16 @@ export function useSearchUsers(query: string) {
 
 export function useEncryptionKey() {
   const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
 
   return useQuery({
     queryKey: ['messages', 'encryption-key', address],
-    queryFn: () => apiFetch('/api/messages/encryption-key', { address }),
+    queryFn: () =>
+      apiFetchSigned('/api/messages/encryption-key', {
+        address: address as string,
+        signMessageAsync,
+        cache: true,
+      }),
     enabled: !!address,
     staleTime: 300_000,
   })
@@ -231,11 +279,17 @@ export function useEncryptionKey() {
 
 export function usePublishEncryptionKey() {
   const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: () =>
-      apiPost('/api/messages/encryption-key/publish', {}, address),
+      apiPostSigned(
+        '/api/messages/encryption-key/publish',
+        {},
+        address as string,
+        signMessageAsync,
+      ),
     onSuccess: () =>
       queryClient.invalidateQueries({
         queryKey: ['messages', 'encryption-key'],
