@@ -616,15 +616,15 @@ export function credentialToOnChainAttestation(
 } {
   const providerMap: Record<AuthProvider, number> = {
     wallet: 0,
-    passkey: 1,
-    farcaster: 2,
-    google: 3,
-    apple: 4,
-    twitter: 5,
-    github: 6,
-    discord: 7,
-    email: 8,
-    phone: 9,
+    farcaster: 1,
+    google: 2,
+    apple: 3,
+    twitter: 4,
+    github: 5,
+    discord: 6,
+    email: 7,
+    phone: 8,
+    passkey: 9,
   }
 
   return {
