@@ -2,12 +2,14 @@
  * ProposalService - Handles on-chain proposal submission via BoardGovernance contract
  */
 
-import { getChainId, getRpcUrl } from '@jejunetwork/config'
+import { getChainId, getContract, getRpcUrl } from '@jejunetwork/config'
 import {
   type Address,
   type Hash,
   createPublicClient,
   createWalletClient,
+  defineChain,
+  encodeFunctionData,
   http,
   toHex,
 } from 'viem'
@@ -214,10 +216,6 @@ const BOARD_GOVERNANCE_ABI = [
   },
 ] as const
 
-// Localnet BoardGovernance address - deployed via DeployBoardGovernance.s.sol
-const BOARD_GOVERNANCE_ADDRESS: Address =
-  '0x38a70c040ca5f5439ad52d0e821063b0ec0b52b6'
-
 // Default operator key (localnet only)
 const DEFAULT_OPERATOR_KEY =
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
@@ -281,8 +279,23 @@ function getChain(): Chain {
   if (chainId === 31337) {
     return anvil
   }
-  // Add other chains as needed
-  return anvil
+  if (chainId === 420690) {
+    return defineChain({
+      id: 420690,
+      name: 'Jeju Testnet',
+      nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+      rpcUrls: { default: { http: [getRpcUrl()] } },
+    })
+  }
+  if (chainId === 420691) {
+    return defineChain({
+      id: 420691,
+      name: 'Jeju Mainnet',
+      nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+      rpcUrls: { default: { http: [getRpcUrl()] } },
+    })
+  }
+  throw new Error(`Unsupported chain ID: ${chainId}`)
 }
 
 class ProposalService {
@@ -307,7 +320,7 @@ class ProposalService {
       transport: http(rpcUrl),
     })
 
-    this.contractAddress = BOARD_GOVERNANCE_ADDRESS
+    this.contractAddress = getContract('autocrat', 'boardGovernance') as Address
   }
 
   /**
@@ -626,4 +639,235 @@ export function getProposalService(): ProposalService {
     proposalServiceInstance = new ProposalService()
   }
   return proposalServiceInstance
+}
+
+// ============================================================================
+// Treasury Call Encoding Helpers (Step 5 & 6)
+// ============================================================================
+
+// Minimal Treasury ABI for encoding calls
+const TREASURY_ABI = [
+  {
+    type: 'function',
+    name: 'withdrawETH',
+    inputs: [
+      { name: 'amount', type: 'uint256' },
+      { name: 'to', type: 'address' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'withdrawToken',
+    inputs: [
+      { name: 'token', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+      { name: 'to', type: 'address' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'directorSendTokens',
+    inputs: [
+      { name: 'to', type: 'address' },
+      { name: 'token', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+      { name: 'reason', type: 'string' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'createRecurringPayment',
+    inputs: [
+      { name: 'recipient', type: 'address' },
+      { name: 'token', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+      { name: 'interval', type: 'uint256' },
+      { name: 'maxPayments', type: 'uint256' },
+      { name: 'description', type: 'string' },
+    ],
+    outputs: [{ name: 'paymentId', type: 'bytes32' }],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'cancelRecurringPayment',
+    inputs: [{ name: 'paymentId', type: 'bytes32' }],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'topUpAccount',
+    inputs: [
+      { name: 'account', type: 'address' },
+      { name: 'token', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+] as const
+
+/**
+ * Encode a Treasury.withdrawETH call
+ */
+export function encodeTreasuryWithdrawETH(amount: bigint, to: Address): `0x${string}` {
+  return encodeFunctionData({
+    abi: TREASURY_ABI,
+    functionName: 'withdrawETH',
+    args: [amount, to],
+  })
+}
+
+/**
+ * Encode a Treasury.withdrawToken call
+ */
+export function encodeTreasuryWithdrawToken(
+  token: Address,
+  amount: bigint,
+  to: Address
+): `0x${string}` {
+  return encodeFunctionData({
+    abi: TREASURY_ABI,
+    functionName: 'withdrawToken',
+    args: [token, amount, to],
+  })
+}
+
+/**
+ * Encode a Treasury.directorSendTokens call
+ */
+export function encodeTreasuryDirectorSend(
+  to: Address,
+  token: Address,
+  amount: bigint,
+  reason: string
+): `0x${string}` {
+  return encodeFunctionData({
+    abi: TREASURY_ABI,
+    functionName: 'directorSendTokens',
+    args: [to, token, amount, reason],
+  })
+}
+
+/**
+ * Encode a Treasury.createRecurringPayment call
+ */
+export function encodeTreasuryRecurringPayment(
+  recipient: Address,
+  token: Address,
+  amount: bigint,
+  intervalSeconds: bigint,
+  maxPayments: bigint,
+  description: string
+): `0x${string}` {
+  return encodeFunctionData({
+    abi: TREASURY_ABI,
+    functionName: 'createRecurringPayment',
+    args: [recipient, token, amount, intervalSeconds, maxPayments, description],
+  })
+}
+
+/**
+ * Encode a Treasury.cancelRecurringPayment call
+ */
+export function encodeTreasuryCancelRecurring(paymentId: `0x${string}`): `0x${string}` {
+  return encodeFunctionData({
+    abi: TREASURY_ABI,
+    functionName: 'cancelRecurringPayment',
+    args: [paymentId],
+  })
+}
+
+/**
+ * Encode a Treasury.topUpAccount call
+ */
+export function encodeTreasuryTopUp(
+  account: Address,
+  token: Address,
+  amount: bigint
+): `0x${string}` {
+  return encodeFunctionData({
+    abi: TREASURY_ABI,
+    functionName: 'topUpAccount',
+    args: [account, token, amount],
+  })
+}
+
+// ============================================================================
+// Proposal Builder Helpers
+// ============================================================================
+
+export interface TreasurySpendProposal {
+  daoId: string
+  contentHash: string
+  treasuryAddress: Address
+  to: Address
+  token: Address // address(0) for ETH
+  amount: bigint
+  reason: string
+}
+
+export interface RecurringPaymentProposal {
+  daoId: string
+  contentHash: string
+  treasuryAddress: Address
+  recipient: Address
+  token: Address // address(0) for ETH
+  amount: bigint
+  intervalSeconds: bigint
+  maxPayments: bigint // 0 for unlimited
+  description: string
+}
+
+/**
+ * Create proposal params for a treasury spend
+ */
+export function buildTreasurySpendProposal(params: TreasurySpendProposal): ProposalSubmission {
+  const callData = encodeTreasuryDirectorSend(
+    params.to,
+    params.token,
+    params.amount,
+    params.reason
+  )
+
+  return {
+    daoId: params.daoId,
+    proposalType: 0, // TREASURY_SPEND
+    contentHash: params.contentHash,
+    targetContract: params.treasuryAddress,
+    callData,
+    value: 0n,
+  }
+}
+
+/**
+ * Create proposal params for a recurring payment
+ */
+export function buildRecurringPaymentProposal(
+  params: RecurringPaymentProposal
+): ProposalSubmission {
+  const callData = encodeTreasuryRecurringPayment(
+    params.recipient,
+    params.token,
+    params.amount,
+    params.intervalSeconds,
+    params.maxPayments,
+    params.description
+  )
+
+  return {
+    daoId: params.daoId,
+    proposalType: 0, // TREASURY_SPEND
+    contentHash: params.contentHash,
+    targetContract: params.treasuryAddress,
+    callData,
+    value: 0n,
+  }
 }

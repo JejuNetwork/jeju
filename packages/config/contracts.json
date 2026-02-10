@@ -195,7 +195,8 @@
     "autocrat": {
       "daoRegistry": "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82",
       "daoFunding": "0x9A676e781A523b5d0C0e43731313A708CB607508",
-      "feeConfig": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0"
+      "feeConfig": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0",
+      "boardGovernance": ""
     },
     "vpn": {
       "registry": "0xe8D2A1E88c91DCd5433208d4152Cc4F399a7e91d"
@@ -384,7 +385,8 @@
     },
     "autocrat": {
       "daoRegistry": "0xb9bEECD1A582768711dE1EE7B0A1d582D9d72a6C",
-      "daoFunding": "0x8A93d247134d91e0de6f96547cB0204e5BE8e5D8"
+      "daoFunding": "0x8A93d247134d91e0de6f96547cB0204e5BE8e5D8",
+      "boardGovernance": ""
     }
   },
   "mainnet": {
@@ -530,7 +532,8 @@
     },
     "autocrat": {
       "daoRegistry": "",
-      "daoFunding": ""
+      "daoFunding": "",
+      "boardGovernance": ""
     }
   },
   "external": {

@@ -68,6 +68,7 @@ contract BoardGovernance is IBoardGovernance, Ownable, ReentrancyGuard {
     error ProposalAlreadyExecuted();
     error ProposalExpiredError();
     error ExecutionFailed();
+    error InvalidStatusTransition();
 
     // ============ Modifiers ============
 
@@ -106,7 +107,7 @@ contract BoardGovernance is IBoardGovernance, Ownable, ReentrancyGuard {
         address targetContract,
         bytes calldata callData,
         uint256 value
-    ) external nonReentrant returns (bytes32 proposalId) {
+    ) external onlyAutocrat nonReentrant returns (bytes32 proposalId) {
         // Generate unique proposal ID
         proposalId = keccak256(abi.encodePacked(daoId, contentHash, block.timestamp, _proposalCounter++));
 
@@ -153,6 +154,7 @@ contract BoardGovernance is IBoardGovernance, Ownable, ReentrancyGuard {
         proposalExists(proposalId)
     {
         ProposalStatus oldStatus = _proposals[proposalId].status;
+        if (_isTerminal(oldStatus)) revert InvalidStatusTransition();
         _proposals[proposalId].status = status;
         emit ProposalStatusChanged(proposalId, oldStatus, status);
     }
@@ -166,6 +168,9 @@ contract BoardGovernance is IBoardGovernance, Ownable, ReentrancyGuard {
         proposalExists(proposalId)
     {
         Proposal storage p = _proposals[proposalId];
+        if (p.status != ProposalStatus.DIRECTOR_QUEUE && p.status != ProposalStatus.AUTOCRAT_FINAL) {
+            revert InvalidStatus();
+        }
         if (p.directorDecided) revert AlreadyDecided();
 
         p.directorApproved = approved;
@@ -215,6 +220,7 @@ contract BoardGovernance is IBoardGovernance, Ownable, ReentrancyGuard {
     {
         Proposal storage p = _proposals[proposalId];
         ProposalStatus oldStatus = p.status;
+        if (_isTerminal(oldStatus)) revert InvalidStatusTransition();
         p.status = ProposalStatus.REJECTED;
         emit ProposalStatusChanged(proposalId, oldStatus, ProposalStatus.REJECTED);
     }
@@ -431,6 +437,14 @@ contract BoardGovernance is IBoardGovernance, Ownable, ReentrancyGuard {
 
     function version() external pure returns (string memory) {
         return "1.0.0";
+    }
+
+    // ============ Internal Helpers ============
+
+    function _isTerminal(ProposalStatus status) internal pure returns (bool) {
+        return status == ProposalStatus.COMPLETED || status == ProposalStatus.REJECTED
+            || status == ProposalStatus.VETOED || status == ProposalStatus.DUPLICATE
+            || status == ProposalStatus.SPAM;
     }
 
     // ============ Receive Function ============
