@@ -35,7 +35,7 @@ function generateUUID(): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
 }
 
-function arrayBufferToBase64url(buffer: ArrayBuffer): string {
+function arrayBufferToBase64url(buffer: ArrayBuffer | SharedArrayBuffer): string {
   const bytes = new Uint8Array(buffer)
   let binary = ''
   for (const byte of bytes) {
@@ -54,6 +54,28 @@ function isPasskeyRequestOptions(
   options: PasskeyPublicKeyOptions,
 ): options is Parameters<typeof toWebAuthnRequestOptions>[0] {
   return 'challenge' in options && !('user' in options)
+}
+
+function isAuthenticatorAssertionResponse(
+  response: AuthenticatorResponse,
+): response is AuthenticatorAssertionResponse {
+  return 'authenticatorData' in response && 'signature' in response
+}
+
+function safeArrayBufferToBase64url(
+  value:
+    | ArrayBuffer
+    | SharedArrayBuffer
+    | ArrayBufferView
+    | null
+    | undefined,
+): string | undefined {
+  if (!value) return undefined
+  const buffer =
+    value instanceof ArrayBuffer || value instanceof SharedArrayBuffer
+      ? value
+      : value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength)
+  return arrayBufferToBase64url(buffer)
 }
 
 // OAuth callback data schema
@@ -622,21 +644,34 @@ export class OAuth3Client {
       if (!('attestationObject' in response)) {
         throw new Error('Invalid passkey registration response')
       }
+      const registrationResponse = response as AuthenticatorAttestationResponse & {
+        attestationObject: ArrayBuffer | SharedArrayBuffer
+        clientDataJSON: ArrayBuffer
+      }
       responsePayload = {
         clientDataJSON,
-        attestationObject: arrayBufferToBase64url(response.attestationObject),
+        attestationObject: safeArrayBufferToBase64url(
+          registrationResponse.attestationObject,
+        ),
       }
     } else {
-      if (!('authenticatorData' in response) || !('signature' in response)) {
+      if (!isAuthenticatorAssertionResponse(response)) {
         throw new Error('Invalid passkey authentication response')
+      }
+      const assertionResponse = response as AuthenticatorAssertionResponse & {
+        authenticatorData: ArrayBuffer | SharedArrayBuffer
+        signature: ArrayBuffer | SharedArrayBuffer
+        userHandle?: ArrayBuffer | SharedArrayBuffer | null
       }
       responsePayload = {
         clientDataJSON,
-        authenticatorData: arrayBufferToBase64url(response.authenticatorData),
-        signature: arrayBufferToBase64url(response.signature),
-        userHandle: response.userHandle
-          ? arrayBufferToBase64url(response.userHandle)
-          : undefined,
+        authenticatorData: safeArrayBufferToBase64url(
+          assertionResponse.authenticatorData,
+        ),
+        signature: safeArrayBufferToBase64url(assertionResponse.signature),
+        userHandle: safeArrayBufferToBase64url(
+          assertionResponse.userHandle,
+        ),
       }
     }
 
