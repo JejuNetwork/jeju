@@ -102,8 +102,9 @@ export async function generateSecureToken(
   }
 
   const config = getConfig()
-  const header = { alg: 'ES256K', typ: 'JWT', kid: config.jwtSigningKeyId }
-  const headerB64 = base64urlEncode(JSON.stringify(header))
+  const headerB64 = base64urlEncode(
+    JSON.stringify({ alg: 'ES256K', typ: 'JWT', kid: config.jwtSigningKeyId }),
+  )
   const payloadB64 = base64urlEncode(JSON.stringify(claims))
   const signingInput = `${headerB64}.${payloadB64}`
   const messageHash = keccak256(toBytes(signingInput))
@@ -132,10 +133,12 @@ export async function verifySecureToken(token: string): Promise<string | null> {
 
   const [headerB64, payloadB64, signatureB64] = parts
 
-  let header: { alg?: string; kid?: string }
   let claims: { sub?: string; iss?: string; exp?: number }
   try {
-    header = JSON.parse(base64urlDecode(headerB64))
+    const header = JSON.parse(base64urlDecode(headerB64))
+    if (header?.alg && header.alg !== 'ES256K') {
+      return null
+    }
     claims = JSON.parse(base64urlDecode(payloadB64))
   } catch {
     return null

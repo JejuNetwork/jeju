@@ -719,7 +719,6 @@ export function createAuthInitRouter(config: AuthConfig) {
             return { error: 'invalid_origin' }
           }
 
-          const appId = body.appId ?? 'jeju-default'
           const rpId = origin.hostname
 
           const existingCredentials = await passkeyState.listCredentialsByRpId(
