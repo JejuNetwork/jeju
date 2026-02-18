@@ -31,7 +31,7 @@ async function buildFrontend(): Promise<void> {
     packages: 'bundle',
     splitting: false,
     naming: '[name].[hash].[ext]',
-    external: ['bun:sqlite', 'node:*', '@tauri-apps/*', 'pino', 'pino-*'],
+    external: ['bun:sqlite', 'node:*', 'pino', 'pino-*'],
     drop: ['debugger'],
     define: {
       'process.env.NODE_ENV': JSON.stringify('production'),
@@ -49,40 +49,64 @@ async function buildFrontend(): Promise<void> {
 
   reportBundleSizes(result, 'Frontend')
 
+  // Compile Tailwind CSS
+  console.log('[Node] Compiling Tailwind CSS...')
+  const tailwindProc = Bun.spawn([
+    'bunx', 'tailwindcss',
+    '-i', resolve(APP_DIR, 'web/globals.css'),
+    '-o', `${STATIC_DIR}/tailwind.css`,
+    '--minify'
+  ], { cwd: APP_DIR, stdout: 'inherit', stderr: 'inherit' })
+  await tailwindProc.exited
+  if (tailwindProc.exitCode !== 0) {
+    throw new Error('Tailwind CSS compilation failed')
+  }
+
   // Find the main entry file
   const mainEntry = result.outputs.find(
     (o) => o.kind === 'entry-point' && o.path.includes('main'),
   )
   const mainFileName = mainEntry ? mainEntry.path.split('/').pop() : 'main.js'
 
-  // Create index.html
+  // Find the CSS file
+  const cssEntry = result.outputs.find(
+    (o) => o.path.endsWith('.css'),
+  )
+  const cssFileName = cssEntry ? cssEntry.path.split('/').pop() : null
+
+  // Create index.html (no CDN - use compiled Tailwind)
   const html = `<!doctype html>
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/public/jeju-icon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Network Node</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Jeju Node</title>
+    <link rel="stylesheet" href="/tailwind.css" />
+    ${cssFileName ? `<link rel="stylesheet" href="/${cssFileName}" />` : ''}
     <script>
-      tailwind.config = {
-        darkMode: 'class',
-        theme: {
-          extend: {
-            colors: {
-              jeju: { 400: '#4ade80', 500: '#22c55e', 600: '#16a34a' },
-              volcanic: {
-                100: '#f4f4f5', 500: '#71717a', 600: '#52525b',
-                700: '#3f3f46', 800: '#27272a', 900: '#18181b', 950: '#09090b'
-              }
-            },
-            fontFamily: { sans: ['DM Sans', 'system-ui', 'sans-serif'] }
-          }
-        }
-      }
+      // Process shim for browser environment (required by some npm packages)
+      window.process = {
+        env: { NODE_ENV: 'production' },
+        browser: true,
+        version: '',
+        versions: {},
+        on: function() {},
+        addListener: function() {},
+        once: function() {},
+        off: function() {},
+        removeListener: function() {},
+        removeAllListeners: function() {},
+        emit: function() {},
+        prependListener: function() {},
+        prependOnceListener: function() {},
+        listeners: function() { return []; },
+        binding: function() { throw new Error('process.binding is not supported'); },
+        cwd: function() { return '/'; },
+        chdir: function() { throw new Error('process.chdir is not supported'); },
+        umask: function() { return 0; },
+        nextTick: function(fn) { setTimeout(fn, 0); }
+      };
     </script>
   </head>
   <body class="bg-volcanic-950 text-volcanic-100">
@@ -242,11 +266,20 @@ async function build(): Promise<void> {
   // Create deployment bundle
   await createDeploymentBundle()
 
+  // Copy frontend to app/dist for Tauri
+  const TAURI_DIST = resolve(APP_DIR, 'app/dist')
+  if (existsSync(TAURI_DIST)) {
+    await rm(TAURI_DIST, { recursive: true })
+  }
+  await cp(STATIC_DIR, TAURI_DIST, { recursive: true })
+  console.log(`[Node] Tauri frontend copied to ${TAURI_DIST}/`)
+
   const duration = Date.now() - startTime
   console.log('')
   console.log(`[Node] Build complete in ${duration}ms`)
   console.log('[Node] Output:')
   console.log('   Static frontend: ./dist/static/')
+  console.log('   Tauri frontend: ./app/dist/')
   console.log('   CLI bundle: ./dist/cli/')
   console.log('   Lander: ./dist/lander/')
   console.log('   Deployment manifest: ./dist/deployment.json')

@@ -6,7 +6,6 @@ import {
   type UUID,
 } from '@elizaos/core'
 import { getCurrentNetwork, getDWSComputeUrl } from '@jejunetwork/config'
-import { jejuPlugin } from '@jejunetwork/eliza-plugin'
 import { z } from 'zod'
 import type { DirectorPersona, GovernanceParams } from '../../lib'
 import { autocratPlugin } from './autocrat-plugin'
@@ -374,21 +373,14 @@ export class AutocratAgentRuntimeManager {
     // Template character is already typed as Character from @elizaos/core (see templates.ts)
     const character: Character = { ...template.character }
 
-    // All agents get full network access via jejuPlugin (compute, storage, DeFi, A2A, etc.)
-    // Plus their specialized governance plugin
+    // Autocrat agents use dwsGenerate() directly for inference, not ElizaOS actions.
+    // Only the specialized governance plugin is needed for action definitions.
     const specializedPlugin: Plugin =
       template.role === 'Director' ? directorPlugin : autocratPlugin
 
-    // jejuPlugin provides:
-    // - CALL_AGENT, DISCOVER_AGENTS (A2A communication)
-    // - Compute (rent GPU, inference, triggers)
-    // - Storage (upload, retrieve, pin)
-    // - DeFi (swap, add liquidity)
-    // - Identity (register agent)
-    // - Cross-chain, Launchpad, Moderation, Work, Training
     // Type assertion needed due to elizaos version misalignment in monorepo deps
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const plugins: Plugin[] = [jejuPlugin, specializedPlugin] as any as Plugin[]
+    const plugins: Plugin[] = [specializedPlugin] as any as Plugin[]
 
     // Create runtime - ElizaOS generates agentId from character.name via stringToUuid
     // This ensures the agentId is always a valid UUID format
@@ -653,6 +645,11 @@ Keep it concise (2-4 sentences) but impactful.`
     this.daoRuntimes.clear()
     this.directorPersonas.clear()
     this.initialized = false
+  }
+
+  unregisterDAO(daoId: string): void {
+    this.daoRuntimes.delete(daoId)
+    this.directorPersonas.delete(daoId)
   }
 
   isInitialized(): boolean {

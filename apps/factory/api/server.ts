@@ -30,7 +30,7 @@ import { messagesRoutes } from './routes/messages'
 import { modelsRoutes } from './routes/models'
 import { packageSettingsRoutes } from './routes/package-settings'
 import { packagesRoutes } from './routes/packages'
-import { projectsRoutes } from './routes/projects'
+import { projectsFarcasterRoutes, projectsRoutesCore } from './routes/projects'
 import { pullsRoutes } from './routes/pulls'
 import { releasesRoutes } from './routes/releases'
 import { repoSettingsRoutes } from './routes/repo-settings'
@@ -176,7 +176,8 @@ function createApp() {
     .use(modelsRoutes)
     .use(datasetsRoutes)
     .use(jobsRoutes)
-    .use(projectsRoutes)
+    .use(projectsRoutesCore)
+    .use(projectsFarcasterRoutes)
     .use(ciRoutes)
     .use(agentsRoutes)
     .use(farcasterRoutes)

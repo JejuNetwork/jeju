@@ -1240,9 +1240,13 @@ export function createAppRouter() {
         )
 
         // Skip if this is the DWS service itself
+        // Note: hostname may include port (e.g., 'dws:4030' in Docker)
+        const hostnameWithoutPort = hostname.split(':')[0]
         if (
           hostname.startsWith('dws.') ||
+          hostnameWithoutPort === 'dws' ||
           hostname === 'localhost' ||
+          hostnameWithoutPort === 'localhost' ||
           hostname.startsWith('127.')
         ) {
           console.log(`[AppRouter] Skipping DWS service: ${hostname}`)

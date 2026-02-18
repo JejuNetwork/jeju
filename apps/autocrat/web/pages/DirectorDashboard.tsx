@@ -10,10 +10,13 @@
  */
 
 import { getAutocratUrl } from '@jejunetwork/config'
+import { expectValid } from '@jejunetwork/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import type { Address } from 'viem'
 import { useAccount, useSignTypedData } from 'wagmi'
+import type { ProposalData } from '../../lib'
+import { ProposalListDataSchema } from '../../lib'
 
 // EIP-712 Domain for Director Decisions
 const DIRECTOR_DECISION_DOMAIN = {
@@ -54,6 +57,10 @@ interface Proposal {
   boardVotes: BoardVote[]
   hasResearch: boolean
   researchSummary?: string
+}
+
+type PendingProposal = ProposalData & {
+  title?: string
 }
 
 interface HistoricalDecision {
@@ -371,16 +378,24 @@ export function DirectorDashboard() {
   const { signTypedDataAsync } = useSignTypedData()
 
   // Fetch pending proposals
-  const { data: pendingProposals } = useQuery({
+  const { data: pendingProposals = [] } = useQuery<PendingProposal[]>({
     queryKey: ['director-pending-proposals'],
-    queryFn: async () => {
+    queryFn: async (): Promise<PendingProposal[]> => {
       const res = await fetch(
-        `${getAutocratUrl()}/api/v1/proposals?status=DIRECTOR_QUEUE`,
+        `${getAutocratUrl()}/api/v1/proposals?active=true`,
       )
       if (!res.ok) throw new Error('Failed to fetch proposals')
-      return res.json() as Promise<Proposal[]>
+      const data = expectValid(
+        ProposalListDataSchema,
+        await res.json(),
+        'director pending proposals',
+      )
+      return data.proposals.filter(
+        (proposal) => proposal.status === 'DIRECTOR_QUEUE',
+      )
     },
     refetchInterval: 30000,
+    initialData: [],
   })
 
   // Fetch context for selected proposal
@@ -484,7 +499,7 @@ export function DirectorDashboard() {
             <div className="text-right">
               <div className="text-sm text-zinc-500">Pending Decisions</div>
               <div className="text-xl font-bold text-amber-400">
-                {pendingProposals?.length ?? 0}
+                {pendingProposals.length}
               </div>
             </div>
             {isConnected ? (
@@ -514,7 +529,7 @@ export function DirectorDashboard() {
           <div className="col-span-4">
             <h2 className="text-lg font-semibold mb-4">Pending Proposals</h2>
             <div className="space-y-2">
-              {pendingProposals?.map((p) => (
+              {pendingProposals.map((p) => (
                 <button
                   type="button"
                   key={p.id}
@@ -534,7 +549,7 @@ export function DirectorDashboard() {
                   </div>
                 </button>
               ))}
-              {(!pendingProposals || pendingProposals.length === 0) && (
+              {pendingProposals.length === 0 && (
                 <div className="text-center py-8 text-zinc-500">
                   No pending proposals
                 </div>

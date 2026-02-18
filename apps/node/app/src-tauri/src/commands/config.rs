@@ -1,14 +1,23 @@
 //! Configuration management commands
 
 use crate::config::{BotConfig, EarningsConfig, NetworkConfig, ServiceConfig};
+use crate::contracts::ContractClient;
 use crate::state::AppState;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tauri::State;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BuildInfo {
+    pub version: String,
+    pub build_timestamp: u64,
+    pub build_date: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     pub version: String,
+    pub build_info: BuildInfo,
     pub network: NetworkConfig,
     pub wallet: WalletConfigPublic,
     pub earnings: EarningsConfig,
@@ -58,8 +67,19 @@ pub async fn get_config(state: State<'_, AppState>) -> Result<AppConfig, String>
         crate::config::WalletType::JejuWallet => "jeju_wallet",
     };
 
+    // Get build timestamp from compile-time env var
+    let build_timestamp: u64 = env!("BUILD_TIMESTAMP").parse().unwrap_or(0);
+    let build_date = chrono::DateTime::from_timestamp(build_timestamp as i64, 0)
+        .map(|dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+
     Ok(AppConfig {
         version: inner.config.version.clone(),
+        build_info: BuildInfo {
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            build_timestamp,
+            build_date,
+        },
         network: inner.config.network.clone(),
         wallet: WalletConfigPublic {
             wallet_type: wallet_type.to_string(),
@@ -120,8 +140,18 @@ pub async fn update_config(
         crate::config::WalletType::JejuWallet => "jeju_wallet",
     };
 
+    let build_timestamp: u64 = env!("BUILD_TIMESTAMP").parse().unwrap_or(0);
+    let build_date = chrono::DateTime::from_timestamp(build_timestamp as i64, 0)
+        .map(|dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+
     Ok(AppConfig {
         version: inner.config.version.clone(),
+        build_info: BuildInfo {
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            build_timestamp,
+            build_date,
+        },
         network: inner.config.network.clone(),
         wallet: WalletConfigPublic {
             wallet_type: wallet_type.to_string(),
@@ -157,6 +187,7 @@ pub async fn set_network(
             rpc_url: "https://rpc.jejunetwork.org".to_string(),
             ws_url: Some("wss://ws.jejunetwork.org".to_string()),
             explorer_url: "https://explorer.jejunetwork.org".to_string(),
+            contracts: crate::config::ContractsConfig::mainnet(),
         },
         "testnet" => NetworkConfig {
             network: "testnet".to_string(),
@@ -164,6 +195,7 @@ pub async fn set_network(
             rpc_url: "https://testnet-rpc.jejunetwork.org".to_string(),
             ws_url: Some("wss://testnet-ws.jejunetwork.org".to_string()),
             explorer_url: "https://testnet-explorer.jejunetwork.org".to_string(),
+            contracts: crate::config::ContractsConfig::mainnet(), // TODO: update when testnet deployed
         },
         "localnet" => NetworkConfig {
             network: "localnet".to_string(),
@@ -171,6 +203,7 @@ pub async fn set_network(
             rpc_url: "http://localhost:6546".to_string(),
             ws_url: Some("ws://localhost:6547".to_string()),
             explorer_url: "http://localhost:4000".to_string(),
+            contracts: crate::config::ContractsConfig::localnet(),
         },
         _ => return Err(format!("Unknown network: {}", network)),
     };
@@ -184,6 +217,28 @@ pub async fn set_network(
         .service_manager
         .initialize(&config_clone)
         .map_err(|e| e.to_string())?;
+
+    // Update wallet manager with new network settings (if it exists)
+    if let Some(ref mut wallet_manager) = inner.wallet_manager {
+        wallet_manager.update_network(&network_config.rpc_url, network_config.chain_id);
+        tracing::info!(
+            "Updated wallet manager to use RPC: {}",
+            network_config.rpc_url
+        );
+    }
+
+    // Recreate contract client with new network settings
+    let contract_client = ContractClient::new_with_config(
+        &network_config.rpc_url,
+        &network_config.contracts,
+    )
+    .await
+    .map_err(|e| format!("Failed to create contract client: {}", e))?;
+    inner.contract_client = Some(contract_client);
+    tracing::info!(
+        "Recreated contract client for network: {}",
+        network_config.network
+    );
 
     Ok(network_config)
 }

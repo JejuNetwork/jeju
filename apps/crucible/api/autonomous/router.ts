@@ -1,4 +1,4 @@
-import { Elysia, type Static, t } from 'elysia'
+import { Elysia, t, type Static } from 'elysia'
 import { getCharacter } from '../characters'
 import { config } from '../config'
 import { type AutonomousAgentRunner, createAgentRunner } from './index'
@@ -11,9 +11,7 @@ export function getAutonomousRunner(): AutonomousAgentRunner | null {
   return autonomousRunner
 }
 
-export function setAutonomousRunner(
-  runner: AutonomousAgentRunner | null,
-): void {
+export function setAutonomousRunner(runner: AutonomousAgentRunner | null): void {
   autonomousRunner = runner
 }
 
@@ -45,6 +43,10 @@ export async function initializeAutonomousRunner(options?: {
 const RegisterAgentSchema = t.Object({
   characterId: t.String({ minLength: 1 }),
   tickIntervalMs: t.Optional(t.Number({ minimum: 1000 })),
+  /** Cron schedule pattern (e.g., "0 9 * * *" for daily at 9 AM UTC) */
+  schedule: t.Optional(t.String()),
+  /** Keywords that trigger immediate execution regardless of schedule */
+  urgencyTriggers: t.Optional(t.Array(t.String())),
   capabilities: t.Optional(
     t.Object({
       canChat: t.Optional(t.Boolean()),
@@ -54,6 +56,7 @@ const RegisterAgentSchema = t.Object({
       canDelegate: t.Optional(t.Boolean()),
       canStake: t.Optional(t.Boolean()),
       canBridge: t.Optional(t.Boolean()),
+      canStore: t.Optional(t.Boolean()),
       a2a: t.Optional(t.Boolean()),
       compute: t.Optional(t.Boolean()),
       canModerate: t.Optional(t.Boolean()),
@@ -61,6 +64,7 @@ const RegisterAgentSchema = t.Object({
   ),
   watchRoom: t.Optional(t.String()),
   postToRoom: t.Optional(t.String()),
+  chainId: t.Optional(t.Number()),
 })
 
 type RegisterAgentBody = Static<typeof RegisterAgentSchema>
@@ -80,8 +84,7 @@ export function createAutonomousRouter() {
         running: false,
         agentCount: 0,
         agents: [],
-        message:
-          'Autonomous mode is disabled. Set AUTONOMOUS_ENABLED=true to enable.',
+        message: 'Autonomous mode is disabled. Set AUTONOMOUS_ENABLED=true to enable.',
       }
     }
 
@@ -95,7 +98,6 @@ export function createAutonomousRouter() {
         character: agent.character,
         lastTick: agent.lastTick,
         tickCount: agent.tickCount,
-        recentActivity: agent.recentActivity,
       })),
     }
   })
@@ -106,8 +108,7 @@ export function createAutonomousRouter() {
       set.status = 400
       return {
         success: false,
-        error:
-          'Autonomous mode is disabled. Set AUTONOMOUS_ENABLED=true to enable.',
+        error: 'Autonomous mode is disabled. Set AUTONOMOUS_ENABLED=true to enable.',
       }
     }
 
@@ -115,8 +116,7 @@ export function createAutonomousRouter() {
       set.status = 503
       return {
         success: false,
-        error:
-          'Autonomous runner not initialized. Call initializeAutonomousRunner first.',
+        error: 'Autonomous runner not initialized. Call initializeAutonomousRunner first.',
       }
     }
 
@@ -153,8 +153,7 @@ export function createAutonomousRouter() {
         set.status = 400
         return {
           success: false,
-          error:
-            'Autonomous mode is disabled. Set AUTONOMOUS_ENABLED=true to enable.',
+          error: 'Autonomous mode is disabled. Set AUTONOMOUS_ENABLED=true to enable.',
         }
       }
 
@@ -167,13 +166,7 @@ export function createAutonomousRouter() {
       }
 
       const request = body as RegisterAgentBody
-      const {
-        characterId,
-        tickIntervalMs,
-        capabilities,
-        watchRoom,
-        postToRoom,
-      } = request
+      const { characterId, tickIntervalMs, schedule, urgencyTriggers, capabilities, watchRoom, postToRoom, chainId } = request
 
       const character = getCharacter(characterId)
       if (!character) {
@@ -191,6 +184,8 @@ export function createAutonomousRouter() {
         agentId,
         character,
         tickIntervalMs: tickIntervalMs ?? config.defaultTickIntervalMs,
+        schedule,
+        urgencyTriggers,
         capabilities: capabilities
           ? {
               ...DEFAULT_AUTONOMOUS_CONFIG.capabilities,
@@ -199,6 +194,7 @@ export function createAutonomousRouter() {
           : DEFAULT_AUTONOMOUS_CONFIG.capabilities,
         watchRoom,
         postToRoom,
+        chainId,
       })
 
       return {

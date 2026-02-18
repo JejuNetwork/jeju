@@ -1,0 +1,15 @@
+# Compiler artifacts
+cache/
+out/
+
+# Environment variables
+.env
+
+# Build locks
+foundry.lock
+
+# Broadcast artifacts
+broadcast/
+
+# Coverage reports
+lcov.info

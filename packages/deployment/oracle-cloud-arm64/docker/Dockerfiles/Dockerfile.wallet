@@ -1,0 +1,145 @@
+# Wallet - Crypto Wallet App (ARM64)
+# Multi-stage build for production deployment
+
+FROM oven/bun:1.3 AS builder
+
+RUN apt-get update && apt-get install -y python3 python3-setuptools && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy workspace files
+COPY package.json bun.lock tsconfig.base.json ./
+COPY patches/ ./patches/
+
+# Copy all workspace package.json files for dependency resolution
+COPY packages/a2a/package.json ./packages/a2a/
+COPY packages/agents/package.json ./packages/agents/
+COPY packages/api/package.json ./packages/api/
+COPY packages/auth/package.json ./packages/auth/
+COPY packages/bots/package.json ./packages/bots/
+COPY packages/bridge/package.json ./packages/bridge/
+COPY packages/cache/package.json ./packages/cache/
+COPY packages/cli/package.json ./packages/cli/
+COPY packages/config/package.json ./packages/config/
+COPY packages/contracts/package.json ./packages/contracts/
+COPY packages/db/package.json ./packages/db/
+COPY packages/durable-objects/package.json ./packages/durable-objects/
+COPY packages/eliza-plugin/package.json ./packages/eliza-plugin/
+COPY packages/kms/package.json ./packages/kms/
+COPY packages/mcp/package.json ./packages/mcp/
+COPY packages/messaging/package.json ./packages/messaging/
+COPY packages/monitoring/package.json ./packages/monitoring/
+COPY packages/sdk/package.json ./packages/sdk/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/solana/package.json ./packages/solana/
+COPY packages/sqlit/package.json ./packages/sqlit/
+COPY packages/tests/package.json ./packages/tests/
+COPY packages/token/package.json ./packages/token/
+COPY packages/training/package.json ./packages/training/
+COPY packages/types/package.json ./packages/types/
+COPY packages/ui/package.json ./packages/ui/
+COPY packages/workerd/package.json ./packages/workerd/
+COPY apps/wallet/package.json ./apps/wallet/
+
+# Install dependencies
+RUN bun install --ignore-scripts || true
+
+# Copy ALL source code
+COPY packages ./packages
+COPY apps/wallet ./apps/wallet
+
+# Create workspace symlinks in node_modules for build-time resolution
+RUN mkdir -p node_modules/@jejunetwork && \
+    ln -sf ../../packages/a2a node_modules/@jejunetwork/a2a && \
+    ln -sf ../../packages/agents node_modules/@jejunetwork/agents && \
+    ln -sf ../../packages/api node_modules/@jejunetwork/api && \
+    ln -sf ../../packages/auth node_modules/@jejunetwork/auth && \
+    ln -sf ../../packages/bots node_modules/@jejunetwork/bots && \
+    ln -sf ../../packages/bridge node_modules/@jejunetwork/zksolbridge && \
+    ln -sf ../../packages/cache node_modules/@jejunetwork/cache && \
+    ln -sf ../../packages/cli node_modules/@jejunetwork/cli && \
+    ln -sf ../../packages/config node_modules/@jejunetwork/config && \
+    ln -sf ../../packages/contracts node_modules/@jejunetwork/contracts && \
+    ln -sf ../../packages/db node_modules/@jejunetwork/db && \
+    ln -sf ../../packages/durable-objects node_modules/@jejunetwork/durable-objects && \
+    ln -sf ../../packages/eliza-plugin node_modules/@jejunetwork/eliza-plugin && \
+    ln -sf ../../packages/kms node_modules/@jejunetwork/kms && \
+    ln -sf ../../packages/mcp node_modules/@jejunetwork/mcp && \
+    ln -sf ../../packages/messaging node_modules/@jejunetwork/messaging && \
+    ln -sf ../../packages/monitoring node_modules/@jejunetwork/monitoring && \
+    ln -sf ../../packages/sdk node_modules/@jejunetwork/sdk && \
+    ln -sf ../../packages/shared node_modules/@jejunetwork/shared && \
+    ln -sf ../../packages/solana node_modules/@jejunetwork/solana && \
+    ln -sf ../../packages/sqlit node_modules/@jejunetwork/sqlit && \
+    ln -sf ../../packages/tests node_modules/@jejunetwork/tests && \
+    ln -sf ../../packages/token node_modules/@jejunetwork/token && \
+    ln -sf ../../packages/training node_modules/@jejunetwork/training && \
+    ln -sf ../../packages/types node_modules/@jejunetwork/types && \
+    ln -sf ../../packages/ui node_modules/@jejunetwork/ui && \
+    ln -sf ../../packages/workerd node_modules/@jejunetwork/workerd
+
+# Build packages
+RUN cd packages/types && (bun run build 2>/dev/null || bun x tsc || true)
+RUN cd packages/config && (bun run build 2>/dev/null || bun x tsc || true)
+RUN cd packages/contracts && (bun run build 2>/dev/null || true)
+RUN cd packages/shared && (bun run build 2>/dev/null || bun x tsc || true)
+RUN cd packages/auth && (bun run build 2>/dev/null || bun x tsc || true)
+RUN cd packages/kms && (bun run build 2>/dev/null || bun x tsc || true)
+
+# Build wallet web app
+WORKDIR /app/apps/wallet
+ENV NODE_ENV=production
+RUN bun run build || true
+
+# Production stage
+FROM oven/bun:1.3-slim AS runtime
+
+WORKDIR /app
+
+# Install nginx
+RUN apt-get update && apt-get install -y --no-install-recommends nginx && rm -rf /var/lib/apt/lists/*
+
+# Copy built app
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/apps/wallet ./apps/wallet
+COPY --from=builder /app/tsconfig.base.json ./
+
+# Create workspace symlinks for runtime
+RUN mkdir -p node_modules/@jejunetwork && \
+    ln -sf ../../packages/config node_modules/@jejunetwork/config && \
+    ln -sf ../../packages/types node_modules/@jejunetwork/types && \
+    ln -sf ../../packages/shared node_modules/@jejunetwork/shared && \
+    ln -sf ../../packages/contracts node_modules/@jejunetwork/contracts && \
+    ln -sf ../../packages/auth node_modules/@jejunetwork/auth && \
+    ln -sf ../../packages/kms node_modules/@jejunetwork/kms && \
+    ln -sf ../../packages/cache node_modules/@jejunetwork/cache && \
+    ln -sf ../../packages/messaging node_modules/@jejunetwork/messaging
+
+# Configure nginx for SPA - listen on port 4015
+RUN mkdir -p /var/www/html && \
+    echo 'server { listen 4015; server_name _; root /var/www/html; index index.html; location / { try_files $uri $uri/ /index.html; } location /health { return 200 "ok"; add_header Content-Type text/plain; } }' > /etc/nginx/sites-available/default
+
+# Copy built assets if they exist
+RUN if [ -d /app/apps/wallet/dist ]; then cp -r /app/apps/wallet/dist/* /var/www/html/; fi
+
+WORKDIR /app/apps/wallet
+
+EXPOSE 4015
+
+# Health check using 127.0.0.1 (localhost may resolve to IPv6)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD bun -e "fetch('http://127.0.0.1:4015/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"
+
+ENV NODE_ENV=production
+ENV PORT=4015
+
+# Start nginx to serve static files
+COPY --chmod=755 <<'EOF' /entrypoint.sh
+#!/bin/sh
+set -e
+# Serve built static assets
+nginx -g 'daemon off;'
+EOF
+
+ENTRYPOINT ["/entrypoint.sh"]

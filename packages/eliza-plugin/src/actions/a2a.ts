@@ -51,9 +51,21 @@ export const callAgentAction: Action = {
     const client = service.getClient()
     const text = getMessageText(message)
 
+    // DEBUG: Log received text
+    console.log('[A2A_HANDLER] Received text:', text)
+    console.log('[A2A_HANDLER] Message content:', JSON.stringify(message.content, null, 2))
+
     // Extract agent endpoint/name and request
     const agentMatch = text.match(/agent\s+([^\s]+)/i)
     const skillMatch = text.match(/skill\s+([^\s]+)/i)
+
+    // DEBUG: Log regex matches
+    console.log('[A2A_HANDLER] Regex matches:', {
+      agentMatch: agentMatch ? agentMatch[0] : null,
+      agentEndpoint: agentMatch ? agentMatch[1] : null,
+      skillMatch: skillMatch ? skillMatch[0] : null,
+      skillId: skillMatch ? skillMatch[1] : null,
+    })
 
     if (!agentMatch) {
       callback?.({

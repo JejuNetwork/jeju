@@ -52,6 +52,7 @@ export interface AgentCapabilities {
   canPropose?: boolean
   canVote?: boolean
   canStake?: boolean
+  canStore?: boolean
   a2a?: boolean
   compute?: boolean
 }

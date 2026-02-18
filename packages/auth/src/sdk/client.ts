@@ -622,20 +622,22 @@ export class OAuth3Client {
       if (!('attestationObject' in response)) {
         throw new Error('Invalid passkey registration response')
       }
+      const attestationResponse = response as AuthenticatorAttestationResponse
       responsePayload = {
         clientDataJSON,
-        attestationObject: arrayBufferToBase64url(response.attestationObject),
+        attestationObject: arrayBufferToBase64url(attestationResponse.attestationObject),
       }
     } else {
       if (!('authenticatorData' in response) || !('signature' in response)) {
         throw new Error('Invalid passkey authentication response')
       }
+      const assertionResponse = response as AuthenticatorAssertionResponse
       responsePayload = {
         clientDataJSON,
-        authenticatorData: arrayBufferToBase64url(response.authenticatorData),
-        signature: arrayBufferToBase64url(response.signature),
-        userHandle: response.userHandle
-          ? arrayBufferToBase64url(response.userHandle)
+        authenticatorData: arrayBufferToBase64url(assertionResponse.authenticatorData),
+        signature: arrayBufferToBase64url(assertionResponse.signature),
+        userHandle: assertionResponse.userHandle
+          ? arrayBufferToBase64url(assertionResponse.userHandle)
           : undefined,
       }
     }

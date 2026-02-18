@@ -98,7 +98,7 @@ export function BanWarning() {
                   onClick={async () => {
                     if (!appealReason.trim()) return
                     setSubmitting(true)
-                    await invoke('submit_ban_appeal', { reason: appealReason })
+                    await invoke('appeal_ban', { request: { reason: appealReason, evidenceUri: null } })
                     await fetchBanStatus()
                     setShowAppealForm(false)
                     setAppealReason('')

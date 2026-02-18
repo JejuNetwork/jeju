@@ -116,14 +116,26 @@ curl -X POST http://localhost:4010/api/upload \
 
 ### Via Script
 
+The IdentityRegistry supports three registration methods:
+
 ```bash
-cast send $IDENTITY_REGISTRY \
-  "register(string,string,string,string,string)" \
-  "My Agent" \
-  "AI assistant for trading" \
-  "https://myagent.com/a2a" \
-  "https://myagent.com/mcp" \
+# Simple registration (creates empty identity)
+cast send $IDENTITY_REGISTRY "register()" \
+  --rpc-url $RPC_URL \
+  --private-key $PK
+
+# Registration with metadata URI
+cast send $IDENTITY_REGISTRY "register(string)" \
   "ipfs://Qm..." \
+  --rpc-url $RPC_URL \
+  --private-key $PK
+
+# Registration with metadata URI and key-value pairs
+# MetadataEntry[] is an array of {key: string, value: bytes}
+cast send $IDENTITY_REGISTRY \
+  "register(string,(string,bytes)[])" \
+  "ipfs://Qm..." \
+  "[(\"a2aEndpoint\",\"0x$(echo -n 'https://myagent.com/a2a' | xxd -p)\"),(\"mcpEndpoint\",\"0x$(echo -n 'https://myagent.com/mcp' | xxd -p)\")]" \
   --rpc-url $RPC_URL \
   --private-key $PK
 ```
@@ -133,19 +145,29 @@ cast send $IDENTITY_REGISTRY \
 ```typescript
 import { IdentityRegistryAbi } from '@jejunetwork/contracts';
 import { getContract } from '@jejunetwork/config';
+import { toHex } from 'viem';
 
 const registry = getContract('registry', 'identity');
 
+// Simple registration
 const tx = await client.writeContract({
   address: registry,
   abi: IdentityRegistryAbi,
   functionName: 'register',
+  args: [],
+});
+
+// With metadata URI and entries
+const txWithMetadata = await client.writeContract({
+  address: registry,
+  abi: IdentityRegistryAbi,
+  functionName: 'register',
   args: [
-    'My Agent',
-    'AI assistant for trading',
-    'https://myagent.com/a2a',
-    'https://myagent.com/mcp',
     'ipfs://Qm...',
+    [
+      { key: 'a2aEndpoint', value: toHex('https://myagent.com/a2a') },
+      { key: 'mcpEndpoint', value: toHex('https://myagent.com/mcp') },
+    ],
   ],
 });
 ```

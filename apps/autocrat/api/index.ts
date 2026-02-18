@@ -125,6 +125,7 @@ const getContractAddr = (category: string, name: string) => {
     return toAddress(
       getContract(
         category as
+          | 'autocrat'
           | 'governance'
           | 'registry'
           | 'tokens'
@@ -161,8 +162,8 @@ function getConfig(): BoardConfig {
       directorAgent: getContractAddr('governance', 'directorAgent'),
       treasury: getContractAddr('governance', 'treasury'),
       feeConfig: getContractAddr('payments', 'feeConfig'),
-      daoRegistry: getContractAddr('governance', 'daoRegistry'),
-      daoFunding: getContractAddr('governance', 'daoFunding'),
+      daoRegistry: getContractAddr('autocrat', 'daoRegistry'),
+      daoFunding: getContractAddr('autocrat', 'daoFunding'),
       identityRegistry: getContractAddr('registry', 'identity'),
       reputationRegistry: getContractAddr('registry', 'reputation'),
       packageRegistry: getContractAddr('registry', 'package'),

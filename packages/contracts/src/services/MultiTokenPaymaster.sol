@@ -135,6 +135,8 @@ contract MultiTokenPaymaster is BasePaymaster {
         address _revenueWallet,
         address _owner
     ) BasePaymaster(_entryPoint) {
+        address owner = _owner == address(0) ? msg.sender : _owner;
+        _transferOwnership(owner);
         require(_usdc != address(0), "Invalid USDC");
         require(_jeju != address(0), "Invalid JEJU");
         require(_creditManager != address(0), "Invalid credit manager");
@@ -148,16 +150,15 @@ contract MultiTokenPaymaster is BasePaymaster {
         serviceRegistry = IServiceRegistry(_serviceRegistry);
         priceOracle = IPriceOracle(_priceOracle);
         revenueWallet = _revenueWallet;
-
-        address resolvedOwner = _owner == address(0) ? msg.sender : _owner;
-        if (resolvedOwner != msg.sender) {
-            _transferOwnership(resolvedOwner);
-        }
     }
 
     // ============ Core Paymaster Logic ============
 
-    function _validatePaymasterUserOp(PackedUserOperation calldata userOp, bytes32, uint256 maxCost)
+    function _validatePaymasterUserOp(
+        PackedUserOperation calldata userOp,
+        bytes32,
+        uint256 maxCost
+    )
         internal
         view
         override
@@ -219,7 +220,13 @@ contract MultiTokenPaymaster is BasePaymaster {
         return (context, 0);
     }
 
-    function _postOp(PostOpMode, bytes calldata context, uint256 actualGasCost, uint256) internal override {
+    function _postOp(
+        PostOpMode,
+        bytes calldata context,
+        uint256 actualGasCost,
+        uint256 actualUserOpFeePerGas
+    ) internal override {
+        actualUserOpFeePerGas;
         (address user, string memory serviceName, address token,, uint256 overpayment, bool useCredit) =
             abi.decode(context, (address, string, address, uint256, uint256, bool));
 

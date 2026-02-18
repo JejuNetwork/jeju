@@ -105,14 +105,14 @@ test.describe('Mobile Viewport', () => {
   test('hamburger menu is visible', async ({ page }) => {
     await navigateTo(page, '/')
 
-    const hamburger = page.getByRole('button', { name: /toggle menu/i })
+    const hamburger = page.getByRole('button', { name: /open menu|close menu/i })
     await expectButtonClickable(hamburger, 'Hamburger Menu')
   })
 
   test('hamburger menu opens mobile nav', async ({ page }) => {
     await navigateTo(page, '/')
 
-    const hamburger = page.getByRole('button', { name: /toggle menu/i })
+    const hamburger = page.getByRole('button', { name: /open menu|close menu/i })
     await hamburger.click()
     await page.waitForTimeout(300)
 
@@ -125,7 +125,7 @@ test.describe('Mobile Viewport', () => {
   test('mobile nav links work', async ({ page }) => {
     await navigateTo(page, '/')
 
-    const hamburger = page.getByRole('button', { name: /toggle menu/i })
+    const hamburger = page.getByRole('button', { name: /open menu|close menu/i })
     await hamburger.click()
     await page.waitForTimeout(300)
 

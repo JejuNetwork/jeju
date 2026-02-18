@@ -140,24 +140,40 @@ export function OAuth3Provider({
   // Initialize client and load session
   useEffect(() => {
     const init = async () => {
+      console.log('[OAuth3Provider] Initializing with config:', {
+        appId: config.appId,
+        redirectUri: config.redirectUri,
+        teeAgentUrl: config.teeAgentUrl,
+        chainId: config.chainId,
+        decentralized: config.decentralized,
+      })
       setIsLoading(true)
       setError(null)
 
       // Initialize decentralized discovery if enabled
       if (config.decentralized !== false) {
         await client.initialize().catch((err: Error) => {
-          console.debug('OAuth3 decentralized init failed:', err.message)
+          console.debug('[OAuth3Provider] Decentralized init failed (expected for localnet):', err.message)
         })
       }
 
       // Check for existing session
       const existingSession = client.getSession()
       if (existingSession && autoConnect) {
+        console.log('[OAuth3Provider] Found existing session:', {
+          sessionId: existingSession.sessionId.slice(0, 10) + '...',
+          smartAccount: existingSession.smartAccount.slice(0, 10) + '...',
+          expiresAt: new Date(existingSession.expiresAt).toISOString(),
+          expired: existingSession.expiresAt < Date.now(),
+        })
         setSession(existingSession)
         onSessionChange?.(existingSession)
+      } else {
+        console.log('[OAuth3Provider] No existing session found')
       }
 
       setIsLoading(false)
+      console.log('[OAuth3Provider] Initialization complete')
     }
 
     init()
@@ -212,13 +228,23 @@ export function OAuth3Provider({
 
   const login = useCallback(
     async (provider: AuthProvider, options: Partial<LoginOptions> = {}) => {
+      console.log('[OAuth3Provider] login: Starting login with provider:', provider)
       setIsLoading(true)
       setError(null)
 
-      const newSession = await client.login({ provider, ...options })
-      setSession(newSession)
-      setIsLoading(false)
-      return newSession
+      try {
+        const newSession = await client.login({ provider, ...options })
+        console.log('[OAuth3Provider] login: Login successful, session created')
+        setSession(newSession)
+        setIsLoading(false)
+        return newSession
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Login failed'
+        console.error('[OAuth3Provider] login: Login failed:', message)
+        setError(message)
+        setIsLoading(false)
+        throw err
+      }
     },
     [client],
   )

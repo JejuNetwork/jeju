@@ -1,0 +1,217 @@
+# Jeju L2 Stack - Docker Compose
+#
+# Compatible versions that work with Geth L1 on ARM64 (Oracle Cloud Ampere):
+# - op-node: v1.11.0
+# - op-geth: latest (ARM64 compatible)
+# - geth: v1.14.12
+#
+# IMPORTANT: Before starting, you must update rollup.json with the actual
+# L1 genesis hash after L1 starts. See scripts/init-genesis.sh
+#
+# Usage:
+#   docker compose up -d
+#   docker compose logs -f op-node
+#   docker compose down
+
+services:
+  # ============================================================================
+  # L1: Geth in --dev mode
+  # ============================================================================
+  l1-geth:
+    image: ethereum/client-go:v1.14.12
+    container_name: jeju-l1-geth
+    ports:
+      - "8545:8545"   # HTTP RPC
+      - "8546:8546"   # WebSocket
+      - "8551:8551"   # Auth RPC
+    volumes:
+      - l1-data:/data
+      - ./jwt:/jwt:ro
+    command:
+      - --dev
+      - --dev.period=2
+      - --datadir=/data
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.port=8545
+      - --http.api=eth,net,web3,debug,personal,admin,txpool,engine
+      - --http.corsdomain=*
+      - --http.vhosts=*
+      - --ws
+      - --ws.addr=0.0.0.0
+      - --ws.port=8546
+      - --ws.api=eth,net,web3,debug
+      - --ws.origins=*
+      - --authrpc.addr=0.0.0.0
+      - --authrpc.port=8551
+      - --authrpc.vhosts=*
+      - --authrpc.jwtsecret=/jwt/jwt.hex
+      - --nodiscover
+      - --maxpeers=0
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8545"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # ============================================================================
+  # L2: op-geth (Execution Layer)
+  # ============================================================================
+  op-geth:
+    # Use :latest for ARM64 compatibility (Oracle Cloud Ampere)
+    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:latest
+    container_name: jeju-op-geth
+    depends_on:
+      l1-geth:
+        condition: service_healthy
+    ports:
+      - "9545:9545"   # HTTP RPC
+      - "9546:9546"   # WebSocket
+      - "9551:9551"   # Auth RPC
+    volumes:
+      - l2-data:/data
+      - ./jwt:/jwt:ro
+      - ./config:/config:ro
+    entrypoint: []
+    command:
+      - /bin/sh
+      - -c
+      - |
+        if [ ! -d /data/geth ]; then
+          echo "Initializing op-geth with genesis..."
+          # Use --state.scheme=hash to avoid path/hash conflicts
+          geth init --datadir=/data --state.scheme=hash /config/genesis.json
+        fi
+        exec geth \
+          --datadir=/data \
+          --http \
+          --http.addr=0.0.0.0 \
+          --http.port=9545 \
+          --http.api=eth,net,web3,debug,txpool,engine \
+          --http.corsdomain=* \
+          --http.vhosts=* \
+          --ws \
+          --ws.addr=0.0.0.0 \
+          --ws.port=9546 \
+          --ws.api=eth,net,web3,debug \
+          --ws.origins=* \
+          --authrpc.addr=0.0.0.0 \
+          --authrpc.port=9551 \
+          --authrpc.vhosts=* \
+          --authrpc.jwtsecret=/jwt/jwt.hex \
+          --syncmode=full \
+          --gcmode=archive \
+          --nodiscover \
+          --maxpeers=0 \
+          --networkid=2151908 \
+          --rollup.sequencerhttp=http://localhost:9545 \
+          --rollup.disabletxpoolgossip
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9545"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # ============================================================================
+  # L2: op-node (Consensus Layer)
+  # ============================================================================
+  op-node:
+    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-node:v1.11.0
+    container_name: jeju-op-node
+    depends_on:
+      l1-geth:
+        condition: service_healthy
+      op-geth:
+        condition: service_healthy
+    ports:
+      - "7545:7545"   # RPC
+      - "7300:7300"   # Metrics
+    volumes:
+      - ./jwt:/jwt:ro
+      - ./config:/config:ro
+    command:
+      - op-node
+      - --l1=http://l1-geth:8545
+      - --l2=http://op-geth:9551
+      - --l2.jwt-secret=/jwt/jwt.hex
+      - --rollup.config=/config/rollup.json
+      - --rpc.addr=0.0.0.0
+      - --rpc.port=7545
+      - --p2p.disable
+      - --sequencer.enabled
+      - --sequencer.l1-confs=0
+      - --verifier.l1-confs=0
+      - --l1.trustrpc
+      - --l1.rpckind=debug_geth
+      - --log.level=info
+    restart: unless-stopped
+
+  # ============================================================================
+  # op-batcher (Batch Submitter)
+  # ============================================================================
+  op-batcher:
+    # Use :latest for ARM64 compatibility (Oracle Cloud Ampere)
+    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-batcher:latest
+    container_name: jeju-op-batcher
+    depends_on:
+      - op-node
+    ports:
+      - "6545:6545"
+    environment:
+      # Anvil account #2 (batcher)
+      - OP_BATCHER_PRIVATE_KEY=0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a
+    command:
+      - op-batcher
+      - --l1-eth-rpc=http://l1-geth:8545
+      - --l2-eth-rpc=http://op-geth:9545
+      - --rollup-rpc=http://op-node:7545
+      - --poll-interval=1s
+      - --sub-safety-margin=6
+      - --num-confirmations=1
+      - --safe-abort-nonce-too-low-count=3
+      - --resubmission-timeout=30s
+      - --rpc.addr=0.0.0.0
+      - --rpc.port=6545
+      - --log.level=info
+    restart: unless-stopped
+
+  # ============================================================================
+  # ERC-4337 Bundler (Alto) - For Gasless Transactions
+  # NOTE: Alto does NOT have ARM64 images. On Oracle Cloud (Ampere),
+  # comment out this service or run bundler separately on x86_64.
+  # ============================================================================
+  bundler:
+    image: ghcr.io/pimlicolabs/alto:v0.14.0
+    container_name: jeju-bundler
+    profiles: ["x86_64"]  # Only runs with: docker compose --profile x86_64 up
+    depends_on:
+      op-geth:
+        condition: service_healthy
+    ports:
+      - "4337:4337"
+    environment:
+      - ALTO_RPC_URL=http://op-geth:9545
+      - ALTO_CHAIN_ID=2151908
+      - ALTO_ENTRYPOINT=0x0000000071727De22E5E9d8BAf0edAc6f37da032
+      # Anvil account #1 for bundler operations
+      - ALTO_PRIVATE_KEY=0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d
+      - ALTO_PORT=4337
+      - ALTO_LOG_LEVEL=info
+      - ALTO_MAX_BUNDLE_SIZE=10
+      - ALTO_BUNDLE_INTERVAL_MS=100
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4337/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  l1-data:
+  l2-data:
+
+networks:
+  default:
+    name: jeju-network

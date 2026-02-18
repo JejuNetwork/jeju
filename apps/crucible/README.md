@@ -309,6 +309,59 @@ DELETE /api/v1/autonomous/agents/:agentId
 | `MAX_CONCURRENT_AGENTS` | 10 | Maximum concurrent agents |
 | `ENABLE_BUILTIN_CHARACTERS` | true | Auto-register built-in characters |
 
+### GitHub Discussion Integration
+
+Autonomous agents can post alerts and digests to GitHub Discussions for lightweight integration with your development workflow.
+
+#### Prerequisites
+
+1. **Enable Discussions** on your GitHub repository:
+   - Go to Settings → Features → Check "Discussions"
+
+2. **Create a GitHub Personal Access Token** with `repo` scope:
+   - Go to Settings → Developer settings → Personal access tokens → Tokens (classic)
+   - Generate new token with `repo` scope
+
+#### Get Repository ID
+
+```bash
+# Get the repository node_id (no auth required for public repos)
+curl -s https://api.github.com/repos/OWNER/REPO | grep node_id
+
+# Example for JejuNetwork/jeju:
+# "node_id": "R_kgDOQDTGiA"
+```
+
+#### Get Discussion Category ID
+
+After enabling Discussions, query the category ID:
+
+```bash
+# Query discussion categories (requires auth)
+curl -s -X POST https://api.github.com/graphql \
+  -H "Authorization: bearer $GITHUB_TOKEN" \
+  -d '{
+    "query": "{ repository(owner: \"OWNER\", name: \"REPO\") { discussionCategories(first: 10) { nodes { id name } } } }"
+  }'
+
+# Response includes category IDs like:
+# { "id": "DIC_kwDO...", "name": "General" }
+```
+
+#### Environment Variables
+
+Add these to your `.env` file:
+
+| Variable | Description |
+|----------|-------------|
+| `GITHUB_TOKEN` | Personal Access Token with `repo` scope |
+| `GITHUB_REPO_OWNER` | Repository owner (e.g., `hellno` or `jejunetwork`) |
+| `GITHUB_REPO_NAME` | Repository name (e.g., `jeju`) |
+| `GITHUB_REPO_ID` | Repository node_id from REST API |
+| `GITHUB_CATEGORY_ID` | Discussion category ID from GraphQL |
+
+See `.env` for preconfigured local development values.
+
 ## Testing
 
 ```bash

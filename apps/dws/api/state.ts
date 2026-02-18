@@ -15,7 +15,7 @@ import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
 import type { Address } from 'viem'
 import { z } from 'zod'
 
-const SQLIT_DATABASE_ID = process.env.SQLIT_DATABASE_ID ?? 'dws'
+const SQLIT_DATABASE_ID = process.env.SQLIT_DATABASE_ID ?? 'dws-core'
 
 /**
  * Minimal interface for SQLit operations used by DWS state.

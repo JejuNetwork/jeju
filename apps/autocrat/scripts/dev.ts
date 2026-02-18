@@ -7,9 +7,10 @@
  * - Frontend: Dev server with HMR on port 4042
  */
 
-import { watch } from 'node:fs'
-import { mkdir, readFile } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { existsSync, readFileSync, rmSync, watch, writeFileSync } from 'node:fs'
+import { mkdir, mkdtemp, readFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
 import { getLocalhostHost } from '@jejunetwork/config'
 import type { BunPlugin, Subprocess } from 'bun'
 
@@ -167,11 +168,62 @@ const EXTERNALS = [
 
 let buildInProgress = false
 
+async function buildCSS(): Promise<void> {
+  const globalsPath = resolve(APP_DIR, 'web/app/globals.css')
+  if (!existsSync(globalsPath)) {
+    console.warn('[Autocrat] CSS file not found, skipping CSS build')
+    return
+  }
+
+  const tempDir = await mkdtemp(join(tmpdir(), 'autocrat-css-'))
+  const inputPath = join(tempDir, 'input.css')
+  const outputPath = join(tempDir, 'output.css')
+
+  let globalsContent = readFileSync(globalsPath, 'utf-8')
+  globalsContent = globalsContent.replace(
+    '@import "tailwindcss";',
+    `@tailwind base;\n@tailwind components;\n@tailwind utilities;`,
+  )
+
+  writeFileSync(inputPath, globalsContent)
+
+  const proc = Bun.spawn(
+    [
+      'bunx',
+      'tailwindcss',
+      '-i',
+      inputPath,
+      '-o',
+      outputPath,
+      '-c',
+      resolve(APP_DIR, 'tailwind.config.ts'),
+      '--content',
+      resolve(APP_DIR, 'web/**/*.{ts,tsx}'),
+    ],
+    { stdout: 'pipe', stderr: 'pipe', cwd: APP_DIR },
+  )
+
+  const exitCode = await proc.exited
+  if (exitCode !== 0) {
+    const stderr = await new Response(proc.stderr).text()
+    rmSync(tempDir, { recursive: true })
+    console.warn(`[Autocrat] CSS build failed: ${stderr}`)
+    return
+  }
+
+  const css = readFileSync(outputPath, 'utf-8')
+  await Bun.write(resolve(APP_DIR, 'dist/dev/styles.css'), css)
+  rmSync(tempDir, { recursive: true })
+}
+
 async function buildFrontend(): Promise<boolean> {
   if (buildInProgress) return false
   buildInProgress = true
 
   const startTime = Date.now()
+
+  // Build CSS first
+  await buildCSS()
 
   const result = await Bun.build({
     entrypoints: [resolve(APP_DIR, 'web/main.tsx')],
@@ -218,7 +270,13 @@ async function startFrontendServer(): Promise<boolean> {
   }
 
   const indexHtml = await readFile(resolve(APP_DIR, 'index.html'), 'utf-8')
-  const devHtml = indexHtml.replace('./web/main.tsx', '/main.js')
+  // Replace CSS link to use compiled CSS and main.tsx to main.js
+  const devHtml = indexHtml
+    .replace('./web/main.tsx', '/main.js')
+    .replace(
+      '<link rel="stylesheet" href="./web/app/globals.css">',
+      '<link rel="stylesheet" href="/styles.css">',
+    )
 
   const host = getLocalhostHost()
 
@@ -285,11 +343,9 @@ async function startFrontendServer(): Promise<boolean> {
         })
       }
 
-      // Serve CSS from web/ (pathname like /web/app/globals.css)
-      if (pathname.endsWith('.css')) {
-        // Strip leading slash and try as-is first (for /web/app/globals.css)
-        const cssPath = pathname.startsWith('/') ? pathname.slice(1) : pathname
-        const cssFile = Bun.file(resolve(APP_DIR, cssPath))
+      // Serve compiled CSS from dist/dev/styles.css
+      if (pathname === '/styles.css') {
+        const cssFile = Bun.file(resolve(APP_DIR, 'dist/dev/styles.css'))
         if (await cssFile.exists()) {
           return new Response(cssFile, {
             headers: {

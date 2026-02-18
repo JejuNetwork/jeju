@@ -1,6 +1,7 @@
 use crate::state::AppState;
 use alloy::primitives::Address;
 use alloy::sol;
+use alloy::sol_types::SolCall;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use tauri::State;
@@ -57,6 +58,7 @@ pub struct BanStatus {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RegisterAgentRequest {
     pub token_uri: String,
     pub stake_tier: String, // "none", "small", "medium", "high"
@@ -68,12 +70,18 @@ pub struct AppealBanRequest {
     pub evidence_uri: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegistrationResult {
+    pub tx_hash: String,
+    pub status: String,
+}
+
 #[tauri::command]
 pub async fn register_agent(
     state: State<'_, AppState>,
     request: RegisterAgentRequest,
-) -> Result<AgentInfo, String> {
-    let inner = state.inner.write().await;
+) -> Result<RegistrationResult, String> {
+    let inner = state.inner.read().await;
 
     // Verify wallet is connected
     let wallet = inner
@@ -86,67 +94,96 @@ pub async fn register_agent(
         return Err("Contract client not initialized".to_string());
     }
 
-    let _wallet_info = wallet.get_info().ok_or("Failed to get wallet info")?;
+    // Get identity registry address from config
+    let identity_registry = Address::from_str(&inner.config.network.contracts.identity_registry)
+        .map_err(|e| format!("Invalid identity_registry address: {}", e))?;
 
-    // Calculate stake amount based on tier
-    let _stake_amount = match request.stake_tier.as_str() {
-        "none" => "0",
-        "small" => "100000000000000000000",   // 100 JEJU
-        "medium" => "1000000000000000000000", // 1000 JEJU
-        "high" => "10000000000000000000000",  // 10000 JEJU
-        _ => return Err("Invalid stake tier".to_string()),
+    // Use the token_uri, default to empty string if not provided
+    let token_uri = if request.token_uri.is_empty() {
+        "ipfs://".to_string() // Default minimal token URI
+    } else {
+        request.token_uri.clone()
     };
 
-    // Registration requires a signed transaction
-    Err(format!(
-        "To register agent with tokenURI '{}' and {} JEJU stake: \
-         Use the wallet interface to sign the registration transaction on the IdentityRegistry contract.",
-        request.token_uri,
-        match request.stake_tier.as_str() {
-            "none" => "0",
-            "small" => "100",
-            "medium" => "1000",
-            "high" => "10000",
-            _ => "0",
-        }
-    ))
+    // Encode the function call: register(string tokenURI)
+    // The IdentityRegistryV2 version doesn't require stake - it's a simple NFT mint
+    let call = IIdentityRegistry::registerCall {
+        tokenURI: token_uri,
+    };
+    let calldata = call.abi_encode();
+
+    // Send transaction (no ETH value needed for V2 registry)
+    let result = wallet
+        .send_transaction(
+            &format!("{:?}", identity_registry),
+            "0", // No ETH value for V2 agent registration
+            Some(&hex::encode(&calldata)),
+        )
+        .await?;
+
+    Ok(RegistrationResult {
+        tx_hash: result.hash,
+        status: "pending".to_string(),
+    })
 }
 
 #[tauri::command]
 pub async fn get_agent_info(state: State<'_, AppState>) -> Result<Option<AgentInfo>, String> {
+    tracing::info!("get_agent_info called");
     let inner = state.inner.read().await;
 
     // Check if we have a stored agent ID
     let stored_agent_id = inner.config.wallet.agent_id;
+    tracing::info!("Stored agent_id: {:?}", stored_agent_id);
 
     // Get contract client
-    let contract_client = inner
-        .contract_client
-        .as_ref()
-        .ok_or("Contract client not initialized")?;
+    let contract_client = match inner.contract_client.as_ref() {
+        Some(c) => c,
+        None => {
+            tracing::warn!("Contract client not initialized");
+            return Err("Contract client not initialized".to_string());
+        }
+    };
 
     // If no stored agent ID, try to look up by wallet address
     let agent_id = if let Some(id) = stored_agent_id {
+        tracing::info!("Using stored agent_id: {}", id);
         id
     } else {
         // Try to get agent by owner address
         let wallet = match inner.wallet_manager.as_ref() {
             Some(w) => w,
-            None => return Ok(None),
+            None => {
+                tracing::info!("No wallet manager, returning None");
+                return Ok(None);
+            }
         };
 
         let wallet_info = match wallet.get_info() {
             Some(info) => info,
-            None => return Ok(None),
+            None => {
+                tracing::info!("No wallet info, returning None");
+                return Ok(None);
+            }
         };
 
+        tracing::info!("Looking up agent for wallet: {}", wallet_info.address);
         let owner = Address::from_str(&wallet_info.address)
             .map_err(|e| format!("Invalid address: {}", e))?;
 
         match contract_client.get_agent_by_owner(owner).await {
-            Ok(Some(id)) => id,
-            Ok(None) => return Ok(None),
-            Err(e) => return Err(format!("Failed to get agent by owner: {}", e)),
+            Ok(Some(id)) => {
+                tracing::info!("Found agent_id {} for owner", id);
+                id
+            }
+            Ok(None) => {
+                tracing::info!("No agent found for owner");
+                return Ok(None);
+            }
+            Err(e) => {
+                tracing::error!("Error looking up agent: {}", e);
+                return Err(format!("Failed to get agent by owner: {}", e));
+            }
         }
     };
 

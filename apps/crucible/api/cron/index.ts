@@ -6,16 +6,13 @@ import {
   type TrajectoryBatchReference,
 } from '@jejunetwork/training'
 import { Elysia } from 'elysia'
+import { agentSdk, autonomousRunner } from '../server'
+import { COORDINATION_ROOMS, ROOMS } from '../constants'
 import { createLogger } from '../sdk/logger'
 import { getCronSecret } from '../sdk/secrets'
-import { autonomousRunner } from '../server'
+import { DEFAULT_AUTONOMOUS_CONFIG, type CodeFirstConfig } from '../autonomous/types'
 
 const log = createLogger('CronRoutes')
-
-// Coordination room IDs for agent communication
-export const COORDINATION_ROOMS = {
-  BASE_CONTRACT_REVIEWS: 'base-contract-reviews',
-} as const
 
 // Database persistence for trajectory batches (lazy initialized)
 let dbPersistence: TrainingDbPersistence | null = null
@@ -33,17 +30,17 @@ async function getDbPersistence(): Promise<TrainingDbPersistence | null> {
     return null
   }
 
-  const databaseId = process.env.SQLIT_DATABASE_ID
-  if (!databaseId) {
+  const keyId = process.env.SQLIT_KEY_ID
+  if (!keyId) {
     log.warn(
-      'SQLIT_DATABASE_ID not set - trajectory batches will not be persisted to database',
+      'SQLIT_KEY_ID not set - trajectory batches will not be persisted to database',
     )
     return null
   }
 
   // Import dynamically to avoid circular deps
   const { SQLitClient } = await import('@jejunetwork/db')
-  const client = new SQLitClient({ endpoint: dbEndpoint, databaseId })
+  const client = new SQLitClient({ endpoint: dbEndpoint, databaseId: keyId })
   dbPersistence = new TrainingDbPersistence(client)
   return dbPersistence
 }
@@ -70,35 +67,35 @@ const crucibleTrajectoryStorage = getStaticTrajectoryStorage('crucible', {
 })
 
 /**
- * Ensure coordination rooms exist in the database
+ * Ensure all coordination rooms exist in the database
  * Called on startup before agents are registered
  */
-async function _ensureCoordinationRoom(): Promise<void> {
+async function ensureCoordinationRooms(): Promise<void> {
   const { getDatabase } = await import('../sdk/database')
   const db = getDatabase()
 
-  const roomId = COORDINATION_ROOMS.BASE_CONTRACT_REVIEWS
+  for (const room of COORDINATION_ROOMS) {
+    try {
+      const existingRoom = await db.getRoom(room.id)
 
-  try {
-    const existingRoom = await db.getRoom(roomId)
-
-    if (!existingRoom) {
-      log.info('Creating coordination room', { roomId })
-      await db.createRoom({
-        roomId,
-        name: 'Base Contract Reviews',
-        roomType: 'collaboration',
+      if (!existingRoom) {
+        log.info('Creating coordination room', { roomId: room.id })
+        await db.createRoom({
+          roomId: room.id,
+          name: room.name,
+          roomType: 'collaboration',
+        })
+        log.info('Coordination room created', { roomId: room.id })
+      } else {
+        log.debug('Coordination room already exists', { roomId: room.id })
+      }
+    } catch (err) {
+      log.warn('Failed to create coordination room', {
+        roomId: room.id,
+        error: err instanceof Error ? err.message : String(err),
       })
-      log.info('Coordination room created', { roomId })
-    } else {
-      log.debug('Coordination room already exists', { roomId })
+      // Don't block startup - room can be created later
     }
-  } catch (err) {
-    log.warn('Failed to create coordination room', {
-      roomId,
-      error: err instanceof Error ? err.message : String(err),
-    })
-    // Don't block startup - room can be created later
   }
 }
 
@@ -183,10 +180,7 @@ export const cronRoutes = new Elysia({ prefix: '/api/cron' })
     async ({ set }) => {
       if (!autonomousRunner) {
         set.status = 503
-        return {
-          error: 'Autonomous runner not initialized',
-          message: 'Server not ready',
-        }
+        return { error: 'Autonomous runner not initialized', message: 'Server not ready' }
       }
 
       const timestamp = new Date().toISOString()
@@ -199,8 +193,10 @@ export const cronRoutes = new Elysia({ prefix: '/api/cron' })
         await autonomousRunner.start()
       }
 
-      // Execute ticks for all agents immediately
-      const tickResults = await autonomousRunner.executeAllAgentsTick()
+      // Execute ticks for scheduled agents
+      const tickResults = await autonomousRunner.executeAllAgentsTick({
+        mode: 'cron',
+      })
 
       const trajStats = autonomousRunner.getTrajectoryStats()
       const duration = Date.now() - startTime
@@ -244,16 +240,249 @@ export const cronRoutes = new Elysia({ prefix: '/api/cron' })
     },
   )
 
+  // One-shot agent tick - executes once WITHOUT starting interval loops
+  .post(
+    '/agent-tick-once',
+    async ({ set, query, body }) => {
+      if (!autonomousRunner) {
+        set.status = 503
+        return { error: 'Autonomous runner not initialized', message: 'Server not ready' }
+      }
+
+      const timestamp = new Date().toISOString()
+      const startTime = Date.now()
+
+      // Accept agentId from query string or body
+      const agentId = (query as { agentId?: string }).agentId ??
+                      (body as { agentId?: string } | null)?.agentId
+
+      log.info('One-shot agent tick started', { timestamp, agentId: agentId ?? 'all' })
+
+      const status = autonomousRunner.getStatus()
+
+      // NOTE: We intentionally do NOT call autonomousRunner.start() here
+      // This executes agents once without starting interval loops
+
+      // If agentId is provided, tick only that agent (can auto-register from chain)
+      if (agentId) {
+        log.info('Executing one-shot tick for single agent', { agentId })
+
+        // Validate agentId format
+        if (!/^\d+$/.test(agentId)) {
+          return {
+            success: false,
+            executed: 0,
+            succeeded: 0,
+            failed: 1,
+            results: [{ agentId, success: false, reward: 0, latencyMs: 0, error: 'Invalid agent ID format' }],
+            durationMs: Date.now() - startTime,
+            timestamp,
+            note: 'Agent ID must be numeric',
+          }
+        }
+
+        let result = await autonomousRunner.executeAgentTickById(agentId)
+
+        // If agent not found in runner, try to load from on-chain and register
+        // Note: Agent stays registered for this session (until process restart)
+        if (!result.success && result.error?.startsWith('Agent not found')) {
+          log.info('Agent not in runner, attempting to load from chain', { agentId })
+
+          try {
+            const numericId = BigInt(agentId)
+            const onChainAgent = await agentSdk.getAgent(numericId)
+
+            if (onChainAgent && onChainAgent.characterCid) {
+              const character = await agentSdk.loadCharacter(numericId)
+              let dbConfig: Record<string, unknown> = {}
+              let runtimeState: Record<string, unknown> = {}
+
+              try {
+                const { getDatabase } = await import('../sdk/database')
+                const db = getDatabase()
+                const dbAgent = await db.getAgent(agentId)
+                if (dbAgent?.autonomous_config) {
+                  dbConfig = JSON.parse(dbAgent.autonomous_config)
+                }
+                if (dbAgent?.runtime_state) {
+                  runtimeState = JSON.parse(dbAgent.runtime_state)
+                }
+              } catch (dbError) {
+                log.warn('Failed to load autonomous config from DB', {
+                  agentId,
+                  error: dbError instanceof Error ? dbError.message : String(dbError),
+                })
+              }
+
+              const dbCapabilities =
+                typeof dbConfig.capabilities === 'object' && dbConfig.capabilities !== null
+                  ? (dbConfig.capabilities as Record<string, boolean>)
+                  : {}
+
+              const mergedCapabilities = {
+                ...DEFAULT_AUTONOMOUS_CONFIG.capabilities,
+                ...dbCapabilities,
+                ...(character.capabilities ?? {}),
+              }
+              // Register for this session (persists until process restart)
+              await autonomousRunner.registerAgent({
+                ...DEFAULT_AUTONOMOUS_CONFIG,
+                agentId,
+                character,
+                tickIntervalMs:
+                  typeof dbConfig.tickIntervalMs === 'number'
+                    ? dbConfig.tickIntervalMs
+                    : DEFAULT_AUTONOMOUS_CONFIG.tickIntervalMs,
+                maxActionsPerTick:
+                  typeof dbConfig.maxActionsPerTick === 'number'
+                    ? dbConfig.maxActionsPerTick
+                    : DEFAULT_AUTONOMOUS_CONFIG.maxActionsPerTick,
+                watchRoom:
+                  typeof dbConfig.watchRoom === 'string' ? dbConfig.watchRoom : undefined,
+                postToRoom:
+                  typeof dbConfig.postToRoom === 'string' ? dbConfig.postToRoom : undefined,
+                chainId:
+                  typeof dbConfig.chainId === 'number' ? dbConfig.chainId : undefined,
+                schedule:
+                  typeof dbConfig.schedule === 'string' ? dbConfig.schedule : undefined,
+                urgencyTriggers: Array.isArray(dbConfig.urgencyTriggers)
+                  ? (dbConfig.urgencyTriggers as string[])
+                  : undefined,
+                executionMode:
+                  typeof dbConfig.executionMode === 'string'
+                    ? (dbConfig.executionMode as 'llm-driven' | 'code-first')
+                    : undefined,
+                codeFirstConfig:
+                  typeof dbConfig.codeFirstConfig === 'object' &&
+                  dbConfig.codeFirstConfig !== null
+                    ? (dbConfig.codeFirstConfig as CodeFirstConfig)
+                    : undefined,
+                capabilities: mergedCapabilities,
+                lastTick:
+                  typeof runtimeState.last_tick === 'number'
+                    ? runtimeState.last_tick
+                    : 0,
+                previousTick:
+                  typeof runtimeState.previous_tick === 'number'
+                    ? runtimeState.previous_tick
+                    : 0,
+                lastScheduledRun:
+                  typeof runtimeState.last_scheduled_run === 'number'
+                    ? runtimeState.last_scheduled_run
+                    : 0,
+              })
+
+              log.info('Agent registered, executing tick', { agentId })
+              result = await autonomousRunner.executeAgentTickById(agentId)
+            } else {
+              result = {
+                success: false,
+                reward: 0,
+                error: `Agent ${agentId} not found on-chain`,
+                latencyMs: Date.now() - startTime,
+              }
+            }
+          } catch (err) {
+            log.error('Failed to load agent from chain', {
+              agentId,
+              error: err instanceof Error ? err.message : String(err),
+            })
+            result = {
+              success: false,
+              reward: 0,
+              error: `Failed to load agent: ${err instanceof Error ? err.message : String(err)}`,
+              latencyMs: Date.now() - startTime,
+            }
+          }
+        }
+
+        const duration = Date.now() - startTime
+
+        log.info('One-shot single agent tick completed', {
+          agentId,
+          success: result.success,
+          durationMs: duration,
+        })
+
+        return {
+          success: result.success,
+          executed: 1,
+          succeeded: result.success ? 1 : 0,
+          failed: result.success ? 0 : 1,
+          results: [{
+            agentId,
+            success: result.success,
+            reward: result.reward,
+            latencyMs: result.latencyMs,
+            error: result.error,
+          }],
+          durationMs: duration,
+          timestamp,
+          note: 'One-shot execution for single agent - interval loops NOT started',
+        }
+      }
+
+      // No agentId - tick all agents (requires at least one registered)
+      if (status.agentCount === 0) {
+        set.status = 400
+        return {
+          error: 'No agents registered',
+          message: 'Register agents first or provide agentId to auto-register from chain',
+          timestamp,
+        }
+      }
+
+      log.info('Executing one-shot tick for all agents', {
+        agentCount: status.agentCount,
+        runnerRunning: status.running,
+      })
+
+      const tickResults = await autonomousRunner.executeAllAgentsTick({
+        mode: 'manual',
+      })
+      const duration = Date.now() - startTime
+
+      log.info('One-shot agent tick completed', {
+        executed: tickResults.executed,
+        succeeded: tickResults.succeeded,
+        failed: tickResults.failed,
+        durationMs: duration,
+      })
+
+      return {
+        success: tickResults.failed === 0,
+        executed: tickResults.executed,
+        succeeded: tickResults.succeeded,
+        failed: tickResults.failed,
+        results: tickResults.results.map((r) => ({
+          agentId: r.agentId,
+          success: r.success,
+          reward: r.reward,
+          latencyMs: r.latencyMs,
+          error: r.error,
+        })),
+        durationMs: duration,
+        timestamp,
+        note: 'One-shot execution - interval loops NOT started',
+      }
+    },
+    {
+      detail: {
+        tags: ['Cron'],
+        summary: 'Execute agent tick once (no intervals)',
+        description:
+          'Triggers a single tick for registered agents WITHOUT starting interval loops. Pass agentId as query param or body to tick a specific agent, otherwise ticks all agents.',
+      },
+    },
+  )
+
   // Flush trajectories to storage
   .post(
     '/flush-trajectories',
     async ({ set }) => {
       if (!autonomousRunner) {
         set.status = 503
-        return {
-          error: 'Autonomous runner not initialized',
-          message: 'Server not ready',
-        }
+        return { error: 'Autonomous runner not initialized', message: 'Server not ready' }
       }
 
       const timestamp = new Date().toISOString()
@@ -308,10 +537,7 @@ export const cronRoutes = new Elysia({ prefix: '/api/cron' })
     async ({ set }) => {
       if (!autonomousRunner) {
         set.status = 503
-        return {
-          error: 'Autonomous runner not initialized',
-          message: 'Server not ready',
-        }
+        return { error: 'Autonomous runner not initialized', message: 'Server not ready' }
       }
 
       const timestamp = new Date().toISOString()
@@ -360,10 +586,7 @@ export const cronRoutes = new Elysia({ prefix: '/api/cron' })
 
       if (!autonomousRunner) {
         set.status = 503
-        return {
-          error: 'Autonomous runner not initialized',
-          message: 'Server not ready',
-        }
+        return { error: 'Autonomous runner not initialized', message: 'Server not ready' }
       }
 
       await autonomousRunner.stop()
@@ -392,10 +615,7 @@ export const cronRoutes = new Elysia({ prefix: '/api/cron' })
 
       if (!autonomousRunner) {
         set.status = 503
-        return {
-          error: 'Autonomous runner not initialized',
-          message: 'Server not ready',
-        }
+        return { error: 'Autonomous runner not initialized', message: 'Server not ready' }
       }
 
       await autonomousRunner.start()

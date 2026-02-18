@@ -496,10 +496,10 @@ export const OpenAIResponseSchema = z.object({
 export type OpenAIResponse = z.infer<typeof OpenAIResponseSchema>
 
 export const ProviderResponseSchema = z.union([
+  OpenAIResponseSchema, // Must be first - Gemini/Cohere have all-optional fields
   AnthropicResponseSchema,
   GeminiResponseSchema,
   CohereResponseSchema,
-  OpenAIResponseSchema,
 ])
 export type ProviderResponse = z.infer<typeof ProviderResponseSchema>
 

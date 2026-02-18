@@ -45,8 +45,7 @@ import { mcpRoutes } from './routes/mcp'
 import { modelsRoutes } from './routes/models'
 import { packageSettingsRoutes } from './routes/package-settings'
 import { packagesRoutes } from './routes/packages'
-// Projects routes excluded - imports farcaster
-// import { projectsRoutes } from './routes/projects'
+import { projectsRoutesCore } from './routes/projects'
 import { pullsRoutes } from './routes/pulls'
 import { releasesRoutes } from './routes/releases'
 import { repoSettingsRoutes } from './routes/repo-settings'
@@ -187,7 +186,7 @@ export function createFactoryApp(env?: Partial<FactoryEnv>) {
     .use(modelsRoutes)
     .use(datasetsRoutes)
     .use(jobsRoutes)
-    // .use(projectsRoutes) // Excluded - uses farcaster native bindings
+    .use(projectsRoutesCore)
     .use(ciRoutes)
     .use(agentsRoutes)
     // .use(farcasterRoutes) // Excluded - uses native hub bindings

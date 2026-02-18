@@ -27,11 +27,12 @@ describe('Agent Seeding', () => {
   describe('Character Definitions', () => {
     test('should have all required core characters', () => {
       const requiredCharacters = [
-        'project-manager',
         'community-manager',
-        'devrel',
-        'liaison',
-        'social-media-manager',
+        'security-analyst',
+        'infra-monitor',
+        'daily-digest',
+        'registration-watcher',
+        'blockscout-watcher',
       ]
 
       for (const id of requiredCharacters) {
@@ -43,22 +44,16 @@ describe('Agent Seeding', () => {
       }
     })
 
-    test('should have all blue team characters', () => {
-      // Blue team: defensive security and moderation focused
-      const blueTeamIds = ['blue-team', 'moderator', 'security-analyst']
+    test('should have all test capability characters', () => {
+      const testCharacterIds = [
+        'test-trader',
+        'test-coordinator',
+        'test-voter',
+        'test-computer',
+        'test-storage',
+      ]
 
-      for (const id of blueTeamIds) {
-        const char = getCharacter(id)
-        expect(char).toBeDefined()
-        expect(char?.name).toBeDefined()
-      }
-    })
-
-    test('should have all red team characters', () => {
-      // Red team: adversarial security testing focused
-      const redTeamIds = ['red-team', 'qa-engineer']
-
-      for (const id of redTeamIds) {
+      for (const id of testCharacterIds) {
         const char = getCharacter(id)
         expect(char).toBeDefined()
         expect(char?.name).toBeDefined()
@@ -97,7 +92,7 @@ describe('Agent Seeding', () => {
   describe('Runtime Creation', () => {
     test('should create runtime for each character', async () => {
       // Test with a subset to keep tests fast
-      const testCharacterIds = ['project-manager', 'blue-team', 'red-team']
+      const testCharacterIds = ['community-manager', 'security-analyst', 'infra-monitor']
 
       for (const id of testCharacterIds) {
         const char = getCharacter(id)
@@ -116,12 +111,12 @@ describe('Agent Seeding', () => {
     })
 
     test('should initialize runtime with actions', async () => {
-      const char = getCharacter('project-manager')
+      const char = getCharacter('community-manager')
       expect(char).toBeDefined()
       if (!char) return
 
       const runtime = createCrucibleRuntime({
-        agentId: 'test-pm-init',
+        agentId: 'test-cm-init',
         character: char,
       })
 
@@ -138,7 +133,7 @@ describe('Agent Seeding', () => {
       // Clean up first
       await runtimeManager.shutdown()
 
-      const testCharacters = ['project-manager', 'community-manager', 'devrel']
+      const testCharacters = ['community-manager', 'security-analyst', 'infra-monitor']
 
       for (const id of testCharacters) {
         const char = getCharacter(id)
@@ -161,17 +156,17 @@ describe('Agent Seeding', () => {
     })
 
     test('should not duplicate runtimes', async () => {
-      const char = getCharacter('liaison')
+      const char = getCharacter('daily-digest')
       expect(char).toBeDefined()
       if (!char) return
 
       const runtime1 = await runtimeManager.createRuntime({
-        agentId: 'liaison-dup-test',
+        agentId: 'digest-dup-test',
         character: char,
       })
 
       const runtime2 = await runtimeManager.createRuntime({
-        agentId: 'liaison-dup-test',
+        agentId: 'digest-dup-test',
         character: char,
       })
 
@@ -186,49 +181,49 @@ describe('Agent Seeding', () => {
   })
 
   describe('Agent Verification', () => {
-    test('should verify character has required capabilities', () => {
-      const pm = getCharacter('project-manager')
-      expect(pm).toBeDefined()
-      if (!pm) return
+    test('should verify security-analyst has security focus', () => {
+      const securityAnalyst = getCharacter('security-analyst')
+      expect(securityAnalyst).toBeDefined()
+      if (!securityAnalyst) return
 
-      // Project manager should have topics related to project management
-      const hasRelevantTopics = pm.topics.some(
-        (t) =>
-          t.includes('project') ||
-          t.includes('management') ||
-          t.includes('planning') ||
-          t.includes('todo'),
-      )
-      expect(hasRelevantTopics).toBe(true)
-    })
-
-    test('should verify red team characters have security focus', () => {
-      const securityResearcher = getCharacter('security-researcher')
-      expect(securityResearcher).toBeDefined()
-      if (!securityResearcher) return
-
-      const hasSecurityTopics = securityResearcher.topics.some(
+      const hasSecurityTopics = securityAnalyst.topics.some(
         (t) =>
           t.includes('security') ||
+          t.includes('audit') ||
           t.includes('vulnerability') ||
-          t.includes('exploit'),
+          t.includes('contract'),
       )
       expect(hasSecurityTopics).toBe(true)
     })
 
-    test('should verify blue team characters have defense focus', () => {
-      const moderator = getCharacter('moderator')
-      expect(moderator).toBeDefined()
-      if (!moderator) return
+    test('should verify infra-monitor has monitoring focus', () => {
+      const infraMonitor = getCharacter('infra-monitor')
+      expect(infraMonitor).toBeDefined()
+      if (!infraMonitor) return
 
-      const hasDefenseTopics = moderator.topics.some(
+      const hasMonitoringTopics = infraMonitor.topics.some(
         (t) =>
-          t.includes('moderation') ||
-          t.includes('safety') ||
-          t.includes('protection') ||
-          t.includes('defense'),
+          t.includes('monitoring') ||
+          t.includes('infrastructure') ||
+          t.includes('health') ||
+          t.includes('alert'),
       )
-      expect(hasDefenseTopics).toBe(true)
+      expect(hasMonitoringTopics).toBe(true)
+    })
+
+    test('should verify community-manager has community focus', () => {
+      const communityManager = getCharacter('community-manager')
+      expect(communityManager).toBeDefined()
+      if (!communityManager) return
+
+      const hasCommunityTopics = communityManager.topics.some(
+        (t) =>
+          t.includes('community') ||
+          t.includes('engagement') ||
+          t.includes('support') ||
+          t.includes('help'),
+      )
+      expect(hasCommunityTopics).toBe(true)
     })
   })
 })

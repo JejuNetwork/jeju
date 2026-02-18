@@ -1,9 +1,10 @@
 import { getChainId } from '@jejunetwork/config'
 import { ZERO_ADDRESS } from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'
-import { type Address, parseEther } from 'viem'
+import type { Address } from 'viem'
 import { type DAOService, getOrCreateDAOService } from '../dao-service'
 import { getProposalAssistant } from '../proposal-assistant'
+import { getProposalService } from '../proposal-service'
 import { autocratConfig, blockchain, config } from '../shared-state'
 
 const ZERO_ADDR = ZERO_ADDRESS
@@ -99,9 +100,7 @@ export const daoRoutes = new Elysia({ prefix: '/api/v1/dao' })
           minQualityScore: body.governance.minQualityScore,
           boardVotingPeriod: body.governance.boardVotingPeriod,
           gracePeriod: body.governance.gracePeriod,
-          minProposalStake: parseEther(
-            body.governance.minProposalStake,
-          ).toString(),
+          minProposalStake: body.governance.minProposalStake,
           quorumBps: body.governance.quorumBps,
         },
       })
@@ -250,7 +249,7 @@ export const daoRoutes = new Elysia({ prefix: '/api/v1/dao' })
           minQualityScore: body.minQualityScore,
           boardVotingPeriod: body.boardVotingPeriod,
           gracePeriod: body.gracePeriod,
-          minProposalStake: parseEther(body.minProposalStake).toString(),
+          minProposalStake: body.minProposalStake,
           quorumBps: body.quorumBps,
         })
         return service.getDAOFull(params.daoId)
@@ -574,10 +573,10 @@ export const daoRoutes = new Elysia({ prefix: '/api/v1/dao' })
 
       // Submit to chain
       const contentHash = assistant.getContentHash(draft)
-      const txHash = await blockchain.submitProposal({
+      const proposalService = getProposalService()
+      const { txHash, proposalId } = await proposalService.submitProposal({
         daoId: params.daoId,
         proposalType: body.proposalType,
-        qualityScore: assessment.overallScore,
         contentHash,
         targetContract: body.targetContract as Address | undefined,
         callData: body.calldata as `0x${string}` | undefined,
@@ -585,7 +584,7 @@ export const daoRoutes = new Elysia({ prefix: '/api/v1/dao' })
       })
 
       return {
-        proposalId: contentHash,
+        proposalId,
         txHash,
         qualityScore: assessment.overallScore,
         status: 'submitted',

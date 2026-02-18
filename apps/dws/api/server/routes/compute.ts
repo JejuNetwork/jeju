@@ -486,7 +486,9 @@ export function createComputeRouter() {
             return { error: 'model is required for inference' }
           }
 
-          const url = new URL('/chat/completions', provider.baseUrl)
+          // Ensure baseUrl path is preserved (e.g., /openai/v1 for Groq)
+          const baseWithSlash = provider.baseUrl.endsWith('/') ? provider.baseUrl : provider.baseUrl + '/'
+          const url = new URL('chat/completions', baseWithSlash)
           const auth = injectAuthHeaders(provider, apiKey, url, {
             'Content-Type': 'application/json',
           })

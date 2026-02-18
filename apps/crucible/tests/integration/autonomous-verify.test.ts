@@ -79,13 +79,8 @@ describe('Autonomous Agent Verification', () => {
 
     const agents = data.agents ?? []
     // These are the agents auto-registered in server.ts when AUTONOMOUS_ENABLED=true
-    const expectedAgents = [
-      'base-watcher',
-      'security-analyst',
-      'node-monitor',
-      'infra-analyzer',
-      'endpoint-prober',
-    ]
+    // Currently only community-manager is seeded by default
+    const expectedAgents = ['community-manager']
 
     for (const expected of expectedAgents) {
       const found = agents.find((a: { id: string; character: string }) =>

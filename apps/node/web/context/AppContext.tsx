@@ -265,9 +265,21 @@ export function AppProvider({ children }: AppProviderProps) {
   }, [])
 
   const fetchServices = useCallback(async () => {
-    const raw = await invoke('get_available_services')
-    const services = validateServiceWithStatusArray(raw)
-    dispatch({ type: 'SET_SERVICES', payload: services })
+    console.log('[JejuNode] fetchServices called')
+    try {
+      const raw = await invoke('get_available_services')
+      console.log('[JejuNode] Raw services response:', raw)
+      // Store raw response for debugging
+      ;(window as any).__JEJU_RAW_SERVICES__ = raw
+      const services = validateServiceWithStatusArray(raw)
+      console.log('[JejuNode] Validated services count:', services.length)
+      dispatch({ type: 'SET_SERVICES', payload: services })
+    } catch (err: any) {
+      console.error('[JejuNode] fetchServices error:', err)
+      // Store error for debugging
+      ;(window as any).__JEJU_SERVICES_ERROR__ = err?.message || String(err)
+      dispatch({ type: 'SET_ERROR', payload: `Services error: ${err?.message || err}` })
+    }
   }, [])
 
   const startService = useCallback(
@@ -288,10 +300,15 @@ export function AppProvider({ children }: AppProviderProps) {
         custom_settings: null,
       })
 
-      await withOperationLock(`Starting ${serviceId}`, async () => {
-        await invoke('start_service', { request })
-        await fetchServices()
-      })
+      try {
+        await withOperationLock(`Starting ${serviceId}`, async () => {
+          await invoke('start_service', { request })
+          await fetchServices()
+        })
+      } catch (err: any) {
+        console.error('[JejuNode] startService error:', err)
+        dispatch({ type: 'SET_ERROR', payload: err?.message || String(err) })
+      }
     },
     [withOperationLock, fetchServices],
   )
@@ -307,7 +324,7 @@ export function AppProvider({ children }: AppProviderProps) {
       }
 
       await withOperationLock(`Stopping ${serviceId}`, async () => {
-        await invoke('stop_service', { service_id: serviceId })
+        await invoke('stop_service', { serviceId })
         await fetchServices()
       })
     },
@@ -346,7 +363,7 @@ export function AppProvider({ children }: AppProviderProps) {
       }
 
       await withOperationLock(`Stopping ${botId}`, async () => {
-        await invoke('stop_bot', { bot_id: botId })
+        await invoke('stop_bot', { botId })
         await fetchBots()
       })
     },
@@ -379,9 +396,11 @@ export function AppProvider({ children }: AppProviderProps) {
         token_address: null,
       })
 
-      await withOperationLock('Staking', async () => {
-        await invoke('stake', { request })
+      return await withOperationLock('Staking', async () => {
+        const result = await invoke('stake', { request })
+        console.log('[stake] Tauri result:', result)
         await fetchStaking()
+        return result
       })
     },
     [withOperationLock, fetchStaking],
@@ -394,9 +413,11 @@ export function AppProvider({ children }: AppProviderProps) {
         amount_wei: amountWei,
       })
 
-      await withOperationLock('Unstaking', async () => {
-        await invoke('unstake', { request })
+      return await withOperationLock('Unstaking', async () => {
+        const result = await invoke('unstake', { request })
+        console.log('[unstake] Tauri result:', result)
         await fetchStaking()
+        return result
       })
     },
     [withOperationLock, fetchStaking],
@@ -405,7 +426,7 @@ export function AppProvider({ children }: AppProviderProps) {
   const claimRewards = useCallback(
     async (serviceId?: string) => {
       await withOperationLock('Claiming rewards', async () => {
-        await invoke('claim_rewards', { service_id: serviceId })
+        await invoke('claim_rewards', { serviceId })
         await fetchStaking()
         await fetchEarnings()
       })
@@ -448,14 +469,23 @@ export function AppProvider({ children }: AppProviderProps) {
   }, [])
 
   const initialize = useCallback(async () => {
-    if (initializingRef.current) return
+    console.log('[JejuNode] initialize() called')
+    if (initializingRef.current) {
+      console.log('[JejuNode] Already initializing, skipping')
+      return
+    }
     initializingRef.current = true
 
     try {
+      console.log('[JejuNode] Starting initialization with operation lock')
       await withOperationLock('Initializing', async () => {
+        console.log('[JejuNode] Fetching hardware...')
         await fetchHardware()
+        console.log('[JejuNode] Fetching config...')
         await fetchConfig()
+        console.log('[JejuNode] Fetching wallet...')
         await fetchWallet()
+        console.log('[JejuNode] Fetching services...')
         await fetchServices()
         await fetchBots()
         await fetchProjectedEarnings()

@@ -26,7 +26,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://rpc.jejunetwork.org https://testnet-rpc.jejunetwork.org wss://ws.jejunetwork.org wss://testnet-ws.jejunetwork.org https://api.coingecko.com https://price.jup.ag https://api.1inch.dev"
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-eval' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' http://localhost:* ws://localhost:* https://rpc.jejunetwork.org https://testnet-rpc.jejunetwork.org wss://ws.jejunetwork.org wss://testnet-ws.jejunetwork.org https://api.coingecko.com https://price.jup.ag https://api.1inch.dev"
     },
     "trayIcon": {
       "iconPath": "icons/icon.png",
@@ -66,18 +66,7 @@
   },
   "plugins": {
     "shell": {
-      "open": true,
-      "scope": [
-        {
-          "name": "open-url",
-          "cmd": "open",
-          "args": [
-            {
-              "validator": "^https?://[a-zA-Z0-9][a-zA-Z0-9.-]*\\.[a-zA-Z]{2,}(/[a-zA-Z0-9._~:/?#\\[\\]@!$&'()*+,;=%/-]*)?$"
-            }
-          ]
-        }
-      ]
+      "open": true
     },
     "os": {},
     "process": {}

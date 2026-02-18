@@ -13,6 +13,7 @@ const CAPABILITY_ICONS: Record<string, { icon: string; label: string }> = {
   canVote: { icon: '🗳️', label: 'Vote' },
   canPropose: { icon: '📝', label: 'Propose' },
   canStake: { icon: '🔒', label: 'Stake' },
+  canStore: { icon: '📦', label: 'Storage' },
   a2a: { icon: '🤝', label: 'A2A' },
   compute: { icon: '🧮', label: 'Compute' },
   autonomous: { icon: '🔄', label: 'Auto' },

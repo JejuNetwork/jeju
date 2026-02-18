@@ -282,8 +282,15 @@ export interface NetworkConfig {
   explorer_url: string
 }
 
+export interface BuildInfo {
+  version: string
+  build_timestamp: number
+  build_date: string
+}
+
 export interface AppConfig {
   version: string
+  build_info: BuildInfo
   network: NetworkConfig
   wallet: {
     wallet_type: string

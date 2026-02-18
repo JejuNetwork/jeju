@@ -8,21 +8,32 @@ Jeju includes these applications:
 |-----|------|-------------|
 | [Gateway](/applications/gateway) | 4001 | Bridge, staking, token registry, JNS |
 | [Bazaar](/applications/bazaar) | 4006 | DEX, NFT marketplace, launchpad |
+| Wallet | 4015 | Multi-platform crypto wallet (web, extension, mobile, desktop) |
 
 ## Developer Tools
 
 | App | Port | Description |
 |-----|------|-------------|
-| [Factory](/applications/factory) | 4008 | Contract templates, deployment |
-| [Indexer](/applications/indexer) | 4350 | GraphQL API |
+| [Factory](/applications/factory) | 4008 | Bounties, packages, containers, project management |
+| [Indexer](/applications/indexer) | 4350 | Blockchain indexer with GraphQL API |
 
 ## Infrastructure
 
 | App | Port | Description |
 |-----|------|-------------|
-| [DWS](/applications/dws) | 4007 | Compute, Storage, CDN |
-| [Crucible](/applications/crucible) | 4020 | Agent orchestration |
+| [DWS](/applications/dws) | 4007 | Inference, Storage, Compute, CDN |
+| [Crucible](/applications/crucible) | 4020 | AI agent orchestration |
+| Node | 4070 | Network node operator (run infrastructure, earn rewards) |
 | [Monitoring](/applications/monitoring) | 4040 | Prometheus, Grafana |
+
+## L2 Blockchain
+
+| Service | Port | Description |
+|---------|------|-------------|
+| l1-geth | 8545 | L1 Ethereum (Geth --dev mode) |
+| op-geth | 9545 | L2 Execution Layer |
+| op-node | 7545 | L2 Consensus Layer |
+| op-batcher | 6545 | Batch Submitter |
 
 ## Running Apps
 
@@ -53,17 +64,132 @@ Each app has a `jeju-manifest.json`:
 }
 ```
 
+## Service Architecture
+
+### What Each Service Does
+
+| Service | Purpose |
+|---------|---------|
+| **DWS** | Coordinator/marketplace - routes requests to Node providers |
+| **Node app** | Provider - does actual work (inference, storage, compute) |
+| **Crucible** | Agent orchestrator - runs agent logic, calls DWS for resources |
+| **Indexer** | Blockchain indexer - queries on-chain data |
+
+### DWS Service Types
+
+| Type | Description | Hardware Needed |
+|------|-------------|-----------------|
+| **Inference** | AI model execution (LLMs, image models) | GPU |
+| **Storage** | File storage, IPFS pinning | Disk space |
+| **Compute** | Serverless functions, containers | CPU/RAM |
+| **CDN** | Content caching and delivery | Bandwidth |
+
+### How It Fits Together
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Client Apps (Factory, Bazaar, Wallet, Otto)                │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Crucible (Agent Orchestrator)                              │
+│  - Runs agent runtime (ElizaOS)                             │
+│  - Handles triggers, rooms, agent-to-agent                  │
+│  - Calls DWS when agents need inference/storage/compute     │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────┐
+│  DWS (Coordinator / Marketplace)                            │
+│  - Routes requests to available Node providers              │
+│  - Handles payments (x402 micropayments)                    │
+│  - API gateway for all services                             │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+        ┌─────────────┼─────────────┐
+        ▼             ▼             ▼
+┌───────────┐  ┌───────────┐  ┌───────────┐
+│   Node    │  │   Node    │  │   Node    │
+│(Inference)│  │ (Storage) │  │ (Compute) │
+│   GPU     │  │   Disk    │  │   CPU     │
+└───────────┘  └───────────┘  └───────────┘
+```
+
+### Agent Provisioning Flow
+
+When you create an AI agent:
+
+1. **Define agent** → Crucible stores agent config
+2. **Agent runs** → Crucible executes agent runtime
+3. **Agent thinks** → Crucible calls DWS → DWS routes to Node (inference)
+4. **Agent stores data** → Crucible calls DWS → DWS routes to Node (storage)
+5. **Agent executes on-chain** → Crucible submits transaction to L2
+
+**Key point**: DWS without Node providers is an empty marketplace. You need at least one Node app providing services for DWS to route requests to.
+
+## App Dependencies
+
+```
+                      ┌─────────┐
+                      │   L2    │ ◄── All apps connect to L2 RPC (port 9545)
+                      │(op-geth)│
+                      └────┬────┘
+                           │
+         ┌─────────────────┼─────────────────┐
+         │                 │                 │
+    ┌────▼────┐      ┌─────▼─────┐     ┌─────▼─────┐
+    │   DWS   │◄─────│  Indexer  │     │  Gateway  │
+    │(Coords) │      │           │     │           │
+    └────┬────┘      └─────┬─────┘     └───────────┘
+         │                 │
+    ┌────┴────┐            ▼
+    │         │      ┌───────────┐
+┌───▼───┐ ┌───▼───┐  │PostgreSQL │
+│  Node │ │Crucible│  └───────────┘
+│(Provs)│ │(Agents)│
+└───────┘ └───┬───┘
+              │
+    ┌─────────┴─────────┐
+    │                   │
+┌───▼───┐         ┌─────▼─────┐
+│Factory │         │   Otto    │
+└───────┘         └───────────┘
+```
+
+## Startup Order
+
+Services must be started in dependency order:
+
+1. **L1 Geth** (no dependencies)
+2. **PostgreSQL** (no dependencies)
+3. **op-geth** (depends on L1)
+4. **op-node** (depends on L1, op-geth)
+5. **op-batcher** (depends on op-node)
+6. **Indexer** (depends on L2, PostgreSQL)
+7. **DWS** (depends on L2)
+8. **Crucible** (depends on DWS)
+9. **Gateway** (depends on L2)
+10. **Client apps** (depend on services)
+
 ## Port Reference
 
 | App | Port |
 |-----|------|
+| L1 Geth | 8545 |
+| op-geth (L2) | 9545 |
+| op-node | 7545 |
+| op-batcher | 6545 |
 | Gateway | 4001 |
 | Bazaar | 4006 |
 | DWS | 4007 |
 | Factory | 4008 |
+| Wallet | 4015 |
 | Crucible | 4020 |
 | Monitoring | 4040 |
-| Indexer | 4350 |
+| Node | 4070 |
+| Indexer GraphQL | 4350 |
+| Indexer API | 4355 |
 
 Override with environment variables:
 

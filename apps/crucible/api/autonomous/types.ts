@@ -1,6 +1,19 @@
 import type { JsonValue } from '@jejunetwork/types'
 import type { AgentCharacter } from '../../lib/types'
 
+export type ExecutionMode =
+  | 'llm-driven' // Current: LLM decides everything
+  | 'code-first' // Execute action first, LLM only if condition met
+
+export interface CodeFirstConfig {
+  /** Action to execute automatically (no LLM) */
+  primaryAction: string
+  /** Condition to invoke LLM - if result.status matches these values, call LLM */
+  llmTriggerStatuses: string[]
+  /** Template for health message when status is good (no LLM). Optional for actions that handle their own output. */
+  healthyTemplate?: string
+}
+
 export interface AutonomousAgentConfig {
   agentId: string
   character: AgentCharacter
@@ -13,6 +26,16 @@ export interface AutonomousAgentConfig {
   watchRoom?: string
   /** Room to post action results and messages to */
   postToRoom?: string
+  /** Cron schedule pattern (e.g., "0 9 * * *" for daily at 9 AM UTC) */
+  schedule?: string
+  /** Keywords that trigger immediate execution regardless of schedule */
+  urgencyTriggers?: string[]
+  /** Execution mode - determines how actions are decided */
+  executionMode?: ExecutionMode
+  /** Configuration for code-first execution mode */
+  codeFirstConfig?: CodeFirstConfig
+  /** Chain ID for multi-chain watchers */
+  chainId?: number
 }
 
 export interface AutonomousCapabilities {
@@ -23,6 +46,7 @@ export interface AutonomousCapabilities {
   canDelegate: boolean
   canStake: boolean
   canBridge: boolean
+  canStore?: boolean
   a2a?: boolean
   compute?: boolean
   canModerate?: boolean
@@ -101,6 +125,7 @@ export const DEFAULT_AUTONOMOUS_CONFIG: Omit<
     canDelegate: true,
     canStake: true,
     canBridge: false, // Require explicit opt-in
+    canStore: false, // Require explicit opt-in
     a2a: true, // Enable A2A communication by default
     compute: true, // Enable compute actions by default
   },
@@ -126,6 +151,7 @@ export interface AutonomousRunnerStatus {
     character: string
     lastTick: number
     tickCount: number
+    tickIntervalMs: number
     recentActivity: ActivityEntry[]
   }>
 }

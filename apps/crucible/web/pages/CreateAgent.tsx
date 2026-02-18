@@ -3,7 +3,8 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { LoadingSpinner } from '../components/LoadingSpinner'
-import { useCharacter, useCharacters, useRegisterAgent } from '../hooks'
+import { useCharacter, useCharacters, useRegisterAgent, useRooms } from '../hooks'
+import { getSupportedChains } from '../../lib/chain-registry'
 
 interface Capabilities {
   canChat: boolean
@@ -11,6 +12,7 @@ interface Capabilities {
   canVote: boolean
   canPropose: boolean
   canStake: boolean
+  canStore: boolean
   a2a: boolean
   compute: boolean
 }
@@ -18,6 +20,8 @@ interface Capabilities {
 interface AutonomousSettings {
   enabled: boolean
   tickIntervalMs: number
+  watchRoom?: string
+  postToRoom?: string
 }
 
 const CAPABILITY_CONFIG: Record<
@@ -48,6 +52,11 @@ const CAPABILITY_CONFIG: Record<
     icon: '🔒',
     label: 'Stake',
     description: 'Stake tokens in protocols',
+  },
+  canStore: {
+    icon: '📦',
+    label: 'Storage',
+    description: 'Upload files to IPFS storage',
   },
   a2a: {
     icon: '🤝',
@@ -99,6 +108,7 @@ export default function CreateAgentPage() {
     canVote: false,
     canPropose: false,
     canStake: false,
+    canStore: false,
     a2a: false,
     compute: false,
   })
@@ -108,10 +118,16 @@ export default function CreateAgentPage() {
     useState<AutonomousSettings>({
       enabled: false,
       tickIntervalMs: 60000,
+      watchRoom: '',
+      postToRoom: '',
     })
+
+  // Chain selection for blockscout-watcher
+  const [selectedChainId, setSelectedChainId] = useState<number | null>(null)
 
   const { data: characters, isLoading: loadingCharacters } = useCharacters()
   const { data: selectedCharacter } = useCharacter(selectedCharacterId ?? '')
+  const { data: roomsData } = useRooms({ limit: 50 })
   const registerAgent = useRegisterAgent()
 
   const handleCreate = async () => {
@@ -124,7 +140,27 @@ export default function CreateAgentPage() {
 
     try {
       const agentName = customName || selectedCharacter.name
-      await registerAgent.mutateAsync({
+      const watchRoom = autonomousSettings.watchRoom?.trim()
+      const postToRoom = autonomousSettings.postToRoom?.trim()
+
+      const shouldPersistAutonomousConfig =
+        autonomousSettings.enabled ||
+        selectedChainId !== null ||
+        !!watchRoom ||
+        !!postToRoom
+      const autonomousPayload = shouldPersistAutonomousConfig
+        ? {
+            enabled: autonomousSettings.enabled,
+            tickIntervalMs: autonomousSettings.enabled
+              ? autonomousSettings.tickIntervalMs
+              : undefined,
+            watchRoom: watchRoom || undefined,
+            postToRoom: postToRoom || undefined,
+            chainId: selectedChainId ?? undefined,
+          }
+        : undefined
+
+      const result = await registerAgent.mutateAsync({
         name: agentName,
         character: {
           id: selectedCharacter.id,
@@ -141,9 +177,18 @@ export default function CreateAgentPage() {
           ? (Number(initialFunding) * 1e18).toString()
           : undefined,
         capabilities,
+        autonomous: autonomousPayload,
       })
 
-      toast.success('Agent deployed successfully')
+      if (result.autonomousEnabled) {
+        toast.success('Agent deployed with autonomous mode enabled')
+      } else if (autonomousSettings.enabled) {
+        toast.success(
+          'Agent deployed (autonomous mode requires AUTONOMOUS_ENABLED=true on server)',
+        )
+      } else {
+        toast.success('Agent deployed successfully')
+      }
       navigate('/agents')
     } catch (error) {
       toast.error(
@@ -155,7 +200,13 @@ export default function CreateAgentPage() {
   const canProceedFromStep = (s: number) => {
     if (s === 1) return selectedCharacterId !== null
     if (s === 2) return true // Capabilities are optional
-    if (s === 3) return true // Autonomous is optional
+    if (s === 3) {
+      // If blockscout-watcher + autonomous enabled, chainId required
+      if (selectedCharacter?.id === 'blockscout-watcher' && autonomousSettings.enabled) {
+        return selectedChainId !== null
+      }
+      return true
+    }
     if (s === 4) return authenticated
     return false
   }
@@ -502,6 +553,123 @@ export default function CreateAgentPage() {
                 >
                   How often the agent will wake up and check for actions to take
                 </p>
+
+                {/* Chain Configuration - only for blockscout-watcher */}
+                {selectedCharacter?.id === 'blockscout-watcher' && (
+                  <div className="mt-6 p-4 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                    <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--text-primary)' }}>
+                      Chain Configuration
+                    </h3>
+
+                    <div>
+                      <label
+                        htmlFor="monitor-chain"
+                        className="block text-sm font-medium mb-2"
+                        style={{ color: 'var(--text-secondary)' }}
+                      >
+                        Monitor Chain
+                        <span className="ml-1" style={{ color: 'var(--color-error)' }}>*</span>
+                      </label>
+                      <select
+                        id="monitor-chain"
+                        value={selectedChainId ?? ''}
+                        onChange={(e) => setSelectedChainId(Number(e.target.value))}
+                        className="input w-full"
+                        required
+                      >
+                        <option value="">Select a chain...</option>
+                        {getSupportedChains().map(chain => (
+                          <option key={chain.chainId} value={chain.chainId}>
+                            {chain.displayName} ({chain.chainId})
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-xs mt-2" style={{ color: 'var(--text-tertiary)' }}>
+                        Which blockchain should this agent monitor for verified contracts?
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label
+                      htmlFor="watch-room"
+                      className="block text-sm font-medium mb-2"
+                      style={{ color: 'var(--text-secondary)' }}
+                    >
+                      Watch Room
+                      <span
+                        className="ml-2 font-normal"
+                        style={{ color: 'var(--text-tertiary)' }}
+                      >
+                        (optional)
+                      </span>
+                    </label>
+                    <input
+                      id="watch-room"
+                      type="text"
+                      list="autonomous-room-options"
+                      value={autonomousSettings.watchRoom ?? ''}
+                      onChange={(e) =>
+                        setAutonomousSettings((prev) => ({
+                          ...prev,
+                          watchRoom: e.target.value,
+                        }))
+                      }
+                      placeholder="capability-demos"
+                      className="input"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="post-room"
+                      className="block text-sm font-medium mb-2"
+                      style={{ color: 'var(--text-secondary)' }}
+                    >
+                      Post To Room
+                      <span
+                        className="ml-2 font-normal"
+                        style={{ color: 'var(--text-tertiary)' }}
+                      >
+                        (optional)
+                      </span>
+                    </label>
+                    <input
+                      id="post-room"
+                      type="text"
+                      list="autonomous-room-options"
+                      value={autonomousSettings.postToRoom ?? ''}
+                      onChange={(e) =>
+                        setAutonomousSettings((prev) => ({
+                          ...prev,
+                          postToRoom: e.target.value,
+                        }))
+                      }
+                      placeholder="capability-demos"
+                      className="input"
+                    />
+                  </div>
+                </div>
+                <p
+                  className="text-xs mt-2"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
+                  Use a room ID (string for off-chain rooms). Leave blank to
+                  skip watching or posting.
+                </p>
+
+                {roomsData?.rooms && roomsData.rooms.length > 0 && (
+                  <datalist id="autonomous-room-options">
+                    {roomsData.rooms.map((room) => (
+                      <option
+                        key={room.roomId}
+                        value={room.roomId}
+                        label={room.name}
+                      />
+                    ))}
+                  </datalist>
+                )}
               </div>
             )}
           </div>
@@ -616,6 +784,27 @@ export default function CreateAgentPage() {
                     (t) => t.value === autonomousSettings.tickIntervalMs,
                   )?.label ?? '1 minute'}
                 </span>
+                {selectedChainId && (
+                  <p className="text-xs mt-2" style={{ color: 'var(--text-tertiary)' }}>
+                    🔗 Chain: {getSupportedChains().find(c => c.chainId === selectedChainId)?.displayName} ({selectedChainId})
+                  </p>
+                )}
+                {autonomousSettings.watchRoom && (
+                  <p
+                    className="text-xs mt-2"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  >
+                    Watch: {autonomousSettings.watchRoom}
+                  </p>
+                )}
+                {autonomousSettings.postToRoom && (
+                  <p
+                    className="text-xs"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  >
+                    Post: {autonomousSettings.postToRoom}
+                  </p>
+                )}
               </div>
             )}
 

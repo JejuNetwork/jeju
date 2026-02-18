@@ -15,7 +15,14 @@ import {
   getDWSEndpoint,
   getSharedDWSClient,
 } from '../client/dws'
+import { ROOMS } from '../constants'
 import { createLogger, type Logger } from './logger'
+import {
+  createMemoryPersistence,
+  type MemoryPersistenceService,
+  type CommitResult,
+  createWalletSigner,
+} from './memory-persistence'
 
 // Store the original Eliza action handlers
 type ElizaActionHandler = Action['handler']
@@ -44,6 +51,16 @@ export interface RuntimeConfig {
   privateKey?: Hex
   /** Network to connect to */
   network?: NetworkType
+  /** On-chain agent ID (bigint) for memory persistence */
+  onChainAgentId?: bigint
+  /** Character CID on IPFS */
+  characterCid?: string
+  /** Current state CID on IPFS */
+  stateCid?: string
+  /** Enable memory persistence to L2/IPFS (default: true if configured) */
+  enableMemoryPersistence?: boolean
+  /** Snapshot interval in ms (default: 60000) */
+  memorySnapshotIntervalMs?: number
 }
 
 export interface RuntimeMessage {
@@ -137,6 +154,9 @@ export class CrucibleAgentRuntime {
   // Jeju service instance
   private jejuService: StandaloneJejuService | null = null
 
+  // Memory persistence service for L2/IPFS commits
+  private memoryPersistence: MemoryPersistenceService | null = null
+
   constructor(config: RuntimeConfig) {
     this.config = config
     this.log = config.logger ?? createLogger(`Runtime:${config.agentId}`)
@@ -215,10 +235,71 @@ export class CrucibleAgentRuntime {
       await this.loadJejuPlugin()
     }
 
+    // Initialize memory persistence if configured
+    if (
+      this.config.enableMemoryPersistence !== false &&
+      this.config.onChainAgentId &&
+      this.config.characterCid &&
+      this.config.stateCid &&
+      this.jejuService
+    ) {
+      try {
+        const { loadDeployedContracts } = await import('@jejunetwork/config')
+        const network =
+          this.config.network ?? (getCurrentNetwork() as NetworkType)
+        const contracts = loadDeployedContracts(network)
+        const { createStorage } = await import('./storage')
+        const { createKMSSigner } = await import('./kms-signer')
+
+        if (contracts.identityRegistry) {
+          // Create storage service
+          const storage = createStorage({
+            apiUrl: getDWSEndpoint(),
+            ipfsGateway: getDWSEndpoint().replace('/api', '/ipfs'),
+          })
+
+          // Create signer from Jeju service wallet client
+          const signer = createWalletSigner(
+            this.jejuService.sdk.walletClient,
+            this.jejuService.sdk.publicClient,
+          )
+
+          this.memoryPersistence = createMemoryPersistence({
+            agentId: this.config.onChainAgentId,
+            characterCid: this.config.characterCid,
+            stateCid: this.config.stateCid,
+            identityRegistry: contracts.identityRegistry as `0x${string}`,
+            storage,
+            publicClient: this.jejuService.sdk.publicClient,
+            signer,
+            snapshotIntervalMs: this.config.memorySnapshotIntervalMs ?? 60000,
+            enablePeriodicSnapshots: true,
+            enableEventCommits: true,
+            logger: this.log,
+          })
+
+          await this.memoryPersistence.start()
+          this.log.info('Memory persistence started', {
+            agentId: this.config.onChainAgentId.toString(),
+            snapshotInterval: this.config.memorySnapshotIntervalMs ?? 60000,
+          })
+        } else {
+          this.log.warn(
+            'IdentityRegistry not deployed - memory persistence disabled',
+          )
+        }
+      } catch (err) {
+        this.log.warn('Failed to initialize memory persistence', {
+          error: err instanceof Error ? err.message : String(err),
+        })
+      }
+    }
+
     this.log.info('Agent runtime initialized', {
       agentId: this.config.agentId,
       characterName: this.config.character.name,
       actions: jejuActions.length,
+      memoryPersistence: this.memoryPersistence !== null,
     })
 
     this.initialized = true
@@ -437,6 +518,16 @@ export class CrucibleAgentRuntime {
       textLength: userText.length,
     })
 
+    // Record user message for persistence
+    if (this.memoryPersistence) {
+      this.memoryPersistence.recordMessage({
+        roomId: message.roomId,
+        userId: message.userId,
+        content: userText,
+        role: 'user',
+      })
+    }
+
     // Determine model based on network and character preferences
     const network = getCurrentNetwork()
     const modelPrefs = this.config.character.modelPreferences
@@ -474,6 +565,21 @@ export class CrucibleAgentRuntime {
         ? `${cleanText}\n\n${actionResultText}`
         : cleanText
 
+      // Record response and trigger event-based commit for action
+      if (this.memoryPersistence) {
+        this.memoryPersistence.recordMessage({
+          roomId: message.roomId,
+          userId: this.config.agentId,
+          content: combinedText,
+          role: 'assistant',
+          action,
+        })
+        // Trigger immediate commit on action execution
+        this.memoryPersistence.onActionExecuted(action, execResult.success).catch(err => {
+          this.log.warn('Failed to commit after action', { error: String(err) })
+        })
+      }
+
       return {
         text: combinedText,
         action,
@@ -491,6 +597,17 @@ export class CrucibleAgentRuntime {
           },
         ],
       }
+    }
+
+    // Record response message for persistence (no action case)
+    if (this.memoryPersistence) {
+      this.memoryPersistence.recordMessage({
+        roomId: message.roomId,
+        userId: this.config.agentId,
+        content: cleanText,
+        role: 'assistant',
+        action,
+      })
     }
 
     return {
@@ -753,15 +870,43 @@ export class CrucibleAgentRuntime {
     actionName: string,
     params: Record<string, string>,
   ): Promise<{ success: boolean; result?: JsonValue; error?: string }> {
+    const upperName = actionName.toUpperCase()
+
+    // Handle built-in crucible actions first
+    if (upperName === 'POST_TO_ROOM') {
+      return this.executePostToRoom(params)
+    }
+    if (upperName === 'READ_ROOM_ALERTS') {
+      return this.executeReadRoomAlerts(params)
+    }
+    if (upperName === 'SEARCH_DISCUSSIONS') {
+      return this.executeSearchDiscussions(params)
+    }
+    if (upperName === 'POST_GITHUB_DISCUSSION') {
+      return this.executePostGithubDiscussion(params)
+    }
+    if (upperName === 'GET_INFRA_HEALTH') {
+      return this.executeGetInfraHealth(params)
+    }
+    if (upperName === 'GET_INFRA_STATUS') {
+      return this.executeGetInfraStatus(params)
+    }
+    if (upperName === 'GENERATE_DAILY_DIGEST') {
+      return this.executeGenerateDailyDigest(params)
+    }
+    if (upperName === 'CHECK_NEW_REGISTRATIONS') {
+      return this.executeCheckNewRegistrations(params)
+    }
+
     // Find the action in the loaded jeju actions
     const action = jejuActions.find(
-      (a) => a.name.toUpperCase() === actionName.toUpperCase(),
+      (a) => a.name.toUpperCase() === upperName,
     )
 
     if (!action) {
       this.log.warn('Action not found', {
         actionName,
-        availableActions: jejuActions.map((a) => a.name),
+        availableActions: [...jejuActions.map((a) => a.name), 'POST_TO_ROOM'],
       })
       return { success: false, error: `Action not found: ${actionName}` }
     }
@@ -850,15 +995,1057 @@ export class CrucibleAgentRuntime {
 
   /** Check if a specific action has a handler */
   actionHasHandler(actionName: string): boolean {
+    const upperName = actionName.toUpperCase()
+    // Built-in actions
+    if (upperName === 'POST_TO_ROOM') return true
+
     const action = jejuActions.find(
-      (a) => a.name.toUpperCase() === actionName.toUpperCase(),
+      (a) => a.name.toUpperCase() === upperName,
     )
     return action?.hasHandler ?? false
   }
 
   /** Get all actions that have executable handlers */
   getExecutableActions(): string[] {
-    return jejuActions.filter((a) => a.hasHandler).map((a) => a.name)
+    const builtInActions = [
+      'POST_TO_ROOM',
+      'READ_ROOM_ALERTS',
+      'SEARCH_DISCUSSIONS',
+      'POST_GITHUB_DISCUSSION',
+      'GET_INFRA_HEALTH',
+      'GET_INFRA_STATUS',
+      'GENERATE_DAILY_DIGEST',
+      'CHECK_NEW_REGISTRATIONS',
+    ]
+    return [...jejuActions.filter((a) => a.hasHandler).map((a) => a.name), ...builtInActions]
+  }
+
+  /**
+   * Execute POST_TO_ROOM action - posts a message to a room
+   */
+  private async executePostToRoom(
+    params: Record<string, string>,
+  ): Promise<{ success: boolean; result?: JsonValue; error?: string }> {
+    const { room, content } = params
+
+    if (!room) {
+      return { success: false, error: 'POST_TO_ROOM requires room parameter' }
+    }
+    if (!content) {
+      return { success: false, error: 'POST_TO_ROOM requires content parameter' }
+    }
+
+    this.log.info('Executing POST_TO_ROOM', { room, contentLength: content.length })
+
+    try {
+      // Import database and post message
+      const { getDatabase } = await import('./database')
+      const db = getDatabase()
+
+      await db.createMessage({
+        roomId: room,
+        agentId: this.config.agentId,
+        content,
+      })
+
+      this.log.info('Posted to room', { room, agentId: this.config.agentId })
+      return { success: true, result: { room, posted: true } }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err)
+      this.log.error('Failed to post to room', { room, error: errorMsg })
+      return { success: false, error: errorMsg }
+    }
+  }
+
+  /**
+   * Execute READ_ROOM_ALERTS action - reads messages from a room within time range
+   * Supports 'after' parameter for watermark-based duplicate avoidance
+   */
+  private async executeReadRoomAlerts(
+    params: Record<string, string>,
+  ): Promise<{ success: boolean; result?: JsonValue; error?: string }> {
+    const { room, hours, after } = params
+    const hoursNum = Number(hours) || 24
+    const afterTimestamp = after ? Number(after) : undefined
+
+    if (!room) {
+      return { success: false, error: 'READ_ROOM_ALERTS requires room parameter' }
+    }
+
+    this.log.info('Executing READ_ROOM_ALERTS', { room, hours: hoursNum, after: afterTimestamp ?? null })
+
+    try {
+      const { getDatabase } = await import('./database')
+      const db = getDatabase()
+
+      // Use 'after' watermark if provided, otherwise use hours-based calculation
+      let sinceTimestamp: number
+      if (afterTimestamp && afterTimestamp > 0) {
+        // Add 1 second to avoid re-processing the exact same message
+        sinceTimestamp = Math.floor(afterTimestamp / 1000) + 1
+        this.log.debug('Using watermark-based filtering', { afterTimestamp, sinceSeconds: sinceTimestamp })
+      } else {
+        // Fallback to hours-based calculation
+        sinceTimestamp = Math.floor(Date.now() / 1000) - (hoursNum * 60 * 60)
+      }
+
+      const messages = await db.getMessages(room, {
+        since: sinceTimestamp,
+        limit: 1000, // Get up to 1000 messages
+      })
+
+      this.log.info('Read room alerts', { room, messageCount: messages.length, usedWatermark: !!afterTimestamp })
+
+      // Format messages for LLM consumption
+      const formattedMessages = messages.map((msg) => ({
+        id: String(msg.id),
+        timestamp: new Date(msg.created_at * 1000).toISOString(),
+        timestampMs: msg.created_at * 1000,
+        agent: msg.agent_id,
+        content: msg.content,
+      }))
+
+      // Calculate latest timestamp for watermark update
+      const latestTimestamp = messages.length > 0
+        ? Math.max(...messages.map((m) => m.created_at * 1000))
+        : afterTimestamp ?? Date.now()
+
+      return {
+        success: true,
+        result: {
+          room,
+          hours: hoursNum,
+          messageCount: messages.length,
+          messages: formattedMessages,
+          latestTimestamp, // Return for watermark tracking
+          usedWatermark: !!afterTimestamp,
+        },
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err)
+      this.log.error('Failed to read room alerts', { room, error: errorMsg })
+      return { success: false, error: errorMsg }
+    }
+  }
+
+  /**
+   * Execute SEARCH_DISCUSSIONS action - search GitHub Discussions for duplicates
+   */
+  private async executeSearchDiscussions(
+    params: Record<string, string>,
+  ): Promise<{ success: boolean; result?: JsonValue; error?: string }> {
+    const { query } = params
+
+    if (!query) {
+      return { success: false, error: 'SEARCH_DISCUSSIONS requires query parameter' }
+    }
+
+    const token = process.env.GITHUB_TOKEN
+    const owner = process.env.GITHUB_REPO_OWNER
+    const repoName = process.env.GITHUB_REPO_NAME
+
+    if (!token || !owner || !repoName) {
+      this.log.warn('GitHub credentials not configured', { hasToken: !!token, hasOwner: !!owner, hasRepo: !!repoName })
+      return {
+        success: true,
+        result: { discussions: [], note: 'GitHub not configured - skipping search' },
+      }
+    }
+
+    this.log.info('Executing SEARCH_DISCUSSIONS', { query, owner, repoName })
+
+    try {
+
+      // GraphQL query to search discussions
+      const graphqlQuery = `
+        query SearchDiscussions($query: String!) {
+          search(query: $query, type: DISCUSSION, first: 10) {
+            nodes {
+              ... on Discussion {
+                title
+                url
+                createdAt
+                body
+              }
+            }
+          }
+        }
+      `
+
+      const response = await fetch('https://api.github.com/graphql', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: graphqlQuery,
+          variables: { query: `repo:${owner}/${repoName} ${query}` },
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`GitHub API error: ${response.status} ${response.statusText}`)
+      }
+
+      const data = await response.json() as {
+        data?: { search?: { nodes?: Array<{ title: string; url: string; createdAt: string }> } }
+        errors?: Array<{ message: string }>
+      }
+
+      if (data.errors) {
+        throw new Error(data.errors.map((e) => e.message).join(', '))
+      }
+
+      const discussions = data.data?.search?.nodes ?? []
+
+      this.log.info('Found discussions', { count: discussions.length })
+
+      return {
+        success: true,
+        result: {
+          query,
+          count: discussions.length,
+          discussions: discussions.map((d) => ({
+            title: d.title,
+            url: d.url,
+            createdAt: d.createdAt,
+          })),
+        },
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err)
+      this.log.error('Failed to search discussions', { error: errorMsg })
+      return { success: false, error: errorMsg }
+    }
+  }
+
+  /**
+   * Execute POST_GITHUB_DISCUSSION action - create a GitHub Discussion
+   * Falls back to posting to infra-monitoring room if GitHub fails
+   */
+  private async executePostGithubDiscussion(
+    params: Record<string, string>,
+  ): Promise<{ success: boolean; result?: JsonValue; error?: string }> {
+    const { title, body } = params
+
+    if (!title) {
+      return { success: false, error: 'POST_GITHUB_DISCUSSION requires title parameter' }
+    }
+    if (!body) {
+      return { success: false, error: 'POST_GITHUB_DISCUSSION requires body parameter' }
+    }
+
+    const token = process.env.GITHUB_TOKEN
+    const owner = process.env.GITHUB_REPO_OWNER
+    const repoName = process.env.GITHUB_REPO_NAME
+    const categoryId = process.env.GITHUB_CATEGORY_ID
+
+    if (!token || !owner || !repoName || !categoryId) {
+      this.log.warn('GitHub credentials not configured, falling back to room post', {
+        hasToken: !!token,
+        hasOwner: !!owner,
+        hasRepo: !!repoName,
+        hasCategoryId: !!categoryId,
+      })
+      // Fallback to posting to infra-monitoring room
+      return this.executePostToRoom({
+        room: ROOMS.INFRA_MONITORING,
+        content: `# ${title}\n\n${body}\n\n---\n_Note: GitHub posting unavailable, posted to room instead_`,
+      })
+    }
+
+    this.log.info('Executing POST_GITHUB_DISCUSSION', { title, owner, repoName })
+
+    try {
+
+      // First, get the repository ID
+      const repoQuery = `
+        query GetRepoId($owner: String!, $name: String!) {
+          repository(owner: $owner, name: $name) {
+            id
+          }
+        }
+      `
+
+      const repoResponse = await fetch('https://api.github.com/graphql', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: repoQuery,
+          variables: { owner, name: repoName },
+        }),
+      })
+
+      if (!repoResponse.ok) {
+        throw new Error(`GitHub API error: ${repoResponse.status}`)
+      }
+
+      const repoData = await repoResponse.json() as {
+        data?: { repository?: { id: string } }
+        errors?: Array<{ message: string }>
+      }
+
+      if (repoData.errors) {
+        throw new Error(repoData.errors.map((e) => e.message).join(', '))
+      }
+
+      const repositoryId = repoData.data?.repository?.id
+      if (!repositoryId) {
+        throw new Error('Could not find repository ID')
+      }
+
+      // Create the discussion
+      const createMutation = `
+        mutation CreateDiscussion($repositoryId: ID!, $categoryId: ID!, $title: String!, $body: String!) {
+          createDiscussion(input: {
+            repositoryId: $repositoryId,
+            categoryId: $categoryId,
+            title: $title,
+            body: $body
+          }) {
+            discussion {
+              id
+              url
+            }
+          }
+        }
+      `
+
+      const createResponse = await fetch('https://api.github.com/graphql', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: createMutation,
+          variables: {
+            repositoryId,
+            categoryId,
+            title,
+            body,
+          },
+        }),
+      })
+
+      if (!createResponse.ok) {
+        throw new Error(`GitHub API error: ${createResponse.status}`)
+      }
+
+      const createData = await createResponse.json() as {
+        data?: { createDiscussion?: { discussion?: { id: string; url: string } } }
+        errors?: Array<{ message: string }>
+      }
+
+      if (createData.errors) {
+        throw new Error(createData.errors.map((e) => e.message).join(', '))
+      }
+
+      const discussion = createData.data?.createDiscussion?.discussion
+      if (!discussion) {
+        throw new Error('Failed to create discussion')
+      }
+
+      this.log.info('Created GitHub Discussion', { url: discussion.url })
+
+      return {
+        success: true,
+        result: {
+          posted: true,
+          url: discussion.url,
+          id: discussion.id,
+        },
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err)
+      this.log.error('Failed to post GitHub Discussion, falling back to room', { error: errorMsg })
+
+      // Fallback to posting to infra-monitoring room
+      return this.executePostToRoom({
+        room: ROOMS.INFRA_MONITORING,
+        content: `# ${title}\n\n${body}\n\n---\n_Note: GitHub posting failed (${errorMsg}), posted to room instead_`,
+      })
+    }
+  }
+
+  /**
+   * Execute GET_INFRA_HEALTH action - probe DWS and inference node endpoints
+   * Returns real infrastructure health data
+   */
+  private async executeGetInfraHealth(
+    _params: Record<string, string>,
+  ): Promise<{ success: boolean; result?: JsonValue; error?: string }> {
+    this.log.info('Executing GET_INFRA_HEALTH - probing infrastructure endpoints')
+
+    const timestamp = Date.now()
+    const results: {
+      timestamp: number
+      dws: { status: string; latencyMs: number; error?: string }
+      inference: { nodeCount: number; latencyMs: number; nodes?: Array<Record<string, unknown>>; error?: string }
+    } = {
+      timestamp,
+      dws: { status: 'unknown', latencyMs: 0 },
+      inference: { nodeCount: 0, latencyMs: 0 },
+    }
+
+    // Probe DWS health endpoint
+    const dwsUrl = process.env.DWS_URL || 'http://localhost:4030'
+    try {
+      const dwsStart = Date.now()
+      const dwsResponse = await fetch(`${dwsUrl}/health`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5000),
+      })
+      results.dws.latencyMs = Date.now() - dwsStart
+      results.dws.status = dwsResponse.ok ? 'healthy' : 'unhealthy'
+    } catch (err) {
+      results.dws.status = 'unhealthy'
+      results.dws.error = err instanceof Error ? err.message : 'Connection failed'
+      this.log.warn('DWS health check failed', { error: results.dws.error })
+    }
+
+    // Probe inference nodes endpoint
+    try {
+      const inferenceStart = Date.now()
+      const inferenceResponse = await fetch(`${dwsUrl}/compute/nodes/inference`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5000),
+      })
+      results.inference.latencyMs = Date.now() - inferenceStart
+
+      if (inferenceResponse.ok) {
+        const data = await inferenceResponse.json() as unknown
+        // DWS may return nodes as a raw array or wrapped in { nodes: [...] }.
+        const nodes = Array.isArray(data)
+          ? data
+          : (data && typeof data === 'object' && Array.isArray((data as { nodes?: unknown[] }).nodes))
+            ? (data as { nodes?: unknown[] }).nodes ?? []
+            : []
+        results.inference.nodeCount = nodes.length
+        results.inference.nodes = nodes.slice(0, 10) as Array<Record<string, unknown>> // Limit to first 10 for brevity
+      } else {
+        results.inference.error = `HTTP ${inferenceResponse.status}`
+      }
+    } catch (err) {
+      results.inference.error = err instanceof Error ? err.message : 'Connection failed'
+      this.log.warn('Inference nodes check failed', { error: results.inference.error })
+    }
+
+    this.log.info('Infrastructure health check complete', {
+      dwsStatus: results.dws.status,
+      inferenceNodes: results.inference.nodeCount,
+    })
+
+    return {
+      success: true,
+      result: results as JsonValue,
+    }
+  }
+
+  /**
+   * Execute GET_INFRA_STATUS action - probe infrastructure AND evaluate thresholds
+   * Returns evaluated status with alerts, ready for LLM to format
+   */
+  private async executeGetInfraStatus(
+    _params: Record<string, string>,
+  ): Promise<{ success: boolean; result?: JsonValue; error?: string }> {
+    this.log.info('Executing GET_INFRA_STATUS - probing and evaluating infrastructure')
+
+    const timestamp = Date.now()
+    const alerts: Array<{
+      severity: 'P0' | 'P1' | 'P2' | 'P3'
+      source: string
+      message: string
+      metric?: string
+      value?: number | string
+    }> = []
+
+    // Endpoint configurations for infrastructure health monitoring
+    const endpoints = {
+      dws: { url: process.env.DWS_URL || 'http://localhost:4030', paths: ['/health'] },
+      crucible: { url: 'http://localhost:4021', paths: ['/health'] },
+      indexer: { url: 'http://localhost:4004', paths: ['/health'] },
+      oracle: { url: 'http://localhost:4301', paths: ['/health'] },
+      jns: { url: 'http://localhost:4302', paths: ['/health'] },
+      sqlit: { url: 'http://localhost:4661', paths: ['/health'] },
+    }
+
+    const metrics: Record<string, { status: string; latencyMs: number; error?: string }> = {}
+
+    // Probe each endpoint
+    for (const [name, config] of Object.entries(endpoints)) {
+      for (const path of config.paths) {
+        const key = `${name}${path.replace('/', '_')}`
+        try {
+          const start = Date.now()
+          const response = await fetch(`${config.url}${path}`, {
+            method: 'GET',
+            signal: AbortSignal.timeout(5000),
+          })
+          const latency = Date.now() - start
+
+          metrics[key] = {
+            status: response.ok ? 'healthy' : 'unhealthy',
+            latencyMs: latency,
+          }
+
+          // Threshold checks
+          if (!response.ok) {
+            alerts.push({
+              severity: 'P0',
+              source: name,
+              message: `${name} service is unhealthy`,
+              metric: 'status',
+              value: response.status,
+            })
+          } else if (latency > 5000) {
+            alerts.push({
+              severity: 'P1',
+              source: name,
+              message: `${name} latency critically high`,
+              metric: 'latency_ms',
+              value: latency,
+            })
+          } else if (latency > 2000) {
+            alerts.push({
+              severity: 'P2',
+              source: name,
+              message: `${name} latency elevated`,
+              metric: 'latency_ms',
+              value: latency,
+            })
+          }
+        } catch (err) {
+          const errorMsg = err instanceof Error ? err.message : 'Connection failed'
+          metrics[key] = { status: 'unreachable', latencyMs: 0, error: errorMsg }
+          alerts.push({
+            severity: 'P0',
+            source: name,
+            message: `${name} is unreachable: ${errorMsg}`,
+            metric: 'connectivity',
+            value: 'failed',
+          })
+        }
+      }
+    }
+
+    // Probe inference nodes separately
+    const dwsUrl = process.env.DWS_URL || 'http://localhost:4030'
+    let inferenceNodeCount = 0
+    try {
+      const start = Date.now()
+      const response = await fetch(`${dwsUrl}/compute/nodes/inference`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5000),
+      })
+      const latency = Date.now() - start
+
+      if (response.ok) {
+        // Endpoint returns array directly, not { nodes: [...] }
+        const data = await response.json() as Array<{ address: string; isActive: boolean }>
+        inferenceNodeCount = Array.isArray(data) ? data.length : 0
+        metrics['inference_nodes'] = { status: 'available', latencyMs: latency }
+
+        if (inferenceNodeCount === 0) {
+          alerts.push({
+            severity: 'P0',
+            source: 'inference',
+            message: 'No inference nodes available',
+            metric: 'node_count',
+            value: 0,
+          })
+        }
+      } else {
+        metrics['inference_nodes'] = { status: 'error', latencyMs: latency, error: `HTTP ${response.status}` }
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Connection failed'
+      metrics['inference_nodes'] = { status: 'unreachable', latencyMs: 0, error: errorMsg }
+      alerts.push({
+        severity: 'P1',
+        source: 'inference',
+        message: `Cannot query inference nodes: ${errorMsg}`,
+        metric: 'connectivity',
+        value: 'failed',
+      })
+    }
+
+    // Determine overall status
+    const hasP0 = alerts.some((a) => a.severity === 'P0')
+    const hasP1 = alerts.some((a) => a.severity === 'P1')
+    const overallStatus = hasP0 ? 'CRITICAL' : hasP1 ? 'DEGRADED' : 'HEALTHY'
+
+    this.log.info('Infrastructure status evaluated', {
+      status: overallStatus,
+      alertCount: alerts.length,
+      inferenceNodes: inferenceNodeCount,
+    })
+
+    return {
+      success: true,
+      result: {
+        timestamp,
+        status: overallStatus,
+        alerts,
+        metrics,
+        summary: {
+          inferenceNodeCount,
+          p0Count: alerts.filter((a) => a.severity === 'P0').length,
+          p1Count: alerts.filter((a) => a.severity === 'P1').length,
+          p2Count: alerts.filter((a) => a.severity === 'P2').length,
+        },
+      },
+    }
+  }
+
+  /**
+   * Execute GENERATE_DAILY_DIGEST action - reads room alerts, calculates trends, and posts digest
+   * Returns status: POSTED, SKIPPED_DUPLICATE, NO_DATA
+   */
+  private async executeGenerateDailyDigest(
+    _params: Record<string, string>,
+  ): Promise<{ success: boolean; result?: JsonValue; error?: string }> {
+    this.log.info('Executing GENERATE_DAILY_DIGEST')
+
+    const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD
+    const room = ROOMS.INFRA_MONITORING
+    const hours = 24
+
+    // 1. Read room alerts for last 24 hours
+    const alertsResult = await this.executeReadRoomAlerts({ room, hours: String(hours) })
+    if (!alertsResult.success || !alertsResult.result) {
+      return { success: false, error: `Failed to read room alerts: ${alertsResult.error}` }
+    }
+
+    const alertData = alertsResult.result as {
+      messages: Array<{ content: string; timestamp: string; agent: string }>
+      messageCount: number
+    }
+
+    if (alertData.messageCount === 0) {
+      this.log.info('No messages to digest')
+      return {
+        success: true,
+        result: { status: 'NO_DATA', message: 'No messages in the last 24 hours' },
+      }
+    }
+
+    // 2. Parse health data from messages
+    const healthMessages: Array<{
+      timestamp: number
+      status: string
+      dws: number
+      crucible: number
+      indexer: number
+      oracle: number
+      jns: number
+      sqlit: number
+      inference: number
+    }> = []
+    const alertMessages: Array<{
+      timestamp: string
+      status: string
+      severity: string
+      content: string
+    }> = []
+
+    for (const msg of alertData.messages) {
+      const content = msg.content
+
+      // Parse [HEALTH | t=... | status=...] messages
+      const healthMatch = content.match(/\[HEALTH \| t=(\d+) \| status=(\w+)\](.*)/)
+      if (healthMatch) {
+        const [, timestamp, status, rest] = healthMatch
+        const dwsMatch = rest.match(/dws=(\d+)ms/)
+        const crucibleMatch = rest.match(/crucible=(\d+)ms/)
+        const indexerMatch = rest.match(/indexer=(\d+)ms/)
+        const oracleMatch = rest.match(/oracle=(\d+)ms/)
+        const jnsMatch = rest.match(/jns=(\d+)ms/)
+        const sqlitMatch = rest.match(/sqlit=(\d+)ms/)
+        const inferenceMatch = rest.match(/inference=(\d+)/)
+
+        healthMessages.push({
+          timestamp: Number(timestamp),
+          status,
+          dws: dwsMatch ? Number(dwsMatch[1]) : 0,
+          crucible: crucibleMatch ? Number(crucibleMatch[1]) : 0,
+          indexer: indexerMatch ? Number(indexerMatch[1]) : 0,
+          oracle: oracleMatch ? Number(oracleMatch[1]) : 0,
+          jns: jnsMatch ? Number(jnsMatch[1]) : 0,
+          sqlit: sqlitMatch ? Number(sqlitMatch[1]) : 0,
+          inference: inferenceMatch ? Number(inferenceMatch[1]) : 0,
+        })
+        continue
+      }
+
+      // Parse [INFRA_ALERT | status=...] messages
+      const alertMatch = content.match(/\[INFRA_ALERT \| status=(\w+)/)
+      if (alertMatch) {
+        const p0Count = (content.match(/\[P0\]/g) || []).length
+        const p1Count = (content.match(/\[P1\]/g) || []).length
+        const severity = p0Count > 0 ? 'P0' : p1Count > 0 ? 'P1' : 'P2'
+        alertMessages.push({
+          timestamp: msg.timestamp,
+          status: alertMatch[1],
+          severity,
+          content: content.substring(0, 500), // Truncate for digest
+        })
+      }
+    }
+
+    this.log.info('Parsed messages', {
+      healthCount: healthMessages.length,
+      alertCount: alertMessages.length,
+    })
+
+    // 3. Calculate trends
+    const healthyCount = healthMessages.filter((m) => m.status === 'HEALTHY').length
+    const totalHealth = healthMessages.length
+    const uptimePercent = totalHealth > 0 ? Math.round((healthyCount / totalHealth) * 100 * 10) / 10 : 0
+
+    // Calculate latency stats
+    const calcStats = (values: number[]) => {
+      if (values.length === 0) return { avg: 0, peak: 0, trend: 'N/A' }
+      const avg = Math.round(values.reduce((a, b) => a + b, 0) / values.length)
+      const peak = Math.max(...values)
+      const firstHalf = values.slice(0, Math.floor(values.length / 2))
+      const secondHalf = values.slice(Math.floor(values.length / 2))
+      const firstAvg = firstHalf.length > 0 ? firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length : 0
+      const secondAvg = secondHalf.length > 0 ? secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length : 0
+      const trend = secondAvg > firstAvg * 1.2 ? 'DEGRADING' : secondAvg < firstAvg * 0.8 ? 'IMPROVING' : 'STABLE'
+      return { avg, peak, trend }
+    }
+
+    const dwsStats = calcStats(healthMessages.map((m) => m.dws))
+    const crucibleStats = calcStats(healthMessages.map((m) => m.crucible))
+    const indexerStats = calcStats(healthMessages.map((m) => m.indexer))
+    const inferenceValues = healthMessages.map((m) => m.inference)
+    const avgInference = inferenceValues.length > 0 ? Math.round(inferenceValues.reduce((a, b) => a + b, 0) / inferenceValues.length) : 0
+
+    // Count alerts by severity
+    const p0Alerts = alertMessages.filter((a) => a.severity === 'P0')
+    const p1Alerts = alertMessages.filter((a) => a.severity === 'P1')
+    const p2Alerts = alertMessages.filter((a) => a.severity === 'P2')
+
+    // Determine overall status
+    const overallStatus = p0Alerts.length > 0 ? 'CRITICAL' : p1Alerts.length > 0 ? 'DEGRADED' : 'HEALTHY'
+
+    // 4. Check for existing same-day digest
+    const searchResult = await this.executeSearchDiscussions({ query: `[Alert] System Health Digest - ${today}` })
+    if (searchResult.success) {
+      const searchData = searchResult.result as { discussions: Array<{ title: string; url: string }> }
+      const existingDigest = searchData.discussions.find((d) => d.title.includes(today))
+      if (existingDigest) {
+        this.log.info('Same-day digest already exists', { url: existingDigest.url })
+        return {
+          success: true,
+          result: {
+            status: 'SKIPPED_DUPLICATE',
+            message: `Digest for ${today} already exists`,
+            existingUrl: existingDigest.url,
+          },
+        }
+      }
+    }
+
+    // 5. Generate digest markdown
+    const now = new Date()
+    const periodStart = new Date(now.getTime() - hours * 60 * 60 * 1000)
+    const title = `[Alert] System Health Digest - ${today}`
+    const body = `## Summary
+- **Status**: ${overallStatus}
+- **Period**: ${periodStart.toISOString()} - ${now.toISOString()}
+- **Uptime**: ${uptimePercent}% (${healthyCount}/${totalHealth} health checks passed)
+- **Total Alerts**: ${alertMessages.length}
+
+## Trend Analysis
+
+### Uptime Trend
+- Current period: ${uptimePercent}%
+- Health checks: ${totalHealth} total
+
+### Latency Trends
+| Service | Avg Latency | Peak | Trend |
+|---------|-------------|------|-------|
+| DWS | ${dwsStats.avg}ms | ${dwsStats.peak}ms | ${dwsStats.trend} |
+| Crucible | ${crucibleStats.avg}ms | ${crucibleStats.peak}ms | ${crucibleStats.trend} |
+| Indexer | ${indexerStats.avg}ms | ${indexerStats.peak}ms | ${indexerStats.trend} |
+| Inference | ${avgInference} nodes | - | - |
+
+### Alert Frequency
+- P0 (Critical): ${p0Alerts.length} alerts
+- P1 (High): ${p1Alerts.length} alerts
+- P2 (Medium): ${p2Alerts.length} alerts
+
+## Severity Breakdown
+
+### P0 - Critical (${p0Alerts.length})
+${p0Alerts.length > 0 ? p0Alerts.map((a) => `- ${a.timestamp}: ${a.status}`).join('\n') : 'No critical alerts'}
+
+### P1 - High (${p1Alerts.length})
+${p1Alerts.length > 0 ? p1Alerts.map((a) => `- ${a.timestamp}: ${a.status}`).join('\n') : 'No high-priority alerts'}
+
+### P2 - Medium (${p2Alerts.length})
+${p2Alerts.length > 0 ? p2Alerts.map((a) => `- ${a.timestamp}: ${a.status}`).join('\n') : 'No medium-priority alerts'}
+
+## Actionable Items
+${overallStatus === 'HEALTHY' ? '- [ ] No immediate actions required - system healthy' : ''}
+${dwsStats.trend === 'DEGRADING' ? '- [ ] Investigate DWS latency increase' : ''}
+${crucibleStats.trend === 'DEGRADING' ? '- [ ] Investigate Crucible latency increase' : ''}
+${indexerStats.trend === 'DEGRADING' ? '- [ ] Investigate Indexer latency increase' : ''}
+${p0Alerts.length > 0 ? '- [ ] Review and address P0 critical alerts' : ''}
+${p1Alerts.length > 0 ? '- [ ] Review and address P1 high-priority alerts' : ''}
+${uptimePercent < 95 ? '- [ ] Investigate uptime degradation (below 95%)' : ''}
+
+---
+_Generated by daily-digest agent at ${now.toISOString()}_`
+
+    // 6. Post the digest
+    const postResult = await this.executePostGithubDiscussion({ title, body })
+    if (!postResult.success) {
+      return { success: false, error: `Failed to post digest: ${postResult.error}` }
+    }
+
+    const postData = postResult.result as { posted: boolean; url?: string }
+    this.log.info('Daily digest posted', { url: postData.url ?? null })
+
+    return {
+      success: true,
+      result: {
+        status: 'POSTED',
+        title,
+        url: postData.url ?? null,
+        stats: {
+          uptimePercent,
+          healthCheckCount: totalHealth,
+          alertCount: alertMessages.length,
+          overallStatus,
+        },
+      },
+    }
+  }
+
+  /**
+   * Execute CHECK_NEW_REGISTRATIONS action - query indexer for new agent registrations
+   * Uses lastSeenId parameter for watermark-based duplicate avoidance
+   * Returns status: NEW_AGENTS, NO_NEW, BASELINE_SET
+   */
+  private async executeCheckNewRegistrations(
+    params: Record<string, string>,
+  ): Promise<{ success: boolean; result?: JsonValue; error?: string }> {
+    const lastSeenId = params.lastSeenId ? Number(params.lastSeenId) : undefined
+    const indexerUrl = process.env.INDEXER_URL || 'http://localhost:4350/graphql'
+
+    this.log.info('Executing CHECK_NEW_REGISTRATIONS', { lastSeenId: lastSeenId ?? null, indexerUrl })
+
+    try {
+      // Query indexer for registered agents
+      // Note: Jeju indexer uses `limit:` not `first:`, and `orderBy:` with _ASC/_DESC suffix
+      const graphqlQuery = `
+        query GetRegisteredAgents {
+          registeredAgents(limit: 100, orderBy: registeredAt_DESC) {
+            agentId
+            owner { address }
+            name
+            description
+            tags
+            registeredAt
+          }
+        }
+      `
+
+      const response = await fetch(indexerUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query: graphqlQuery }),
+        signal: AbortSignal.timeout(10000),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Indexer API error: ${response.status} ${response.statusText}`)
+      }
+
+      const data = await response.json() as {
+        data?: {
+          registeredAgents?: Array<{
+            agentId: string
+            owner: { address: string }
+            name: string
+            description: string
+            tags: string[]
+            registeredAt: string
+          }>
+        }
+        errors?: Array<{ message: string }>
+      }
+
+      if (data.errors) {
+        throw new Error(data.errors.map((e) => e.message).join(', '))
+      }
+
+      const agents = data.data?.registeredAgents ?? []
+      this.log.info('Fetched registered agents', { count: agents.length })
+
+      // Find highest agentId from results
+      const highestId = agents.reduce((max, agent) => {
+        const id = Number(agent.agentId)
+        return id > max ? id : max
+      }, 0)
+
+      // First tick (no lastSeenId) - just set baseline, don't announce
+      if (lastSeenId === undefined) {
+        this.log.info('First tick - setting baseline', { highestId })
+        return {
+          success: true,
+          result: {
+            status: 'BASELINE_SET',
+            newAgents: [],
+            summary: {
+              newCount: 0,
+              lastSeenId: null,
+              highestId,
+            },
+          },
+        }
+      }
+
+      // Filter agents where agentId > lastSeenId
+      const newAgents = agents.filter((agent) => Number(agent.agentId) > lastSeenId)
+
+      if (newAgents.length === 0) {
+        this.log.info('No new registrations since lastSeenId', { lastSeenId })
+        return {
+          success: true,
+          result: {
+            status: 'NO_NEW',
+            newAgents: [],
+            summary: {
+              newCount: 0,
+              lastSeenId,
+              highestId,
+            },
+          },
+        }
+      }
+
+      // Post announcement for each new agent to infra-monitoring room
+      const { getDatabase } = await import('./database')
+      const db = getDatabase()
+      const room = ROOMS.INFRA_MONITORING
+
+      for (const agent of newAgents) {
+        const tags = Array.isArray(agent.tags) && agent.tags.length > 0
+          ? agent.tags.join(', ')
+          : 'none'
+        const content = `[AGENT_REGISTERED | agentId=${agent.agentId} | name=${agent.name} | owner=${agent.owner.address} | tags=${tags} | registeredAt=${agent.registeredAt}] ${agent.description || 'No description'}`
+
+        await db.createMessage({
+          roomId: room,
+          agentId: this.config.agentId,
+          content,
+        })
+
+        this.log.info('Posted agent registration announcement', {
+          agentId: agent.agentId,
+          name: agent.name,
+        })
+      }
+
+      this.log.info('Processed new registrations', {
+        newCount: newAgents.length,
+        lastSeenId,
+        highestId,
+      })
+
+      return {
+        success: true,
+        result: {
+          status: 'NEW_AGENTS',
+          newAgents: newAgents.map((a) => ({
+            agentId: a.agentId,
+            name: a.name,
+            owner: a.owner.address,
+            tags: a.tags,
+            registeredAt: a.registeredAt,
+          })),
+          summary: {
+            newCount: newAgents.length,
+            lastSeenId,
+            highestId,
+          },
+        },
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err)
+      this.log.error('Failed to check new registrations', { error: errorMsg })
+      return { success: false, error: errorMsg }
+    }
+  }
+
+  // ============================================
+  // Memory Persistence Methods
+  // ============================================
+
+  /**
+   * Get memory persistence stats
+   */
+  getMemoryPersistenceStats(): {
+    enabled: boolean
+    pendingMessages: number
+    totalCommits: number
+    totalMessagesCommitted: number
+    lastCommitTime: number
+    currentStateCid: string | null
+  } | null {
+    if (!this.memoryPersistence) {
+      return { enabled: false, pendingMessages: 0, totalCommits: 0, totalMessagesCommitted: 0, lastCommitTime: 0, currentStateCid: null }
+    }
+    const stats = this.memoryPersistence.getStats()
+    return {
+      enabled: true,
+      ...stats,
+    }
+  }
+
+  /**
+   * Manually trigger a memory commit
+   */
+  async commitMemory(): Promise<CommitResult | null> {
+    if (!this.memoryPersistence) {
+      return null
+    }
+    return this.memoryPersistence.commit()
+  }
+
+  /**
+   * Notify session end (triggers commit)
+   */
+  async onSessionEnd(roomId: string): Promise<CommitResult | null> {
+    if (!this.memoryPersistence) {
+      return null
+    }
+    return this.memoryPersistence.onSessionEnd(roomId)
+  }
+
+  /**
+   * Shutdown the runtime (commits pending memories)
+   */
+  async shutdown(): Promise<CommitResult | null> {
+    let result: CommitResult | null = null
+    if (this.memoryPersistence) {
+      result = await this.memoryPersistence.stop()
+      this.log.info('Memory persistence stopped', {
+        committed: result?.messagesCommitted ?? 0,
+      })
+    }
+    this.initialized = false
+    return result
   }
 }
 
@@ -901,8 +2088,33 @@ export class CrucibleRuntimeManager {
   }
 
   async shutdown(): Promise<void> {
+    // Shutdown all runtimes and commit pending memories
+    const shutdownPromises = Array.from(this.runtimes.values()).map(
+      async (runtime) => {
+        try {
+          const result = await runtime.shutdown()
+          return { agentId: runtime.getAgentId(), result }
+        } catch (err) {
+          this.log.error('Failed to shutdown runtime', {
+            agentId: runtime.getAgentId(),
+            error: String(err),
+          })
+          return { agentId: runtime.getAgentId(), result: null }
+        }
+      },
+    )
+
+    const results = await Promise.all(shutdownPromises)
+    const totalCommitted = results.reduce(
+      (sum, r) => sum + (r.result?.messagesCommitted ?? 0),
+      0,
+    )
+
     this.runtimes.clear()
-    this.log.info('All runtimes shut down')
+    this.log.info('All runtimes shut down', {
+      runtimes: results.length,
+      totalMessagesCommitted: totalCommitted,
+    })
   }
 }
 

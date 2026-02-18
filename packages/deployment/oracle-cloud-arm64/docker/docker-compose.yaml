@@ -1,0 +1,336 @@
+# Jeju Full Stack - ARM64 Deployment for Oracle Cloud
+# All services configured for ARM64 (Ampere) processors
+
+services:
+  # =====================
+  # L2 BLOCKCHAIN STACK
+  # =====================
+
+  l1-geth:
+    image: ethereum/client-go:v1.14.12
+    container_name: jeju-l1-geth
+    ports:
+      - "8545:8545"
+      - "8546:8546"
+      - "8551:8551"
+    volumes:
+      - l1-data:/data
+      - ./jwt:/jwt:ro
+    command:
+      - --dev
+      - --dev.period=2
+      - --datadir=/data
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.port=8545
+      - --http.api=eth,net,web3,debug,personal,admin,txpool,engine
+      - --http.corsdomain=*
+      - --http.vhosts=*
+      - --ws
+      - --ws.addr=0.0.0.0
+      - --ws.port=8546
+      - --ws.api=eth,net,web3,debug
+      - --ws.origins=*
+      - --authrpc.addr=0.0.0.0
+      - --authrpc.port=8551
+      - --authrpc.vhosts=*
+      - --authrpc.jwtsecret=/jwt/jwt.hex
+      - --networkid=3151908
+      - --nodiscover
+      - --maxpeers=0
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8545"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  op-geth:
+    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-geth:latest
+    container_name: jeju-op-geth
+    depends_on:
+      l1-geth:
+        condition: service_healthy
+    ports:
+      - "9545:9545"
+      - "9546:9546"
+      - "9551:9551"
+    volumes:
+      - l2-data:/data
+      - ./jwt:/jwt:ro
+      - ./config:/config:ro
+    entrypoint: []
+    command:
+      - /bin/sh
+      - -c
+      - |
+        if [ ! -d /data/geth ]; then
+          geth init --datadir=/data --state.scheme=hash /config/genesis.json
+        fi
+        exec geth --datadir=/data --http --http.addr=0.0.0.0 --http.port=9545 --http.api=eth,net,web3,debug,txpool,engine --http.corsdomain=* --http.vhosts=* --ws --ws.addr=0.0.0.0 --ws.port=9546 --ws.api=eth,net,web3,debug --ws.origins=* --authrpc.addr=0.0.0.0 --authrpc.port=9551 --authrpc.vhosts=* --authrpc.jwtsecret=/jwt/jwt.hex --syncmode=full --gcmode=archive --nodiscover --maxpeers=0 --networkid=2151908 --rollup.sequencerhttp=http://localhost:9545 --rollup.disabletxpoolgossip
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9545"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  op-node:
+    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-node:v1.11.0
+    container_name: jeju-op-node
+    depends_on:
+      l1-geth:
+        condition: service_healthy
+      op-geth:
+        condition: service_healthy
+    ports:
+      - "7545:7545"
+      - "7300:7300"
+    volumes:
+      - ./jwt:/jwt:ro
+      - ./config:/config:ro
+    command:
+      - op-node
+      - --l1=ws://l1-geth:8546
+      - --l2=http://op-geth:9551
+      - --l2.jwt-secret=/jwt/jwt.hex
+      - --rollup.config=/config/rollup.json
+      - --rpc.addr=0.0.0.0
+      - --rpc.port=7545
+      - --p2p.disable
+      - --l1.trustrpc
+      - --l1.rpckind=debug_geth
+      - --l1.http-poll-interval=2s
+      - --sequencer.l1-confs=0
+      - --verifier.l1-confs=0
+      - --sequencer.enabled
+      - --sequencer.max-safe-lag=0
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:7545/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  op-batcher:
+    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-batcher:latest
+    container_name: jeju-op-batcher
+    depends_on:
+      op-node:
+        condition: service_healthy
+    ports:
+      - "6545:6545"
+    volumes:
+      - ./jwt:/jwt:ro
+      - ./config:/config:ro
+    command:
+      - op-batcher
+      - --l1-eth-rpc=http://l1-geth:8545
+      - --l2-eth-rpc=http://op-geth:9545
+      - --rollup-rpc=http://op-node:7545
+      - --poll-interval=1s
+      - --sub-safety-margin=4
+      - --num-confirmations=1
+      - --safe-abort-nonce-too-low-count=3
+      - --resubmission-timeout=30s
+      - --rpc.addr=0.0.0.0
+      - --rpc.port=6545
+      - --rpc.enable-admin
+      - --max-channel-duration=1
+      - --private-key=0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6
+    restart: unless-stopped
+
+  # =====================
+  # INFRASTRUCTURE
+  # =====================
+
+  postgres:
+    image: postgres:15
+    container_name: jeju-postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: indexer
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  sqlit:
+    build:
+      context: /home/ubuntu/jeju
+      dockerfile: /home/ubuntu/oracle-cloud-arm64/docker/Dockerfiles/Dockerfile.sqlit
+    container_name: jeju-sqlit
+    ports:
+      - "4661:4661"
+    volumes:
+      - sqlit-data:/data/sqlit
+    environment:
+      - PORT=4661
+      - HOST=0.0.0.0
+      - DATA_DIR=/data/sqlit
+    restart: unless-stopped
+
+  # =====================
+  # JEJU APPLICATIONS
+  # =====================
+
+  dws:
+    build:
+      context: /home/ubuntu/jeju
+      dockerfile: /home/ubuntu/oracle-cloud-arm64/docker/Dockerfiles/Dockerfile.dws
+    container_name: jeju-dws
+    depends_on:
+      sqlit:
+        condition: service_started
+      op-geth:
+        condition: service_healthy
+      indexer:
+        condition: service_started
+    ports:
+      - "4030:4030"
+      - "4031:4031"
+    environment:
+      - NODE_ENV=production
+      - DWS_PORT=4030
+      - NETWORK=localnet
+      - RPC_URL=http://op-geth:9545
+      - SQLIT_URL=http://sqlit:4661
+      - INDEXER_URL=http://indexer:4350/graphql
+    restart: unless-stopped
+
+  indexer:
+    build:
+      context: /home/ubuntu/jeju
+      dockerfile: /home/ubuntu/oracle-cloud-arm64/docker/Dockerfiles/Dockerfile.indexer
+    container_name: jeju-indexer
+    depends_on:
+      postgres:
+        condition: service_healthy
+      op-geth:
+        condition: service_healthy
+    ports:
+      - "4350:4350"
+      - "4351:4351"
+      - "4352:4352"
+    environment:
+      - MODE=full
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=indexer
+      - DB_USER=postgres
+      - DB_PASS=postgres
+      - RPC_ETH_HTTP=http://op-geth:9545
+      - CHAIN_ID=2151908
+    restart: unless-stopped
+
+  crucible:
+    build:
+      context: /home/ubuntu/jeju
+      dockerfile: /home/ubuntu/oracle-cloud-arm64/docker/Dockerfiles/Dockerfile.crucible
+    container_name: jeju-crucible
+    depends_on:
+      postgres:
+        condition: service_healthy
+      dws:
+        condition: service_started
+    ports:
+      - "4020:4020"
+      - "4021:4021"
+      - "4022:4022"
+    environment:
+      - DWS_URL=http://dws:4030
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/crucible
+      - RPC_URL=http://op-geth:9545
+      - SQLIT_URL=http://sqlit:4661
+    restart: unless-stopped
+
+  factory:
+    build:
+      context: /home/ubuntu/jeju
+      dockerfile: /home/ubuntu/oracle-cloud-arm64/docker/Dockerfiles/Dockerfile.factory
+    container_name: jeju-factory
+    depends_on:
+      op-geth:
+        condition: service_healthy
+      sqlit:
+        condition: service_started
+    ports:
+      - "4008:4008"
+    environment:
+      - NODE_ENV=production
+      - PORT=4008
+      - RPC_URL=http://op-geth:9545
+      - DWS_URL=http://dws:4030
+      - SQLIT_ENDPOINT=http://sqlit:4661
+      - SQLIT_DATABASE_ID=factory
+    restart: unless-stopped
+
+  gateway:
+    build:
+      context: /home/ubuntu/jeju
+      dockerfile: /home/ubuntu/oracle-cloud-arm64/docker/Dockerfiles/Dockerfile.gateway
+    container_name: jeju-gateway
+    depends_on:
+      op-geth:
+        condition: service_healthy
+    ports:
+      - "4001:80"
+    environment:
+      - VITE_RPC_URL=http://localhost:9545
+      - VITE_NETWORK=localnet
+    restart: unless-stopped
+
+  wallet:
+    build:
+      context: /home/ubuntu/jeju
+      dockerfile: /home/ubuntu/oracle-cloud-arm64/docker/Dockerfiles/Dockerfile.wallet
+    container_name: jeju-wallet
+    depends_on:
+      op-geth:
+        condition: service_healthy
+    ports:
+      - "4015:4015"
+    environment:
+      - NODE_ENV=production
+      - PORT=4015
+      - VITE_RPC_URL=http://localhost:9545
+      - VITE_NETWORK=localnet
+    restart: unless-stopped
+
+  node:
+    build:
+      context: /home/ubuntu/jeju
+      dockerfile: /home/ubuntu/oracle-cloud-arm64/docker/Dockerfiles/Dockerfile.node
+    container_name: jeju-node
+    depends_on:
+      op-geth:
+        condition: service_healthy
+      dws:
+        condition: service_started
+    ports:
+      - "4070:4070"
+      - "9090:9090"
+    environment:
+      - JEJU_NETWORK=localnet
+      - JEJU_LOG_LEVEL=info
+      - PORT=4070
+      - RPC_URL=http://op-geth:9545
+      - DWS_URL=http://dws:4030
+    restart: unless-stopped
+
+volumes:
+  l1-data:
+  l2-data:
+  postgres-data:
+  sqlit-data:
+
+networks:
+  default:
+    name: jeju-network

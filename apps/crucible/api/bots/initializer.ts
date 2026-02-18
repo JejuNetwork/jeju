@@ -100,6 +100,9 @@ class TradingBotImpl implements TradingBot {
   private priceCache: Map<Address, { price: bigint; timestamp: number }> =
     new Map()
   private readonly PRICE_CACHE_TTL_MS = 5000
+  private readonly PRICE_CACHE_MAX_SIZE = 1000
+  private lastCacheCleanup = 0
+  private readonly CACHE_CLEANUP_INTERVAL_MS = 60000 // 1 minute
 
   constructor(
     config: TradingBotConfig,
@@ -187,8 +190,40 @@ class TradingBotImpl implements TradingBot {
     }
   }
 
+  /**
+   * Cleanup expired entries from priceCache to prevent memory leaks
+   */
+  private cleanupPriceCache(): void {
+    const now = Date.now()
+
+    // Only cleanup periodically to avoid overhead
+    if (now - this.lastCacheCleanup < this.CACHE_CLEANUP_INTERVAL_MS) return
+    this.lastCacheCleanup = now
+
+    // Remove expired entries
+    for (const [token, entry] of this.priceCache.entries()) {
+      if (now - entry.timestamp > this.PRICE_CACHE_TTL_MS * 2) {
+        this.priceCache.delete(token)
+      }
+    }
+
+    // If still too large, remove oldest entries
+    if (this.priceCache.size > this.PRICE_CACHE_MAX_SIZE) {
+      const entries = Array.from(this.priceCache.entries())
+        .sort((a, b) => a[1].timestamp - b[1].timestamp)
+
+      const toRemove = entries.slice(0, this.priceCache.size - this.PRICE_CACHE_MAX_SIZE)
+      for (const [token] of toRemove) {
+        this.priceCache.delete(token)
+      }
+    }
+  }
+
   async evaluateOpportunity(token: Address, price: bigint): Promise<boolean> {
     if (!this.running || !this.config.enabled) return false
+
+    // Periodic cache cleanup to prevent memory leaks
+    this.cleanupPriceCache()
 
     // Check cooldown
     const timeSinceLastTrade = Date.now() - this.state.lastTradeTimestamp

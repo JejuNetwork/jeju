@@ -122,8 +122,56 @@ Instant cross-chain transfers:
 | Arbitrum | Coming soon |
 | Solana | ZK Bridge |
 
+## Application Layer
+
+Applications connect to the L2 via RPC and provide services:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Client Apps: Wallet · Gateway · Bazaar · Factory       │
+├─────────────────────────────────────────────────────────┤
+│  Service Layer                                          │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │ DWS (Hub) - Inference, Storage, Compute, CDN    │   │
+│  └─────────────────────────────────────────────────┘   │
+│           │                                             │
+│  ┌────────┴────────┐                                   │
+│  │                 │                                   │
+│  ▼                 ▼                                   │
+│  Crucible       Indexer                               │
+│  (Agents)       (GraphQL)                              │
+├─────────────────────────────────────────────────────────┤
+│  L2 RPC (port 9545)                                     │
+└─────────────────────────────────────────────────────────┘
+```
+
+### App Dependencies
+
+| App | Depends On | Purpose |
+|-----|------------|---------|
+| **DWS** | L2 RPC | Central hub for infrastructure services |
+| **Crucible** | DWS | AI agent orchestration |
+| **Indexer** | L2 RPC, PostgreSQL | Blockchain data queries |
+| **Factory** | DWS, Crucible | Developer tooling |
+| **Wallet** | L2 RPC, KMS | User wallet |
+| **Gateway** | L2 RPC | Bridge and staking |
+
+### Deployment Topology
+
+**Minimal (L2 Node):**
+- L1 + op-geth + op-node + op-batcher
+
+**Recommended (Service Node):**
+- L2 + DWS + Indexer + PostgreSQL
+
+**Full Stack:**
+- L2 Node + Service Node + Client Apps (on CDN)
+
+See [Applications Overview](/applications/overview) for port reference and startup order.
+
 ## Related
 
 - [Gasless Transactions](/learn/gasless)
 - [Agent Infrastructure](/learn/agents)
 - [Cross-Chain](/integrate/overview)
+- [Oracle Cloud Deployment](/deployment/oracle-cloud)

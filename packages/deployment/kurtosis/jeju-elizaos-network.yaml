@@ -1,0 +1,57 @@
+# Jeju Network Configuration with $ELIZAOS as Native Gas Token
+#
+# This configuration deploys:
+# - L1: Ethereum (local geth) with ELIZAOS token
+# - L2: Jeju (OP Stack) using ELIZAOS as native gas token
+#
+# Usage:
+#   1. Deploy ELIZAOS on L1 first (see instructions below)
+#   2. Update ELIZAOS_TOKEN_ADDRESS below with deployed address
+#   3. Run: kurtosis run github.com/ethpandaops/optimism-package --args-file jeju-elizaos-network.yaml
+#
+# Pre-requisites:
+#   - Kurtosis installed
+#   - Docker running
+#   - ELIZAOS deployed on L1
+
+# ============================================================================
+# IMPORTANT: Update this with your deployed ELIZAOS address
+# ============================================================================
+# After running: forge script DeployELIZAOS.s.sol --broadcast
+# Copy the deployed address here:
+# ELIZAOS_TOKEN_ADDRESS: "0x..." # <-- UPDATE THIS
+
+optimism_package:
+  chains:
+    - participants:
+        - el_type: op-geth
+          cl_type: op-node
+      network_params:
+        name: "jeju"
+        network_id: "420690"
+        seconds_per_slot: 2
+        fjord_time_offset: 0
+        granite_time_offset: 0
+      additional_services: []
+
+# L1 Ethereum configuration
+ethereum_package:
+  participants:
+    - el_type: geth
+      cl_type: lighthouse
+  network_params:
+    preset: minimal
+    genesis_delay: 20
+    # Pre-fund accounts with ETH for L1 operations
+    prefunded_accounts:
+      # Deployer account (Anvil account 0)
+      "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266": "100000000000000000000000"  # 100k ETH
+      # Test accounts
+      "0x70997970C51812dc3A010C7d01b50e0d17dc79C8": "100000000000000000000000"
+      "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC": "100000000000000000000000"
+      "0x90F79bf6EB2c4f870365E785982E1f101E93b906": "100000000000000000000000"
+      "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65": "100000000000000000000000"
+
+# Global settings
+global_log_level: "info"
+persistent: false

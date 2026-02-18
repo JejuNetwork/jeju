@@ -153,6 +153,96 @@ body {
   color: #F8FAFC;
 }
 
+/* Base form input styles - ensures all inputs are styled by default */
+@layer base {
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="search"],
+  input[type="url"],
+  input[type="tel"],
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"],
+  textarea,
+  select {
+    @apply w-full px-4 py-3 rounded-xl transition-all duration-200;
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-0;
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    font-size: 16px; /* Prevents iOS zoom */
+  }
+
+  input[type="text"]::placeholder,
+  input[type="email"]::placeholder,
+  input[type="password"]::placeholder,
+  input[type="number"]::placeholder,
+  input[type="search"]::placeholder,
+  input[type="url"]::placeholder,
+  input[type="tel"]::placeholder,
+  textarea::placeholder {
+    color: var(--text-tertiary);
+  }
+
+  input[type="text"]:hover,
+  input[type="email"]:hover,
+  input[type="password"]:hover,
+  input[type="number"]:hover,
+  input[type="search"]:hover,
+  input[type="url"]:hover,
+  input[type="tel"]:hover,
+  input[type="date"]:hover,
+  input[type="time"]:hover,
+  input[type="datetime-local"]:hover,
+  textarea:hover,
+  select:hover {
+    border-color: var(--border-strong);
+  }
+
+  input[type="text"]:focus,
+  input[type="email"]:focus,
+  input[type="password"]:focus,
+  input[type="number"]:focus,
+  input[type="search"]:focus,
+  input[type="url"]:focus,
+  input[type="tel"]:focus,
+  input[type="date"]:focus,
+  input[type="time"]:focus,
+  input[type="datetime-local"]:focus,
+  textarea:focus,
+  select:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(6, 214, 160, 0.15);
+  }
+
+  /* Checkbox and radio button styles */
+  input[type="checkbox"],
+  input[type="radio"] {
+    @apply w-4 h-4 rounded border-2 transition-all duration-200;
+    background-color: var(--surface);
+    border-color: var(--border);
+    cursor: pointer;
+  }
+
+  input[type="checkbox"]:hover,
+  input[type="radio"]:hover {
+    border-color: var(--color-primary);
+  }
+
+  input[type="checkbox"]:checked,
+  input[type="radio"]:checked {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 120px;
+  }
+}
+
 @layer components {
   /* Container */
   .container {

@@ -2,6 +2,7 @@
 
 pub mod agent;
 pub mod bots;
+pub mod compute;
 pub mod config;
 pub mod earnings;
 pub mod hardware;

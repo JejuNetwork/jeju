@@ -56,6 +56,8 @@ contract LiquidityPaymaster is BasePaymaster {
         uint256 _feeMargin,
         address _owner
     ) BasePaymaster(_entryPoint) {
+        address owner = _owner == address(0) ? msg.sender : _owner;
+        _transferOwnership(owner);
         require(_token != address(0), "Invalid token");
         require(_vault != address(0), "Invalid vault");
         require(_oracle != address(0), "Invalid oracle");
@@ -65,11 +67,6 @@ contract LiquidityPaymaster is BasePaymaster {
         vault = _vault;
         oracle = IPriceOracle(_oracle);
         feeMargin = _feeMargin;
-
-        address resolvedOwner = _owner == address(0) ? msg.sender : _owner;
-        if (resolvedOwner != msg.sender) {
-            _transferOwnership(resolvedOwner);
-        }
     }
 
     function setFeeMargin(uint256 _feeMargin) external onlyOwner {
@@ -132,7 +129,11 @@ contract LiquidityPaymaster is BasePaymaster {
         return tokenAmount;
     }
 
-    function _validatePaymasterUserOp(PackedUserOperation calldata userOp, bytes32, uint256 maxCost)
+    function _validatePaymasterUserOp(
+        PackedUserOperation calldata userOp,
+        bytes32,
+        uint256 maxCost
+    )
         internal
         view
         override
@@ -151,7 +152,13 @@ contract LiquidityPaymaster is BasePaymaster {
         validationData = 0;
     }
 
-    function _postOp(PostOpMode, bytes calldata context, uint256 actualGasCost, uint256) internal override {
+    function _postOp(
+        PostOpMode,
+        bytes calldata context,
+        uint256 actualGasCost,
+        uint256 actualUserOpFeePerGas
+    ) internal override {
+        actualUserOpFeePerGas;
         (address sender,, uint256 maxTokenAmount) = abi.decode(context, (address, uint256, uint256));
 
         uint256 actualTokenCost = getTokenAmountForEth(actualGasCost);

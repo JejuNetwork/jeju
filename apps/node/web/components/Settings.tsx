@@ -447,6 +447,28 @@ export function Settings() {
         </div>
       </div>
 
+      {/* Version Info */}
+      <div className="card bg-volcanic-900/50">
+        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+          <Server size={18} className="text-volcanic-400" />
+          About
+        </h2>
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-volcanic-400">Version</span>
+            <span className="font-mono">{config?.build_info?.version ?? 'unknown'}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-volcanic-400">Build</span>
+            <span className="font-mono">{config?.build_info?.build_timestamp ?? 'unknown'}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-volcanic-400">Build Date</span>
+            <span className="font-mono text-xs">{config?.build_info?.build_date ?? 'unknown'}</span>
+          </div>
+        </div>
+      </div>
+
       {/* Save Button */}
       <div className="flex flex-col items-end gap-2">
         {error && <p className="text-sm text-red-400">{error}</p>}

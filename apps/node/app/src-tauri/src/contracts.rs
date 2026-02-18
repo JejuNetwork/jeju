@@ -9,7 +9,7 @@ use alloy::transports::http::{Client, Http};
 use std::str::FromStr;
 use std::sync::Arc;
 
-// Generate type-safe bindings for NodeStakingManager
+// Node Staking Manager interface
 sol! {
     #[sol(rpc)]
     interface INodeStakingManager {
@@ -45,7 +45,10 @@ sol! {
         function getPendingRewards(bytes32 nodeId) external view returns (uint256);
         function getTotalStakedUSD() external view returns (uint256);
     }
+}
 
+// ERC20 interface
+sol! {
     #[sol(rpc)]
     interface IERC20 {
         function balanceOf(address account) external view returns (uint256);
@@ -53,25 +56,40 @@ sol! {
         function approve(address spender, uint256 amount) external returns (bool);
         function transfer(address to, uint256 amount) external returns (bool);
     }
+}
 
+// Identity Registry (ERC-8004) interface - matches deployed contract
+sol! {
     #[sol(rpc)]
     interface IIdentityRegistry {
-        struct AgentInfo {
-            address owner;
+        // Actual struct from deployed contract
+        struct AgentRegistration {
             uint256 agentId;
-            string tokenURI;
-            uint256 reputation;
+            address owner;
+            uint8 tier;
+            address stakedToken;
+            uint256 stakedAmount;
+            uint256 registeredAt;
+            uint256 lastActivityAt;
             bool isBanned;
-            uint256 banExpiry;
-            string banReason;
+            bool isSlashed;
         }
 
-        function register(string calldata tokenURI, uint256 stakeAmount) external returns (uint256 agentId);
-        function getAgentInfo(uint256 agentId) external view returns (AgentInfo memory);
-        function getAgentByOwner(address owner) external view returns (uint256 agentId);
-        function getBanStatus(uint256 agentId) external view returns (bool banned, uint256 expiry, string memory reason);
-    }
+        // ERC721 functions (renamed to avoid conflict with IERC20)
+        function balanceOf(address owner) external view returns (uint256);
+        function ownerOf(uint256 tokenId) external view returns (address);
+        function tokenURI(uint256 tokenId) external view returns (string memory);
 
+        // IdentityRegistry specific
+        function register(string calldata tokenURI) external payable returns (uint256 agentId);
+        function getAgent(uint256 agentId) external view returns (AgentRegistration memory);
+        function agentExists(uint256 agentId) external view returns (bool);
+        function totalAgents() external view returns (uint256);
+    }
+}
+
+// Ban Manager interface
+sol! {
     #[sol(rpc)]
     interface IBanManager {
         function isBanned(uint256 agentId) external view returns (bool);
@@ -83,6 +101,41 @@ sol! {
             string memory reason,
             bool canAppeal
         );
+    }
+}
+
+// Compute Registry interface
+sol! {
+    #[sol(rpc)]
+    interface IComputeRegistry {
+        function register(string calldata name, string calldata endpoint, bytes32 attestationHash) external payable;
+        function registerWithAgent(string calldata name, string calldata endpoint, bytes32 attestationHash, uint256 agentId) external payable;
+        function addCapability(string calldata model, uint256 pricePerInputToken, uint256 pricePerOutputToken, uint256 maxContextLength) external;
+        function deactivate() external;
+        function reactivate() external;
+        function getProvider(address provider) external view returns (
+            address owner,
+            string memory name,
+            string memory endpoint,
+            bytes32 attestationHash,
+            uint256 stake,
+            uint256 registeredAt,
+            uint256 agentId,
+            bytes32 serviceType,
+            bool active
+        );
+        function getProviderByAgent(uint256 agentId) external view returns (address);
+        function minProviderStake() external view returns (uint256);
+    }
+}
+
+// Identity Registry V2 - simplified interface for registration
+sol! {
+    #[sol(rpc)]
+    interface IIdentityRegistryV2 {
+        function register(string calldata tokenURI) external returns (uint256 agentId);
+        function agentExists(uint256 agentId) external view returns (bool);
+        function ownerOf(uint256 agentId) external view returns (address);
     }
 }
 
@@ -99,51 +152,62 @@ pub struct ContractAddresses {
     pub identity_registry: Address,
     pub ban_manager: Address,
     pub jeju_token: Address,
+    pub compute_staking: Address,
+    pub compute_registry: Address,
 }
 
 impl ContractAddresses {
+    /// Create from config
+    pub fn from_config(config: &crate::config::ContractsConfig) -> Result<Self, String> {
+        Ok(Self {
+            node_staking_manager: Address::from_str(&config.node_staking_manager)
+                .map_err(|e| format!("Invalid node_staking_manager address: {}", e))?,
+            identity_registry: Address::from_str(&config.identity_registry)
+                .map_err(|e| format!("Invalid identity_registry address: {}", e))?,
+            ban_manager: Address::from_str(&config.ban_manager)
+                .map_err(|e| format!("Invalid ban_manager address: {}", e))?,
+            jeju_token: Address::from_str(&config.jeju_token)
+                .map_err(|e| format!("Invalid jeju_token address: {}", e))?,
+            compute_staking: Address::from_str(&config.compute_staking)
+                .map_err(|e| format!("Invalid compute_staking address: {}", e))?,
+            compute_registry: Address::from_str(&config.compute_registry)
+                .map_err(|e| format!("Invalid compute_registry address: {}", e))?,
+        })
+    }
+
     /// Get contract addresses for localnet (chainId 31337)
+    /// These must match packages/config/contracts.json
     pub fn localnet() -> Self {
-        Self {
-            // These addresses are set during local deployment
-            // They should be loaded from environment or config in production
-            node_staking_manager: Address::from_str("0x5FbDB2315678afecb367f032d93F642f64180aa3")
-                .expect("valid address"),
-            identity_registry: Address::from_str("0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512")
-                .expect("valid address"),
-            ban_manager: Address::from_str("0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0")
-                .expect("valid address"),
-            jeju_token: Address::from_str("0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9")
-                .expect("valid address"),
-        }
+        Self::from_config(&crate::config::ContractsConfig::localnet())
+            .expect("valid localnet addresses")
     }
 
-    /// Get contract addresses for Base Sepolia testnet (chainId 84532)
-    pub fn base_sepolia() -> Self {
-        Self {
-            node_staking_manager: Address::from_str("0x0000000000000000000000000000000000000000")
-                .expect("valid address"),
-            identity_registry: Address::from_str("0x0000000000000000000000000000000000000000")
-                .expect("valid address"),
-            ban_manager: Address::from_str("0x0000000000000000000000000000000000000000")
-                .expect("valid address"),
-            jeju_token: Address::from_str("0x0000000000000000000000000000000000000000")
-                .expect("valid address"),
-        }
-    }
-
-    /// Get contract addresses based on chain ID
+    /// Get contract addresses based on chain ID (fallback if no config provided)
     pub fn for_chain(chain_id: u64) -> Self {
-        match chain_id {
-            31337 => Self::localnet(),
-            84532 => Self::base_sepolia(),
-            _ => Self::localnet(), // Default to localnet
-        }
+        Self::from_config(&crate::config::ContractsConfig::for_chain(chain_id))
+            .expect("valid addresses for chain")
     }
 }
 
 impl ContractClient {
-    /// Create a new contract client
+    /// Create a new contract client with config
+    pub async fn new_with_config(
+        rpc_url: &str,
+        contracts_config: &crate::config::ContractsConfig,
+    ) -> Result<Self, String> {
+        let provider = ProviderBuilder::new().on_http(
+            rpc_url
+                .parse()
+                .map_err(|e| format!("Invalid RPC URL: {}", e))?,
+        );
+
+        Ok(Self {
+            provider: Arc::new(provider),
+            addresses: ContractAddresses::from_config(contracts_config)?,
+        })
+    }
+
+    /// Create a new contract client (legacy, uses chain_id to determine addresses)
     pub async fn new(rpc_url: &str, chain_id: u64) -> Result<Self, String> {
         let provider = ProviderBuilder::new().on_http(
             rpc_url
@@ -213,37 +277,66 @@ impl ContractClient {
     /// Get agent info by ID
     pub async fn get_agent_info(&self, agent_id: u64) -> Result<AgentInfoResult, String> {
         let registry = IIdentityRegistry::new(self.addresses.identity_registry, &*self.provider);
+
+        // Get agent registration data
         let info = registry
-            .getAgentInfo(U256::from(agent_id))
+            .getAgent(U256::from(agent_id))
             .call()
             .await
             .map(|r| r._0)
             .map_err(|e| format!("Failed to get agent info: {}", e))?;
 
+        // Get tokenURI separately (ERC721 function)
+        let token_uri = registry
+            .tokenURI(U256::from(agent_id))
+            .call()
+            .await
+            .map(|r| r._0)
+            .unwrap_or_default();
+
         Ok(AgentInfoResult {
             owner: format!("{:?}", info.owner),
-            token_uri: info.tokenURI,
-            reputation: info.reputation.to_string(),
+            token_uri,
+            reputation: info.stakedAmount.to_string(), // Use staked amount as reputation proxy
             is_banned: info.isBanned,
-            ban_reason: info.banReason,
+            ban_reason: if info.isBanned { "Banned".to_string() } else { String::new() },
         })
     }
 
-    /// Get agent ID for an owner address
+    /// Get agent ID for an owner address (returns first agent if owner has multiple)
     pub async fn get_agent_by_owner(&self, owner: Address) -> Result<Option<u64>, String> {
         let registry = IIdentityRegistry::new(self.addresses.identity_registry, &*self.provider);
-        let agent_id = registry
-            .getAgentByOwner(owner)
+
+        // Check if owner has any agents
+        let balance = registry
+            .balanceOf(owner)
             .call()
             .await
-            .map(|r| r.agentId)
-            .map_err(|e| format!("Failed to get agent by owner: {}", e))?;
+            .map(|r| r._0)
+            .map_err(|e| format!("Failed to get balance: {}", e))?;
 
-        if agent_id == U256::ZERO {
-            Ok(None)
-        } else {
-            Ok(Some(agent_id.to::<u64>()))
+        if balance == U256::ZERO {
+            return Ok(None);
         }
+
+        // Find the agent ID by iterating through total agents
+        // This is inefficient but works without enumerable extension
+        let total = registry
+            .totalAgents()
+            .call()
+            .await
+            .map(|r| r._0)
+            .map_err(|e| format!("Failed to get total agents: {}", e))?;
+
+        for i in 1..=total.to::<u64>() {
+            if let Ok(agent_owner) = registry.ownerOf(U256::from(i)).call().await {
+                if agent_owner._0 == owner {
+                    return Ok(Some(i));
+                }
+            }
+        }
+
+        Ok(None)
     }
 
     /// Check ban status for an agent
@@ -279,6 +372,49 @@ impl ContractClient {
             can_appeal,
         })
     }
+
+    /// Get compute provider info
+    pub async fn get_compute_provider(
+        &self,
+        provider: Address,
+    ) -> Result<Option<ComputeProviderResult>, String> {
+        let registry = IComputeRegistry::new(self.addresses.compute_registry, &*self.provider);
+
+        let result = registry
+            .getProvider(provider)
+            .call()
+            .await
+            .map_err(|e| format!("Failed to get provider: {}", e))?;
+
+        // Check if provider is registered (registeredAt > 0)
+        if result.registeredAt == U256::ZERO {
+            return Ok(None);
+        }
+
+        Ok(Some(ComputeProviderResult {
+            address: format!("{:?}", provider),
+            name: result.name,
+            endpoint: result.endpoint,
+            agent_id: result.agentId.to::<u64>(),
+            stake: result.stake.to_string(),
+            is_active: result.active,
+            registered_at: result.registeredAt.to::<u64>(),
+        }))
+    }
+
+    /// Get minimum stake required for compute registration
+    pub async fn get_min_compute_stake(&self) -> Result<String, String> {
+        let registry = IComputeRegistry::new(self.addresses.compute_registry, &*self.provider);
+
+        let min_stake = registry
+            .minProviderStake()
+            .call()
+            .await
+            .map(|r| r._0)
+            .map_err(|e| format!("Failed to get min stake: {}", e))?;
+
+        Ok(min_stake.to_string())
+    }
 }
 
 /// Result structure for node stake info
@@ -310,4 +446,16 @@ pub struct BanStatusResult {
     pub expiry: u64,
     pub reason: String,
     pub can_appeal: bool,
+}
+
+/// Result structure for compute provider info
+#[derive(Debug, Clone)]
+pub struct ComputeProviderResult {
+    pub address: String,
+    pub name: String,
+    pub endpoint: String,
+    pub agent_id: u64,
+    pub stake: String,
+    pub is_active: bool,
+    pub registered_at: u64,
 }

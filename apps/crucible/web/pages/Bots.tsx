@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { z } from 'zod'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 import { API_URL } from '../config'
 
@@ -30,9 +31,35 @@ interface Bot {
   healthy: boolean
 }
 
-interface BotsResponse {
-  bots: Bot[]
-}
+const BotMetricsSchema = z.object({
+  opportunitiesDetected: z.number(),
+  opportunitiesExecuted: z.number(),
+  opportunitiesFailed: z.number(),
+  totalProfitWei: z.string(),
+  totalProfitUsd: z.string(),
+  totalGasSpent: z.string(),
+  avgExecutionTimeMs: z.number(),
+  uptime: z.number(),
+  lastUpdate: z.number(),
+  byStrategy: z.record(
+    z.object({
+      detected: z.number(),
+      executed: z.number(),
+      failed: z.number(),
+      profitWei: z.string(),
+    }),
+  ),
+})
+
+const BotSchema = z.object({
+  agentId: z.string(),
+  metrics: BotMetricsSchema,
+  healthy: z.boolean(),
+})
+
+const BotsResponseSchema = z.object({
+  bots: z.array(BotSchema),
+})
 
 function useBots() {
   return useQuery({
@@ -40,7 +67,7 @@ function useBots() {
     queryFn: async (): Promise<Bot[]> => {
       const response = await fetch(`${API_URL}/api/v1/bots`)
       if (!response.ok) throw new Error('Failed to fetch bots')
-      const data: BotsResponse = await response.json()
+      const data = BotsResponseSchema.parse(await response.json())
       return data.bots
     },
     refetchInterval: 10000,

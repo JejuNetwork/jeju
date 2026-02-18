@@ -1,0 +1,137 @@
+# Factory - Developer Coordination Hub (ARM64)
+# Multi-stage build for production deployment
+
+FROM oven/bun:1.3 AS builder
+
+# Install Python and setuptools for native deps
+RUN apt-get update && apt-get install -y python3 python3-setuptools jq && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy workspace root files
+COPY package.json bun.lock tsconfig.base.json ./
+COPY patches/ ./patches/
+
+# Copy all workspace package.json files for dependency resolution
+COPY packages/a2a/package.json ./packages/a2a/
+COPY packages/agents/package.json ./packages/agents/
+COPY packages/api/package.json ./packages/api/
+COPY packages/auth/package.json ./packages/auth/
+COPY packages/bots/package.json ./packages/bots/
+COPY packages/bridge/package.json ./packages/bridge/
+COPY packages/cache/package.json ./packages/cache/
+COPY packages/cli/package.json ./packages/cli/
+COPY packages/config/package.json ./packages/config/
+COPY packages/contracts/package.json ./packages/contracts/
+COPY packages/db/package.json ./packages/db/
+COPY packages/durable-objects/package.json ./packages/durable-objects/
+COPY packages/eliza-plugin/package.json ./packages/eliza-plugin/
+COPY packages/kms/package.json ./packages/kms/
+COPY packages/mcp/package.json ./packages/mcp/
+COPY packages/messaging/package.json ./packages/messaging/
+COPY packages/monitoring/package.json ./packages/monitoring/
+COPY packages/sdk/package.json ./packages/sdk/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/solana/package.json ./packages/solana/
+COPY packages/sqlit/package.json ./packages/sqlit/
+COPY packages/tests/package.json ./packages/tests/
+COPY packages/token/package.json ./packages/token/
+COPY packages/training/package.json ./packages/training/
+COPY packages/types/package.json ./packages/types/
+COPY packages/ui/package.json ./packages/ui/
+COPY packages/workerd/package.json ./packages/workerd/
+COPY apps/factory/package.json ./apps/factory/
+
+# Install all dependencies
+RUN bun install --ignore-scripts || true
+
+# Copy ALL source code
+COPY packages ./packages
+COPY apps/factory ./apps/factory
+
+# Create workspace symlinks in node_modules for build-time resolution
+RUN mkdir -p node_modules/@jejunetwork && \
+    ln -sf ../../packages/a2a node_modules/@jejunetwork/a2a && \
+    ln -sf ../../packages/agents node_modules/@jejunetwork/agents && \
+    ln -sf ../../packages/api node_modules/@jejunetwork/api && \
+    ln -sf ../../packages/auth node_modules/@jejunetwork/auth && \
+    ln -sf ../../packages/bots node_modules/@jejunetwork/bots && \
+    ln -sf ../../packages/bridge node_modules/@jejunetwork/zksolbridge && \
+    ln -sf ../../packages/cache node_modules/@jejunetwork/cache && \
+    ln -sf ../../packages/cli node_modules/@jejunetwork/cli && \
+    ln -sf ../../packages/config node_modules/@jejunetwork/config && \
+    ln -sf ../../packages/contracts node_modules/@jejunetwork/contracts && \
+    ln -sf ../../packages/db node_modules/@jejunetwork/db && \
+    ln -sf ../../packages/durable-objects node_modules/@jejunetwork/durable-objects && \
+    ln -sf ../../packages/eliza-plugin node_modules/@jejunetwork/eliza-plugin && \
+    ln -sf ../../packages/kms node_modules/@jejunetwork/kms && \
+    ln -sf ../../packages/mcp node_modules/@jejunetwork/mcp && \
+    ln -sf ../../packages/messaging node_modules/@jejunetwork/messaging && \
+    ln -sf ../../packages/monitoring node_modules/@jejunetwork/monitoring && \
+    ln -sf ../../packages/sdk node_modules/@jejunetwork/sdk && \
+    ln -sf ../../packages/shared node_modules/@jejunetwork/shared && \
+    ln -sf ../../packages/solana node_modules/@jejunetwork/solana && \
+    ln -sf ../../packages/sqlit node_modules/@jejunetwork/sqlit && \
+    ln -sf ../../packages/tests node_modules/@jejunetwork/tests && \
+    ln -sf ../../packages/token node_modules/@jejunetwork/token && \
+    ln -sf ../../packages/training node_modules/@jejunetwork/training && \
+    ln -sf ../../packages/types node_modules/@jejunetwork/types && \
+    ln -sf ../../packages/ui node_modules/@jejunetwork/ui && \
+    ln -sf ../../packages/workerd node_modules/@jejunetwork/workerd
+
+# Build packages that export dist
+RUN cd packages/types && (bun run build 2>/dev/null || bun x tsc || true)
+RUN cd packages/config && (bun run build 2>/dev/null || bun x tsc || true)
+RUN cd packages/contracts && (bun run build 2>/dev/null || true)
+RUN cd packages/api && (bun run build 2>/dev/null || bun x tsc || true)
+RUN cd packages/shared && (bun run build 2>/dev/null || bun x tsc || true)
+RUN cd packages/db && (bun run build 2>/dev/null || bun x tsc || true)
+RUN cd packages/kms && (bun run build 2>/dev/null || bun x tsc || true)
+RUN cd packages/sdk && (bun run build 2>/dev/null || bun x tsc || true)
+RUN cd packages/ui && (bun run build 2>/dev/null || bun x tsc || true)
+
+# Build factory
+WORKDIR /app/apps/factory
+RUN bun run build || true
+
+# Production stage
+FROM oven/bun:1.3-slim
+
+WORKDIR /app
+
+# Copy built app and node_modules
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/apps/factory ./apps/factory
+COPY --from=builder /app/tsconfig.base.json ./
+
+# Create workspace symlinks for runtime
+RUN mkdir -p node_modules/@jejunetwork && \
+    ln -sf ../../packages/config node_modules/@jejunetwork/config && \
+    ln -sf ../../packages/types node_modules/@jejunetwork/types && \
+    ln -sf ../../packages/shared node_modules/@jejunetwork/shared && \
+    ln -sf ../../packages/contracts node_modules/@jejunetwork/contracts && \
+    ln -sf ../../packages/db node_modules/@jejunetwork/db && \
+    ln -sf ../../packages/api node_modules/@jejunetwork/api && \
+    ln -sf ../../packages/auth node_modules/@jejunetwork/auth && \
+    ln -sf ../../packages/cache node_modules/@jejunetwork/cache && \
+    ln -sf ../../packages/kms node_modules/@jejunetwork/kms && \
+    ln -sf ../../packages/messaging node_modules/@jejunetwork/messaging && \
+    ln -sf ../../packages/sdk node_modules/@jejunetwork/sdk && \
+    ln -sf ../../packages/ui node_modules/@jejunetwork/ui
+
+WORKDIR /app/apps/factory
+
+# Expose port
+EXPOSE 4008
+
+# Health check using bun fetch
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+  CMD bun -e "fetch('http://localhost:4008/api/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"
+
+# Set environment
+ENV NODE_ENV=production
+ENV PORT=4008
+
+# Start API server
+CMD ["bun", "run", "api/server.ts"]

@@ -31,7 +31,13 @@ fn main() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    tracing::info!("Starting Jeju Node v{}", env!("CARGO_PKG_VERSION"));
+    // Build timestamp is set at compile time
+    const BUILD_TIMESTAMP: &str = env!("BUILD_TIMESTAMP");
+    tracing::info!(
+        "Starting Jeju Node v{} (build: {})",
+        env!("CARGO_PKG_VERSION"),
+        BUILD_TIMESTAMP
+    );
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -85,6 +91,15 @@ fn main() {
             commands::bots::stop_bot,
             commands::bots::get_bot_status,
             commands::bots::get_bot_earnings,
+            // Compute provider registration
+            commands::compute::register_agent_identity,
+            commands::compute::get_wallet_agent_id,
+            commands::compute::register_compute_provider,
+            commands::compute::add_compute_capability,
+            commands::compute::get_compute_provider_info,
+            commands::compute::deactivate_compute_provider,
+            commands::compute::reactivate_compute_provider,
+            commands::compute::get_min_compute_stake,
         ])
         .setup(|app| {
             let handle = app.handle().clone();

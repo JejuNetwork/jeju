@@ -42,7 +42,7 @@ const NETWORK = (process.env.NETWORK ??
   process.env.JEJU_NETWORK ??
   'localnet') as 'localnet' | 'testnet' | 'mainnet'
 
-const SQLIT_DATABASE_ID = process.env.SQLIT_DATABASE_ID ?? 'dws'
+const SQLIT_DATABASE_ID = process.env.SQLIT_DATABASE_ID ?? 'dws-core'
 
 let sqlitClient: SQLitClient | null = null
 let tablesInitialized = false
@@ -197,6 +197,46 @@ export function createKMSRouter() {
             parties: MPC_CONFIG.defaultParties,
           },
         }
+      })
+      .get('/vault/diagnostics', ({ request, set }) => {
+        return (async () => {
+          if (NETWORK === 'mainnet') {
+            set.status = 404
+            return { error: 'Not found' }
+          }
+
+          const owner = getOwnerFromRequest(request)?.toLowerCase() ?? null
+          const client = await getSQLitClient()
+          const totalRows = await client.query<{ count: number | string }>(
+            'SELECT COUNT(*) as count FROM kms_secrets',
+            [],
+            SQLIT_DATABASE_ID,
+          )
+          const ownerRows = owner
+            ? await client.query<{ count: number | string }>(
+                'SELECT COUNT(*) as count FROM kms_secrets WHERE owner = ?',
+                [owner],
+                SQLIT_DATABASE_ID,
+              )
+            : null
+
+          const normalizeCount = (
+            value: number | string | null | undefined,
+          ): number =>
+            typeof value === 'number' ? value : Number(value ?? 0)
+
+          return {
+            databaseId: SQLIT_DATABASE_ID,
+            owner,
+            counts: {
+              total: normalizeCount(totalRows.rows[0]?.count),
+              owner: ownerRows
+                ? normalizeCount(ownerRows.rows[0]?.count)
+                : null,
+            },
+            endpoint: client.getEndpoint(),
+          }
+        })()
       })
       // Generate new MPC key using FROST threshold signing
       .post('/keys', async ({ body, request, set }) => {

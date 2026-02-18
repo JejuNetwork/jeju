@@ -1,4 +1,6 @@
+import { Cron } from 'croner'
 import { getCurrentNetwork } from '@jejunetwork/config'
+import type { JsonValue } from '@jejunetwork/types'
 import type { Action, EnvironmentState, LLMCall } from '@jejunetwork/training'
 import {
   getStaticTrajectoryStorage,
@@ -6,15 +8,17 @@ import {
   type TrajectoryBatchReference,
   TrajectoryRecorder,
 } from '@jejunetwork/training'
-import type { JsonValue } from '@jejunetwork/types'
 import { checkDWSHealth, getSharedDWSClient } from '../client/dws'
-import { getDatabase, type Message } from '../sdk/database'
+import { ROOMS } from '../constants'
 import {
   type CrucibleAgentRuntime,
   createCrucibleRuntime,
 } from '../sdk/eliza-runtime'
+import { getDatabase, type Message } from '../sdk/database'
 import { createLogger } from '../sdk/logger'
 import { getAlertService } from './alert-service'
+import { formatHealthMessage, infraStatusToSnapshot } from './health-format'
+import { getChainConfig } from '../../lib/chain-registry'
 import type {
   ActivityEntry,
   AgentTickContext,
@@ -31,8 +35,8 @@ export type {
   AutonomousRunnerConfig,
   AutonomousRunnerStatus,
 }
-export { createAutonomousRouter } from './router'
 export { DEFAULT_AUTONOMOUS_CONFIG } from './types'
+export { createAutonomousRouter } from './router'
 
 const log = createLogger('AutonomousRunner')
 
@@ -44,6 +48,14 @@ export interface ExtendedAgentConfig extends AutonomousAgentConfig {
   archetype?: string
   /** Enable trajectory recording for this agent */
   recordTrajectories?: boolean
+  /** Initial runtime state from DB */
+  initialTickCount?: number
+  lastTick?: number
+  previousTick?: number
+  errorCount?: number
+  backoffMs?: number
+  lastScheduledRun?: number
+  lastError?: string | null
 }
 
 interface RegisteredAgent {
@@ -58,6 +70,10 @@ interface RegisteredAgent {
   intervalId: ReturnType<typeof setInterval> | null
   recentActivity: ActivityEntry[]
   currentTrajectoryId: string | null
+  /** Timestamp of last scheduled execution (for cron-based agents) */
+  lastScheduledRun: number
+  /** Parsed cron job instance */
+  cronJob: Cron | null
 }
 
 interface ExtendedRunnerConfig extends AutonomousRunnerConfig {
@@ -166,18 +182,40 @@ export class AutonomousAgentRunner {
       )
     }
 
+    // Parse cron schedule if provided
+    let cronJob: Cron | null = null
+    if (config.schedule) {
+      try {
+        cronJob = new Cron(config.schedule, { timezone: 'UTC' })
+        log.info('Agent schedule configured', {
+          agentId: config.agentId,
+          schedule: config.schedule,
+          nextRun: cronJob.nextRun()?.toISOString() ?? null,
+        })
+      } catch (err) {
+        log.error('Invalid cron schedule', {
+          agentId: config.agentId,
+          schedule: config.schedule,
+          error: err instanceof Error ? err.message : String(err),
+        })
+      }
+    }
+
     const agent: RegisteredAgent = {
       config,
       runtime: null,
-      lastTick: 0,
-      previousTick: 0,
-      tickCount: 0,
-      errorCount: 0,
-      lastError: null,
-      backoffMs: 0,
+      // Restore runtime state from DB if provided, otherwise use defaults
+      lastTick: config.lastTick ?? 0,
+      previousTick: config.previousTick ?? 0,
+      tickCount: config.initialTickCount ?? 0,
+      errorCount: config.errorCount ?? 0,
+      lastError: config.lastError ?? null,
+      backoffMs: config.backoffMs ?? 0,
       intervalId: null,
       recentActivity: [],
       currentTrajectoryId: null,
+      lastScheduledRun: config.lastScheduledRun ?? 0,
+      cronJob,
     }
 
     this.agents.set(config.agentId, agent)
@@ -186,6 +224,10 @@ export class AutonomousAgentRunner {
       character: config.character.name,
       archetype: config.archetype ?? 'default',
       recordTrajectories: config.recordTrajectories ?? true,
+      restoredTickCount: agent.tickCount,
+      restoredLastTick: agent.lastTick,
+      restoredPreviousTick: agent.previousTick,
+      restoredLastScheduledRun: agent.lastScheduledRun,
     })
 
     if (this.running) {
@@ -215,6 +257,7 @@ export class AutonomousAgentRunner {
         character: agent.config.character.name,
         lastTick: agent.lastTick,
         tickCount: agent.tickCount,
+        tickIntervalMs: agent.config.tickIntervalMs,
         recentActivity: agent.recentActivity.slice(-10),
       })),
     }
@@ -244,10 +287,43 @@ export class AutonomousAgentRunner {
   }
 
   /**
-   * Execute a single tick for all enabled agents.
-   * Used by cron to trigger immediate execution.
+   * Persist agent runtime state to database (best effort).
+   * Failures are logged but don't fail the tick.
    */
-  async executeAllAgentsTick(): Promise<{
+  private async persistAgentState(
+    agentId: string,
+    agent: RegisteredAgent,
+  ): Promise<void> {
+    try {
+      const db = getDatabase()
+      await db.updateAgent(agentId, {
+        runtimeState: {
+          previous_tick: agent.previousTick,
+          last_tick: agent.lastTick,
+          last_scheduled_run: agent.lastScheduledRun,
+        },
+      })
+      log.debug('Persisted agent state to DB', {
+        agentId,
+        lastTick: agent.lastTick,
+        previousTick: agent.previousTick,
+        lastScheduledRun: agent.lastScheduledRun,
+      })
+    } catch (error) {
+      log.error('Failed to persist agent state - continuing with in-memory only', {
+        agentId,
+        error: error instanceof Error ? error.message : String(error),
+      })
+      // Don't throw - agent continues running with in-memory state
+    }
+  }
+
+  /**
+   * Execute a single tick for enabled agents.
+   * mode=cron runs only scheduled agents that are due.
+   * mode=manual runs all enabled agents without schedule checks.
+   */
+  async executeAllAgentsTick(options: { mode?: 'cron' | 'manual' } = {}): Promise<{
     executed: number
     succeeded: number
     failed: number
@@ -259,6 +335,7 @@ export class AutonomousAgentRunner {
       latencyMs: number
     }>
   }> {
+    const mode = options.mode ?? 'cron'
     const results: Array<{
       agentId: string
       success: boolean
@@ -269,6 +346,15 @@ export class AutonomousAgentRunner {
 
     for (const [agentId, agent] of this.agents) {
       if (!agent.config.enabled) continue
+
+      if (mode === 'cron') {
+        if (!agent.cronJob) continue
+        const previousRun = agent.cronJob.previousRun()
+        if (!previousRun) continue
+        const previousRunMs = previousRun.getTime()
+        if (previousRunMs <= agent.lastScheduledRun) continue
+        agent.lastScheduledRun = previousRunMs
+      }
 
       const startTime = Date.now()
 
@@ -307,12 +393,75 @@ export class AutonomousAgentRunner {
   }
 
   /**
+   * Execute a tick for a specific agent by ID.
+   * Used by cron to trigger immediate execution for a single agent.
+   */
+  async executeAgentTickById(agentId: string): Promise<{
+    success: boolean
+    reward: number
+    error: string | null
+    latencyMs: number
+  }> {
+    // Try to find the agent with various ID formats
+    let agent = this.agents.get(agentId)
+    if (!agent) {
+      agent = this.agents.get(`onchain-agent-${agentId}`)
+    }
+    if (!agent) {
+      agent = this.agents.get(`autonomous-${agentId}`)
+    }
+
+    if (!agent) {
+      return {
+        success: false,
+        reward: 0,
+        error: `Agent not found: ${agentId}`,
+        latencyMs: 0,
+      }
+    }
+
+    if (!agent.config.enabled) {
+      return {
+        success: false,
+        reward: 0,
+        error: `Agent is disabled: ${agentId}`,
+        latencyMs: 0,
+      }
+    }
+
+    const startTime = Date.now()
+
+    // Initialize runtime if needed
+    if (!agent.runtime) {
+      await this.initializeAgentRuntime(agent)
+    }
+
+    try {
+      const result = await this.executeSingleAgentTick(agent)
+      return {
+        success: true,
+        reward: result.reward,
+        error: null,
+        latencyMs: Date.now() - startTime,
+      }
+    } catch (err) {
+      return {
+        success: false,
+        reward: 0,
+        error: err instanceof Error ? err.message : String(err),
+        latencyMs: Date.now() - startTime,
+      }
+    }
+  }
+
+  /**
    * Execute a tick for a single agent (extracted for reuse)
    */
   private async executeSingleAgentTick(
     agent: RegisteredAgent,
   ): Promise<{ reward: number }> {
     const agentId = agent.config.agentId
+
     agent.previousTick = agent.lastTick
     agent.lastTick = Date.now()
     agent.tickCount++
@@ -321,14 +470,18 @@ export class AutonomousAgentRunner {
       this.config.enableTrajectoryRecording &&
       (agent.config.recordTrajectories ?? true)
 
+    // Capture trajectory ID locally to avoid race conditions with concurrent ticks
+    let localTrajectoryId: string | null = null
+
     if (shouldRecord) {
-      agent.currentTrajectoryId = await this.trajectoryRecorder.startTrajectory(
+      localTrajectoryId = await this.trajectoryRecorder.startTrajectory(
         {
           agentId,
           archetype: agent.config.archetype,
           scenarioId: `autonomous-tick-${agent.tickCount}`,
         },
       )
+      agent.currentTrajectoryId = localTrajectoryId
     }
 
     let tickSuccess = false
@@ -352,9 +505,9 @@ export class AutonomousAgentRunner {
       )
       throw err // Re-throw for caller to handle
     } finally {
-      // End trajectory recording
-      if (agent.currentTrajectoryId) {
-        await this.trajectoryRecorder.endTrajectory(agent.currentTrajectoryId, {
+      // End trajectory recording using local ID to prevent race conditions
+      if (localTrajectoryId) {
+        await this.trajectoryRecorder.endTrajectory(localTrajectoryId, {
           finalPnL: totalReward,
           gameKnowledge: {
             actualOutcomes: {
@@ -363,8 +516,14 @@ export class AutonomousAgentRunner {
             },
           },
         })
-        agent.currentTrajectoryId = null
+        // Only clear if it's still our trajectory
+        if (agent.currentTrajectoryId === localTrajectoryId) {
+          agent.currentTrajectoryId = null
+        }
       }
+
+      // Persist runtime state to DB (best effort)
+      await this.persistAgentState(agentId, agent)
     }
 
     return { reward: totalReward }
@@ -398,6 +557,17 @@ export class AutonomousAgentRunner {
         }
       }
 
+      // Agents with cron schedules should NOT run in the interval loop
+      // They are triggered externally via /api/cron/agent-tick or /api/cron/agent-tick-once
+      if (agent.cronJob) {
+        log.debug('Schedule skip: agent has cron schedule, use /api/cron/agent-tick or /api/cron/agent-tick-once to trigger', {
+          agentId,
+          schedule: agent.config.schedule ?? null,
+          nextRun: agent.cronJob.nextRun()?.toISOString() ?? 'none',
+        })
+        return
+      }
+
       agent.previousTick = agent.lastTick
       agent.lastTick = Date.now()
       agent.tickCount++
@@ -406,8 +576,11 @@ export class AutonomousAgentRunner {
         this.config.enableTrajectoryRecording &&
         (agent.config.recordTrajectories ?? true)
 
+      // Capture trajectory ID locally to avoid race conditions with concurrent ticks
+      let localTrajectoryId: string | null = null
+
       if (shouldRecord) {
-        const trajectoryId = await this.trajectoryRecorder.startTrajectory({
+        localTrajectoryId = await this.trajectoryRecorder.startTrajectory({
           agentId: agent.config.agentId,
           archetype: agent.config.archetype,
           scenarioId: `tick-${agent.tickCount}`,
@@ -416,7 +589,7 @@ export class AutonomousAgentRunner {
             characterName: agent.config.character.name,
           },
         })
-        agent.currentTrajectoryId = trajectoryId
+        agent.currentTrajectoryId = localTrajectoryId
       }
 
       const _tickStartTime = Date.now()
@@ -448,9 +621,9 @@ export class AutonomousAgentRunner {
         })
       }
 
-      // End trajectory recording
-      if (agent.currentTrajectoryId) {
-        await this.trajectoryRecorder.endTrajectory(agent.currentTrajectoryId, {
+      // End trajectory recording using local ID to prevent race conditions
+      if (localTrajectoryId) {
+        await this.trajectoryRecorder.endTrajectory(localTrajectoryId, {
           finalBalance: undefined, // Could add wallet balance tracking
           finalPnL: totalReward,
           gameKnowledge: {
@@ -460,8 +633,14 @@ export class AutonomousAgentRunner {
             },
           },
         })
-        agent.currentTrajectoryId = null
+        // Only clear if it's still our trajectory
+        if (agent.currentTrajectoryId === localTrajectoryId) {
+          agent.currentTrajectoryId = null
+        }
       }
+
+      // Persist runtime state to DB (best effort)
+      await this.persistAgentState(agentId, agent)
     }
 
     // Run first tick immediately
@@ -485,8 +664,15 @@ export class AutonomousAgentRunner {
       agentId: config.agentId,
       tickCount: agent.tickCount,
       trajectoryId,
+      executionMode: config.executionMode ?? 'llm-driven',
     })
 
+    // Check execution mode
+    if (config.executionMode === 'code-first') {
+      return this.executeCodeFirstTick(agent)
+    }
+
+    // Default: LLM-driven execution
     // Build tick context
     const context = await this.buildTickContext(agent)
 
@@ -598,13 +784,8 @@ export class AutonomousAgentRunner {
         config.maxActionsPerTick,
       )) {
         const enrichedParams = { ...action.params }
-        if (
-          action.type.toUpperCase().includes('POLL') &&
-          agent.previousTick > 0
-        ) {
-          enrichedParams.sinceTimestamp = Math.floor(
-            agent.previousTick / 1000,
-          ).toString()
+        if (action.type.toUpperCase().includes('POLL') && agent.previousTick > 0) {
+          enrichedParams.sinceTimestamp = Math.floor(agent.previousTick / 1000).toString()
         }
 
         const actionResult = await this.executeAction(
@@ -617,31 +798,25 @@ export class AutonomousAgentRunner {
         // Reward for successful actions
         if (actionResult.success) {
           tickReward += this.calculateActionReward(action.type)
-          const resultResponse = (actionResult.result as { response?: string })
-            ?.response
+          const resultResponse = this.formatActionResult(
+            action.type,
+            actionResult.result,
+          )
           if (resultResponse) {
-            actionResults.push({
-              action: action.type,
-              response: resultResponse,
-            })
+            actionResults.push({ action: action.type, response: resultResponse })
           }
         }
       }
     }
 
     if (config.postToRoom && actionResults.length > 0) {
+      const postAllResults = config.postToRoom === ROOMS.CAPABILITY_DEMOS
       for (const result of actionResults) {
-        const contentToPost = this.extractPostableContent(
-          result.response,
-          config.agentId,
-        )
+        const contentToPost = postAllResults
+          ? this.formatDemoPost(result.response)
+          : this.extractPostableContent(result.response, config.agentId)
         if (contentToPost) {
-          await this.postToRoom(
-            config.agentId,
-            config.postToRoom,
-            contentToPost,
-            result.action,
-          )
+          await this.postToRoom(config.agentId, config.postToRoom, contentToPost, result.action)
         }
       }
     }
@@ -664,6 +839,388 @@ export class AutonomousAgentRunner {
     }
 
     return { reward: tickReward }
+  }
+
+  /**
+   * Code-first execution: execute action directly, only invoke LLM if status triggers it
+   */
+  private async executeCodeFirstTick(
+    agent: RegisteredAgent,
+  ): Promise<{ reward: number }> {
+    const config = agent.config
+    const codeFirstConfig = config.codeFirstConfig
+    const trajectoryId = agent.currentTrajectoryId
+
+    if (!codeFirstConfig) {
+      log.error('codeFirstConfig required for code-first mode', {
+        agentId: config.agentId,
+      })
+      return { reward: 0 }
+    }
+
+    log.info('Executing code-first tick', {
+      agentId: config.agentId,
+      primaryAction: codeFirstConfig.primaryAction,
+    })
+
+    // Start trajectory step for code-first execution (required for logging)
+    if (trajectoryId) {
+      const recentSuccesses = agent.recentActivity.filter((a) => a.success).length
+      const successRate =
+        agent.recentActivity.length > 0
+          ? recentSuccesses / agent.recentActivity.length
+          : 0
+
+      const envState: EnvironmentState = {
+        timestamp: Date.now(),
+        tickCount: agent.tickCount,
+        successfulActions: recentSuccesses,
+        successRatePercent: Math.round(successRate * 100),
+        recentActivityCount: agent.recentActivity.length,
+        errorCount: agent.errorCount,
+        archetype: agent.config.archetype,
+        executionMode: 'code-first',
+      }
+      this.trajectoryRecorder.startStep(trajectoryId, envState)
+    }
+
+    // 1. Execute primary action directly (no LLM)
+    const actionResult = await this.executeAction(
+      agent,
+      codeFirstConfig.primaryAction,
+      {},
+      trajectoryId,
+    )
+
+    if (!actionResult.success) {
+      log.error('Primary action failed', {
+        agentId: config.agentId,
+        action: codeFirstConfig.primaryAction,
+        error: actionResult.error ?? null,
+      })
+      // Complete step with failure
+      if (trajectoryId) {
+        const action: Action = {
+          timestamp: Date.now(),
+          actionType: codeFirstConfig.primaryAction,
+          actionName: codeFirstConfig.primaryAction,
+          parameters: {},
+          success: false,
+          error: actionResult.error,
+        }
+        this.trajectoryRecorder.completeStep(trajectoryId, action, 0)
+      }
+      return { reward: 0 }
+    }
+
+    const result = actionResult.result as Record<string, unknown>
+    const status = (result.status as string) ?? 'UNKNOWN'
+
+    log.info('Primary action completed', {
+      agentId: config.agentId,
+      status,
+      hasAlerts: Boolean(result.alerts),
+    })
+
+    // 2. Check if LLM should be invoked based on status
+    if (codeFirstConfig.llmTriggerStatuses.includes(status)) {
+      // Status is DEGRADED or CRITICAL - invoke LLM for alert formatting
+      log.info('Status triggers LLM invocation', {
+        agentId: config.agentId,
+        status,
+        triggerStatuses: codeFirstConfig.llmTriggerStatuses,
+      })
+      // Complete current step before LLM tick starts its own step
+      if (trajectoryId) {
+        const action: Action = {
+          timestamp: Date.now(),
+          actionType: codeFirstConfig.primaryAction,
+          actionName: codeFirstConfig.primaryAction,
+          parameters: {},
+          success: true,
+          result: { status, triggeredLLM: true },
+        }
+        this.trajectoryRecorder.completeStep(trajectoryId, action, 0.2)
+      }
+      return this.executeAlertFormattingTick(agent, result)
+    }
+
+    // 3. Status not in trigger list - either post health snapshot or action handled its own output
+    if (codeFirstConfig.healthyTemplate) {
+      // Agent has a healthy template - post templated message (e.g., infra-monitor)
+      await this.postHealthSnapshot(agent, result)
+
+      // Complete trajectory step for healthy status
+      if (trajectoryId) {
+        const action: Action = {
+          timestamp: Date.now(),
+          actionType: 'HEALTH_SNAPSHOT',
+          actionName: 'health-snapshot',
+          parameters: {},
+          success: true,
+          result: { status, postedSnapshot: true },
+        }
+        this.trajectoryRecorder.completeStep(trajectoryId, action, 0.1)
+      }
+    } else {
+      // No healthy template - action handles its own output (e.g., daily-digest)
+      log.info('Action completed without health snapshot (action handles output)', {
+        agentId: config.agentId,
+        status,
+        primaryAction: codeFirstConfig.primaryAction,
+      })
+
+      // Complete trajectory step
+      if (trajectoryId) {
+        const action: Action = {
+          timestamp: Date.now(),
+          actionType: codeFirstConfig.primaryAction,
+          actionName: codeFirstConfig.primaryAction,
+          parameters: {},
+          success: true,
+          result: { status },
+        }
+        this.trajectoryRecorder.completeStep(trajectoryId, action, 0.3)
+      }
+    }
+
+    return { reward: 0.1 }
+  }
+
+  /**
+   * Post a health snapshot to the configured room without LLM involvement
+   */
+  private async postHealthSnapshot(
+    agent: RegisteredAgent,
+    infraStatus: Record<string, unknown>,
+  ): Promise<void> {
+    const snapshot = infraStatusToSnapshot(infraStatus)
+    const message = formatHealthMessage(snapshot)
+
+    const postRoom = agent.config.postToRoom
+    if (!postRoom) {
+      log.warn('No postToRoom configured for agent', {
+        agentId: agent.config.agentId,
+      })
+      return
+    }
+
+    // Post to room via database (consistent with existing postToRoom method)
+    await this.postToRoom(agent.config.agentId, postRoom, message, 'HEALTH_SNAPSHOT')
+
+    log.info('Posted health snapshot', {
+      agentId: agent.config.agentId,
+      room: postRoom,
+      status: snapshot.status,
+    })
+
+    // Record activity
+    agent.recentActivity.push({
+      action: 'HEALTH_SNAPSHOT',
+      timestamp: Date.now(),
+      success: true,
+      result: { status: snapshot.status, message: message.slice(0, 250) },
+    })
+  }
+
+  /**
+   * Invoke LLM to format an alert message when status is degraded/critical
+   */
+  private async executeAlertFormattingTick(
+    agent: RegisteredAgent,
+    infraStatus: Record<string, unknown>,
+  ): Promise<{ reward: number }> {
+    const config = agent.config
+    const postRoom = config.postToRoom
+
+    // Build a prompt with the infra status data for LLM to format
+    const alertPrompt = `Infrastructure status: ${infraStatus.status}
+
+Current infrastructure status data:
+${JSON.stringify(infraStatus, null, 2)}
+
+Format this as an alert message for the operations team. Include:
+1. A clear summary of what is wrong
+2. Which services are affected
+3. Any P0/P1/P2 alerts detected
+4. Recommended immediate actions
+
+Output ONLY the formatted alert message. Do not include any action syntax or instructions.`
+
+    return this.executeLLMTick(agent, alertPrompt)
+  }
+
+  /**
+   * Execute a tick using LLM with a custom prompt
+   * Wraps the standard LLM execution path for reuse
+   */
+  private async executeLLMTick(
+    agent: RegisteredAgent,
+    customPrompt: string,
+  ): Promise<{ reward: number }> {
+    const config = agent.config
+    const trajectoryId = agent.currentTrajectoryId
+
+    if (!agent.runtime) {
+      throw new Error('Agent runtime not initialized')
+    }
+
+    // Start trajectory step with environment state if recording
+    if (trajectoryId) {
+      const recentSuccesses = agent.recentActivity.filter((a) => a.success).length
+      const successRate =
+        agent.recentActivity.length > 0
+          ? recentSuccesses / agent.recentActivity.length
+          : 0
+
+      const envState: EnvironmentState = {
+        timestamp: Date.now(),
+        tickCount: agent.tickCount,
+        successfulActions: recentSuccesses,
+        successRatePercent: Math.round(successRate * 100),
+        recentActivityCount: agent.recentActivity.length,
+        errorCount: agent.errorCount,
+        archetype: agent.config.archetype,
+        executionMode: 'code-first-alert',
+      }
+      this.trajectoryRecorder.startStep(trajectoryId, envState)
+    }
+
+    const llmCallStart = Date.now()
+    const response = await agent.runtime.processMessage({
+      id: crypto.randomUUID(),
+      userId: 'autonomous-runner',
+      roomId: `autonomous-${config.agentId}`,
+      content: { text: customPrompt, source: 'autonomous-alert' },
+      createdAt: Date.now(),
+    })
+    const llmCallLatency = Date.now() - llmCallStart
+
+    // DEBUG: Log LLM response and parsed actions
+    log.debug('[LLM_RESPONSE] Full response from processMessage', {
+      agentId: config.agentId,
+      responseText: response.text,
+      action: response.action ?? null,
+      actionsCount: response.actions?.length ?? 0,
+      actions: (response.actions?.map((a: { type: string; params: unknown }) => ({
+        type: a.type,
+        params: JSON.stringify(a.params),
+      })) ?? null) as JsonValue,
+    })
+
+    // Log LLM call to trajectory
+    if (trajectoryId) {
+      const modelPrefs = config.character.modelPreferences
+      const network = getCurrentNetwork()
+      const modelName =
+        network === 'mainnet'
+          ? (modelPrefs?.large ?? 'llama-3.3-70b-versatile')
+          : (modelPrefs?.small ?? 'llama-3.1-8b-instant')
+
+      const llmCall: LLMCall = {
+        timestamp: llmCallStart,
+        model: `dws/${modelName}`,
+        systemPrompt: this.buildSystemPrompt(config),
+        userPrompt: customPrompt,
+        response: response.text,
+        temperature: 0.7,
+        maxTokens: 1024,
+        latencyMs: llmCallLatency,
+        purpose: 'action',
+        actionType: response.action ?? 'respond',
+      }
+      this.trajectoryRecorder.logLLMCall(trajectoryId, llmCall)
+    }
+
+    log.info('LLM tick completed', {
+      agentId: config.agentId,
+      responseLength: response.text.length,
+      action: response.action ?? null,
+      latencyMs: llmCallLatency,
+    })
+
+    // Record activity
+    agent.recentActivity.push({
+      action: response.action ?? 'ALERT_FORMAT',
+      timestamp: Date.now(),
+      success: true,
+      result: { text: response.text.slice(0, 200) },
+    })
+
+    // Keep only last 50 activities
+    if (agent.recentActivity.length > 50) {
+      agent.recentActivity = agent.recentActivity.slice(-50)
+    }
+
+    // Auto-post LLM response to configured room (don't rely on LLM to call action)
+    if (config.postToRoom && response.text) {
+      await this.postToRoom(config.agentId, config.postToRoom, response.text, 'ALERT')
+      log.info('Auto-posted alert to room', {
+        agentId: config.agentId,
+        room: config.postToRoom,
+      })
+    }
+
+    // Calculate reward and execute any parsed actions
+    let tickReward = 0
+    const actionsExecuted: string[] = []
+    const actionResults: Array<{ action: string; response: string }> = []
+
+    if (response.actions && response.actions.length > 0) {
+      for (const action of response.actions.slice(0, config.maxActionsPerTick)) {
+        // DEBUG: Log action execution
+        log.debug('[ACTION_EXECUTION] Executing parsed action', {
+          agentId: config.agentId,
+          actionType: action.type,
+          actionParams: action.params,
+        })
+
+        const actionResult = await this.executeAction(
+          agent,
+          action.type,
+          action.params,
+          trajectoryId,
+        )
+        actionsExecuted.push(action.type)
+        if (actionResult.success) {
+          tickReward += this.calculateActionReward(action.type)
+          const resultResponse = (actionResult.result as { response?: string })?.response
+          if (resultResponse) {
+            actionResults.push({ action: action.type, response: resultResponse })
+          }
+        }
+      }
+    }
+
+    // Post results to room if configured
+    if (config.postToRoom && actionResults.length > 0) {
+      for (const result of actionResults) {
+        const contentToPost = this.extractPostableContent(result.response, config.agentId)
+        if (contentToPost) {
+          await this.postToRoom(config.agentId, config.postToRoom, contentToPost, result.action)
+        }
+      }
+    }
+
+    // Complete trajectory step
+    if (trajectoryId) {
+      const action: Action = {
+        timestamp: Date.now(),
+        actionType: response.action ?? 'ALERT_FORMAT',
+        actionName: response.action ?? 'alert-format',
+        parameters: {},
+        reasoning: response.text.slice(0, 500),
+        success: true,
+        result: {
+          actionsExecuted,
+          responseLength: response.text.length,
+        },
+      }
+      this.trajectoryRecorder.completeStep(trajectoryId, action, tickReward)
+    }
+
+    // Alert ticks get higher reward since they indicate action taken on issues
+    return { reward: tickReward + 0.5 }
   }
 
   private buildSystemPrompt(config: ExtendedAgentConfig): string {
@@ -744,10 +1301,7 @@ export class AutonomousAgentRunner {
     try {
       const db = getDatabase()
       const sinceSeconds = Math.floor(sinceTimestamp / 1000)
-      const messages = await db.getMessages(roomId, {
-        limit: 20,
-        since: sinceSeconds,
-      })
+      const messages = await db.getMessages(roomId, { limit: 20, since: sinceSeconds })
 
       // Check for ACK patterns in incoming messages
       const alertService = getAlertService()
@@ -770,10 +1324,7 @@ export class AutonomousAgentRunner {
             msg.content.toLowerCase().includes('audit request'),
         }))
     } catch (err) {
-      log.warn('Failed to fetch pending messages', {
-        roomId,
-        error: String(err),
-      })
+      log.warn('Failed to fetch pending messages', { roomId, error: String(err) })
       return []
     }
   }
@@ -792,16 +1343,9 @@ export class AutonomousAgentRunner {
     }
   }
 
-  private extractPostableContent(
-    responseText: string,
-    agentId: string,
-  ): string | null {
+  private extractPostableContent(responseText: string, agentId: string): string | null {
     // Monitoring agents: post snapshot/probe/analysis output
-    if (
-      agentId.includes('monitor') ||
-      agentId.includes('prober') ||
-      agentId.includes('analyzer')
-    ) {
+    if (agentId.includes('monitor') || agentId.includes('prober') || agentId.includes('analyzer')) {
       if (
         responseText.includes('[NODE_SNAPSHOT') ||
         responseText.includes('[ENDPOINT_PROBE') ||
@@ -815,33 +1359,55 @@ export class AutonomousAgentRunner {
     if (agentId.includes('watcher') || agentId.includes('base')) {
       const auditLines = responseText
         .split('\n')
-        .filter(
-          (line) =>
-            line.includes('Audit request:') ||
-            line.includes('blockscout.com/address/'),
-        )
+        .filter((line) => line.includes('Audit request:') || line.includes('blockscout.com/address/'))
       if (auditLines.length > 0) return auditLines.join('\n')
     }
 
-    if (
-      agentId.includes('security') ||
-      agentId.includes('analyst') ||
-      agentId.includes('auditor')
-    ) {
-      if (
-        responseText.includes('Audit complete') ||
-        responseText.includes('Risk Level:')
-      ) {
+    if (agentId.includes('security') || agentId.includes('analyst') || agentId.includes('auditor')) {
+      if (responseText.includes('Audit complete') || responseText.includes('Risk Level:')) {
         return responseText
       }
     }
 
+    if (responseText.includes('[ACTION_RESULT')) return responseText
+
     const lower = responseText.toLowerCase()
     if (lower.includes('no new') || lower.includes('nothing to')) return null
-    if (responseText.includes('[ACTION:') || responseText.length > 200)
-      return responseText
+    if (responseText.includes('[ACTION:') || responseText.length > 200) return responseText
 
     return null
+  }
+
+  private formatActionResult(
+    actionName: string,
+    result: unknown,
+  ): string | null {
+    if (!result) return null
+    if (typeof result === 'string') return result
+    if (typeof result === 'object' && result !== null) {
+      const obj = result as Record<string, unknown>
+      const response = obj.response ?? obj.text ?? obj.message
+      if (typeof response === 'string' && response.trim().length > 0) {
+        return response
+      }
+      const payload = JSON.stringify(result, null, 2)
+      if (!payload) return null
+      const capped =
+        payload.length > 2000 ? `${payload.slice(0, 2000)}...` : payload
+      return `[ACTION_RESULT | action=${actionName.toUpperCase()}]\n${capped}`
+    }
+    return String(result)
+  }
+
+  private formatDemoPost(responseText: string): string | null {
+    const trimmed = responseText.trim()
+    if (!trimmed) return null
+    const lower = trimmed.toLowerCase()
+    if (lower.includes('no new') || lower.includes('nothing to')) return null
+    if (trimmed.length > 4000) {
+      return `${trimmed.slice(0, 4000)}...`
+    }
+    return trimmed
   }
 
   private async getNetworkState(): Promise<NetworkState> {
@@ -870,6 +1436,17 @@ export class AutonomousAgentRunner {
     capabilities: AutonomousAgentConfig['capabilities'],
   ): AvailableAction[] {
     const actions: AvailableAction[] = []
+
+    // DEBUG: Log capabilities to verify what's being passed in
+    log.debug('[ACTION_FILTER] Capabilities passed to getAvailableActions', {
+      canTrade: capabilities.canTrade ?? false,
+      canStore: capabilities.canStore ?? false,
+      compute: capabilities.compute ?? false,
+      a2a: capabilities.a2a ?? false,
+      canVote: capabilities.canVote ?? false,
+      canPropose: capabilities.canPropose ?? false,
+      canChat: capabilities.canChat ?? false,
+    })
 
     if (capabilities.canTrade) {
       actions.push(
@@ -965,6 +1542,85 @@ export class AutonomousAgentRunner {
       })
     }
 
+    if (capabilities.canStore) {
+      actions.push({
+        name: 'UPLOAD_FILE',
+        description: 'Upload text or JSON to decentralized storage (IPFS)',
+        category: 'storage',
+        parameters: [
+          { name: 'text', type: 'string', description: 'Text or JSON content to upload', required: true },
+        ],
+      })
+    }
+
+    // Always available crucible actions for room communication and reporting
+    actions.push(
+      {
+        name: 'POST_TO_ROOM',
+        description: 'Post a message to a crucible room',
+        category: 'communication',
+        parameters: [
+          { name: 'room', type: 'string', description: 'Room name to post to', required: true },
+          { name: 'content', type: 'string', description: 'Message content', required: true },
+        ],
+      },
+      {
+        name: 'READ_ROOM_ALERTS',
+        description: 'Read recent messages from a crucible room',
+        category: 'communication',
+        parameters: [
+          { name: 'room', type: 'string', description: 'Room name to read from', required: true },
+          { name: 'hours', type: 'number', description: 'Hours to look back (default 24)', required: false },
+          { name: 'after', type: 'number', description: 'Only return messages after this timestamp (ms). Auto-set from previousTick for deduplication.', required: false },
+        ],
+      },
+      {
+        name: 'SEARCH_DISCUSSIONS',
+        description: 'Search GitHub Discussions for existing posts',
+        category: 'reporting',
+        parameters: [
+          { name: 'query', type: 'string', description: 'Search query', required: true },
+        ],
+      },
+      {
+        name: 'POST_GITHUB_DISCUSSION',
+        description: 'Create a GitHub Discussion (falls back to room if GitHub unavailable)',
+        category: 'reporting',
+        parameters: [
+          { name: 'title', type: 'string', description: 'Discussion title', required: true },
+          { name: 'body', type: 'string', description: 'Discussion body in markdown', required: true },
+        ],
+      },
+      {
+        name: 'GET_INFRA_HEALTH',
+        description: 'Probe DWS and inference node endpoints to get real infrastructure health data',
+        category: 'monitoring',
+        parameters: [],
+      },
+      {
+        name: 'GET_INFRA_STATUS',
+        description: 'Probe all infrastructure endpoints AND evaluate thresholds. Returns status (HEALTHY/DEGRADED/CRITICAL) with alerts.',
+        category: 'monitoring',
+        parameters: [],
+      },
+      {
+        name: 'GENERATE_DAILY_DIGEST',
+        description: 'Read room alerts, calculate trends, and post daily health digest to GitHub Discussions. Returns POSTED, SKIPPED_DUPLICATE, or NO_DATA.',
+        category: 'reporting',
+        parameters: [],
+      },
+    )
+
+    // DEBUG: Log final actions list to verify capability gating worked
+    log.debug('[ACTION_FILTER] Final available actions', {
+      count: actions.length,
+      actions: actions.map(a => a.name),
+      byCategory: actions.reduce((acc, a) => {
+        acc[a.category] = (acc[a.category] || 0) + 1
+        return acc
+      }, {} as Record<string, number>),
+    })
+
     return actions
   }
 
@@ -979,13 +1635,19 @@ export class AutonomousAgentRunner {
     )
     parts.push('')
 
-    // Archetype-specific instructions
-    // Reserved for future archetype-specific prompts (watcher, auditor, etc.)
-    if (config.archetype) {
-      // Placeholder for future archetype prompts
+    if (config.chainId) {
+      const chain = getChainConfig(config.chainId)
+      if (chain) {
+        parts.push('## Your Configuration')
+        parts.push(`Chain: ${chain.displayName} (ID: ${chain.chainId})`)
+        parts.push(`Explorer: ${chain.explorerUrl}`)
+        if (config.postToRoom) {
+          parts.push(`Post discoveries to: ${config.postToRoom}`)
+        }
+        parts.push('')
+      }
     }
 
-    // Goals
     if (context.pendingGoals.length > 0) {
       parts.push('## Current Goals')
       for (const goal of context.pendingGoals) {
@@ -1006,7 +1668,24 @@ export class AutonomousAgentRunner {
       parts.push('')
     }
 
+    if (config.watchRoom || config.postToRoom) {
+      parts.push('## Room Configuration')
+      if (config.watchRoom) {
+        parts.push(`- Watch room: ${config.watchRoom}`)
+      }
+      if (config.postToRoom) {
+        parts.push(`- Post room: ${config.postToRoom}`)
+      }
+      parts.push('')
+    }
+
     // Available actions
+    // DEBUG: Log actions being added to prompt
+    log.debug('[PROMPT_BUILD] Adding actions to prompt', {
+      actionCount: context.availableActions.length,
+      actionNames: context.availableActions.map(a => a.name),
+    })
+
     parts.push('## Available Actions')
     for (const action of context.availableActions) {
       parts.push(`- ${action.name}: ${action.description}`)
@@ -1051,11 +1730,58 @@ export class AutonomousAgentRunner {
     actionName: string,
     params: Record<string, string>,
     trajectoryId: string | null,
-  ): Promise<{ success: boolean; error?: string; result?: JsonValue }> {
+  ): Promise<{ success: boolean; error?: string; result?: unknown }> {
+    const upperName = actionName.toUpperCase()
+
+    if (upperName === 'READ_ROOM_ALERTS' && !params.room) {
+      const defaultRoom = agent.config.watchRoom ?? agent.config.postToRoom
+      if (defaultRoom) {
+        params.room = defaultRoom
+      }
+    }
+
+    // Use previousTick for READ_ROOM_ALERTS to avoid duplicate processing
+    if (upperName === 'READ_ROOM_ALERTS' && !params.after && agent.previousTick > 0) {
+      params.after = String(agent.previousTick)
+    }
+
+    // Inject chain config into POLL_BLOCKSCOUT params
+    if (upperName === 'POLL_BLOCKSCOUT') {
+      log.info('POLL_BLOCKSCOUT action called', {
+        agentId: agent.config.agentId,
+        hasChainId: !!agent.config.chainId,
+        chainId: agent.config.chainId ?? null,
+      })
+      if (agent.config.chainId) {
+        const chain = getChainConfig(agent.config.chainId)
+        if (chain) {
+          log.info('Injecting chain config', {
+            chainId: agent.config.chainId,
+            chain: chain.displayName,
+            explorerUrl: chain.explorerUrl,
+          })
+          params.blockscoutUrl = chain.explorerUrl
+          params.chainName = chain.displayName
+          params.explorerType = chain.explorerType
+        }
+      } else {
+        log.warn('POLL_BLOCKSCOUT called but agent has no chainId configured', {
+          agentId: agent.config.agentId,
+        })
+      }
+    }
+
     log.info('Executing action', {
       agentId: agent.config.agentId,
       action: actionName,
       params,
+    })
+
+    // DEBUG: Log params being passed to runtime.executeAction
+    log.debug('[EXECUTE_ACTION] Calling runtime.executeAction', {
+      agentId: agent.config.agentId,
+      actionName,
+      params: JSON.stringify(params, null, 2),
     })
 
     // Record action attempt
@@ -1139,11 +1865,7 @@ export class AutonomousAgentRunner {
       ...(result.error && { error: result.error }),
     })
 
-    return {
-      success: result.success,
-      error: result.error,
-      result: result.result,
-    }
+    return { success: result.success, error: result.error, result: result.result }
   }
 
   private getActionCategory(actionName: string): string {
@@ -1171,6 +1893,13 @@ export class AutonomousAgentRunner {
     ) {
       return 'compute'
     }
+    if (
+      upperName.includes('UPLOAD') ||
+      upperName.includes('RETRIEVE') ||
+      upperName.includes('PIN')
+    ) {
+      return 'storage'
+    }
     return 'general'
   }
 
@@ -1189,6 +1918,8 @@ export class AutonomousAgentRunner {
         return capabilities.a2a === true
       case 'compute':
         return capabilities.compute === true
+      case 'storage':
+        return capabilities.canStore === true
       default:
         return capabilities.canChat === true
     }

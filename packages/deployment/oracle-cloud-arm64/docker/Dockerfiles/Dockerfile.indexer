@@ -1,0 +1,258 @@
+# Indexer - Blockchain Indexer (ARM64)
+# Uses CommonJS compilation for reliable TypeORM decorator metadata support
+
+FROM oven/bun:1.3 AS builder
+
+WORKDIR /app
+
+# Copy workspace files
+COPY package.json bun.lock tsconfig.base.json ./
+COPY patches/ ./patches/
+COPY packages/config/package.json ./packages/config/
+COPY packages/types/package.json ./packages/types/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/db/package.json ./packages/db/
+COPY packages/kms/package.json ./packages/kms/
+COPY packages/contracts/package.json ./packages/contracts/
+COPY packages/sqlit/package.json ./packages/sqlit/
+COPY packages/cache/package.json ./packages/cache/
+COPY apps/indexer/package.json ./apps/indexer/
+
+# Install dependencies
+RUN bun install --ignore-scripts || true
+
+# Copy source files
+COPY packages ./packages
+COPY apps/indexer ./apps/indexer
+
+# Create workspace symlinks for build-time resolution
+RUN mkdir -p node_modules/@jejunetwork && \
+    ln -sf ../../packages/config node_modules/@jejunetwork/config && \
+    ln -sf ../../packages/types node_modules/@jejunetwork/types && \
+    ln -sf ../../packages/shared node_modules/@jejunetwork/shared && \
+    ln -sf ../../packages/db node_modules/@jejunetwork/db && \
+    ln -sf ../../packages/kms node_modules/@jejunetwork/kms && \
+    ln -sf ../../packages/contracts node_modules/@jejunetwork/contracts && \
+    ln -sf ../../packages/sqlit node_modules/@jejunetwork/sqlit && \
+    ln -sf ../../packages/cache node_modules/@jejunetwork/cache
+
+# Create CommonJS tsconfig for all packages
+RUN cat > /tmp/tsconfig.cjs.json << 'TSCONFIG'
+{
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": ".",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "target": "ES2020",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "strict": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "resolveJsonModule": true
+  },
+  "include": ["*.ts", "**/*.ts"],
+  "exclude": ["node_modules", "dist", "*.test.ts", "**/*.test.ts"]
+}
+TSCONFIG
+
+# Build workspace packages with CommonJS (order matters)
+# Each package: compile to CommonJS, add package.json to dist, patch exports
+RUN cd packages/types && \
+    cp /tmp/tsconfig.cjs.json tsconfig.cjs.json && \
+    bunx tsc -p tsconfig.cjs.json 2>/dev/null || true && \
+    echo '{"type": "commonjs"}' > dist/package.json
+
+RUN cd packages/config && \
+    cp /tmp/tsconfig.cjs.json tsconfig.cjs.json && \
+    bunx tsc -p tsconfig.cjs.json 2>/dev/null || true && \
+    cp branding.json contracts.json cross-chain.json eil.json federation.json moderation.json poc.json services.json tokens.json vendor-apps.json dist/ 2>/dev/null || true && \
+    cp -r chain dist/ 2>/dev/null || true && \
+    mkdir -p dist/chainlink && cp chainlink/*.json dist/chainlink/ 2>/dev/null || true && \
+    echo '{"type": "commonjs"}' > dist/package.json
+
+RUN cd packages/contracts && (bun run build 2>/dev/null || true)
+
+RUN cd packages/db && \
+    cp /tmp/tsconfig.cjs.json tsconfig.cjs.json && \
+    bunx tsc -p tsconfig.cjs.json 2>/dev/null || true && \
+    echo '{"type": "commonjs"}' > dist/package.json
+
+RUN cd packages/shared && \
+    cp /tmp/tsconfig.cjs.json tsconfig.cjs.json && \
+    bunx tsc -p tsconfig.cjs.json 2>/dev/null || true && \
+    echo '{"type": "commonjs"}' > dist/package.json
+
+RUN cd packages/kms && \
+    cp /tmp/tsconfig.cjs.json tsconfig.cjs.json && \
+    bunx tsc -p tsconfig.cjs.json 2>/dev/null || true && \
+    echo '{"type": "commonjs"}' > dist/package.json
+
+RUN cd packages/sqlit && \
+    cp /tmp/tsconfig.cjs.json tsconfig.cjs.json && \
+    bunx tsc -p tsconfig.cjs.json 2>/dev/null || true && \
+    echo '{"type": "commonjs"}' > dist/package.json
+
+RUN cd packages/cache && \
+    cp /tmp/tsconfig.cjs.json tsconfig.cjs.json && \
+    bunx tsc -p tsconfig.cjs.json 2>/dev/null || true && \
+    echo '{"type": "commonjs"}' > dist/package.json
+
+# Override package.json files with explicit CommonJS exports
+# Types package - outputs to dist/src/ due to rootDir compilation
+RUN echo '{"name":"@jejunetwork/types","version":"0.1.0","main":"./dist/src/index.js","exports":{".":"./dist/src/index.js","./indexer":"./dist/src/indexer.js","./names":"./dist/src/names.js","./oif":"./dist/src/oif.js","./eil":"./dist/src/eil.js"}}' > packages/types/package.json
+
+# Config package - outputs to dist/ directly, needs contracts symlink
+RUN echo '{"name":"@jejunetwork/config","version":"0.1.0","main":"./dist/index.js","exports":{".":"./dist/index.js","./ports":"./dist/ports.js","./json-loader":"./dist/json-loader.js","./chainlink":"./dist/chainlink/index.js","./test-config":"./dist/test-config.js"}}' > packages/config/package.json && \
+    ln -sf /app/packages/contracts /app/packages/config/contracts
+
+# DB package
+RUN echo '{"name":"@jejunetwork/db","version":"0.1.0","main":"./dist/index.js","exports":{".":"./dist/index.js","./adapters":"./dist/adapters/index.js"}}' > packages/db/package.json
+
+# Shared package
+RUN echo '{"name":"@jejunetwork/shared","version":"0.1.0","main":"./dist/index.js","exports":{".":"./dist/index.js"}}' > packages/shared/package.json
+
+# KMS package
+RUN echo '{"name":"@jejunetwork/kms","version":"0.1.0","main":"./dist/index.js","exports":{".":"./dist/index.js"}}' > packages/kms/package.json
+
+# SQLit package
+RUN echo '{"name":"@jejunetwork/sqlit","version":"0.1.0","main":"./dist/index.js","exports":{".":"./dist/index.js"}}' > packages/sqlit/package.json
+
+# Cache package
+RUN echo '{"name":"@jejunetwork/cache","version":"0.1.0","main":"./dist/index.js","exports":{".":"./dist/index.js"}}' > packages/cache/package.json
+
+WORKDIR /app/apps/indexer
+
+# Run codegen if schema exists
+RUN bun x @subsquid/commands codegen 2>/dev/null || true
+
+# Step 1: Run build.ts first - it handles ESM compilation + frontend build
+# (build.ts deletes lib/ and recompiles with default ESM config)
+RUN bun run scripts/build.ts 2>&1 | grep -E "(Frontend|Bundle|Error|complete)" || true
+
+# Step 2: Create CommonJS tsconfig and RECOMPILE backend with CommonJS
+# This overwrites the ESM output from build.ts while preserving dist/
+RUN cat > tsconfig.docker.json << 'TSCONFIG'
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "lib",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "target": "ES2020",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": true,
+    "jsx": "react-jsx",
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
+  },
+  "include": ["api", "src"],
+  "exclude": ["node_modules", "dist", "web"]
+}
+TSCONFIG
+
+# Recompile with CommonJS (overwrites ESM output but preserves dist/ for frontend)
+RUN bunx tsc -p tsconfig.docker.json 2>&1 | tail -50 || true
+
+# CRITICAL: Create lib/model as symlink to lib/src/model so they share same class instances
+# This ensures entities imported by main.js (from ../src/model) are the SAME as what
+# TypeORM loads (from lib/model). Without this, TypeORM creates separate class instances
+# and throws "No metadata for Entity was found" errors.
+RUN rm -rf lib/model && ln -sf src/model lib/model
+
+# Run post-build fixes (circular imports, etc)
+RUN bun scripts/post-build.ts 2>/dev/null || true
+
+# Add package.json to lib/ to force CommonJS mode
+RUN echo '{"type": "commonjs"}' > lib/package.json
+
+# Verify CommonJS compilation
+RUN echo "--- Checking lib/api/main.js first lines (should have require, not import) ---" && \
+    head -10 lib/api/main.js 2>/dev/null || echo "Warning: lib/api/main.js not found"
+RUN cat lib/package.json
+
+# Production stage - use Node.js for CommonJS runtime
+FROM node:20-slim
+
+WORKDIR /app
+
+COPY --from=builder /app/package.json /app/
+COPY --from=builder /app/tsconfig.base.json /app/
+COPY --from=builder /app/node_modules /app/node_modules
+COPY --from=builder /app/packages /app/packages
+COPY --from=builder /app/apps/indexer /app/apps/indexer
+
+WORKDIR /app/apps/indexer
+
+# Create workspace symlinks (path: node_modules/@jejunetwork/X -> ../../../../packages/X)
+RUN mkdir -p node_modules/@jejunetwork && \
+    ln -sf ../../../../packages/config node_modules/@jejunetwork/config && \
+    ln -sf ../../../../packages/types node_modules/@jejunetwork/types && \
+    ln -sf ../../../../packages/shared node_modules/@jejunetwork/shared && \
+    ln -sf ../../../../packages/db node_modules/@jejunetwork/db && \
+    ln -sf ../../../../packages/kms node_modules/@jejunetwork/kms && \
+    ln -sf ../../../../packages/contracts node_modules/@jejunetwork/contracts && \
+    ln -sf ../../../../packages/sqlit node_modules/@jejunetwork/sqlit && \
+    ln -sf ../../../../packages/cache node_modules/@jejunetwork/cache
+
+# Create symlinks for backwards compatibility
+RUN mkdir -p /squid && \
+    ln -sf /app/apps/indexer/api /squid/api && \
+    ln -sf /app/apps/indexer/src /squid/src && \
+    ln -sf /app/node_modules /squid/node_modules
+
+# Create non-root user
+RUN groupadd -g 1001 squid && \
+    useradd -u 1001 -g squid squid && \
+    chown -R squid:squid /app /squid
+
+USER squid
+
+EXPOSE 4350 4351 4352 4353
+
+ENV MODE=processor \
+    DB_HOST=localhost \
+    DB_PORT=5432 \
+    DB_NAME=indexer \
+    DB_USER=postgres \
+    DB_PASS=postgres \
+    GQL_PORT=4350 \
+    REST_PORT=4352 \
+    A2A_PORT=4351
+
+# Custom entrypoint - CommonJS doesn't need ESM workarounds
+COPY --chown=squid:squid <<'EOF' /entrypoint.sh
+#!/bin/sh
+set -e
+MODE="${1:-${MODE:-processor}}"
+echo "Starting indexer in ${MODE} mode"
+
+# CommonJS entry - reflect-metadata imported at top of init.js
+case "$MODE" in
+  processor) exec node -r reflect-metadata lib/api/main.js ;;
+  api) exec node -r reflect-metadata lib/api/api-server.js ;;
+  graphql) exec npx sqd serve ;;
+  full)
+    npx sqd serve &
+    node -r reflect-metadata lib/api/api-server.js &
+    exec node -r reflect-metadata lib/api/main.js
+    ;;
+  *) echo "Modes: processor, api, graphql, full" && exit 1 ;;
+esac
+EOF
+
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
+# CMD is not set - uses MODE env var (default: processor, can be set to: api, graphql, full)

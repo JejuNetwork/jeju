@@ -10,6 +10,17 @@ Solvers earn by monitoring for pending intents, filling intents on the destinati
 
 Minimum stake is 0.5 ETH. You need liquidity (tokens) on destination chains and a bot to monitor and fill intents.
 
+:::note[Localnet Setup]
+The SolverRegistry is not deployed by default on localnet. To test solver functionality locally, first deploy the OIF (Omni Intent Framework) contracts:
+
+```bash
+cd packages/contracts
+forge script script/DeployOIF.s.sol:DeployOIF --rpc-url http://127.0.0.1:6546 --broadcast
+```
+
+Contract addresses will be output and saved to `deployments/localnet.json`.
+:::
+
 ## Earnings
 
 Solvers earn from the spread (user slippage tolerance). First to fill wins in competitive filling.

@@ -8,6 +8,8 @@
 import type { JsonRecord, TEEAttestation } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 
+export type { JsonRecord, TEEAttestation }
+
 export const AuthProvider = {
   WALLET: 'wallet',
   PASSKEY: 'passkey',

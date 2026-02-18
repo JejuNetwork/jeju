@@ -5,14 +5,19 @@ Run a complete Jeju environment locally for development.
 ## Quick Start
 
 ```bash
+# Install dependencies (macOS)
 brew install --cask docker
 brew install kurtosis-tech/tap/kurtosis
 curl -fsSL https://bun.sh/install | bash
+curl -L https://foundry.paradigm.xyz | bash && foundryup
 
-cd jeju
+# Clone and run
+git clone https://github.com/JejuNetwork/jeju && cd jeju
 bun install
 bun run dev
 ```
+
+First run takes 5-10 minutes to download images and compile contracts.
 
 ## What Starts
 
@@ -110,3 +115,130 @@ forge script script/DeployMyContract.s.sol \
 3. Test in browser at http://127.0.0.1:4001
 4. Run tests with `bun run test`
 5. Stop with `Ctrl+C` or `bun run localnet:stop`
+
+## Frontend Applications
+
+The localnet includes optional web UIs for interacting with the network:
+
+| App | Port | Description |
+|-----|------|-------------|
+| **Wallet** | 4015 | Web-based crypto wallet for sending/receiving tokens, signing transactions, managing NFTs, and connecting to dApps via WalletConnect |
+| **Node Dashboard** | 1420 | UI for node operators to monitor validator/sequencer status, view earnings, manage staking, and configure node settings |
+
+These are Vite dev servers that start automatically with `bun run dev`. To start them manually:
+
+```bash
+# Wallet UI
+cd apps/wallet && bun run dev
+
+# Node Dashboard
+cd apps/node && bun run dev
+```
+
+## Remote Server Access
+
+When running on a remote server (e.g., Oracle Cloud), services bind to localhost. Use SSH port forwarding to access them from your local machine:
+
+```bash
+# Run on your LOCAL machine (not the server)
+ssh -L 1420:127.0.0.1:1420 \
+    -L 4007:127.0.0.1:4007 \
+    -L 4013:127.0.0.1:4013 \
+    -L 4015:127.0.0.1:4015 \
+    -L 6546:127.0.0.1:6546 \
+    ubuntu@YOUR_SERVER_IP
+
+# Then open in your browser:
+#   Node Dashboard: http://localhost:1420
+#   Wallet:         http://localhost:4015
+#   Bazaar API:     http://localhost:4007
+#   L2 RPC:         http://localhost:6546
+```
+
+For production, configure nginx or Caddy as a reverse proxy with SSL.
+
+## Localnet vs Testnet/Mainnet
+
+| Command | Environment | Use Case |
+|---------|-------------|----------|
+| `bun run dev` | Localnet | Development - runs everything locally with Kurtosis |
+| `jeju deploy --network testnet` | Testnet | Staging - deploys to public testnet |
+| `jeju deploy --network mainnet` | Mainnet | Production - deploys with multi-sig safety |
+
+The `bun run dev` command:
+- Starts L1 + L2 chains locally via Kurtosis
+- Deploys all contracts automatically
+- Starts all backend services
+- Starts frontend dev servers
+
+The `jeju deploy` command:
+- Connects to existing networks (testnet/mainnet)
+- Deploys contracts with verification
+- Deploys apps to cloud infrastructure
+
+## ARM64 Deployment (Apple Silicon / Oracle Cloud ARM)
+
+Solidity compiler binaries are x86_64 only. On ARM64 systems, compilation requires x86_64 emulation which is very slow (30+ minutes for initial build).
+
+### Oracle Cloud ARM64 Instance
+
+Oracle Cloud offers free ARM64 instances (Ampere A1) with up to 24GB RAM. For easier provisioning:
+
+1. Enable "Pay As You Go" upgrade in your Oracle Cloud account (Billing > Upgrade)
+2. This increases instance availability without requiring immediate payment
+3. Recommended: 4 OCPUs, 24GB RAM, 100GB boot volume
+4. Ubuntu 22.04 minimal image works well
+
+**Note**: For a single-server deployment, you don't need Terraform or Kubernetes. Those tools are for multi-server production deployments. The OCI console or CLI is sufficient for provisioning one VM.
+
+### Option 1: Use Pre-built Contracts (Recommended)
+
+Download pre-compiled contract artifacts to skip compilation:
+
+```bash
+# Download pre-built artifacts
+curl -L https://objectstorage.us-sanjose-1.oraclecloud.com/n/axhupkjmbqfj/b/jeju-images/o/docker/jeju-contracts-prebuilt-v0.8.33.tar.gz \
+  -o jeju-contracts-prebuilt.tar.gz
+
+# Load Docker image
+docker load < jeju-contracts-prebuilt.tar.gz
+
+# Copy artifacts to your project
+docker run --rm -v $(pwd)/packages/contracts:/target jeju-contracts-prebuilt:v0.8.33 \
+  sh -c "cp -r /contracts/out /target/ && cp -r /contracts/cache /target/"
+
+# Now run dev (skips compilation)
+bun run dev
+```
+
+### Option 2: Enable x86_64 Emulation
+
+Install QEMU for x86_64 emulation (slow but works):
+
+```bash
+# Ubuntu/Debian
+sudo apt install -y qemu-user-static
+
+# Install solc-select
+pipx install solc-select
+solc-select install 0.8.33
+solc-select use 0.8.33
+
+# Configure Foundry to use system solc
+# Edit packages/contracts/foundry.toml:
+# solc = "/home/ubuntu/.solc-select/artifacts/solc-0.8.33/solc-0.8.33"
+```
+
+### Option 3: Cross-compile on x86_64
+
+Build contracts on an x86_64 machine and copy artifacts:
+
+```bash
+# On x86_64 machine
+cd packages/contracts && forge build
+tar -czf contracts-out.tar.gz out cache
+
+# Copy to ARM64 machine and extract
+scp contracts-out.tar.gz arm64-server:~/jeju/packages/contracts/
+ssh arm64-server "cd ~/jeju/packages/contracts && tar -xzf contracts-out.tar.gz"
+```

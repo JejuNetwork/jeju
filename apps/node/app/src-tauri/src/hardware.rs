@@ -1,6 +1,7 @@
-//! Hardware detection for GPUs, CPUs, TEE capabilities
+//! Hardware detection for GPUs, CPUs, TEE capabilities, Docker
 
 use serde::{Deserialize, Serialize};
+use std::process::Command;
 use sysinfo::{Disks, Networks, System};
 
 /// GPU information
@@ -72,6 +73,16 @@ pub struct TeeCapabilities {
     pub sgx_version: Option<String>,
 }
 
+/// Docker information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DockerInfo {
+    pub available: bool,
+    pub version: Option<String>,
+    pub runtime_available: bool,
+    pub gpu_support: bool,
+    pub images: Vec<String>,
+}
+
 /// Complete hardware information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HardwareInfo {
@@ -84,6 +95,7 @@ pub struct HardwareInfo {
     pub storage: Vec<StorageInfo>,
     pub network: Vec<NetworkInterfaceInfo>,
     pub tee: TeeCapabilities,
+    pub docker: DockerInfo,
 }
 
 /// Service requirements
@@ -123,6 +135,7 @@ impl HardwareDetector {
             storage: self.detect_storage(),
             network: self.detect_network(),
             tee: self.detect_tee(),
+            docker: self.detect_docker(),
         }
     }
 
@@ -168,7 +181,7 @@ impl HardwareDetector {
     }
 
     fn detect_gpus(&self) -> Vec<GpuInfo> {
-        let gpus = Vec::new();
+        let mut gpus = Vec::new();
 
         #[cfg(feature = "nvidia")]
         {
@@ -288,7 +301,7 @@ impl HardwareDetector {
     }
 
     fn detect_tee(&self) -> TeeCapabilities {
-        let caps = TeeCapabilities {
+        let mut caps = TeeCapabilities {
             has_intel_tdx: false,
             has_intel_sgx: false,
             has_amd_sev: false,
@@ -359,6 +372,71 @@ impl HardwareDetector {
         }
 
         caps
+    }
+
+    fn detect_docker(&self) -> DockerInfo {
+        let mut info = DockerInfo {
+            available: false,
+            version: None,
+            runtime_available: false,
+            gpu_support: false,
+            images: Vec::new(),
+        };
+
+        // Check if docker command exists and get version
+        if let Ok(output) = Command::new("docker").args(["--version"]).output() {
+            if output.status.success() {
+                info.available = true;
+                if let Ok(version_str) = String::from_utf8(output.stdout) {
+                    // Parse "Docker version 24.0.5, build ced0996"
+                    if let Some(ver) = version_str.strip_prefix("Docker version ") {
+                        if let Some(ver) = ver.split(',').next() {
+                            info.version = Some(ver.trim().to_string());
+                        }
+                    }
+                }
+            }
+        }
+
+        // Check if Docker daemon is running (runtime available)
+        if info.available {
+            if let Ok(output) = Command::new("docker").args(["info"]).output() {
+                info.runtime_available = output.status.success();
+            }
+        }
+
+        // Check for GPU support (nvidia-docker / nvidia-container-toolkit)
+        if info.runtime_available {
+            if let Ok(output) = Command::new("docker")
+                .args(["info", "--format", "{{.Runtimes}}"])
+                .output()
+            {
+                if output.status.success() {
+                    let runtimes = String::from_utf8_lossy(&output.stdout);
+                    info.gpu_support = runtimes.contains("nvidia");
+                }
+            }
+        }
+
+        // Get list of images (just names, limit to first 20)
+        if info.runtime_available {
+            if let Ok(output) = Command::new("docker")
+                .args(["images", "--format", "{{.Repository}}:{{.Tag}}"])
+                .output()
+            {
+                if output.status.success() {
+                    let images_str = String::from_utf8_lossy(&output.stdout);
+                    info.images = images_str
+                        .lines()
+                        .take(20)
+                        .filter(|s| !s.is_empty() && !s.contains("<none>"))
+                        .map(|s| s.to_string())
+                        .collect();
+                }
+            }
+        }
+
+        info
     }
 
     /// Check if hardware meets requirements for a service

@@ -305,7 +305,7 @@ export default {
           service: 'jeju-board',
           version: '1.0.0',
           runtime: 'workerd',
-          network: env.NETWORK ?? 'testnet',
+          network: env.NETWORK ?? getCurrentNetwork(),
           features: ['dao', 'governance', 'voting'],
           timestamp: new Date().toISOString(),
         }),
@@ -333,6 +333,15 @@ export async function startAutocratServer(): Promise<void> {
     NETWORK: getCurrentNetwork() as AutocratNetwork,
     TEE_MODE: getTEEMode(),
   })
+
+  // Graceful shutdown - cleanup agent runtimes
+  const shutdown = async () => {
+    console.log('[Autocrat] Shutting down gracefully...')
+    await autocratAgentRuntime.shutdown()
+    process.exit(0)
+  }
+  process.on('SIGTERM', shutdown)
+  process.on('SIGINT', shutdown)
 
   console.log(
     `[Autocrat] API port=${port} tee=${getTEEMode()} trigger=${triggerMode}`,

@@ -1443,7 +1443,6 @@ export class DAOService {
     const gasLimit = (gasEstimate * 12n) / 10n
 
     const hash = await this.walletClient.writeContract({
-      account,
       ...simulation.request,
       gas: gasLimit,
     })
@@ -2160,20 +2159,14 @@ export async function getOrCreateDAOService(
       }
 
       if (isAddress(operatorKey)) {
-        const service = await DAOService.create({
-          ...config,
-          operatorAddress: operatorKey,
-        })
+        const service = await DAOService.create(config, operatorKey)
         return service
       }
     }
 
     const { getOperatorSigner } = await import('./secrets')
     const signer = await getOperatorSigner()
-    const service = await DAOService.create({
-      ...config,
-      operatorAddress: signer.getAddress(),
-    })
+    const service = await DAOService.create(config, signer.getAddress())
     return service
   })()
 

@@ -1,7 +1,8 @@
 [submodule "contracts/lib/account-abstraction"]
 	path = contracts/lib/account-abstraction
 	url = https://github.com/eth-infinitism/account-abstraction
-	
+	branch = v0.9.0
+
 [submodule "contracts/lib/chainlink"]
 	path = contracts/lib/chainlink
 	url = https://github.com/smartcontractkit/chainlink
@@ -37,6 +38,7 @@
 [submodule "packages/contracts/lib/account-abstraction"]
 	path = packages/contracts/lib/account-abstraction
 	url = https://github.com/eth-infinitism/account-abstraction
+	branch = v0.9.0
 
 [submodule "packages/contracts/lib/optimism"]
 	path = packages/contracts/lib/optimism

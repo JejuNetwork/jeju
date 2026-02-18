@@ -22,7 +22,6 @@ import {
   ProjectsQuerySchema,
   UpdateTaskBodySchema,
 } from '../schemas'
-import * as farcasterService from '../services/farcaster'
 import { requireAuth } from '../validation/access-control'
 
 export type { Project, ProjectTask }
@@ -70,7 +69,18 @@ async function getTaskStats(projectId: string): Promise<TaskStats> {
   }
 }
 
-export const projectsRoutes = new Elysia({ prefix: '/api/projects' })
+let farcasterServicePromise:
+  | Promise<typeof import('../services/farcaster')>
+  | null = null
+
+function getFarcasterService(): Promise<typeof import('../services/farcaster')> {
+  if (!farcasterServicePromise) {
+    farcasterServicePromise = import('../services/farcaster')
+  }
+  return farcasterServicePromise
+}
+
+export const projectsRoutesCore = new Elysia({ prefix: '/api/projects' })
   .get(
     '/',
     async ({ query }) => {
@@ -219,6 +229,8 @@ export const projectsRoutes = new Elysia({ prefix: '/api/projects' })
     },
     { detail: { tags: ['projects'], summary: 'Update task' } },
   )
+
+export const projectsFarcasterRoutes = new Elysia({ prefix: '/api/projects' })
   // ============================================================================
   // PROJECT FARCASTER CHANNEL
   // ============================================================================
@@ -375,6 +387,7 @@ export const projectsRoutes = new Elysia({ prefix: '/api/projects' })
       let viewerFid: number | undefined
       if (authHeader?.startsWith('Bearer ')) {
         const address = authHeader.slice(7) as Address
+        const farcasterService = await getFarcasterService()
         const link = await farcasterService.getLinkedFid(address)
         if (link) {
           viewerFid = link.fid
@@ -384,6 +397,7 @@ export const projectsRoutes = new Elysia({ prefix: '/api/projects' })
       const limit = query.limit ? parseInt(query.limit as string, 10) : 20
       const cursor = query.cursor as string | undefined
 
+      const farcasterService = await getFarcasterService()
       const feed = await farcasterService.getChannelFeed(channel.channel_id, {
         limit,
         cursor,

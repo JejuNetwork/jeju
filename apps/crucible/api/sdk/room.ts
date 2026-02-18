@@ -60,8 +60,8 @@ const ROOM_REGISTRY_ABI = parseAbi([
   'function getMembers(uint256 roomId) external view returns (uint256[], uint8[])',
   'function getMember(uint256 roomId, uint256 agentId) external view returns ((uint256 agentId, uint8 role, int256 score, uint256 joinedAt, uint256 lastActiveAt, uint256 messageCount, bool active))',
   'function setPhase(uint256 roomId, uint8 phase) external',
-  'function nextRoomId() external view returns (uint256)',
   'function rooms(uint256 roomId) external view returns (uint256 roomId, address owner, string name, string description, string stateCid, uint8 roomType, uint8 phase, uint256 maxMembers, bool turnBased, uint256 turnTimeout, uint256 createdAt, uint256 updatedAt, bool active)',
+  'function nextRoomId() external view returns (uint256)',
   'event RoomCreated(uint256 indexed roomId, address owner, string name)',
   'event MemberJoined(uint256 indexed roomId, uint256 indexed agentId, uint8 role)',
   'event StateUpdated(uint256 indexed roomId, string stateCid)',
@@ -87,6 +87,7 @@ export class RoomSDK {
     this.config = sdkConfig.crucibleConfig
     this.storage = sdkConfig.storage
     this.publicClient = sdkConfig.publicClient
+    this.kmsSigner = sdkConfig.kmsSigner
     this.kmsSigner = sdkConfig.kmsSigner
     this.log = sdkConfig.logger ?? createLogger('RoomSDK')
   }
@@ -196,9 +197,8 @@ export class RoomSDK {
     // For now, we'll iterate through room IDs and filter
     // In production, this would use an indexer/subgraph
     const rooms: Room[] = []
+    let roomId = 1n
     let total = 0
-    const maxIterations = 1000 // Safety limit
-
     const nextRoomId = (await this.publicClient.readContract({
       address: this.config.contracts.roomRegistry,
       abi: ROOM_REGISTRY_ABI,
@@ -209,12 +209,7 @@ export class RoomSDK {
       return { items: [], total: 0, hasMore: false }
     }
 
-    const lastRoomId = nextRoomId - 1n
-    const maxRoomId =
-      lastRoomId > BigInt(maxIterations) ? BigInt(maxIterations) : lastRoomId
-    let roomId = 1n
-
-    while (rooms.length < limit + offset && roomId <= maxRoomId) {
+    while (rooms.length < limit + offset && roomId < nextRoomId) {
       const room = await this.getRoom(roomId)
       roomId++
 

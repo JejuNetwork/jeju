@@ -1,0 +1,32 @@
+{
+  "_comment": "UPDATE genesis.l1.hash and genesis.l2.hash after L1 starts! Run scripts/init-genesis.sh",
+  "genesis": {
+    "l1": {
+      "hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "number": 0
+    },
+    "l2": {
+      "hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "number": 0
+    },
+    "l2_time": 0,
+    "system_config": {
+      "batcherAddr": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+      "overhead": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "scalar": "0x00000000000000000000000000000000000000000000000000000000000f4240",
+      "gasLimit": 60000000
+    }
+  },
+  "block_time": 2,
+  "max_sequencer_drift": 600,
+  "seq_window_size": 3600,
+  "channel_timeout": 300,
+  "l1_chain_id": 1337,
+  "l2_chain_id": 2151908,
+  "regolith_time": 0,
+  "canyon_time": 0,
+  "delta_time": 0,
+  "batch_inbox_address": "0xff0000000000000000000000000000000020d5e4",
+  "deposit_contract_address": "0xDeaDDEaDDeAdDeAdDEAdDEaddeAddEAdDEAd0001",
+  "l1_system_config_address": "0xDeaDDEaDDeAdDeAdDEAdDEaddeAddEAdDEAd0002"
+}

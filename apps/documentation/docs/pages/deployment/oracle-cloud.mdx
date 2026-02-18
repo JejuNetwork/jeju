@@ -1,0 +1,335 @@
+# Oracle Cloud Deployment
+
+Deploy Jeju L2 on Oracle Cloud's Always Free tier with ARM64 Ampere processors.
+
+## Oracle Cloud Free Tier
+
+This deployment runs on Oracle Cloud's **Always Free** resources:
+
+| Resource | Allocation | Cost |
+|----------|------------|------|
+| Compute | VM.Standard.A1.Flex (4 OCPU, 24 GB) | **FREE** |
+| Boot Storage | 200 GB block storage | **FREE** |
+| Network | 10 TB/month outbound | **FREE** |
+| Object Storage | ~$0.0255/GB/month for image export | ~$2.55/month |
+
+Sign up at: https://www.oracle.com/cloud/free/
+
+## Pre-built Image
+
+A working Jeju L2 image is available for quick deployment:
+
+**Public Download (QCOW2, 1.83 GB):**
+
+```
+https://objectstorage.us-sanjose-1.oraclecloud.com/n/axhupkjmbqfj/b/jeju-images/o/jeju-l2-arm64.qcow2
+```
+
+**Oracle Cloud Image OCID** (us-sanjose-1 region):
+
+```
+ocid1.image.oc1.us-sanjose-1.aaaaaaaa4mp76zw6gouybvxuqkuimznt4jfnylwn3xdaihshjflj5wcbilha
+```
+
+| Property | Value |
+|----------|-------|
+| Name | jeju-l2-working-20260126 |
+| Format | QCOW2 (ARM64) |
+| Size | 1.83 GB |
+| Shape | VM.Standard.A1.Flex |
+| OS | Ubuntu 24.04 |
+
+### Using the Pre-built Image
+
+**Option 1: Import QCOW2**
+
+```bash
+# Download
+wget https://objectstorage.us-sanjose-1.oraclecloud.com/n/axhupkjmbqfj/b/jeju-images/o/jeju-l2-arm64.qcow2
+
+# Convert to other formats if needed
+qemu-img convert -f qcow2 -O vmdk jeju-l2-arm64.qcow2 jeju-l2-arm64.vmdk
+```
+
+**Option 2: Use in Oracle Cloud**
+
+1. Go to **Compute** → **Custom Images**
+2. Find "jeju-l2-working-20260126"
+3. Click **Create Instance**
+4. Select shape: VM.Standard.A1.Flex (4 OCPU, 24 GB recommended)
+
+**After launching**, SSH in and start:
+
+```bash
+cd ~/oracle-cloud/docker
+docker compose up -d
+```
+
+## Manual Deployment
+
+### Step 1: Create VM Instance
+
+1. Log into Oracle Cloud Console
+2. Navigate to **Compute** → **Instances** → **Create Instance**
+3. Configure:
+   - Image: Ubuntu 24.04
+   - Shape: VM.Standard.A1.Flex
+   - OCPUs: 4 (or as needed)
+   - Memory: 24 GB (or as needed)
+4. Add SSH key for access
+5. Create instance
+
+### Step 2: Install Docker
+
+```bash
+ssh ubuntu@<your-instance-ip>
+
+# Install Docker
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER
+newgrp docker
+
+# Verify
+docker --version
+```
+
+### Step 3: Clone Configuration
+
+```bash
+git clone https://github.com/elizaos/jeju.git
+cd jeju/packages/deployment/oracle-cloud
+```
+
+### Step 4: Start L1
+
+```bash
+cd docker
+docker compose up -d l1-geth
+docker compose logs -f l1-geth  # Wait for "HTTP server started"
+```
+
+### Step 5: Initialize Genesis (Phase 1)
+
+```bash
+chmod +x ../scripts/init-genesis.sh
+../scripts/init-genesis.sh phase1
+```
+
+This updates `rollup.json` with the L1 genesis hash and timestamp.
+
+### Step 6: Start op-geth
+
+```bash
+docker compose up -d op-geth
+docker compose logs -f op-geth  # Wait for "HTTP server started"
+```
+
+### Step 7: Initialize Genesis (Phase 2)
+
+```bash
+../scripts/init-genesis.sh phase2
+```
+
+This updates `rollup.json` with the L2 genesis hash.
+
+### Step 8: Start op-node and op-batcher
+
+```bash
+docker compose up -d op-node op-batcher
+docker compose logs -f op-node
+```
+
+### Step 9: Verify L2 is Producing Blocks
+
+```bash
+curl -s localhost:9545 -X POST -H 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
+```
+
+Block number should increase every 2 seconds.
+
+## Full Stack Components
+
+### L2 Blockchain
+
+| Service | Version | Port | Description |
+|---------|---------|------|-------------|
+| L1 Geth | v1.14.12 | 8545 | Ethereum L1 (--dev mode) |
+| op-geth | latest | 9545 | L2 Execution Layer |
+| op-node | v1.11.0 | 7545 | L2 Consensus Layer |
+| op-batcher | latest | 6545 | Batch Submitter |
+
+### Jeju Applications
+
+| Service | Port | Description |
+|---------|------|-------------|
+| PostgreSQL | 5432 | Database for Indexer |
+| Indexer | 4350-4352 | Blockchain indexer (GraphQL, REST, A2A) |
+| DWS | 4030 | Decentralized Web Services coordinator |
+| Node | 4070 | Infrastructure provider |
+| Crucible | 4020-4022 | Agent orchestration platform |
+| Factory | 4008 | Developer coordination hub |
+| Gateway | 4001 | Bridge, staking, token registry |
+
+## Deploying Jeju Apps
+
+After the L2 stack is running, deploy the Jeju applications:
+
+### Step 1: Clone the Jeju Repository
+
+```bash
+cd ~
+git clone https://github.com/elizaos/jeju.git
+```
+
+### Step 2: Create ARM64 Dockerfiles
+
+Some apps need ARM64-compatible Dockerfiles:
+
+```bash
+# DWS - Remove amd64 platform and use arm64 workerd
+cat ~/jeju/apps/dws/Dockerfile | \
+  sed 's/--platform=linux\/amd64 //g' | \
+  sed 's/workerd-linux-64.gz/workerd-linux-arm64.gz/g' \
+  > ~/jeju/apps/dws/Dockerfile.arm64
+
+# Factory - Remove amd64 platform
+cat ~/jeju/apps/factory/Dockerfile | \
+  sed 's/--platform=linux\/amd64 //g' \
+  > ~/jeju/apps/factory/Dockerfile.arm64
+```
+
+### Step 3: Build and Start Apps
+
+```bash
+cd ~/oracle-cloud/docker
+
+# Start PostgreSQL first
+docker compose up -d postgres
+docker compose logs -f postgres  # Wait for "ready to accept connections"
+
+# Build and start apps (this takes time on ARM64)
+docker compose build indexer dws crucible node factory gateway
+docker compose up -d indexer dws crucible node factory gateway
+```
+
+### Step 4: Verify Services
+
+```bash
+# Check all services are running
+docker compose ps
+
+# Test endpoints
+curl http://localhost:4030/health  # DWS
+curl http://localhost:4350/graphql # Indexer GraphQL
+curl http://localhost:4020/health  # Crucible
+curl http://localhost:4001/api/health  # Gateway
+```
+
+## ARM64 Compatibility
+
+Oracle Cloud's free tier uses ARM64 (Ampere) processors:
+
+| Image | ARM64 Support |
+|-------|---------------|
+| op-geth | `:latest` tag |
+| op-node | `v1.11.0` or later |
+| op-batcher | `:latest` tag |
+| Alto Bundler | **No** - x86_64 only |
+
+For ERC-4337 bundler on ARM64, either:
+1. Use a separate x86_64 machine
+2. Build Alto from source for ARM64
+3. Use an alternative bundler
+
+## What to Run on L2 Node
+
+**Required on L2 Node:**
+- l1-geth (or external L1 connection)
+- op-geth
+- op-node
+- op-batcher
+
+**Recommended additions:**
+- DWS (for service layer)
+- Indexer + PostgreSQL (for blockchain queries)
+
+**Optional (can run elsewhere):**
+- Gateway, Factory, Bazaar (client apps)
+- Crucible (agent orchestration)
+
+## Chain Configuration
+
+| Setting | Value |
+|---------|-------|
+| L1 Chain ID | 1337 (Geth --dev) |
+| L2 Chain ID | 2151908 |
+| Block Time | 2 seconds |
+
+## Troubleshooting
+
+### "L1 genesis block hash does not match"
+
+Re-run `init-genesis.sh phase1` after L1 restarts.
+
+### "failed to fetch L1 block info and receipts"
+
+Usually temporary in Geth --dev mode. The sequencer recovers automatically. If persistent, do a clean restart:
+
+```bash
+docker compose down
+docker volume rm docker_l2-data
+docker compose up -d l1-geth
+sleep 10
+../scripts/init-genesis.sh phase1
+docker compose up -d op-geth
+sleep 15
+../scripts/init-genesis.sh phase2
+docker compose up -d op-node op-batcher
+```
+
+### L2 hash mismatch after restart
+
+Delete L2 data and re-run both genesis phases:
+
+```bash
+docker volume rm docker_l2-data
+../scripts/init-genesis.sh phase1
+# ... start op-geth ...
+../scripts/init-genesis.sh phase2
+```
+
+### op-node not producing blocks
+
+Ensure these flags in op-node command:
+- `--l1.trustrpc` - Trust L1 RPC responses
+- `--l1.rpckind=debug_geth` - Use Geth-compatible RPC
+- `--sequencer.l1-confs=0` - Don't wait for confirmations
+- `--verifier.l1-confs=0` - Don't wait for confirmations
+
+## OCI CLI Management
+
+```bash
+# Install
+brew install oci-cli
+
+# Configure
+oci setup config
+
+# List instances
+oci compute instance list \
+  --compartment-id <compartment-ocid> \
+  --output table
+
+# Create custom image
+oci compute image create \
+  --compartment-id <compartment-ocid> \
+  --instance-id <instance-ocid> \
+  --display-name "jeju-l2-base"
+```
+
+## See Also
+
+- [Infrastructure Deployment](/deployment/infrastructure) - AWS/GCP deployment
+- [Localnet](/deployment/localnet) - Local development
+- [Applications Overview](/applications/overview) - Full app list

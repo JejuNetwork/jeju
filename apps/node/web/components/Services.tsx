@@ -53,7 +53,7 @@ const serviceIcons: Record<string, React.ReactNode> = {
 }
 
 export function Services() {
-  const { services, startService, stopService, hardware, wallet, isLoading } =
+  const { services, startService, stopService, hardware, wallet, isLoading, error } =
     useAppStore()
   const [expandedService, setExpandedService] = useState<string | null>(null)
   const [confirmingSequencer, setConfirmingSequencer] = useState(false)

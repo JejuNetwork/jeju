@@ -1693,6 +1693,7 @@ if (import.meta.main) {
       const hostnameWithoutPort = hostname.split(':')[0]
       if (
         !hostname.startsWith('dws.') &&
+        hostnameWithoutPort !== 'dws' &&
         !isInternalIp &&
         hostnameWithoutPort !== 'localhost' &&
         hostnameWithoutPort !== '127.0.0.1'

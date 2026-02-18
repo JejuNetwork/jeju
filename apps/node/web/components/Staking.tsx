@@ -50,18 +50,32 @@ export function Staking() {
   const handleStake = async () => {
     if (!stakingService) return
     const amountWei = (parseFloat(stakeAmount) * 1e18).toString()
-    await stake(stakingService, amountWei)
-    setStakingService(null)
-    setStakeAmount('0.1')
+    try {
+      const result = await stake(stakingService, amountWei)
+      if (result?.tx_hash) {
+        alert(`Stake successful! Transaction: ${result.tx_hash}`)
+      }
+      setStakingService(null)
+      setStakeAmount('0.1')
+    } catch (err: any) {
+      alert(`Stake failed: ${err?.message || JSON.stringify(err)}`)
+    }
   }
 
   const handleUnstake = async () => {
     if (!stakingService) return
     const amountWei = (parseFloat(stakeAmount) * 1e18).toString()
-    await unstake(stakingService, amountWei)
-    setStakingService(null)
-    setStakeAmount('0.1')
-    setIsUnstaking(false)
+    try {
+      const result = await unstake(stakingService, amountWei)
+      if (result?.tx_hash) {
+        alert(`Unstake initiated! Transaction: ${result.tx_hash}\n\nNote: 7-day unbonding period starts now.`)
+      }
+      setStakingService(null)
+      setStakeAmount('0.1')
+      setIsUnstaking(false)
+    } catch (err: any) {
+      alert(`Unstake failed: ${err?.message || JSON.stringify(err)}`)
+    }
   }
 
   return (
@@ -70,7 +84,7 @@ export function Staking() {
       <div>
         <h1 className="text-2xl font-bold">Staking</h1>
         <p className="text-volcanic-400 mt-1">
-          Put your ETH to work on the network
+          Put your JEJU tokens to work on the network
         </p>
       </div>
 
@@ -87,7 +101,7 @@ export function Staking() {
                 {isLoading && !staking ? (
                   <span className="inline-block w-20 h-6 bg-volcanic-700 rounded animate-pulse" />
                 ) : (
-                  `${formatEther(staking?.total_staked_wei ?? '0')} ETH`
+                  `${formatEther(staking?.total_staked_wei ?? '0')} JEJU`
                 )}
               </p>
               <p className="text-xs text-volcanic-500">
@@ -112,7 +126,7 @@ export function Staking() {
                 {isLoading && !staking ? (
                   <span className="inline-block w-20 h-6 bg-volcanic-700 rounded animate-pulse" />
                 ) : (
-                  `${formatEther(staking?.pending_rewards_wei ?? '0')} ETH`
+                  `${formatEther(staking?.pending_rewards_wei ?? '0')} JEJU`
                 )}
               </p>
               <p className="text-xs text-volcanic-500">
@@ -165,7 +179,7 @@ export function Staking() {
             <div>
               <h3 className="font-semibold">Claim All Rewards</h3>
               <p className="text-sm text-volcanic-400">
-                {formatEther(staking?.pending_rewards_wei ?? '0')} ETH available
+                {formatEther(staking?.pending_rewards_wei ?? '0')} JEJU available
               </p>
             </div>
             <button
@@ -174,6 +188,38 @@ export function Staking() {
               className="btn-primary"
             >
               Claim All
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Your Stake */}
+      {parseFloat(staking?.total_staked_wei ?? '0') > 0 && (
+        <div className="card bg-gradient-to-r from-jeju-600/10 to-purple-600/10 border-jeju-500/30">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-jeju-600/20">
+                <Lock size={24} className="text-jeju-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg">Your Staked JEJU</h3>
+                <p className="text-2xl font-bold text-jeju-400">
+                  {formatEther(staking?.total_staked_wei ?? '0')} JEJU
+                </p>
+                <p className="text-sm text-volcanic-400">
+                  Multi-service stake backing all network services
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setStakingService('multi-service')
+                setIsUnstaking(true)
+              }}
+              className="btn-ghost"
+            >
+              Unstake
             </button>
           </div>
         </div>
@@ -216,11 +262,11 @@ export function Staking() {
                   <div>
                     <h3 className="font-medium">{service.metadata.name}</h3>
                     <div className="flex items-center gap-4 text-sm text-volcanic-400">
-                      <span>Min: {service.metadata.min_stake_eth} ETH</span>
+                      <span>Min: {service.metadata.min_stake_eth} JEJU</span>
                       {stakedAmount > 0 && (
                         <span className="text-jeju-400">
                           Staked: {formatEther(stakeInfo?.staked_wei ?? '0')}{' '}
-                          ETH
+                          JEJU
                         </span>
                       )}
                     </div>
@@ -232,7 +278,7 @@ export function Staking() {
                     <div className="text-right mr-4">
                       <p className="text-sm text-volcanic-400">Rewards</p>
                       <p className="font-medium text-purple-400">
-                        {formatEther(stakeInfo?.pending_rewards_wei ?? '0')} ETH
+                        {formatEther(stakeInfo?.pending_rewards_wei ?? '0')} JEJU
                       </p>
                     </div>
                   )}
@@ -307,7 +353,7 @@ export function Staking() {
               <div className="w-4 h-4 rounded-full border-2 border-volcanic-600" />
               <div className="flex-1">
                 <p className="text-sm font-medium">
-                  Step 2: Proxy Node (0.1 ETH)
+                  Step 2: Proxy Node (0.1 JEJU)
                 </p>
                 <p className="text-xs text-volcanic-500">
                   Low stake, ~$0.15/hr
@@ -318,7 +364,7 @@ export function Staking() {
               <div className="w-4 h-4 rounded-full border-2 border-volcanic-600" />
               <div className="flex-1">
                 <p className="text-sm font-medium">
-                  Step 3: Storage/Compute (0.1 ETH + hardware)
+                  Step 3: Storage/Compute (0.1 JEJU + hardware)
                 </p>
                 <p className="text-xs text-volcanic-500">
                   Requires GPU or storage, ~$0.50/hr
@@ -329,7 +375,7 @@ export function Staking() {
               <div className="w-4 h-4 rounded-full border-2 border-volcanic-600" />
               <div className="flex-1">
                 <p className="text-sm font-medium">
-                  Step 4: XLP/Solver (0.5-1 ETH)
+                  Step 4: XLP/Solver (0.5-1 JEJU)
                 </p>
                 <p className="text-xs text-volcanic-500">
                   Higher stake, higher rewards, ~$0.40/hr
@@ -368,7 +414,7 @@ export function Staking() {
               <div className="space-y-4">
                 <div>
                   <label htmlFor="stake-amount" className="label">
-                    Amount (ETH)
+                    Amount (JEJU)
                   </label>
                   <input
                     id="stake-amount"
@@ -389,7 +435,7 @@ export function Staking() {
                         services.find((s) => s.metadata.id === stakingService)
                           ?.metadata.min_stake_eth
                       }{' '}
-                      ETH
+                      JEJU
                     </p>
                   </div>
                 )}

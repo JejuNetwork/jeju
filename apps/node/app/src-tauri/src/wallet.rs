@@ -49,6 +49,12 @@ impl WalletManager {
         }
     }
 
+    /// Update network settings (RPC URL and chain ID) without losing wallet state
+    pub fn update_network(&mut self, rpc_url: &str, chain_id: u64) {
+        self.rpc_url = rpc_url.to_string();
+        self.chain_id = chain_id;
+    }
+
     /// Create a new embedded wallet
     pub fn create_wallet(&mut self, password: &str) -> Result<WalletInfo, String> {
         // Generate new wallet using alloy

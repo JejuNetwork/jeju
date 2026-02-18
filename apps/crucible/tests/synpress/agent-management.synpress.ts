@@ -28,9 +28,9 @@ test.describe('Crucible Smoke Tests', () => {
     expect(data.characters.length).toBeGreaterThan(0)
 
     const ids = data.characters.map((c: { id: string }) => c.id)
-    expect(ids).toContain('project-manager')
-    expect(ids).toContain('red-team')
-    expect(ids).toContain('blue-team')
+    expect(ids).toContain('community-manager')
+    expect(ids).toContain('security-analyst')
+    expect(ids).toContain('infra-monitor')
   })
 
   test('should return info endpoint', async ({ page }) => {
@@ -80,13 +80,13 @@ test.describe('Agent Management', () => {
 
   test('should fetch character template via API', async ({ page }) => {
     const response = await page.request.get(
-      '/api/v1/characters/project-manager',
+      '/api/v1/characters/community-manager',
     )
     const data = await response.json()
 
     expect(data.character).toBeDefined()
-    expect(data.character.id).toBe('project-manager')
-    expect(data.character.name).toBe('Jimmy')
+    expect(data.character.id).toBe('community-manager')
+    expect(data.character.name).toBe('Eli5')
   })
 
   test('should register new agent with wallet', async ({
@@ -109,7 +109,7 @@ test.describe('Agent Management', () => {
     })
 
     const charResponse = await page.request.get(
-      '/api/v1/characters/project-manager',
+      '/api/v1/characters/community-manager',
     )
     const { character } = await charResponse.json()
 

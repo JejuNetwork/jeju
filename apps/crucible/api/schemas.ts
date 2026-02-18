@@ -58,8 +58,30 @@ export const RegisterAgentRequestSchema = z.object({
   // Extended fields for full agent registration
   character: z
     .object({
+      id: z.string().optional(),
       name: z.string(),
       description: z.string().optional(),
+      system: z.string().optional(),
+      bio: z.array(z.string()).optional(),
+      messageExamples: z
+        .array(
+          z.array(
+            z.object({
+              name: z.string(),
+              content: z.object({ text: z.string() }),
+            }),
+          ),
+        )
+        .optional(),
+      topics: z.array(z.string()).optional(),
+      adjectives: z.array(z.string()).optional(),
+      style: z
+        .object({
+          all: z.array(z.string()),
+          chat: z.array(z.string()),
+          post: z.array(z.string()),
+        })
+        .optional(),
     })
     .optional(),
   initialFunding: z.string().optional(),
@@ -70,8 +92,18 @@ export const RegisterAgentRequestSchema = z.object({
       canPropose: z.boolean().optional(),
       canVote: z.boolean().optional(),
       canStake: z.boolean().optional(),
+      canStore: z.boolean().optional(),
       a2a: z.boolean().optional(),
       compute: z.boolean().optional(),
+    })
+    .optional(),
+  autonomous: z
+    .object({
+      enabled: z.boolean(),
+      tickIntervalMs: z.number().int().positive().optional(),
+      watchRoom: NonEmptyStringSchema.optional(),
+      postToRoom: NonEmptyStringSchema.optional(),
+      chainId: z.number().int().positive().optional(),
     })
     .optional(),
 })
@@ -93,6 +125,7 @@ export const AgentStartRequestSchema = z.object({
       canDelegate: z.boolean().optional(),
       canStake: z.boolean().optional(),
       canBridge: z.boolean().optional(),
+      canStore: z.boolean().optional(),
       a2a: z.boolean().optional(),
       compute: z.boolean().optional(),
     })
@@ -146,6 +179,28 @@ export const AddMemoryRequestSchema = z.object({
   importance: z.number().min(0).max(1),
   roomId: NonEmptyStringSchema.optional(),
   userId: NonEmptyStringSchema.optional(),
+})
+
+export const ToggleAutonomousRequestSchema = z.object({
+  enabled: z.boolean(),
+  tickIntervalMs: z.number().int().positive().optional(),
+  watchRoom: NonEmptyStringSchema.optional(),
+  postToRoom: NonEmptyStringSchema.optional(),
+  chainId: z.number().int().positive().optional(),
+  capabilities: z
+    .object({
+      canTrade: z.boolean().optional(),
+      canChat: z.boolean().optional(),
+      canPropose: z.boolean().optional(),
+      canVote: z.boolean().optional(),
+      canDelegate: z.boolean().optional(),
+      canStake: z.boolean().optional(),
+      canBridge: z.boolean().optional(),
+      canStore: z.boolean().optional(),
+      a2a: z.boolean().optional(),
+      compute: z.boolean().optional(),
+    })
+    .optional(),
 })
 
 // Room Request Schemas

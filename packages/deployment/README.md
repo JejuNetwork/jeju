@@ -243,6 +243,95 @@ Available charts in `kubernetes/helm/`:
 | `bundler` | ERC-4337 bundler |
 | `ipfs` | IPFS node |
 
+## Node Registration and Discovery Architecture
+
+The Jeju Network uses a decentralized node discovery system for compute, storage, and network services.
+
+### Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           Node Registration Flow                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+  ┌──────────────┐         ┌──────────────┐         ┌──────────────┐
+  │  Node Daemon │   1     │   L2 Chain   │    2    │   Indexer    │
+  │  (apps/node) │ ──────► │  (op-geth)   │ ──────► │ (apps/indexer)│
+  └──────────────┘ Register└──────────────┘ Events  └──────────────┘
+         │                                                │
+         │                                                │ 3. Query
+         ▼                                                ▼
+  ┌──────────────┐                                 ┌──────────────┐
+  │   Services   │ ◄───────────────────────────── │     DWS      │
+  │ (VPN, IPFS,  │    4. Route requests           │ (apps/dws)   │
+  │  Compute...)  │                                └──────────────┘
+  └──────────────┘
+```
+
+### Registration Flow
+
+1. **Node Startup** (`apps/node/src/daemon/index.ts`)
+   - Node daemon starts and detects hardware capabilities (CPU, GPU, RAM, storage)
+   - Generates or loads keypair for node identity
+   - Connects to L2 RPC endpoint
+
+2. **On-Chain Registration**
+   - Node calls `NodeRegistry.register()` contract with:
+     - Node public key
+     - Supported services (compute, storage, VPN, etc.)
+     - Capacity metrics (cores, VRAM, bandwidth)
+     - Stake amount (tokens locked for participation)
+   - Contract emits `NodeRegistered` event
+
+3. **Indexer Processing** (`apps/indexer`)
+   - Subsquid indexer listens for registry events
+   - Stores node metadata in PostgreSQL
+   - Exposes GraphQL API for querying nodes
+
+4. **DWS Discovery** (`apps/dws`)
+   - DWS queries indexer for available nodes
+   - Filters by service type, capacity, stake
+   - Routes compute/storage requests to appropriate nodes
+   - Monitors node health via heartbeats
+
+### Key Components
+
+| Component | Role | Location |
+|-----------|------|----------|
+| Node Registry Contract | On-chain node registration | `packages/contracts/src/NodeRegistry.sol` |
+| Node Daemon | Service provider | `apps/node/src/daemon/` |
+| Indexer | Blockchain data aggregation | `apps/indexer/` |
+| DWS | Request routing | `apps/dws/api/services/` |
+| SQLit | Decentralized state | `packages/sqlit/` |
+
+### Node Modes
+
+- **Full Mode**: All services enabled, full registration
+- **Minimal Mode**: Essential services only, limited registration (default for localnet)
+- **Offline Mode**: No L2 connection, local testing only
+
+### Running a Node
+
+```bash
+# Full mode (production)
+bun run apps/node/src/daemon/index.ts
+
+# Minimal mode (development)
+bun run apps/node/src/daemon/index.ts --minimal
+
+# With specific services
+bun run apps/node/src/daemon/index.ts --enable-compute --enable-storage
+```
+
+### Environment Variables for Nodes
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `JEJU_NETWORK` | Network (localnet/testnet/mainnet) | `localnet` |
+| `RPC_URL` | L2 RPC endpoint | `http://localhost:9545` |
+| `KMS_KEY_ID` | KMS key for signing | - |
+| `STAKE_AMOUNT` | Tokens to stake | `0` |
+
 ## Adding a New Service
 
 1. **Create Helm chart:**

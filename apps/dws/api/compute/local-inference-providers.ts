@@ -14,7 +14,7 @@ import {
 const LOCAL_PROVIDER_PREFIX = 'local-provider:'
 const HEARTBEAT_INTERVAL_MS = 30000
 const SERVICE_ID = 'dws'
-const SQLIT_DATABASE_ID = process.env.SQLIT_DATABASE_ID ?? 'dws'
+const SQLIT_DATABASE_ID = process.env.SQLIT_DATABASE_ID ?? 'dws-core'
 
 const OPENAI_COMPATIBLE_PROVIDERS = [
   'openai',
@@ -118,17 +118,30 @@ async function decryptVaultSecret(
 }
 
 async function fetchSecretByNameLocal(name: string): Promise<string | null> {
-  const client = await getSQLitClient()
-  const owner = getServiceOwner(SERVICE_ID)
-  const rows = await client.query<SecretRow>(
-    'SELECT id, encrypted_value, expires_at FROM kms_secrets WHERE name = ? AND owner = ? ORDER BY updated_at DESC LIMIT 1',
-    [name, owner],
-    SQLIT_DATABASE_ID,
+  // Add a 2 second timeout to prevent hanging if SQLit is unavailable
+  const timeoutPromise = new Promise<null>((_, reject) =>
+    setTimeout(() => reject(new Error('SQLit query timeout')), 2000),
   )
-  const secret = rows.rows[0]
-  if (!secret) return null
-  if (secret.expires_at && secret.expires_at < Date.now()) return null
-  return decryptVaultSecret(secret.id, secret.encrypted_value)
+  try {
+    return await Promise.race([
+      (async () => {
+        const client = await getSQLitClient()
+        const owner = getServiceOwner(SERVICE_ID)
+        const rows = await client.query<SecretRow>(
+          'SELECT id, encrypted_value, expires_at FROM kms_secrets WHERE name = ? AND owner = ? ORDER BY updated_at DESC LIMIT 1',
+          [name, owner],
+          SQLIT_DATABASE_ID,
+        )
+        const secret = rows.rows[0]
+        if (!secret) return null
+        if (secret.expires_at && secret.expires_at < Date.now()) return null
+        return decryptVaultSecret(secret.id, secret.encrypted_value)
+      })(),
+      timeoutPromise,
+    ])
+  } catch {
+    return null
+  }
 }
 
 

@@ -17,12 +17,16 @@ export function App() {
     currentView,
     isLoading,
     loadingMessage,
+    pendingOperation,
     error,
     banStatus,
     initialize,
   } = useAppStore()
 
+  console.log('[JejuNode] App rendering, currentView:', currentView, 'isLoading:', isLoading)
+
   useEffect(() => {
+    console.log('[JejuNode] App useEffect - calling initialize()')
     initialize()
   }, [initialize])
 
@@ -60,14 +64,14 @@ export function App() {
         {banStatus?.is_banned && <BanWarning />}
 
         <div className="p-4 sm:p-6 lg:p-8 pt-16 lg:pt-6">
-          {isLoading && (
+          {pendingOperation && (
             <div className="fixed inset-0 bg-volcanic-950/80 backdrop-blur-sm z-40 flex items-center justify-center">
               <div className="card p-8 text-center max-w-sm mx-4">
                 <div className="relative w-14 h-14 mx-auto mb-4">
                   <div className="absolute inset-0 rounded-full border-2 border-jeju-500/20" />
                   <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-jeju-500 animate-spin" />
                 </div>
-                <p className="text-volcanic-300 text-sm">{loadingMessage}</p>
+                <p className="text-volcanic-300 text-sm">{loadingMessage || pendingOperation}</p>
               </div>
             </div>
           )}

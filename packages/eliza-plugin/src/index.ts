@@ -22,18 +22,12 @@ import type { Plugin } from '@elizaos/core'
 import { getNetworkName } from '@jejunetwork/config'
 // Extended Actions - A2A
 import { callAgentAction, discoverAgentsAction } from './actions/a2a'
-// Extended Actions - Alerts
-import { postAlertAction } from './actions/alert'
-// Extended Actions - Contract Fetching & Analysis
-import { analyzeContractAction } from './actions/analyze-contract'
-import { auditContractAction } from './actions/audit-contract'
 // Extended Actions - Bazaar
 import {
   launchTokenAction,
   listNamesForSaleAction,
   listNftsAction,
 } from './actions/bazaar'
-import { pollBlockscoutAction } from './actions/blockscout'
 // Core Actions
 import { rentGpuAction } from './actions/compute'
 // Extended Actions - Containers (OCI Registry)
@@ -45,16 +39,11 @@ import {
   listMyReposAction,
   starRepoAction,
 } from './actions/containers'
-import { fetchContractAction } from './actions/contract'
 import { crossChainTransferAction } from './actions/crosschain'
 import { addLiquidityAction, swapTokensAction } from './actions/defi'
 import { createProposalAction, voteAction } from './actions/governance'
 import { registerAgentAction } from './actions/identity'
 import { runInferenceAction } from './actions/inference'
-import {
-  analyzeInfraHealthAction,
-  collectNodeStatsAction,
-} from './actions/infra'
 // Extended Actions - OIF Intents
 import {
   createIntentAction,
@@ -101,7 +90,6 @@ import {
   listPoolsAction,
   myPositionsAction,
 } from './actions/pools'
-import { probeEndpointsAction } from './actions/probe'
 // Extended Actions - Compute Rentals
 import {
   getSshAccessAction,
@@ -115,6 +103,23 @@ import {
   checkScamAddressAction,
   scanContractAction,
 } from './actions/security'
+// Extended Actions - Alerts
+import { postAlertAction } from './actions/alert'
+// Extended Actions - Contract Fetching & Analysis
+import { analyzeContractAction } from './actions/analyze-contract'
+import { auditContractAction } from './actions/audit-contract'
+import { pollBlockscoutAction } from './actions/blockscout'
+import { fetchContractAction } from './actions/contract'
+import {
+  postGithubDiscussionAction,
+  searchDiscussionsAction,
+} from './actions/github'
+import {
+  analyzeInfraHealthAction,
+  collectNodeStatsAction,
+} from './actions/infra'
+import { readRoomAlertsAction } from './actions/room-alerts'
+import { probeEndpointsAction } from './actions/probe'
 import { retrieveFileAction, uploadFileAction } from './actions/storage'
 // Extended Actions - Storage
 import {
@@ -279,6 +284,13 @@ export const jejuPlugin: Plugin = {
 
     // Alert actions
     postAlertAction,
+
+    // GitHub actions
+    postGithubDiscussionAction,
+    searchDiscussionsAction,
+
+    // Room alerts
+    readRoomAlertsAction,
   ],
 }
 

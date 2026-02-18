@@ -2,6 +2,7 @@
 
 #![allow(dead_code)]
 
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -100,7 +101,8 @@ impl TeeAttestor {
             };
 
             // Generate random report data
-            let report_data: [u8; 64] = rand::random();
+            let mut report_data = [0u8; 64];
+            rand::thread_rng().fill(&mut report_data);
 
             // For now, return a placeholder
             // Real implementation would use ioctl to get quote

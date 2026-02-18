@@ -1,0 +1,108 @@
+# DWS - Decentralized Web Services (ARM64)
+# Build from monorepo root
+
+FROM oven/bun:1.3 AS builder
+
+RUN apt-get update && apt-get install -y python3 python3-setuptools jq && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy workspace root files
+COPY package.json bun.lock ./
+COPY patches/ ./patches/
+
+# Copy all workspace package.json files for dependency resolution
+COPY packages/api/package.json ./packages/api/
+COPY packages/auth/package.json ./packages/auth/
+COPY packages/config/package.json ./packages/config/
+COPY packages/contracts/package.json ./packages/contracts/
+COPY packages/db/package.json ./packages/db/
+COPY packages/kms/package.json ./packages/kms/
+COPY packages/a2a/package.json ./packages/a2a/
+COPY packages/agents/package.json ./packages/agents/
+COPY packages/bridge/package.json ./packages/bridge/
+COPY packages/mcp/package.json ./packages/mcp/
+COPY packages/sdk/package.json ./packages/sdk/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/tests/package.json ./packages/tests/
+COPY packages/training/package.json ./packages/training/
+COPY packages/types/package.json ./packages/types/
+COPY packages/ui/package.json ./packages/ui/
+COPY packages/token/package.json ./packages/token/
+COPY packages/sqlit/package.json ./packages/sqlit/
+COPY packages/cache/package.json ./packages/cache/
+COPY packages/durable-objects/package.json ./packages/durable-objects/
+COPY apps/dws/package.json ./apps/dws/
+
+# Filter workspaces to only include packages used by DWS
+RUN jq '.workspaces = ["packages/*", "apps/dws"]' package.json > package.tmp && mv package.tmp package.json
+
+# Install dependencies
+RUN bun install --ignore-scripts
+
+# Copy source files
+COPY packages ./packages
+COPY apps/dws ./apps/dws
+COPY tsconfig.json tsconfig.base.json ./
+
+# Build packages
+RUN cd packages/contracts && bun run build || true
+RUN cd packages/types && bun x tsc || true
+RUN cd packages/config && bun x tsc || true
+RUN cd packages/db && bun x tsc || true
+RUN cd packages/shared && bun x tsc || true
+RUN cd packages/auth && bun x tsc || true
+RUN cd packages/api && bun x tsc || true
+RUN cd packages/kms && bun x tsc || true
+RUN cd packages/cache && bun x tsc || true
+
+# Build DWS web frontend
+WORKDIR /app/apps/dws
+RUN NETWORK=localnet bun ./build.web.ts || true
+
+# Production stage
+FROM oven/bun:1.3
+
+# Install workerd for ARM64
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl ca-certificates && \
+    curl -Lo /tmp/workerd.gz https://github.com/cloudflare/workerd/releases/download/v1.20251231.0/workerd-linux-arm64.gz && \
+    gunzip /tmp/workerd.gz && \
+    mv /tmp/workerd /usr/local/bin/workerd && \
+    chmod +x /usr/local/bin/workerd && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy built app
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/apps/dws ./apps/dws
+COPY --from=builder /app/tsconfig.json ./
+
+# Recreate workspace symlinks
+RUN mkdir -p node_modules/@jejunetwork && \
+    rm -rf node_modules/@jejunetwork/* 2>/dev/null || true && \
+    ln -sf ../../packages/config node_modules/@jejunetwork/config && \
+    ln -sf ../../packages/types node_modules/@jejunetwork/types && \
+    ln -sf ../../packages/shared node_modules/@jejunetwork/shared && \
+    ln -sf ../../packages/contracts node_modules/@jejunetwork/contracts && \
+    ln -sf ../../packages/api node_modules/@jejunetwork/api && \
+    ln -sf ../../packages/auth node_modules/@jejunetwork/auth && \
+    ln -sf ../../packages/db node_modules/@jejunetwork/db && \
+    ln -sf ../../packages/cache node_modules/@jejunetwork/cache && \
+    ln -sf ../../packages/kms node_modules/@jejunetwork/kms && \
+    ln -sf ../../packages/sdk node_modules/@jejunetwork/sdk
+
+WORKDIR /app/apps/dws
+
+EXPOSE 4030 4031
+
+# Health check using bun (wget not available in this image)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+  CMD bun -e "fetch('http://127.0.0.1:4030/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"
+
+ENV NODE_ENV=production
+ENV DWS_PORT=4030
+
+CMD ["bun", "run", "api/server/index.ts"]
