@@ -6,21 +6,21 @@
   "license": "MIT",
   "main": "dist/index.js",
   "module": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "types": "./src/index.ts",
   "exports": {
     ".": {
       "bun": "./src/index.ts",
-      "types": "./dist/index.d.ts",
+      "types": "./src/index.ts",
       "import": "./dist/index.js"
     },
     "./auth": {
       "bun": "./src/auth/index.ts",
-      "types": "./dist/auth/index.d.ts",
+      "types": "./src/auth/index.ts",
       "import": "./dist/auth/index.js"
     },
     "./wallet": {
       "bun": "./src/wallet/index.ts",
-      "types": "./dist/wallet/index.d.ts",
+      "types": "./src/wallet/index.ts",
       "import": "./dist/wallet/index.js"
     }
   },

@@ -5,17 +5,17 @@
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "types": "./ts/index.ts",
   "exports": {
     ".": {
       "bun": "./ts/index.ts",
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./ts/index.ts"
     },
     "./viem": {
       "bun": "./ts/viem.ts",
       "import": "./dist/viem.js",
-      "types": "./dist/viem.d.ts"
+      "types": "./ts/viem.ts"
     }
   },
   "files": ["dist", "abis", "deployments"],

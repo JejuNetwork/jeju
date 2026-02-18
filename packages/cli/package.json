@@ -9,11 +9,11 @@
     "git-remote-jeju": "./bin/git-remote-jeju.js"
   },
   "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "types": "./src/index.ts",
   "exports": {
     ".": {
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./src/index.ts"
     }
   },
   "files": ["dist", "bin", "templates"],

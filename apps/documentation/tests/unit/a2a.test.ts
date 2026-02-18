@@ -37,8 +37,8 @@ describe('A2A Server Structure', () => {
 
   test('has proper CORS configuration', async () => {
     const serverCode = await Bun.file(SERVER_PATH).text()
-    expect(serverCode).toContain('cors(')
     expect(serverCode).toContain('ALLOWED_ORIGINS')
+    expect(serverCode).toContain('Access-Control-Allow-Origin')
   })
 })
 

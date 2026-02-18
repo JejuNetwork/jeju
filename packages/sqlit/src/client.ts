@@ -296,7 +296,12 @@ export class SQLitClient {
       return rows.filter(isRecordRow)
     }
 
-    if (isRecordRow(rows[0])) {
+    const firstRow = rows[0]
+    if (firstRow === undefined) {
+      return []
+    }
+
+    if (isRecordRow(firstRow)) {
       return rows.filter(isRecordRow)
     }
 

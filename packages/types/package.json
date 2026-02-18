@@ -5,26 +5,26 @@
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "types": "./src/index.ts",
   "exports": {
     ".": {
       "bun": "./src/index.ts",
-      "types": "./dist/index.d.ts",
+      "types": "./src/index.ts",
       "import": "./dist/index.js"
     },
     "./indexer": {
       "bun": "./src/indexer.ts",
-      "types": "./dist/indexer.d.ts",
+      "types": "./src/indexer.ts",
       "import": "./dist/indexer.js"
     },
     "./names": {
       "bun": "./src/names.ts",
-      "types": "./dist/names.d.ts",
+      "types": "./src/names.ts",
       "import": "./dist/names.js"
     },
     "./rpc": {
       "bun": "./src/rpc.ts",
-      "types": "./dist/rpc.d.ts",
+      "types": "./src/rpc.ts",
       "import": "./dist/rpc.js"
     }
   },

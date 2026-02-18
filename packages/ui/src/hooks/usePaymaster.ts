@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { type Address, formatEther } from 'viem'
+import { type Address, formatEther, formatUnits } from 'viem'
 import { useGasPrice } from 'wagmi'
 import { useNetworkContext } from '../context'
 import { requireClient } from './utils'
@@ -16,6 +16,25 @@ import { requireClient } from './utils'
 // ═══════════════════════════════════════════════════════════════════════════
 
 /** Paymaster information */
+interface RawPaymasterInfo {
+  /** Paymaster contract address */
+  address: Address
+  /** Token used for gas payment */
+  token: Address
+  /** Token symbol */
+  tokenSymbol: string
+  /** Token decimals */
+  tokenDecimals?: number
+  /** Exchange rate to ETH (scaled by 1e18) */
+  exchangeRate: bigint
+  /** Whether this paymaster is currently active */
+  isActive?: boolean
+  /** Whether this paymaster is currently active (SDK naming) */
+  active?: boolean
+  entryPointBalance: bigint
+  vaultLiquidity: bigint
+}
+
 export interface PaymasterInfo {
   /** Paymaster contract address */
   address: Address
@@ -30,6 +49,21 @@ export interface PaymasterInfo {
   /** Whether this paymaster is currently active */
   isActive: boolean
 }
+
+type PaymasterModuleLike =
+  | {
+      listPaymasters: () => Promise<RawPaymasterInfo[]>
+      getTokenBalances?: (tokens: Address[]) => Promise<Map<Address, bigint>>
+      getTokenBalance?: (token: Address) => Promise<bigint>
+    }
+  | {
+      getAvailable: () => Promise<RawPaymasterInfo[]>
+      getTokenBalances?: (tokens: Address[]) => Promise<Map<Address, bigint>>
+      getTokenBalance?: (token: Address) => Promise<bigint>
+    }
+  | null
+
+type PaymasterTokenBalances = Record<string, bigint>
 
 /** Cost estimate for a paymaster */
 export interface PaymasterCostEstimate {
@@ -90,12 +124,50 @@ export function usePaymaster(): UsePaymasterResult {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [approvalNeeded, setApprovalNeeded] = useState(false)
+  const [tokenBalances, setTokenBalances] = useState<PaymasterTokenBalances>({})
 
   // Check if paymaster feature is available via SDK
   const isEnabled = useMemo(() => {
     if (!client) return false
-    // Check if SDK has paymaster module
-    return 'paymaster' in client
+    // Check if SDK has legacy paymaster module or current payments module
+    return 'payments' in client || 'paymaster' in client
+  }, [client])
+
+  const normalizePaymaster = useCallback(
+    (paymaster: RawPaymasterInfo): PaymasterInfo => ({
+      ...paymaster,
+      tokenDecimals: paymaster.tokenDecimals ?? 18,
+      isActive: paymaster.isActive ?? paymaster.active ?? false,
+    }),
+    [],
+  )
+
+  const resolvePaymasterModule = useCallback((): PaymasterModuleLike => {
+    const c = requireClient(client)
+    const isValidModule = (module: unknown): module is PaymasterModuleLike =>
+      typeof module === 'object' &&
+      module !== null &&
+      (('listPaymasters' in module &&
+        typeof (module as { listPaymasters?: () => unknown }).listPaymasters ===
+          'function') ||
+        ('getAvailable' in module &&
+          typeof (module as { getAvailable?: () => unknown }).getAvailable ===
+            'function'))
+
+    if (
+      'payments' in c &&
+      c.payments &&
+      typeof c.payments === 'object' &&
+      isValidModule(c.payments)
+    ) {
+      return c.payments as PaymasterModuleLike
+    }
+
+    if ('paymaster' in c && c.paymaster && isValidModule(c.paymaster)) {
+      return c.paymaster as PaymasterModuleLike
+    }
+
+    return null
   }, [client])
 
   // Load available paymasters from SDK
@@ -103,6 +175,7 @@ export function usePaymaster(): UsePaymasterResult {
     async function loadPaymasters() {
       if (!client || !isEnabled) {
         setPaymasters([])
+        setTokenBalances({})
         return
       }
 
@@ -110,19 +183,68 @@ export function usePaymaster(): UsePaymasterResult {
       setError(null)
 
       try {
-        // Use SDK's paymaster module if available
-        const c = requireClient(client)
+        const paymasterModule = resolvePaymasterModule()
+
+        if (!paymasterModule) {
+          setPaymasters([])
+          return
+        }
+
+        let paymastersRaw: RawPaymasterInfo[]
         if (
-          'paymaster' in c &&
-          typeof c.paymaster === 'object' &&
-          c.paymaster !== null
+          'listPaymasters' in paymasterModule &&
+          typeof paymasterModule.listPaymasters === 'function'
         ) {
-          const pm = c.paymaster as {
-            getAvailable?: () => Promise<PaymasterInfo[]>
-          }
-          if (pm.getAvailable) {
-            const list = await pm.getAvailable()
-            setPaymasters(list)
+          paymastersRaw = await paymasterModule.listPaymasters()
+        } else if (
+          'getAvailable' in paymasterModule &&
+          typeof paymasterModule.getAvailable === 'function'
+        ) {
+          paymastersRaw = await paymasterModule.getAvailable()
+        } else {
+          throw new Error('Paymaster module does not support listing methods')
+        }
+        const normalized = paymastersRaw.map(normalizePaymaster)
+        setPaymasters(normalized)
+
+        const tokenAddrs = normalized.map((p) => p.token)
+        if (tokenAddrs.length > 0) {
+          try {
+            if (
+              'getTokenBalances' in paymasterModule &&
+              typeof paymasterModule.getTokenBalances === 'function'
+            ) {
+              const balances = await paymasterModule.getTokenBalances(tokenAddrs)
+              const next = Array.from(balances.entries()).reduce<
+                PaymasterTokenBalances
+              >((acc, [token, balance]) => {
+                acc[token.toLowerCase()] = balance
+                return acc
+              }, {})
+              setTokenBalances(next)
+            } else if (
+              'getTokenBalance' in paymasterModule &&
+              typeof paymasterModule.getTokenBalance === 'function'
+            ) {
+              const balances = await Promise.all(
+                tokenAddrs.map((token) =>
+                  paymasterModule.getTokenBalance
+                    ? paymasterModule.getTokenBalance(token)
+                    : 0n,
+                ),
+              )
+              const next = tokenAddrs.reduce<PaymasterTokenBalances>(
+                (acc, token, index) => {
+                  acc[token.toLowerCase()] = balances[index] ?? 0n
+                  return acc
+                },
+                {},
+              )
+              setTokenBalances(next)
+            }
+          } catch {
+            // Keep paymasters available even if balance query fails; feature remains usable.
+            setTokenBalances({})
           }
         }
       } catch (err) {
@@ -130,13 +252,21 @@ export function usePaymaster(): UsePaymasterResult {
           err instanceof Error ? err.message : 'Failed to load paymasters',
         )
         setPaymasters([])
+        setTokenBalances({})
       } finally {
         setIsLoading(false)
       }
     }
 
-    loadPaymasters()
-  }, [client, isEnabled])
+    loadPaymasters().catch((err) => {
+      setError(
+        err instanceof Error ? err.message : 'Failed to load paymasters',
+      )
+      setPaymasters([])
+      setTokenBalances({})
+      setIsLoading(false)
+    })
+  }, [client, isEnabled, resolvePaymasterModule, normalizePaymaster])
 
   // Calculate cost estimates
   const options = useMemo<PaymasterCostEstimate[]>(() => {
@@ -155,12 +285,17 @@ export function usePaymaster(): UsePaymasterResult {
       return {
         paymaster: pm,
         cost: tokenCost,
-        costFormatted: `~${(Number(tokenCost) / 10 ** pm.tokenDecimals).toFixed(4)} ${pm.tokenSymbol}`,
-        hasSufficientBalance: true, // TODO: Check actual balance
+        costFormatted: `~${Number(formatUnits(tokenCost, pm.tokenDecimals)).toFixed(
+          4,
+        )} ${pm.tokenSymbol}`,
+        hasSufficientBalance:
+          tokenBalances[pm.token.toLowerCase()] === undefined
+            ? false
+            : tokenBalances[pm.token.toLowerCase()] >= tokenCost,
         isRecommended: pm.tokenSymbol === 'USDC' || pm.tokenSymbol === 'DAI',
       }
     })
-  }, [gasPrice, paymasters])
+  }, [gasPrice, paymasters, tokenBalances])
 
   const bestOption = useMemo(() => {
     if (options.length === 0) return null

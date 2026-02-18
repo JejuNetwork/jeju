@@ -213,6 +213,11 @@ export const loginCommand = new Command('login')
   .description('Authenticate with Jeju Network using your wallet')
   .option('-n, --network <network>', 'Network to authenticate with', 'testnet')
   .option(
+    '--address <address>',
+    'Wallet address to authenticate (required for --external mode)',
+  )
+  .option('--signature <signature>', 'Wallet signature from --external flow')
+  .option(
     '-k, --private-key <key>',
     'Private key (or use DEPLOYER_PRIVATE_KEY env)',
   )
@@ -256,6 +261,15 @@ export const loginCommand = new Command('login')
     }
 
     if (options.external) {
+      if (!options.address) {
+        logger.error('External auth requires --address.')
+        logger.info(
+          'Example: jeju login --external --address 0xYourAddress --network localnet',
+        )
+        return
+      }
+
+      const address = options.address as Address
       // External signing - output message for user to sign elsewhere
       const nonce = bytesToHex(randomBytes(32))
       const timestamp = Date.now()
@@ -266,14 +280,50 @@ export const loginCommand = new Command('login')
         timestamp,
       )
 
-      logger.info('Sign the following message with your wallet:\n')
-      console.log('---')
-      console.log(message)
-      console.log('---\n')
+      if (!options.signature) {
+        logger.info('Sign the following message with your wallet:\n')
+        console.log('---')
+        console.log(message)
+        console.log('---\n')
 
-      logger.info('Then run:')
+        logger.info('Then run:')
+        logger.info(
+          `jeju login --network ${network} --address ${address} --signature <your-signature>`,
+        )
+        return
+      }
+
+      // Complete external login with provided signature
+      const signature = options.signature
+      const isValid = await verifyMessage({ address, message, signature })
+      if (!isValid) {
+        logger.error('Signature verification failed')
+        return
+      }
+
+      const authResult = await authenticateWithDWS(
+        address,
+        signature,
+        message,
+        network,
+      )
+
+      const credentials: Credentials = {
+        version: 1,
+        network,
+        address,
+        keyType: 'external',
+        authToken: authResult.token,
+        createdAt: Date.now(),
+        expiresAt: authResult.expiresAt,
+      }
+
+      saveCredentials(credentials)
+      logger.success(`Logged in as ${address}`)
+      logger.info(`Network: ${network}`)
+      logger.info(`Expires at: ${new Date(authResult.expiresAt).toLocaleDateString()}`)
       logger.info(
-        `jeju login --network ${network} --signature <your-signature> --address <your-address>`,
+        'Use `jeju login` again if your token expires or you change wallets.',
       )
       return
     }

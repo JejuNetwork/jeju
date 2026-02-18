@@ -5,26 +5,26 @@
   "license": "MIT",
   "type": "module",
   "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "types": "./src/index.ts",
   "exports": {
     ".": {
       "bun": "./src/index.ts",
-      "types": "./dist/index.d.ts",
+      "types": "./src/index.ts",
       "import": "./dist/index.js"
     },
     "./react": {
       "bun": "./src/react/index.ts",
-      "types": "./dist/react/index.d.ts",
+      "types": "./src/react/index.ts",
       "import": "./dist/react/index.js"
     },
     "./providers": {
       "bun": "./src/providers/social.ts",
-      "types": "./dist/providers/social.d.ts",
+      "types": "./src/providers/social.ts",
       "import": "./dist/providers/social.js"
     },
     "./types": {
       "bun": "./src/types.ts",
-      "types": "./dist/types.d.ts",
+      "types": "./src/types.ts",
       "import": "./dist/types.js"
     }
   },

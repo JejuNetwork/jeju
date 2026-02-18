@@ -5,14 +5,15 @@
   "type": "module",
   "description": "Production-grade Solana↔EVM bridge with ZK Light Client verification",
   "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "types": "./src/index.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./src/index.ts",
       "import": "./dist/index.js"
     },
     "./tee": {
-      "types": "./dist/tee/index.d.ts",
+      "bun": "./src/tee/index.ts",
+      "types": "./src/tee/index.ts",
       "import": "./dist/tee/index.js"
     },
     "./config/*": "./config/*.json"

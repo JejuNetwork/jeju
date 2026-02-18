@@ -1,4 +1,8 @@
-import type { AuthProvider, SealedOAuthProvider } from '../../lib/types'
+import type {
+  AuthProvider,
+  SealedOAuthProvider,
+  SealedSecret,
+} from '../../lib/types'
 import { z } from 'zod'
 import { sealSecret, unsealSecret } from './kms'
 
