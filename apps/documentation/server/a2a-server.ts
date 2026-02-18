@@ -1,4 +1,3 @@
-import { cors } from '@elysiajs/cors'
 import {
   CORE_PORTS,
   getLocalhostHost,
@@ -144,6 +143,25 @@ const AGENT_CARD = {
   ],
 } as const
 
+function resolveOrigin(origin?: string | null): string | null {
+  if (!origin) return null
+  return ALLOWED_ORIGINS.includes(origin) ? origin : null
+}
+
+function applyCorsHeaders(
+  set: { headers: Record<string, string | string[] | number> },
+  request: Request,
+) {
+  const allowedOrigin = resolveOrigin(request.headers.get('origin'))
+  if (!allowedOrigin) return
+  set.headers['Access-Control-Allow-Origin'] = allowedOrigin
+  set.headers['Access-Control-Allow-Credentials'] = 'true'
+  set.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+  set.headers['Access-Control-Allow-Methods'] = 'GET,POST,OPTIONS'
+  set.headers['Access-Control-Max-Age'] = '86400'
+  set.headers.Vary = 'Origin'
+}
+
 /** Validate documentation page path (no traversal allowed) */
 function validateDocPath(pagePath: string): string {
   // Normalize and check for path traversal
@@ -204,16 +222,14 @@ async function executeSkill(
 }
 
 export const app = new Elysia()
-  .use(
-    cors({
-      origin: (request) => {
-        const origin = request.headers.get('origin')
-        if (!origin) return true
-        return ALLOWED_ORIGINS.includes(origin)
-      },
-      credentials: true,
-    }),
-  )
+  .onRequest(({ request, set }) => {
+    applyCorsHeaders(set, request)
+    return
+  })
+  .options('*', ({ request, set }) => {
+    applyCorsHeaders(set, request)
+    return new Response(null, { status: 204 })
+  })
   .derive(({ request, server }) => {
     const forwarded = request.headers.get('x-forwarded-for')
     const clientIp =

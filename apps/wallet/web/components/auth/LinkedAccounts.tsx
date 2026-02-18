@@ -33,7 +33,9 @@ type ProviderInfo = {
   description: string
 }
 
-const PROVIDER_INFO: Record<AuthProvider, ProviderInfo> = {
+type SupportedAuthProvider = Exclude<AuthProvider, 'email' | 'phone'>
+
+const PROVIDER_INFO: Record<SupportedAuthProvider, ProviderInfo> = {
   [AuthProvider.WALLET]: {
     name: 'Wallet',
     icon: Wallet,
@@ -85,13 +87,13 @@ const PROVIDER_INFO: Record<AuthProvider, ProviderInfo> = {
 }
 
 type LinkedProvider = {
-  provider: AuthProvider
+  provider: SupportedAuthProvider
   providerId: string
   handle?: string
   linkedAt: number
 }
 
-const SUPPORTED_PROVIDERS: AuthProvider[] = [
+const SUPPORTED_PROVIDERS: SupportedAuthProvider[] = [
   AuthProvider.WALLET,
   AuthProvider.GOOGLE,
   AuthProvider.APPLE,
@@ -102,7 +104,7 @@ const SUPPORTED_PROVIDERS: AuthProvider[] = [
   AuthProvider.PASSKEY,
 ]
 
-function toAuthProvider(type: string): AuthProvider | null {
+function toAuthProvider(type: string): SupportedAuthProvider | null {
   switch (type) {
     case 'wallet':
       return AuthProvider.WALLET

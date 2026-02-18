@@ -86,32 +86,34 @@ class GRPOTrainer:
 
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, trust_remote_code=True)
 
-        self.model = AutoModelForCausalLM.from_pretrained(
+        model = cast(PreTrainedModel, AutoModelForCausalLM.from_pretrained(
             self.model_name, torch_dtype=torch.bfloat16, trust_remote_code=True
-        )
+        ))
         device = torch.device(self.device)
-        self.model = cast(PreTrainedModel, torch.nn.Module.to(self.model, device))
-        self.model.gradient_checkpointing_enable()
-        self.model.train()
+        model = cast(PreTrainedModel, torch.nn.Module.to(model, device))
+        model.gradient_checkpointing_enable()
+        model.train()
+        self.model = model
 
         # Load or clone reference model
         if reference_model_cid:
             ref_path = self._download_model(reference_model_cid)
-            self.ref_model = AutoModelForCausalLM.from_pretrained(
+            ref_model = cast(PreTrainedModel, AutoModelForCausalLM.from_pretrained(
                 ref_path, torch_dtype=torch.bfloat16, trust_remote_code=True
-            )
+            ))
         else:
             # Clone current model as reference
-            self.ref_model = AutoModelForCausalLM.from_pretrained(
+            ref_model = cast(PreTrainedModel, AutoModelForCausalLM.from_pretrained(
                 self.model_name, torch_dtype=torch.bfloat16, trust_remote_code=True
-            )
+            ))
 
-        self.ref_model = cast(PreTrainedModel, torch.nn.Module.to(self.ref_model, device))
-        self.ref_model.eval()
-        for param in self.ref_model.parameters():
+        ref_model = cast(PreTrainedModel, torch.nn.Module.to(ref_model, device))
+        ref_model.eval()
+        for param in ref_model.parameters():
             param.requires_grad = False
+        self.ref_model = ref_model
 
-        self.optimizer = AdamW(self.model.parameters(), lr=self.learning_rate)
+        self.optimizer = AdamW(model.parameters(), lr=self.learning_rate)
 
         logger.info(f"Model loaded on {self.device}")
 

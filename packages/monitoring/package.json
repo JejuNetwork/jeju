@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "dependencies": {
     "@elysiajs/cors": "^1.4.0",
+    "@jejunetwork/auth": "workspace:*",
     "@jejunetwork/cache": "workspace:*",
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/types": "workspace:*",

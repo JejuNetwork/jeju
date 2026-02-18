@@ -20,7 +20,7 @@ import logging
 import os
 import random
 from contextlib import AbstractAsyncContextManager
-from typing import TYPE_CHECKING, ClassVar, Optional, Protocol, TypedDict, cast
+from typing import TYPE_CHECKING, ClassVar, Optional, Protocol, TypeAlias, TypedDict, cast
 
 if TYPE_CHECKING:
     from .tinker_client import JejuTinkerClient
@@ -100,8 +100,9 @@ class _Rollout(TypedDict):
     finish_reason: str
 
 
-class ScoredDataGroupWithInferenceLogprobs(ScoredDataGroup, total=False):
-    inference_logprobs: list[list[float]]
+# Atropos expects a typed mapping for scored data; keep this as a local alias
+# to avoid re-deriving assumptions from a third-party TypedDict inheritance pattern.
+ScoredDataGroupWithInferenceLogprobs: TypeAlias = ScoredDataGroup
 
 
 class JejuEnvConfig(BaseEnvConfig):
@@ -653,7 +654,7 @@ You receive market updates and must analyze, reason, and then act."""
         ]
         images_list: list[list[str]] = [[] for _ in rollout_data]
 
-        scored_group: ScoredDataGroupWithInferenceLogprobs = {
+        scored_group = {
             "tokens": tokens_list,
             "masks": masks_list,
             "scores": centered_scores,
@@ -666,7 +667,7 @@ You receive market updates and must analyze, reason, and then act."""
             "inference_logprobs": logprobs_list,
         }
 
-        return scored_group
+        return cast(ScoredDataGroupWithInferenceLogprobs, scored_group)
 
     async def evaluate(self, *args, **kwargs):  # noqa: ARG002
         """Evaluate current model performance"""

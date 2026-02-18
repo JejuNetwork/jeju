@@ -309,19 +309,28 @@ export class VerifiableCredentialIssuer {
   }
 
   private getCredentialTypeForProvider(provider: AuthProvider): string {
-    const typeMap: Record<AuthProvider, string> = {
-      wallet: 'WalletOwnershipCredential',
-      farcaster: 'FarcasterAccountCredential',
-      google: 'GoogleAccountCredential',
-      apple: 'AppleAccountCredential',
-      twitter: 'TwitterAccountCredential',
-      github: 'GitHubAccountCredential',
-      discord: 'DiscordAccountCredential',
-      email: 'EmailAccountCredential',
-      phone: 'PhoneAccountCredential',
+    switch (provider) {
+      case 'wallet':
+        return 'WalletOwnershipCredential'
+      case 'passkey':
+        return 'PasskeyAccountCredential'
+      case 'farcaster':
+        return 'FarcasterAccountCredential'
+      case 'google':
+        return 'GoogleAccountCredential'
+      case 'apple':
+        return 'AppleAccountCredential'
+      case 'twitter':
+        return 'TwitterAccountCredential'
+      case 'github':
+        return 'GitHubAccountCredential'
+      case 'discord':
+        return 'DiscordAccountCredential'
+      case 'email':
+        return 'EmailAccountCredential'
+      case 'phone':
+        return 'PhoneAccountCredential'
     }
-
-    return typeMap[provider] ?? 'OAuth3IdentityCredential'
   }
 
   private createJWS(hash: Hex, challenge: string, domain?: string): string {
@@ -594,6 +603,35 @@ export class VerifiableCredentialVerifier {
   }
 }
 
+export function getOnChainProviderId(provider: AuthProvider): number {
+  switch (provider) {
+    case 'wallet':
+      return 0
+    case 'farcaster':
+      return 1
+    case 'google':
+      return 2
+    case 'apple':
+      return 3
+    case 'twitter':
+      return 4
+    case 'github':
+      return 5
+    case 'discord':
+      return 6
+    case 'email':
+      return 7
+    case 'phone':
+      return 8
+    case 'passkey':
+      throw new Error('Passkey credentials are not yet supported on-chain')
+    default: {
+      const _exhaustive: never = provider
+      return _exhaustive
+    }
+  }
+}
+
 export function createCredentialHash(credential: VerifiableCredential): Hex {
   const essential = {
     type: credential.type,
@@ -613,20 +651,8 @@ export function credentialToOnChainAttestation(
   issuedAt: number
   expiresAt: number
 } {
-  const providerMap: Record<AuthProvider, number> = {
-    wallet: 0,
-    farcaster: 1,
-    google: 2,
-    apple: 3,
-    twitter: 4,
-    github: 5,
-    discord: 6,
-    email: 7,
-    phone: 8,
-  }
-
   return {
-    provider: providerMap[credential.credentialSubject.provider],
+    provider: getOnChainProviderId(credential.credentialSubject.provider),
     providerId: keccak256(toBytes(credential.credentialSubject.providerId)),
     credentialHash: createCredentialHash(credential),
     issuedAt: Math.floor(new Date(credential.issuanceDate).getTime() / 1000),
