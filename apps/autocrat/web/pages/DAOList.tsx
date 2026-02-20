@@ -855,8 +855,9 @@ export default function DAOListPage() {
           <div>
             <h3 className="text-white font-semibold mb-3">Your DAOs</h3>
             {/* App Card */}
-            <div
-            className="rounded-lg overflow-hidden"
+            <Link
+            to="/dao/autocrat"
+            className="block cursor-pointer transition-all hover:brightness-110 rounded-lg overflow-hidden"
             style={{
               backgroundColor: '#2f2e40',
               border: '1px solid rgba(171, 171, 233, 0.4)',
@@ -904,7 +905,7 @@ export default function DAOListPage() {
                 <p className="text-white text-sm mt-1">128</p>
               </div>
             </div>
-          </div>
+          </Link>
           </div>
 
           {/* Navigation Links */}

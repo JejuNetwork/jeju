@@ -66,42 +66,53 @@
 
 /* Dark mode - rich, not dull */
 [data-theme="dark"] {
-  --bg-primary: #0B1120;
-  --bg-primary-rgb: 11, 17, 32;
-  --bg-secondary: #111827;
-  --bg-tertiary: #1E293B;
-  --surface: #1E293B;
-  --surface-elevated: #334155;
-  --surface-hover: #374151;
-  --border: #334155;
-  --border-strong: #475569;
+  --bg-primary: #1a0a2e;
+  --bg-primary-rgb: 26, 10, 46;
+  --bg-secondary: #1e1d32;
+  --bg-tertiary: #2f2e40;
+  --surface: #2f2e40;
+  --surface-elevated: #3a3960;
+  --surface-hover: #474d78;
+  --surface-frosted: rgba(71, 77, 120, 0.5);
+  --border: rgba(171, 171, 233, 0.4);
+  --border-strong: rgb(121, 125, 245);
   --text-primary: #F8FAFC;
-  --text-secondary: #CBD5E1;
-  --text-tertiary: #94A3B8;
-  
-  --shadow-card: 0 4px 12px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2);
+  --text-secondary: #cdcdcd;
+  --text-tertiary: #a1a1aa;
+  --text-link: #ababe9;
+
+  --color-primary: #7b61ff;
+  --color-primary-dark: #6347e6;
+  --color-primary-light: #a78bfa;
+
+  --shadow-card: 0 4px 0 black;
   --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.4);
-  --shadow-glow: 0 0 32px rgba(6, 214, 160, 0.35);
+  --shadow-glow: 0 0 32px rgba(123, 97, 255, 0.35);
   --shadow-accent-glow: 0 0 32px rgba(255, 107, 107, 0.35);
-  
-  --gradient-hero: linear-gradient(165deg, #0F172A 0%, #1E1B4B 30%, #312E81 60%, #06D6A0 150%);
-  --gradient-card: linear-gradient(145deg, #1E293B 0%, #0F172A 100%);
+
+  --gradient-hero: linear-gradient(165deg, #1a0a2e 0%, #1E1B4B 30%, #312E81 60%, #7b61ff 150%);
+  --gradient-card: linear-gradient(145deg, #2f2e40 0%, #1e1d32 100%);
+  --gradient-primary: linear-gradient(135deg, #7b61ff 0%, #6347e6 100%);
+  --gradient-secondary: linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%);
+  --gradient-rainbow-border: linear-gradient(90deg, #ababe9 0%, #bbf9ab 33%, #ababe9 70%, #ff26dc 100%);
 }
 
 /* Legacy support */
 .dark {
-  --bg-primary: #0B1120;
-  --bg-primary-rgb: 11, 17, 32;
-  --bg-secondary: #111827;
-  --bg-tertiary: #1E293B;
-  --surface: #1E293B;
-  --surface-elevated: #334155;
-  --surface-hover: #374151;
-  --border: #334155;
-  --border-strong: #475569;
+  --bg-primary: #1a0a2e;
+  --bg-primary-rgb: 26, 10, 46;
+  --bg-secondary: #1e1d32;
+  --bg-tertiary: #2f2e40;
+  --surface: #2f2e40;
+  --surface-elevated: #3a3960;
+  --surface-hover: #474d78;
+  --surface-frosted: rgba(71, 77, 120, 0.5);
+  --border: rgba(171, 171, 233, 0.4);
+  --border-strong: rgb(121, 125, 245);
   --text-primary: #F8FAFC;
-  --text-secondary: #CBD5E1;
-  --text-tertiary: #94A3B8;
+  --text-secondary: #cdcdcd;
+  --text-tertiary: #a1a1aa;
+  --text-link: #ababe9;
 }
 
 /* Reset and base styles */
@@ -536,6 +547,120 @@ body {
   /* Monospace text */
   .font-mono {
     font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Frosted glass card - homepage dark UI pattern */
+  .card-frosted {
+    @apply rounded-xl;
+    background-color: var(--surface-frosted, rgba(71, 77, 120, 0.5));
+    border: 1px solid var(--border);
+    backdrop-filter: blur(24px);
+  }
+
+  /* Dark surface card with bottom shadow - homepage pattern */
+  .card-dark {
+    @apply rounded-xl;
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-card);
+  }
+
+  /* Inset button - homepage pressed-in look */
+  .btn-inset {
+    @apply px-5 py-3 rounded-lg font-semibold text-white transition-all;
+    @apply inline-flex items-center justify-center gap-2;
+    background-color: rgba(50, 58, 96, 0.8);
+    border: 2px solid rgb(84, 100, 183);
+    box-shadow: inset 0 -4px 0 rgb(71, 79, 81);
+  }
+
+  .btn-inset:hover {
+    filter: brightness(1.1);
+  }
+
+  /* Purple action button - homepage CTA pattern */
+  .btn-purple {
+    @apply px-5 py-3 rounded-lg font-semibold text-white transition-all;
+    @apply inline-flex items-center justify-center gap-2;
+    background-color: #7b61ff;
+    border: 2px solid black;
+    box-shadow: 0 4px 0 black;
+  }
+
+  .btn-purple:hover {
+    filter: brightness(1.1);
+  }
+
+  .btn-purple:active {
+    box-shadow: 0 2px 0 black;
+    transform: translateY(2px);
+  }
+
+  /* Rainbow gradient border - homepage banner pattern */
+  .border-rainbow {
+    position: relative;
+    border: 1px solid transparent;
+    background-clip: padding-box;
+  }
+
+  .border-rainbow::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: var(--gradient-rainbow-border, linear-gradient(90deg, #ababe9 0%, #bbf9ab 33%, #ababe9 70%, #ff26dc 100%));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  /* Faded text gradient - homepage descriptive text */
+  .text-fade {
+    background: linear-gradient(to bottom, #eeeeee 0%, #b4b2ae 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Wizard step indicator - for dark themed flows */
+  .step-indicator {
+    @apply w-8 h-8 rounded-full flex items-center justify-center transition-all;
+    background-color: var(--bg-tertiary);
+    border: 2px solid var(--border);
+  }
+
+  .step-indicator.active {
+    background-color: rgba(123, 97, 255, 0.2);
+    border-color: #7b61ff;
+    color: #7b61ff;
+  }
+
+  .step-indicator.completed {
+    background-color: rgba(74, 222, 128, 0.2);
+    border-color: #4ade80;
+    color: #4ade80;
+  }
+
+  /* Dark form input - for dark themed pages */
+  .input-dark {
+    @apply w-full px-4 py-3 rounded-xl text-sm transition-all;
+    @apply focus:outline-none;
+    background-color: rgba(50, 58, 96, 0.5);
+    border: 1px solid var(--border);
+    color: #F8FAFC;
+    font-size: 16px;
+  }
+
+  .input-dark::placeholder {
+    color: var(--text-tertiary, #a1a1aa);
+  }
+
+  .input-dark:focus {
+    border-color: var(--border-strong, rgb(121, 125, 245));
+    box-shadow: 0 0 0 3px rgba(123, 97, 255, 0.15);
   }
 }
 
