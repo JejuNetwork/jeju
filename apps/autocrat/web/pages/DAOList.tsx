@@ -502,41 +502,13 @@ function SettingsPopup({ onClose }: { onClose: () => void }) {
                 style={{ background: 'linear-gradient(135deg, rgba(107, 33, 168, 0.4) 0%, rgba(139, 92, 246, 0.2) 100%)', border: '1px solid rgba(139, 92, 246, 0.3)' }}
               >
                 <p className="text-xs mb-1" style={{ color: '#a1a1aa' }}>Total Balance</p>
-                <p className="text-2xl font-bold text-white">1,250 AUTOCRAT</p>
-                <p className="text-sm" style={{ color: '#4ade80' }}>≈ $2,500.00 USD</p>
+                <p className="text-2xl font-bold text-white">—</p>
+                <p className="text-sm" style={{ color: '#a1a1aa' }}>Connect account to view</p>
               </div>
 
               {/* Activity List */}
               <div className="space-y-2 mt-4">
-                {[
-                  { action: 'Voted on Proposal #42', time: '2 hours ago', type: 'vote', amount: null },
-                  { action: 'Staked tokens', time: '1 day ago', type: 'stake', amount: '+100 AUTOCRAT' },
-                  { action: 'Claimed Airdrop', time: '3 days ago', type: 'claim', amount: '+250 AUTOCRAT' },
-                  { action: 'Delegated voting power', time: '1 week ago', type: 'delegate', amount: null },
-                  { action: 'Received from treasury', time: '2 weeks ago', type: 'receive', amount: '+500 AUTOCRAT' },
-                ].map((activity, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 rounded-lg" style={{ backgroundColor: 'rgba(50, 58, 96, 0.5)' }}>
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-8 h-8 rounded-full flex items-center justify-center"
-                        style={{ backgroundColor: 'rgba(139, 92, 246, 0.3)' }}
-                      >
-                        {activity.type === 'vote' && <Vote className="w-4 h-4" style={{ color: '#a78bfa' }} />}
-                        {activity.type === 'stake' && <Zap className="w-4 h-4" style={{ color: '#a78bfa' }} />}
-                        {activity.type === 'claim' && <Gift className="w-4 h-4" style={{ color: '#a78bfa' }} />}
-                        {activity.type === 'delegate' && <Users className="w-4 h-4" style={{ color: '#a78bfa' }} />}
-                        {activity.type === 'receive' && <Wallet className="w-4 h-4" style={{ color: '#a78bfa' }} />}
-                      </div>
-                      <div>
-                        <p className="text-white text-sm">{activity.action}</p>
-                        <p className="text-xs" style={{ color: '#a1a1aa' }}>{activity.time}</p>
-                      </div>
-                    </div>
-                    {activity.amount && (
-                      <span className="text-sm font-medium" style={{ color: '#4ade80' }}>{activity.amount}</span>
-                    )}
-                  </div>
-                ))}
+                <p className="text-sm text-center py-4" style={{ color: '#a1a1aa' }}>No recent activity</p>
               </div>
             </div>
           )}
@@ -556,7 +528,7 @@ function SettingsPopup({ onClose }: { onClose: () => void }) {
                 <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #6b21a8, #7c3aed)' }}>
                   <Gift className="w-8 h-8 text-white" />
                 </div>
-                <p className="text-3xl font-bold text-white mb-1">250 AUTOCRAT</p>
+                <p className="text-3xl font-bold text-white mb-1">250 ElizaOS</p>
                 <p className="text-sm mb-4" style={{ color: '#a1a1aa' }}>Available to claim</p>
                 <button
                   type="button"
@@ -572,9 +544,9 @@ function SettingsPopup({ onClose }: { onClose: () => void }) {
                 <h4 className="text-white font-medium text-sm mb-3">Claim History</h4>
                 <div className="space-y-2">
                   {[
-                    { date: 'Jan 15, 2024', amount: '500 AUTOCRAT', status: 'Claimed' },
-                    { date: 'Dec 1, 2023', amount: '250 AUTOCRAT', status: 'Claimed' },
-                    { date: 'Nov 1, 2023', amount: '100 AUTOCRAT', status: 'Claimed' },
+                    { date: 'Jan 15, 2024', amount: '500 ElizaOS', status: 'Claimed' },
+                    { date: 'Dec 1, 2023', amount: '250 ElizaOS', status: 'Claimed' },
+                    { date: 'Nov 1, 2023', amount: '100 ElizaOS', status: 'Claimed' },
                   ].map((claim, i) => (
                     <div key={i} className="flex items-center justify-between p-3 rounded-lg" style={{ backgroundColor: 'rgba(50, 58, 96, 0.5)' }}>
                       <div>
@@ -720,6 +692,7 @@ export default function DAOListPage() {
   const [showNetworkOnly, setShowNetworkOnly] = useState(false)
   const [activeTab, setActiveTab] = useState<'overview' | 'proposals' | 'discussions'>('overview')
   const [activeSidebarPanel, setActiveSidebarPanel] = useState<string | null>(null)
+  const [showExploreModal, setShowExploreModal] = useState(false)
 
   const {
     data: daos = [],
@@ -743,8 +716,7 @@ export default function DAOListPage() {
         className="relative overflow-hidden"
         style={{
           height: '336px',
-          background:
-            'radial-gradient(ellipse at 70% 50%, rgba(91, 21, 178, 0.7) 0%, rgba(36, 6, 71, 0.7) 4.5%, rgba(36, 106, 122, 0.66) 57.5%, rgba(22, 49, 186, 0.66) 100%), linear-gradient(135deg, #1a0a2e 0%, #0d1b3e 50%, #162060 100%)',
+          background: '#1a0a2e',
         }}
       >
         {/* Title section - left aligned */}
@@ -839,7 +811,7 @@ export default function DAOListPage() {
               <Zap className="w-10 h-10 shrink-0" style={{ color: '#44dee9' }} aria-hidden="true" />
               <div>
                 <p className="text-white font-medium">Deposit Funds</p>
-                <p className="text-sm" style={{ color: '#cdcdcd' }}>0xc12c...484F2</p>
+                <p className="text-sm" style={{ color: '#cdcdcd' }}>—</p>
               </div>
             </div>
             <button
@@ -847,7 +819,7 @@ export default function DAOListPage() {
               className="text-sm font-medium px-2.5 py-2.5 transition-colors hover:opacity-80"
               style={{ color: '#ababe9' }}
             >
-              Copy Address
+              Connect
             </button>
           </div>
 
@@ -864,7 +836,7 @@ export default function DAOListPage() {
               <Wallet className="w-10 h-10 shrink-0" style={{ color: '#f575c2' }} aria-hidden="true" />
               <div>
                 <p className="text-white font-medium">Account Balance</p>
-                <p className="text-sm" style={{ color: '#cdcdcd' }}>0.023 ETH ($23.99)</p>
+                <p className="text-sm" style={{ color: '#cdcdcd' }}>—</p>
               </div>
             </div>
             <button
@@ -1044,7 +1016,7 @@ export default function DAOListPage() {
               <div className="flex items-center gap-3">
                 <Share2 className="w-5 h-5 shrink-0" style={{ color: '#bbf9ab' }} aria-hidden="true" />
                 <p className="text-white text-sm font-medium">
-                  Invite Friends, Earn Rewards Up To 200 <span style={{ color: '#bbf9ab' }}>$AUTOCRATS</span> Per Referral
+                  Invite Friends, Earn Rewards Up To 200 <span style={{ color: '#bbf9ab' }}>$ElizaOS</span> Per Referral
                 </p>
               </div>
               <button
@@ -1092,8 +1064,9 @@ export default function DAOListPage() {
                 </p>
               </div>
               {/* Bottom CTA button */}
-              <Link
-                to="/explore"
+              <button
+                type="button"
+                onClick={() => setShowExploreModal(true)}
                 className="absolute bottom-6 left-6 right-6 flex items-center justify-center px-5 py-3 rounded-lg text-white font-semibold transition-all hover:brightness-110"
                 style={{
                   backgroundColor: '#7b61ff',
@@ -1102,7 +1075,7 @@ export default function DAOListPage() {
                 }}
               >
                 Explore DAOs
-              </Link>
+              </button>
             </div>
 
             {/* Right column with two stacked cards */}
@@ -1240,130 +1213,167 @@ export default function DAOListPage() {
             </div>
           </div>
 
-          {/* DAO Showcase Cards */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-white text-lg font-semibold">Featured DAOs</h2>
-              <button
-                type="button"
-                onClick={() => refetch()}
-                className="p-2 rounded-lg transition-colors"
-                style={{ color: 'var(--text-tertiary)' }}
-                aria-label="Refresh list"
+          {/* Explore DAOs Modal */}
+          {showExploreModal && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+              style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)' }}
+              onClick={(e) => e.target === e.currentTarget && setShowExploreModal(false)}
+            >
+              <div
+                className="w-full max-w-4xl max-h-[80vh] rounded-2xl overflow-hidden flex flex-col"
+                style={{
+                  backgroundColor: '#1e1d32',
+                  border: '1px solid rgb(121, 125, 245)',
+                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+                }}
               >
-                <RefreshCw className="w-4 h-4" aria-hidden="true" />
-              </button>
-            </div>
-
-            {isLoading ? (
-              <LoadingState />
-            ) : error ? (
-              <ErrorState error={error as Error} onRetry={handleRetry} />
-            ) : daos.length === 0 ? (
-              <EmptyState />
-            ) : (
-              <div className="grid gap-5 md:grid-cols-2">
-                {/* Humanitarian ECO DAO Showcase */}
-                <div
-                  className="rounded-xl overflow-hidden"
-                  style={{
-                    backgroundColor: 'rgba(131, 138, 168, 0.25)',
-                    border: '1px solid rgb(121, 125, 245)',
-                    boxShadow: '0 4px 0 black',
-                    backdropFilter: 'blur(24px)',
-                  }}
-                >
-                  {/* Green gradient header */}
-                  <div
-                    className="h-[100px] relative"
-                    style={{
-                      background: 'linear-gradient(135deg, #065f46 0%, #059669 40%, #34d399 100%)',
-                    }}
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: '1px solid rgba(121, 125, 245, 0.3)' }}>
+                  <div className="flex items-center gap-3">
+                    <Compass className="w-5 h-5" style={{ color: '#7b61ff' }} />
+                    <h2 className="text-xl font-bold text-white">Explore DAOs</h2>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowExploreModal(false)}
+                    className="p-2 rounded-lg hover:bg-white/10 transition-colors"
                   >
-                    <span
-                      className="absolute top-3 left-4 px-3 py-1 text-xs font-semibold rounded-full"
-                      style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)', color: '#bbf9ab' }}
-                    >
-                      Public Goods
-                    </span>
-                  </div>
-                  <div className="px-5 pb-5 pt-4">
-                    <h3 className="text-white text-base font-bold mb-1">Humanitarian ECO DAO</h3>
-                    <p className="text-sm mb-4" style={{ color: '#cdcdcd' }}>
-                      Building sustainable solutions for communities worldwide through decentralized coordination.
-                    </p>
-                    <div className="flex items-center gap-3 mb-3">
-                      <div
-                        className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white"
-                        style={{ background: 'linear-gradient(135deg, #6b21a8, #7c3aed)' }}
-                      >
-                        B
-                      </div>
-                      <span className="text-white text-sm font-medium">Brain Bay</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs" style={{ color: '#a1a1aa' }}>
-                      <Users className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span>234 Members</span>
-                      <span>·</span>
-                      <span>23 Proposals</span>
-                    </div>
-                  </div>
+                    <XCircle className="w-5 h-5 text-white" />
+                  </button>
                 </div>
 
-                {/* EMBERQUILL STUDIOS Showcase */}
-                <div
-                  className="rounded-xl overflow-hidden"
-                  style={{
-                    backgroundColor: 'rgba(131, 138, 168, 0.25)',
-                    border: '1px solid rgb(121, 125, 245)',
-                    boxShadow: '0 4px 0 black',
-                    backdropFilter: 'blur(24px)',
-                  }}
-                >
-                  {/* Orange/red gradient header */}
-                  <div
-                    className="h-[100px] relative"
-                    style={{
-                      background: 'linear-gradient(135deg, #9a3412 0%, #ea580c 40%, #fb923c 100%)',
-                    }}
-                  >
-                    <span
-                      className="absolute top-3 left-4 px-3 py-1 text-xs font-semibold rounded-full"
-                      style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)', color: '#fdba74' }}
-                    >
-                      Creatives
-                    </span>
+                {/* Scrollable Content */}
+                <div className="flex-1 overflow-y-auto p-6 space-y-5">
+                  {/* Search */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#a1a1aa' }} />
+                    <input
+                      type="text"
+                      placeholder="Search DAOs..."
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2.5 rounded-lg text-white text-sm placeholder:text-gray-400 outline-none focus:ring-2 focus:ring-purple-500"
+                      style={{ backgroundColor: 'rgba(50, 58, 96, 0.5)', border: '1px solid rgba(139, 92, 246, 0.3)' }}
+                    />
                   </div>
-                  <div className="px-5 pb-5 pt-4">
-                    <h3 className="text-white text-base font-bold mb-1">EMBERQUILL STUDIOS</h3>
-                    <p className="text-sm mb-4" style={{ color: '#cdcdcd' }}>
-                      Over 50 tight-knit art buddies collaborating on digital art, NFTs, and creative projects.
-                    </p>
-                    <div className="flex items-center gap-3 mb-3">
-                      <div
-                        className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white"
-                        style={{ background: 'linear-gradient(135deg, #b45309, #ea580c)' }}
-                      >
-                        C
-                      </div>
-                      <span className="text-white text-sm font-medium">Cedric Dower</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs" style={{ color: '#a1a1aa' }}>
-                      <Users className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span>52 Members</span>
-                      <span>·</span>
-                      <span>14 Proposals</span>
-                    </div>
-                  </div>
-                </div>
 
-                {/* Dynamic DAO Cards from data */}
-                {daos.slice(0, 4).map((dao) => (
-                  <DAOCard key={dao.daoId} dao={dao} />
-                ))}
+                  <h3 className="text-white font-semibold">Featured DAOs</h3>
+
+                  {isLoading ? (
+                    <LoadingState />
+                  ) : error ? (
+                    <ErrorState error={error as Error} onRetry={handleRetry} />
+                  ) : (
+                    <div className="grid gap-5 md:grid-cols-2">
+                      {/* Humanitarian ECO DAO Showcase */}
+                      <div
+                        className="rounded-xl overflow-hidden cursor-pointer transition-all hover:brightness-110"
+                        style={{
+                          backgroundColor: 'rgba(131, 138, 168, 0.25)',
+                          border: '1px solid rgb(121, 125, 245)',
+                          boxShadow: '0 4px 0 black',
+                          backdropFilter: 'blur(24px)',
+                        }}
+                      >
+                        <div
+                          className="h-[100px] relative"
+                          style={{
+                            background: 'linear-gradient(135deg, #065f46 0%, #059669 40%, #34d399 100%)',
+                          }}
+                        >
+                          <span
+                            className="absolute top-3 left-4 px-3 py-1 text-xs font-semibold rounded-full"
+                            style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)', color: '#bbf9ab' }}
+                          >
+                            Public Goods
+                          </span>
+                        </div>
+                        <div className="px-5 pb-5 pt-4">
+                          <h3 className="text-white text-base font-bold mb-1">Humanitarian ECO DAO</h3>
+                          <p className="text-sm mb-4" style={{ color: '#cdcdcd' }}>
+                            Building sustainable solutions for communities worldwide through decentralized coordination.
+                          </p>
+                          <div className="flex items-center gap-3 mb-3">
+                            <div
+                              className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                              style={{ background: 'linear-gradient(135deg, #6b21a8, #7c3aed)' }}
+                            >
+                              B
+                            </div>
+                            <span className="text-white text-sm font-medium">Brain Bay</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs" style={{ color: '#a1a1aa' }}>
+                            <Users className="w-3.5 h-3.5" aria-hidden="true" />
+                            <span>234 Members</span>
+                            <span>·</span>
+                            <span>23 Proposals</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* EMBERQUILL STUDIOS Showcase */}
+                      <div
+                        className="rounded-xl overflow-hidden cursor-pointer transition-all hover:brightness-110"
+                        style={{
+                          backgroundColor: 'rgba(131, 138, 168, 0.25)',
+                          border: '1px solid rgb(121, 125, 245)',
+                          boxShadow: '0 4px 0 black',
+                          backdropFilter: 'blur(24px)',
+                        }}
+                      >
+                        <div
+                          className="h-[100px] relative"
+                          style={{
+                            background: 'linear-gradient(135deg, #9a3412 0%, #ea580c 40%, #fb923c 100%)',
+                          }}
+                        >
+                          <span
+                            className="absolute top-3 left-4 px-3 py-1 text-xs font-semibold rounded-full"
+                            style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)', color: '#fdba74' }}
+                          >
+                            Creatives
+                          </span>
+                        </div>
+                        <div className="px-5 pb-5 pt-4">
+                          <h3 className="text-white text-base font-bold mb-1">EMBERQUILL STUDIOS</h3>
+                          <p className="text-sm mb-4" style={{ color: '#cdcdcd' }}>
+                            Over 50 tight-knit art buddies collaborating on digital art, NFTs, and creative projects.
+                          </p>
+                          <div className="flex items-center gap-3 mb-3">
+                            <div
+                              className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                              style={{ background: 'linear-gradient(135deg, #b45309, #ea580c)' }}
+                            >
+                              C
+                            </div>
+                            <span className="text-white text-sm font-medium">Cedric Dower</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs" style={{ color: '#a1a1aa' }}>
+                            <Users className="w-3.5 h-3.5" aria-hidden="true" />
+                            <span>52 Members</span>
+                            <span>·</span>
+                            <span>14 Proposals</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Dynamic DAO Cards from data */}
+                      {daos.length === 0 ? (
+                        <div className="col-span-2">
+                          <EmptyState />
+                        </div>
+                      ) : (
+                        daos.slice(0, 4).map((dao) => (
+                          <DAOCard key={dao.daoId} dao={dao} />
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
             </>
           )}
 
