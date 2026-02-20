@@ -6,7 +6,6 @@ import {
   Check,
   Crown,
   Heart,
-  ImagePlus,
   Info,
   Loader2,
   MessageSquare,
@@ -96,61 +95,6 @@ function createBoardMember(role: AgentRole): CreateAgentDraft {
     decisionStyle: 'balanced',
   }
 }
-
-// Default Eliza board — pre-configured agents for one-click setup
-const ELIZA_DEFAULT_BOARD: CreateAgentDraft[] = [
-  {
-    role: 'TREASURY',
-    persona: {
-      name: 'Vault',
-      avatarCid: '',
-      bio: 'Treasury guardian focused on sustainable financial management and risk-aware allocation of DAO resources.',
-      personality: 'Conservative, analytical, budget-conscious, risk-aware',
-      traits: ['Analytical', 'Cautious', 'Strategic'],
-      voiceStyle: 'Precise and measured',
-      communicationTone: 'professional',
-      specialties: ['Treasury', 'Risk Assessment', 'Budgeting'],
-    },
-    modelId: 'claude-sonnet-4-20250514',
-    weight: 34,
-    values: ['Fiscal responsibility', 'Sustainable growth'],
-    decisionStyle: 'conservative',
-  },
-  {
-    role: 'CODE',
-    persona: {
-      name: 'Cipher',
-      avatarCid: '',
-      bio: 'Technical guardian reviewing code quality, security, and architectural decisions for the DAO.',
-      personality: 'Detail-oriented, security-focused, pragmatic, thorough',
-      traits: ['Technical', 'Thorough', 'Security-minded'],
-      voiceStyle: 'Direct and technical',
-      communicationTone: 'professional',
-      specialties: ['Code Review', 'Security', 'Architecture'],
-    },
-    modelId: 'claude-sonnet-4-20250514',
-    weight: 33,
-    values: ['Code quality', 'Security first'],
-    decisionStyle: 'balanced',
-  },
-  {
-    role: 'COMMUNITY',
-    persona: {
-      name: 'Echo',
-      avatarCid: '',
-      bio: 'Community guardian ensuring proposals align with member interests and foster inclusive participation.',
-      personality: 'Empathetic, inclusive, user-focused, engagement-oriented',
-      traits: ['Empathetic', 'Inclusive', 'Communicative'],
-      voiceStyle: 'Warm and approachable',
-      communicationTone: 'friendly',
-      specialties: ['Community', 'Engagement', 'Governance'],
-    },
-    modelId: 'claude-sonnet-4-20250514',
-    weight: 33,
-    values: ['Community voice matters', 'Inclusive governance'],
-    decisionStyle: 'balanced',
-  },
-]
 
 // Pre-built ElizaOS character preset
 interface CharacterPreset {
@@ -775,7 +719,6 @@ export default function CreateDAOPage() {
   const [farcasterChannel, setFarcasterChannel] = useState('')
   const [tags, setTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
-  const [logoUrl, setLogoUrl] = useState('')
   const [director, setDirector] = useState<CreateAgentDraft>(
     createEmptyDirector(),
   )
@@ -1045,46 +988,6 @@ export default function CreateDAOPage() {
               Organization basics
             </h2>
 
-            {/* Logo */}
-            <div>
-              <span className="block text-sm font-medium mb-2 text-white">
-                Logo (optional)
-              </span>
-              <div className="flex items-center gap-4">
-                <label
-                  htmlFor="dao-logo-upload"
-                  className="w-20 h-20 rounded-xl flex items-center justify-center cursor-pointer transition-colors"
-                  style={{
-                    backgroundColor: '#2f2e40',
-                    border: '1px dashed rgba(171, 171, 233, 0.4)',
-                  }}
-                >
-                  {logoUrl ? (
-                    <img
-                      src={logoUrl}
-                      alt="DAO logo"
-                      className="w-full h-full rounded-xl object-cover"
-                    />
-                  ) : (
-                    <ImagePlus className="w-6 h-6" style={{ color: '#a1a1aa' }} />
-                  )}
-                </label>
-                <div className="flex-1">
-                  <input
-                    id="dao-logo-url"
-                    type="text"
-                    value={logoUrl}
-                    onChange={(e) => setLogoUrl(e.target.value)}
-                    placeholder="https://example.com/logo.png"
-                    className="input-dark"
-                  />
-                  <p className="text-xs mt-1" style={{ color: '#a1a1aa' }}>
-                    Paste an image URL for your DAO logo
-                  </p>
-                </div>
-              </div>
-            </div>
-
             <div>
               <label
                 htmlFor="dao-slug"
@@ -1322,80 +1225,6 @@ export default function CreateDAOPage() {
               Board members
             </h2>
 
-            {/* Eliza Default Board — one-click setup */}
-            <button
-              type="button"
-              onClick={() => setBoard(ELIZA_DEFAULT_BOARD)}
-              className="w-full rounded-xl p-5 text-left transition-all hover:brightness-110"
-              style={{
-                backgroundColor: '#2f2e40',
-                border: board === ELIZA_DEFAULT_BOARD
-                  ? '2px solid #7b61ff'
-                  : '1px solid rgba(171, 171, 233, 0.4)',
-                boxShadow: board === ELIZA_DEFAULT_BOARD
-                  ? '0 0 0 4px rgba(123, 97, 255, 0.2), 0 4px 0 black'
-                  : '0 4px 0 black',
-              }}
-            >
-              <div className="flex items-center gap-4">
-                <div
-                  className="w-14 h-14 rounded-xl overflow-hidden shadow-lg shrink-0"
-                >
-                  <img
-                    src="/agents/eliza-logo.png"
-                    alt="Eliza"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-3">
-                    <h3 className="font-semibold text-white">Eliza Default Board</h3>
-                    <span
-                      className="shrink-0 px-2.5 py-1 text-xs font-semibold rounded-full"
-                      style={{
-                        backgroundColor: 'rgba(139, 92, 246, 0.25)',
-                        color: '#a78bfa',
-                      }}
-                    >
-                      One-click setup
-                    </span>
-                  </div>
-                  <p className="text-sm mt-1" style={{ color: '#cdcdcd' }}>
-                    Pre-configured board with Vault (Treasury), Cipher (Code), and Echo (Community) — ready to go.
-                  </p>
-                  <div className="mt-2 flex gap-2">
-                    {ELIZA_DEFAULT_BOARD.map((m) => (
-                      <span
-                        key={m.persona.name}
-                        className="px-2 py-0.5 text-xs rounded-md"
-                        style={{ backgroundColor: 'rgba(50, 58, 96, 0.5)', color: '#ababe9' }}
-                      >
-                        {m.persona.name} · {m.weight}%
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </button>
-
-            {/* Divider */}
-            <div className="flex items-center gap-4">
-              <div
-                className="flex-1 h-px"
-                style={{ backgroundColor: 'rgba(171, 171, 233, 0.4)' }}
-              />
-              <span
-                className="text-xs font-medium"
-                style={{ color: '#a1a1aa' }}
-              >
-                or configure manually
-              </span>
-              <div
-                className="flex-1 h-px"
-                style={{ backgroundColor: 'rgba(171, 171, 233, 0.4)' }}
-              />
-            </div>
-
             {boardValidationIssues.length > 0 && (
               <div
                 className="flex gap-3 p-4 rounded-xl"
@@ -1463,83 +1292,6 @@ export default function CreateDAOPage() {
             <h2 className="text-2xl font-bold mb-6 text-white">
               Governance rules
             </h2>
-
-            {/* Eliza Default Governance — one-click setup */}
-            <button
-              type="button"
-              onClick={() => setGovernanceParams(DEFAULT_GOVERNANCE_PARAMS)}
-              className="w-full rounded-xl p-5 text-left transition-all hover:brightness-110"
-              style={{
-                backgroundColor: '#2f2e40',
-                border: governanceParams === DEFAULT_GOVERNANCE_PARAMS
-                  ? '2px solid #7b61ff'
-                  : '1px solid rgba(171, 171, 233, 0.4)',
-                boxShadow: governanceParams === DEFAULT_GOVERNANCE_PARAMS
-                  ? '0 0 0 4px rgba(123, 97, 255, 0.2), 0 4px 0 black'
-                  : '0 4px 0 black',
-              }}
-            >
-              <div className="flex items-center gap-4">
-                <div
-                  className="w-14 h-14 rounded-xl overflow-hidden shadow-lg shrink-0"
-                >
-                  <img
-                    src="/agents/eliza-logo.png"
-                    alt="Eliza"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-3">
-                    <h3 className="font-semibold text-white">Eliza Recommended Rules</h3>
-                    <span
-                      className="shrink-0 px-2.5 py-1 text-xs font-semibold rounded-full"
-                      style={{
-                        backgroundColor: 'rgba(139, 92, 246, 0.25)',
-                        color: '#a78bfa',
-                      }}
-                    >
-                      One-click setup
-                    </span>
-                  </div>
-                  <p className="text-sm mt-1" style={{ color: '#cdcdcd' }}>
-                    Balanced governance defaults — 3-day voting, quality threshold 70, director &amp; community veto enabled.
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <span className="px-2 py-0.5 text-xs rounded-md" style={{ backgroundColor: 'rgba(50, 58, 96, 0.5)', color: '#ababe9' }}>
-                      3-day voting
-                    </span>
-                    <span className="px-2 py-0.5 text-xs rounded-md" style={{ backgroundColor: 'rgba(50, 58, 96, 0.5)', color: '#ababe9' }}>
-                      Quality 70+
-                    </span>
-                    <span className="px-2 py-0.5 text-xs rounded-md" style={{ backgroundColor: 'rgba(50, 58, 96, 0.5)', color: '#ababe9' }}>
-                      2 approvals
-                    </span>
-                    <span className="px-2 py-0.5 text-xs rounded-md" style={{ backgroundColor: 'rgba(50, 58, 96, 0.5)', color: '#ababe9' }}>
-                      Veto enabled
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </button>
-
-            {/* Divider */}
-            <div className="flex items-center gap-4">
-              <div
-                className="flex-1 h-px"
-                style={{ backgroundColor: 'rgba(171, 171, 233, 0.4)' }}
-              />
-              <span
-                className="text-xs font-medium"
-                style={{ color: '#a1a1aa' }}
-              >
-                or configure manually
-              </span>
-              <div
-                className="flex-1 h-px"
-                style={{ backgroundColor: 'rgba(171, 171, 233, 0.4)' }}
-              />
-            </div>
 
             <div
               className="rounded-xl p-5 space-y-4"
@@ -1703,20 +1455,12 @@ export default function CreateDAOPage() {
                 style={{ borderColor: 'rgba(171, 171, 233, 0.4)' }}
               >
                 <div className="flex items-center gap-4">
-                  {logoUrl ? (
-                    <img
-                      src={logoUrl}
-                      alt={displayName}
-                      className="w-16 h-16 rounded-xl object-cover"
-                    />
-                  ) : (
-                    <div
-                      className="w-16 h-16 rounded-xl flex items-center justify-center text-2xl font-bold text-white"
-                      style={{ background: 'linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%)' }}
-                    >
-                      {displayName.charAt(0).toUpperCase()}
-                    </div>
-                  )}
+                  <div
+                    className="w-16 h-16 rounded-xl flex items-center justify-center text-2xl font-bold text-white"
+                    style={{ background: 'linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%)' }}
+                  >
+                    {displayName.charAt(0).toUpperCase()}
+                  </div>
                   <div>
                     <h3 className="text-xl font-bold text-white">
                       {displayName}
@@ -1756,11 +1500,12 @@ export default function CreateDAOPage() {
                   Director
                 </h4>
                 <div className="flex items-center gap-3">
-                  <img
-                    src="/agents/eliza-logo.png"
-                    alt="Director"
-                    className="w-10 h-10 rounded-lg object-cover"
-                  />
+                  <div
+                    className="w-10 h-10 rounded-lg flex items-center justify-center"
+                    style={{ background: 'linear-gradient(135deg, #FF6B6B 0%, #F472B6 100%)' }}
+                  >
+                    <Crown className="w-5 h-5 text-white" aria-hidden="true" />
+                  </div>
                   <div>
                     <p className="font-medium text-white">
                       {director.persona.name}
