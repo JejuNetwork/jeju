@@ -130,9 +130,9 @@ export function Header() {
           >
             <div
               className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg transition-transform group-hover:scale-105"
-              style={{ background: 'var(--gradient-primary)' }}
+              style={{ backgroundColor: '#fff' }}
             >
-              <Sparkles className="w-5 h-5 text-white" aria-hidden="true" />
+              <Sparkles className="w-5 h-5 text-black" aria-hidden="true" />
             </div>
             <span
               className="hidden sm:block font-bold text-lg"
@@ -201,10 +201,10 @@ export function Header() {
             {/* Create DAO Button - Desktop */}
             <Link
               to="/create"
-              className="hidden sm:inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all duration-200 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+              className="hidden sm:inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-black transition-all duration-200 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
               style={
                 {
-                  background: 'var(--gradient-primary)',
+                  backgroundColor: '#fff',
                   '--tw-ring-color': 'var(--color-primary)',
                 } as React.CSSProperties
               }
@@ -350,8 +350,8 @@ export function Header() {
             <Link
               to="/create"
               onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-white mt-2"
-              style={{ background: 'var(--gradient-primary)' }}
+              className="flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-black mt-2"
+              style={{ backgroundColor: '#fff' }}
             >
               <Plus className="w-5 h-5" aria-hidden="true" />
               Create DAO

@@ -4,10 +4,9 @@ import {
   ArrowRight,
   Bot,
   Check,
-  ChevronDown,
-  ChevronUp,
   Crown,
   Heart,
+  ImagePlus,
   Info,
   Loader2,
   MessageSquare,
@@ -15,7 +14,6 @@ import {
   Settings,
   Shield,
   Sparkles,
-  Trash2,
   Users,
   Wallet,
   X,
@@ -28,13 +26,11 @@ import { injected } from 'wagmi/connectors'
 import {
   DECISION_STYLE_OPTIONS,
   MODEL_OPTIONS,
-  TONE_OPTIONS,
 } from '../constants/agent'
 import { useCreateDAO } from '../hooks/useDAO'
 import {
   type AgentRole,
   BOARD_ROLE_PRESETS,
-  type CommunicationTone,
   type CreateAgentDraft,
   type CreateDAODraft,
   DEFAULT_GOVERNANCE_PARAMS,
@@ -101,6 +97,61 @@ function createBoardMember(role: AgentRole): CreateAgentDraft {
   }
 }
 
+// Default Eliza board — pre-configured agents for one-click setup
+const ELIZA_DEFAULT_BOARD: CreateAgentDraft[] = [
+  {
+    role: 'TREASURY',
+    persona: {
+      name: 'Vault',
+      avatarCid: '',
+      bio: 'Treasury guardian focused on sustainable financial management and risk-aware allocation of DAO resources.',
+      personality: 'Conservative, analytical, budget-conscious, risk-aware',
+      traits: ['Analytical', 'Cautious', 'Strategic'],
+      voiceStyle: 'Precise and measured',
+      communicationTone: 'professional',
+      specialties: ['Treasury', 'Risk Assessment', 'Budgeting'],
+    },
+    modelId: 'claude-sonnet-4-20250514',
+    weight: 34,
+    values: ['Fiscal responsibility', 'Sustainable growth'],
+    decisionStyle: 'conservative',
+  },
+  {
+    role: 'CODE',
+    persona: {
+      name: 'Cipher',
+      avatarCid: '',
+      bio: 'Technical guardian reviewing code quality, security, and architectural decisions for the DAO.',
+      personality: 'Detail-oriented, security-focused, pragmatic, thorough',
+      traits: ['Technical', 'Thorough', 'Security-minded'],
+      voiceStyle: 'Direct and technical',
+      communicationTone: 'professional',
+      specialties: ['Code Review', 'Security', 'Architecture'],
+    },
+    modelId: 'claude-sonnet-4-20250514',
+    weight: 33,
+    values: ['Code quality', 'Security first'],
+    decisionStyle: 'balanced',
+  },
+  {
+    role: 'COMMUNITY',
+    persona: {
+      name: 'Echo',
+      avatarCid: '',
+      bio: 'Community guardian ensuring proposals align with member interests and foster inclusive participation.',
+      personality: 'Empathetic, inclusive, user-focused, engagement-oriented',
+      traits: ['Empathetic', 'Inclusive', 'Communicative'],
+      voiceStyle: 'Warm and approachable',
+      communicationTone: 'friendly',
+      specialties: ['Community', 'Engagement', 'Governance'],
+    },
+    modelId: 'claude-sonnet-4-20250514',
+    weight: 33,
+    values: ['Community voice matters', 'Inclusive governance'],
+    decisionStyle: 'balanced',
+  },
+]
+
 // Pre-built ElizaOS character preset
 interface CharacterPreset {
   id: string
@@ -156,14 +207,14 @@ function CharacterCard({ character, isSelected, onSelect }: CharacterCardProps) 
       className="group block w-full rounded-2xl p-5 text-left transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
       style={
         {
-          backgroundColor: 'var(--surface)',
+          backgroundColor: '#2f2e40',
           border: isSelected
-            ? '2px solid var(--color-primary)'
-            : '1px solid var(--border)',
+            ? '2px solid #7b61ff'
+            : '1px solid rgba(171, 171, 233, 0.4)',
           boxShadow: isSelected
-            ? '0 0 0 4px rgba(6, 214, 160, 0.15)'
-            : 'var(--shadow-card)',
-          '--tw-ring-color': 'var(--color-primary)',
+            ? '0 0 0 4px rgba(123, 97, 255, 0.2), 0 4px 0 black'
+            : '0 4px 0 black',
+          '--tw-ring-color': '#7b61ff',
         } as React.CSSProperties
       }
     >
@@ -171,15 +222,18 @@ function CharacterCard({ character, isSelected, onSelect }: CharacterCardProps) 
         {/* Character Avatar */}
         <div className="relative shrink-0">
           <div
-            className="w-14 h-14 rounded-xl flex items-center justify-center shadow-lg transition-transform duration-300 group-hover:scale-105"
-            style={{ background: character.gradient }}
+            className="w-14 h-14 rounded-xl overflow-hidden shadow-lg transition-transform duration-300 group-hover:scale-105"
           >
-            <Zap className="w-7 h-7 text-white" aria-hidden="true" />
+            <img
+              src="/agents/eliza-logo.png"
+              alt={character.name}
+              className="w-full h-full object-cover"
+            />
           </div>
           {isSelected && (
             <div
               className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center"
-              style={{ backgroundColor: 'var(--color-primary)' }}
+              style={{ backgroundColor: '#7b61ff' }}
             >
               <Check className="w-3 h-3 text-white" aria-hidden="true" />
             </div>
@@ -191,29 +245,28 @@ function CharacterCard({ character, isSelected, onSelect }: CharacterCardProps) 
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h3
-                className="font-semibold truncate transition-colors group-hover:text-[var(--color-primary)]"
-                style={{ color: 'var(--text-primary)' }}
+                className="font-semibold truncate transition-colors text-white group-hover:text-[#a78bfa]"
               >
                 {character.name}
               </h3>
-              <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+              <p className="text-sm" style={{ color: '#a1a1aa' }}>
                 {character.tagline}
               </p>
             </div>
             <span
               className="shrink-0 px-2.5 py-1 text-xs font-semibold rounded-full"
               style={{
-                backgroundColor: 'rgba(139, 92, 246, 0.15)',
-                color: '#8B5CF6',
+                backgroundColor: 'rgba(139, 92, 246, 0.25)',
+                color: '#a78bfa',
               }}
             >
-              Pre-built
+              Great for testing
             </span>
           </div>
 
           <p
             className="mt-2 text-sm line-clamp-2"
-            style={{ color: 'var(--text-secondary)' }}
+            style={{ color: '#cdcdcd' }}
           >
             {character.description}
           </p>
@@ -222,14 +275,14 @@ function CharacterCard({ character, isSelected, onSelect }: CharacterCardProps) 
           <div className="mt-3 flex items-center gap-4 text-xs">
             <div
               className="flex items-center gap-1.5"
-              style={{ color: 'var(--text-secondary)' }}
+              style={{ color: '#cdcdcd' }}
             >
               <Bot className="w-3.5 h-3.5" aria-hidden="true" />
               <span>Claude Opus 4.5</span>
             </div>
             <div
               className="flex items-center gap-1.5"
-              style={{ color: 'var(--text-secondary)' }}
+              style={{ color: '#cdcdcd' }}
             >
               <Shield className="w-3.5 h-3.5" aria-hidden="true" />
               <span>Balanced</span>
@@ -243,8 +296,8 @@ function CharacterCard({ character, isSelected, onSelect }: CharacterCardProps) 
                 key={trait}
                 className="px-2 py-0.5 text-xs rounded-md"
                 style={{
-                  backgroundColor: 'var(--bg-secondary)',
-                  color: 'var(--text-tertiary)',
+                  backgroundColor: 'rgba(50, 58, 96, 0.5)',
+                  color: '#ababe9',
                 }}
               >
                 {trait}
@@ -270,430 +323,434 @@ function AgentForm({
   isDirector = false,
   onRemove,
 }: AgentFormProps) {
-  const [expanded, setExpanded] = useState(true)
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState<CreateAgentDraft>(agent)
   const preset = BOARD_ROLE_PRESETS[agent.role]
+  const hasContent = agent.persona.name || agent.persona.bio
 
-  const updatePersona = useCallback(
+  const openModal = useCallback(() => {
+    setDraft(agent)
+    setOpen(true)
+  }, [agent])
+
+  const saveAndClose = useCallback(() => {
+    onChange(draft)
+    setOpen(false)
+  }, [draft, onChange])
+
+  const updateDraftPersona = useCallback(
     (updates: Partial<CreateAgentDraft['persona']>) => {
-      onChange({ ...agent, persona: { ...agent.persona, ...updates } })
+      setDraft((d) => ({ ...d, persona: { ...d.persona, ...updates } }))
     },
-    [agent, onChange],
+    [],
   )
 
-  const updateValue = useCallback(
+  const updateDraftValue = useCallback(
     (index: number, value: string) => {
-      const newValues = [...agent.values]
-      newValues[index] = value
-      onChange({ ...agent, values: newValues })
+      setDraft((d) => {
+        const newValues = [...d.values]
+        newValues[index] = value
+        return { ...d, values: newValues }
+      })
     },
-    [agent, onChange],
+    [],
   )
 
-  const addValue = useCallback(() => {
-    onChange({ ...agent, values: [...agent.values, ''] })
-  }, [agent, onChange])
+  const addDraftValue = useCallback(() => {
+    setDraft((d) => ({ ...d, values: [...d.values, ''] }))
+  }, [])
 
-  const removeValue = useCallback(
-    (index: number) => {
-      onChange({ ...agent, values: agent.values.filter((_, i) => i !== index) })
-    },
-    [agent, onChange],
-  )
+  const removeDraftValue = useCallback((index: number) => {
+    setDraft((d) => ({ ...d, values: d.values.filter((_, i) => i !== index) }))
+  }, [])
 
   return (
-    <div
-      className="rounded-2xl overflow-hidden"
-      style={{
-        backgroundColor: 'var(--surface)',
-        border: '1px solid var(--border)',
-      }}
-    >
-      {/* Header */}
-      <button
-        type="button"
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between p-4 transition-colors"
-        style={{ backgroundColor: expanded ? 'transparent' : 'var(--surface)' }}
-        aria-expanded={expanded}
-      >
-        <div className="flex items-center gap-3">
+    <>
+      {/* Square Tile */}
+      <div className="relative group">
+        <button
+          type="button"
+          onClick={openModal}
+          className="w-[100px] h-[100px] rounded-xl flex flex-col items-center justify-center gap-1.5 transition-all hover:brightness-110"
+          style={{
+            backgroundColor: hasContent ? '#2f2e40' : 'rgba(50, 58, 96, 0.5)',
+            border: hasContent
+              ? '1px solid rgba(171, 171, 233, 0.4)'
+              : '2px dashed rgba(171, 171, 233, 0.4)',
+            boxShadow: hasContent ? '0 4px 0 black' : 'none',
+          }}
+        >
+          {hasContent ? (
+            <>
+              <div
+                className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                style={{
+                  background: isDirector
+                    ? 'linear-gradient(135deg, #FF6B6B 0%, #F472B6 100%)'
+                    : 'linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%)',
+                }}
+              >
+                {isDirector ? (
+                  <Crown className="w-4 h-4 text-white" aria-hidden="true" />
+                ) : (
+                  <Bot className="w-4 h-4 text-white" aria-hidden="true" />
+                )}
+              </div>
+              <p className="text-white text-xs font-medium text-center truncate w-full px-1.5">
+                {agent.persona.name || (isDirector ? 'Director' : preset.name)}
+              </p>
+            </>
+          ) : (
+            <>
+              <Plus className="w-6 h-6" style={{ color: '#ababe9' }} aria-hidden="true" />
+              <p className="text-xs" style={{ color: '#ababe9' }}>
+                {isDirector ? 'Director' : preset.name}
+              </p>
+            </>
+          )}
+        </button>
+        {!isDirector && onRemove && (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+            style={{ backgroundColor: '#ef4444' }}
+            aria-label="Remove board member"
+          >
+            <X className="w-3 h-3 text-white" aria-hidden="true" />
+          </button>
+        )}
+      </div>
+
+      {/* Modal Popup */}
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)' }}
+          onClick={(e) => e.target === e.currentTarget && setOpen(false)}
+        >
           <div
-            className="w-10 h-10 rounded-lg flex items-center justify-center"
+            className="w-full max-w-lg max-h-[80vh] rounded-2xl overflow-hidden flex flex-col"
             style={{
-              background: isDirector
-                ? 'var(--gradient-accent)'
-                : 'var(--gradient-secondary)',
+              backgroundColor: '#1e1d32',
+              border: '1px solid rgb(121, 125, 245)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
             }}
           >
-            {isDirector ? (
-              <Crown className="w-5 h-5 text-white" aria-hidden="true" />
-            ) : (
-              <Bot className="w-5 h-5 text-white" aria-hidden="true" />
-            )}
-          </div>
-          <div className="text-left">
-            <p
-              className="font-semibold"
-              style={{ color: 'var(--text-primary)' }}
+            {/* Modal Header */}
+            <div
+              className="flex items-center justify-between px-6 py-4 shrink-0"
+              style={{ borderBottom: '1px solid rgba(121, 125, 245, 0.3)' }}
             >
-              {agent.persona.name || (isDirector ? 'Director' : preset.name)}
-            </p>
-            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-              {isDirector ? 'Chief Executive Officer' : preset.description}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {!isDirector && onRemove && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                onRemove()
-              }}
-              className="p-2 rounded-lg transition-colors"
-              style={{ color: 'var(--text-tertiary)' }}
-              aria-label="Remove board member"
-            >
-              <Trash2 className="w-4 h-4" aria-hidden="true" />
-            </button>
-          )}
-          {expanded ? (
-            <ChevronUp
-              className="w-5 h-5"
-              style={{ color: 'var(--text-tertiary)' }}
-            />
-          ) : (
-            <ChevronDown
-              className="w-5 h-5"
-              style={{ color: 'var(--text-tertiary)' }}
-            />
-          )}
-        </div>
-      </button>
-
-      {/* Content */}
-      {expanded && (
-        <div
-          className="p-4 pt-0 space-y-4 border-t"
-          style={{ borderColor: 'var(--border)' }}
-        >
-          {/* Role Selection (for non-Director) */}
-          {!isDirector && (
-            <div>
-              <label
-                htmlFor={`role-${agent.persona.name}`}
-                className="block text-sm font-medium mb-2"
-                style={{ color: 'var(--text-primary)' }}
-              >
-                Role
-              </label>
-              <select
-                id={`role-${agent.persona.name}`}
-                value={agent.role}
-                onChange={(e) => {
-                  const newRole = e.target.value as AgentRole
-                  const newPreset = BOARD_ROLE_PRESETS[newRole]
-                  onChange({
-                    ...agent,
-                    role: newRole,
-                    customRoleName: newRole === 'CUSTOM' ? '' : undefined,
-                    persona: {
-                      ...agent.persona,
-                      personality: newPreset.defaultPersonality,
-                    },
-                  })
-                }}
-                className="select"
-              >
-                {BOARD_ROLE_OPTIONS.map((role) => (
-                  <option key={role} value={role}>
-                    {BOARD_ROLE_PRESETS[role].name}
-                  </option>
-                ))}
-              </select>
-              {agent.role === 'CUSTOM' && (
-                <input
-                  type="text"
-                  value={agent.customRoleName ?? ''}
-                  onChange={(e) =>
-                    onChange({ ...agent, customRoleName: e.target.value })
-                  }
-                  placeholder="Custom role name"
-                  className="input mt-2"
-                />
-              )}
-            </div>
-          )}
-
-          {/* Name */}
-          <div>
-            <label
-              htmlFor={`agent-name-${isDirector ? 'director' : 'board'}`}
-              className="block text-sm font-medium mb-2"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              Agent Name
-            </label>
-            <input
-              id={`agent-name-${isDirector ? 'director' : 'board'}`}
-              type="text"
-              value={agent.persona.name}
-              onChange={(e) => updatePersona({ name: e.target.value })}
-              placeholder={
-                isDirector ? 'e.g., Eliza, Atlas' : `e.g., ${preset.name}`
-              }
-              className="input"
-            />
-          </div>
-
-          {/* Weight (for non-Director) */}
-          {!isDirector && (
-            <div>
-              <label
-                htmlFor={`weight-${agent.persona.name}`}
-                className="block text-sm font-medium mb-2"
-                style={{ color: 'var(--text-primary)' }}
-              >
-                Voting Weight ({agent.weight}%)
-              </label>
-              <input
-                id={`weight-${agent.persona.name}`}
-                type="range"
-                min="5"
-                max="50"
-                step="5"
-                value={agent.weight}
-                onChange={(e) =>
-                  onChange({
-                    ...agent,
-                    weight: Number.parseInt(e.target.value, 10),
-                  })
-                }
-                className="w-full accent-[var(--color-primary)]"
-              />
-              <div
-                className="flex justify-between text-xs"
-                style={{ color: 'var(--text-tertiary)' }}
-              >
-                <span>5%</span>
-                <span>50%</span>
-              </div>
-            </div>
-          )}
-
-          {/* Bio */}
-          <div>
-            <label
-              htmlFor={`agent-bio-${isDirector ? 'director' : 'board'}`}
-              className="block text-sm font-medium mb-2"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              Bio
-            </label>
-            <textarea
-              id={`agent-bio-${isDirector ? 'director' : 'board'}`}
-              value={agent.persona.bio}
-              onChange={(e) => updatePersona({ bio: e.target.value })}
-              placeholder="What this agent focuses on and how they contribute"
-              rows={2}
-              className="textarea"
-            />
-          </div>
-
-          {/* Personality */}
-          <div>
-            <label
-              htmlFor={`agent-personality-${isDirector ? 'director' : 'board'}`}
-              className="block text-sm font-medium mb-2"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              Personality
-            </label>
-            <textarea
-              id={`agent-personality-${isDirector ? 'director' : 'board'}`}
-              value={agent.persona.personality}
-              onChange={(e) => updatePersona({ personality: e.target.value })}
-              placeholder="How this agent approaches decisions and communicates"
-              rows={2}
-              className="textarea"
-            />
-          </div>
-
-          {/* Model */}
-          <div>
-            <span
-              className="block text-sm font-medium mb-2"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              AI Model
-            </span>
-            <div className="grid grid-cols-2 gap-2">
-              {MODEL_OPTIONS.map((model) => {
-                const isSelected = agent.modelId === model.id
-                return (
-                  <button
-                    key={model.id}
-                    type="button"
-                    onClick={() => onChange({ ...agent, modelId: model.id })}
-                    className="p-3 rounded-xl text-left transition-all"
-                    style={{
-                      backgroundColor: isSelected
-                        ? 'rgba(6, 214, 160, 0.12)'
-                        : 'var(--bg-secondary)',
-                      border: isSelected
-                        ? '1px solid rgba(6, 214, 160, 0.4)'
-                        : '1px solid var(--border)',
-                    }}
-                  >
-                    <p
-                      className="text-sm font-medium"
-                      style={{
-                        color: isSelected
-                          ? 'var(--color-primary)'
-                          : 'var(--text-primary)',
-                      }}
-                    >
-                      {model.name}
-                    </p>
-                    <p
-                      className="text-xs"
-                      style={{ color: 'var(--text-tertiary)' }}
-                    >
-                      {model.provider}
-                    </p>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Decision Style */}
-          <div>
-            <span
-              className="block text-sm font-medium mb-2"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              Decision Style
-            </span>
-            <div className="flex gap-2">
-              {DECISION_STYLE_OPTIONS.map((style) => {
-                const isSelected = agent.decisionStyle === style.value
-                return (
-                  <button
-                    key={style.value}
-                    type="button"
-                    onClick={() =>
-                      onChange({ ...agent, decisionStyle: style.value })
-                    }
-                    className="flex-1 p-3 rounded-xl text-center transition-all"
-                    style={{
-                      backgroundColor: isSelected
-                        ? 'rgba(6, 214, 160, 0.12)'
-                        : 'var(--bg-secondary)',
-                      border: isSelected
-                        ? '1px solid rgba(6, 214, 160, 0.4)'
-                        : '1px solid var(--border)',
-                    }}
-                  >
-                    <p
-                      className="text-sm font-medium"
-                      style={{
-                        color: isSelected
-                          ? 'var(--color-primary)'
-                          : 'var(--text-primary)',
-                      }}
-                    >
-                      {style.label}
-                    </p>
-                    <p
-                      className="text-xs mt-0.5"
-                      style={{ color: 'var(--text-tertiary)' }}
-                    >
-                      {style.description}
-                    </p>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Communication Tone */}
-          <div>
-            <label
-              htmlFor={`comm-tone-${isDirector ? 'director' : 'board'}`}
-              className="block text-sm font-medium mb-2"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              Communication Tone
-            </label>
-            <select
-              id={`comm-tone-${isDirector ? 'director' : 'board'}`}
-              value={agent.persona.communicationTone}
-              onChange={(e) =>
-                updatePersona({
-                  communicationTone: e.target.value as CommunicationTone,
-                })
-              }
-              className="select"
-            >
-              {TONE_OPTIONS.map((tone) => (
-                <option key={tone.value} value={tone.value}>
-                  {tone.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Values */}
-          <div>
-            <span
-              className="block text-sm font-medium mb-2"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              <Heart className="w-4 h-4 inline mr-1" aria-hidden="true" />
-              Core Values
-            </span>
-            <div className="space-y-2">
-              {agent.values.map((value, index) => (
+              <div className="flex items-center gap-3">
                 <div
-                  key={value ? `${value}-${index}` : `empty-${index}`}
-                  className="flex gap-2"
+                  className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                  style={{
+                    background: isDirector
+                      ? 'linear-gradient(135deg, #FF6B6B 0%, #F472B6 100%)'
+                      : 'linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%)',
+                  }}
                 >
-                  <input
-                    type="text"
-                    value={value}
-                    onChange={(e) => updateValue(index, e.target.value)}
-                    placeholder="e.g., Security is paramount"
-                    className="input flex-1"
-                  />
-                  {agent.values.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeValue(index)}
-                      className="p-2 rounded-lg transition-colors"
-                      style={{ color: 'var(--text-tertiary)' }}
-                      aria-label="Remove value"
-                    >
-                      <X className="w-4 h-4" aria-hidden="true" />
-                    </button>
+                  {isDirector ? (
+                    <Crown className="w-5 h-5 text-white" aria-hidden="true" />
+                  ) : (
+                    <Bot className="w-5 h-5 text-white" aria-hidden="true" />
                   )}
                 </div>
-              ))}
+                <div>
+                  <h2 className="text-lg font-bold text-white">
+                    {isDirector ? 'Configure Director' : `Configure ${preset.name}`}
+                  </h2>
+                  <p className="text-xs" style={{ color: '#a1a1aa' }}>
+                    {isDirector ? 'Chief Executive Officer' : preset.description}
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
-                onClick={addValue}
-                className="inline-flex items-center gap-1.5 text-sm font-medium transition-colors"
-                style={{ color: 'var(--color-primary)' }}
+                onClick={() => setOpen(false)}
+                className="p-2 rounded-lg hover:bg-white/10 transition-colors"
               >
-                <Plus className="w-4 h-4" aria-hidden="true" />
-                Add Value
+                <X className="w-5 h-5 text-white" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {/* Name */}
+              <div>
+                <label className="block text-sm font-medium mb-2 text-white">
+                  Name (optional)
+                </label>
+                <input
+                  type="text"
+                  value={draft.persona.name}
+                  onChange={(e) => updateDraftPersona({ name: e.target.value })}
+                  placeholder={isDirector ? 'e.g., Eliza, Atlas' : `e.g., ${preset.name}`}
+                  className="input-dark"
+                />
+              </div>
+
+              {/* Role Selection (for non-Director) */}
+              {!isDirector && (
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-white">
+                    Role
+                  </label>
+                  <select
+                    value={draft.role}
+                    onChange={(e) => {
+                      const newRole = e.target.value as AgentRole
+                      const newPreset = BOARD_ROLE_PRESETS[newRole]
+                      setDraft({
+                        ...draft,
+                        role: newRole,
+                        customRoleName: newRole === 'CUSTOM' ? '' : undefined,
+                        persona: {
+                          ...draft.persona,
+                          personality: newPreset.defaultPersonality,
+                        },
+                      })
+                    }}
+                    className="input-dark"
+                  >
+                    {BOARD_ROLE_OPTIONS.map((role) => (
+                      <option key={role} value={role}>
+                        {BOARD_ROLE_PRESETS[role].name}
+                      </option>
+                    ))}
+                  </select>
+                  {draft.role === 'CUSTOM' && (
+                    <input
+                      type="text"
+                      value={draft.customRoleName ?? ''}
+                      onChange={(e) =>
+                        setDraft({ ...draft, customRoleName: e.target.value })
+                      }
+                      placeholder="Custom role name"
+                      className="input-dark mt-2"
+                    />
+                  )}
+                </div>
+              )}
+
+              {/* Weight (for non-Director) */}
+              {!isDirector && (
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-white">
+                    Voting Weight ({draft.weight}%)
+                  </label>
+                  <input
+                    type="range"
+                    min="5"
+                    max="50"
+                    step="5"
+                    value={draft.weight}
+                    onChange={(e) =>
+                      setDraft({
+                        ...draft,
+                        weight: Number.parseInt(e.target.value, 10),
+                      })
+                    }
+                    className="w-full accent-[#7b61ff]"
+                  />
+                  <div
+                    className="flex justify-between text-xs"
+                    style={{ color: '#a1a1aa' }}
+                  >
+                    <span>5%</span>
+                    <span>50%</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Bio */}
+              <div>
+                <label className="block text-sm font-medium mb-2 text-white">
+                  Bio
+                </label>
+                <textarea
+                  value={draft.persona.bio}
+                  onChange={(e) => updateDraftPersona({ bio: e.target.value })}
+                  placeholder="What this agent focuses on and how they contribute"
+                  rows={2}
+                  className="input-dark resize-y"
+                  style={{ minHeight: '80px' }}
+                />
+              </div>
+
+              {/* Personality */}
+              <div>
+                <label className="block text-sm font-medium mb-2 text-white">
+                  Personality
+                </label>
+                <textarea
+                  value={draft.persona.personality}
+                  onChange={(e) => updateDraftPersona({ personality: e.target.value })}
+                  placeholder="How this agent approaches decisions and communicates"
+                  rows={2}
+                  className="input-dark resize-y"
+                  style={{ minHeight: '80px' }}
+                />
+              </div>
+
+              {/* Model */}
+              <div>
+                <span className="block text-sm font-medium mb-2 text-white">
+                  AI Model
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  {MODEL_OPTIONS.map((model) => {
+                    const isSelected = draft.modelId === model.id
+                    return (
+                      <button
+                        key={model.id}
+                        type="button"
+                        onClick={() => setDraft({ ...draft, modelId: model.id })}
+                        className="p-3 rounded-xl text-left transition-all"
+                        style={{
+                          backgroundColor: isSelected
+                            ? 'rgba(123, 97, 255, 0.2)'
+                            : 'rgba(50, 58, 96, 0.5)',
+                          border: isSelected
+                            ? '1px solid rgba(123, 97, 255, 0.6)'
+                            : '1px solid rgba(171, 171, 233, 0.4)',
+                        }}
+                      >
+                        <p
+                          className="text-sm font-medium"
+                          style={{ color: isSelected ? '#a78bfa' : 'white' }}
+                        >
+                          {model.name}
+                        </p>
+                        <p className="text-xs" style={{ color: '#a1a1aa' }}>
+                          {model.provider}
+                        </p>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Decision Style */}
+              <div>
+                <span className="block text-sm font-medium mb-2 text-white">
+                  Decision Style
+                </span>
+                <div className="flex gap-2">
+                  {DECISION_STYLE_OPTIONS.map((style) => {
+                    const isSelected = draft.decisionStyle === style.value
+                    return (
+                      <button
+                        key={style.value}
+                        type="button"
+                        onClick={() =>
+                          setDraft({ ...draft, decisionStyle: style.value })
+                        }
+                        className="flex-1 p-3 rounded-xl text-center transition-all"
+                        style={{
+                          backgroundColor: isSelected
+                            ? 'rgba(123, 97, 255, 0.2)'
+                            : 'rgba(50, 58, 96, 0.5)',
+                          border: isSelected
+                            ? '1px solid rgba(123, 97, 255, 0.6)'
+                            : '1px solid rgba(171, 171, 233, 0.4)',
+                        }}
+                      >
+                        <p
+                          className="text-sm font-medium"
+                          style={{ color: isSelected ? '#a78bfa' : 'white' }}
+                        >
+                          {style.label}
+                        </p>
+                        <p className="text-xs mt-0.5" style={{ color: '#a1a1aa' }}>
+                          {style.description}
+                        </p>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Values */}
+              <div>
+                <span className="block text-sm font-medium mb-2 text-white">
+                  <Heart className="w-4 h-4 inline mr-1" aria-hidden="true" />
+                  Core Values
+                </span>
+                <div className="space-y-2">
+                  {draft.values.map((value, index) => (
+                    <div
+                      key={value ? `${value}-${index}` : `empty-${index}`}
+                      className="flex gap-2"
+                    >
+                      <input
+                        type="text"
+                        value={value}
+                        onChange={(e) => updateDraftValue(index, e.target.value)}
+                        placeholder="e.g., Security is paramount"
+                        className="input-dark flex-1"
+                      />
+                      {draft.values.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeDraftValue(index)}
+                          className="p-2 rounded-lg transition-colors"
+                          style={{ color: '#a1a1aa' }}
+                          aria-label="Remove value"
+                        >
+                          <X className="w-4 h-4" aria-hidden="true" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={addDraftValue}
+                    className="inline-flex items-center gap-1.5 text-sm font-medium transition-colors"
+                    style={{ color: '#ababe9' }}
+                  >
+                    <Plus className="w-4 h-4" aria-hidden="true" />
+                    Add Value
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              className="px-6 py-4 flex justify-end gap-3 shrink-0"
+              style={{ borderTop: '1px solid rgba(121, 125, 245, 0.3)' }}
+            >
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="px-5 py-2.5 rounded-lg font-medium text-white transition-all hover:brightness-110"
+                style={{
+                  backgroundColor: 'rgba(50, 58, 96, 0.8)',
+                  border: '2px solid rgb(84, 100, 183)',
+                  boxShadow: 'inset 0 -4px 0 rgb(71, 79, 81)',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={saveAndClose}
+                className="px-5 py-2.5 rounded-lg font-semibold text-white transition-all hover:brightness-110"
+                style={{
+                  backgroundColor: '#7b61ff',
+                  border: '2px solid black',
+                  boxShadow: '0 4px 0 black',
+                }}
+              >
+                Save
               </button>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </>
   )
 }
 
@@ -718,6 +775,7 @@ export default function CreateDAOPage() {
   const [farcasterChannel, setFarcasterChannel] = useState('')
   const [tags, setTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
+  const [logoUrl, setLogoUrl] = useState('')
   const [director, setDirector] = useState<CreateAgentDraft>(
     createEmptyDirector(),
   )
@@ -867,11 +925,10 @@ export default function CreateDAOPage() {
       case 'basics':
         return name.trim().length >= 3 && displayName.trim().length >= 2
       case 'director':
-        return director.persona.name.trim().length >= 2
+        return true
       case 'board':
         return (
           board.length >= 3 &&
-          board.every((b) => b.persona.name.trim().length >= 2) &&
           totalBoardWeight === 100
         )
       case 'governance':
@@ -887,20 +944,6 @@ export default function CreateDAOPage() {
     if (step !== 'board') return []
     const issues: string[] = []
 
-    const membersWithoutNames = board
-      .map((b, index) => ({
-        index: index + 1,
-        role: BOARD_ROLE_PRESETS[b.role].name,
-        hasValidName: b.persona.name.trim().length >= 2,
-      }))
-      .filter((m) => !m.hasValidName)
-
-    if (membersWithoutNames.length > 0) {
-      for (const member of membersWithoutNames) {
-        issues.push(`${member.role} (Member ${member.index}) needs a name`)
-      }
-    }
-
     if (totalBoardWeight !== 100) {
       issues.push(
         `Total voting weight must equal 100% (currently ${totalBoardWeight}%)`,
@@ -913,30 +956,27 @@ export default function CreateDAOPage() {
   return (
     <div
       className="min-h-screen"
-      style={{ backgroundColor: 'var(--bg-primary)' }}
+      style={{ backgroundColor: '#1a0a2e' }}
     >
       {/* Header */}
       <header
-        className="sticky top-0 z-50 backdrop-blur-xl border-b"
+        className="sticky top-0 z-50 backdrop-blur-xl"
         style={{
-          backgroundColor: 'rgba(var(--bg-primary-rgb, 250, 251, 255), 0.95)',
-          borderColor: 'var(--border)',
+          backgroundColor: 'rgba(26, 10, 46, 0.95)',
+          borderBottom: '1px solid rgba(171, 171, 233, 0.4)',
         }}
       >
         <div className="container mx-auto py-4">
           <div className="flex items-center justify-between">
             <Link
               to="/"
-              className="inline-flex items-center gap-2 transition-colors"
-              style={{ color: 'var(--text-secondary)' }}
+              className="inline-flex items-center gap-2 transition-colors hover:opacity-80"
+              style={{ color: '#ababe9' }}
             >
               <ArrowLeft className="w-4 h-4" aria-hidden="true" />
               Cancel
             </Link>
-            <h1
-              className="text-lg font-semibold"
-              style={{ color: 'var(--text-primary)' }}
-            >
+            <h1 className="text-lg font-semibold text-white">
               Create DAO
             </h1>
             <div className="w-20" />
@@ -959,25 +999,25 @@ export default function CreateDAOPage() {
                   className="flex items-center gap-2 disabled:cursor-not-allowed"
                   style={{
                     color: isCurrent
-                      ? 'var(--color-primary)'
+                      ? '#7b61ff'
                       : isPast
-                        ? 'var(--color-success)'
-                        : 'var(--text-tertiary)',
+                        ? '#4ade80'
+                        : '#a1a1aa',
                   }}
                 >
                   <div
                     className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
                     style={{
                       backgroundColor: isCurrent
-                        ? 'rgba(6, 214, 160, 0.15)'
+                        ? 'rgba(123, 97, 255, 0.2)'
                         : isPast
-                          ? 'rgba(16, 185, 129, 0.15)'
-                          : 'var(--bg-secondary)',
+                          ? 'rgba(74, 222, 128, 0.2)'
+                          : '#2f2e40',
                       border: isCurrent
-                        ? '2px solid var(--color-primary)'
+                        ? '2px solid #7b61ff'
                         : isPast
-                          ? '2px solid var(--color-success)'
-                          : '2px solid var(--border)',
+                          ? '2px solid #4ade80'
+                          : '2px solid rgba(171, 171, 233, 0.4)',
                     }}
                   >
                     {isPast ? (
@@ -1001,18 +1041,54 @@ export default function CreateDAOPage() {
         {/* Step: Basics */}
         {step === 'basics' && (
           <div className="space-y-6 animate-in">
-            <h2
-              className="text-2xl font-bold mb-6"
-              style={{ color: 'var(--text-primary)' }}
-            >
+            <h2 className="text-2xl font-bold mb-6 text-white">
               Organization basics
             </h2>
+
+            {/* Logo */}
+            <div>
+              <span className="block text-sm font-medium mb-2 text-white">
+                Logo (optional)
+              </span>
+              <div className="flex items-center gap-4">
+                <label
+                  htmlFor="dao-logo-upload"
+                  className="w-20 h-20 rounded-xl flex items-center justify-center cursor-pointer transition-colors"
+                  style={{
+                    backgroundColor: '#2f2e40',
+                    border: '1px dashed rgba(171, 171, 233, 0.4)',
+                  }}
+                >
+                  {logoUrl ? (
+                    <img
+                      src={logoUrl}
+                      alt="DAO logo"
+                      className="w-full h-full rounded-xl object-cover"
+                    />
+                  ) : (
+                    <ImagePlus className="w-6 h-6" style={{ color: '#a1a1aa' }} />
+                  )}
+                </label>
+                <div className="flex-1">
+                  <input
+                    id="dao-logo-url"
+                    type="text"
+                    value={logoUrl}
+                    onChange={(e) => setLogoUrl(e.target.value)}
+                    placeholder="https://example.com/logo.png"
+                    className="input-dark"
+                  />
+                  <p className="text-xs mt-1" style={{ color: '#a1a1aa' }}>
+                    Paste an image URL for your DAO logo
+                  </p>
+                </div>
+              </div>
+            </div>
 
             <div>
               <label
                 htmlFor="dao-slug"
-                className="block text-sm font-medium mb-2"
-                style={{ color: 'var(--text-primary)' }}
+                className="block text-sm font-medium mb-2 text-white"
               >
                 Slug / Username
               </label>
@@ -1026,11 +1102,11 @@ export default function CreateDAOPage() {
                   )
                 }
                 placeholder="my-dao"
-                className="input"
+                className="input-dark"
               />
               <p
                 className="text-xs mt-1"
-                style={{ color: 'var(--text-tertiary)' }}
+                style={{ color: '#a1a1aa' }}
               >
                 /dao/{name || 'your-dao'}
               </p>
@@ -1039,8 +1115,7 @@ export default function CreateDAOPage() {
             <div>
               <label
                 htmlFor="dao-display-name"
-                className="block text-sm font-medium mb-2"
-                style={{ color: 'var(--text-primary)' }}
+                className="block text-sm font-medium mb-2 text-white"
               >
                 Display Name
               </label>
@@ -1050,15 +1125,14 @@ export default function CreateDAOPage() {
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder="My DAO"
-                className="input"
+                className="input-dark"
               />
             </div>
 
             <div>
               <label
                 htmlFor="dao-description"
-                className="block text-sm font-medium mb-2"
-                style={{ color: 'var(--text-primary)' }}
+                className="block text-sm font-medium mb-2 text-white"
               >
                 Description
               </label>
@@ -1068,15 +1142,15 @@ export default function CreateDAOPage() {
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Describe what your organization does and its goals"
                 rows={4}
-                className="textarea"
+                className="input-dark resize-y"
+                style={{ minHeight: '120px' }}
               />
             </div>
 
             <div>
               <label
                 htmlFor="dao-farcaster"
-                className="block text-sm font-medium mb-2"
-                style={{ color: 'var(--text-primary)' }}
+                className="block text-sm font-medium mb-2 text-white"
               >
                 <MessageSquare
                   className="w-4 h-4 inline mr-1"
@@ -1090,15 +1164,12 @@ export default function CreateDAOPage() {
                 value={farcasterChannel}
                 onChange={(e) => setFarcasterChannel(e.target.value)}
                 placeholder="/my-channel"
-                className="input"
+                className="input-dark"
               />
             </div>
 
             <div>
-              <span
-                className="block text-sm font-medium mb-2"
-                style={{ color: 'var(--text-primary)' }}
-              >
+              <span className="block text-sm font-medium mb-2 text-white">
                 Tags
               </span>
               <div className="flex flex-wrap gap-2 mb-2">
@@ -1107,8 +1178,9 @@ export default function CreateDAOPage() {
                     key={tag}
                     className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-sm"
                     style={{
-                      backgroundColor: 'var(--bg-secondary)',
-                      color: 'var(--text-primary)',
+                      backgroundColor: '#2f2e40',
+                      color: '#F8FAFC',
+                      border: '1px solid rgba(171, 171, 233, 0.4)',
                     }}
                   >
                     {tag}
@@ -1116,7 +1188,7 @@ export default function CreateDAOPage() {
                       type="button"
                       onClick={() => setTags(tags.filter((t) => t !== tag))}
                       className="transition-colors"
-                      style={{ color: 'var(--text-tertiary)' }}
+                      style={{ color: '#a1a1aa' }}
                       aria-label={`Remove tag ${tag}`}
                     >
                       <X className="w-3 h-3" aria-hidden="true" />
@@ -1131,15 +1203,17 @@ export default function CreateDAOPage() {
                   onChange={(e) => setTagInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && addTag()}
                   placeholder="Add a tag"
-                  className="input flex-1 text-sm"
+                  className="input-dark flex-1 text-sm"
                 />
                 <button
                   type="button"
                   onClick={addTag}
-                  className="px-4 py-2 rounded-xl text-sm font-medium transition-colors"
+                  className="px-4 py-2 rounded-xl text-sm font-medium transition-all hover:brightness-110"
                   style={{
-                    backgroundColor: 'var(--bg-secondary)',
-                    color: 'var(--text-primary)',
+                    backgroundColor: 'rgba(50, 58, 96, 0.8)',
+                    border: '2px solid rgb(84, 100, 183)',
+                    boxShadow: 'inset 0 -4px 0 rgb(71, 79, 81)',
+                    color: 'white',
                   }}
                 >
                   Add
@@ -1152,38 +1226,32 @@ export default function CreateDAOPage() {
         {/* Step: Director */}
         {step === 'director' && (
           <div className="space-y-6 animate-in">
-            <h2
-              className="text-2xl font-bold"
-              style={{ color: 'var(--text-primary)' }}
-            >
+            <h2 className="text-2xl font-bold text-white">
               Director configuration
             </h2>
 
             <div
               className="flex gap-3 p-4 rounded-xl"
               style={{
-                backgroundColor: 'var(--surface)',
-                border: '1px solid var(--border)',
+                backgroundColor: 'rgba(71, 77, 120, 0.5)',
+                border: '1px solid rgba(171, 171, 233, 0.4)',
+                backdropFilter: 'blur(24px)',
               }}
             >
               <Info
                 className="w-5 h-5 flex-shrink-0 mt-0.5"
-                style={{ color: 'var(--text-tertiary)' }}
+                style={{ color: '#ababe9' }}
                 aria-hidden="true"
               />
               <div className="space-y-1">
-                <p
-                  className="text-sm font-medium"
-                  style={{ color: 'var(--text-primary)' }}
-                >
+                <p className="text-sm font-medium text-white">
                   Configure your Director agent
                 </p>
                 <p
                   className="text-sm"
-                  style={{ color: 'var(--text-secondary)' }}
+                  style={{ color: '#cdcdcd' }}
                 >
-                  Choose a pre-built character for quick setup, or customize
-                  your own Director below.
+                  Choose a pre-built character or customize your own Director below.
                 </p>
               </div>
             </div>
@@ -1191,14 +1259,11 @@ export default function CreateDAOPage() {
             {/* Character Selection */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h3
-                  className="text-sm font-medium"
-                  style={{ color: 'var(--text-primary)' }}
-                >
+                <h3 className="text-sm font-medium text-white">
                   <Sparkles
                     className="w-4 h-4 inline mr-1.5"
                     aria-hidden="true"
-                    style={{ color: 'var(--color-primary)' }}
+                    style={{ color: '#7b61ff' }}
                   />
                   Quick Start Character
                 </h3>
@@ -1207,7 +1272,7 @@ export default function CreateDAOPage() {
                     type="button"
                     onClick={clearCharacterSelection}
                     className="text-xs font-medium transition-colors"
-                    style={{ color: 'var(--text-tertiary)' }}
+                    style={{ color: '#a1a1aa' }}
                   >
                     Clear selection
                   </button>
@@ -1224,17 +1289,17 @@ export default function CreateDAOPage() {
             <div className="flex items-center gap-4">
               <div
                 className="flex-1 h-px"
-                style={{ backgroundColor: 'var(--border)' }}
+                style={{ backgroundColor: 'rgba(171, 171, 233, 0.4)' }}
               />
               <span
                 className="text-xs font-medium"
-                style={{ color: 'var(--text-tertiary)' }}
+                style={{ color: '#a1a1aa' }}
               >
                 {selectedCharacter ? 'Customize settings' : 'Or configure manually'}
               </span>
               <div
                 className="flex-1 h-px"
-                style={{ backgroundColor: 'var(--border)' }}
+                style={{ backgroundColor: 'rgba(171, 171, 233, 0.4)' }}
               />
             </div>
 
@@ -1253,36 +1318,107 @@ export default function CreateDAOPage() {
         {/* Step: Board */}
         {step === 'board' && (
           <div className="space-y-6 animate-in">
-            <h2
-              className="text-2xl font-bold"
-              style={{ color: 'var(--text-primary)' }}
-            >
+            <h2 className="text-2xl font-bold text-white">
               Board members
             </h2>
+
+            {/* Eliza Default Board — one-click setup */}
+            <button
+              type="button"
+              onClick={() => setBoard(ELIZA_DEFAULT_BOARD)}
+              className="w-full rounded-xl p-5 text-left transition-all hover:brightness-110"
+              style={{
+                backgroundColor: '#2f2e40',
+                border: board === ELIZA_DEFAULT_BOARD
+                  ? '2px solid #7b61ff'
+                  : '1px solid rgba(171, 171, 233, 0.4)',
+                boxShadow: board === ELIZA_DEFAULT_BOARD
+                  ? '0 0 0 4px rgba(123, 97, 255, 0.2), 0 4px 0 black'
+                  : '0 4px 0 black',
+              }}
+            >
+              <div className="flex items-center gap-4">
+                <div
+                  className="w-14 h-14 rounded-xl overflow-hidden shadow-lg shrink-0"
+                >
+                  <img
+                    src="/agents/eliza-logo.png"
+                    alt="Eliza"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="font-semibold text-white">Eliza Default Board</h3>
+                    <span
+                      className="shrink-0 px-2.5 py-1 text-xs font-semibold rounded-full"
+                      style={{
+                        backgroundColor: 'rgba(139, 92, 246, 0.25)',
+                        color: '#a78bfa',
+                      }}
+                    >
+                      One-click setup
+                    </span>
+                  </div>
+                  <p className="text-sm mt-1" style={{ color: '#cdcdcd' }}>
+                    Pre-configured board with Vault (Treasury), Cipher (Code), and Echo (Community) — ready to go.
+                  </p>
+                  <div className="mt-2 flex gap-2">
+                    {ELIZA_DEFAULT_BOARD.map((m) => (
+                      <span
+                        key={m.persona.name}
+                        className="px-2 py-0.5 text-xs rounded-md"
+                        style={{ backgroundColor: 'rgba(50, 58, 96, 0.5)', color: '#ababe9' }}
+                      >
+                        {m.persona.name} · {m.weight}%
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </button>
+
+            {/* Divider */}
+            <div className="flex items-center gap-4">
+              <div
+                className="flex-1 h-px"
+                style={{ backgroundColor: 'rgba(171, 171, 233, 0.4)' }}
+              />
+              <span
+                className="text-xs font-medium"
+                style={{ color: '#a1a1aa' }}
+              >
+                or configure manually
+              </span>
+              <div
+                className="flex-1 h-px"
+                style={{ backgroundColor: 'rgba(171, 171, 233, 0.4)' }}
+              />
+            </div>
 
             {boardValidationIssues.length > 0 && (
               <div
                 className="flex gap-3 p-4 rounded-xl"
                 style={{
-                  backgroundColor: 'rgba(239, 68, 68, 0.08)',
-                  border: '1px solid rgba(239, 68, 68, 0.2)',
+                  backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.4)',
                 }}
               >
                 <AlertCircle
                   className="w-5 h-5 flex-shrink-0 mt-0.5"
-                  style={{ color: 'var(--color-error)' }}
+                  style={{ color: '#ef4444' }}
                   aria-hidden="true"
                 />
                 <div className="space-y-1">
                   <p
                     className="text-sm font-medium"
-                    style={{ color: 'var(--color-error)' }}
+                    style={{ color: '#ef4444' }}
                   >
                     Required to continue:
                   </p>
                   <ul
                     className="text-sm space-y-0.5"
-                    style={{ color: 'var(--text-secondary)' }}
+                    style={{ color: '#cdcdcd' }}
                   >
                     {boardValidationIssues.map((issue) => (
                       <li key={issue}>• {issue}</li>
@@ -1292,7 +1428,7 @@ export default function CreateDAOPage() {
               </div>
             )}
 
-            <div className="space-y-4">
+            <div className="flex flex-wrap gap-3">
               {board.map((agent, index) => (
                 <AgentForm
                   key={`board-${agent.role}-${index}`}
@@ -1305,46 +1441,119 @@ export default function CreateDAOPage() {
                   }
                 />
               ))}
+              <button
+                type="button"
+                onClick={addBoardMember}
+                className="w-[100px] h-[100px] rounded-xl flex flex-col items-center justify-center gap-1.5 transition-all hover:brightness-110"
+                style={{
+                  border: '2px dashed rgba(171, 171, 233, 0.3)',
+                  color: '#ababe9',
+                }}
+              >
+                <Plus className="w-6 h-6" aria-hidden="true" />
+                <p className="text-xs">Add</p>
+              </button>
             </div>
-
-            <button
-              type="button"
-              onClick={addBoardMember}
-              className="w-full flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-xl transition-colors"
-              style={{
-                borderColor: 'var(--border)',
-                color: 'var(--text-tertiary)',
-              }}
-            >
-              <Plus className="w-5 h-5" aria-hidden="true" />
-              Add Board Member
-            </button>
           </div>
         )}
 
         {/* Step: Governance */}
         {step === 'governance' && (
           <div className="space-y-6 animate-in">
-            <h2
-              className="text-2xl font-bold mb-6"
-              style={{ color: 'var(--text-primary)' }}
-            >
+            <h2 className="text-2xl font-bold mb-6 text-white">
               Governance rules
             </h2>
+
+            {/* Eliza Default Governance — one-click setup */}
+            <button
+              type="button"
+              onClick={() => setGovernanceParams(DEFAULT_GOVERNANCE_PARAMS)}
+              className="w-full rounded-xl p-5 text-left transition-all hover:brightness-110"
+              style={{
+                backgroundColor: '#2f2e40',
+                border: governanceParams === DEFAULT_GOVERNANCE_PARAMS
+                  ? '2px solid #7b61ff'
+                  : '1px solid rgba(171, 171, 233, 0.4)',
+                boxShadow: governanceParams === DEFAULT_GOVERNANCE_PARAMS
+                  ? '0 0 0 4px rgba(123, 97, 255, 0.2), 0 4px 0 black'
+                  : '0 4px 0 black',
+              }}
+            >
+              <div className="flex items-center gap-4">
+                <div
+                  className="w-14 h-14 rounded-xl overflow-hidden shadow-lg shrink-0"
+                >
+                  <img
+                    src="/agents/eliza-logo.png"
+                    alt="Eliza"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="font-semibold text-white">Eliza Recommended Rules</h3>
+                    <span
+                      className="shrink-0 px-2.5 py-1 text-xs font-semibold rounded-full"
+                      style={{
+                        backgroundColor: 'rgba(139, 92, 246, 0.25)',
+                        color: '#a78bfa',
+                      }}
+                    >
+                      One-click setup
+                    </span>
+                  </div>
+                  <p className="text-sm mt-1" style={{ color: '#cdcdcd' }}>
+                    Balanced governance defaults — 3-day voting, quality threshold 70, director &amp; community veto enabled.
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <span className="px-2 py-0.5 text-xs rounded-md" style={{ backgroundColor: 'rgba(50, 58, 96, 0.5)', color: '#ababe9' }}>
+                      3-day voting
+                    </span>
+                    <span className="px-2 py-0.5 text-xs rounded-md" style={{ backgroundColor: 'rgba(50, 58, 96, 0.5)', color: '#ababe9' }}>
+                      Quality 70+
+                    </span>
+                    <span className="px-2 py-0.5 text-xs rounded-md" style={{ backgroundColor: 'rgba(50, 58, 96, 0.5)', color: '#ababe9' }}>
+                      2 approvals
+                    </span>
+                    <span className="px-2 py-0.5 text-xs rounded-md" style={{ backgroundColor: 'rgba(50, 58, 96, 0.5)', color: '#ababe9' }}>
+                      Veto enabled
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </button>
+
+            {/* Divider */}
+            <div className="flex items-center gap-4">
+              <div
+                className="flex-1 h-px"
+                style={{ backgroundColor: 'rgba(171, 171, 233, 0.4)' }}
+              />
+              <span
+                className="text-xs font-medium"
+                style={{ color: '#a1a1aa' }}
+              >
+                or configure manually
+              </span>
+              <div
+                className="flex-1 h-px"
+                style={{ backgroundColor: 'rgba(171, 171, 233, 0.4)' }}
+              />
+            </div>
 
             <div
               className="rounded-xl p-5 space-y-4"
               style={{
-                backgroundColor: 'var(--surface)',
-                border: '1px solid var(--border)',
+                backgroundColor: 'rgba(71, 77, 120, 0.5)',
+                border: '1px solid rgba(171, 171, 233, 0.4)',
+                backdropFilter: 'blur(24px)',
               }}
             >
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label
                     htmlFor="min-quality-score"
-                    className="block text-sm font-medium mb-2"
-                    style={{ color: 'var(--text-primary)' }}
+                    className="block text-sm font-medium mb-2 text-white"
                   >
                     Min Quality Score
                   </label>
@@ -1360,14 +1569,13 @@ export default function CreateDAOPage() {
                         minQualityScore: Number.parseInt(e.target.value, 10),
                       })
                     }
-                    className="input"
+                    className="input-dark"
                   />
                 </div>
                 <div>
                   <label
                     htmlFor="min-board-approvals"
-                    className="block text-sm font-medium mb-2"
-                    style={{ color: 'var(--text-primary)' }}
+                    className="block text-sm font-medium mb-2 text-white"
                   >
                     Min Board Approvals
                   </label>
@@ -1383,14 +1591,13 @@ export default function CreateDAOPage() {
                         minBoardApprovals: Number.parseInt(e.target.value, 10),
                       })
                     }
-                    className="input"
+                    className="input-dark"
                   />
                 </div>
                 <div>
                   <label
                     htmlFor="voting-period"
-                    className="block text-sm font-medium mb-2"
-                    style={{ color: 'var(--text-primary)' }}
+                    className="block text-sm font-medium mb-2 text-white"
                   >
                     Voting Period (days)
                   </label>
@@ -1407,14 +1614,13 @@ export default function CreateDAOPage() {
                           Number.parseInt(e.target.value, 10) * 86400,
                       })
                     }
-                    className="input"
+                    className="input-dark"
                   />
                 </div>
                 <div>
                   <label
                     htmlFor="min-proposal-stake"
-                    className="block text-sm font-medium mb-2"
-                    style={{ color: 'var(--text-primary)' }}
+                    className="block text-sm font-medium mb-2 text-white"
                   >
                     Min Proposal Stake (ETH)
                   </label>
@@ -1428,14 +1634,14 @@ export default function CreateDAOPage() {
                         minProposalStake: e.target.value,
                       })
                     }
-                    className="input"
+                    className="input-dark"
                   />
                 </div>
               </div>
 
               <div
                 className="pt-4 border-t space-y-3"
-                style={{ borderColor: 'var(--border)' }}
+                style={{ borderColor: 'rgba(171, 171, 233, 0.4)' }}
               >
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
@@ -1447,9 +1653,9 @@ export default function CreateDAOPage() {
                         directorVetoEnabled: e.target.checked,
                       })
                     }
-                    className="w-5 h-5 rounded accent-[var(--color-primary)]"
+                    className="w-5 h-5 rounded accent-[#7b61ff]"
                   />
-                  <span style={{ color: 'var(--text-primary)' }}>
+                  <span className="text-white">
                     Enable Director Veto Power
                   </span>
                 </label>
@@ -1463,9 +1669,9 @@ export default function CreateDAOPage() {
                         communityVetoEnabled: e.target.checked,
                       })
                     }
-                    className="w-5 h-5 rounded accent-[var(--color-primary)]"
+                    className="w-5 h-5 rounded accent-[#7b61ff]"
                   />
-                  <span style={{ color: 'var(--text-primary)' }}>
+                  <span className="text-white">
                     Enable Community Veto ({governanceParams.vetoThreshold}%
                     threshold)
                   </span>
@@ -1478,10 +1684,7 @@ export default function CreateDAOPage() {
         {/* Step: Review */}
         {step === 'review' && (
           <div className="space-y-6 animate-in">
-            <h2
-              className="text-2xl font-bold mb-6"
-              style={{ color: 'var(--text-primary)' }}
-            >
+            <h2 className="text-2xl font-bold mb-6 text-white">
               Review configuration
             </h2>
 
@@ -1489,42 +1692,48 @@ export default function CreateDAOPage() {
             <div
               className="rounded-2xl overflow-hidden"
               style={{
-                backgroundColor: 'var(--surface)',
-                border: '1px solid var(--border)',
+                backgroundColor: '#2f2e40',
+                border: '1px solid rgba(171, 171, 233, 0.4)',
+                boxShadow: '0 4px 0 black',
               }}
             >
               {/* DAO Info */}
               <div
                 className="p-5 border-b"
-                style={{ borderColor: 'var(--border)' }}
+                style={{ borderColor: 'rgba(171, 171, 233, 0.4)' }}
               >
                 <div className="flex items-center gap-4">
-                  <div
-                    className="w-16 h-16 rounded-xl flex items-center justify-center text-2xl font-bold text-white"
-                    style={{ background: 'var(--gradient-secondary)' }}
-                  >
-                    {displayName.charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <h3
-                      className="text-xl font-bold"
-                      style={{ color: 'var(--text-primary)' }}
+                  {logoUrl ? (
+                    <img
+                      src={logoUrl}
+                      alt={displayName}
+                      className="w-16 h-16 rounded-xl object-cover"
+                    />
+                  ) : (
+                    <div
+                      className="w-16 h-16 rounded-xl flex items-center justify-center text-2xl font-bold text-white"
+                      style={{ background: 'linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%)' }}
                     >
+                      {displayName.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div>
+                    <h3 className="text-xl font-bold text-white">
                       {displayName}
                     </h3>
-                    <p style={{ color: 'var(--text-tertiary)' }}>@{name}</p>
+                    <p style={{ color: '#a1a1aa' }}>@{name}</p>
                   </div>
                 </div>
                 <p
                   className="mt-3 text-sm"
-                  style={{ color: 'var(--text-secondary)' }}
+                  style={{ color: '#cdcdcd' }}
                 >
                   {description}
                 </p>
                 {farcasterChannel && (
                   <p
                     className="mt-2 text-sm"
-                    style={{ color: 'var(--color-secondary)' }}
+                    style={{ color: '#a78bfa' }}
                   >
                     <MessageSquare
                       className="w-4 h-4 inline mr-1"
@@ -1538,31 +1747,27 @@ export default function CreateDAOPage() {
               {/* Director */}
               <div
                 className="p-5 border-b"
-                style={{ borderColor: 'var(--border)' }}
+                style={{ borderColor: 'rgba(171, 171, 233, 0.4)' }}
               >
                 <h4
                   className="text-sm font-medium uppercase tracking-wider mb-3"
-                  style={{ color: 'var(--text-tertiary)' }}
+                  style={{ color: '#a1a1aa' }}
                 >
                   Director
                 </h4>
                 <div className="flex items-center gap-3">
-                  <div
-                    className="w-10 h-10 rounded-lg flex items-center justify-center"
-                    style={{ background: 'var(--gradient-accent)' }}
-                  >
-                    <Crown className="w-5 h-5 text-white" aria-hidden="true" />
-                  </div>
+                  <img
+                    src="/agents/eliza-logo.png"
+                    alt="Director"
+                    className="w-10 h-10 rounded-lg object-cover"
+                  />
                   <div>
-                    <p
-                      className="font-medium"
-                      style={{ color: 'var(--text-primary)' }}
-                    >
+                    <p className="font-medium text-white">
                       {director.persona.name}
                     </p>
                     <p
                       className="text-xs"
-                      style={{ color: 'var(--text-tertiary)' }}
+                      style={{ color: '#a1a1aa' }}
                     >
                       {
                         MODEL_OPTIONS.find((m) => m.id === director.modelId)
@@ -1577,11 +1782,11 @@ export default function CreateDAOPage() {
               {/* Board */}
               <div
                 className="p-5 border-b"
-                style={{ borderColor: 'var(--border)' }}
+                style={{ borderColor: 'rgba(171, 171, 233, 0.4)' }}
               >
                 <h4
                   className="text-sm font-medium uppercase tracking-wider mb-3"
-                  style={{ color: 'var(--text-tertiary)' }}
+                  style={{ color: '#a1a1aa' }}
                 >
                   Board ({board.length} members)
                 </h4>
@@ -1593,7 +1798,7 @@ export default function CreateDAOPage() {
                     >
                       <div
                         className="w-8 h-8 rounded-lg flex items-center justify-center"
-                        style={{ background: 'var(--gradient-secondary)' }}
+                        style={{ background: 'linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%)' }}
                       >
                         <Bot
                           className="w-4 h-4 text-white"
@@ -1601,15 +1806,12 @@ export default function CreateDAOPage() {
                         />
                       </div>
                       <div>
-                        <p
-                          className="text-sm font-medium"
-                          style={{ color: 'var(--text-primary)' }}
-                        >
+                        <p className="text-sm font-medium text-white">
                           {member.persona.name}
                         </p>
                         <p
                           className="text-xs"
-                          style={{ color: 'var(--text-tertiary)' }}
+                          style={{ color: '#a1a1aa' }}
                         >
                           {member.role} · {member.weight}% weight
                         </p>
@@ -1623,38 +1825,38 @@ export default function CreateDAOPage() {
               <div className="p-5">
                 <h4
                   className="text-sm font-medium uppercase tracking-wider mb-3"
-                  style={{ color: 'var(--text-tertiary)' }}
+                  style={{ color: '#a1a1aa' }}
                 >
                   Governance
                 </h4>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <p style={{ color: 'var(--text-tertiary)' }}>Min Quality</p>
-                    <p style={{ color: 'var(--text-primary)' }}>
+                    <p style={{ color: '#a1a1aa' }}>Min Quality</p>
+                    <p className="text-white">
                       {governanceParams.minQualityScore}
                     </p>
                   </div>
                   <div>
-                    <p style={{ color: 'var(--text-tertiary)' }}>
+                    <p style={{ color: '#a1a1aa' }}>
                       Board Approvals
                     </p>
-                    <p style={{ color: 'var(--text-primary)' }}>
+                    <p className="text-white">
                       {governanceParams.minBoardApprovals} required
                     </p>
                   </div>
                   <div>
-                    <p style={{ color: 'var(--text-tertiary)' }}>
+                    <p style={{ color: '#a1a1aa' }}>
                       Voting Period
                     </p>
-                    <p style={{ color: 'var(--text-primary)' }}>
+                    <p className="text-white">
                       {governanceParams.boardVotingPeriod / 86400} days
                     </p>
                   </div>
                   <div>
-                    <p style={{ color: 'var(--text-tertiary)' }}>
+                    <p style={{ color: '#a1a1aa' }}>
                       Director Veto
                     </p>
-                    <p style={{ color: 'var(--text-primary)' }}>
+                    <p className="text-white">
                       {governanceParams.directorVetoEnabled
                         ? 'Enabled'
                         : 'Disabled'}
@@ -1669,10 +1871,10 @@ export default function CreateDAOPage() {
 
       {/* Footer Navigation */}
       <footer
-        className="fixed bottom-0 left-0 right-0 backdrop-blur-xl border-t fixed-bottom"
+        className="fixed bottom-0 left-0 right-0 backdrop-blur-xl fixed-bottom"
         style={{
-          backgroundColor: 'rgba(var(--bg-primary-rgb, 250, 251, 255), 0.95)',
-          borderColor: 'var(--border)',
+          backgroundColor: 'rgba(26, 10, 46, 0.95)',
+          borderTop: '1px solid rgba(171, 171, 233, 0.4)',
         }}
       >
         <div className="container mx-auto py-4 px-4 max-w-2xl flex flex-col sm:flex-row justify-between gap-3">
@@ -1680,11 +1882,11 @@ export default function CreateDAOPage() {
             type="button"
             onClick={goPrev}
             disabled={currentStepIndex === 0}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium text-white transition-all hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
-              backgroundColor: 'var(--surface)',
-              color: 'var(--text-primary)',
-              border: '1px solid var(--border)',
+              backgroundColor: 'rgba(50, 58, 96, 0.8)',
+              border: '2px solid rgb(84, 100, 183)',
+              boxShadow: 'inset 0 -4px 0 rgb(71, 79, 81)',
             }}
           >
             <ArrowLeft className="w-4 h-4" aria-hidden="true" />
@@ -1696,7 +1898,7 @@ export default function CreateDAOPage() {
               {submitError && (
                 <div
                   className="flex items-center gap-2 text-sm"
-                  style={{ color: 'var(--color-error)' }}
+                  style={{ color: '#ef4444' }}
                 >
                   <AlertCircle className="w-4 h-4" aria-hidden="true" />
                   {submitError}
@@ -1707,8 +1909,12 @@ export default function CreateDAOPage() {
                   type="button"
                   onClick={() => connect({ connector: injected() })}
                   disabled={isConnecting}
-                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-white transition-all disabled:opacity-60"
-                  style={{ background: 'var(--gradient-secondary)' }}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg font-semibold text-white transition-all hover:brightness-110 disabled:opacity-60"
+                  style={{
+                    background: 'linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%)',
+                    border: '2px solid black',
+                    boxShadow: '0 4px 0 black',
+                  }}
                 >
                   {isConnecting ? (
                     <>
@@ -1732,8 +1938,12 @@ export default function CreateDAOPage() {
                   disabled={
                     createDAOMutation.isPending || signatureStatus === 'signing'
                   }
-                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-white transition-all disabled:opacity-60"
-                  style={{ background: 'var(--gradient-primary)' }}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg font-semibold text-white transition-all hover:brightness-110 disabled:opacity-60"
+                  style={{
+                    backgroundColor: '#7b61ff',
+                    border: '2px solid black',
+                    boxShadow: '0 4px 0 black',
+                  }}
                 >
                   {signatureStatus === 'signing' ? (
                     <>
@@ -1765,8 +1975,12 @@ export default function CreateDAOPage() {
               type="button"
               onClick={goNext}
               disabled={!isStepValid}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ background: 'var(--gradient-primary)' }}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold text-white transition-all hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                backgroundColor: '#7b61ff',
+                border: '2px solid black',
+                boxShadow: '0 4px 0 black',
+              }}
             >
               Continue
               <ArrowRight className="w-4 h-4" aria-hidden="true" />
