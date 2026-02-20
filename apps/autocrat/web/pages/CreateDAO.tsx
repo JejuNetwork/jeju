@@ -4,8 +4,6 @@ import {
   ArrowRight,
   Bot,
   Check,
-  ChevronDown,
-  ChevronUp,
   Crown,
   Heart,
   Info,
@@ -15,7 +13,6 @@ import {
   Settings,
   Shield,
   Sparkles,
-  Trash2,
   Users,
   Wallet,
   X,
@@ -28,13 +25,11 @@ import { injected } from 'wagmi/connectors'
 import {
   DECISION_STYLE_OPTIONS,
   MODEL_OPTIONS,
-  TONE_OPTIONS,
 } from '../constants/agent'
 import { useCreateDAO } from '../hooks/useDAO'
 import {
   type AgentRole,
   BOARD_ROLE_PRESETS,
-  type CommunicationTone,
   type CreateAgentDraft,
   type CreateDAODraft,
   DEFAULT_GOVERNANCE_PARAMS,
@@ -171,10 +166,13 @@ function CharacterCard({ character, isSelected, onSelect }: CharacterCardProps) 
         {/* Character Avatar */}
         <div className="relative shrink-0">
           <div
-            className="w-14 h-14 rounded-xl flex items-center justify-center shadow-lg transition-transform duration-300 group-hover:scale-105"
-            style={{ background: character.gradient }}
+            className="w-14 h-14 rounded-xl overflow-hidden shadow-lg transition-transform duration-300 group-hover:scale-105"
           >
-            <Zap className="w-7 h-7 text-white" aria-hidden="true" />
+            <img
+              src="/agents/eliza-logo.png"
+              alt={character.name}
+              className="w-full h-full object-cover"
+            />
           </div>
           {isSelected && (
             <div
@@ -206,7 +204,7 @@ function CharacterCard({ character, isSelected, onSelect }: CharacterCardProps) 
                 color: '#a78bfa',
               }}
             >
-              Pre-built
+              Great for testing
             </span>
           </div>
 
@@ -269,411 +267,434 @@ function AgentForm({
   isDirector = false,
   onRemove,
 }: AgentFormProps) {
-  const [expanded, setExpanded] = useState(true)
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState<CreateAgentDraft>(agent)
   const preset = BOARD_ROLE_PRESETS[agent.role]
+  const hasContent = agent.persona.name || agent.persona.bio
 
-  const updatePersona = useCallback(
+  const openModal = useCallback(() => {
+    setDraft(agent)
+    setOpen(true)
+  }, [agent])
+
+  const saveAndClose = useCallback(() => {
+    onChange(draft)
+    setOpen(false)
+  }, [draft, onChange])
+
+  const updateDraftPersona = useCallback(
     (updates: Partial<CreateAgentDraft['persona']>) => {
-      onChange({ ...agent, persona: { ...agent.persona, ...updates } })
+      setDraft((d) => ({ ...d, persona: { ...d.persona, ...updates } }))
     },
-    [agent, onChange],
+    [],
   )
 
-  const updateValue = useCallback(
+  const updateDraftValue = useCallback(
     (index: number, value: string) => {
-      const newValues = [...agent.values]
-      newValues[index] = value
-      onChange({ ...agent, values: newValues })
+      setDraft((d) => {
+        const newValues = [...d.values]
+        newValues[index] = value
+        return { ...d, values: newValues }
+      })
     },
-    [agent, onChange],
+    [],
   )
 
-  const addValue = useCallback(() => {
-    onChange({ ...agent, values: [...agent.values, ''] })
-  }, [agent, onChange])
+  const addDraftValue = useCallback(() => {
+    setDraft((d) => ({ ...d, values: [...d.values, ''] }))
+  }, [])
 
-  const removeValue = useCallback(
-    (index: number) => {
-      onChange({ ...agent, values: agent.values.filter((_, i) => i !== index) })
-    },
-    [agent, onChange],
-  )
+  const removeDraftValue = useCallback((index: number) => {
+    setDraft((d) => ({ ...d, values: d.values.filter((_, i) => i !== index) }))
+  }, [])
 
   return (
-    <div
-      className="rounded-2xl overflow-hidden"
-      style={{
-        backgroundColor: '#2f2e40',
-        border: '1px solid rgba(171, 171, 233, 0.4)',
-        boxShadow: '0 4px 0 black',
-      }}
-    >
-      {/* Header */}
-      <button
-        type="button"
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between p-4 transition-colors"
-        style={{ backgroundColor: expanded ? 'transparent' : '#2f2e40' }}
-        aria-expanded={expanded}
-      >
-        <div className="flex items-center gap-3">
+    <>
+      {/* Square Tile */}
+      <div className="relative group">
+        <button
+          type="button"
+          onClick={openModal}
+          className="w-[100px] h-[100px] rounded-xl flex flex-col items-center justify-center gap-1.5 transition-all hover:brightness-110"
+          style={{
+            backgroundColor: hasContent ? '#2f2e40' : 'rgba(50, 58, 96, 0.5)',
+            border: hasContent
+              ? '1px solid rgba(171, 171, 233, 0.4)'
+              : '2px dashed rgba(171, 171, 233, 0.4)',
+            boxShadow: hasContent ? '0 4px 0 black' : 'none',
+          }}
+        >
+          {hasContent ? (
+            <>
+              <div
+                className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                style={{
+                  background: isDirector
+                    ? 'linear-gradient(135deg, #FF6B6B 0%, #F472B6 100%)'
+                    : 'linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%)',
+                }}
+              >
+                {isDirector ? (
+                  <Crown className="w-4 h-4 text-white" aria-hidden="true" />
+                ) : (
+                  <Bot className="w-4 h-4 text-white" aria-hidden="true" />
+                )}
+              </div>
+              <p className="text-white text-xs font-medium text-center truncate w-full px-1.5">
+                {agent.persona.name || (isDirector ? 'Director' : preset.name)}
+              </p>
+            </>
+          ) : (
+            <>
+              <Plus className="w-6 h-6" style={{ color: '#ababe9' }} aria-hidden="true" />
+              <p className="text-xs" style={{ color: '#ababe9' }}>
+                {isDirector ? 'Director' : preset.name}
+              </p>
+            </>
+          )}
+        </button>
+        {!isDirector && onRemove && (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+            style={{ backgroundColor: '#ef4444' }}
+            aria-label="Remove board member"
+          >
+            <X className="w-3 h-3 text-white" aria-hidden="true" />
+          </button>
+        )}
+      </div>
+
+      {/* Modal Popup */}
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)' }}
+          onClick={(e) => e.target === e.currentTarget && setOpen(false)}
+        >
           <div
-            className="w-10 h-10 rounded-lg flex items-center justify-center"
+            className="w-full max-w-lg max-h-[80vh] rounded-2xl overflow-hidden flex flex-col"
             style={{
-              background: isDirector
-                ? 'linear-gradient(135deg, #FF6B6B 0%, #F472B6 100%)'
-                : 'linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%)',
+              backgroundColor: '#1e1d32',
+              border: '1px solid rgb(121, 125, 245)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
             }}
           >
-            {isDirector ? (
-              <Crown className="w-5 h-5 text-white" aria-hidden="true" />
-            ) : (
-              <Bot className="w-5 h-5 text-white" aria-hidden="true" />
-            )}
-          </div>
-          <div className="text-left">
-            <p className="font-semibold text-white">
-              {agent.persona.name || (isDirector ? 'Director' : preset.name)}
-            </p>
-            <p className="text-xs" style={{ color: '#a1a1aa' }}>
-              {isDirector ? 'Chief Executive Officer' : preset.description}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {!isDirector && onRemove && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                onRemove()
-              }}
-              className="p-2 rounded-lg transition-colors"
-              style={{ color: '#a1a1aa' }}
-              aria-label="Remove board member"
+            {/* Modal Header */}
+            <div
+              className="flex items-center justify-between px-6 py-4 shrink-0"
+              style={{ borderBottom: '1px solid rgba(121, 125, 245, 0.3)' }}
             >
-              <Trash2 className="w-4 h-4" aria-hidden="true" />
-            </button>
-          )}
-          {expanded ? (
-            <ChevronUp
-              className="w-5 h-5"
-              style={{ color: '#a1a1aa' }}
-            />
-          ) : (
-            <ChevronDown
-              className="w-5 h-5"
-              style={{ color: '#a1a1aa' }}
-            />
-          )}
-        </div>
-      </button>
-
-      {/* Content */}
-      {expanded && (
-        <div
-          className="p-4 pt-0 space-y-4 border-t"
-          style={{ borderColor: 'rgba(171, 171, 233, 0.4)' }}
-        >
-          {/* Role Selection (for non-Director) */}
-          {!isDirector && (
-            <div>
-              <label
-                htmlFor={`role-${agent.persona.name}`}
-                className="block text-sm font-medium mb-2 text-white"
-              >
-                Role
-              </label>
-              <select
-                id={`role-${agent.persona.name}`}
-                value={agent.role}
-                onChange={(e) => {
-                  const newRole = e.target.value as AgentRole
-                  const newPreset = BOARD_ROLE_PRESETS[newRole]
-                  onChange({
-                    ...agent,
-                    role: newRole,
-                    customRoleName: newRole === 'CUSTOM' ? '' : undefined,
-                    persona: {
-                      ...agent.persona,
-                      personality: newPreset.defaultPersonality,
-                    },
-                  })
-                }}
-                className="input-dark"
-              >
-                {BOARD_ROLE_OPTIONS.map((role) => (
-                  <option key={role} value={role}>
-                    {BOARD_ROLE_PRESETS[role].name}
-                  </option>
-                ))}
-              </select>
-              {agent.role === 'CUSTOM' && (
-                <input
-                  type="text"
-                  value={agent.customRoleName ?? ''}
-                  onChange={(e) =>
-                    onChange({ ...agent, customRoleName: e.target.value })
-                  }
-                  placeholder="Custom role name"
-                  className="input-dark mt-2"
-                />
-              )}
-            </div>
-          )}
-
-          {/* Name */}
-          <div>
-            <label
-              htmlFor={`agent-name-${isDirector ? 'director' : 'board'}`}
-              className="block text-sm font-medium mb-2 text-white"
-            >
-              Agent Name
-            </label>
-            <input
-              id={`agent-name-${isDirector ? 'director' : 'board'}`}
-              type="text"
-              value={agent.persona.name}
-              onChange={(e) => updatePersona({ name: e.target.value })}
-              placeholder={
-                isDirector ? 'e.g., Eliza, Atlas' : `e.g., ${preset.name}`
-              }
-              className="input-dark"
-            />
-          </div>
-
-          {/* Weight (for non-Director) */}
-          {!isDirector && (
-            <div>
-              <label
-                htmlFor={`weight-${agent.persona.name}`}
-                className="block text-sm font-medium mb-2 text-white"
-              >
-                Voting Weight ({agent.weight}%)
-              </label>
-              <input
-                id={`weight-${agent.persona.name}`}
-                type="range"
-                min="5"
-                max="50"
-                step="5"
-                value={agent.weight}
-                onChange={(e) =>
-                  onChange({
-                    ...agent,
-                    weight: Number.parseInt(e.target.value, 10),
-                  })
-                }
-                className="w-full accent-[#7b61ff]"
-              />
-              <div
-                className="flex justify-between text-xs"
-                style={{ color: '#a1a1aa' }}
-              >
-                <span>5%</span>
-                <span>50%</span>
-              </div>
-            </div>
-          )}
-
-          {/* Bio */}
-          <div>
-            <label
-              htmlFor={`agent-bio-${isDirector ? 'director' : 'board'}`}
-              className="block text-sm font-medium mb-2 text-white"
-            >
-              Bio
-            </label>
-            <textarea
-              id={`agent-bio-${isDirector ? 'director' : 'board'}`}
-              value={agent.persona.bio}
-              onChange={(e) => updatePersona({ bio: e.target.value })}
-              placeholder="What this agent focuses on and how they contribute"
-              rows={2}
-              className="input-dark resize-y"
-              style={{ minHeight: '80px' }}
-            />
-          </div>
-
-          {/* Personality */}
-          <div>
-            <label
-              htmlFor={`agent-personality-${isDirector ? 'director' : 'board'}`}
-              className="block text-sm font-medium mb-2 text-white"
-            >
-              Personality
-            </label>
-            <textarea
-              id={`agent-personality-${isDirector ? 'director' : 'board'}`}
-              value={agent.persona.personality}
-              onChange={(e) => updatePersona({ personality: e.target.value })}
-              placeholder="How this agent approaches decisions and communicates"
-              rows={2}
-              className="input-dark resize-y"
-              style={{ minHeight: '80px' }}
-            />
-          </div>
-
-          {/* Model */}
-          <div>
-            <span className="block text-sm font-medium mb-2 text-white">
-              AI Model
-            </span>
-            <div className="grid grid-cols-2 gap-2">
-              {MODEL_OPTIONS.map((model) => {
-                const isSelected = agent.modelId === model.id
-                return (
-                  <button
-                    key={model.id}
-                    type="button"
-                    onClick={() => onChange({ ...agent, modelId: model.id })}
-                    className="p-3 rounded-xl text-left transition-all"
-                    style={{
-                      backgroundColor: isSelected
-                        ? 'rgba(123, 97, 255, 0.2)'
-                        : '#1e1d32',
-                      border: isSelected
-                        ? '1px solid rgba(123, 97, 255, 0.6)'
-                        : '1px solid rgba(171, 171, 233, 0.4)',
-                    }}
-                  >
-                    <p
-                      className="text-sm font-medium"
-                      style={{
-                        color: isSelected ? '#a78bfa' : 'white',
-                      }}
-                    >
-                      {model.name}
-                    </p>
-                    <p
-                      className="text-xs"
-                      style={{ color: '#a1a1aa' }}
-                    >
-                      {model.provider}
-                    </p>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Decision Style */}
-          <div>
-            <span className="block text-sm font-medium mb-2 text-white">
-              Decision Style
-            </span>
-            <div className="flex gap-2">
-              {DECISION_STYLE_OPTIONS.map((style) => {
-                const isSelected = agent.decisionStyle === style.value
-                return (
-                  <button
-                    key={style.value}
-                    type="button"
-                    onClick={() =>
-                      onChange({ ...agent, decisionStyle: style.value })
-                    }
-                    className="flex-1 p-3 rounded-xl text-center transition-all"
-                    style={{
-                      backgroundColor: isSelected
-                        ? 'rgba(123, 97, 255, 0.2)'
-                        : '#1e1d32',
-                      border: isSelected
-                        ? '1px solid rgba(123, 97, 255, 0.6)'
-                        : '1px solid rgba(171, 171, 233, 0.4)',
-                    }}
-                  >
-                    <p
-                      className="text-sm font-medium"
-                      style={{
-                        color: isSelected ? '#a78bfa' : 'white',
-                      }}
-                    >
-                      {style.label}
-                    </p>
-                    <p
-                      className="text-xs mt-0.5"
-                      style={{ color: '#a1a1aa' }}
-                    >
-                      {style.description}
-                    </p>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Communication Tone */}
-          <div>
-            <label
-              htmlFor={`comm-tone-${isDirector ? 'director' : 'board'}`}
-              className="block text-sm font-medium mb-2 text-white"
-            >
-              Communication Tone
-            </label>
-            <select
-              id={`comm-tone-${isDirector ? 'director' : 'board'}`}
-              value={agent.persona.communicationTone}
-              onChange={(e) =>
-                updatePersona({
-                  communicationTone: e.target.value as CommunicationTone,
-                })
-              }
-              className="input-dark"
-            >
-              {TONE_OPTIONS.map((tone) => (
-                <option key={tone.value} value={tone.value}>
-                  {tone.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Values */}
-          <div>
-            <span className="block text-sm font-medium mb-2 text-white">
-              <Heart className="w-4 h-4 inline mr-1" aria-hidden="true" />
-              Core Values
-            </span>
-            <div className="space-y-2">
-              {agent.values.map((value, index) => (
+              <div className="flex items-center gap-3">
                 <div
-                  key={value ? `${value}-${index}` : `empty-${index}`}
-                  className="flex gap-2"
+                  className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                  style={{
+                    background: isDirector
+                      ? 'linear-gradient(135deg, #FF6B6B 0%, #F472B6 100%)'
+                      : 'linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%)',
+                  }}
                 >
-                  <input
-                    type="text"
-                    value={value}
-                    onChange={(e) => updateValue(index, e.target.value)}
-                    placeholder="e.g., Security is paramount"
-                    className="input-dark flex-1"
-                  />
-                  {agent.values.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeValue(index)}
-                      className="p-2 rounded-lg transition-colors"
-                      style={{ color: '#a1a1aa' }}
-                      aria-label="Remove value"
-                    >
-                      <X className="w-4 h-4" aria-hidden="true" />
-                    </button>
+                  {isDirector ? (
+                    <Crown className="w-5 h-5 text-white" aria-hidden="true" />
+                  ) : (
+                    <Bot className="w-5 h-5 text-white" aria-hidden="true" />
                   )}
                 </div>
-              ))}
+                <div>
+                  <h2 className="text-lg font-bold text-white">
+                    {isDirector ? 'Configure Director' : `Configure ${preset.name}`}
+                  </h2>
+                  <p className="text-xs" style={{ color: '#a1a1aa' }}>
+                    {isDirector ? 'Chief Executive Officer' : preset.description}
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
-                onClick={addValue}
-                className="inline-flex items-center gap-1.5 text-sm font-medium transition-colors"
-                style={{ color: '#ababe9' }}
+                onClick={() => setOpen(false)}
+                className="p-2 rounded-lg hover:bg-white/10 transition-colors"
               >
-                <Plus className="w-4 h-4" aria-hidden="true" />
-                Add Value
+                <X className="w-5 h-5 text-white" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {/* Name */}
+              <div>
+                <label className="block text-sm font-medium mb-2 text-white">
+                  Name (optional)
+                </label>
+                <input
+                  type="text"
+                  value={draft.persona.name}
+                  onChange={(e) => updateDraftPersona({ name: e.target.value })}
+                  placeholder={isDirector ? 'e.g., Eliza, Atlas' : `e.g., ${preset.name}`}
+                  className="input-dark"
+                />
+              </div>
+
+              {/* Role Selection (for non-Director) */}
+              {!isDirector && (
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-white">
+                    Role
+                  </label>
+                  <select
+                    value={draft.role}
+                    onChange={(e) => {
+                      const newRole = e.target.value as AgentRole
+                      const newPreset = BOARD_ROLE_PRESETS[newRole]
+                      setDraft({
+                        ...draft,
+                        role: newRole,
+                        customRoleName: newRole === 'CUSTOM' ? '' : undefined,
+                        persona: {
+                          ...draft.persona,
+                          personality: newPreset.defaultPersonality,
+                        },
+                      })
+                    }}
+                    className="input-dark"
+                  >
+                    {BOARD_ROLE_OPTIONS.map((role) => (
+                      <option key={role} value={role}>
+                        {BOARD_ROLE_PRESETS[role].name}
+                      </option>
+                    ))}
+                  </select>
+                  {draft.role === 'CUSTOM' && (
+                    <input
+                      type="text"
+                      value={draft.customRoleName ?? ''}
+                      onChange={(e) =>
+                        setDraft({ ...draft, customRoleName: e.target.value })
+                      }
+                      placeholder="Custom role name"
+                      className="input-dark mt-2"
+                    />
+                  )}
+                </div>
+              )}
+
+              {/* Weight (for non-Director) */}
+              {!isDirector && (
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-white">
+                    Voting Weight ({draft.weight}%)
+                  </label>
+                  <input
+                    type="range"
+                    min="5"
+                    max="50"
+                    step="5"
+                    value={draft.weight}
+                    onChange={(e) =>
+                      setDraft({
+                        ...draft,
+                        weight: Number.parseInt(e.target.value, 10),
+                      })
+                    }
+                    className="w-full accent-[#7b61ff]"
+                  />
+                  <div
+                    className="flex justify-between text-xs"
+                    style={{ color: '#a1a1aa' }}
+                  >
+                    <span>5%</span>
+                    <span>50%</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Bio */}
+              <div>
+                <label className="block text-sm font-medium mb-2 text-white">
+                  Bio
+                </label>
+                <textarea
+                  value={draft.persona.bio}
+                  onChange={(e) => updateDraftPersona({ bio: e.target.value })}
+                  placeholder="What this agent focuses on and how they contribute"
+                  rows={2}
+                  className="input-dark resize-y"
+                  style={{ minHeight: '80px' }}
+                />
+              </div>
+
+              {/* Personality */}
+              <div>
+                <label className="block text-sm font-medium mb-2 text-white">
+                  Personality
+                </label>
+                <textarea
+                  value={draft.persona.personality}
+                  onChange={(e) => updateDraftPersona({ personality: e.target.value })}
+                  placeholder="How this agent approaches decisions and communicates"
+                  rows={2}
+                  className="input-dark resize-y"
+                  style={{ minHeight: '80px' }}
+                />
+              </div>
+
+              {/* Model */}
+              <div>
+                <span className="block text-sm font-medium mb-2 text-white">
+                  AI Model
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  {MODEL_OPTIONS.map((model) => {
+                    const isSelected = draft.modelId === model.id
+                    return (
+                      <button
+                        key={model.id}
+                        type="button"
+                        onClick={() => setDraft({ ...draft, modelId: model.id })}
+                        className="p-3 rounded-xl text-left transition-all"
+                        style={{
+                          backgroundColor: isSelected
+                            ? 'rgba(123, 97, 255, 0.2)'
+                            : 'rgba(50, 58, 96, 0.5)',
+                          border: isSelected
+                            ? '1px solid rgba(123, 97, 255, 0.6)'
+                            : '1px solid rgba(171, 171, 233, 0.4)',
+                        }}
+                      >
+                        <p
+                          className="text-sm font-medium"
+                          style={{ color: isSelected ? '#a78bfa' : 'white' }}
+                        >
+                          {model.name}
+                        </p>
+                        <p className="text-xs" style={{ color: '#a1a1aa' }}>
+                          {model.provider}
+                        </p>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Decision Style */}
+              <div>
+                <span className="block text-sm font-medium mb-2 text-white">
+                  Decision Style
+                </span>
+                <div className="flex gap-2">
+                  {DECISION_STYLE_OPTIONS.map((style) => {
+                    const isSelected = draft.decisionStyle === style.value
+                    return (
+                      <button
+                        key={style.value}
+                        type="button"
+                        onClick={() =>
+                          setDraft({ ...draft, decisionStyle: style.value })
+                        }
+                        className="flex-1 p-3 rounded-xl text-center transition-all"
+                        style={{
+                          backgroundColor: isSelected
+                            ? 'rgba(123, 97, 255, 0.2)'
+                            : 'rgba(50, 58, 96, 0.5)',
+                          border: isSelected
+                            ? '1px solid rgba(123, 97, 255, 0.6)'
+                            : '1px solid rgba(171, 171, 233, 0.4)',
+                        }}
+                      >
+                        <p
+                          className="text-sm font-medium"
+                          style={{ color: isSelected ? '#a78bfa' : 'white' }}
+                        >
+                          {style.label}
+                        </p>
+                        <p className="text-xs mt-0.5" style={{ color: '#a1a1aa' }}>
+                          {style.description}
+                        </p>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Values */}
+              <div>
+                <span className="block text-sm font-medium mb-2 text-white">
+                  <Heart className="w-4 h-4 inline mr-1" aria-hidden="true" />
+                  Core Values
+                </span>
+                <div className="space-y-2">
+                  {draft.values.map((value, index) => (
+                    <div
+                      key={value ? `${value}-${index}` : `empty-${index}`}
+                      className="flex gap-2"
+                    >
+                      <input
+                        type="text"
+                        value={value}
+                        onChange={(e) => updateDraftValue(index, e.target.value)}
+                        placeholder="e.g., Security is paramount"
+                        className="input-dark flex-1"
+                      />
+                      {draft.values.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeDraftValue(index)}
+                          className="p-2 rounded-lg transition-colors"
+                          style={{ color: '#a1a1aa' }}
+                          aria-label="Remove value"
+                        >
+                          <X className="w-4 h-4" aria-hidden="true" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={addDraftValue}
+                    className="inline-flex items-center gap-1.5 text-sm font-medium transition-colors"
+                    style={{ color: '#ababe9' }}
+                  >
+                    <Plus className="w-4 h-4" aria-hidden="true" />
+                    Add Value
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              className="px-6 py-4 flex justify-end gap-3 shrink-0"
+              style={{ borderTop: '1px solid rgba(121, 125, 245, 0.3)' }}
+            >
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="px-5 py-2.5 rounded-lg font-medium text-white transition-all hover:brightness-110"
+                style={{
+                  backgroundColor: 'rgba(50, 58, 96, 0.8)',
+                  border: '2px solid rgb(84, 100, 183)',
+                  boxShadow: 'inset 0 -4px 0 rgb(71, 79, 81)',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={saveAndClose}
+                className="px-5 py-2.5 rounded-lg font-semibold text-white transition-all hover:brightness-110"
+                style={{
+                  backgroundColor: '#7b61ff',
+                  border: '2px solid black',
+                  boxShadow: '0 4px 0 black',
+                }}
+              >
+                Save
               </button>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </>
   )
 }
 
@@ -847,11 +868,10 @@ export default function CreateDAOPage() {
       case 'basics':
         return name.trim().length >= 3 && displayName.trim().length >= 2
       case 'director':
-        return director.persona.name.trim().length >= 2
+        return true
       case 'board':
         return (
           board.length >= 3 &&
-          board.every((b) => b.persona.name.trim().length >= 2) &&
           totalBoardWeight === 100
         )
       case 'governance':
@@ -866,20 +886,6 @@ export default function CreateDAOPage() {
   const boardValidationIssues = useMemo(() => {
     if (step !== 'board') return []
     const issues: string[] = []
-
-    const membersWithoutNames = board
-      .map((b, index) => ({
-        index: index + 1,
-        role: BOARD_ROLE_PRESETS[b.role].name,
-        hasValidName: b.persona.name.trim().length >= 2,
-      }))
-      .filter((m) => !m.hasValidName)
-
-    if (membersWithoutNames.length > 0) {
-      for (const member of membersWithoutNames) {
-        issues.push(`${member.role} (Member ${member.index}) needs a name`)
-      }
-    }
 
     if (totalBoardWeight !== 100) {
       issues.push(
@@ -1251,7 +1257,7 @@ export default function CreateDAOPage() {
               </div>
             )}
 
-            <div className="space-y-4">
+            <div className="flex flex-wrap gap-3">
               {board.map((agent, index) => (
                 <AgentForm
                   key={`board-${agent.role}-${index}`}
@@ -1264,20 +1270,19 @@ export default function CreateDAOPage() {
                   }
                 />
               ))}
+              <button
+                type="button"
+                onClick={addBoardMember}
+                className="w-[100px] h-[100px] rounded-xl flex flex-col items-center justify-center gap-1.5 transition-all hover:brightness-110"
+                style={{
+                  border: '2px dashed rgba(171, 171, 233, 0.3)',
+                  color: '#ababe9',
+                }}
+              >
+                <Plus className="w-6 h-6" aria-hidden="true" />
+                <p className="text-xs">Add</p>
+              </button>
             </div>
-
-            <button
-              type="button"
-              onClick={addBoardMember}
-              className="w-full flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-xl transition-all hover:brightness-110"
-              style={{
-                borderColor: 'rgba(171, 171, 233, 0.4)',
-                color: '#ababe9',
-              }}
-            >
-              <Plus className="w-5 h-5" aria-hidden="true" />
-              Add Board Member
-            </button>
           </div>
         )}
 

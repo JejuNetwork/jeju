@@ -716,7 +716,14 @@ export default function DAOListPage() {
         className="relative overflow-hidden"
         style={{
           height: '336px',
-          background: '#1a0a2e',
+          background: `
+            radial-gradient(ellipse 80% 60% at 15% 80%, rgba(91, 21, 178, 0.6) 0%, transparent 50%),
+            radial-gradient(ellipse 50% 70% at 85% 20%, rgba(22, 49, 186, 0.5) 0%, transparent 50%),
+            radial-gradient(ellipse 60% 50% at 60% 90%, rgba(36, 106, 122, 0.4) 0%, transparent 50%),
+            radial-gradient(ellipse 40% 40% at 90% 70%, rgba(139, 92, 246, 0.3) 0%, transparent 50%),
+            radial-gradient(ellipse 30% 50% at 30% 10%, rgba(59, 130, 246, 0.25) 0%, transparent 50%),
+            linear-gradient(160deg, #1a0a2e 0%, #0d1b3e 40%, #162060 70%, #1a0a2e 100%)
+          `,
         }}
       >
         {/* Title section - left aligned */}
