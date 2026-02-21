@@ -101,6 +101,8 @@ Live testnet deployed on OP Stack, connected to Sepolia L1.
 | LiquidityPaymaster | `0x8f86403A4DE0BB5791fa46B8e795C547942fE4Cf` |
 | CreditManager | `0x49fd2BE640DB2910c2fAb69bB8531Ab6E76127ff` |
 | TokenRegistry | `0x4631BCAbD6dF18D94796344963cB60d44a4136b6` |
+| MultiTokenPaymaster | `0xab16A69A5a8c12C732e0DEFF4BE56A70bb64c926` |
+| PaymasterFactory | `0xE3011A37A904aB90C8881a99BD1F6E21401f1522` |
 
 **Paymaster Configuration:**
 - Token: JEJU/ELIZAOS (`0x5FbDB...`)
@@ -237,7 +239,6 @@ node packages/contracts/scripts/e2e-paymaster-elizaos.mjs
 - ManualPriceOracle does not implement the IPriceOracle interface; use PriceOracle instead
 - **EntryPoint v0.9 uses EIP-712 typed data hash** — incompatible with Alto bundler's v0.7 hash computation. UserOps must be submitted via direct `handleOps` calls, not through the bundler's `eth_sendUserOperation` RPC. The bundler can still be used for v0.7 EntryPoint operations.
 - SimpleAccount v0.9 `_validateSignature` uses `ECDSA.recover(userOpHash, signature)` without `toEthSignedMessageHash()` — sign with `account.sign({ hash })` not `account.signMessage()`
-- **MultiTokenPaymaster and CrossChainPaymaster** cannot deploy with canonical EntryPoint v0.7 (ERC165 interface mismatch). Use EntryPoint v0.9 (`0x4826533b...`) for these contracts. CrossChainPaymaster also exceeds max code size.
-- **PaymasterFactory** fails to compile when LiquidityPaymaster.sol is in the same project (BasePaymaster constructor arg count mismatch between v0.7 and v0.9 libs)
+- **CrossChainPaymaster** exceeds 24KB max contract code size (26.7KB even with via-ir optimizer). Needs refactoring to deploy.
 
 
