@@ -24,8 +24,7 @@ interface IFeeDistributor {
  * @notice Interface for token registration for paymaster usage
  */
 interface ITokenRegistry {
-    function isRegistered(address token) external view returns (bool);
-    function isTokenSupported(address token) external view returns (bool);
+    function isSupported(address token) external view returns (bool);
 }
 
 /**
@@ -33,6 +32,6 @@ interface ITokenRegistry {
  * @notice Interface for paymaster deployment factory
  */
 interface IPaymasterFactory {
-    function hasPaymaster(address token) external view returns (bool);
+    function isDeployed(address token) external view returns (bool);
     function getPaymaster(address token) external view returns (address);
 }

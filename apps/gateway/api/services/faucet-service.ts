@@ -1,23 +1,22 @@
 /**
  * Faucet Service
  *
- * SECURITY: This module uses KMS for all signing operations.
- * Private keys are NEVER loaded into memory. All cryptographic
- * operations are delegated to the KMS service (MPC or TEE).
+ * Uses a wallet client to send JEJU tokens to registered users.
+ * For testnet: uses FAUCET_PRIVATE_KEY or DEPLOYER_PRIVATE_KEY directly.
+ * For production: should be replaced with KMS-based signing.
  */
 
-import { getKMSSigner, type KMSSigner } from '@jejunetwork/kms'
-import { readContract } from '@jejunetwork/shared'
 import { expectAddress, ZERO_ADDRESS } from '@jejunetwork/types'
-import { IERC20_ABI } from '@jejunetwork/ui'
 import {
   type Address,
   createPublicClient,
-  encodeFunctionData,
+  createWalletClient,
   formatEther,
   http,
+  parseAbi,
   parseEther,
 } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 import { getChain } from '../../lib/chains'
 import {
   IDENTITY_REGISTRY_ADDRESS,
@@ -30,63 +29,47 @@ import {
 } from '../../lib/config/networks'
 import { faucetState, initializeState } from './state'
 
-/**
- * Faucet configuration.
- *
- * SECURITY: No private key in config. Uses KMS service ID instead.
- */
 const FAUCET_CONFIG = {
   cooldownMs: 12 * 60 * 60 * 1000,
   amountPerClaim: parseEther('100'),
-  /** Small ETH grant for unregistered users to cover registration gas */
   gasGrantAmount: parseEther('0.001'),
-  /** Gas grant cooldown (24 hours) */
   gasGrantCooldownMs: 24 * 60 * 60 * 1000,
   jejuTokenAddress: JEJU_TOKEN_ADDRESS,
   identityRegistryAddress: IDENTITY_REGISTRY_ADDRESS,
-  /** KMS service ID for faucet signing */
-  serviceId: process.env.FAUCET_SERVICE_ID ?? 'faucet',
 }
 
-const IDENTITY_REGISTRY_ABI = [
-  {
-    type: 'function',
-    name: 'balanceOf',
-    inputs: [{ name: 'owner', type: 'address' }],
-    outputs: [{ type: 'uint256' }],
-    stateMutability: 'view',
-  },
-] as const
+const IDENTITY_REGISTRY_ABI = parseAbi([
+  'function balanceOf(address owner) view returns (uint256)',
+])
+
+const ERC20_ABI = parseAbi([
+  'function transfer(address to, uint256 amount) returns (bool)',
+  'function balanceOf(address account) view returns (uint256)',
+])
 
 initializeState().catch(console.error)
 
 const chain = getChain(JEJU_CHAIN_ID)
-const publicClient = createPublicClient({
-  chain,
-  transport: http(getRpcUrl(JEJU_CHAIN_ID)),
-})
+const rpcUrl = getRpcUrl(JEJU_CHAIN_ID)
+const publicClient = createPublicClient({ chain, transport: http(rpcUrl) })
 
-// SECURITY: Lazy-initialized KMS signer - no private key in memory
-let faucetSigner: KMSSigner | null = null
-let faucetAddress: Address | null = null
-
-async function getFaucetSigner(): Promise<KMSSigner> {
-  if (!faucetSigner) {
-    faucetSigner = getKMSSigner(FAUCET_CONFIG.serviceId)
-    await faucetSigner.initialize()
-    faucetAddress = await faucetSigner.getAddress()
-    console.log(`[Faucet] Initialized with address: ${faucetAddress}`)
-    console.log(`[Faucet] Signing mode: ${faucetSigner.getMode()}`)
+function getFaucetPrivateKey(): `0x${string}` {
+  const key = process.env.FAUCET_PRIVATE_KEY ?? process.env.DEPLOYER_PRIVATE_KEY
+  if (!key || !key.startsWith('0x') || key.length !== 66) {
+    throw new Error(
+      'FAUCET_PRIVATE_KEY or DEPLOYER_PRIVATE_KEY must be set (0x + 64 hex chars)',
+    )
   }
-  return faucetSigner
+  return key as `0x${string}`
 }
 
-async function getFaucetAddress(): Promise<Address> {
+let faucetAddress: Address | null = null
+
+function getFaucetAddress(): Address {
   if (!faucetAddress) {
-    await getFaucetSigner()
-  }
-  if (!faucetAddress) {
-    throw new Error('Faucet address not initialized')
+    const account = privateKeyToAccount(getFaucetPrivateKey())
+    faucetAddress = account.address
+    console.log(`[Faucet] Using address: ${faucetAddress}`)
   }
   return faucetAddress
 }
@@ -124,13 +107,11 @@ export interface FaucetInfo {
 }
 
 async function isRegisteredAgent(address: Address): Promise<boolean> {
-  // SECURITY: No test bypasses - always check registry in production
-  // Use test fixtures/mocking instead of env var bypasses
   if (FAUCET_CONFIG.identityRegistryAddress === ZERO_ADDRESS) {
     return false
   }
 
-  const balance = await readContract(publicClient, {
+  const balance = await publicClient.readContract({
     address: FAUCET_CONFIG.identityRegistryAddress,
     abi: IDENTITY_REGISTRY_ABI,
     functionName: 'balanceOf',
@@ -159,10 +140,10 @@ async function getFaucetBalance(): Promise<bigint> {
     return 0n
   }
 
-  const address = await getFaucetAddress()
-  return await readContract(publicClient, {
+  const address = getFaucetAddress()
+  return await publicClient.readContract({
     address: FAUCET_CONFIG.jejuTokenAddress,
-    abi: IERC20_ABI,
+    abi: ERC20_ABI,
     functionName: 'balanceOf',
     args: [address],
   })
@@ -180,12 +161,11 @@ export async function getFaucetStatus(address: Address): Promise<FaucetStatus> {
   ] = await Promise.all([
     isRegisteredAgent(validated),
     getCooldownRemaining(validated),
-    getFaucetBalance(),
+    getFaucetBalance().catch(() => 0n),
     faucetState.getLastClaim(validated),
     getGasGrantCooldownRemaining(validated),
   ])
 
-  // Unregistered users can get a gas grant to cover registration costs
   const gasGrantEligible = !isRegistered && gasGrantCooldownRemaining === 0
 
   return {
@@ -231,45 +211,19 @@ export async function claimFromFaucet(
     throw new Error('JEJU token not configured')
   }
 
-  // SECURITY: Sign and send transaction via KMS - private key never in memory
-  const signer = await getFaucetSigner()
-  const signerAddress = await getFaucetAddress()
+  const account = privateKeyToAccount(getFaucetPrivateKey())
+  const walletClient = createWalletClient({
+    account,
+    chain,
+    transport: http(rpcUrl),
+  })
 
-  // Build transfer data
-  const data = encodeFunctionData({
-    abi: IERC20_ABI,
+  const hash = await walletClient.writeContract({
+    address: FAUCET_CONFIG.jejuTokenAddress,
+    abi: ERC20_ABI,
     functionName: 'transfer',
     args: [validated, FAUCET_CONFIG.amountPerClaim],
   })
-
-  // Get nonce and gas parameters
-  const [nonce, gasPrice] = await Promise.all([
-    publicClient.getTransactionCount({ address: signerAddress }),
-    publicClient.getGasPrice(),
-  ])
-
-  // Estimate gas
-  const gasLimit = await publicClient.estimateGas({
-    account: signerAddress,
-    to: FAUCET_CONFIG.jejuTokenAddress,
-    data,
-  })
-
-  // Send transaction via KMS
-  const hash = await signer.sendTransaction(
-    {
-      transaction: {
-        to: FAUCET_CONFIG.jejuTokenAddress,
-        data,
-        nonce,
-        gas: gasLimit,
-        gasPrice,
-        chainId: JEJU_CHAIN_ID,
-      },
-      chain,
-    },
-    getRpcUrl(JEJU_CHAIN_ID),
-  )
 
   await faucetState.recordClaim(validated)
   return {
@@ -311,9 +265,8 @@ export async function claimGasGrant(address: Address): Promise<GasGrantResult> {
     }
   }
 
-  // Send ETH for gas via KMS
-  const signer = await getFaucetSigner()
-  const signerAddress = await getFaucetAddress()
+  const account = privateKeyToAccount(getFaucetPrivateKey())
+  const signerAddress = account.address
 
   // Check faucet ETH balance
   const ethBalance = await publicClient.getBalance({ address: signerAddress })
@@ -324,28 +277,16 @@ export async function claimGasGrant(address: Address): Promise<GasGrantResult> {
     }
   }
 
-  const [nonce, gasPrice] = await Promise.all([
-    publicClient.getTransactionCount({ address: signerAddress }),
-    publicClient.getGasPrice(),
-  ])
+  const walletClient = createWalletClient({
+    account,
+    chain,
+    transport: http(rpcUrl),
+  })
 
-  // Estimate gas for simple ETH transfer
-  const gasLimit = 21000n
-
-  const hash = await signer.sendTransaction(
-    {
-      transaction: {
-        to: validated,
-        value: FAUCET_CONFIG.gasGrantAmount,
-        nonce,
-        gas: gasLimit,
-        gasPrice,
-        chainId: JEJU_CHAIN_ID,
-      },
-      chain,
-    },
-    getRpcUrl(JEJU_CHAIN_ID),
-  )
+  const hash = await walletClient.sendTransaction({
+    to: validated,
+    value: FAUCET_CONFIG.gasGrantAmount,
+  })
 
   await faucetState.recordGasGrant(validated)
   return {

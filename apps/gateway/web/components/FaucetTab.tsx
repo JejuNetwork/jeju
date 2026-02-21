@@ -14,14 +14,16 @@ import {
   Zap,
 } from 'lucide-react'
 import { type ComponentType, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAccount } from 'wagmi'
+import { createPublicClient, http, parseAbi } from 'viem'
 import { z } from 'zod'
 import type {
   FaucetClaimResult,
   FaucetInfo,
   FaucetStatus,
 } from '../../api/services/faucet-service'
-import { EXPLORER_URL } from '../../lib/config'
+import { CONTRACTS, EXPLORER_URL, RPC_URL } from '../../lib/config'
 
 const FaucetStatusSchema = z.object({
   eligible: z.boolean(),
@@ -80,33 +82,82 @@ function formatTime(ms: number): string {
   return `${minutes}m`
 }
 
-async function fetchFaucetStatus(address: string): Promise<FaucetStatus> {
-  const response = await fetch(`/api/faucet/status/${address}`)
-  if (!response.ok) {
-    throw new Error('Failed to fetch faucet status')
-  }
-  const data = await response.json()
-  const result = FaucetStatusSchema.safeParse(data)
-  if (!result.success) {
-    throw new Error('Invalid faucet status response')
-  }
-  return {
-    ...result.data,
-    nextClaimAt: result.data.nextClaimAt ?? null,
+const identityAbi = parseAbi([
+  'function balanceOf(address owner) view returns (uint256)',
+])
+
+async function checkRegistrationOnChain(address: string): Promise<boolean> {
+  const registryAddr = CONTRACTS.identityRegistry
+  if (!registryAddr || registryAddr === '0x0000000000000000000000000000000000000000') return false
+  try {
+    const client = createPublicClient({ transport: http(RPC_URL) })
+    const balance = await client.readContract({
+      address: registryAddr,
+      abi: identityAbi,
+      functionName: 'balanceOf',
+      args: [address as `0x${string}`],
+    })
+    return balance > 0n
+  } catch {
+    return false
   }
 }
 
+async function fetchFaucetStatus(address: string): Promise<FaucetStatus> {
+  // Try the API first
+  try {
+    const response = await fetch(`/api/faucet/status/${address}`)
+    if (response.ok) {
+      const data = await response.json()
+      const result = FaucetStatusSchema.safeParse(data)
+      if (result.success) {
+        return { ...result.data, nextClaimAt: result.data.nextClaimAt ?? null }
+      }
+    }
+  } catch { /* API unavailable, fall back to on-chain check */ }
+
+  // Fallback: check registration directly on-chain
+  const isRegistered = await checkRegistrationOnChain(address)
+  return {
+    eligible: false,
+    isRegistered,
+    cooldownRemaining: 0,
+    nextClaimAt: null,
+    amountPerClaim: '100',
+    faucetBalance: '0',
+    gasGrantEligible: false,
+    gasGrantCooldownRemaining: 0,
+    _faucetOffline: true, // Signal that the faucet backend is not running
+  } as FaucetStatus
+}
+
 async function fetchFaucetInfo(): Promise<FaucetInfo> {
-  const response = await fetch('/api/faucet/info')
-  if (!response.ok) {
-    throw new Error('Failed to fetch faucet info')
+  // Try the API first
+  try {
+    const response = await fetch('/api/faucet/info')
+    if (response.ok) {
+      const data = await response.json()
+      const result = FaucetInfoSchema.safeParse(data)
+      if (result.success) {
+        return result.data
+      }
+    }
+  } catch { /* API unavailable */ }
+
+  // Fallback: static info
+  return {
+    name: 'JEJU Testnet Faucet',
+    description: 'Get JEJU tokens for testing. Requires ERC-8004 registry registration.',
+    tokenSymbol: 'JEJU',
+    amountPerClaim: '100',
+    cooldownHours: 12,
+    requirements: [
+      'Wallet must be registered in ERC-8004 Identity Registry',
+      '12 hour cooldown between claims',
+    ],
+    chainId: 420690,
+    chainName: 'Jeju Testnet',
   }
-  const data = await response.json()
-  const result = FaucetInfoSchema.safeParse(data)
-  if (!result.success) {
-    throw new Error('Invalid faucet info response')
-  }
-  return result.data
 }
 
 async function claimFromFaucet(address: string): Promise<FaucetClaimResult> {
@@ -663,8 +714,8 @@ export default function FaucetTab() {
                       )}
                     </button>
                   )}
-                  <a
-                    href="/registry"
+                  <Link
+                    to="/registry"
                     style={{
                       padding: '0.625rem 1rem',
                       background: 'var(--warning)',
@@ -682,7 +733,7 @@ export default function FaucetTab() {
                   >
                     Register Now
                     <ExternalLinkIcon size={14} />
-                  </a>
+                  </Link>
                 </div>
               </div>
             </div>
@@ -759,6 +810,26 @@ export default function FaucetTab() {
             <AlertCircleIcon size={18} style={{ color: 'var(--error)' }} />
             <span style={{ color: 'var(--error)', fontSize: '0.875rem' }}>
               {error}
+            </span>
+          </div>
+        )}
+
+        {isConnected && (status as Record<string, unknown>)?._faucetOffline && (
+          <div
+            style={{
+              padding: '1rem',
+              background: 'var(--surface-hover)',
+              border: '1px solid var(--border)',
+              borderRadius: '12px',
+              marginBottom: '1rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+            }}
+          >
+            <AlertCircleIcon size={18} style={{ color: 'var(--text-muted)' }} />
+            <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+              Faucet service is not running. Claims are temporarily unavailable.
             </span>
           </div>
         )}

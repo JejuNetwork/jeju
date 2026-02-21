@@ -26,12 +26,19 @@ const SupportedChainsSchema = z.array(SupportedChainIdSchema)
 const SupportedTokensSchema = z.record(z.string(), z.array(AddressSchema))
 
 const SQLIT_DATABASE_ID = process.env.SQLIT_DATABASE_ID ?? 'gateway'
+const USE_MEMORY_STATE = process.env.USE_MEMORY_STATE === 'true'
+
+// In-memory faucet state (used when USE_MEMORY_STATE=true)
+const memFaucetClaims = new Map<string, { lastClaim: number; lastGasGrant: number | null }>()
 
 let sqlitClient: SQLitClient | null = null
 let cacheClient: CacheClient | null = null
 let initialized = false
 
 async function getSQLitClient(): Promise<SQLitClient> {
+  if (USE_MEMORY_STATE) {
+    throw new Error('SQLit not available in memory mode')
+  }
   if (!sqlitClient) {
     sqlitClient = getSQLit({
       databaseId: SQLIT_DATABASE_ID,
@@ -850,6 +857,9 @@ export const apiKeyState = {
 export const faucetState = {
   async getLastClaim(address: string): Promise<number | null> {
     const addr = address.toLowerCase()
+    if (USE_MEMORY_STATE) {
+      return memFaucetClaims.get(addr)?.lastClaim ?? null
+    }
     const cache = getCache()
     const cached = await cache.get(`faucet:${addr}`)
     if (cached) return parseInt(cached, 10)
@@ -875,6 +885,12 @@ export const faucetState = {
   async recordClaim(address: string): Promise<void> {
     const addr = address.toLowerCase()
     const now = Date.now()
+    if (USE_MEMORY_STATE) {
+      const existing = memFaucetClaims.get(addr) ?? { lastClaim: 0, lastGasGrant: null }
+      existing.lastClaim = now
+      memFaucetClaims.set(addr, existing)
+      return
+    }
     const cache = getCache()
     const client = await getSQLitClient()
 
@@ -891,6 +907,9 @@ export const faucetState = {
 
   async getLastGasGrant(address: string): Promise<number | null> {
     const addr = address.toLowerCase()
+    if (USE_MEMORY_STATE) {
+      return memFaucetClaims.get(addr)?.lastGasGrant ?? null
+    }
     const cache = getCache()
     const cached = await cache.get(`faucet-gas:${addr}`)
     if (cached) return parseInt(cached, 10)
@@ -919,6 +938,12 @@ export const faucetState = {
   async recordGasGrant(address: string): Promise<void> {
     const addr = address.toLowerCase()
     const now = Date.now()
+    if (USE_MEMORY_STATE) {
+      const existing = memFaucetClaims.get(addr) ?? { lastClaim: 0, lastGasGrant: null }
+      existing.lastGasGrant = now
+      memFaucetClaims.set(addr, existing)
+      return
+    }
     const cache = getCache()
     const client = await getSQLitClient()
 
@@ -936,6 +961,11 @@ export const faucetState = {
 
 export async function initializeState(): Promise<void> {
   if (initialized) return
+  if (USE_MEMORY_STATE) {
+    initialized = true
+    console.log('[Gateway State] Initialized with in-memory storage')
+    return
+  }
   await getSQLitClient()
   initialized = true
   console.log('[Gateway State] Initialized with SQLit')

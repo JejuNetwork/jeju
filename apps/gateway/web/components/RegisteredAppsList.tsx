@@ -13,7 +13,8 @@ import {
   Zap,
 } from 'lucide-react'
 import { type ComponentType, useEffect, useState } from 'react'
-import { INDEXER_URL } from '../../lib/config'
+import { createPublicClient, http, parseAbi } from 'viem'
+import { CONTRACTS, RPC_URL } from '../../lib/config'
 
 const SearchIcon = Search as ComponentType<LucideProps>
 const RefreshCwIcon = RefreshCw as ComponentType<LucideProps>
@@ -129,86 +130,124 @@ interface FetchFilters {
   activeOnly?: boolean
 }
 
+const registryAbi = parseAbi([
+  'function ownerOf(uint256 tokenId) view returns (address)',
+  'function tokenURI(uint256 tokenId) view returns (string)',
+  'function getMetadata(uint256 agentId, string key) view returns (bytes)',
+  'function balanceOf(address owner) view returns (uint256)',
+  'function agents(uint256) view returns (uint256 agentId, address owner, uint8 tier, address stakedToken, uint256 stakedAmount, uint256 registeredAt, uint256 lastActivityAt, bool isBanned, bool isSlashed)',
+])
+
+const JEJU_TOKEN = '0x5FbDB2315678afecb367f032d93F642f64180aa3'.toLowerCase()
+
+function resolveTokenName(addr: string): string {
+  if (!addr || addr === '0x0000000000000000000000000000000000000000') return 'None'
+  if (addr.toLowerCase() === JEJU_TOKEN) return 'JEJU'
+  return `${addr.slice(0, 6)}...${addr.slice(-4)}`
+}
+
+function getRegistryClient() {
+  return createPublicClient({
+    transport: http(RPC_URL),
+  })
+}
+
+async function fetchAgentsFromContract(): Promise<RegisteredApp[]> {
+  const registryAddr = CONTRACTS.identityRegistry
+  if (!registryAddr) return []
+
+  const client = getRegistryClient()
+  const agents: RegisteredApp[] = []
+
+  // Try reading agents starting from ID 1
+  for (let id = 1; id <= 100; id++) {
+    try {
+      const owner = await client.readContract({
+        address: registryAddr,
+        abi: registryAbi,
+        functionName: 'ownerOf',
+        args: [BigInt(id)],
+      })
+
+      // Read tokenURI and agent struct in parallel
+      const [tokenURI, agentData] = await Promise.all([
+        client.readContract({
+          address: registryAddr,
+          abi: registryAbi,
+          functionName: 'tokenURI',
+          args: [BigInt(id)],
+        }),
+        client.readContract({
+          address: registryAddr,
+          abi: registryAbi,
+          functionName: 'agents',
+          args: [BigInt(id)],
+        }).catch(() => null),
+      ])
+
+      let a2aEndpoint: string | undefined
+      try {
+        const a2aBytes = await client.readContract({
+          address: registryAddr,
+          abi: registryAbi,
+          functionName: 'getMetadata',
+          args: [BigInt(id), 'a2aEndpoint'],
+        })
+        if (a2aBytes && a2aBytes !== '0x') {
+          a2aEndpoint = new TextDecoder().decode(
+            Uint8Array.from(a2aBytes.slice(2).match(/.{2}/g)!.map(b => parseInt(b, 16)))
+          )
+        }
+      } catch { /* no a2a metadata */ }
+
+      let parsed: { name?: string; description?: string; registeredAt?: string } = {}
+      try { parsed = JSON.parse(tokenURI) } catch { /* not JSON */ }
+
+      // agentData tuple: [agentId, owner, tier, stakedToken, stakedAmount, registeredAt, lastActivityAt, isBanned, isSlashed]
+      const tier = agentData ? Number((agentData as readonly unknown[])[2]) : 0
+      const stakedToken = agentData ? String((agentData as readonly unknown[])[3]) : ''
+      const stakedAmount = agentData ? BigInt(String((agentData as readonly unknown[])[4])) : 0n
+      const registeredAtBlock = agentData ? BigInt(String((agentData as readonly unknown[])[5])) : 0n
+      const stakeAmountStr = stakedAmount > 0n ? (Number(stakedAmount) / 1e18).toFixed(3) : '0'
+
+      agents.push({
+        agentId: String(id),
+        name: parsed.name ?? `Agent #${id}`,
+        description: parsed.description,
+        owner: owner as string,
+        tags: [],
+        stakeToken: resolveTokenName(stakedToken),
+        stakeAmount: stakeAmountStr,
+        stakeTier: tier,
+        registeredAt: registeredAtBlock > 0n
+          ? new Date(Number(registeredAtBlock) * 1000).toISOString()
+          : (parsed.registeredAt ?? new Date().toISOString()),
+        active: true,
+        a2aEndpoint,
+        serviceType: a2aEndpoint ? 'agent' : 'app',
+      })
+    } catch {
+      // ownerOf reverts for non-existent tokens, stop scanning
+      break
+    }
+  }
+
+  return agents
+}
+
 async function fetchAgentsFromIndexer(
   filters: FetchFilters = {},
 ): Promise<RegisteredApp[]> {
-  const { search, tag, serviceType, category, x402Only, activeOnly } = filters
+  // Read directly from contract (no indexer needed)
+  const contractAgents = await fetchAgentsFromContract()
 
-  const whereConditions: string[] = []
-  if (search) whereConditions.push(`name_containsInsensitive: "${search}"`)
-  if (tag && tag !== 'all') whereConditions.push(`tags_containsAll: ["${tag}"]`)
-  if (serviceType && serviceType !== 'all')
-    whereConditions.push(`serviceType_eq: "${serviceType}"`)
-  if (category && category !== 'all')
-    whereConditions.push(`category_eq: "${category}"`)
-  if (x402Only) whereConditions.push(`x402Support_eq: true`)
-  if (activeOnly) whereConditions.push(`active_eq: true, isBanned_eq: false`)
-
-  const whereClause =
-    whereConditions.length > 0 ? `where: { ${whereConditions.join(', ')} }` : ''
-
-  const query = `
-    query GetAgents {
-      registeredAgents(
-        limit: 100
-        orderBy: registeredAt_DESC
-        ${whereClause}
-      ) {
-        id agentId owner { address } name description tags tokenURI stakeToken stakeAmount stakeTier registeredAt lastActivityAt active isBanned a2aEndpoint mcpEndpoint serviceType category x402Support mcpTools a2aSkills image
-      }
-    }
-  `
-
-  const response = await fetch(INDEXER_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query }),
-  })
-
-  const result = await response.json()
-  if (result.errors) {
-    console.error('GraphQL errors:', result.errors)
-    throw new Error(`GraphQL query failed: ${result.errors[0]?.message}`)
-  }
-
-  const agents = result.data?.registeredAgents as
-    | GraphQLAgentResponse[]
-    | undefined
-  if (!agents) {
-    throw new Error('Invalid GraphQL response: missing registeredAgents')
-  }
-
-  return agents.map((agent) => {
-    const agentId = agent.agentId ?? agent.id
-    if (!agentId) {
-      throw new Error('Agent missing required agentId')
-    }
-    const ownerAddress = agent.owner?.address
-    if (!ownerAddress) {
-      throw new Error(`Agent ${agentId} missing required owner address`)
-    }
-
-    return {
-      agentId: String(agentId),
-      name: agent.name ?? `Agent #${agentId}`,
-      description: agent.description,
-      owner: ownerAddress,
-      tags: agent.tags ?? [],
-      stakeToken: agent.stakeToken ?? 'ETH',
-      stakeAmount: formatStake(agent.stakeAmount ?? '0'),
-      stakeTier: agent.stakeTier ?? 0,
-      registeredAt: agent.registeredAt ?? new Date().toISOString(),
-      metadataUri: agent.tokenURI,
-      active: agent.active !== false && !agent.isBanned,
-      a2aEndpoint: agent.a2aEndpoint,
-      mcpEndpoint: agent.mcpEndpoint,
-      serviceType: agent.serviceType ?? 'agent',
-      category: agent.category,
-      x402Support: agent.x402Support ?? false,
-      mcpTools: agent.mcpTools ?? [],
-      a2aSkills: agent.a2aSkills ?? [],
-      image: agent.image,
-    }
+  // Apply client-side filters
+  const { search, serviceType, activeOnly } = filters
+  return contractAgents.filter(agent => {
+    if (search && !agent.name.toLowerCase().includes(search.toLowerCase())) return false
+    if (serviceType && serviceType !== 'all' && agent.serviceType !== serviceType) return false
+    if (activeOnly && !agent.active) return false
+    return true
   })
 }
 
@@ -684,7 +723,7 @@ export default function RegisteredAppsList({
                             }}
                           >
                             {' '}
-                            ({app.stakeAmount} ETH)
+                            ({app.stakeAmount} {app.stakeToken || 'JEJU'})
                           </span>
                         )}
                     </span>

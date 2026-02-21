@@ -66,6 +66,7 @@ export const NODE_STAKING_MANAGER_ABI = [
           { name: 'registrationTime', type: 'uint256' },
           { name: 'lastClaimTime', type: 'uint256' },
           { name: 'totalRewardsClaimed', type: 'uint256' },
+          { name: 'operatorAgentId', type: 'uint256' },
           { name: 'isActive', type: 'bool' },
           { name: 'isSlashed', type: 'bool' },
         ],

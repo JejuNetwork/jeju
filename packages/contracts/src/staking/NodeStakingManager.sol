@@ -9,7 +9,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {INodeStakingManager} from "./INodeStakingManager.sol";
 import {IIdentityRegistry} from "../registry/interfaces/IIdentityRegistry.sol";
 import {ITokenRegistry, IPaymasterFactory} from "../interfaces/IPaymaster.sol";
-import {ISimplePriceOracle} from "../interfaces/IPriceOracle.sol";
+import {IPriceOracle} from "../interfaces/IPriceOracle.sol";
 
 /**
  * @title NodeStakingManager
@@ -20,7 +20,7 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
 
     ITokenRegistry public immutable tokenRegistry;
     IPaymasterFactory public immutable paymasterFactory;
-    ISimplePriceOracle public immutable priceOracle;
+    IPriceOracle public immutable priceOracle;
     mapping(bytes32 => NodeStake) public nodes;
     mapping(address => bytes32[]) public operatorNodes;
     bytes32[] public allNodeIds;
@@ -134,7 +134,7 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
 
         tokenRegistry = ITokenRegistry(_tokenRegistry);
         paymasterFactory = IPaymasterFactory(_paymasterFactory);
-        priceOracle = ISimplePriceOracle(_priceOracle);
+        priceOracle = IPriceOracle(_priceOracle);
         performanceOracles.push(_performanceOracle);
         isPerformanceOracle[_performanceOracle] = true;
     }
@@ -181,20 +181,20 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
         if (stakeAmount == 0) revert ZeroStake();
         if (stakingToken == address(0) || rewardToken == address(0)) revert InvalidAddress();
 
-        if (!tokenRegistry.isRegistered(stakingToken)) {
+        if (!tokenRegistry.isSupported(stakingToken)) {
             revert TokenNotRegistered(stakingToken);
         }
-        if (!tokenRegistry.isRegistered(rewardToken)) {
+        if (!tokenRegistry.isSupported(rewardToken)) {
             revert TokenNotRegistered(rewardToken);
         }
-        if (!paymasterFactory.hasPaymaster(stakingToken)) {
+        if (!paymasterFactory.isDeployed(stakingToken)) {
             revert NoPaymasterForToken(stakingToken);
         }
-        if (!paymasterFactory.hasPaymaster(rewardToken)) {
+        if (!paymasterFactory.isDeployed(rewardToken)) {
             revert NoPaymasterForToken(rewardToken);
         }
 
-        uint256 tokenPrice = priceOracle.getPrice(stakingToken);
+        (uint256 tokenPrice,) = priceOracle.getPrice(stakingToken);
         if (tokenPrice == 0) revert("Invalid token price");
         uint256 stakeValueUSD = (stakeAmount * tokenPrice) / 1e18;
 
@@ -282,7 +282,7 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
 
         address rewardToken = node.rewardToken;
         address stakedToken = node.stakedToken;
-        uint256 rewardTokenPrice = priceOracle.getPrice(rewardToken);
+        (uint256 rewardTokenPrice,) = priceOracle.getPrice(rewardToken);
         uint256 rewardAmount = (rewardsUSD * 1e18) / rewardTokenPrice;
 
         uint256 rewardPaymasterFee = (rewardsUSD * paymasterRewardCutBPS) / 10000;
@@ -356,7 +356,7 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
         address stakingPaymasterAddr = address(0);
 
         if (rewardsUSD > 0) {
-            uint256 rewardTokenPrice = priceOracle.getPrice(rewardToken);
+            (uint256 rewardTokenPrice,) = priceOracle.getPrice(rewardToken);
             if (rewardTokenPrice > 0) {
                 rewardAmount = (rewardsUSD * 1e18) / rewardTokenPrice;
                 rewardFee = (rewardsUSD * paymasterRewardCutBPS) / 10000;
@@ -505,7 +505,7 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
     address public constant ETH_ADDRESS = address(0);
 
     function _convertUSDToETH(uint256 amountUSD) internal view returns (uint256) {
-        uint256 ethPrice = priceOracle.getPrice(ETH_ADDRESS);
+        (uint256 ethPrice,) = priceOracle.getPrice(ETH_ADDRESS);
         if (ethPrice == 0) ethPrice = 3000e18;
         return (amountUSD * 1e18) / ethPrice;
     }

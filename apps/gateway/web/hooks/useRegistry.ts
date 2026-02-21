@@ -9,12 +9,60 @@ import { useTypedWriteContract } from './useTypedWriteContract'
 export const IDENTITY_REGISTRY_ADDRESS = CONTRACTS.identityRegistry
 const REGISTRY_ADDRESS = IDENTITY_REGISTRY_ADDRESS
 
+/**
+ * Stake tiers matching IdentityRegistry.sol
+ * NONE=0, SMALL=1, MEDIUM=2, HIGH=3
+ */
+export const StakeTier = {
+  NONE: 0,
+  SMALL: 1,
+  MEDIUM: 2,
+  HIGH: 3,
+} as const
+export type StakeTierValue = (typeof StakeTier)[keyof typeof StakeTier]
+
 const IDENTITY_REGISTRY_ABI = [
+  // Register without staking
+  {
+    inputs: [{ internalType: 'string', name: 'tokenURI_', type: 'string' }],
+    name: 'register',
+    outputs: [{ internalType: 'uint256', name: 'agentId', type: 'uint256' }],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  // Register with metadata (no staking)
   {
     inputs: [
       { internalType: 'string', name: 'tokenURI_', type: 'string' },
-      { internalType: 'string[]', name: 'tags_', type: 'string[]' },
-      { internalType: 'string', name: 'a2aEndpoint_', type: 'string' },
+      {
+        components: [
+          { internalType: 'string', name: 'key', type: 'string' },
+          { internalType: 'bytes', name: 'value', type: 'bytes' },
+        ],
+        internalType: 'struct IIdentityRegistry.MetadataEntry[]',
+        name: 'metadata',
+        type: 'tuple[]',
+      },
+    ],
+    name: 'register',
+    outputs: [{ internalType: 'uint256', name: 'agentId', type: 'uint256' }],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  // Register with staking (tier-based)
+  {
+    inputs: [
+      { internalType: 'string', name: 'tokenURI_', type: 'string' },
+      {
+        components: [
+          { internalType: 'string', name: 'key', type: 'string' },
+          { internalType: 'bytes', name: 'value', type: 'bytes' },
+        ],
+        internalType: 'struct IIdentityRegistry.MetadataEntry[]',
+        name: 'metadata',
+        type: 'tuple[]',
+      },
+      { internalType: 'uint8', name: 'tier_', type: 'uint8' },
       { internalType: 'address', name: 'stakeToken_', type: 'address' },
     ],
     name: 'registerWithStake',
@@ -29,11 +77,12 @@ const IDENTITY_REGISTRY_ABI = [
     stateMutability: 'nonpayable',
     type: 'function',
   },
+  // Get stake amount for a tier
   {
-    inputs: [{ internalType: 'address', name: 'token', type: 'address' }],
-    name: 'calculateRequiredStake',
+    inputs: [{ internalType: 'uint8', name: 'tier', type: 'uint8' }],
+    name: 'getStakeAmount',
     outputs: [{ internalType: 'uint256', name: 'amount', type: 'uint256' }],
-    stateMutability: 'view',
+    stateMutability: 'pure',
     type: 'function',
   },
   {
@@ -66,25 +115,6 @@ const IDENTITY_REGISTRY_ABI = [
     inputs: [{ internalType: 'uint256', name: 'agentId', type: 'uint256' }],
     name: 'tokenURI',
     outputs: [{ internalType: 'string', name: '', type: 'string' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [{ internalType: 'uint256', name: 'agentId', type: 'uint256' }],
-    name: 'getStakeInfo',
-    outputs: [
-      {
-        components: [
-          { internalType: 'address', name: 'token', type: 'address' },
-          { internalType: 'uint256', name: 'amount', type: 'uint256' },
-          { internalType: 'uint256', name: 'depositedAt', type: 'uint256' },
-          { internalType: 'bool', name: 'withdrawn', type: 'bool' },
-        ],
-        internalType: 'struct IdentityRegistryWithStaking.StakeInfo',
-        name: '',
-        type: 'tuple',
-      },
-    ],
     stateMutability: 'view',
     type: 'function',
   },
@@ -139,6 +169,24 @@ const IDENTITY_REGISTRY_ABI = [
     inputs: [{ internalType: 'uint256', name: 'agentId', type: 'uint256' }],
     name: 'getX402Support',
     outputs: [{ internalType: 'bool', name: 'supported', type: 'bool' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  // Auto-generated getter for public `agents` mapping
+  {
+    inputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
+    name: 'agents',
+    outputs: [
+      { internalType: 'uint256', name: 'agentId', type: 'uint256' },
+      { internalType: 'address', name: 'owner', type: 'address' },
+      { internalType: 'uint8', name: 'tier', type: 'uint8' },
+      { internalType: 'address', name: 'stakedToken', type: 'address' },
+      { internalType: 'uint256', name: 'stakedAmount', type: 'uint256' },
+      { internalType: 'uint256', name: 'registeredAt', type: 'uint256' },
+      { internalType: 'uint256', name: 'lastActivityAt', type: 'uint256' },
+      { internalType: 'bool', name: 'isBanned', type: 'bool' },
+      { internalType: 'bool', name: 'isSlashed', type: 'bool' },
+    ],
     stateMutability: 'view',
     type: 'function',
   },
@@ -230,14 +278,29 @@ const IDENTITY_REGISTRY_ABI = [
     stateMutability: 'nonpayable',
     type: 'function',
   },
+  // Supported tokens
+  {
+    inputs: [{ internalType: 'address', name: '', type: 'address' }],
+    name: 'isSupportedStakeToken',
+    outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
 ] as const
 
 export interface RegisterAppParams {
   tokenURI: string
-  tags: string[]
   a2aEndpoint: string
+  tier: StakeTierValue
   stakeToken: Address
   stakeAmount: bigint
+}
+
+/** Encode a string as ABI bytes for MetadataEntry */
+function encodeStringMetadata(value: string): `0x${string}` {
+  const encoder = new TextEncoder()
+  const bytes = encoder.encode(value)
+  return `0x${Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('')}`
 }
 
 export function useRegistry() {
@@ -248,26 +311,47 @@ export function useRegistry() {
   async function registerApp(
     params: RegisterAppParams,
   ): Promise<{ success: boolean; error?: string; agentId?: bigint }> {
-    const { tokenURI, tags, a2aEndpoint, stakeToken, stakeAmount } = params
+    const { tokenURI, a2aEndpoint, tier, stakeToken, stakeAmount } = params
 
-    if (stakeToken !== ZERO_ADDRESS) {
-      await writeAsync({
-        address: stakeToken,
-        abi: IERC20_ABI,
-        functionName: 'approve',
-        args: [REGISTRY_ADDRESS, stakeAmount],
+    // Build metadata entries for the a2a endpoint
+    const metadata: { key: string; value: `0x${string}` }[] = []
+    if (a2aEndpoint) {
+      metadata.push({
+        key: 'a2aEndpoint',
+        value: encodeStringMetadata(a2aEndpoint),
       })
     }
 
-    const hash = await writeAsync({
-      address: REGISTRY_ADDRESS,
-      abi: IDENTITY_REGISTRY_ABI,
-      functionName: 'registerWithStake',
-      args: [tokenURI, tags, a2aEndpoint, stakeToken],
-      value: stakeToken === ZERO_ADDRESS ? stakeAmount : 0n,
-    })
+    if (tier === StakeTier.NONE) {
+      // Free registration (no staking)
+      const hash = await writeAsync({
+        address: REGISTRY_ADDRESS,
+        abi: IDENTITY_REGISTRY_ABI,
+        functionName: 'register',
+        args: [tokenURI, metadata],
+      })
+      setLastTx(hash)
+    } else {
+      // Registration with staking
+      if (stakeToken !== ZERO_ADDRESS) {
+        await writeAsync({
+          address: stakeToken,
+          abi: IERC20_ABI,
+          functionName: 'approve',
+          args: [REGISTRY_ADDRESS, stakeAmount],
+        })
+      }
 
-    setLastTx(hash)
+      const hash = await writeAsync({
+        address: REGISTRY_ADDRESS,
+        abi: IDENTITY_REGISTRY_ABI,
+        functionName: 'registerWithStake',
+        args: [tokenURI, metadata, tier, stakeToken],
+        value: stakeToken === ZERO_ADDRESS ? stakeAmount : 0n,
+      })
+      setLastTx(hash)
+    }
+
     return { success: true }
   }
 
@@ -287,14 +371,24 @@ export function useRegistry() {
   return { registerApp, withdrawStake, lastTransaction: txReceipt }
 }
 
-export function useRequiredStake(token: Address | undefined) {
+export function useStakeAmount(tier: StakeTierValue) {
   const { data } = useReadContract({
     address: REGISTRY_ADDRESS,
     abi: IDENTITY_REGISTRY_ABI,
-    functionName: 'calculateRequiredStake',
+    functionName: 'getStakeAmount',
+    args: [tier],
+  })
+  return data as bigint | undefined
+}
+
+export function useIsSupportedStakeToken(token: Address | undefined) {
+  const { data } = useReadContract({
+    address: REGISTRY_ADDRESS,
+    abi: IDENTITY_REGISTRY_ABI,
+    functionName: 'isSupportedStakeToken',
     args: token ? [token] : undefined,
   })
-  return data ? (data as bigint) : null
+  return data as boolean | undefined
 }
 
 interface MarketplaceInfo {
@@ -371,12 +465,21 @@ interface RegisteredApp {
   depositedAt: bigint
 }
 
-/** Stake info returned from the getStakeInfo contract call */
+/** Stake info returned from the agents mapping */
 interface StakeInfoData {
   token: string
   amount: bigint
   depositedAt: bigint
   withdrawn: boolean
+}
+
+// JEJU token address - used to display "JEJU" instead of raw address
+const JEJU_TOKEN = '0x5FbDB2315678afecb367f032d93F642f64180aa3'
+
+function resolveTokenName(tokenAddr: string): string {
+  if (!tokenAddr || tokenAddr === ZERO_ADDRESS) return 'None'
+  if (tokenAddr.toLowerCase() === JEJU_TOKEN.toLowerCase()) return 'JEJU'
+  return `${tokenAddr.slice(0, 6)}...${tokenAddr.slice(-4)}`
 }
 
 export function useRegistryAppDetails(agentId: bigint) {
@@ -387,10 +490,17 @@ export function useRegistryAppDetails(agentId: bigint) {
     args: [agentId],
   })
 
-  const { data: stakeInfo, refetch: refetchStake } = useReadContract({
+  const { data: tokenURI, refetch: refetchTokenURI } = useReadContract({
     address: REGISTRY_ADDRESS,
     abi: IDENTITY_REGISTRY_ABI,
-    functionName: 'getStakeInfo',
+    functionName: 'tokenURI',
+    args: [agentId],
+  })
+
+  const { data: agentData, refetch: refetchAgent } = useReadContract({
+    address: REGISTRY_ADDRESS,
+    abi: IDENTITY_REGISTRY_ABI,
+    functionName: 'agents',
     args: [agentId],
   })
 
@@ -410,27 +520,42 @@ export function useRegistryAppDetails(agentId: bigint) {
 
   const isLoading = !owner
 
-  const stake = stakeInfo as StakeInfoData | undefined
+  // Parse tokenURI for name/description
+  let parsedName = `Agent #${agentId}`
+  let parsedDescription: string | undefined
+  if (tokenURI) {
+    try {
+      const parsed = JSON.parse(tokenURI)
+      if (parsed.name) parsedName = parsed.name
+      if (parsed.description) parsedDescription = parsed.description
+    } catch { /* not JSON */ }
+  }
+
+  // Extract stake info from agents mapping result
+  // agentData is a tuple: [agentId, owner, tier, stakedToken, stakedAmount, registeredAt, lastActivityAt, isBanned, isSlashed]
+  const tier = agentData ? Number((agentData as readonly unknown[])[2]) : 0
+  const stakedToken = agentData ? String((agentData as readonly unknown[])[3]) : ZERO_ADDRESS
+  const stakedAmount = agentData ? BigInt(String((agentData as readonly unknown[])[4])) : 0n
+  const registeredAt = agentData ? BigInt(String((agentData as readonly unknown[])[5])) : 0n
+  const stakeAmountFormatted = stakedAmount > 0n ? (Number(stakedAmount) / 1e18).toString() : '0'
+
   const app: RegisteredApp | null = owner
     ? {
         agentId,
-        name: `Agent #${agentId}`,
+        name: parsedName,
+        description: parsedDescription,
         owner,
         tags: tags ? [...tags] : [],
         a2aEndpoint,
-        stakeToken: stake?.token ?? 'ETH',
-        stakeAmount: stake?.amount.toString() ?? '0',
-        depositedAt: stake?.depositedAt ?? 0n,
+        stakeToken: resolveTokenName(stakedToken),
+        stakeAmount: stakeAmountFormatted,
+        stakeTier: tier,
+        depositedAt: registeredAt,
       }
     : null
 
   const refetch = async () => {
-    await Promise.all([
-      refetchOwner(),
-      refetchStake(),
-      refetchTags(),
-      refetchEndpoint(),
-    ])
+    await Promise.all([refetchOwner(), refetchTokenURI(), refetchAgent(), refetchTags(), refetchEndpoint()])
   }
 
   return {

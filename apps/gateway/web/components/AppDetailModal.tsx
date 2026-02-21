@@ -254,7 +254,7 @@ export default function AppDetailModal({
                   <span style={{ color: 'var(--text-secondary)' }}>
                     Amount:
                   </span>
-                  <span style={{ fontWeight: 600 }}>{app.stakeAmount}</span>
+                  <span style={{ fontWeight: 600 }}>{app.stakeAmount} {app.stakeToken !== 'None' ? app.stakeToken : ''}</span>
                 </div>
                 <div
                   style={{
