@@ -6,7 +6,7 @@ Live testnet deployed on OP Stack, connected to Sepolia L1.
 
 | Field | Value |
 |-------|-------|
-| Chain ID | `2151908` (`0x20d5e4`) |
+| Chain ID | `420690` (`0x66b32`) |
 | L1 | Sepolia (`11155111`) |
 | RPC | `https://jeju-testnet.fartbag.fun/` |
 | WebSocket | `wss://jeju-testnet.fartbag.fun/ws` |
@@ -18,7 +18,7 @@ Live testnet deployed on OP Stack, connected to Sepolia L1.
 
 ```json
 {
-  "chainId": "0x20d5e4",
+  "chainId": "0x66b32",
   "chainName": "Jeju Testnet",
   "rpcUrls": ["https://jeju-testnet.fartbag.fun/"],
   "nativeCurrency": { "name": "Ether", "symbol": "ETH", "decimals": 18 }
@@ -36,53 +36,41 @@ Live testnet deployed on OP Stack, connected to Sepolia L1.
 
 ## L2 Core Contracts
 
-### Deploy.s.sol (Main Deployment)
+### Core Contracts (Redeployed Feb 21 2026 with chain ID 420690)
 
 | Contract | Address |
 |----------|---------|
-| PriceOracle | `0xB224F7607215139130Ea79111358C1908E69F30e` |
-| ServiceRegistry | `0x1096dF0E910ea8abE5A5AfD448f2C355f4c92eFf` |
-| IdentityRegistry | `0xd2013Cad96d6f5ca25C0cB1e55A373EA30529369` |
-| ReputationRegistry | `0x6cfc5F9b0e5fe29470778b018aAaEb014281Ea19` |
-| ValidationRegistry | `0x2962566C122941412a8E30BEaa62b235f88F912f` |
-| BanManager | `0xE4aBFd2e67240dFfFA8433E04dF094F3B5206272` |
-| ReputationLabelManager | `0xFc86aecCf568E966C404387037195eEe2F97f51D` |
-| NetworkUSDC | `0x432FeA762270DD4f209A14f7d5e7c4eF92075E3C` |
-| JEJU Token | `0x897b37eD9B92fA39a96044515a0d91690EAA30BB` |
-| CreditManager | `0x3E145f1C100EcBf6CeaA02E1D4cea8A936063b38` |
-| TokenRegistry | `0x57954230bF80B09Fa54d65CcAdaAc02f44f79E45` |
-| PaymasterFactory | `0x6694b781852A94f885927B114704B83B4222fC21` |
-| MultiTokenPaymaster | `0x0C349D357a006Ae32aF7cd56479384F740D74003` |
-| SolverRegistry | `0x4E5cAcEdc21C554B16748d1DbDb3bA414F8e4181` |
-| SimpleOracle (OIF) | `0x20a227891403Ca3A2cFCA9D24B5fc8c5d8Eaa3D5` |
-| InputSettler | `0x517a57f43C34ABB3A49DE4aEfcc84250F3063712` |
-| OutputSettler | `0x879D7f7097ab4A506083bd43Be777deC316Ff46f` |
-| L1StakeManager | `0x22C41fAeb5b70E61c56c04FdB0CD880eBd971AD5` |
-| CrossChainPaymaster | `0xb62A9DE44C64b354Ceb9CE1e53443EE24CBCb4dc` |
-| X402Facilitator | `0x6a52B358f39Bd117b063D63cedc9b016B9F2831e` |
-| X402IntentBridge | `0x12FE1fB20900337C295C85AF671A88bc7548e08c` |
+| ELIZAOS Token | `0x5FbDB2315678afecb367f032d93F642f64180aa3` |
+| IdentityRegistry | `0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6` |
+| ComputeRegistry | `0xa82ff9afd8f496c3d6ac40e2a0f282e47488cfc9` |
+| FeeConfig | `0x1613beb3b2c4f22ee086b2b38c1476a3ce7f78e8` |
+| DAORegistry | `0x851356ae760d987e095750cceb3bc6014560891c` |
+| DAOFunding | `0xf5059a5d33d5853360d16c683c16e67980206f36` |
+
+### JNS (Jeju Name Service)
+
+| Contract | Address |
+|----------|---------|
+| JNSRegistry | `0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512` |
+| JNSResolver | `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0` |
+| JNSRegistrar | `0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9` |
+| JNSReverseRegistrar | `0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9` |
+
+### DWS (Decentralized Web Services)
+
+| Contract | Address |
+|----------|---------|
+| StorageManager | `0x3Aa5ebB10DC797CAC828524e59A333d0A371443c` |
+| WorkerRegistry | `0xc6e7DF5E7b4f2A278906862b61205850344D4e7d` |
+| CDNRegistry | `0x59b670e9fA9D0A427751Af201D676719a970857b` |
+| RepoRegistry | `0x4ed7c70F96B99c776995fB64377f0d4aB3B0e1C1` |
+| PackageRegistry | `0x322813Fd9A801c5507c9de605d63CEA4f2CE6c44` |
 
 ### ERC-4337 Account Abstraction
 
 | Contract | Address |
 |----------|---------|
 | EntryPoint v0.7 (canonical) | `0x0000000071727De22E5E9d8BAf0edAc6f37da032` |
-| EntryPoint v0.9 | `0x3eb934d56d14fa073ef859c13a7ab9c5f8eeb948` |
-| SimpleAccountFactory (v0.9) | `0x58A55Dc97a3bBA3CD16d927e3Ed5b3c90F8E1A4c` |
-
-### Paymaster Stack
-
-| Contract | Address |
-|----------|---------|
-| ELIZAOS Token | `0x8332E76E40805aC9B06f3B11c1F415D608F66Db3` |
-| LiquidityPaymaster | `0xA539885c451072af0BcA62f570B8AD296823830A` |
-| PriceOracle (Paymaster) | `0x47C9B4Bb4680163CFf384B184aCC1d12eF75295a` |
-
-**Paymaster Configuration:**
-- Token: ELIZAOS (`0x8332...`)
-- Fee margin: 5% (500 basis points)
-- Oracle prices: ETH=$2500, ELIZAOS=$1
-- EntryPoint deposit: 0.2 ETH
 
 ### Additional Deployments
 
