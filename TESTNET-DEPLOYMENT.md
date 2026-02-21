@@ -70,7 +70,24 @@ Live testnet deployed on OP Stack, connected to Sepolia L1.
 
 | Contract | Address |
 |----------|---------|
+| EntryPoint v0.7 (jeju-l2 lib) | `0x0E801D84Fa97b50751Dbf25036d067dCf18858bF` |
+| EntryPoint v0.9 (main repo) | `0x4826533b4897376654bb4d4ad88b7fafd0c98528` |
 | EntryPoint v0.7 (canonical) | `0x0000000071727De22E5E9d8BAf0edAc6f37da032` |
+| SimpleAccountFactory | `0x9d4454B023096f34B160D6B654540c56A1F81688` |
+
+### Paymaster Stack
+
+| Contract | Address |
+|----------|---------|
+| ELIZAOS Token | `0x5FbDB2315678afecb367f032d93F642f64180aa3` |
+| ManualPriceOracle | `0x99bbA657f2BbC93c02D617f8bA121cB8Fc104Acf` |
+| LiquidityPaymaster | `0x8f86403A4DE0BB5791fa46B8e795C547942fE4Cf` |
+
+**Paymaster Configuration:**
+- Token: ELIZAOS (`0x5FbDB...`)
+- Fee margin: 5% (500 basis points)
+- Oracle prices: ETH=$2500, ELIZAOS=$1
+- EntryPoint deposit: 1 ETH
 
 ### Additional Deployments
 
