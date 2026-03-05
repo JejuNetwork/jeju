@@ -20,6 +20,7 @@ import DirectorDashboardPage from './pages/DirectorDashboard'
 import ModerationPage from './pages/Moderation'
 import MyDAOsPage from './pages/MyDAOs'
 import ProposalPage from './pages/Proposal'
+import AgentConfigPage from './pages/AgentConfig'
 import ProposalDetailPage from './pages/ProposalDetail'
 import './app/globals.css'
 
@@ -94,6 +95,7 @@ function App() {
                 />
                 <Route path="/my-daos" element={<MyDAOsPage />} />
                 <Route path="/admin" element={<AdminPage />} />
+                <Route path="/agent-config" element={<AgentConfigPage />} />
                 <Route path="/moderation" element={<ModerationPage />} />
                 <Route path="/bug-bounty" element={<BugBountyPage />} />
                 <Route
