@@ -95,6 +95,13 @@
   --gradient-primary: linear-gradient(135deg, #7b61ff 0%, #6347e6 100%);
   --gradient-secondary: linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%);
   --gradient-rainbow-border: linear-gradient(90deg, #ababe9 0%, #bbf9ab 33%, #ababe9 70%, #ff26dc 100%);
+  --gradient-hero-dashboard: radial-gradient(ellipse 40% 50% at 50% 50%, rgba(91, 21, 178, 0.7) 0%, rgba(36, 6, 71, 0.99) 20%, rgba(36, 106, 122, 0.94) 80%, rgba(22, 49, 186, 0.94) 100%), linear-gradient(160deg, #0b1120 0%, #0b1120 100%);
+  --color-sidebar-bg: #000;
+  --color-sidebar-header: #292f4c;
+  --color-sidebar-border: #333;
+  --color-stat-label: #64748b;
+  --color-muted: #a1a1aa;
+  --color-text-secondary-light: #cdcdcd;
 }
 
 /* Legacy support */
@@ -615,6 +622,70 @@ body {
     mask-composite: exclude;
     pointer-events: none;
     z-index: -1;
+  }
+
+  /* Gradient divider bar - dashboard/explore separator */
+  .gradient-divider {
+    @apply rounded-full;
+    height: 3px;
+    background: var(--gradient-rainbow-border);
+  }
+
+  /* Section header card - dark blurred panel for category titles */
+  .section-header-dark {
+    @apply rounded-lg p-8 relative overflow-hidden;
+    background-color: rgba(0, 0, 0, 0.2);
+    border: 1px solid transparent;
+    border-image: var(--gradient-rainbow-border) 1;
+    backdrop-filter: blur(4px);
+  }
+
+  /* Stat card - dark theme metric display */
+  .stat-card-dark {
+    @apply py-2.5 px-3 text-center;
+    border: 1px solid transparent;
+    border-image: var(--gradient-rainbow-border) 1;
+  }
+
+  /* Sidebar action button - chat panel grid button */
+  .sidebar-action-btn {
+    @apply py-3 px-2 text-xs text-white font-medium;
+    @apply flex items-center justify-center gap-1.5;
+    @apply transition-all;
+    background-color: var(--color-sidebar-bg);
+    border: 1px solid var(--color-sidebar-border);
+  }
+
+  .sidebar-action-btn:hover {
+    filter: brightness(1.25);
+  }
+
+  /* Sidebar header bar - AUTOCRAT UI branding strip */
+  .sidebar-header {
+    @apply px-5 py-3 flex items-center;
+    background-color: var(--color-sidebar-header);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
+  /* Rainbow gradient text */
+  .text-rainbow {
+    background: var(--gradient-rainbow-border);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* DAO app card - explore/dashboard card with bottom shadow */
+  .card-dao {
+    @apply rounded-lg overflow-hidden transition-all;
+    background-color: #2f2e40;
+    border: 1px solid transparent;
+    border-image: var(--gradient-rainbow-border) 1;
+    box-shadow: 0 4px 0 black;
+  }
+
+  .card-dao:hover {
+    filter: brightness(1.1);
   }
 
   /* Faded text gradient - homepage descriptive text */

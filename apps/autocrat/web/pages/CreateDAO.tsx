@@ -1489,12 +1489,9 @@ export default function CreateDAOPage() {
               className="relative overflow-hidden rounded-2xl mb-6"
               style={{
                 height: '200px',
-                background: `
-                  radial-gradient(ellipse 40% 50% at 50% 50%, rgba(91, 21, 178, 0.7) 0%, rgba(36, 6, 71, 0.99) 20%, rgba(36, 106, 122, 0.94) 80%, rgba(22, 49, 186, 0.94) 100%),
-                  linear-gradient(160deg, #0b1120 0%, #0b1120 100%)
-                `,
+                background: 'var(--gradient-hero-dashboard)',
                 borderBottom: '3px solid transparent',
-                borderImage: 'linear-gradient(90deg, #ababe9 0%, #bbf9ab 20%, #ababe9 80%, #ff26dc 100%) 1',
+                borderImage: 'var(--gradient-rainbow-border) 1',
               }}
             >
               <div className="absolute left-9 top-[45px]">
@@ -1518,21 +1515,8 @@ export default function CreateDAOPage() {
                 }}
               >
                 {/* Header Bar */}
-                <div
-                  className="px-5 py-3 flex items-center"
-                  style={{
-                    backgroundColor: '#292f4c',
-                    borderBottom: '1px solid rgba(255, 255, 255, 0.15)',
-                  }}
-                >
-                  <span
-                    className="text-xs font-semibold tracking-widest"
-                    style={{
-                      background: 'linear-gradient(90deg, #ababe9 0%, #bbf9ab 20%, #ababe9 80%, #ff26dc 100%)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                    }}
-                  >
+                <div className="sidebar-header">
+                  <span className="text-xs font-semibold tracking-widest text-rainbow">
                     {'>'} AUTOCRAT UI V.3.23.41
                   </span>
                 </div>
@@ -1541,7 +1525,7 @@ export default function CreateDAOPage() {
                 <div
                   className="flex-1 p-4 overflow-y-auto"
                   style={{
-                    backgroundColor: '#000',
+                    backgroundColor: 'var(--color-sidebar-bg)',
                     borderBottom: '1px solid rgba(255, 255, 255, 0.15)',
                   }}
                 >
@@ -1559,15 +1543,15 @@ export default function CreateDAOPage() {
                 <div
                   className="p-3"
                   style={{
-                    backgroundColor: '#000',
+                    backgroundColor: 'var(--color-sidebar-bg)',
                     borderBottom: '1px solid rgba(255, 255, 255, 0.15)',
                   }}
                 >
                   <div
                     className="rounded-none p-3 mb-3"
                     style={{
-                      backgroundColor: '#292f4c',
-                      border: '1px solid #333',
+                      backgroundColor: 'var(--color-sidebar-header)',
+                      border: '1px solid var(--color-sidebar-border)',
                       minHeight: '100px',
                     }}
                   >
@@ -1602,7 +1586,7 @@ export default function CreateDAOPage() {
                     className="w-full py-2 text-sm text-white font-medium flex items-center justify-center gap-2 transition-all hover:brightness-110"
                     style={{
                       border: '1px solid transparent',
-                      borderImage: 'linear-gradient(90deg, #ababe9 0%, #bbf9ab 20%, #ababe9 80%, #ff26dc 100%) 1',
+                      borderImage: 'var(--gradient-rainbow-border) 1',
                     }}
                   >
                     <Send className="w-3.5 h-3.5" aria-hidden="true" />
@@ -1632,11 +1616,7 @@ export default function CreateDAOPage() {
                       <button
                         key={`action-${i}`}
                         type="button"
-                        className="py-3 px-2 text-xs text-white font-medium flex items-center justify-center gap-1.5 transition-all hover:brightness-125"
-                        style={{
-                          backgroundColor: '#000',
-                          border: '1px solid #333',
-                        }}
+                        className="sidebar-action-btn"
                       >
                         <BtnIcon className="w-3 h-3 opacity-60" aria-hidden="true" />
                         {btn.label}
@@ -1658,20 +1638,11 @@ export default function CreateDAOPage() {
                       { label: 'Plug-Ins', value: '6 tokens' },
                       { label: 'Daily Returns', value: '1.31 ETH' },
                     ].map((stat) => (
-                      <div
-                        key={stat.label}
-                        className="flex-1 py-2.5 px-3 text-center"
-                        style={{
-                          border: '1px solid transparent',
-                          borderImage: 'linear-gradient(90deg, #ababe9 0%, #bbf9ab 20%, #ababe9 80%, #ff26dc 100%) 1',
-                        }}
-                      >
-                        <p className="text-[10px] uppercase tracking-wider" style={{ color: '#64748b' }}>
+                      <div key={stat.label} className="stat-card-dark flex-1">
+                        <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--color-stat-label)' }}>
                           {stat.label}
                         </p>
-                        <p className="text-sm font-semibold text-white mt-0.5">
-                          {stat.value}
-                        </p>
+                        <p className="text-sm font-semibold text-white mt-0.5">{stat.value}</p>
                       </div>
                     ))}
                   </div>
@@ -1684,9 +1655,7 @@ export default function CreateDAOPage() {
                       <div
                         key={`tile-${i}`}
                         className="w-[100px] h-[100px] rounded-2xl flex items-center justify-center"
-                        style={{
-                          backgroundColor: '#292f4c',
-                        }}
+                        style={{ backgroundColor: 'var(--color-sidebar-header)' }}
                       >
                         <Bot className="w-8 h-8 text-white/40" aria-hidden="true" />
                       </div>
@@ -1696,7 +1665,7 @@ export default function CreateDAOPage() {
                       type="button"
                       className="w-[100px] h-[100px] rounded-2xl flex items-center justify-center transition-all hover:brightness-125"
                       style={{
-                        backgroundColor: '#292f4c',
+                        backgroundColor: 'var(--color-sidebar-header)',
                         border: '1px dashed rgba(255, 255, 255, 0.2)',
                       }}
                     >
@@ -1711,7 +1680,7 @@ export default function CreateDAOPage() {
                     type="button"
                     className="px-6 py-1.5 text-xs text-white rounded-full transition-all hover:brightness-125"
                     style={{
-                      border: '1px solid #646464',
+                      border: '1px solid rgba(255, 255, 255, 0.25)',
                     }}
                   >
                     Add More Friends +
@@ -1721,7 +1690,7 @@ export default function CreateDAOPage() {
                     onClick={goNext}
                     className="px-6 py-1.5 text-xs text-white rounded-full transition-all hover:brightness-125"
                     style={{
-                      border: '1px solid #646464',
+                      border: '1px solid rgba(255, 255, 255, 0.25)',
                     }}
                   >
                     Next &rarr;
@@ -1729,25 +1698,13 @@ export default function CreateDAOPage() {
                 </div>
 
                 {/* Gradient Divider */}
-                <div className="px-6 py-3">
-                  <div
-                    className="h-[3px] rounded-full"
-                    style={{
-                      background: 'linear-gradient(90deg, #ababe9 0%, #bbf9ab 33%, #ababe9 70%, #ff26dc 100%)',
-                    }}
-                  />
+                <div className="px-6 py-4">
+                  <div className="gradient-divider" />
                 </div>
 
                 {/* Bulletin Board Section */}
-                <div
-                  className="mx-6 flex-1 rounded-none p-6 relative overflow-hidden"
-                  style={{
-                    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-                    border: '1px solid transparent',
-                    borderImage: 'linear-gradient(90deg, #ababe9 0%, #bbf9ab 20%, #ababe9 80%, #ff26dc 100%) 1',
-                    backdropFilter: 'blur(4px)',
-                  }}
-                >
+                <div className="section-header-dark mx-6 flex-1">
+
                   <h3 className="text-lg font-semibold" style={{ color: '#d0d5dd' }}>
                     Bulletin Board
                   </h3>
@@ -1760,32 +1717,32 @@ export default function CreateDAOPage() {
                     <span className="font-medium" style={{ color: '#d0d5dd' }}>
                       AI Decisions
                     </span>
-                    <span style={{ color: '#797979' }}>Settings</span>
-                    <span style={{ color: '#797979' }}>Exchange</span>
-                    <span style={{ color: '#797979' }}>Percentage</span>
+                    <span style={{ color: 'var(--color-stat-label)' }}>Settings</span>
+                    <span style={{ color: 'var(--color-stat-label)' }}>Exchange</span>
+                    <span style={{ color: 'var(--color-stat-label)' }}>Percentage</span>
                   </div>
                   <div className="flex items-center gap-0 mb-6">
                     <div
                       className="h-px flex-shrink-0"
                       style={{
                         width: '100px',
-                        background: 'linear-gradient(90deg, #ababe9 0%, #bbf9ab 20%, #ababe9 80%, #ff26dc 100%)',
+                        background: 'var(--gradient-rainbow-border)',
                       }}
                     />
-                    <div className="h-px flex-1" style={{ backgroundColor: '#797979' }} />
+                    <div className="h-px flex-1" style={{ backgroundColor: 'var(--color-stat-label)' }} />
                   </div>
 
                   {/* Proposals Table */}
                   <div className="space-y-0">
                     {/* Header */}
                     <div className="grid grid-cols-[1fr_80px_80px] gap-2 mb-2">
-                      <span className="text-[11px]" style={{ color: '#797979' }}>
+                      <span className="text-[11px]" style={{ color: 'var(--color-stat-label)' }}>
                         Proposal
                       </span>
-                      <span className="text-[11px]" style={{ color: '#797979' }}>
+                      <span className="text-[11px]" style={{ color: 'var(--color-stat-label)' }}>
                         Discussions
                       </span>
-                      <span className="text-[11px] text-right" style={{ color: '#797979' }}>
+                      <span className="text-[11px] text-right" style={{ color: 'var(--color-stat-label)' }}>
                         Percentage
                       </span>
                     </div>
@@ -1814,19 +1771,12 @@ export default function CreateDAOPage() {
                 {/* Bottom Cards Row */}
                 <div className="px-6 py-4 flex gap-5">
                   {/* Deposit Funds Card */}
-                  <div
-                    className="flex-1 rounded-xl px-5 py-5 flex items-center justify-between"
-                    style={{
-                      backgroundColor: '#292f4c',
-                      border: '1px solid transparent',
-                      borderImage: 'linear-gradient(90deg, #ababe9 0%, #bbf9ab 33%, #ababe9 70%, #ff26dc 100%) 1',
-                    }}
-                  >
+                  <div className="card-frosted flex-1 px-5 py-5 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <Play className="w-9 h-9 shrink-0" style={{ color: '#44dee9' }} aria-hidden="true" />
                       <div>
                         <p className="text-white text-sm font-medium">Deposit Funds</p>
-                        <p className="text-xs" style={{ color: '#cdcdcd' }}>
+                        <p className="text-xs" style={{ color: 'var(--color-text-secondary-light)' }}>
                           0xc12c...484F2
                         </p>
                       </div>
@@ -1842,19 +1792,12 @@ export default function CreateDAOPage() {
                   </div>
 
                   {/* Account Balance Card */}
-                  <div
-                    className="flex-1 rounded-xl px-5 py-5 flex items-center justify-between"
-                    style={{
-                      backgroundColor: 'rgba(71, 77, 120, 0.5)',
-                      border: '1px solid transparent',
-                      borderImage: 'linear-gradient(90deg, #ababe9 0%, #bbf9ab 33%, #ababe9 70%, #ff26dc 100%) 1',
-                    }}
-                  >
+                  <div className="card-frosted flex-1 px-5 py-5 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <Wallet className="w-9 h-9 shrink-0" style={{ color: '#f575c2' }} aria-hidden="true" />
                       <div>
                         <p className="text-white text-sm font-medium">Account Balance</p>
-                        <p className="text-xs" style={{ color: '#cdcdcd' }}>
+                        <p className="text-xs" style={{ color: 'var(--color-text-secondary-light)' }}>
                           0.023 ETH ($23.99)
                         </p>
                       </div>
@@ -1870,14 +1813,8 @@ export default function CreateDAOPage() {
                 </div>
 
                 {/* Leaderboard Card */}
-                <div
-                  className="mx-6 mb-6 rounded-none p-6"
-                  style={{
-                    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-                    border: '1px solid rgba(0, 0, 0, 0.8)',
-                    backdropFilter: 'blur(4px)',
-                  }}
-                >
+                <div className="section-header-dark mx-6 mb-6">
+
                   <h3
                     className="text-base font-semibold mb-3"
                     style={{ color: '#f2f4f7' }}
@@ -1886,10 +1823,10 @@ export default function CreateDAOPage() {
                   </h3>
                   {/* Header */}
                   <div className="flex justify-between mb-2">
-                    <span className="text-[11px]" style={{ color: '#797979' }}>
+                    <span className="text-[11px]" style={{ color: 'var(--color-stat-label)' }}>
                       User
                     </span>
-                    <span className="text-[11px]" style={{ color: '#797979' }}>
+                    <span className="text-[11px]" style={{ color: 'var(--color-stat-label)' }}>
                       Deposited
                     </span>
                   </div>
@@ -1916,7 +1853,7 @@ export default function CreateDAOPage() {
                   width: '180px',
                   backgroundColor: '#000',
                   borderLeft: '3px solid transparent',
-                  borderImage: 'linear-gradient(180deg, #ababe9 0%, #bbf9ab 20%, #ababe9 80%, #ff26dc 100%) 1',
+                  borderImage: 'linear-gradient(180deg, #ababe9, #bbf9ab 20%, #ababe9 80%, #ff26dc) 1',
                 }}
               >
                 <div className="p-4 flex flex-col gap-2 overflow-y-auto">
@@ -1924,16 +1861,16 @@ export default function CreateDAOPage() {
                     <div key={`book-${i}`}>
                       {/* Book Card */}
                       <div
-                        className="rounded-md overflow-hidden"
+                        className="rounded-lg overflow-hidden transition-all hover:brightness-110"
                         style={{
-                          backgroundColor: '#292f4c',
+                          backgroundColor: 'var(--color-sidebar-header)',
                           border: '1px solid #ffd09c',
                           boxShadow: '0 9px 14px rgba(0,0,0,0.1), 0 10px 26px rgba(0,0,0,0.17)',
                         }}
                       >
                         <div className="w-full aspect-square flex items-center justify-center p-2">
                           <div
-                            className="w-full h-full rounded flex items-center justify-center"
+                            className="w-full h-full rounded-lg flex items-center justify-center"
                             style={{ backgroundColor: '#3a3960' }}
                           >
                             <Bot className="w-10 h-10 text-white/50" aria-hidden="true" />
@@ -1943,9 +1880,9 @@ export default function CreateDAOPage() {
                       {/* Button below card */}
                       <button
                         type="button"
-                        className="w-full mt-1.5 py-2 text-[10px] text-white font-medium rounded flex items-center justify-center gap-1"
+                        className="w-full mt-1.5 py-2 text-[10px] text-white font-medium rounded-lg flex items-center justify-center gap-1 transition-all hover:brightness-110"
                         style={{
-                          backgroundColor: '#292f4c',
+                          backgroundColor: 'var(--color-sidebar-header)',
                           border: '1px solid rgba(255, 255, 255, 0.8)',
                           boxShadow: '0 3px 3px rgba(0,0,0,0.25)',
                         }}

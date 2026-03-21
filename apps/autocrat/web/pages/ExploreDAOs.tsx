@@ -4,6 +4,8 @@ import {
   Paperclip,
   Send,
   UserPlus,
+  Wallet,
+  Zap,
 } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -32,16 +34,7 @@ function ExploreDAOCard({
   members,
 }: ExploreDAOCardProps) {
   return (
-    <div
-      className="rounded-lg overflow-hidden cursor-pointer transition-all hover:brightness-110"
-      style={{
-        backgroundColor: '#2f2e40',
-        border: '1px solid transparent',
-        borderImage:
-          'linear-gradient(90deg, #ababe9 0%, #bbf9ab 33%, #ababe9 70%, #ff26dc 100%) 1',
-        boxShadow: '0 4px 0 black',
-      }}
-    >
+    <div className="card-dao cursor-pointer">
       {/* Background overlay */}
       <div className="relative">
         <div
@@ -117,16 +110,7 @@ function SectionHeader({
   subtitle: string
 }) {
   return (
-    <div
-      className="rounded-none p-8 relative overflow-hidden"
-      style={{
-        backgroundColor: 'rgba(0, 0, 0, 0.2)',
-        border: '1px solid transparent',
-        borderImage:
-          'linear-gradient(90deg, #ababe9 0%, #bbf9ab 20%, #ababe9 80%, #ff26dc 100%) 1',
-        backdropFilter: 'blur(4px)',
-      }}
-    >
+    <div className="section-header-dark">
       <h3 className="text-2xl font-semibold" style={{ color: '#d0d5dd' }}>
         {title}
       </h3>
@@ -203,13 +187,9 @@ export default function ExploreDAOsPage() {
         className="relative overflow-hidden"
         style={{
           height: '241px',
-          background: `
-            radial-gradient(ellipse 40% 50% at 50% 50%, rgba(91, 21, 178, 0.7) 0%, rgba(36, 6, 71, 0.99) 20%, rgba(36, 106, 122, 0.94) 80%, rgba(22, 49, 186, 0.94) 100%),
-            linear-gradient(160deg, #0b1120 0%, #0b1120 100%)
-          `,
+          background: 'var(--gradient-hero-dashboard)',
           borderBottom: '3px solid transparent',
-          borderImage:
-            'linear-gradient(90deg, #ababe9 0%, #bbf9ab 20%, #ababe9 80%, #ff26dc 100%) 1',
+          borderImage: 'var(--gradient-rainbow-border) 1',
         }}
       >
         <div className="absolute left-9 top-[55px]">
@@ -234,22 +214,8 @@ export default function ExploreDAOsPage() {
           }}
         >
           {/* Header Bar */}
-          <div
-            className="px-5 py-3 flex items-center"
-            style={{
-              backgroundColor: '#292f4c',
-              borderBottom: '1px solid rgba(255, 255, 255, 0.15)',
-            }}
-          >
-            <span
-              className="text-xs font-semibold tracking-widest"
-              style={{
-                background:
-                  'linear-gradient(90deg, #ababe9 0%, #bbf9ab 20%, #ababe9 80%, #ff26dc 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-              }}
-            >
+          <div className="sidebar-header">
+            <span className="text-xs font-semibold tracking-widest text-rainbow">
               {'>'} AUTOCRAT UI V.3.23.41
             </span>
           </div>
@@ -258,7 +224,7 @@ export default function ExploreDAOsPage() {
           <div
             className="flex-1 p-4 overflow-y-auto"
             style={{
-              backgroundColor: '#000',
+              backgroundColor: 'var(--color-sidebar-bg)',
               borderBottom: '1px solid rgba(255, 255, 255, 0.15)',
               minHeight: '280px',
             }}
@@ -277,15 +243,15 @@ export default function ExploreDAOsPage() {
           <div
             className="p-3"
             style={{
-              backgroundColor: '#000',
+              backgroundColor: 'var(--color-sidebar-bg)',
               borderBottom: '1px solid rgba(255, 255, 255, 0.15)',
             }}
           >
             <div
               className="rounded-none p-3 mb-3"
               style={{
-                backgroundColor: '#292f4c',
-                border: '1px solid #333',
+                backgroundColor: 'var(--color-sidebar-header)',
+                border: '1px solid var(--color-sidebar-border)',
                 minHeight: '100px',
               }}
             >
@@ -314,8 +280,7 @@ export default function ExploreDAOsPage() {
               className="w-full py-2 text-sm text-white font-medium flex items-center justify-center gap-2 transition-all hover:brightness-110"
               style={{
                 border: '1px solid transparent',
-                borderImage:
-                  'linear-gradient(90deg, #ababe9 0%, #bbf9ab 20%, #ababe9 80%, #ff26dc 100%) 1',
+                borderImage: 'var(--gradient-rainbow-border) 1',
               }}
             >
               <Send className="w-3.5 h-3.5" aria-hidden="true" />
@@ -342,11 +307,7 @@ export default function ExploreDAOsPage() {
                 <button
                   key={`action-${i}`}
                   type="button"
-                  className="py-3 px-2 text-xs text-white font-medium flex items-center justify-center gap-1.5 transition-all hover:brightness-125"
-                  style={{
-                    backgroundColor: '#000',
-                    border: '1px solid #333',
-                  }}
+                  className="sidebar-action-btn"
                 >
                   <BtnIcon
                     className="w-3 h-3 opacity-60"
@@ -356,6 +317,42 @@ export default function ExploreDAOsPage() {
                 </button>
               )
             })}
+          </div>
+
+          {/* Deposit Funds Card */}
+          <div className="card-frosted mx-3 mb-3 px-5 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Zap className="w-8 h-8 shrink-0" style={{ color: '#44dee9' }} aria-hidden="true" />
+              <div>
+                <p className="text-white text-sm font-medium">Deposit Funds</p>
+                <p className="text-xs" style={{ color: 'var(--color-text-secondary-light)' }}>&mdash;</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="text-xs font-medium px-2 py-2 transition-colors hover:opacity-80"
+              style={{ color: '#ababe9' }}
+            >
+              Connect
+            </button>
+          </div>
+
+          {/* Account Balance Card */}
+          <div className="card-frosted mx-3 mb-3 px-5 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Wallet className="w-8 h-8 shrink-0" style={{ color: '#f575c2' }} aria-hidden="true" />
+              <div>
+                <p className="text-white text-sm font-medium">Account Balance</p>
+                <p className="text-xs" style={{ color: 'var(--color-text-secondary-light)' }}>&mdash;</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="text-xs font-medium px-2 py-2 transition-colors hover:opacity-80"
+              style={{ color: '#ababe9' }}
+            >
+              View Wallet
+            </button>
           </div>
         </aside>
 
@@ -371,24 +368,11 @@ export default function ExploreDAOsPage() {
                 { label: 'Plug-Ins', value: '6 tokens' },
                 { label: 'Daily Returns', value: '1.31 ETH' },
               ].map((stat) => (
-                <div
-                  key={stat.label}
-                  className="flex-1 max-w-[180px] py-2.5 px-3 text-center"
-                  style={{
-                    border: '1px solid transparent',
-                    borderImage:
-                      'linear-gradient(90deg, #ababe9 0%, #bbf9ab 20%, #ababe9 80%, #ff26dc 100%) 1',
-                  }}
-                >
-                  <p
-                    className="text-[10px] uppercase tracking-wider"
-                    style={{ color: '#64748b' }}
-                  >
+                <div key={stat.label} className="stat-card-dark flex-1 max-w-[180px]">
+                  <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--color-stat-label)' }}>
                     {stat.label}
                   </p>
-                  <p className="text-sm font-semibold text-white mt-0.5">
-                    {stat.value}
-                  </p>
+                  <p className="text-sm font-semibold text-white mt-0.5">{stat.value}</p>
                 </div>
               ))}
             </div>
@@ -396,13 +380,7 @@ export default function ExploreDAOsPage() {
 
           {/* Gradient Divider */}
           <div className="px-6 py-4">
-            <div
-              className="h-[3px] rounded-full"
-              style={{
-                background:
-                  'linear-gradient(90deg, #ababe9 0%, #bbf9ab 33%, #ababe9 70%, #ff26dc 100%)',
-              }}
-            />
+            <div className="gradient-divider" />
           </div>
 
           {/* Popular DAOs Section */}
