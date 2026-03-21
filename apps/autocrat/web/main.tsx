@@ -17,6 +17,7 @@ import CreateDAOPage from './pages/CreateDAO'
 import DAODetailPage from './pages/DAODetail'
 import DAOListPage from './pages/DAOList'
 import DirectorDashboardPage from './pages/DirectorDashboard'
+import ExploreDAOsPage from './pages/ExploreDAOs'
 import ModerationPage from './pages/Moderation'
 import MyDAOsPage from './pages/MyDAOs'
 import ProposalPage from './pages/Proposal'
@@ -76,6 +77,9 @@ function App() {
 
               {/* Director Dashboard has its own layout */}
               <Route path="/director" element={<DirectorDashboardPage />} />
+
+              {/* Explore DAOs has its own layout */}
+              <Route path="/explore" element={<ExploreDAOsPage />} />
 
               {/* Main layout routes */}
               <Route element={<Layout />}>

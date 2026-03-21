@@ -1,6 +1,7 @@
 import { useJejuAuth } from '@jejunetwork/auth/react'
 import {
   Building2,
+  Compass,
   Menu,
   Moon,
   Plus,
@@ -46,6 +47,7 @@ interface NavLink {
 
 const NAV_LINKS: NavLink[] = [
   { to: '/', label: 'Organizations', icon: Building2 },
+  { to: '/explore', label: 'Explore', icon: Compass },
 ]
 
 export function Header() {

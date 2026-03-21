@@ -4,15 +4,21 @@ import {
   ArrowRight,
   Bot,
   Check,
+  Copy,
   Crown,
   Heart,
   Info,
+  LayoutDashboard,
   Loader2,
   MessageSquare,
+  Paperclip,
+  Play,
   Plus,
+  Send,
   Settings,
   Shield,
   Sparkles,
+  UserPlus,
   Users,
   Wallet,
   X,
@@ -35,13 +41,14 @@ import {
   DEFAULT_GOVERNANCE_PARAMS,
 } from '../types/dao'
 
-type WizardStep = 'basics' | 'director' | 'board' | 'governance' | 'review'
+type WizardStep = 'basics' | 'director' | 'board' | 'governance' | 'dashboard' | 'review'
 
 const STEPS: { id: WizardStep; label: string; icon: typeof Bot }[] = [
   { id: 'basics', label: 'Basics', icon: Settings },
   { id: 'director', label: 'Director', icon: Crown },
   { id: 'board', label: 'Board', icon: Users },
   { id: 'governance', label: 'Governance', icon: Shield },
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'review', label: 'Review', icon: Check },
 ]
 
@@ -734,6 +741,12 @@ export default function CreateDAOPage() {
     DEFAULT_GOVERNANCE_PARAMS,
   )
 
+  // Dashboard (Friend Mode) state
+  const [dashboardChatInput, setDashboardChatInput] = useState('')
+  const [dashboardMessages, setDashboardMessages] = useState<string[]>([
+    'According to the DAO parameters this week decisions have been made by the configured agents. Agents 1-2 agreed on terms, Agent 3 proposes follow up questions. Would you like to add more friends to this discussion?',
+  ])
+
   const currentStepIndex = useMemo(
     () => STEPS.findIndex((s) => s.id === step),
     [step],
@@ -876,6 +889,8 @@ export default function CreateDAOPage() {
         )
       case 'governance':
         return true
+      case 'dashboard':
+        return true
       case 'review':
         return true
       default:
@@ -980,86 +995,117 @@ export default function CreateDAOPage() {
       </header>
 
       {/* Content */}
-      <main className="container mx-auto py-8 max-w-2xl pb-32">
+      <main className={`container mx-auto py-8 pb-32 ${step === 'dashboard' ? 'max-w-7xl px-4' : 'max-w-2xl'}`}>
         {/* Step: Basics */}
         {step === 'basics' && (
-          <div className="space-y-6 animate-in">
-            <h2 className="text-2xl font-bold mb-6 text-white">
-              Organization basics
-            </h2>
-
+          <div className="space-y-8 animate-in">
             <div>
-              <label
-                htmlFor="dao-slug"
-                className="block text-sm font-medium mb-2 text-white"
-              >
-                Slug / Username
-              </label>
-              <input
-                id="dao-slug"
-                type="text"
-                value={name}
-                onChange={(e) =>
-                  setName(
-                    e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
-                  )
-                }
-                placeholder="my-dao"
-                className="input-dark"
-              />
-              <p
-                className="text-xs mt-1"
-                style={{ color: '#a1a1aa' }}
-              >
-                /dao/{name || 'your-dao'}
+              <h2 className="text-2xl font-bold text-white">
+                Describe your DAO
+              </h2>
+              <p className="text-sm mt-2" style={{ color: '#a1a1aa' }}>
+                Define your DAO so new contributors know they've come to the right place. This information is displayed on the Explore page and can be changed with a vote.
               </p>
             </div>
 
+            {/* Name */}
             <div>
               <label
                 htmlFor="dao-display-name"
-                className="block text-sm font-medium mb-2 text-white"
+                className="block text-sm font-semibold mb-1 text-white"
               >
-                Display Name
+                Name
               </label>
+              <p className="text-xs mb-2" style={{ color: '#a1a1aa' }}>
+                Maximum of 128 characters
+              </p>
               <input
                 id="dao-display-name"
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="My DAO"
+                placeholder="Type your DAO's name..."
                 className="input-dark"
+                maxLength={128}
               />
+              <p className="text-xs mt-1" style={{ color: '#a1a1aa' }}>
+                {displayName.length}/128
+              </p>
             </div>
 
+            {/* Slug */}
+            <div>
+              <label
+                htmlFor="dao-slug"
+                className="block text-sm font-semibold mb-1 text-white"
+              >
+                ENS Subdomain
+              </label>
+              <p className="text-xs mb-2" style={{ color: '#a1a1aa' }}>
+                This will be your DAO's unique subdomain. Lowercase letters, numbers, and dashes only.
+              </p>
+              <div className="flex">
+                <input
+                  id="dao-slug"
+                  type="text"
+                  value={name}
+                  onChange={(e) =>
+                    setName(
+                      e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+                    )
+                  }
+                  placeholder={displayName ? displayName.toLowerCase().replace(/[^a-z0-9]/g, '') : 'my-dao'}
+                  className="input-dark flex-1 rounded-r-none"
+                />
+                <span
+                  className="inline-flex items-center px-4 text-sm font-medium rounded-r-xl"
+                  style={{
+                    backgroundColor: '#7b61ff',
+                    color: 'white',
+                  }}
+                >
+                  .dao
+                </span>
+              </div>
+              <p className="text-xs mt-1" style={{ color: '#a1a1aa' }}>
+                {name.length}/128
+              </p>
+            </div>
+
+            {/* Description */}
             <div>
               <label
                 htmlFor="dao-description"
-                className="block text-sm font-medium mb-2 text-white"
+                className="block text-sm font-semibold mb-1 text-white"
               >
                 Description
               </label>
+              <p className="text-xs mb-2" style={{ color: '#a1a1aa' }}>
+                Describe your DAO's purpose. This is listed on the Explore page so new contributors can find you.
+              </p>
               <textarea
                 id="dao-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe what your organization does and its goals"
+                placeholder="Type your summary..."
                 rows={4}
                 className="input-dark resize-y"
                 style={{ minHeight: '120px' }}
               />
             </div>
 
+            {/* Farcaster Channel (optional, collapsed) */}
             <div>
               <label
                 htmlFor="dao-farcaster"
-                className="block text-sm font-medium mb-2 text-white"
+                className="block text-sm font-semibold mb-1 text-white"
               >
                 <MessageSquare
                   className="w-4 h-4 inline mr-1"
                   aria-hidden="true"
                 />
-                Farcaster Channel (optional)
+                Farcaster Channel
+                <span className="font-normal ml-1" style={{ color: '#a1a1aa' }}>(optional)</span>
               </label>
               <input
                 id="dao-farcaster"
@@ -1071,9 +1117,11 @@ export default function CreateDAOPage() {
               />
             </div>
 
+            {/* Tags */}
             <div>
-              <span className="block text-sm font-medium mb-2 text-white">
+              <span className="block text-sm font-semibold mb-1 text-white">
                 Tags
+                <span className="font-normal ml-1" style={{ color: '#a1a1aa' }}>(optional)</span>
               </span>
               <div className="flex flex-wrap gap-2 mb-2">
                 {tags.map((tag) => (
@@ -1130,7 +1178,7 @@ export default function CreateDAOPage() {
         {step === 'director' && (
           <div className="space-y-6 animate-in">
             <h2 className="text-2xl font-bold text-white">
-              Director configuration
+              Create your Agent
             </h2>
 
             <div
@@ -1433,7 +1481,486 @@ export default function CreateDAOPage() {
           </div>
         )}
 
-        {/* Step: Review */}
+        {/* Step: Dashboard (Friend Mode) */}
+        {step === 'dashboard' && (
+          <div className="animate-in" style={{ maxWidth: 'none', width: '100%' }}>
+            {/* Hero Banner */}
+            <section
+              className="relative overflow-hidden rounded-2xl mb-6"
+              style={{
+                height: '200px',
+                background: `
+                  radial-gradient(ellipse 40% 50% at 50% 50%, rgba(91, 21, 178, 0.7) 0%, rgba(36, 6, 71, 0.99) 20%, rgba(36, 106, 122, 0.94) 80%, rgba(22, 49, 186, 0.94) 100%),
+                  linear-gradient(160deg, #0b1120 0%, #0b1120 100%)
+                `,
+                borderBottom: '3px solid transparent',
+                borderImage: 'linear-gradient(90deg, #ababe9 0%, #bbf9ab 20%, #ababe9 80%, #ff26dc 100%) 1',
+              }}
+            >
+              <div className="absolute left-9 top-[45px]">
+                <h2 className="text-2xl font-bold text-white leading-tight">
+                  Your Dashboard
+                </h2>
+                <p className="text-sm text-white/80 mt-4 max-w-[500px] leading-relaxed">
+                  Agents need to update this dashboard, ask questions to each other, and suggest trades using a special way of talking.
+                </p>
+              </div>
+            </section>
+
+            {/* Three Column Layout */}
+            <div className="flex gap-0" style={{ minHeight: '700px' }}>
+              {/* Left Sidebar - Chat & Controls */}
+              <div
+                className="shrink-0 flex flex-col"
+                style={{
+                  width: '340px',
+                  borderRight: '1px solid rgba(255, 255, 255, 0.15)',
+                }}
+              >
+                {/* Header Bar */}
+                <div
+                  className="px-5 py-3 flex items-center"
+                  style={{
+                    backgroundColor: '#292f4c',
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.15)',
+                  }}
+                >
+                  <span
+                    className="text-xs font-semibold tracking-widest"
+                    style={{
+                      background: 'linear-gradient(90deg, #ababe9 0%, #bbf9ab 20%, #ababe9 80%, #ff26dc 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                    }}
+                  >
+                    {'>'} AUTOCRAT UI V.3.23.41
+                  </span>
+                </div>
+
+                {/* Chat Messages */}
+                <div
+                  className="flex-1 p-4 overflow-y-auto"
+                  style={{
+                    backgroundColor: '#000',
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.15)',
+                  }}
+                >
+                  {dashboardMessages.map((msg, i) => (
+                    <p
+                      key={`msg-${i}`}
+                      className="text-sm text-white/90 leading-relaxed mb-3"
+                    >
+                      {msg}
+                    </p>
+                  ))}
+                </div>
+
+                {/* Chat Input Area */}
+                <div
+                  className="p-3"
+                  style={{
+                    backgroundColor: '#000',
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.15)',
+                  }}
+                >
+                  <div
+                    className="rounded-none p-3 mb-3"
+                    style={{
+                      backgroundColor: '#292f4c',
+                      border: '1px solid #333',
+                      minHeight: '100px',
+                    }}
+                  >
+                    <input
+                      type="text"
+                      value={dashboardChatInput}
+                      onChange={(e) => setDashboardChatInput(e.target.value)}
+                      placeholder="Or type to the agent to set everything up..."
+                      className="w-full bg-transparent text-sm text-white placeholder-white/50 outline-none"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && dashboardChatInput.trim()) {
+                          setDashboardMessages((prev) => [
+                            ...prev,
+                            dashboardChatInput.trim(),
+                          ])
+                          setDashboardChatInput('')
+                        }
+                      }}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (dashboardChatInput.trim()) {
+                        setDashboardMessages((prev) => [
+                          ...prev,
+                          dashboardChatInput.trim(),
+                        ])
+                        setDashboardChatInput('')
+                      }
+                    }}
+                    className="w-full py-2 text-sm text-white font-medium flex items-center justify-center gap-2 transition-all hover:brightness-110"
+                    style={{
+                      border: '1px solid transparent',
+                      borderImage: 'linear-gradient(90deg, #ababe9 0%, #bbf9ab 20%, #ababe9 80%, #ff26dc 100%) 1',
+                    }}
+                  >
+                    <Send className="w-3.5 h-3.5" aria-hidden="true" />
+                    Send
+                  </button>
+                </div>
+
+                {/* Action Buttons Grid */}
+                <div
+                  className="p-3 grid grid-cols-2 gap-2"
+                  style={{ backgroundColor: 'transparent' }}
+                >
+                  {[
+                    { label: 'ATTACHMENTS', icon: Paperclip },
+                    { label: 'ATTACHMENTS', icon: Paperclip },
+                    { label: 'AGENT LIST', icon: Bot },
+                    { label: 'AGENT LIST', icon: Bot },
+                    { label: 'AGENT LIST', icon: Bot },
+                    { label: 'AGENT LIST', icon: Bot },
+                    { label: 'ADD FRIENDS', icon: UserPlus },
+                    { label: 'ADD FRIENDS', icon: UserPlus },
+                    { label: 'ADD FRIENDS', icon: UserPlus },
+                    { label: 'ADD FRIENDS', icon: UserPlus },
+                  ].map((btn, i) => {
+                    const BtnIcon = btn.icon
+                    return (
+                      <button
+                        key={`action-${i}`}
+                        type="button"
+                        className="py-3 px-2 text-xs text-white font-medium flex items-center justify-center gap-1.5 transition-all hover:brightness-125"
+                        style={{
+                          backgroundColor: '#000',
+                          border: '1px solid #333',
+                        }}
+                      >
+                        <BtnIcon className="w-3 h-3 opacity-60" aria-hidden="true" />
+                        {btn.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Main Content Area */}
+              <div className="flex-1 flex flex-col overflow-hidden">
+                {/* Stats Row */}
+                <div className="px-6 py-4">
+                  <div className="flex gap-3">
+                    {[
+                      { label: 'Chain', value: 'Ethereum' },
+                      { label: 'APY', value: '8.54%' },
+                      { label: 'TVL', value: '$30.93M' },
+                      { label: 'Plug-Ins', value: '6 tokens' },
+                      { label: 'Daily Returns', value: '1.31 ETH' },
+                    ].map((stat) => (
+                      <div
+                        key={stat.label}
+                        className="flex-1 py-2.5 px-3 text-center"
+                        style={{
+                          border: '1px solid transparent',
+                          borderImage: 'linear-gradient(90deg, #ababe9 0%, #bbf9ab 20%, #ababe9 80%, #ff26dc 100%) 1',
+                        }}
+                      >
+                        <p className="text-[10px] uppercase tracking-wider" style={{ color: '#64748b' }}>
+                          {stat.label}
+                        </p>
+                        <p className="text-sm font-semibold text-white mt-0.5">
+                          {stat.value}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Friend Tiles Row */}
+                <div className="px-6 py-4">
+                  <div className="flex gap-4">
+                    {board.map((_member, i) => (
+                      <div
+                        key={`tile-${i}`}
+                        className="w-[100px] h-[100px] rounded-2xl flex items-center justify-center"
+                        style={{
+                          backgroundColor: '#292f4c',
+                        }}
+                      >
+                        <Bot className="w-8 h-8 text-white/40" aria-hidden="true" />
+                      </div>
+                    ))}
+                    {/* Add more tile */}
+                    <button
+                      type="button"
+                      className="w-[100px] h-[100px] rounded-2xl flex items-center justify-center transition-all hover:brightness-125"
+                      style={{
+                        backgroundColor: '#292f4c',
+                        border: '1px dashed rgba(255, 255, 255, 0.2)',
+                      }}
+                    >
+                      <Plus className="w-6 h-6 text-white/40" aria-hidden="true" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Add More Friends / Next Buttons */}
+                <div className="px-6 py-4 flex justify-center gap-5">
+                  <button
+                    type="button"
+                    className="px-6 py-1.5 text-xs text-white rounded-full transition-all hover:brightness-125"
+                    style={{
+                      border: '1px solid #646464',
+                    }}
+                  >
+                    Add More Friends +
+                  </button>
+                  <button
+                    type="button"
+                    onClick={goNext}
+                    className="px-6 py-1.5 text-xs text-white rounded-full transition-all hover:brightness-125"
+                    style={{
+                      border: '1px solid #646464',
+                    }}
+                  >
+                    Next &rarr;
+                  </button>
+                </div>
+
+                {/* Gradient Divider */}
+                <div className="px-6 py-3">
+                  <div
+                    className="h-[3px] rounded-full"
+                    style={{
+                      background: 'linear-gradient(90deg, #ababe9 0%, #bbf9ab 33%, #ababe9 70%, #ff26dc 100%)',
+                    }}
+                  />
+                </div>
+
+                {/* Bulletin Board Section */}
+                <div
+                  className="mx-6 flex-1 rounded-none p-6 relative overflow-hidden"
+                  style={{
+                    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                    border: '1px solid transparent',
+                    borderImage: 'linear-gradient(90deg, #ababe9 0%, #bbf9ab 20%, #ababe9 80%, #ff26dc 100%) 1',
+                    backdropFilter: 'blur(4px)',
+                  }}
+                >
+                  <h3 className="text-lg font-semibold" style={{ color: '#d0d5dd' }}>
+                    Bulletin Board
+                  </h3>
+                  <p className="text-xs mt-1" style={{ color: '#f9fafb' }}>
+                    How Agents allocate the Total ETH supplied across Tokens and Pools.
+                  </p>
+
+                  {/* Tabs */}
+                  <div className="flex gap-8 mt-6 mb-4 text-xs">
+                    <span className="font-medium" style={{ color: '#d0d5dd' }}>
+                      AI Decisions
+                    </span>
+                    <span style={{ color: '#797979' }}>Settings</span>
+                    <span style={{ color: '#797979' }}>Exchange</span>
+                    <span style={{ color: '#797979' }}>Percentage</span>
+                  </div>
+                  <div className="flex items-center gap-0 mb-6">
+                    <div
+                      className="h-px flex-shrink-0"
+                      style={{
+                        width: '100px',
+                        background: 'linear-gradient(90deg, #ababe9 0%, #bbf9ab 20%, #ababe9 80%, #ff26dc 100%)',
+                      }}
+                    />
+                    <div className="h-px flex-1" style={{ backgroundColor: '#797979' }} />
+                  </div>
+
+                  {/* Proposals Table */}
+                  <div className="space-y-0">
+                    {/* Header */}
+                    <div className="grid grid-cols-[1fr_80px_80px] gap-2 mb-2">
+                      <span className="text-[11px]" style={{ color: '#797979' }}>
+                        Proposal
+                      </span>
+                      <span className="text-[11px]" style={{ color: '#797979' }}>
+                        Discussions
+                      </span>
+                      <span className="text-[11px] text-right" style={{ color: '#797979' }}>
+                        Percentage
+                      </span>
+                    </div>
+                    {/* Rows */}
+                    {[
+                      { name: 'Optimizing existing workflows for Abc', chats: '45 chats', pct: '35.6%' },
+                      { name: 'Implementing feature updates for Mno', chats: '22 chats', pct: '18.2%' },
+                      { name: 'Conducting user feedback sessions for Qrs', chats: '50 chats', pct: '40.0%' },
+                      { name: 'Designing marketing strategies for Pqr', chats: '37 chats', pct: '29.8%' },
+                      { name: 'Launching beta version of Lmn', chats: '60 chats', pct: '45.4%' },
+                      { name: 'Enhancing customer support for Jkl', chats: '26 chats', pct: '22.0%' },
+                      { name: 'Monitoring analytics for Tuv', chats: '19 chats', pct: '15.3%' },
+                    ].map((row) => (
+                      <div
+                        key={row.name}
+                        className="grid grid-cols-[1fr_80px_80px] gap-2 py-1.5"
+                      >
+                        <span className="text-xs text-white truncate">{row.name}</span>
+                        <span className="text-xs text-white">{row.chats}</span>
+                        <span className="text-xs text-white text-right">{row.pct}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Bottom Cards Row */}
+                <div className="px-6 py-4 flex gap-5">
+                  {/* Deposit Funds Card */}
+                  <div
+                    className="flex-1 rounded-xl px-5 py-5 flex items-center justify-between"
+                    style={{
+                      backgroundColor: '#292f4c',
+                      border: '1px solid transparent',
+                      borderImage: 'linear-gradient(90deg, #ababe9 0%, #bbf9ab 33%, #ababe9 70%, #ff26dc 100%) 1',
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Play className="w-9 h-9 shrink-0" style={{ color: '#44dee9' }} aria-hidden="true" />
+                      <div>
+                        <p className="text-white text-sm font-medium">Deposit Funds</p>
+                        <p className="text-xs" style={{ color: '#cdcdcd' }}>
+                          0xc12c...484F2
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="text-xs font-medium px-2 py-2 transition-colors hover:opacity-80"
+                      style={{ color: '#ababe9' }}
+                    >
+                      <Copy className="w-4 h-4 inline mr-1" aria-hidden="true" />
+                      Copy Address
+                    </button>
+                  </div>
+
+                  {/* Account Balance Card */}
+                  <div
+                    className="flex-1 rounded-xl px-5 py-5 flex items-center justify-between"
+                    style={{
+                      backgroundColor: 'rgba(71, 77, 120, 0.5)',
+                      border: '1px solid transparent',
+                      borderImage: 'linear-gradient(90deg, #ababe9 0%, #bbf9ab 33%, #ababe9 70%, #ff26dc 100%) 1',
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Wallet className="w-9 h-9 shrink-0" style={{ color: '#f575c2' }} aria-hidden="true" />
+                      <div>
+                        <p className="text-white text-sm font-medium">Account Balance</p>
+                        <p className="text-xs" style={{ color: '#cdcdcd' }}>
+                          0.023 ETH ($23.99)
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="text-xs font-medium px-2 py-2 transition-colors hover:opacity-80"
+                      style={{ color: '#ababe9' }}
+                    >
+                      View Wallet
+                    </button>
+                  </div>
+                </div>
+
+                {/* Leaderboard Card */}
+                <div
+                  className="mx-6 mb-6 rounded-none p-6"
+                  style={{
+                    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                    border: '1px solid rgba(0, 0, 0, 0.8)',
+                    backdropFilter: 'blur(4px)',
+                  }}
+                >
+                  <h3
+                    className="text-base font-semibold mb-3"
+                    style={{ color: '#f2f4f7' }}
+                  >
+                    Leaderboard
+                  </h3>
+                  {/* Header */}
+                  <div className="flex justify-between mb-2">
+                    <span className="text-[11px]" style={{ color: '#797979' }}>
+                      User
+                    </span>
+                    <span className="text-[11px]" style={{ color: '#797979' }}>
+                      Deposited
+                    </span>
+                  </div>
+                  {/* Rows */}
+                  {[1, 2, 3, 4, 5].map((rank) => (
+                    <div
+                      key={rank}
+                      className="flex justify-between py-1"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-white w-4">{rank}</span>
+                        <span className="text-xs text-white">0xosh...i7ds</span>
+                      </div>
+                      <span className="text-xs text-white">1,625 ETH</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Right Sidebar - Agent Book Cards */}
+              <div
+                className="shrink-0 flex flex-col"
+                style={{
+                  width: '180px',
+                  backgroundColor: '#000',
+                  borderLeft: '3px solid transparent',
+                  borderImage: 'linear-gradient(180deg, #ababe9 0%, #bbf9ab 20%, #ababe9 80%, #ff26dc 100%) 1',
+                }}
+              >
+                <div className="p-4 flex flex-col gap-2 overflow-y-auto">
+                  {board.map((member, i) => (
+                    <div key={`book-${i}`}>
+                      {/* Book Card */}
+                      <div
+                        className="rounded-md overflow-hidden"
+                        style={{
+                          backgroundColor: '#292f4c',
+                          border: '1px solid #ffd09c',
+                          boxShadow: '0 9px 14px rgba(0,0,0,0.1), 0 10px 26px rgba(0,0,0,0.17)',
+                        }}
+                      >
+                        <div className="w-full aspect-square flex items-center justify-center p-2">
+                          <div
+                            className="w-full h-full rounded flex items-center justify-center"
+                            style={{ backgroundColor: '#3a3960' }}
+                          >
+                            <Bot className="w-10 h-10 text-white/50" aria-hidden="true" />
+                          </div>
+                        </div>
+                      </div>
+                      {/* Button below card */}
+                      <button
+                        type="button"
+                        className="w-full mt-1.5 py-2 text-[10px] text-white font-medium rounded flex items-center justify-center gap-1"
+                        style={{
+                          backgroundColor: '#292f4c',
+                          border: '1px solid rgba(255, 255, 255, 0.8)',
+                          boxShadow: '0 3px 3px rgba(0,0,0,0.25)',
+                        }}
+                      >
+                        {member.persona.name || member.role}
+                        <Plus className="w-2.5 h-2.5" aria-hidden="true" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {step === 'review' && (
           <div className="space-y-6 animate-in">
             <h2 className="text-2xl font-bold mb-6 text-white">
